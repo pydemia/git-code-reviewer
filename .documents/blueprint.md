@@ -4,7 +4,7 @@
 
 이 문서는 private GitHub 저장소의 pull request(PR)를 분석하고, code reviewer가 변경의 위험과 근거를 빠르게 확인하며, 분석 결과를 두고 대화할 수 있는 agent system의 제품·기술 설계를 정의한다.
 
-초기 구현은 GitHub Enterprise Cloud와 GitHub Enterprise Server(GHES)를 모두 고려하되, 하나의 조직과 제한된 저장소에서 동작하는 배포 가능한 MVP를 목표로 한다. 문서에 명시한 기술 스택은 기준 구현안이며 조직의 표준 인프라에 맞게 같은 경계를 유지한 채 교체할 수 있다.
+초기 구현은 GitHub Enterprise Cloud와 GitHub Enterprise Server(GHES)를 모두 고려하되, 하나의 조직과 제한된 저장소에서 동작하는 배포 가능한 MVP를 목표로 한다. 기준 배포는 사내망의 중앙 service가 고정된 대표 egress IP를 통해 GitHub API와 Git endpoint를 조회하는 outbound-only 구조다. GitHub에서 사내망으로 시작하는 inbound 연결은 요구하지 않는다. 문서에 명시한 기술 스택은 기준 구현안이며 조직의 표준 인프라에 맞게 같은 경계를 유지한 채 교체할 수 있다.
 
 ## 2. 목표와 범위
 
@@ -19,8 +19,8 @@
 
 ### 2.2 MVP 범위
 
-- GitHub App 설치, webhook 수신, installation token을 사용한 private repository 읽기
-- PR `opened`, `reopened`, `synchronize`, `ready_for_review` 이벤트에 따른 분석 실행
+- GitHub App 설치와 installation token을 사용한 private repository 읽기
+- repository별 PR polling과 사용자 refresh에 따른 `opened`, `reopened`, head 변경, draft 해제 감지 및 분석 실행
 - PR 전체 diff 및 commit별 diff, 파일 변경 요약, rename 감지
 - 변경 파일과 직접 연관된 symbol 및 import/dependency 탐색
 - `git log`, `git blame`, `git show` 기반의 파일·line·소유자 history
@@ -71,15 +71,16 @@
 
 #### PR이 열리거나 새 commit이 push됨
 
-1. GitHub App webhook ingress가 signature를 검증하고 delivery를 저장한 뒤 빠르게 응답한다.
-2. 동일한 `delivery_id`는 다시 처리하지 않는다.
-3. 수집 worker가 PR metadata와 ref를 확인하고 repository mirror를 갱신한다.
-4. `base SHA`, `merge-base SHA`, `head SHA`를 기록해 immutable snapshot을 만든다.
-5. Git/AST analyzer가 diff, commit, symbol, dependency, test, history, ownership evidence를 생성한다.
-6. Review Orchestrator가 변경 규모와 파일 종류에 따라 specialist review를 실행한다.
-7. Evidence Verifier가 잘못된 line anchor, 중복 finding, 근거 없는 단정을 제거하거나 confidence를 낮춘다.
-8. report를 저장하고 UI stream 및 GitHub Check를 갱신한다.
-9. 처리 중 더 최신 `head SHA`가 확인되면 현재 run을 `superseded`로 끝내고 최신 snapshot을 처리한다.
+1. Poll Scheduler가 설치 및 repository 목록을 순회하며 active/idle 정책에 따라 PR 조회 작업을 예약한다. reviewer가 PR 화면을 열거나 refresh를 요청하면 해당 PR 조회를 우선 예약한다.
+2. PR Poller가 installation token으로 open PR의 `base SHA`, `head SHA`, state, draft 상태를 조회하고 저장된 poll cursor 및 마지막 관측 상태와 비교한다.
+3. 새 PR, reopen, base/head 변경 또는 draft 해제를 감지하면 `GitHub host + repository ID + PR number + base SHA + head SHA` idempotency key로 snapshot 요청을 만든다. 동일 ref의 반복 조회는 snapshot을 중복 생성하지 않으며, reopen이나 draft 해제처럼 ref가 같을 수 있는 transition은 기존 snapshot에 필요한 분석 run만 예약한다.
+4. 수집 worker가 PR metadata와 ref를 재확인하고 repository mirror를 갱신한다.
+5. `base SHA`, `merge-base SHA`, `head SHA`를 기록해 immutable snapshot을 만든다.
+6. Git/AST analyzer가 diff, commit, symbol, dependency, test, history, ownership evidence를 생성한다.
+7. Review Orchestrator가 변경 규모와 파일 종류에 따라 specialist review를 실행한다.
+8. Evidence Verifier가 잘못된 line anchor, 중복 finding, 근거 없는 단정을 제거하거나 confidence를 낮춘다.
+9. report를 저장하고 UI stream 및 outbound GitHub Check 요청으로 결과를 갱신한다.
+10. 처리 중 poll 또는 게시 직전 조회에서 더 최신 `head SHA`가 확인되면 현재 run을 `superseded`로 끝내고 최신 snapshot을 처리한다.
 
 #### Reviewer가 finding을 조사함
 
@@ -101,19 +102,20 @@
 ```text
 ┌──────────────────────┐       ┌──────────────────────────────────────┐
 │ GitHub Cloud / GHES  │       │ Reviewer Browser                     │
-│                      │       │ file tree · diff · history · chat    │
-└──────┬─────────┬─────┘       └──────────────────┬───────────────────┘
-       │ webhook │ REST/GraphQL/Git               │ HTTPS + SSE
-       ▼         │                                ▼
-┌──────────────┐ │  ┌─────────────────────────────────────────────────┐
-│ Webhook      │ │  │ API / BFF                                       │
-│ Ingress      │ │  │ auth · tenancy · query · chat stream            │
-└──────┬───────┘ │  └───────────────┬─────────────────────────────────┘
-       │ job     │                  │
-       ▼         ▼                  ▼
+│ API · GraphQL · Git  │       │ file tree · diff · history · chat    │
+└──────────▲───────────┘       └──────────────────┬───────────────────┘
+           │ outbound HTTPS only                 │ internal HTTPS + SSE
+           │ fixed egress IP                     ▼
+┌──────────┴───────────┐       ┌──────────────────────────────────────┐
+│ GitHub Adapter       │       │ API / BFF                            │
+│ Poller / Publisher   │◄──────│ auth · tenancy · query · refresh     │
+│ cursor · quota       │       │ chat stream                          │
+└──────────┬───────────┘       └───────────────┬──────────────────────┘
+           │ job                               │
+           ▼                                   ▼
 ┌─────────────────────────┐   ┌───────────────────────────────────────┐
 │ Workflow Queue          │   │ PostgreSQL                            │
-│ dedupe · retry · cancel │   │ metadata · report · chat · audit      │
+│ dedupe · retry · cancel │   │ poll state · report · chat · audit    │
 └───────────┬─────────────┘   └────────────────┬──────────────────────┘
             ▼                                  │
 ┌─────────────────────────┐   ┌────────────────▼──────────────────────┐
@@ -129,6 +131,8 @@
 │ Ephemeral Git Workspace │
 │ bare mirror + worktree  │
 └─────────────────────────┘
+
+GitHub initiates no connection to the internal network.
 ```
 
 ### 5.1 기준 기술 스택
@@ -138,8 +142,9 @@
 | Monorepo | pnpm workspace + Turborepo | UI, API, worker와 공유 contract를 한 언어로 관리 |
 | Web | Next.js + React + TypeScript | server-side auth와 review UI를 함께 구성 |
 | Code/diff UI | Monaco Editor, custom virtualized tree/timeline | split diff와 line anchor, 큰 파일 rendering 제어 |
-| API | Fastify + TypeScript | webhook과 streaming API를 독립 process로 운영 |
+| API | Fastify + TypeScript | refresh command와 streaming API를 독립 process로 운영 |
 | Queue | Redis + BullMQ | MVP의 retry, dedupe, progress, cancellation 구현 |
+| Scheduler | BullMQ Job Scheduler + PostgreSQL lease | active/idle polling 예약과 다중 replica의 중복 순회 방지 |
 | Database | PostgreSQL | tenant 경계, snapshot, finding, chat, audit의 관계 보존 |
 | Artifact | S3-compatible object storage | 큰 diff, graph, analyzer 결과를 DB 밖에 보존 |
 | Git | system Git CLI를 인자 배열로 호출 | merge-base, rename, log, blame, show 동작 재사용 |
@@ -147,15 +152,16 @@
 | Model access | provider-neutral internal gateway | 모델 허용 목록, data residency, 비용과 감사 정책 집중 |
 | Transport | REST + SSE | query/command와 분석·chat token stream을 단순하게 분리 |
 
-초기에는 modular monolith로 배포한다. `web`, `api`, `worker` process는 나누되 domain package와 database를 공유한다. 처리량이나 격리 요구가 확인된 뒤 analyzer와 model orchestration을 별도 service로 분리한다.
+초기에는 사내 VM 또는 Kubernetes의 modular monolith로 배포한다. `web`, `api`, `poller`, `worker` process는 나누되 domain package와 database를 공유한다. 사용자는 사내망 또는 VPN을 통해 web에 접근하고, GitHub 통신은 대표 egress IP를 가진 경로로만 나간다. 처리량이나 격리 요구가 확인된 뒤 analyzer와 model orchestration을 별도 service로 분리한다.
 
 ### 5.2 제안 source layout
 
 ```text
 apps/
 ├── web/                       # reviewer UI
-├── api/                       # REST, SSE, auth, GitHub webhook
-└── worker/                    # analysis and maintenance workers
+├── api/                       # REST, SSE, auth, manual refresh
+├── poller/                    # installation/repository/PR polling scheduler
+└── worker/                    # snapshot, analysis, publish workers
 packages/
 ├── contracts/                # versioned API/event/report schemas
 ├── domain/                   # snapshot, run, finding, policy rules
@@ -183,10 +189,10 @@ infra/
 
 - GitHub App JWT와 installation access token 발급
 - GitHub Cloud/GHES별 `web_url`, `api_url`, GraphQL URL 구성
-- webhook HMAC 검증, delivery idempotency, event allowlist
-- PR metadata, commit, review, check-run 조회 및 게시
+- installation, repository, PR metadata, commit, review, check-run 조회 및 게시
 - HTTP Git 인증을 사용한 제한된 ref fetch
-- rate limit과 secondary rate limit을 구분한 backoff
+- 여러 PR의 ref/state는 GraphQL query로 모으고, 안정적인 REST `GET` endpoint는 인증된 conditional request로 조회
+- primary/secondary rate limit, 응답의 quota 정보를 구분한 backoff와 host별 요청 예산 관리
 
 최소 repository permission은 다음과 같이 시작한다.
 
@@ -199,9 +205,17 @@ inline review comment를 게시할 때만 `Pull requests: Write`를 요구한다
 
 ### 6.2 Snapshot Collector
 
+Poll Scheduler와 PR Poller는 다음 상태를 repository 또는 installation 단위로 영속화한다.
+
+- 마지막 성공 poll 시각, pagination cursor, conditional request validator(`ETag`, `Last-Modified`)
+- PR별 마지막 관측 `base_ref_oid`, `head_oid`, state, draft 상태와 `updated_at`
+- GitHub host와 installation별 남은 API quota, reset 시각, `x-poll-interval`, backoff와 다음 실행 시각
+
+`updated_at`은 조회 후보를 줄이는 hint로만 쓰고 분석 여부는 `base_ref_oid`, `head_oid`와 PR 상태 변화로 판정한다. page 순회가 중단되면 마지막으로 완결된 checkpoint부터 재개하며, 전체 cycle이 끝나기 전에는 누락 PR을 closed로 간주하지 않는다. active PR, draft/idle PR, 비활성 repository의 poll interval을 분리하고 endpoint가 `x-poll-interval`을 반환하면 그보다 자주 조회하지 않는다. reviewer의 화면 진입 및 수동 refresh는 예약 queue에서 우선순위를 높인다. scheduler replica는 PostgreSQL lease를 획득한 shard만 순회하되, lease 만료나 중복 실행이 발생해도 snapshot idempotency key가 중복 run을 막는다.
+
 snapshot은 다음 ref를 별도로 보존한다.
 
-- `base_ref_oid`: webhook 처리 시점 base branch tip
+- `base_ref_oid`: poll 또는 refresh 시점 base branch tip
 - `merge_base_oid`: `git merge-base base_ref_oid head_oid` 결과
 - `head_oid`: 분석 대상 PR head
 - `merge_ref_oid`: GitHub가 제공하고 실제 fetch가 가능한 경우의 test merge ref
@@ -209,6 +223,8 @@ snapshot은 다음 ref를 별도로 보존한다.
 PR 변경 분석은 기본적으로 `merge_base_oid...head_oid`의 변경을 사용한다. base branch 최신 상태와의 통합 위험은 별도의 mergeability 분석에서 `merge_ref_oid` 또는 임시 merge 결과로 다룬다. 이 둘을 섞으면 PR 자체 변경과 base branch 이동의 영향을 구분하기 어렵다.
 
 repository별 bare mirror를 cache하고 run마다 detached worktree를 만든다. 외부 입력을 shell string으로 조합하지 않고 Git argument를 배열로 전달한다. fetch 대상 ref와 SHA 형식을 검증하며 worktree 경로는 시스템이 발급한 identifier로만 만든다.
+
+기본 배포 mode는 `polling`이다. 보안 정책상 inbound가 허용되는 설치에 한해 `internal-webhook` 또는 DMZ가 event를 검증·정규화한 뒤 사내 queue가 outbound로 가져오는 `dmz-relay`를 선택 mode로 둘 수 있다. 어떤 mode에서도 snapshot 생성과 dedupe contract는 같으며 webhook은 MVP의 선행 조건이 아니다.
 
 ### 6.3 Deterministic Analyzer
 
@@ -308,7 +324,7 @@ Chat Agent는 분석 artifact를 검색해 답하고 다음 규칙을 따른다.
 ### 6.6 Report Publisher
 
 - UI에는 run 단계별 progress와 부분 file summary를 stream한다.
-- GitHub Check는 `queued → in_progress → completed` 상태와 분석 대상 head SHA를 표시한다.
+- GitHub Check는 대표 egress IP를 통한 outbound API 요청으로만 게시하며 `queued → in_progress → completed` 상태와 분석 대상 head SHA를 표시한다.
 - Check summary에는 priority별 개수, P2/P3, 분석 범위와 생략 내역, UI deep link를 넣는다.
 - inline comment는 검증된 diff anchor에만 게시하며, 한 run의 finding을 하나의 pending review로 묶어 notification 수를 줄인다.
 - 동일 finding fingerprint가 같은 head SHA에 이미 게시됐다면 중복 게시하지 않는다.
@@ -440,6 +456,8 @@ interface FindingV1 {
 | `tenant` | id, name, policy, data_region | 조직 격리와 정책 |
 | `github_installation` | installation_id, host, encrypted credential metadata | GitHub App 연결 |
 | `repository` | github_id, tenant_id, default_branch, config_revision | 저장소 설정 |
+| `repository_poll_state` | repository_id, cursor/validator, last_success_at, next_poll_at, backoff | 중단 복구와 polling 주기 제어 |
+| `pull_poll_state` | PR id, observed base/head OID, state, draft, observed_at | 상태 변화 감지와 동일 snapshot dedupe |
 | `pull_request` | repository_id, number, state, author, current_head_oid | PR identity와 최신 상태 |
 | `snapshot` | PR id, base/merge-base/head OID, created_at | immutable 분석 기준 |
 | `analysis_run` | snapshot_id, policy/model revision, status, timing, error | 실행 재현과 감사 |
@@ -461,8 +479,8 @@ interface FindingV1 {
 ### 10.1 외부 API
 
 ```text
-POST   /webhooks/github
 GET    /api/repositories/:repoId/pulls/:number
+POST   /api/repositories/:repoId/pulls/:number/refresh
 POST   /api/repositories/:repoId/pulls/:number/analyses
 GET    /api/analyses/:runId
 GET    /api/analyses/:runId/events                 # SSE
@@ -476,12 +494,18 @@ POST   /api/findings/:id/feedback
 POST   /api/findings/:id/suppressions
 ```
 
-모든 resource 조회는 로그인 여부뿐 아니라 현재 사용자가 해당 GitHub repository를 읽을 수 있는지 확인한다. 권한 결과는 짧게 cache하되 installation 제거, repository transfer, membership 변경 event에서 무효화한다.
+`refresh`는 GitHub에서 현재 PR 상태와 ref를 즉시 다시 읽도록 우선순위 poll을 예약하며, 동일 사용자의 반복 요청을 coalesce하고 rate limit을 적용한다. `analyses`는 확인된 최신 snapshot을 분석하거나 아직 snapshot이 없으면 refresh를 먼저 예약한다.
+
+모든 resource 조회는 로그인 여부뿐 아니라 현재 사용자가 해당 GitHub repository를 읽을 수 있는지 확인한다. 권한 결과는 짧은 TTL로만 cache하고 write, stream 재연결, 민감 artifact 발급 시 재검증한다. webhook이 없는 기본 mode에서는 installation 제거, repository transfer, membership 변경을 즉시 통지받는다고 가정하지 않는다. installation/repository reconciliation이 접근 상실을 감지하면 관련 cache와 진행 중 stream을 무효화하며, 그 사이에도 TTL 상한이 권한 철회 반영 지연을 제한한다.
 
 ### 10.2 내부 event
 
 ```text
-github.delivery.accepted
+installation.poll.requested
+installation.poll.completed
+repository.poll.requested
+repository.poll.completed
+pr.change.detected
 pr.snapshot.requested
 pr.snapshot.created
 analysis.started
@@ -493,7 +517,7 @@ report.publish.requested
 report.published
 ```
 
-event에는 `event_id`, `tenant_id`, `repository_id`, `snapshot_id`, `correlation_id`, `occurred_at`, `schema_version`을 넣는다. consumer는 at-least-once delivery를 전제로 idempotent하게 구현한다.
+event에는 적용 가능한 `event_id`, `tenant_id`, `installation_id`, `repository_id`, `pull_number`, `base_oid`, `head_oid`, `trigger_kind`, `snapshot_id`, `correlation_id`, `occurred_at`, `schema_version`을 넣는다. snapshot unique key는 `GitHub host + repository ID + PR number + base OID + head OID`로 고정한다. `pr.change.detected`는 여기에 state transition과 관측 cycle을 더해 감지 이력을 보존할 수 있지만, trigger 종류가 달라졌다는 이유만으로 snapshot이나 동일 policy의 analysis run을 중복 생성하지 않는다. consumer는 at-least-once delivery를 전제로 idempotent하게 구현한다.
 
 ## 11. UI Blueprint
 
@@ -513,7 +537,7 @@ event에는 `event_id`, `tenant_id`, `repository_id`, `snapshot_id`, `correlatio
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Header:** snapshot SHA, stale 여부, run 상태, coverage, priority count를 표시한다.
+- **Header:** snapshot SHA, GitHub last-checked 시각, stale 여부, refresh/backoff 상태, run 상태, coverage, priority count를 표시한다.
 - **File Tree:** module grouping, add/delete/rename, changed line 수, 최고 priority, 분석 생략 상태를 함께 표시한다.
 - **Diff View:** old/new line coordinate, comment anchor, related symbol과 finding marker를 제공한다.
 - **Findings:** priority 외에 confidence와 suppression을 같은 수준으로 보여준다. finding 선택 시 diff/history가 함께 이동한다.
@@ -567,7 +591,7 @@ repository 전용 검토 지침은 `.gcr/rules/*.md`에 둘 수 있다. rule 파
 
 ### 13.1 인증과 권한
 
-- GitHub App private key와 webhook secret은 secret manager에서 읽고 application DB에 저장하지 않는다.
+- GitHub App private key는 secret manager에서 읽고 application DB에 저장하지 않는다. optional webhook mode를 켠 경우에만 webhook secret도 같은 방식으로 관리한다.
 - 짧은 수명의 installation token을 run 시점에 발급하며 log, queue payload, artifact에 남기지 않는다.
 - UI 사용자는 조직 SSO/OIDC로 인증하고 GitHub identity를 연결한다. 매 repository 접근 시 설치 범위와 사용자 read 권한을 함께 확인한다.
 - GitHub 쓰기 동작은 service account 권한과 사용자 의도를 구분해 audit log에 남긴다.
@@ -589,12 +613,14 @@ repository 전용 검토 지침은 `.gcr/rules/*.md`에 둘 수 있다. rule 파
 - analyzer container는 read-only root filesystem, resource limit, egress deny를 기본값으로 사용한다.
 - model output은 schema validation, size limit, Markdown sanitization을 거친 뒤 저장·표시한다.
 
-### 13.4 Webhook과 게시 안전성
+### 13.4 Network, polling과 게시 안전성
 
-- raw body로 HMAC signature를 검증한 뒤 parsing한다.
-- `delivery_id + GitHub host` unique key로 replay를 막는다.
-- webhook 응답과 실제 분석을 분리하고 payload의 repository/installation 관계를 API로 재확인한다.
-- review comment 게시 전에 head SHA와 diff anchor를 다시 검증한다. 최신 head와 다르면 게시하지 않고 stale 처리한다.
+- GitHub API, GraphQL, Git fetch와 Check/comment 게시 목적지만 firewall outbound allowlist에 등록하고 모든 요청을 고정된 대표 egress IP와 조직 DNS/TLS 검사 정책을 통과시킨다.
+- GitHub에서 application workload로 향하는 inbound route, public load balancer와 webhook firewall opening은 기본 배포에 만들지 않는다. reviewer traffic은 사내망 또는 VPN ingress로 분리한다.
+- poller는 GitHub 응답의 URL이나 redirect를 무조건 신뢰하지 않는다. redirect target을 정규화해 설정된 GitHub host와 outbound allowlist 안일 때만 따라가며, 허용 범위를 벗어난 target, 예상하지 못한 DNS resolution 변화와 TLS 인증서 오류는 fail closed로 처리한다.
+- installation/repository reconciliation이 GitHub App 제거 또는 접근 범위 축소를 감지하면 새 token 발급과 작업 생성을 중단하고 관련 credential/cache를 폐기한다.
+- review comment와 Check 게시 전에 현재 head SHA와 diff anchor를 outbound API로 다시 검증한다. 최신 head와 다르면 게시하지 않고 stale 처리한다.
+- optional webhook mode에서는 raw body HMAC, `delivery_id + GitHub host` replay 방지, repository/installation 재확인을 polling mode 앞단의 추가 trigger에 적용한다.
 
 ## 14. 신뢰성, 성능, 비용 목표
 
@@ -602,15 +628,18 @@ repository 전용 검토 지침은 `.gcr/rules/*.md`에 둘 수 있다. rule 파
 
 | 항목 | 목표 |
 |---|---|
-| Webhook 응답 | 정상 delivery를 2초 안에 queue에 기록하고 2xx 응답 |
-| 중복 처리 | 같은 delivery와 snapshot에 대해 외부 게시 side effect 최대 1회 |
-| 최신성 | 새 head 수신 후 이전 run과 Check를 10초 안에 stale/superseded 표시 |
+| 변경 탐지 | active PR은 기본 60초, draft/idle PR은 5분 이내에 다시 조회. 실제 목표는 설치 규모와 quota 검증 뒤 조정 |
+| 수동 refresh | 요청 후 10초 안에 GitHub 조회를 시작하거나 quota/backoff로 지연된 상태를 UI에 표시 |
+| 중복 처리 | 같은 PR head와 snapshot에 대해 run 1개, 외부 게시 side effect 최대 1회 |
+| 최신성 | 새 head를 감지한 뒤 이전 run과 Check를 10초 안에 stale/superseded 표시 |
+| API quota | 자동 polling은 host/installation별 가용 예산의 80%까지만 사용하고 refresh, 게시, 권한 확인용 reserve 유지 |
+| Poll 복구 | scheduler 재시작 또는 lease 이전 뒤 마지막 완료 checkpoint에서 재개하고 2회 polling interval 안에 정상 주기 회복 |
 | 일반 PR 분석 | 100 files, 5,000 changed lines 이하에서 5분 내 completed 또는 partial |
 | UI 조회 | 이미 생성된 diff/file index의 p95 응답 500ms 이내 |
 | 복구 | worker 중단 뒤 마지막 완료 stage부터 재시도, 외부 게시 중복 없음 |
 | 비용 | repository별 token/run budget 설정, 초과 시 deterministic-only partial report |
 
-분석 stage마다 timeout과 retry 정책을 다르게 둔다. Git fetch나 GitHub rate limit은 재시도할 수 있지만 schema가 잘못된 model 응답은 제한 횟수 뒤 partial report로 끝낸다. 일부 parser 또는 specialist 실패가 전체 report를 없애지 않게 `partial` 상태와 omission을 사용한다.
+poll과 분석 stage마다 timeout과 retry 정책을 다르게 둔다. primary rate limit에 가까워지면 idle repository부터 interval을 늘리고, secondary rate limit 또는 abuse response에서는 해당 host/installation의 동시성을 낮추고 `retry-after`, reset 시각과 `x-poll-interval`을 존중한다. manual refresh, head 재검증, Check 게시, 권한 확인을 자동 background scan보다 우선한다. Git fetch나 일시적 GitHub 오류는 재시도할 수 있지만 schema가 잘못된 model 응답은 제한 횟수 뒤 partial report로 끝낸다. 일부 parser 또는 specialist 실패가 전체 report를 없애지 않게 `partial` 상태와 omission을 사용한다.
 
 큰 PR은 다음 순서로 예산을 쓴다.
 
@@ -625,13 +654,14 @@ repository 전용 검토 지침은 `.gcr/rules/*.md`에 둘 수 있다. rule 파
 
 ### 15.1 운영 telemetry
 
-- webhook accept/reject, queue lag, stage duration, retry, superseded run
+- poll cycle/lag, detection lag, cursor checkpoint, lease ownership, refresh coalescing, queue lag
+- poll/analysis stage duration, retry, superseded run과 동일 snapshot dedupe
 - repository size와 changed files/lines, parser coverage, omitted context
 - model별 latency, input/output token, schema failure, tool call 수, 비용
 - finding priority/confidence/category, 게시/억제/해결 상태
 - GitHub API rate limit, comment anchor 실패, permission failure
 
-metric label에는 repository name, path, prompt, source text를 넣지 않고 내부 opaque ID를 사용한다. trace는 `delivery → snapshot → run → stage → publish` correlation을 제공한다.
+metric label에는 repository name, path, prompt, source text를 넣지 않고 내부 opaque ID를 사용한다. trace는 `poll/refresh → change detection → snapshot → run → stage → publish` correlation을 제공한다.
 
 ### 15.2 Review 품질 평가
 
@@ -649,15 +679,17 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 구현:
 
 - monorepo, local development stack, database migration
-- GitHub App webhook과 installation token
+- GitHub App installation token과 installation/repository reconciliation
+- active/idle PR poll scheduler, durable cursor/checkpoint, manual refresh
 - repository mirror, immutable snapshot, raw diff artifact
 - 빈 report까지 이어지는 queue workflow
 - PR/run 상태를 보여주는 최소 UI와 GitHub Check
 
 완료 조건:
 
-- private test repository에서 PR open과 synchronize가 서로 다른 snapshot을 만든다.
-- 같은 webhook을 여러 번 보내도 run과 Check가 중복되지 않는다.
+- private test repository에서 poller가 PR open과 head 변경을 감지해 서로 다른 snapshot을 만든다.
+- 같은 PR/head를 반복 조회하거나 concurrent poller가 감지해도 run과 Check가 중복되지 않는다.
+- scheduler 재시작과 pagination 중단 뒤 checkpoint에서 조회를 재개한다.
 - 새 commit 뒤 이전 결과가 stale로 표시된다.
 
 ### Phase 1 — Reviewable MVP
@@ -716,21 +748,24 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 
 - diff old/new line mapping, rename, binary/generated 판정
 - priority/confidence policy, suppression 범위, finding fingerprint
-- webhook signature와 idempotency key
+- poll state transition, snapshot idempotency key, active/idle interval과 quota budget 계산
 - report schema validation과 Markdown sanitization
 - Git argument validator와 path normalization
 
 ### Integration
 
 - 실제 Git fixture로 merge-base, force-push, base 이동, merge commit, shallow fetch 처리
-- GitHub API mock으로 pagination, rate limit, expired token, stale comment anchor 처리
+- GitHub API mock으로 cursor pagination, conditional response, primary/secondary rate limit, expired token, stale comment anchor 처리
+- scheduler lease 만료, replica 동시 실행, cursor checkpoint 유실/복구와 동일 head dedupe
 - PostgreSQL tenant policy와 object storage signed URL 격리
 - queue retry 후 Check/comment가 한 번만 게시되는지 확인
 
 ### End-to-end
 
-- PR open → 분석 → UI diff/finding → chat → Check 게시
-- 분석 중 synchronize → 이전 run superseded → 최신 head report 게시
+- PR open → poll 감지 → 분석 → UI diff/finding → chat → outbound Check 게시
+- 분석 중 head 변경 → 다음 poll/refresh 감지 → 이전 run superseded → 최신 head report 게시
+- reviewer refresh → 우선 조회 및 중복 요청 coalesce → 최신 snapshot 표시
+- poller 장시간 중단 → 재시작 reconciliation → 누락된 head 변경 분석
 - permission 회수 중 열린 chat stream 종료
 - oversized PR → 우선순위 분석 → partial coverage와 omission 표시
 - skip directive 추가 → suppression audit와 P3 정책 확인
@@ -739,7 +774,8 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 
 - 코드 주석과 PR 본문을 이용한 prompt injection fixture
 - malicious filename, symlink, submodule, Git option injection
-- webhook replay와 다른 installation payload 변조
+- allowlist 밖 redirect/DNS/TLS 실패와 GitHub host 혼동
+- optional webhook mode의 replay와 다른 installation payload 변조
 - tenant IDOR, artifact URL 공유, log secret leakage 검사
 
 ## 18. 주요 위험과 대응
@@ -752,7 +788,10 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 | 동적 언어의 call graph 부정확성 | 영향 범위 과장/누락 | edge certainty 구분, parser fallback, runtime 자료 결합 가능성 유지 |
 | PR 작성자의 검사 무력화 | 보안 finding 은폐 | base config 우선, suppression audit, P3 승인 정책 |
 | private code 유출 | 보안·계약 위반 | approved gateway, egress deny, code-free logs, retention/purge |
-| GitHub rate limit | 분석·게시 지연 | conditional request, mirror 활용, backoff, 게시 batching |
+| GitHub rate limit | 변경 탐지·분석·게시 지연 | GraphQL batching, conditional request, adaptive interval, quota reserve, 게시 batching |
+| Polling 탐지 지연 | reviewer가 이전 snapshot을 최신으로 오인 | stale/last-checked 표시, 화면 진입 refresh, active PR 짧은 interval |
+| Poller 중복 실행 또는 cursor 유실 | API 낭비, 누락 또는 중복 분석 | lease, durable checkpoint, 주기적 full reconciliation, snapshot idempotency key |
+| GitHub App 제거·권한 회수 지연 | 권한 없는 code의 일시적 노출 | 짧은 authorization TTL, 민감 동작 재검증, installation reconciliation, stream 중단 |
 | repository별 build 차이 | test/bisect 오판 | 명시적 실행 profile, sandbox, timeout, flaky/skip 상태 보존 |
 
 ## 19. 구현 전에 확정할 사항
@@ -760,6 +799,10 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 아래 결정은 architecture 경계를 바꾸지는 않지만 MVP 일정과 운영 정책에 직접 영향을 준다.
 
 - 첫 배포 대상이 GitHub Enterprise Cloud인지 특정 GHES version인지
+- GitHub host별 허용 outbound endpoint, 대표 egress IP, DNS/TLS inspection 방식
+- 설치 대상 organization/repository 수, open/active PR 수와 허용 가능한 탐지 지연
+- active, draft, idle repository의 polling interval과 API quota reserve 비율
+- GitHub App installation token을 직접 발급할지 사내 credential broker를 통할지
 - 우선 지원할 두 개 언어와 monorepo/build system
 - 허용 model provider, private endpoint, data region, prompt retention 조건
 - GitHub inline comment 자동 게시 여부와 P3 Check failure 사용 여부
@@ -771,6 +814,10 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 
 - [commit-defender](https://github.com/pydemia/commit-defender): priority, inline skip, output richness 개념 참고
 - [GitHub App 권한 선택](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app)
-- [GitHub App webhook 사용](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)
+- [GitHub App 자체 인증](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app)
+- [GitHub REST API rate limit](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
+- [GitHub REST API conditional request](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests-if-appropriate)
+- [GitHub GraphQL pagination](https://docs.github.com/en/graphql/guides/using-pagination-in-the-graphql-api)
+- [GitHub App webhook 사용](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps): optional mode 참고
 - [Pull request REST API](https://docs.github.com/en/rest/pulls/pulls)
 - [Pull request review comment REST API](https://docs.github.com/en/rest/pulls/comments)
