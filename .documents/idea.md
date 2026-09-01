@@ -30,3 +30,11 @@ enterprise, private github에서 하나의 git pull request가 open되었을 때
   * Line History
   * Function History
   * Class History 
+
+
+# 참고할 내용
+
+https://github.com/pydemia/commit-defender
+* 중요도 및 영향도: code 분석 결과 Priority levels
+* Skip 여부: Inline skip directives
+* 출력 Richness
