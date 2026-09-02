@@ -9,6 +9,7 @@ const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(4000),
+  PUBLIC_BASE_URL: z.string().url().optional(),
   WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4001),
   DATABASE_URL: z.string().min(1),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
@@ -26,6 +27,18 @@ const configSchema = z.object({
   GITHUB_PRIVATE_KEY_FILE: z.string().optional(),
   GITHUB_API_BASE_URL: z.string().url().optional(),
   GITHUB_WEB_BASE_URL: z.string().url().optional(),
+  MODEL_MODE: z.enum(['disabled', 'openai-compatible']).default('disabled'),
+  MODEL_ENDPOINT: z.string().url().optional(),
+  MODEL_API_KEY: z.string().optional(),
+  MODEL_NAME: z.string().optional(),
+  MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  ANALYSIS_MAX_FILES: z.coerce.number().int().positive().default(500),
+  ANALYSIS_MAX_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 1024 * 1024),
+  ANALYSIS_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().default(4),
   OIDC_ISSUER: z.string().url().optional(),
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),
@@ -87,6 +100,13 @@ export function loadConfig(
     (!result.data.GITHUB_APP_ID || !result.data.GITHUB_PRIVATE_KEY_FILE)
   ) {
     throw new Error('Invalid configuration: GitHub App settings are required for app mode');
+  }
+  if (
+    command === 'worker' &&
+    result.data.MODEL_MODE === 'openai-compatible' &&
+    (!result.data.MODEL_ENDPOINT || !result.data.MODEL_API_KEY || !result.data.MODEL_NAME)
+  ) {
+    throw new Error('Invalid configuration: model endpoint, API key, and name are required');
   }
   return result.data;
 }

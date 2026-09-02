@@ -6,6 +6,8 @@ import {
   pullRequestListSchema,
   refreshResponseSchema,
   repositoryListSchema,
+  reportViewSchema,
+  codeObjectListSchema,
   snapshotFileListSchema,
   type PullRequest,
   type Repository,
@@ -17,6 +19,8 @@ export type WorkspaceData = {
   analysis: ReturnType<typeof analysisListSchema.parse>['items'][number] | null;
   files: ReturnType<typeof snapshotFileListSchema.parse>['items'];
   diff: ReturnType<typeof diffIndexSchema.parse> | null;
+  report: ReturnType<typeof reportViewSchema.parse> | null;
+  objects: ReturnType<typeof codeObjectListSchema.parse>['items'];
 };
 
 export async function loadWorklist(signal: AbortSignal): Promise<WorklistItem[]> {
@@ -46,16 +50,24 @@ export async function loadWorkspace(
   const pull = pullRequestDetailSchema.parse(pullValue);
   const analyses = analysisListSchema.parse(analysesValue).items;
   const analysis = analyses[0] ?? null;
-  if (!analysis) return { pull, analysis: null, files: [], diff: null };
-  const [filesValue, diffValue] = await Promise.all([
+  if (!analysis) return { pull, analysis: null, files: [], diff: null, report: null, objects: [] };
+  const reportReady =
+    analysis.id && (analysis.state === 'completed' || analysis.state === 'partial')
+      ? analysis.id
+      : null;
+  const [filesValue, diffValue, reportValue, objectsValue] = await Promise.all([
     fetchJson(`/api/v1/snapshots/${analysis.snapshotId}/files`, signal),
     fetchJson(`/api/v1/snapshots/${analysis.snapshotId}/diff`, signal),
+    reportReady ? fetchJson(`/api/v1/analyses/${reportReady}`, signal) : null,
+    reportReady ? fetchJson(`/api/v1/analyses/${reportReady}/objects`, signal) : null,
   ]);
   return {
     pull,
     analysis,
     files: snapshotFileListSchema.parse(filesValue).items,
     diff: diffIndexSchema.parse(diffValue),
+    report: reportValue ? reportViewSchema.parse(reportValue) : null,
+    objects: objectsValue ? codeObjectListSchema.parse(objectsValue).items : [],
   };
 }
 

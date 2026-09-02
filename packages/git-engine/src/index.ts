@@ -174,8 +174,10 @@ export function materializeFixtureSnapshot(
     '--- a/src/auth/session.ts',
     '+++ b/src/auth/session.ts',
     '@@ -1,7 +1,9 @@',
-    ...oldLines.map((line, index) => (index >= 3 && index <= 5 ? `-${line}` : ` ${line}`)),
-    ...newLines.slice(1).map((line) => `+${line}`),
+    ` ${oldLines[0]}`,
+    ...oldLines.slice(1, -1).map((line) => `-${line}`),
+    ...newLines.slice(1, -1).map((line) => `+${line}`),
+    ` ${oldLines.at(-1)}`,
     '',
   ].join('\n');
   return {
@@ -189,8 +191,8 @@ export function materializeFixtureSnapshot(
         path: 'src/auth/session.ts',
         previousPath: null,
         status: 'modified',
-        additions: 6,
-        deletions: 3,
+        additions: 7,
+        deletions: 5,
         patch: patchText,
       },
       {

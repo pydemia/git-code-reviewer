@@ -9,6 +9,7 @@ import { registerAuthentication } from './auth/index.js';
 import type { AppConfig } from './config.js';
 import { EventHub } from './events/index.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
+import { registerAnalysisRoutes } from './routes/analyses.js';
 import { registerWorklistRoutes } from './routes/worklist.js';
 import {
   createGitHubReader,
@@ -71,6 +72,7 @@ export async function buildServer(config: AppConfig) {
   await registerAuthentication(app, config, database);
   await registerWorklistRoutes(app, database);
   await registerSnapshotRoutes(app, database, eventHub, artifacts);
+  await registerAnalysisRoutes(app, database, eventHub, artifacts, config);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));
@@ -168,7 +170,10 @@ async function dependencyHealth(database: Database, config: AppConfig) {
           status: config.GITHUB_MODE === 'disabled' ? 'disabled' : 'ok',
           latencyMs: null,
         },
-        model: { status: 'disabled', latencyMs: null },
+        model: {
+          status: config.MODEL_MODE === 'disabled' ? 'disabled' : 'ok',
+          latencyMs: null,
+        },
       },
     };
   } catch {

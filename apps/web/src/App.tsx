@@ -4,10 +4,12 @@ import {
   Braces,
   ChevronDown,
   ChevronRight,
+  Clipboard,
   CircleAlert,
   CircleCheck,
   Clock3,
   ExternalLink,
+  Download,
   FileCode2,
   Files,
   GitBranch,
@@ -25,6 +27,7 @@ import {
   ShieldCheck,
   Sparkles,
   TestTube2,
+  ThumbsUp,
   Users,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -36,6 +39,9 @@ import {
   type WorklistItem,
   type WorkspaceData,
 } from './api.ts';
+
+type ReviewMode = 'files' | 'findings' | 'outline' | 'impact';
+type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 
 export function App() {
   const match = window.location.pathname.match(/^\/repositories\/([^/]+)\/pulls\/(\d+)$/);
@@ -190,13 +196,26 @@ function ReviewWorkspace({
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
+  const [reviewMode, setReviewMode] = useState<ReviewMode>('files');
 
   useEffect(() => {
     const controller = new AbortController();
     void loadWorkspace(repositoryId, pullNumber, controller.signal).then(
       (workspace) => {
         setData(workspace);
-        setSelectedPath(initialSelectedPath(workspace));
+        const requestedFindingId = new URLSearchParams(window.location.search).get('finding');
+        const requestedFinding = workspace.report?.findings.find(
+          (finding) => finding.id === requestedFindingId,
+        );
+        setSelectedFindingId(requestedFinding?.id ?? null);
+        setReviewMode(requestedFinding ? 'findings' : 'files');
+        setSelectedPath(
+          requestedFinding
+            ? (workspace.files.find((file) => file.id === requestedFinding.anchor.fileId)?.path ??
+                initialSelectedPath(workspace))
+            : initialSelectedPath(workspace),
+        );
         setStatus('ready');
       },
       (error: unknown) => {
@@ -219,6 +238,7 @@ function ReviewWorkspace({
       const workspace = await loadWorkspace(repositoryId, pullNumber, controller.signal);
       setData(workspace);
       setSelectedPath(initialSelectedPath(workspace));
+      setSelectedFindingId(null);
       setStatus('ready');
     } catch (error) {
       console.error(error);
@@ -230,6 +250,30 @@ function ReviewWorkspace({
 
   const selectedFile = data?.files.find((file) => file.path === selectedPath) ?? data?.files[0];
   const selectedDiff = data?.diff?.files.find((file) => file.path === selectedFile?.path)?.patch;
+  const selectedFinding =
+    data?.report?.findings.find((finding) => finding.id === selectedFindingId) ??
+    data?.report?.findings.find((finding) => finding.priority !== 'P0') ??
+    data?.report?.findings[0];
+  const coveragePercent = data?.report?.coverage.filesChanged
+    ? Math.round((data.report.coverage.filesExamined / data.report.coverage.filesChanged) * 100)
+    : 0;
+
+  const selectFile = (path: string) => {
+    setSelectedPath(path);
+    setSelectedFindingId(null);
+    const url = new URL(window.location.href);
+    url.search = '';
+    window.history.replaceState(null, '', url);
+  };
+
+  const selectFinding = (finding: FindingView) => {
+    setSelectedFindingId(finding.id);
+    setReviewMode('findings');
+    const file = data?.files.find((item) => item.id === finding.anchor.fileId);
+    if (file) setSelectedPath(file.path);
+    const link = finding.links.find((item) => item.rel === 'finding');
+    if (link) window.history.replaceState(null, '', link.href);
+  };
   return (
     <div className="review-page">
       <AppHeader compact />
@@ -242,14 +286,16 @@ function ReviewWorkspace({
         </div>
         <div className="review-actions">
           <span className="analysis-state">
-            {data?.analysis ? <CircleCheck size={14} /> : <Clock3 size={14} />}
+            {data?.report ? <CircleCheck size={14} /> : <Clock3 size={14} />}
             {refreshing
               ? 'Snapshot 준비 중'
-              : data?.analysis
-                ? data.analysis.state === 'queued'
-                  ? '분석 대기'
-                  : data.analysis.state
-                : '분석 없음'}
+              : data?.report
+                ? `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
+                : data?.analysis
+                  ? data.analysis.state === 'queued'
+                    ? '분석 대기'
+                    : data.analysis.state
+                  : '분석 없음'}
           </span>
           <button className="revision-button" type="button">
             Revision {data?.analysis?.revision ?? '-'} <ChevronDown size={13} />
@@ -277,55 +323,17 @@ function ReviewWorkspace({
         </div>
       </div>
       <main className="workspace-grid">
-        <aside className="left-panel" aria-label="검토 탐색">
-          <nav className="side-tabs" aria-label="검토 보기">
-            <button className="side-tab active" type="button">
-              <Files size={15} /> Files
-            </button>
-            <button className="side-tab" type="button">
-              <ShieldCheck size={15} /> Findings <span>2</span>
-            </button>
-            <button className="side-tab" type="button">
-              <Braces size={15} /> Outline
-            </button>
-            <button className="side-tab" type="button">
-              <Network size={15} /> Impact
-            </button>
-          </nav>
-          <div className="panel-heading">
-            <span>CHANGED FILES</span>
-            <span>{data?.files.length ?? 0}</span>
-          </div>
-          <div className="file-tree">
-            {data?.files.map((file) => (
-              <button
-                className={`tree-row file top-file ${file.path === selectedFile?.path ? 'active' : ''}`}
-                type="button"
-                key={file.id}
-                onClick={() => setSelectedPath(file.path)}
-              >
-                {file.path.includes('test') ? <TestTube2 size={14} /> : <FileCode2 size={14} />}
-                {file.path}
-                <span>
-                  +{file.additions ?? '-'} −{file.deletions ?? '-'}
-                </span>
-              </button>
-            ))}
-            {status === 'loading' ? (
-              <div className="panel-empty">Snapshot을 확인하는 중...</div>
-            ) : null}
-            {status === 'ready' && !data?.files.length ? (
-              <div className="panel-empty">새로고침하여 snapshot을 준비하세요.</div>
-            ) : null}
-          </div>
-          <div className="coverage-strip">
-            <span>Coverage</span>
-            <strong>94%</strong>
-            <div>
-              <i style={{ width: '94%' }} />
-            </div>
-          </div>
-        </aside>
+        <ReviewSidebar
+          data={data}
+          status={status}
+          mode={reviewMode}
+          selectedFileId={selectedFile?.id ?? null}
+          selectedFindingId={selectedFindingId}
+          coveragePercent={coveragePercent}
+          onModeChange={setReviewMode}
+          onFileSelect={selectFile}
+          onFindingSelect={selectFinding}
+        />
 
         <section className="diff-panel" aria-label="코드 차이">
           <div className="diff-toolbar">
@@ -333,7 +341,7 @@ function ReviewWorkspace({
               <FileCode2 size={15} /> {selectedFile?.path ?? 'Snapshot diff'}
             </div>
             <span className="sha-label">
-              base {data?.analysis?.baseSha.slice(0, 7) ?? '-------'}
+              merge-base {data?.analysis?.mergeBaseSha?.slice(0, 7) ?? '-------'}
             </span>
             <span className="sha-arrow">→</span>
             <span className="sha-label head">
@@ -445,27 +453,304 @@ function ReviewWorkspace({
               <TestTube2 size={14} /> Tests
             </button>
           </nav>
-          <div className="evidence-content">
-            <div className="severity-mark">P2</div>
-            <div>
-              <strong>Token rotation is not atomic</strong>
-              <p>
-                두 request가 동일한 이전 token 상태를 통과할 수 있습니다. Transaction 안에서
-                compare-and-swap을 적용하세요.
-              </p>
-            </div>
-            <div className="evidence-facts">
-              <span>
-                <GitCommitHorizontal size={13} /> d91b7a4
-              </span>
-              <span>
-                <CircleCheck size={13} /> 직접 근거
-              </span>
-              <span>신뢰도 높음</span>
-            </div>
-          </div>
+          <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
         </section>
       </main>
+    </div>
+  );
+}
+
+function ReviewSidebar({
+  data,
+  status,
+  mode,
+  selectedFileId,
+  selectedFindingId,
+  coveragePercent,
+  onModeChange,
+  onFileSelect,
+  onFindingSelect,
+}: {
+  data: WorkspaceData | null;
+  status: 'loading' | 'ready' | 'error';
+  mode: ReviewMode;
+  selectedFileId: string | null;
+  selectedFindingId: string | null;
+  coveragePercent: number;
+  onModeChange: (mode: ReviewMode) => void;
+  onFileSelect: (path: string) => void;
+  onFindingSelect: (finding: FindingView) => void;
+}) {
+  const report = data?.report;
+  const issueFindings = report?.findings.filter((finding) => finding.priority !== 'P0') ?? [];
+  const positiveFindings = report?.findings.filter((finding) => finding.priority === 'P0') ?? [];
+  const selectedObjects =
+    data?.objects.filter((object) => object.definition?.fileId === selectedFileId) ?? [];
+  const selfLink = report?.links.find((link) => link.rel === 'self')?.href;
+  const markdownLink = report?.links.find((link) => link.rel === 'markdown')?.href;
+
+  return (
+    <aside className="left-panel" aria-label="검토 탐색">
+      <nav className="side-tabs" aria-label="검토 보기">
+        <button
+          className={`side-tab ${mode === 'files' ? 'active' : ''}`}
+          type="button"
+          onClick={() => onModeChange('files')}
+        >
+          <Files size={15} /> Files
+        </button>
+        <button
+          className={`side-tab ${mode === 'findings' ? 'active' : ''}`}
+          type="button"
+          onClick={() => onModeChange('findings')}
+        >
+          <ShieldCheck size={15} /> Findings <span>{issueFindings.length}</span>
+        </button>
+        <button
+          className={`side-tab ${mode === 'outline' ? 'active' : ''}`}
+          type="button"
+          onClick={() => onModeChange('outline')}
+        >
+          <Braces size={15} /> Outline
+        </button>
+        <button
+          className={`side-tab ${mode === 'impact' ? 'active' : ''}`}
+          type="button"
+          onClick={() => onModeChange('impact')}
+        >
+          <Network size={15} /> Impact
+        </button>
+      </nav>
+
+      {mode === 'files' ? (
+        <>
+          <div className="panel-heading">
+            <span>CHANGED FILES</span>
+            <span>{data?.files.length ?? 0}</span>
+          </div>
+          <div className="file-tree">
+            {data?.files.map((file) => (
+              <button
+                className={`tree-row file top-file ${file.id === selectedFileId ? 'active' : ''}`}
+                type="button"
+                key={file.id}
+                onClick={() => onFileSelect(file.path)}
+              >
+                {file.path.includes('test') ? <TestTube2 size={14} /> : <FileCode2 size={14} />}
+                {file.path}
+                <span>
+                  +{file.additions ?? '-'} −{file.deletions ?? '-'}
+                </span>
+              </button>
+            ))}
+            {status === 'loading' ? (
+              <div className="panel-empty">Snapshot을 확인하는 중...</div>
+            ) : null}
+            {status === 'ready' && !data?.files.length ? (
+              <div className="panel-empty">새로고침하여 snapshot을 준비하세요.</div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {mode === 'findings' ? (
+        <div className="review-list">
+          <div className="panel-heading review-list-heading">
+            <span>REPORT</span>
+            <span className="panel-actions">
+              <button
+                className="icon-button small"
+                type="button"
+                title="Report 링크 복사"
+                aria-label="Report 링크 복사"
+                disabled={!selfLink}
+                onClick={() => selfLink && void navigator.clipboard.writeText(selfLink)}
+              >
+                <Clipboard size={13} />
+              </button>
+              <a
+                className={`icon-button small${markdownLink ? '' : ' disabled'}`}
+                href={markdownLink}
+                title="Markdown 다운로드"
+                aria-label="Markdown 다운로드"
+              >
+                <Download size={13} />
+              </a>
+            </span>
+          </div>
+          {report ? (
+            <>
+              <div className="report-summary">
+                <strong>{report.grade}</strong>
+                <p>{report.summary}</p>
+                <span>
+                  {report.coverage.filesExamined}/{report.coverage.filesChanged} files ·{' '}
+                  {report.durationMs}ms
+                </span>
+              </div>
+              <div className="per-file-list">
+                {report.perFileSummaries.map((summary) => {
+                  const file = data?.files.find((item) => item.id === summary.fileId);
+                  return (
+                    <button
+                      type="button"
+                      key={summary.fileId}
+                      onClick={() => file && onFileSelect(file.path)}
+                    >
+                      <b>{summary.priority}</b>
+                      <span>{file?.path ?? 'file'}</span>
+                      <small>{summary.summary}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="panel-heading">
+                <span>ACTIONABLE</span>
+                <span>{issueFindings.length}</span>
+              </div>
+              {issueFindings.map((finding) => (
+                <FindingRow
+                  key={finding.id}
+                  finding={finding}
+                  path={data?.files.find((file) => file.id === finding.anchor.fileId)?.path}
+                  active={finding.id === selectedFindingId}
+                  onSelect={onFindingSelect}
+                />
+              ))}
+              {positiveFindings.length ? (
+                <div className="panel-heading positive-heading">
+                  <span>좋았던 점</span>
+                  <ThumbsUp size={12} />
+                </div>
+              ) : null}
+              {positiveFindings.map((finding) => (
+                <FindingRow
+                  key={finding.id}
+                  finding={finding}
+                  path={data?.files.find((file) => file.id === finding.anchor.fileId)?.path}
+                  active={finding.id === selectedFindingId}
+                  onSelect={onFindingSelect}
+                />
+              ))}
+            </>
+          ) : (
+            <div className="panel-empty">아직 publish된 report가 없습니다.</div>
+          )}
+        </div>
+      ) : null}
+
+      {mode === 'outline' ? (
+        <div className="review-list">
+          <div className="panel-heading">
+            <span>CODE OBJECTS</span>
+            <span>{selectedObjects.length}</span>
+          </div>
+          {selectedObjects.map((object) => (
+            <button className="object-row" type="button" key={object.id}>
+              <Braces size={13} />
+              <span>{object.qualifiedName.split('#').at(-1)}</span>
+              <small>{object.kind}</small>
+            </button>
+          ))}
+          {!selectedObjects.length ? (
+            <div className="panel-empty">선택한 file에서 확인된 symbol이 없습니다.</div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {mode === 'impact' ? (
+        <div className="review-list">
+          <div className="panel-heading">
+            <span>DIRECT IMPACT</span>
+            <span>{report?.impact.affectedAreas.length ?? 0}</span>
+          </div>
+          <p className="impact-summary">{report?.impact.summary ?? 'Impact 분석 대기 중'}</p>
+          {report?.impact.affectedAreas.map((area) => {
+            const object = data?.objects.find((item) => item.id === area.objectId);
+            return (
+              <button className="impact-row" type="button" key={area.objectId}>
+                <Network size={13} />
+                <span>{object?.qualifiedName ?? 'Code object'}</span>
+                <small>{area.risk}</small>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="coverage-strip">
+        <span>Coverage</span>
+        <strong>{coveragePercent}%</strong>
+        <div>
+          <i style={{ width: `${coveragePercent}%` }} />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function FindingRow({
+  finding,
+  path,
+  active,
+  onSelect,
+}: {
+  finding: FindingView;
+  path: string | undefined;
+  active: boolean;
+  onSelect: (finding: FindingView) => void;
+}) {
+  return (
+    <button
+      className={`finding-row ${active ? 'active' : ''} ${finding.priority === 'P0' ? 'positive' : ''}`}
+      type="button"
+      onClick={() => onSelect(finding)}
+    >
+      <b>{finding.priority}</b>
+      <span>{finding.title}</span>
+      <small>
+        {path ?? 'file'}:{finding.anchor.startLine ?? 1} · {finding.category}
+      </small>
+    </button>
+  );
+}
+
+function EvidenceContent({
+  finding,
+  headSha,
+}: {
+  finding: FindingView | undefined;
+  headSha: string | undefined;
+}) {
+  if (!finding) {
+    return <div className="panel-empty evidence-empty">표시할 verified evidence가 없습니다.</div>;
+  }
+  const ghesLink = finding.links.find((link) => link.rel === 'ghes' && link.available);
+  return (
+    <div className="evidence-content">
+      <div className={`severity-mark priority-${finding.priority.toLowerCase()}`}>
+        {finding.priority}
+      </div>
+      <div>
+        <strong>{finding.title}</strong>
+        <p>{finding.problem}</p>
+        <p className="recommendation">{finding.recommendation}</p>
+      </div>
+      <div className="evidence-facts">
+        <span>
+          <GitCommitHorizontal size={13} /> {headSha?.slice(0, 7) ?? '-------'}
+        </span>
+        <span>
+          <CircleCheck size={13} />
+          {finding.verification.status === 'verified' ? '직접 근거' : '제한된 근거'}
+        </span>
+        <span>신뢰도 {finding.confidence}</span>
+        {ghesLink ? (
+          <a href={ghesLink.href} target="_blank" rel="noreferrer">
+            <ExternalLink size={12} /> GHES
+          </a>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -480,7 +765,7 @@ function CodePane({ side, patch }: { side: 'base' | 'head'; patch: string }) {
   const lines = splitPatch(patch)[side];
   return (
     <div className={`code-pane ${side}`}>
-      <div className="pane-label">{side === 'base' ? 'BASE' : 'HEAD'}</div>
+      <div className="pane-label">{side === 'base' ? 'MERGE BASE' : 'HEAD'}</div>
       <pre>
         {lines.map((line, index) => (
           <span className={line.kind} key={`${side}-${index}`}>

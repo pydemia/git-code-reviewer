@@ -38,6 +38,11 @@ COPY --from=build --chown=node:node /app/packages/git-engine/package.json ./pack
 COPY --from=build --chown=node:node /app/packages/git-engine/dist ./packages/git-engine/dist
 COPY --from=build --chown=node:node /app/packages/artifact-store/package.json ./packages/artifact-store/package.json
 COPY --from=build --chown=node:node /app/packages/artifact-store/dist ./packages/artifact-store/dist
+COPY --from=build --chown=node:node /app/packages/review-contract/package.json ./packages/review-contract/package.json
+COPY --from=build --chown=node:node /app/packages/review-contract/node_modules ./packages/review-contract/node_modules
+COPY --from=build --chown=node:node /app/packages/review-contract/dist ./packages/review-contract/dist
+COPY --from=build --chown=node:node /app/packages/analysis-engine/package.json ./packages/analysis-engine/package.json
+COPY --from=build --chown=node:node /app/packages/analysis-engine/dist ./packages/analysis-engine/dist
 USER node
 EXPOSE 4000 4001
 ENTRYPOINT ["/sbin/tini", "--", "node", "apps/runtime/dist/index.js"]
