@@ -1,4 +1,5 @@
 {
-    "commitDefender.aiProvider": "geminicli",
-    "commitDefender.model": ""
+    "commitDefender.aiProvider": "codex",
+    "commitDefender.model": "",
+    "commitDefender.runOnStage": false
 }
