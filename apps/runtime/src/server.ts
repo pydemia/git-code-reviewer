@@ -4,7 +4,15 @@ import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import { errorEnvelope, schemaVersion } from '@gcr/contracts';
 import { createDatabase, pingDatabase, type Database } from '@gcr/db';
+import { registerAuthentication } from './auth/index.js';
 import type { AppConfig } from './config.js';
+import { registerWorklistRoutes } from './routes/worklist.js';
+import {
+  createGitHubReader,
+  ensureFixtureRepository,
+  pollRepository,
+  startPollScheduler,
+} from './services/repositories.js';
 
 const securityHeaders = {
   'content-security-policy':
@@ -34,12 +42,28 @@ export async function buildServer(config: AppConfig) {
     trustProxy: config.TRUST_PROXY,
   });
   const database = createDatabase(config.DATABASE_URL, config.DATABASE_POOL_MAX);
+  const github = await createGitHubReader(config);
 
   app.addHook('onRequest', async (_request, reply) => {
     for (const [name, value] of Object.entries(securityHeaders)) {
       void reply.header(name, value);
     }
   });
+
+  app.addHook('onRequest', async (request, reply) => {
+    if (
+      config.NODE_ENV === 'production' &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
+      !sameOrigin(request)
+    ) {
+      return reply
+        .code(403)
+        .send(errorEnvelope('INVALID_ORIGIN', '허용되지 않은 요청입니다.', request.id));
+    }
+  });
+
+  await registerAuthentication(app, config, database);
+  await registerWorklistRoutes(app, database);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));
@@ -51,7 +75,7 @@ export async function buildServer(config: AppConfig) {
       return reply.code(503).send({ status: 'degraded', schemaVersion });
     }
   });
-  app.get('/health/dependencies', async () => dependencyHealth(database));
+  app.get('/health/dependencies', async () => dependencyHealth(database, config));
   app.get('/api/v1/system', async () => ({
     schemaVersion,
     service: 'git-code-reviewer',
@@ -106,11 +130,25 @@ export async function buildServer(config: AppConfig) {
     );
   }
 
-  app.addHook('onClose', async () => database.end());
+  if (config.GITHUB_MODE === 'fixture' && github) {
+    await ensureFixtureRepository(database);
+    const fixtureRepository = await database.query<{ id: string }>(
+      `select r.id from repositories r join github_instances i on i.id = r.instance_id
+       where i.api_base_url = 'https://github.example.internal/api/v3/' and r.github_id = 101`,
+    );
+    if (fixtureRepository.rows[0])
+      await pollRepository(database, github, fixtureRepository.rows[0].id);
+  }
+  const stopScheduler = await startPollScheduler(database, github, app.log);
+
+  app.addHook('onClose', async () => {
+    await stopScheduler();
+    await database.end();
+  });
   return app;
 }
 
-async function dependencyHealth(database: Database) {
+async function dependencyHealth(database: Database, config: AppConfig) {
   try {
     const latencyMs = await pingDatabase(database);
     return {
@@ -118,7 +156,10 @@ async function dependencyHealth(database: Database) {
       status: 'ok',
       dependencies: {
         database: { status: 'ok', latencyMs },
-        github: { status: 'disabled', latencyMs: null },
+        github: {
+          status: config.GITHUB_MODE === 'disabled' ? 'disabled' : 'ok',
+          latencyMs: null,
+        },
         model: { status: 'disabled', latencyMs: null },
       },
     };
@@ -132,5 +173,18 @@ async function dependencyHealth(database: Database) {
         model: { status: 'disabled', latencyMs: null },
       },
     };
+  }
+}
+
+function sameOrigin(request: import('fastify').FastifyRequest): boolean {
+  const origin = request.headers.origin;
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    const forwardedHost = request.headers['x-forwarded-host'];
+    const expectedHost = typeof forwardedHost === 'string' ? forwardedHost : request.headers.host;
+    return parsed.host === expectedHost && ['http:', 'https:'].includes(parsed.protocol);
+  } catch {
+    return false;
   }
 }

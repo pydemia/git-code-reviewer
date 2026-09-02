@@ -50,6 +50,11 @@ secrets:
   oidc: git-code-reviewer-oidc
   modelProvider: git-code-reviewer-model
 
+github:
+  mode: app
+  appIdKey: APP_ID
+  privateKeyKey: PRIVATE_KEY
+
 auth:
   mode: oidc
 
@@ -69,4 +74,3 @@ networkPolicy:
 
 podDisruptionBudget:
   enabled: true
-

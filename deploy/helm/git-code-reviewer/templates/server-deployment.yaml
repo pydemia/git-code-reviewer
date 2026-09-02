@@ -35,12 +35,24 @@ spec:
           args: ["serve"]
           envFrom:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
+            {{- if ne .Values.auth.mode "development" }}
+            - secretRef: { name: {{ .Values.secrets.oidc }} }
+            {{- end }}
           env:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.database.existingSecret }}
                   key: {{ .Values.database.urlKey }}
+            {{- if eq .Values.github.mode "app" }}
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.githubApp }}
+                  key: {{ .Values.github.appIdKey }}
+            - name: GITHUB_PRIVATE_KEY_FILE
+              value: /run/secrets/github-app/private-key.pem
+            {{- end }}
           ports:
             - { name: http, containerPort: {{ .Values.server.port }} }
           startupProbe:
@@ -61,10 +73,19 @@ spec:
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts, readOnly: true }
+            {{- if eq .Values.github.mode "app" }}
+            - { name: github-app, mountPath: /run/secrets/github-app, readOnly: true }
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
         - name: artifacts
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}
-
+        {{- if eq .Values.github.mode "app" }}
+        - name: github-app
+          secret:
+            secretName: {{ .Values.secrets.githubApp }}
+            items:
+              - { key: {{ .Values.github.privateKeyKey }}, path: private-key.pem }
+        {{- end }}

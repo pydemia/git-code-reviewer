@@ -26,4 +26,14 @@ describe('loadConfig', () => {
   it('does not expose invalid values in its error', () => {
     expect(() => loadConfig({ DATABASE_URL: '' })).toThrow('Invalid configuration: DATABASE_URL');
   });
+
+  it('requires OIDC settings only for the server command', () => {
+    expect(() =>
+      loadConfig({ ...baseEnvironment, AUTH_MODE: 'oidc', SESSION_SECRET: 'x'.repeat(32) }),
+    ).toThrow('OIDC settings are required');
+    expect(
+      loadConfig({ ...baseEnvironment, AUTH_MODE: 'oidc', GITHUB_MODE: 'app' }, 'migrate')
+        .AUTH_MODE,
+    ).toBe('oidc');
+  });
 });

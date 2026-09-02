@@ -31,6 +31,9 @@ COPY --from=build --chown=node:node /app/packages/db/package.json ./packages/db/
 COPY --from=build --chown=node:node /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=build --chown=node:node /app/packages/db/dist ./packages/db/dist
 COPY --from=build --chown=node:node /app/packages/db/migrations ./packages/db/migrations
+COPY --from=build --chown=node:node /app/packages/github/package.json ./packages/github/package.json
+COPY --from=build --chown=node:node /app/packages/github/node_modules ./packages/github/node_modules
+COPY --from=build --chown=node:node /app/packages/github/dist ./packages/github/dist
 USER node
 EXPOSE 4000 4001
 ENTRYPOINT ["/sbin/tini", "--", "node", "apps/runtime/dist/index.js"]

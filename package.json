@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "pnpm build:packages && pnpm --filter @gcr/runtime build && pnpm --filter @gcr/web build",
-    "build:packages": "pnpm --filter @gcr/contracts build && pnpm --filter @gcr/db build",
+    "build:packages": "pnpm --filter @gcr/contracts build && pnpm --filter @gcr/db build && pnpm --filter @gcr/github build",
     "dev": "pnpm build:packages && pnpm --parallel --filter @gcr/runtime --filter @gcr/web dev",
     "dev:server": "pnpm build:packages && pnpm --filter @gcr/runtime dev:server",
     "dev:web": "pnpm --filter @gcr/web dev",
@@ -19,7 +19,7 @@
     "migrate": "pnpm build:packages && pnpm --filter @gcr/runtime migrate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm build:packages && pnpm -r typecheck"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

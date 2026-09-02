@@ -3,21 +3,20 @@ import { loadConfig } from './config.js';
 import { migrate, retention, serve, worker } from './commands.js';
 
 const command = process.argv[2] ?? 'serve';
-const config = loadConfig();
 
 try {
   switch (command) {
     case 'serve':
-      await serve(config);
+      await serve(loadConfig(process.env, command));
       break;
     case 'worker':
-      await worker(config);
+      await worker(loadConfig(process.env, command));
       break;
     case 'migrate':
-      await migrate(config);
+      await migrate(loadConfig(process.env, command));
       break;
     case 'retention':
-      await retention(config, process.argv.includes('--reconcile'));
+      await retention(loadConfig(process.env, command), process.argv.includes('--reconcile'));
       break;
     default:
       throw new Error(`Unknown command: ${command}`);

@@ -12,8 +12,8 @@ data:
   WORKER_HEALTH_PORT: {{ .Values.worker.healthPort | quote }}
   DATABASE_POOL_MAX: {{ .Values.server.databasePoolMax | quote }}
   AUTH_MODE: {{ .Values.auth.mode | quote }}
+  GITHUB_MODE: {{ .Values.github.mode | quote }}
   ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts
   WORKSPACE_ROOT: /tmp/git-code-reviewer/workspaces
   RETENTION_REPORT_DAYS: {{ .Values.retention.reportDays | quote }}
   RETENTION_CHAT_DAYS: {{ .Values.retention.chatDays | quote }}
-

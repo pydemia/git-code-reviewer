@@ -201,6 +201,11 @@ h1 {
   background: #fafbfc;
 }
 
+.command-button:disabled {
+  opacity: 0.62;
+  cursor: progress;
+}
+
 .filter-bar {
   min-height: 45px;
   display: flex;
@@ -272,6 +277,30 @@ h1 {
 
 .pr-row:last-child {
   border-bottom: 0;
+}
+
+.table-state {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.table-state.error {
+  color: var(--danger);
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .pr-row:hover {

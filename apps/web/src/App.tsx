@@ -27,36 +27,8 @@ import {
   TestTube2,
   Users,
 } from 'lucide-react';
-
-const pullRequests = [
-  {
-    number: 184,
-    title: 'Harden session rotation and token exchange',
-    repository: 'platform/reviewer-api',
-    author: 'minseo-kim',
-    updated: '8분 전',
-    state: '검토 준비',
-    risk: 'P2 2건',
-  },
-  {
-    number: 181,
-    title: 'Add repository polling budget controls',
-    repository: 'platform/reviewer-api',
-    author: 'jaehyun-lee',
-    updated: '34분 전',
-    state: '분석 중',
-    risk: '진행률 68%',
-  },
-  {
-    number: 72,
-    title: 'Move artifact retention to bounded batches',
-    repository: 'infra/review-platform',
-    author: 'sora-park',
-    updated: '2시간 전',
-    state: '일부 완료',
-    risk: 'P1 1건',
-  },
-];
+import { useEffect, useState } from 'react';
+import { loadWorklist, type WorklistItem } from './api.ts';
 
 export function App() {
   const workspace = window.location.pathname !== '/';
@@ -87,6 +59,27 @@ function AppHeader({ compact = false }: { compact?: boolean }) {
 }
 
 function Worklist() {
+  const [reloadToken, setReloadToken] = useState(0);
+  const [state, setState] = useState<{
+    status: 'loading' | 'ready' | 'error';
+    items: WorklistItem[];
+  }>({ status: 'loading', items: [] });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setState((current) => ({ ...current, status: 'loading' }));
+    void loadWorklist(controller.signal).then(
+      (items) => setState({ status: 'ready', items }),
+      (error: unknown) => {
+        if (!controller.signal.aborted) {
+          console.error(error);
+          setState({ status: 'error', items: [] });
+        }
+      },
+    );
+    return () => controller.abort();
+  }, [reloadToken]);
+
   return (
     <div className="worklist-page">
       <AppHeader />
@@ -96,17 +89,22 @@ function Worklist() {
             <p className="eyebrow">Review queue</p>
             <h1>Pull requests</h1>
           </div>
-          <button className="command-button" type="button">
+          <button
+            className="command-button"
+            type="button"
+            onClick={() => setReloadToken((value) => value + 1)}
+            disabled={state.status === 'loading'}
+          >
             <RefreshCw size={15} />
-            동기화
+            {state.status === 'loading' ? '불러오는 중' : '동기화'}
           </button>
         </div>
         <div className="filter-bar" aria-label="Pull request 필터">
           <button className="filter-button active" type="button">
-            <GitPullRequest size={15} /> 열림 <span>3</span>
+            <GitPullRequest size={15} /> 열림 <span>{state.items.length}</span>
           </button>
           <button className="filter-button" type="button">
-            <CircleAlert size={15} /> 확인 필요 <span>2</span>
+            <CircleAlert size={15} /> 확인 필요 <span>0</span>
           </button>
           <div className="filter-spacer" />
           <button className="icon-button" type="button" title="필터" aria-label="필터">
@@ -120,26 +118,54 @@ function Worklist() {
             <span>위험</span>
             <span>업데이트</span>
           </div>
-          {pullRequests.map((pr) => (
-            <a className="pr-row" href={`/repositories/demo/pulls/${pr.number}`} key={pr.number}>
+          {state.items.map((pr) => (
+            <a
+              className="pr-row"
+              href={`/repositories/${pr.repository.id}/pulls/${pr.number}`}
+              key={pr.id}
+            >
               <span className="pr-primary">
                 <span className="pr-title">{pr.title}</span>
                 <span className="pr-meta">
-                  {pr.repository} #{pr.number} · {pr.author}
+                  {pr.repository.owner}/{pr.repository.name} #{pr.number} · {pr.author}
                 </span>
               </span>
               <span className="status-cell">
                 <Clock3 size={14} />
-                {pr.state}
+                {pr.draft ? '초안' : '분석 대기'}
               </span>
-              <span className="risk-cell">{pr.risk}</span>
-              <span className="muted-cell">{pr.updated}</span>
+              <span className="risk-cell">미분석</span>
+              <span className="muted-cell">{formatRelativeTime(pr.updatedAt)}</span>
             </a>
           ))}
+          {state.status === 'loading' ? (
+            <div className="table-state">
+              <RefreshCw size={16} className="spin" /> PR을 불러오는 중입니다.
+            </div>
+          ) : null}
+          {state.status === 'error' ? (
+            <div className="table-state error">
+              <CircleAlert size={16} /> PR 목록을 불러오지 못했습니다.
+            </div>
+          ) : null}
+          {state.status === 'ready' && state.items.length === 0 ? (
+            <div className="table-state">
+              <GitPullRequest size={16} /> 등록된 open PR이 없습니다.
+            </div>
+          ) : null}
         </section>
       </main>
     </div>
   );
+}
+
+function formatRelativeTime(value: string): string {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+  if (minutes < 1) return '방금 전';
+  if (minutes < 60) return `${minutes}분 전`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  return `${Math.floor(hours / 24)}일 전`;
 }
 
 function ReviewWorkspace() {
