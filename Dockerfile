@@ -6,15 +6,23 @@ COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps ./apps
 COPY packages ./packages
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm config set store-dir /pnpm/store \
-  && pnpm install --frozen-lockfile=false \
+  && pnpm install --frozen-lockfile \
   && pnpm build
 
 FROM node:22-alpine AS runtime
+ARG VERSION=0.1.0
+ARG REVISION=development
+LABEL org.opencontainers.image.title="Git Code Reviewer" \
+  org.opencontainers.image.description="Browser-based pull request review service for GitHub Enterprise Server" \
+  org.opencontainers.image.source="https://github.com/pydemia/git-code-reviewer" \
+  org.opencontainers.image.version="${VERSION}" \
+  org.opencontainers.image.revision="${REVISION}"
 RUN apk add --no-cache git tini \
   && mkdir -p /app /var/lib/git-code-reviewer/artifacts /tmp/git-code-reviewer/workspaces \
   && chown -R node:node /app /var/lib/git-code-reviewer /tmp/git-code-reviewer
 WORKDIR /app
 ENV NODE_ENV=production \
+  APP_VERSION=${VERSION} \
   WEB_DIST=/app/apps/web/dist \
   MIGRATIONS_DIR=/app/packages/db/migrations \
   ARTIFACT_ROOT=/var/lib/git-code-reviewer/artifacts \
@@ -42,6 +50,7 @@ COPY --from=build --chown=node:node /app/packages/review-contract/package.json .
 COPY --from=build --chown=node:node /app/packages/review-contract/node_modules ./packages/review-contract/node_modules
 COPY --from=build --chown=node:node /app/packages/review-contract/dist ./packages/review-contract/dist
 COPY --from=build --chown=node:node /app/packages/analysis-engine/package.json ./packages/analysis-engine/package.json
+COPY --from=build --chown=node:node /app/packages/analysis-engine/node_modules ./packages/analysis-engine/node_modules
 COPY --from=build --chown=node:node /app/packages/analysis-engine/dist ./packages/analysis-engine/dist
 USER node
 EXPOSE 4000 4001

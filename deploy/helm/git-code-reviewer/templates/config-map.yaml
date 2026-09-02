@@ -10,10 +10,27 @@ data:
   HOST: 0.0.0.0
   PORT: {{ .Values.server.port | quote }}
   WORKER_HEALTH_PORT: {{ .Values.worker.healthPort | quote }}
+  WORKER_CONCURRENCY: {{ .Values.worker.concurrency | quote }}
   DATABASE_POOL_MAX: {{ .Values.server.databasePoolMax | quote }}
+  PUBLIC_BASE_URL: {{ .Values.publicBaseUrl | quote }}
   AUTH_MODE: {{ .Values.auth.mode | quote }}
   GITHUB_MODE: {{ .Values.github.mode | quote }}
+  MODEL_MODE: {{ .Values.model.analysis.mode | quote }}
+  MODEL_ENDPOINT: {{ .Values.model.analysis.endpoint | quote }}
+  MODEL_NAME: {{ .Values.model.analysis.name | quote }}
+  MODEL_TIMEOUT_MS: {{ .Values.model.analysis.timeoutMs | quote }}
+  CHAT_MODEL_MODE: {{ .Values.model.chat.mode | quote }}
+  CHAT_MODEL_ENDPOINT: {{ .Values.model.chat.endpoint | quote }}
+  CHAT_MODEL_NAME: {{ .Values.model.chat.name | quote }}
+  CHAT_MODEL_TIMEOUT_MS: {{ .Values.model.chat.timeoutMs | quote }}
+  CHAT_CONCURRENCY_LIMIT: {{ .Values.model.chat.concurrencyLimit | quote }}
+  CHAT_HOURLY_LIMIT: {{ .Values.model.chat.hourlyLimit | quote }}
+  CHAT_SESSION_MESSAGE_LIMIT: {{ .Values.model.chat.sessionMessageLimit | quote }}
   ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts
   WORKSPACE_ROOT: /tmp/git-code-reviewer/workspaces
   RETENTION_REPORT_DAYS: {{ .Values.retention.reportDays | quote }}
   RETENTION_CHAT_DAYS: {{ .Values.retention.chatDays | quote }}
+  RETENTION_EVENT_LOG_HOURS: {{ .Values.retention.eventLogHours | quote }}
+  RETENTION_ORPHAN_GRACE_HOURS: {{ .Values.retention.orphanGraceHours | quote }}
+  RETENTION_DELETE_GRACE_HOURS: {{ .Values.retention.deleteGraceHours | quote }}
+  RETENTION_BATCH_SIZE: {{ .Values.retention.batchSize | quote }}

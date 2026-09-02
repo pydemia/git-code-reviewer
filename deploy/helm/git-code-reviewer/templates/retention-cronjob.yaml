@@ -23,6 +23,9 @@ spec:
           restartPolicy: Never
           serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
           automountServiceAccountToken: false
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets: {{ toYaml . | nindent 12 }}
+          {{- end }}
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
@@ -42,6 +45,10 @@ spec:
                     secretKeyRef:
                       name: {{ .Values.database.existingSecret }}
                       key: {{ .Values.database.urlKey }}
+                {{- if .Values.trustedCa.existingConfigMap }}
+                - name: NODE_EXTRA_CA_CERTS
+                  value: /run/config/trust/ca.crt
+                {{- end }}
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
@@ -49,11 +56,20 @@ spec:
               volumeMounts:
                 - { name: tmp, mountPath: /tmp }
                 - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts }
+                {{- if .Values.trustedCa.existingConfigMap }}
+                - { name: trusted-ca, mountPath: /run/config/trust, readOnly: true }
+                {{- end }}
           volumes:
             - name: tmp
               emptyDir: { sizeLimit: 64Mi }
             - name: artifacts
               persistentVolumeClaim:
                 claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}
+            {{- if .Values.trustedCa.existingConfigMap }}
+            - name: trusted-ca
+              configMap:
+                name: {{ .Values.trustedCa.existingConfigMap }}
+                items:
+                  - { key: {{ .Values.trustedCa.key }}, path: ca.crt }
+            {{- end }}
 {{- end }}
-

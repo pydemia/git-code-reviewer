@@ -18,6 +18,14 @@ describe('FilesystemArtifactStore', () => {
     expect(first.reused).toBe(false);
     expect(second.reused).toBe(true);
     expect(await readFile(path.join(root, first.locator), 'utf8')).toBe('{"ok":true}');
+    expect(await store.inspect(first.locator)).toMatchObject({
+      exists: true,
+      checksum: first.checksum,
+      byteSize: first.byteSize,
+    });
+    expect((await store.list()).map((artifact) => artifact.locator)).toEqual([
+      'snapshots/one/diff.json',
+    ]);
   });
 
   it('rejects path traversal and conflicting content', async () => {
@@ -29,5 +37,20 @@ describe('FilesystemArtifactStore', () => {
     await expect(store.commitText('snapshots/one/diff.json', 'two')).rejects.toThrow(
       'integrity conflict',
     );
+  });
+
+  it('deletes artifacts idempotently and reports missing files', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'gcr-artifacts-'));
+    roots.push(root);
+    const store = new FilesystemArtifactStore(root);
+    await store.commitText('analyses/one/report.json', '{}');
+    await store.delete('analyses/one/report.json');
+    await store.delete('analyses/one/report.json');
+    expect(await store.inspect('analyses/one/report.json')).toEqual({
+      exists: false,
+      checksum: null,
+      byteSize: null,
+      modifiedAt: null,
+    });
   });
 });

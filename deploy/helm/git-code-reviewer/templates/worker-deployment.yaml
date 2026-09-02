@@ -20,6 +20,9 @@ spec:
       serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -48,6 +51,19 @@ spec:
             - name: GITHUB_PRIVATE_KEY_FILE
               value: /run/secrets/github-app/private-key.pem
             {{- end }}
+            {{- if eq .Values.model.analysis.mode "openai-compatible" }}
+            - name: MODEL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.modelProvider }}
+                  key: {{ .Values.model.analysis.apiKeyKey }}
+            {{- end }}
+            {{- if .Values.trustedCa.existingConfigMap }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /run/config/trust/ca.crt
+            - name: GIT_SSL_CAINFO
+              value: /run/config/trust/ca.crt
+            {{- end }}
           ports:
             - { name: health, containerPort: {{ .Values.worker.healthPort }} }
           readinessProbe:
@@ -71,6 +87,9 @@ spec:
             {{- if eq .Values.github.mode "app" }}
             - { name: github-app, mountPath: /run/secrets/github-app, readOnly: true }
             {{- end }}
+            {{- if .Values.trustedCa.existingConfigMap }}
+            - { name: trusted-ca, mountPath: /run/config/trust, readOnly: true }
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
@@ -83,6 +102,13 @@ spec:
             secretName: {{ .Values.secrets.githubApp }}
             items:
               - { key: {{ .Values.github.privateKeyKey }}, path: private-key.pem }
+        {{- end }}
+        {{- if .Values.trustedCa.existingConfigMap }}
+        - name: trusted-ca
+          configMap:
+            name: {{ .Values.trustedCa.existingConfigMap }}
+            items:
+              - { key: {{ .Values.trustedCa.key }}, path: ca.crt }
         {{- end }}
         - name: workspace
           {{- if eq .Values.worker.workspace.mode "emptyDir" }}

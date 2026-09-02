@@ -188,7 +188,8 @@ async function canReadSnapshot(database: Database, request: FastifyRequest, snap
 async function artifactLocator(database: Database, snapshotId: string, type: string) {
   const result = await database.query<{ locator: string }>(
     `select locator from artifacts
-     where scope_type = 'snapshot' and scope_id = $1 and artifact_type = $2 and version = 1`,
+     where scope_type = 'snapshot' and scope_id = $1 and artifact_type = $2 and version = 1
+       and state = 'available'`,
     [snapshotId, type],
   );
   return result.rows[0]?.locator ?? null;

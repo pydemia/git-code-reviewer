@@ -20,3 +20,32 @@
 - [Logical/Kubernetes architecture](.documents/visuals/git-code-reviewer.drawio)
 
 초기 아이디어인 `.documents/idea.md`는 배경 자료이며, 현재 제품 범위는 위 기준 문서가 우선합니다.
+
+## 개발과 배포
+
+이 repository는 browser frontend와 API/Worker를 하나의 immutable OCI image로 빌드한다. PostgreSQL은 별도로 운영하고, Kubernetes에서는 Server/Worker/migration/retention이 같은 image의 서로 다른 command를 사용한다.
+
+- [로컬 PostgreSQL 개발 가이드](docs/operations/development.md)
+- [Kubernetes/Helm 배포 가이드](docs/operations/deployment.md)
+- [Private GHES 연동 테스트 가이드](docs/operations/github-enterprise-test.md)
+- [Backup/restore 및 reconcile 가이드](docs/operations/backup-restore.md)
+
+```bash
+export POSTGRES_PASSWORD='local-only-password'
+docker compose -f compose.dev.yaml up -d postgres
+cp .env.example .env
+set -a; source .env; set +a
+corepack pnpm install --frozen-lockfile
+pnpm migrate
+pnpm dev
+```
+
+별도 terminal에서 Worker를 실행한다.
+
+```bash
+set -a; source .env; set +a
+pnpm build:packages
+pnpm --filter @gcr/runtime exec tsx src/index.ts worker
+```
+
+OCI image 기본 repository는 `docker.io/pydemia/git-code-reviewer`이며, Helm chart는 [`deploy/helm/git-code-reviewer`](deploy/helm/git-code-reviewer)에 있다.

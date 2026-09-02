@@ -1,11 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["image", "server", "worker", "storage", "database", "retention", "github", "auth"],
+  "required": [
+    "image",
+    "publicBaseUrl",
+    "trustedCa",
+    "server",
+    "worker",
+    "storage",
+    "database",
+    "secrets",
+    "github",
+    "auth",
+    "model",
+    "retention"
+  ],
   "properties": {
     "image": {
       "type": "object",
-      "required": ["repository"],
+      "required": ["repository", "tag", "digest", "pullPolicy"],
       "properties": {
         "repository": { "type": "string", "minLength": 1 },
         "tag": { "type": "string" },
@@ -13,33 +26,85 @@
         "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
       }
     },
+    "imagePullSecrets": { "type": "array" },
+    "publicBaseUrl": { "type": "string", "format": "uri" },
+    "trustedCa": {
+      "type": "object",
+      "required": ["existingConfigMap", "key"],
+      "properties": {
+        "existingConfigMap": { "type": "string" },
+        "key": { "type": "string", "minLength": 1 }
+      }
+    },
     "server": {
       "type": "object",
-      "required": ["replicas", "port"],
+      "required": ["replicas", "port", "databasePoolMax", "ingress", "resources"],
       "properties": {
         "replicas": { "type": "integer", "minimum": 1 },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "databasePoolMax": { "type": "integer", "minimum": 1 },
+        "ingress": {
+          "type": "object",
+          "required": ["enabled", "host", "path"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "className": { "type": "string" },
+            "host": { "type": "string", "minLength": 1 },
+            "path": { "type": "string", "pattern": "^/" },
+            "annotations": { "type": "object" },
+            "tlsSecretName": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" }
       }
     },
     "worker": {
       "type": "object",
-      "required": ["replicas", "workspace"],
+      "required": [
+        "replicas",
+        "concurrency",
+        "healthPort",
+        "terminationGracePeriodSeconds",
+        "workspace",
+        "resources"
+      ],
       "properties": {
         "replicas": { "type": "integer", "minimum": 1 },
+        "concurrency": { "type": "integer", "minimum": 1 },
+        "healthPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "terminationGracePeriodSeconds": { "type": "integer", "minimum": 30 },
         "workspace": {
           "type": "object",
-          "required": ["mode", "size"],
+          "required": ["mode", "size", "storageClass"],
           "properties": {
             "mode": { "enum": ["emptyDir", "genericEphemeral"] },
-            "size": { "type": "string", "minLength": 1 }
+            "size": { "type": "string", "minLength": 1 },
+            "storageClass": { "type": "string" }
           }
-        }
+        },
+        "resources": { "type": "object" }
       }
     },
     "storage": {
       "type": "object",
-      "required": ["backend"],
-      "properties": { "backend": { "enum": ["pvc"] } }
+      "required": ["backend", "artifacts"],
+      "properties": {
+        "backend": { "enum": ["pvc"] },
+        "artifacts": {
+          "type": "object",
+          "required": ["existingClaim", "storageClass", "accessModes", "size"],
+          "properties": {
+            "existingClaim": { "type": "string" },
+            "storageClass": { "type": "string" },
+            "accessModes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"] }
+            },
+            "size": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
     },
     "database": {
       "type": "object",
@@ -49,9 +114,19 @@
         "urlKey": { "type": "string", "minLength": 1 }
       }
     },
+    "secrets": {
+      "type": "object",
+      "required": ["githubApp", "auth", "modelProvider", "chatModelProvider"],
+      "properties": {
+        "githubApp": { "type": "string" },
+        "auth": { "type": "string" },
+        "modelProvider": { "type": "string" },
+        "chatModelProvider": { "type": "string" }
+      }
+    },
     "github": {
       "type": "object",
-      "required": ["mode"],
+      "required": ["mode", "appIdKey", "privateKeyKey"],
       "properties": {
         "mode": { "enum": ["disabled", "fixture", "app"] },
         "appIdKey": { "type": "string", "minLength": 1 },
@@ -60,15 +135,78 @@
     },
     "auth": {
       "type": "object",
-      "required": ["mode"],
-      "properties": { "mode": { "enum": ["development", "oidc", "proxy"] } }
+      "required": ["mode", "proxyPublicKeyKey"],
+      "properties": {
+        "mode": { "enum": ["development", "oidc", "proxy"] },
+        "proxyPublicKeyKey": { "type": "string", "minLength": 1 }
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["analysis", "chat"],
+      "properties": {
+        "analysis": { "$ref": "#/$defs/model" },
+        "chat": {
+          "allOf": [
+            { "$ref": "#/$defs/model" },
+            {
+              "type": "object",
+              "required": ["concurrencyLimit", "hourlyLimit", "sessionMessageLimit"],
+              "properties": {
+                "concurrencyLimit": { "type": "integer", "minimum": 1 },
+                "hourlyLimit": { "type": "integer", "minimum": 1 },
+                "sessionMessageLimit": { "type": "integer", "minimum": 1 }
+              }
+            }
+          ]
+        }
+      }
     },
     "retention": {
       "type": "object",
-      "required": ["reportDays", "chatDays"],
+      "required": [
+        "enabled",
+        "schedule",
+        "reportDays",
+        "chatDays",
+        "eventLogHours",
+        "orphanGraceHours",
+        "deleteGraceHours",
+        "batchSize"
+      ],
       "properties": {
+        "enabled": { "type": "boolean" },
+        "schedule": { "type": "string", "minLength": 1 },
         "reportDays": { "type": "integer", "minimum": 1 },
-        "chatDays": { "type": "integer", "minimum": 1 }
+        "chatDays": { "type": "integer", "minimum": 1 },
+        "eventLogHours": { "type": "integer", "minimum": 1 },
+        "orphanGraceHours": { "type": "integer", "minimum": 1 },
+        "deleteGraceHours": { "type": "integer", "minimum": 0 },
+        "batchSize": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "serviceAccount": { "type": "object" },
+    "networkPolicy": {
+      "type": "object",
+      "required": ["enabled", "serverIngressFrom", "additionalEgress"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "serverIngressFrom": { "type": "array", "items": { "type": "object" } },
+        "additionalEgress": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "podDisruptionBudget": { "type": "object" }
+  },
+  "$defs": {
+    "model": {
+      "type": "object",
+      "required": ["mode", "endpoint", "name", "apiKeyKey", "timeoutMs"],
+      "properties": {
+        "mode": { "enum": ["disabled", "openai-compatible"] },
+        "endpoint": { "type": "string" },
+        "name": { "type": "string" },
+        "apiKeyKey": { "type": "string", "minLength": 1 },
+        "timeoutMs": { "type": "integer", "minimum": 1 }
       }
     }
   }

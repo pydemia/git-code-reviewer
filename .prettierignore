@@ -1,0 +1,4 @@
+.documents/
+.vscode/
+deploy/helm/**/templates/
+pnpm-lock.yaml

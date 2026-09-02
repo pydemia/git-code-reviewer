@@ -54,7 +54,10 @@ export async function runWorker(config: AppConfig): Promise<void> {
   const health = Fastify({ logger: true });
   let lastLoopAt = Date.now();
   let stopping = false;
-  let active: Promise<void> | null = null;
+  const active = new Set<Promise<void>>();
+  const shutdown = stopSignal().then(() => {
+    stopping = true;
+  });
 
   health.get('/health/live', async () => ({ status: 'ok' }));
   health.get('/health/ready', async (_request, reply) =>
@@ -66,17 +69,32 @@ export async function runWorker(config: AppConfig): Promise<void> {
 
   while (!stopping) {
     lastLoopAt = Date.now();
-    const job = await claimJob(database, executor);
-    if (!job) {
-      await Promise.race([delay(500), stopSignal().then(() => (stopping = true))]);
-      continue;
+    let claimed = false;
+    while (!stopping && active.size < config.WORKER_CONCURRENCY) {
+      const job = await claimJob(database, executor);
+      if (!job) break;
+      claimed = true;
+      const task = executeJob(
+        database,
+        github,
+        model,
+        artifacts,
+        config,
+        executor,
+        job,
+        health.log,
+      ).catch((error: unknown) => {
+        health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
+      });
+      active.add(task);
+      void task.finally(() => active.delete(task));
     }
-    active = executeJob(database, github, model, artifacts, config, executor, job, health.log);
-    await active;
-    active = null;
+    if (!claimed || active.size >= config.WORKER_CONCURRENCY) {
+      await Promise.race([shutdown, delay(500), ...active]);
+    }
   }
 
-  if (active) await active;
+  await Promise.all(active);
   await health.close();
   await database.end();
 }
@@ -407,7 +425,7 @@ async function executeAnalysisJob(
   if (!row) throw new Error('Analysis snapshot is unavailable');
   const locator = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'snapshot' and scope_id = $1
-     and artifact_type = 'diff-index' and version = 1`,
+     and artifact_type = 'diff-index' and version = 1 and state = 'available'`,
     [snapshotId],
   );
   if (!locator.rows[0]) throw new Error('Snapshot diff artifact is unavailable');

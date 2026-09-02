@@ -36,7 +36,7 @@ spec:
           envFrom:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
             {{- if ne .Values.auth.mode "development" }}
-            - secretRef: { name: {{ .Values.secrets.oidc }} }
+            - secretRef: { name: {{ .Values.secrets.auth }} }
             {{- end }}
           env:
             - name: DATABASE_URL
@@ -52,6 +52,21 @@ spec:
                   key: {{ .Values.github.appIdKey }}
             - name: GITHUB_PRIVATE_KEY_FILE
               value: /run/secrets/github-app/private-key.pem
+            {{- end }}
+            {{- if eq .Values.model.chat.mode "openai-compatible" }}
+            - name: CHAT_MODEL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.chatModelProvider }}
+                  key: {{ .Values.model.chat.apiKeyKey }}
+            {{- end }}
+            {{- if eq .Values.auth.mode "proxy" }}
+            - name: PROXY_IDENTITY_PUBLIC_KEY_FILE
+              value: /run/secrets/auth/proxy-public-key.pem
+            {{- end }}
+            {{- if .Values.trustedCa.existingConfigMap }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /run/config/trust/ca.crt
             {{- end }}
           ports:
             - { name: http, containerPort: {{ .Values.server.port }} }
@@ -76,6 +91,12 @@ spec:
             {{- if eq .Values.github.mode "app" }}
             - { name: github-app, mountPath: /run/secrets/github-app, readOnly: true }
             {{- end }}
+            {{- if eq .Values.auth.mode "proxy" }}
+            - { name: auth-proxy, mountPath: /run/secrets/auth, readOnly: true }
+            {{- end }}
+            {{- if .Values.trustedCa.existingConfigMap }}
+            - { name: trusted-ca, mountPath: /run/config/trust, readOnly: true }
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
@@ -88,4 +109,18 @@ spec:
             secretName: {{ .Values.secrets.githubApp }}
             items:
               - { key: {{ .Values.github.privateKeyKey }}, path: private-key.pem }
+        {{- end }}
+        {{- if eq .Values.auth.mode "proxy" }}
+        - name: auth-proxy
+          secret:
+            secretName: {{ .Values.secrets.auth }}
+            items:
+              - { key: {{ .Values.auth.proxyPublicKeyKey }}, path: proxy-public-key.pem }
+        {{- end }}
+        {{- if .Values.trustedCa.existingConfigMap }}
+        - name: trusted-ca
+          configMap:
+            name: {{ .Values.trustedCa.existingConfigMap }}
+            items:
+              - { key: {{ .Values.trustedCa.key }}, path: ca.crt }
         {{- end }}

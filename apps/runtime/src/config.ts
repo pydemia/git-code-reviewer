@@ -11,6 +11,7 @@ const configSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   PUBLIC_BASE_URL: z.string().url().optional(),
   WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4001),
+  WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
   DATABASE_URL: z.string().min(1),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
   WEB_DIST: z.string().default('/app/apps/web/dist'),
@@ -58,6 +59,10 @@ const configSchema = z.object({
   TRUST_PROXY: booleanString,
   RETENTION_REPORT_DAYS: z.coerce.number().int().positive().default(90),
   RETENTION_CHAT_DAYS: z.coerce.number().int().positive().default(30),
+  RETENTION_EVENT_LOG_HOURS: z.coerce.number().int().positive().default(24),
+  RETENTION_ORPHAN_GRACE_HOURS: z.coerce.number().int().positive().default(24),
+  RETENTION_DELETE_GRACE_HOURS: z.coerce.number().int().nonnegative().default(1),
+  RETENTION_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(500),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

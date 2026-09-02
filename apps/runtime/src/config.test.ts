@@ -11,6 +11,7 @@ describe('loadConfig', () => {
     expect(config.PORT).toBe(4000);
     expect(config.AUTH_MODE).toBe('development');
     expect(config.TRUST_PROXY).toBe(false);
+    expect(config.WORKER_CONCURRENCY).toBe(2);
     expect(config.CHAT_CONCURRENCY_LIMIT).toBe(2);
   });
 
@@ -47,5 +48,19 @@ describe('loadConfig', () => {
         CHAT_MODEL_API_KEY: 'secret',
       }),
     ).toThrow('Chat model endpoint, API key, and name are required');
+  });
+
+  it('requires an explicit batch analysis model selection', () => {
+    expect(() =>
+      loadConfig(
+        {
+          ...baseEnvironment,
+          MODEL_MODE: 'openai-compatible',
+          MODEL_ENDPOINT: 'https://models.example.test/v1/',
+          MODEL_API_KEY: 'secret',
+        },
+        'worker',
+      ),
+    ).toThrow('model endpoint, API key, and name are required');
   });
 });

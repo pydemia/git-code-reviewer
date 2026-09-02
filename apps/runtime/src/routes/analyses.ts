@@ -297,7 +297,7 @@ async function readGraph(
 async function artifactLocator(database: Database, analysisId: string, type: string) {
   const result = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'analysis'
-     and scope_id = $1 and artifact_type = $2 and version = 1`,
+     and scope_id = $1 and artifact_type = $2 and version = 1 and state = 'available'`,
     [analysisId, type],
   );
   return result.rows[0]?.locator ?? null;

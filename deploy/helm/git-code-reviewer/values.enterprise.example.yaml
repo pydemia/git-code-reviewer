@@ -3,45 +3,34 @@ image:
   tag: '0.1.0-alpha.1'
   digest: ''
   pullPolicy: IfNotPresent
-imagePullSecrets: []
+
 publicBaseUrl: https://git-code-reviewer.example.internal
-trustedCa:
-  existingConfigMap: ''
-  key: ca.crt
 
 server:
   replicas: 2
-  port: 4000
-  databasePoolMax: 10
   ingress:
-    enabled: false
-    className: ''
+    enabled: true
+    className: nginx
     host: git-code-reviewer.example.internal
     path: /
-    annotations: {}
-    tlsSecretName: ''
-  resources:
-    requests: { cpu: 100m, memory: 192Mi }
-    limits: { cpu: '1', memory: 1Gi }
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+      nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    tlsSecretName: git-code-reviewer-tls
 
 worker:
   replicas: 2
   concurrency: 2
-  healthPort: 4001
-  terminationGracePeriodSeconds: 900
   workspace:
     mode: emptyDir
     size: 10Gi
     storageClass: ''
-  resources:
-    requests: { cpu: 250m, memory: 512Mi }
-    limits: { cpu: '2', memory: 4Gi }
 
 storage:
   backend: pvc
   artifacts:
     existingClaim: ''
-    storageClass: ''
+    storageClass: rwx-storage
     accessModes: [ReadWriteMany]
     size: 100Gi
 
@@ -57,12 +46,9 @@ secrets:
 
 github:
   mode: app
-  appIdKey: APP_ID
-  privateKeyKey: PRIVATE_KEY
 
 auth:
   mode: oidc
-  proxyPublicKeyKey: PROXY_IDENTITY_PUBLIC_KEY
 
 model:
   analysis:
@@ -81,6 +67,10 @@ model:
     hourlyLimit: 30
     sessionMessageLimit: 200
 
+trustedCa:
+  existingConfigMap: corporate-ca
+  key: ca.crt
+
 retention:
   enabled: true
   schedule: '*/10 * * * *'
@@ -91,14 +81,19 @@ retention:
   deleteGraceHours: 1
   batchSize: 500
 
-serviceAccount:
-  create: true
-  name: ''
-
+# Enable only after adding cluster-specific DB, GHES, OIDC, and model CIDRs.
 networkPolicy:
   enabled: false
   serverIngressFrom: []
+  # Each entry is a Kubernetes NetworkPolicyPeer/port rule. Replace these
+  # documentation ranges with the cluster's PostgreSQL and HTTPS CIDRs.
+  # additionalEgress:
+  #   - to:
+  #       - ipBlock: { cidr: 192.0.2.10/32 }
+  #     ports:
+  #       - { protocol: TCP, port: 5432 }
+  #   - to:
+  #       - ipBlock: { cidr: 198.51.100.0/24 }
+  #     ports:
+  #       - { protocol: TCP, port: 443 }
   additionalEgress: []
-
-podDisruptionBudget:
-  enabled: true

@@ -344,7 +344,7 @@ async function readReport(
 ) {
   const result = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'analysis' and scope_id = $1
-     and artifact_type = 'report' and version = 1`,
+     and artifact_type = 'report' and version = 1 and state = 'available'`,
     [analysisId],
   );
   return result.rows[0]

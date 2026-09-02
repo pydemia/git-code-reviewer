@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export type ArtifactCommit = {
@@ -7,6 +7,19 @@ export type ArtifactCommit = {
   checksum: string;
   byteSize: number;
   reused: boolean;
+};
+
+export type ArtifactInspection = {
+  exists: boolean;
+  checksum: string | null;
+  byteSize: number | null;
+  modifiedAt: Date | null;
+};
+
+export type ArtifactFile = {
+  locator: string;
+  byteSize: number;
+  modifiedAt: Date;
 };
 
 export class FilesystemArtifactStore {
@@ -45,6 +58,54 @@ export class FilesystemArtifactStore {
   async readJson<T>(locator: string): Promise<T> {
     return JSON.parse(await this.readText(locator)) as T;
   }
+
+  async inspect(locator: string): Promise<ArtifactInspection> {
+    const artifactPath = path.join(this.root, validateLocator(locator));
+    try {
+      const [data, metadata] = await Promise.all([readFile(artifactPath), stat(artifactPath)]);
+      return {
+        exists: true,
+        checksum: createHash('sha256').update(data).digest('hex'),
+        byteSize: metadata.size,
+        modifiedAt: metadata.mtime,
+      };
+    } catch (error) {
+      if (isMissing(error)) {
+        return { exists: false, checksum: null, byteSize: null, modifiedAt: null };
+      }
+      throw error;
+    }
+  }
+
+  async delete(locator: string): Promise<void> {
+    await rm(path.join(this.root, validateLocator(locator)), { force: true });
+  }
+
+  async list(): Promise<ArtifactFile[]> {
+    await mkdir(this.root, { recursive: true });
+    return walkFiles(this.root);
+  }
+}
+
+async function walkFiles(root: string, relativeDirectory = ''): Promise<ArtifactFile[]> {
+  const directory = path.join(root, relativeDirectory);
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map(async (entry): Promise<ArtifactFile[]> => {
+      const relativePath = path.join(relativeDirectory, entry.name);
+      if (entry.isDirectory()) return walkFiles(root, relativePath);
+      if (!entry.isFile()) return [];
+      const metadata = await stat(path.join(root, relativePath));
+      return [
+        {
+          locator: relativePath.split(path.sep).join('/'),
+          byteSize: metadata.size,
+          modifiedAt: metadata.mtime,
+        },
+      ];
+    }),
+  );
+  return nested.flat().sort((left, right) => left.locator.localeCompare(right.locator));
 }
 
 function validateLocator(locator: string): string {
@@ -59,4 +120,8 @@ function validateLocator(locator: string): string {
 
 function isAlreadyExists(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'EEXIST';
+}
+
+function isMissing(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }
