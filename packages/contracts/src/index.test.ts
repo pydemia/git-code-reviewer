@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chatSessionSchema,
   chatSendResponseSchema,
   dependencyHealthSchema,
   errorEnvelope,
   pullRequestListSchema,
+  snapshotCommitListSchema,
 } from './index.js';
 
 describe('API contracts', () => {
@@ -93,5 +95,33 @@ describe('API contracts', () => {
       },
     });
     expect(response.assistantMessage.citations).toHaveLength(1);
+  });
+
+  it('exposes whether a chat session has a configured model', () => {
+    const session = chatSessionSchema.parse({
+      schemaVersion: 1,
+      id: 'ae45aef5-46cd-4269-bde8-3bfbd4a2ebc9',
+      analysisId: '1207f27a-1d72-4d8a-9752-28923e3e7262',
+      scope: {},
+      model: { available: false, name: null },
+      createdAt: '2026-09-02T00:00:00.000Z',
+      updatedAt: '2026-09-02T00:00:00.000Z',
+    });
+    expect(session.model.available).toBe(false);
+  });
+
+  it('accepts immutable snapshot commit metadata for the Git graph', () => {
+    const graph = snapshotCommitListSchema.parse({
+      schemaVersion: 1,
+      commits: [
+        {
+          sha: 'a'.repeat(40),
+          subject: 'Add transaction coverage',
+          author: 'reviewer',
+          authoredAt: '2026-09-02T00:00:00.000Z',
+        },
+      ],
+    });
+    expect(graph.commits[0]?.subject).toBe('Add transaction coverage');
   });
 });

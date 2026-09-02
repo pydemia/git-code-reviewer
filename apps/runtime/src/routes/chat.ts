@@ -71,7 +71,7 @@ export async function registerChatRoutes(
          returning id, analysis_run_id as analysis_id, scope, created_at, updated_at`,
         [analysisId, request.user!.id, JSON.stringify(scope)],
       );
-      return reply.code(201).send(sessionView(result.rows[0]!));
+      return reply.code(201).send(sessionView(result.rows[0]!, config));
     },
   );
 
@@ -81,7 +81,7 @@ export async function registerChatRoutes(
     async (request, reply) => {
       const { sessionId } = sessionParams.parse(request.params);
       const session = await ownedSession(database, request, sessionId);
-      return session ? sessionView(session) : hiddenNotFound(request, reply);
+      return session ? sessionView(session, config) : hiddenNotFound(request, reply);
     },
   );
 
@@ -110,6 +110,17 @@ export async function registerChatRoutes(
       const body = messageBody.parse(request.body);
       const session = await ownedSession(database, request, sessionId);
       if (!session) return hiddenNotFound(request, reply);
+      if (config.CHAT_MODEL_MODE !== 'openai-compatible') {
+        return reply.code(503).send({
+          error: {
+            code: 'CHAT_MODEL_DISABLED',
+            message: 'Chat 모델이 설정되지 않았습니다.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
+      }
+      const history = await recentConversation(database, sessionId);
       const inserted = await insertChatTurn(database, request, sessionId, body.content, config);
       if (!inserted) {
         return reply.code(429).send({
@@ -125,7 +136,7 @@ export async function registerChatRoutes(
       try {
         const report = await readReport(database, artifacts, session.analysis_id);
         if (!report) throw new Error('Review report is unavailable');
-        const generated = await answerQuestion(config, report, body.content, body.scope);
+        const generated = await answerQuestion(config, report, body.content, body.scope, history);
         const completed = await database.query<ChatMessageRow>(
           `update chat_messages set status = 'completed', content = $2,
            citations = $3::jsonb, completed_at = clock_timestamp()
@@ -257,6 +268,7 @@ async function answerQuestion(
   report: ReviewReport,
   question: string,
   scope: z.infer<typeof sessionBody>,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
 ): Promise<{ content: string; citations: ChatCitation[] }> {
   const finding =
     report.findings.find((item) => item.id === scope.findingId) ??
@@ -271,14 +283,7 @@ async function answerQuestion(
         label: item.startLine ? `line ${item.startLine}` : 'file evidence',
       }))
     : [];
-  if (config.CHAT_MODEL_MODE === 'disabled' || config.GITHUB_MODE === 'fixture') {
-    return {
-      content: finding
-        ? `${finding.problem}\n\n영향: ${finding.impact}\n\n권장 조치: ${finding.recommendation}`
-        : `${report.summary}\n\n질문: ${question.slice(0, 240)}`,
-      citations,
-    };
-  }
+  if (config.CHAT_MODEL_MODE !== 'openai-compatible') throw new Error('Chat model is disabled');
   const response = await fetch(
     new URL('chat/completions', ensureTrailingSlash(config.CHAT_MODEL_ENDPOINT!)),
     {
@@ -298,8 +303,15 @@ async function answerQuestion(
           },
           {
             role: 'user',
-            content: JSON.stringify({ question, reportSummary: report.summary, finding }),
+            content: JSON.stringify({
+              reportSummary: report.summary,
+              grade: report.grade,
+              finding,
+              impact: report.impact,
+            }),
           },
+          ...history,
+          { role: 'user', content: question },
         ],
       }),
       signal: AbortSignal.timeout(config.CHAT_MODEL_TIMEOUT_MS),
@@ -310,6 +322,21 @@ async function answerQuestion(
   const content = value.choices?.[0]?.message?.content?.trim();
   if (!content) throw new Error('Chat model returned an empty response');
   return { content, citations };
+}
+
+async function recentConversation(
+  database: Database,
+  sessionId: string,
+): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  const result = await database.query<{ role: 'user' | 'assistant'; content: string }>(
+    `select role, content from (
+       select id, role, content, created_at from chat_messages
+       where session_id = $1 and status = 'completed'
+       order by created_at desc, id desc limit 20
+     ) recent order by created_at, id`,
+    [sessionId],
+  );
+  return result.rows;
 }
 
 async function ownedSession(
@@ -361,12 +388,17 @@ async function messageById(database: Database, id: string) {
   return result.rows[0] ?? null;
 }
 
-function sessionView(row: ChatSessionRow) {
+function sessionView(row: ChatSessionRow, config: AppConfig) {
+  const modelAvailable = config.CHAT_MODEL_MODE === 'openai-compatible';
   return {
     schemaVersion,
     id: row.id,
     analysisId: row.analysis_id,
     scope: row.scope,
+    model: {
+      available: modelAvailable,
+      name: modelAvailable ? (config.CHAT_MODEL_NAME ?? null) : null,
+    },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -55,7 +55,7 @@ repository, author, review state, priority, draft, updated time filter를 제공
 │ Outline       │ maximized tool                         │ evidence links    │
 │ Impact        │                                        │ composer          │
 ├───────────────┴────────────────────────────────────────┴───────────────────┤
-│ FNB: Evidence · Git graph · History · Ownership · Impact · Tests          │
+│ FNB: Evidence · Git graph · Impact · Tests                                │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -165,7 +165,7 @@ Main의 실제 가용 폭이 880px 미만이면 기본 split mode를 unified로 
 
 ### 7.2 Tool view
 
-Git graph, History, Ownership, Impact와 Tests를 maximize하면 Main을 사용한다. 닫을 때 이전 file/diff scroll과 selection을 복원한다. tool은 동일 snapshot query만 사용하며 별도 revision을 암묵적으로 읽지 않는다.
+Git graph, Impact와 Tests를 maximize하면 Main을 사용한다. 닫을 때 이전 file/diff scroll과 selection을 복원한다. tool은 동일 snapshot query만 사용하며 별도 revision을 암묵적으로 읽지 않는다. History, Ownership과 Relationships는 FNB top-level tab으로 제공하지 않는다.
 
 Impact maximize view는 안정된 세 column 또는 동등한 방향 graph를 사용한다. 바깥 column label은 Structure mode에서 `Parent | Selected object | Children`, Dependency mode에서 `Uses | Selected object | Used by`로 바뀌며 두 체계의 label을 동시에 섞지 않는다. Node에는 kind, qualified name, changed 상태와 직접 relation 수를, edge에는 calls/imports/extends/tests 같은 relation과 confidence를 표시한다. Cycle은 끊어서 숨기지 않고 cycle marker로 표시하며 truncated branch에는 `더 보기`와 limitation을 둔다.
 
@@ -203,6 +203,8 @@ Internal opaque ID나 external URL 자체는 권한을 부여하지 않는다. �
 - citation을 선택하면 Main/FNB가 이동하고 Chat scroll/draft는 유지한다.
 - streaming 중 stop, 재연결, 실패 후 retry와 완성 message 재조회 command를 제공한다.
 - 새 analysis 전환은 기존 conversation을 바꾸지 않고 새 session을 시작한다.
+- Server가 반환하는 model availability가 false이면 이전 합성 답변을 conversation처럼 표시하지 않고 composer를 비활성화한다.
+- 비활성 model에 대한 전송은 message persist 전에 `CHAT_MODEL_DISABLED`로 종료한다. GHES fixture 여부와 interactive model 사용 여부는 독립적이다.
 
 assistant response의 citation은 keyboard focus가 가능한 button이다. tooltip에는 file, line/symbol, artifact type을 표시하며 source 전체를 hover card에 복제하지 않는다.
 
@@ -214,10 +216,10 @@ assistant response의 citation은 keyboard focus가 가능한 button이다. tool
 |---|---|---|
 | Evidence | selected claim과 locator | claim-evidence chain, omission |
 | Git graph | nearby commit lanes | branch/merge graph, commit diff |
-| History | selected line/symbol commits | rename-aware file/symbol history |
-| Ownership | top contributors | path/code ownership evidence |
 | Impact | direct dependency와 selected edge summary | parent/children 또는 uses/used-by graph, evidence와 coverage |
-| Tests | related test candidates | evidence, gap와 confidence |
+| Tests | 추가된 test file/case 요약과 assertion 수 | case 설명, evidence, gap와 confidence |
+
+Git graph는 snapshot commit artifact, merge-base와 관측된 base/head ref만 표시하고 존재하지 않는 commit을 합성하지 않는다. Tests는 added diff에서 지원되는 test declaration과 assertion을 추출한다. Snapshot에 test patch 본문이 없으면 case를 추측하지 않고 file additions와 limitation을 표시한다.
 
 commit을 선택하면 Main은 commit diff로 바뀌고 LNB/Chat에 commit scope를 반영한다. canonical PR diff로 돌아가는 command를 항상 제공한다.
 
@@ -237,7 +239,7 @@ type ReviewSelection = {
   relationDirection?: "parents" | "children" | "uses" | "usedBy";
   findingId?: string;
   commitId?: string;
-  tool?: "evidence" | "graph" | "history" | "ownership" | "impact" | "tests";
+  tool?: "evidence" | "graph" | "impact" | "tests";
 };
 ```
 
@@ -290,7 +292,7 @@ src/
   workspace/    # resizable shell and header
   files/        # tree and diff
   findings/     # finding list/detail
-  tools/        # evidence/graph/history/ownership/impact/tests
+  tools/        # evidence/graph/impact/tests
   chat/         # session, stream, composer, citations
   state/        # selection, URL sync, preferences
   api/          # generated types and REST/SSE clients

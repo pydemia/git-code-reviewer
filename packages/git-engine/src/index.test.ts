@@ -10,6 +10,7 @@ describe('git engine', () => {
     expect(snapshot.resolution).toBe('exact');
     expect(snapshot.files).toHaveLength(2);
     expect(snapshot.patch).toContain('database.transaction');
+    expect(snapshot.files[1]?.patch).toContain('keeps concurrent rotation attempts consistent');
   });
 
   it('requires full commit identities', () => {

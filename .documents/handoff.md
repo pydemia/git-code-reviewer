@@ -47,11 +47,11 @@
 - `.documents/visuals/review-workspace.html`
 - `.documents/visuals/review-workspace-preview.png`
 
-Desktop topology는 two-row Header, LNB, Main, persistent right Chat과 compact FNB다. Finding 선택은 Main diff, FNB evidence와 Chat scope를 같은 revision으로 맞춘다. Findings 상단은 Commit Defender식 grade/summary/per-file summary를 제공한다. Main 폭이 880px 미만이면 split을 unified로 자동 전환하며 pinned split은 horizontal scroll을 사용한다. Canonical left side는 `mergeBase`, right side는 `head`다.
+Desktop topology는 two-row Header, LNB, Main, persistent right Chat과 compact FNB다. FNB top-level tab은 Evidence, Git graph, Impact와 Tests만 제공한다. Git graph는 snapshot commit artifact와 merge-base/base/head ref를 표시하고 Tests는 added test case와 assertion을 설명한다. Finding 선택은 Main diff, FNB evidence와 Chat scope를 같은 revision으로 맞춘다. Findings 상단은 Commit Defender식 grade/summary/per-file summary를 제공한다. Main 폭이 880px 미만이면 split을 unified로 자동 전환하며 pinned split은 horizontal scroll을 사용한다. Canonical left side는 `mergeBase`, right side는 `head`다.
 
 Impact maximize view는 Structure의 parent/children과 Dependencies의 uses/used-by를 구분한다. Node/edge 선택은 definition/reference와 relation evidence를 같은 revision에서 연다. Report, finding, evidence와 object에는 Copy Link가 있고 file/line은 exact SHA의 GHES 원본을 열 수 있다.
 
-Browser storage에는 user 단위 layout preference와 최근 repository override 최대 10개만 둔다. Source, report, finding과 Chat content는 저장하지 않는다. Report state, stale 파생 상태와 merge simulation state는 서로 분리한다.
+Browser storage에는 user 단위 layout preference와 최근 repository override 최대 10개만 둔다. Source, report, finding과 Chat content는 저장하지 않는다. Report state, stale 파생 상태와 merge simulation state는 서로 분리한다. Interactive model이 비활성화되면 Chat은 합성 답변을 만들지 않고 명시적인 unavailable 상태와 disabled composer를 표시한다.
 
 ## 5. 문서 정본
 
@@ -80,6 +80,7 @@ Browser storage에는 user 단위 layout preference와 최근 repository overrid
 | Kubernetes | generic ephemeral workspace, migration hook/lock, retention CronJob 추가 |
 | Backup | DB restore point 뒤 artifact snapshot, restore reconcile 순서로 정정 |
 | UI | two-row Header, breakpoint, mergeBase side와 run/merge state 고정 |
+| Workspace tools | Evidence/Git graph/Impact/Tests 실데이터 view, added test case 설명과 Chat model unavailable 상태 추가 |
 | 구현 계획 | 실제 환경 spike `M0-00`, M0-M5 task/완료 조건/추적표로 확장 |
 | Report core | Commit Defender v1 compatibility adapter와 fixture parity, rich finding/impact schema 추가 |
 | Navigation | Revision 고정 deep link, Markdown/JSON export와 exact-SHA GHES permalink 추가 |

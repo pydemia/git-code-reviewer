@@ -499,6 +499,8 @@ GET    /api/v1/admin/audit-events                 # DEC-016이 product UI일 때
 
 List API는 opaque cursor pagination을 사용한다. Diff API는 file/hunk cursor, context line 수와 view mode를 받는다. Relation API는 `view=structure|dependency`, `direction=parents|children|uses|used-by`, bounded `depth`와 cursor를 받는다. 모든 response는 `schemaVersion`, resource `id`, `snapshotId` 또는 `analysisRevisionId` 중 해당 identity와 허용된 typed links를 포함한다. Admin route는 별도 role/scope를 요구하며 audit 조회를 외부 로그 시스템에 위임하면 마지막 endpoint를 제공하지 않는다.
 
+Chat session response는 `model.available`과 공개 가능한 model name을 포함한다. `CHAT_MODEL_MODE=disabled`이면 message POST는 user/assistant row를 만들기 전에 typed `CHAT_MODEL_DISABLED` 503을 반환한다. Fixture GHES adapter도 interactive model이 설정되어 있으면 같은 provider 호출 경로를 사용하며 report 문구를 deterministic Chat 답변으로 대신하지 않는다.
+
 Operation response:
 
 ```json

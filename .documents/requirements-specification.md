@@ -32,7 +32,7 @@
 | stale | report의 base/head가 현재 PR의 관측 base/head와 달라진 파생 상태 |
 | superseded | 더 최신 snapshot의 run으로 대체된 queued/running run |
 | LNB | Files, Findings, Outline, Impact를 제공하는 왼쪽 navigation |
-| FNB | Evidence, Git graph, History, Ownership, Impact, Tests를 제공하는 하단 dock |
+| FNB | Evidence, Git graph, Impact, Tests를 제공하는 하단 dock |
 
 ## 3. 범위
 
@@ -160,7 +160,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | REQ-UI-004 | 필수 | LNB는 Files, Findings, Outline, Impact view를 제공한다. |
 | REQ-UI-005 | 필수 | Main은 split/unified diff, file/symbol/commit view와 maximized tool view를 제공한다. |
 | REQ-UI-006 | 필수 | Chat은 desktop에서 persistent right dock이며 Findings와 상호 배타적인 tab이 아니다. |
-| REQ-UI-007 | 필수 | FNB는 Evidence, Git graph, History, Ownership, Impact, Tests를 제공한다. |
+| REQ-UI-007 | 필수 | FNB는 Evidence, Git graph, Impact, Tests를 제공하며 각 tab은 빈 placeholder가 아닌 현재 snapshot의 실제 데이터를 표시한다. |
 | REQ-UI-008 | 필수 | finding 선택은 diff anchor, FNB evidence, Chat scope를 원자적으로 동기화한다. |
 | REQ-UI-009 | 필수 | stale/partial/running/failed와 마지막 성공 report를 시각적으로 구분한다. |
 | REQ-UI-010 | 필수 | diff, tree와 graph는 큰 입력에서도 virtualization 또는 pagination을 사용한다. |
@@ -200,6 +200,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | REQ-CHAT-006 | 필수 | Chat stream이 끊기면 완료 message를 재조회하거나 명시적으로 재시도할 수 있다. |
 | REQ-CHAT-007 | 필수 | model credential은 server-side secret이며 local CLI login을 재사용하지 않는다. |
 | REQ-CHAT-008 | 필수 | Chat은 사용자별 concurrency, rate, tool-turn과 timeout limit을 강제하고 초과 시 typed `429` 또는 limit error를 반환한다. |
+| REQ-CHAT-009 | 필수 | Interactive model이 비활성화되면 Chat 가용 상태를 명시하고 message를 저장하기 전에 typed `503`을 반환한다. Report 문구를 합성 답변처럼 재사용하지 않으며 fixture GHES mode도 model 호출 여부를 바꾸지 않는다. |
 
 ## 10. API, data와 상태
 

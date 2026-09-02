@@ -11,7 +11,7 @@ import {
   refreshResponseSchema,
   repositoryListSchema,
   reportViewSchema,
-  relationshipViewSchema,
+  snapshotCommitListSchema,
   snapshotFileListSchema,
   type PullRequestSummary,
   type Repository,
@@ -23,12 +23,12 @@ export type WorkspaceData = {
   analysis: ReturnType<typeof analysisListSchema.parse>['items'][number] | null;
   files: ReturnType<typeof snapshotFileListSchema.parse>['items'];
   diff: ReturnType<typeof diffIndexSchema.parse> | null;
+  commits: ReturnType<typeof snapshotCommitListSchema.parse>['commits'];
   report: ReturnType<typeof reportViewSchema.parse> | null;
   objects: ReturnType<typeof codeObjectListSchema.parse>['items'];
 };
 export type ChatMessage = ReturnType<typeof chatMessageListSchema.parse>['items'][number];
 export type ChatSession = ReturnType<typeof chatSessionSchema.parse>;
-export type RelationshipView = ReturnType<typeof relationshipViewSchema.parse>;
 
 export async function loadWorklist(signal: AbortSignal): Promise<WorklistItem[]> {
   const repositories = repositoryListSchema.parse(
@@ -57,14 +57,16 @@ export async function loadWorkspace(
   const pull = pullRequestDetailSchema.parse(pullValue);
   const analyses = analysisListSchema.parse(analysesValue).items;
   const analysis = analyses[0] ?? null;
-  if (!analysis) return { pull, analysis: null, files: [], diff: null, report: null, objects: [] };
+  if (!analysis)
+    return { pull, analysis: null, files: [], diff: null, commits: [], report: null, objects: [] };
   const reportReady =
     analysis.id && (analysis.state === 'completed' || analysis.state === 'partial')
       ? analysis.id
       : null;
-  const [filesValue, diffValue, reportValue, objectsValue] = await Promise.all([
+  const [filesValue, diffValue, commitsValue, reportValue, objectsValue] = await Promise.all([
     fetchJson(`/api/v1/snapshots/${analysis.snapshotId}/files`, signal),
     fetchJson(`/api/v1/snapshots/${analysis.snapshotId}/diff`, signal),
+    fetchJson(`/api/v1/snapshots/${analysis.snapshotId}/commits`, signal),
     reportReady ? fetchJson(`/api/v1/analyses/${reportReady}`, signal) : null,
     reportReady ? fetchJson(`/api/v1/analyses/${reportReady}/objects`, signal) : null,
   ]);
@@ -73,6 +75,7 @@ export async function loadWorkspace(
     analysis,
     files: snapshotFileListSchema.parse(filesValue).items,
     diff: diffIndexSchema.parse(diffValue),
+    commits: snapshotCommitListSchema.parse(commitsValue).commits,
     report: reportValue ? reportViewSchema.parse(reportValue) : null,
     objects: objectsValue ? codeObjectListSchema.parse(objectsValue).items : [],
   };
@@ -84,13 +87,15 @@ export async function loadAnalysisWorkspace(
 ): Promise<WorkspaceData> {
   const report = reportViewSchema.parse(await fetchJson(`/api/v1/analyses/${analysisId}`, signal));
   const { repositoryId, pullNumber, snapshotId } = report.context;
-  const [pullValue, analysesValue, filesValue, diffValue, objectsValue] = await Promise.all([
-    fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
-    fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses`, signal),
-    fetchJson(`/api/v1/snapshots/${snapshotId}/files`, signal),
-    fetchJson(`/api/v1/snapshots/${snapshotId}/diff`, signal),
-    fetchJson(`/api/v1/analyses/${analysisId}/objects`, signal),
-  ]);
+  const [pullValue, analysesValue, filesValue, diffValue, commitsValue, objectsValue] =
+    await Promise.all([
+      fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
+      fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses`, signal),
+      fetchJson(`/api/v1/snapshots/${snapshotId}/files`, signal),
+      fetchJson(`/api/v1/snapshots/${snapshotId}/diff`, signal),
+      fetchJson(`/api/v1/snapshots/${snapshotId}/commits`, signal),
+      fetchJson(`/api/v1/analyses/${analysisId}/objects`, signal),
+    ]);
   const analyses = analysisListSchema.parse(analysesValue).items;
   const analysis = analyses.find((item) => item.id === analysisId);
   if (!analysis) throw new Error('Analysis revision is unavailable');
@@ -99,22 +104,10 @@ export async function loadAnalysisWorkspace(
     analysis,
     files: snapshotFileListSchema.parse(filesValue).items,
     diff: diffIndexSchema.parse(diffValue),
+    commits: snapshotCommitListSchema.parse(commitsValue).commits,
     report,
     objects: codeObjectListSchema.parse(objectsValue).items,
   };
-}
-
-export async function loadRelationships(
-  analysisId: string,
-  objectId: string,
-  signal: AbortSignal,
-): Promise<RelationshipView> {
-  return relationshipViewSchema.parse(
-    await fetchJson(
-      `/api/v1/analyses/${analysisId}/objects/${objectId}/relationships?direction=outgoing&depth=3`,
-      signal,
-    ),
-  );
 }
 
 export async function openChatSession(

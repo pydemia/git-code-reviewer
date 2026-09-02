@@ -206,7 +206,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M3-07 | Line/symbol/reference verifier, fingerprint와 deduplication |
 | M3-08 | P3-P0 priority/category/confidence contract와 P3 direct-evidence gate |
 | M3-09 | Analysis-scope selected context artifact와 immutable report composer |
-| M3-10 | Findings/Outline LNB, Evidence/History FNB와 coverage/limitation UI |
+| M3-10 | Findings/Outline LNB, Evidence FNB와 coverage/limitation UI |
 | M3-11 | Commit Defender v1 compatibility adapter, canonical normalizer와 fixture parity test |
 | M3-12 | Code object/relationship artifact, structure parent/children과 dependency uses/used-by analyzer |
 
@@ -233,7 +233,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M4-01 | Two-row Header, resizable LNB/Main/Chat/FNB와 breakpoint contract |
 | M4-02 | Main 880px 미만 auto-unified, pinned split scroll과 mergeBase/head label |
 | M4-03 | Analysis deep link, URL selection, revision selector와 user-level preference document |
-| M4-04 | Git graph/Ownership/Impact/Tests compact와 maximized view |
+| M4-04 | Snapshot commit 기반 Git graph, Impact, added test summary/case compact와 maximized view |
 | M4-05 | Atomic ReviewSelection store와 panel scroll 복원 |
 | M4-06 | User + analysis revision 고정 Chat session과 Server-side model 호출 |
 | M4-07 | Bounded report/file/symbol/history/impact Chat tools와 per-user limit |

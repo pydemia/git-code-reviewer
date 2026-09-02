@@ -122,6 +122,18 @@ export const diffIndexSchema = z.object({
   ),
 });
 
+export const snapshotCommitListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  commits: z.array(
+    z.object({
+      sha: z.string(),
+      subject: z.string(),
+      author: z.string(),
+      authoredAt: z.string(),
+    }),
+  ),
+});
+
 export const refreshResponseSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   operationId: z.string().uuid(),
@@ -314,6 +326,10 @@ export const chatSessionSchema = z.object({
     findingId: z.string().uuid().optional(),
     fileId: z.string().uuid().optional(),
     symbolId: z.string().uuid().optional(),
+  }),
+  model: z.object({
+    available: z.boolean(),
+    name: z.string().nullable(),
   }),
   createdAt: z.string(),
   updatedAt: z.string(),

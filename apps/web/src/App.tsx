@@ -15,7 +15,6 @@ import {
   GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
-  History,
   Link2,
   ListFilter,
   Maximize2,
@@ -28,12 +27,10 @@ import {
   Sparkles,
   TestTube2,
   ThumbsUp,
-  Users,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import {
   loadAnalysisWorkspace,
-  loadRelationships,
   loadWorklist,
   loadWorkspace,
   openChatSession,
@@ -42,10 +39,10 @@ import {
   waitForSnapshot,
   type ChatMessage,
   type ChatSession,
-  type RelationshipView,
   type WorklistItem,
   type WorkspaceData,
 } from './api.ts';
+import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   WORKSPACE_LAYOUT_LIMITS,
@@ -57,6 +54,7 @@ import {
 } from './workspace-layout.ts';
 
 type ReviewMode = 'files' | 'findings' | 'outline' | 'impact';
+type BottomTool = 'evidence' | 'graph' | 'impact' | 'tests';
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 type ResizeOperation = {
   handle: WorkspaceResizeHandle;
@@ -68,6 +66,10 @@ type ResizeOperation = {
 
 const WORKSPACE_LAYOUT_STORAGE_KEY = 'git-code-reviewer.workspace-layout.v1';
 const RESPONSIVE_LAYOUT_BREAKPOINT = 820;
+
+function isBottomTool(value: string | null): value is BottomTool {
+  return value === 'evidence' || value === 'graph' || value === 'impact' || value === 'tests';
+}
 
 export function App() {
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
@@ -241,8 +243,7 @@ function ReviewWorkspace({
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [reviewMode, setReviewMode] = useState<ReviewMode>('files');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-  const [relationship, setRelationship] = useState<RelationshipView | null>(null);
-  const [bottomTool, setBottomTool] = useState<'evidence' | 'relationships'>('evidence');
+  const [bottomTool, setBottomTool] = useState<BottomTool>('evidence');
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatDraft, setChatDraft] = useState('');
@@ -345,13 +346,14 @@ function ReviewWorkspace({
     void workspaceRequest.then(
       (workspace) => {
         setData(workspace);
-        const requestedFindingId = new URLSearchParams(window.location.search).get('finding');
+        const search = new URLSearchParams(window.location.search);
+        const requestedFindingId = search.get('finding');
         const requestedFinding = workspace.report?.findings.find(
           (finding) => finding.id === requestedFindingId,
         );
         setSelectedFindingId(requestedFinding?.id ?? null);
         setReviewMode(requestedFinding ? 'findings' : 'files');
-        const requestedObjectId = new URLSearchParams(window.location.search).get('symbol');
+        const requestedObjectId = search.get('symbol');
         const requestedObject = workspace.objects.find((object) => object.id === requestedObjectId);
         setSelectedObjectId(
           requestedObject?.id ??
@@ -359,7 +361,10 @@ function ReviewWorkspace({
             workspace.objects[0]?.id ??
             null,
         );
-        setBottomTool(requestedObject ? 'relationships' : 'evidence');
+        const requestedTool = search.get('tool');
+        setBottomTool(
+          isBottomTool(requestedTool) ? requestedTool : requestedObject ? 'impact' : 'evidence',
+        );
         setSelectedPath(
           requestedFinding
             ? (workspace.files.find((file) => file.id === requestedFinding.anchor.fileId)?.path ??
@@ -377,22 +382,6 @@ function ReviewWorkspace({
     );
     return () => controller.abort();
   }, [analysisId, repositoryId, pullNumber]);
-
-  useEffect(() => {
-    const currentAnalysisId = data?.analysis?.id;
-    if (!currentAnalysisId || !selectedObjectId) {
-      setRelationship(null);
-      return;
-    }
-    const controller = new AbortController();
-    void loadRelationships(currentAnalysisId, selectedObjectId, controller.signal).then(
-      setRelationship,
-      (error: unknown) => {
-        if (!controller.signal.aborted) console.error(error);
-      },
-    );
-    return () => controller.abort();
-  }, [data?.analysis?.id, selectedObjectId]);
 
   useEffect(() => {
     const currentAnalysisId = data?.analysis?.id;
@@ -442,6 +431,7 @@ function ReviewWorkspace({
   const coveragePercent = data?.report?.coverage.filesChanged
     ? Math.round((data.report.coverage.filesExamined / data.report.coverage.filesChanged) * 100)
     : 0;
+  const addedTestFiles = useMemo(() => analyzeAddedTests(data?.diff?.files ?? []), [data?.diff]);
 
   const selectFile = (path: string) => {
     setSelectedPath(path);
@@ -462,7 +452,7 @@ function ReviewWorkspace({
 
   const selectObject = (objectId: string) => {
     setSelectedObjectId(objectId);
-    setBottomTool('relationships');
+    setBottomTool('impact');
     const currentAnalysisId = data?.analysis?.id;
     if (!currentAnalysisId) return;
     const url = new URL(`/reviews/${currentAnalysisId}`, window.location.origin);
@@ -471,8 +461,15 @@ function ReviewWorkspace({
     window.history.replaceState(null, '', url);
   };
 
+  const selectBottomTool = (tool: BottomTool) => {
+    setBottomTool(tool);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tool', tool);
+    window.history.replaceState(null, '', url);
+  };
+
   const handleChatSubmit = async () => {
-    if (!chatSession || !chatDraft.trim() || chatSending) return;
+    if (!chatSession?.model.available || !chatDraft.trim() || chatSending) return;
     const content = chatDraft.trim();
     setChatDraft('');
     setChatSending(true);
@@ -620,6 +617,7 @@ function ReviewWorkspace({
           headSha={data?.pull.headSha}
           selectedFinding={selectedFinding}
           selectedFile={selectedFile?.path}
+          model={chatSession?.model ?? null}
           messages={chatMessages}
           draft={chatDraft}
           sending={chatSending}
@@ -632,46 +630,58 @@ function ReviewWorkspace({
         />
 
         <section className="bottom-panel" aria-label="분석 근거">
-          <nav className="bottom-tabs">
+          <nav className="bottom-tabs" role="tablist" aria-label="Review tools">
             <button
               className={bottomTool === 'evidence' ? 'active' : ''}
               type="button"
-              onClick={() => setBottomTool('evidence')}
+              role="tab"
+              aria-selected={bottomTool === 'evidence'}
+              onClick={() => selectBottomTool('evidence')}
             >
               <PanelBottom size={14} /> Evidence
             </button>
-            <button type="button">
+            <button
+              className={bottomTool === 'graph' ? 'active' : ''}
+              type="button"
+              role="tab"
+              aria-selected={bottomTool === 'graph'}
+              onClick={() => selectBottomTool('graph')}
+            >
               <GitBranch size={14} /> Git graph
             </button>
-            <button type="button">
-              <History size={14} /> History
-            </button>
-            <button type="button">
-              <Users size={14} /> Ownership
-            </button>
             <button
-              className={bottomTool === 'relationships' ? 'active' : ''}
+              className={bottomTool === 'impact' ? 'active' : ''}
               type="button"
-              onClick={() => setBottomTool('relationships')}
+              role="tab"
+              aria-selected={bottomTool === 'impact'}
+              onClick={() => selectBottomTool('impact')}
             >
-              <Network size={14} /> Relationships
-            </button>
-            <button type="button">
               <Activity size={14} /> Impact
             </button>
-            <button type="button">
+            <button
+              className={bottomTool === 'tests' ? 'active' : ''}
+              type="button"
+              role="tab"
+              aria-selected={bottomTool === 'tests'}
+              onClick={() => selectBottomTool('tests')}
+            >
               <TestTube2 size={14} /> Tests
             </button>
           </nav>
-          {bottomTool === 'relationships' ? (
-            <RelationshipPanel
-              relationship={relationship}
+          {bottomTool === 'evidence' ? (
+            <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
+          ) : null}
+          {bottomTool === 'graph' ? <GitGraphPanel data={data} /> : null}
+          {bottomTool === 'impact' ? (
+            <ImpactPanel
+              data={data}
               selectedObjectId={selectedObjectId}
               onObjectSelect={selectObject}
             />
-          ) : (
-            <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
-          )}
+          ) : null}
+          {bottomTool === 'tests' ? (
+            <TestsPanel files={addedTestFiles} onFileSelect={selectFile} />
+          ) : null}
         </section>
         <WorkspaceResizeHandle
           name="left"
@@ -1062,6 +1072,7 @@ function ChatPanel({
   headSha,
   selectedFinding,
   selectedFile,
+  model,
   messages,
   draft,
   sending,
@@ -1073,6 +1084,7 @@ function ChatPanel({
   headSha: string | undefined;
   selectedFinding: FindingView | undefined;
   selectedFile: string | undefined;
+  model: ChatSession['model'] | null;
   messages: ChatMessage[];
   draft: string;
   sending: boolean;
@@ -1094,34 +1106,46 @@ function ChatPanel({
         <code>{headSha?.slice(0, 7) ?? '-------'}</code>
       </div>
       <div className="chat-messages" aria-live="polite">
-        {messages.length === 0 ? (
+        {!model ? (
+          <div className="chat-message-empty">Chat 연결 상태를 확인하는 중입니다.</div>
+        ) : null}
+        {model && !model.available ? (
+          <div className="chat-unavailable">
+            <Bot size={22} />
+            <strong>Chat 모델이 연결되지 않았습니다.</strong>
+            <span>이 revision의 report와 evidence는 계속 확인할 수 있습니다.</span>
+          </div>
+        ) : null}
+        {model?.available && messages.length === 0 ? (
           <div className="chat-message-empty">아직 대화가 없습니다.</div>
         ) : null}
-        {messages.map((message) => (
-          <article className={`chat-message ${message.role}`} key={message.id}>
-            <div className="message-author">
-              {message.role === 'assistant' ? <Sparkles size={12} /> : null}
-              <strong>{message.role === 'assistant' ? 'Review assistant' : 'You'}</strong>
-              {message.status !== 'completed' ? <small>{message.status}</small> : null}
-            </div>
-            <div className="chat-message-content">{message.content}</div>
-            {message.citations.length > 0 ? (
-              <div className="chat-citations" aria-label="답변 근거">
-                {message.citations.map((citation) => (
-                  <button
-                    type="button"
-                    key={citation.evidenceId}
-                    disabled={!citation.findingId}
-                    onClick={() => citation.findingId && onCitationSelect(citation.findingId)}
-                  >
-                    <Link2 size={11} /> {citation.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </article>
-        ))}
-        {sending ? (
+        {model?.available
+          ? messages.map((message) => (
+              <article className={`chat-message ${message.role}`} key={message.id}>
+                <div className="message-author">
+                  {message.role === 'assistant' ? <Sparkles size={12} /> : null}
+                  <strong>{message.role === 'assistant' ? 'Review assistant' : 'You'}</strong>
+                  {message.status !== 'completed' ? <small>{message.status}</small> : null}
+                </div>
+                <div className="chat-message-content">{message.content}</div>
+                {message.citations.length > 0 ? (
+                  <div className="chat-citations" aria-label="답변 근거">
+                    {message.citations.map((citation) => (
+                      <button
+                        type="button"
+                        key={citation.evidenceId}
+                        disabled={!citation.findingId}
+                        onClick={() => citation.findingId && onCitationSelect(citation.findingId)}
+                      >
+                        <Link2 size={11} /> {citation.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))
+          : null}
+        {model?.available && sending ? (
           <div className="chat-pending">
             <RefreshCw size={13} className="spin" /> 답변을 생성하는 중입니다.
           </div>
@@ -1138,8 +1162,13 @@ function ChatPanel({
           rows={3}
           value={draft}
           maxLength={4_000}
-          placeholder="현재 리비전에 대해 질문"
+          placeholder={
+            model?.available
+              ? '현재 리비전에 대해 질문'
+              : 'Chat 모델을 연결한 후 질문할 수 있습니다.'
+          }
           aria-label="질문"
+          disabled={!model?.available}
           onChange={(event) => onDraftChange(event.target.value)}
         />
         <div className="composer-actions">
@@ -1149,7 +1178,7 @@ function ChatPanel({
             type="submit"
             title="질문 보내기"
             aria-label="질문 보내기"
-            disabled={!draft.trim() || sending}
+            disabled={!model?.available || !draft.trim() || sending}
           >
             <Send size={14} />
           </button>
@@ -1159,112 +1188,189 @@ function ChatPanel({
   );
 }
 
-type RelationshipMode = 'structure' | 'dependencies';
-type CodeObjectView = RelationshipView['objects'][number];
-type CodeRelationView = RelationshipView['structure']['parents'][number];
+function GitGraphPanel({ data }: { data: WorkspaceData | null }) {
+  if (!data?.analysis) {
+    return <div className="panel-empty bottom-tool-empty">표시할 snapshot commit이 없습니다.</div>;
+  }
+  const commits = [...data.commits].reverse();
+  const mergeBase = data.analysis.mergeBaseSha;
+  const baseDiverged = Boolean(mergeBase && data.pull.baseSha !== mergeBase);
+  return (
+    <div className="bottom-tool-content git-graph-panel">
+      <div className="tool-summary-row">
+        <strong>Revision graph</strong>
+        <span>
+          {data.pull.baseRef} → {data.pull.headRef} · PR commit {commits.length}개
+        </span>
+      </div>
+      <div className="git-graph-list" aria-label="Pull request Git graph">
+        <div className="git-graph-row base-node">
+          <span className="graph-rail">
+            <i />
+          </span>
+          <code>{mergeBase?.slice(0, 7) ?? '-------'}</code>
+          <span className="graph-commit-copy">
+            <strong>merge-base</strong>
+            <small>
+              {data.pull.baseRef}와 {data.pull.headRef}의 공통 기준
+            </small>
+          </span>
+        </div>
+        {baseDiverged ? (
+          <div className="git-graph-row base-tip">
+            <span className="graph-rail">
+              <i />
+            </span>
+            <code>{data.pull.baseSha.slice(0, 7)}</code>
+            <span className="graph-commit-copy">
+              <strong>{data.pull.baseRef}</strong>
+              <small>관측된 base tip</small>
+            </span>
+          </div>
+        ) : null}
+        {commits.map((commit, index) => (
+          <div className="git-graph-row head-node" key={commit.sha}>
+            <span className="graph-rail">
+              <i />
+            </span>
+            <code>{commit.sha.slice(0, 7)}</code>
+            <span className="graph-commit-copy">
+              <strong>{commit.subject}</strong>
+              <small>
+                {commit.author}
+                {index === commits.length - 1 ? ` · ${data.pull.headRef} HEAD` : ''}
+              </small>
+            </span>
+          </div>
+        ))}
+        {commits.length === 0 ? (
+          <div className="git-graph-row head-node">
+            <span className="graph-rail">
+              <i />
+            </span>
+            <code>{data.pull.headSha.slice(0, 7)}</code>
+            <span className="graph-commit-copy">
+              <strong>{data.pull.headRef} HEAD</strong>
+              <small>commit metadata가 없는 snapshot</small>
+            </span>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
-function RelationshipPanel({
-  relationship,
+function ImpactPanel({
+  data,
   selectedObjectId,
   onObjectSelect,
 }: {
-  relationship: RelationshipView | null;
+  data: WorkspaceData | null;
   selectedObjectId: string | null;
   onObjectSelect: (objectId: string) => void;
 }) {
-  const [mode, setMode] = useState<RelationshipMode>('structure');
-  if (!relationship || !selectedObjectId) {
-    return <div className="panel-empty relationship-empty">관계 데이터를 불러오는 중입니다.</div>;
+  const impact = data?.report?.impact;
+  if (!impact) {
+    return <div className="panel-empty bottom-tool-empty">표시할 impact 분석이 없습니다.</div>;
   }
-
-  const selected = relationship.objects.find((object) => object.id === selectedObjectId);
-  const leftRelations =
-    mode === 'structure' ? relationship.structure.parents : relationship.dependencies.uses;
-  const rightRelations =
-    mode === 'structure' ? relationship.structure.children : relationship.dependencies.usedBy;
-
   return (
-    <div className="relationship-panel">
-      <div className="relationship-controls segmented" aria-label="관계 형식">
-        <button
-          className={mode === 'structure' ? 'active' : ''}
-          type="button"
-          onClick={() => setMode('structure')}
-        >
-          Structure
-        </button>
-        <button
-          className={mode === 'dependencies' ? 'active' : ''}
-          type="button"
-          onClick={() => setMode('dependencies')}
-        >
-          Dependencies
-        </button>
+    <div className="bottom-tool-content impact-panel-content">
+      <div className="tool-summary-row">
+        <strong>{impact.summary}</strong>
+        <span>
+          confidence {impact.confidence} · coverage {impact.coverage.objectsExamined} objects
+        </span>
       </div>
-      <div className="relationship-columns">
-        <RelationshipColumn
-          label={mode === 'structure' ? 'PARENT' : 'USES'}
-          relations={leftRelations}
-          objects={relationship.objects}
-          target={mode === 'structure' ? 'source' : 'target'}
-          onObjectSelect={onObjectSelect}
-        />
-        <div className="relationship-current">
-          <span>SELECTED OBJECT</span>
-          <strong>{shortObjectName(selected)}</strong>
-          <small>
-            {selected?.kind ?? 'unknown'} · {selected?.change ?? 'unchanged'}
-          </small>
-        </div>
-        <RelationshipColumn
-          label={mode === 'structure' ? 'CHILDREN' : 'USED BY'}
-          relations={rightRelations}
-          objects={relationship.objects}
-          target={mode === 'structure' ? 'target' : 'source'}
-          onObjectSelect={onObjectSelect}
-        />
-      </div>
-    </div>
-  );
-}
-
-function RelationshipColumn({
-  label,
-  relations,
-  objects,
-  target,
-  onObjectSelect,
-}: {
-  label: string;
-  relations: CodeRelationView[];
-  objects: CodeObjectView[];
-  target: 'source' | 'target';
-  onObjectSelect: (objectId: string) => void;
-}) {
-  return (
-    <div className="relationship-column">
-      <span>{label}</span>
-      <div>
-        {relations.map((relation) => {
-          const objectId = target === 'source' ? relation.sourceObjectId : relation.targetObjectId;
-          const object = objects.find((item) => item.id === objectId);
+      <div className="impact-list">
+        {impact.affectedAreas.map((area) => {
+          const object = data.objects.find((item) => item.id === area.objectId);
           return (
-            <button type="button" key={relation.id} onClick={() => onObjectSelect(objectId)}>
-              <strong>{shortObjectName(object)}</strong>
-              <small>
-                {relation.kind} · {relation.confidence} · {relation.change}
-              </small>
+            <button
+              className={area.objectId === selectedObjectId ? 'active' : ''}
+              type="button"
+              key={area.objectId}
+              onClick={() => onObjectSelect(area.objectId)}
+            >
+              <span className={`risk-label risk-${area.risk}`}>{area.risk}</span>
+              <span>
+                <strong>{object?.qualifiedName ?? 'Unknown object'}</strong>
+                <small>{area.reason}</small>
+              </span>
+              <span className="impact-meta">
+                {object?.kind ?? 'object'} · evidence {area.evidence.length}
+              </span>
             </button>
           );
         })}
-        {relations.length === 0 ? <small className="relationship-none">없음</small> : null}
       </div>
     </div>
   );
 }
 
-function shortObjectName(object: CodeObjectView | undefined): string {
-  return object?.qualifiedName.split('#').at(-1) ?? 'Unknown object';
+function TestsPanel({
+  files,
+  onFileSelect,
+}: {
+  files: AddedTestFile[];
+  onFileSelect: (path: string) => void;
+}) {
+  if (files.length === 0) {
+    return <div className="panel-empty bottom-tool-empty">추가된 test 코드를 찾지 못했습니다.</div>;
+  }
+  const caseCount = files.reduce((total, file) => total + file.cases.length, 0);
+  const assertionCount = files.reduce(
+    (total, file) =>
+      total + file.cases.reduce((caseTotal, testCase) => caseTotal + testCase.assertionCount, 0),
+    0,
+  );
+  return (
+    <div className="bottom-tool-content tests-panel-content">
+      <div className="tool-summary-row">
+        <strong>추가된 test 파일 {files.length}개</strong>
+        <span>
+          test case {caseCount}개 · 기대 조건 {assertionCount}개
+        </span>
+      </div>
+      <div className="test-file-list">
+        {files.map((file) => (
+          <section className="test-file" key={file.path}>
+            <button
+              className="test-file-heading"
+              type="button"
+              onClick={() => onFileSelect(file.path)}
+            >
+              <TestTube2 size={14} />
+              <span>
+                <strong>{file.path}</strong>
+                <small>{file.summary}</small>
+              </span>
+              <code>+{file.additions}</code>
+            </button>
+            {file.cases.map((testCase) => (
+              <button
+                className="test-case-row"
+                type="button"
+                key={`${file.path}:${testCase.line}:${testCase.title}`}
+                onClick={() => onFileSelect(file.path)}
+              >
+                <span className="test-case-line">L{testCase.line}</span>
+                <span>
+                  <strong>{testCase.title}</strong>
+                  <small>{testCase.explanation}</small>
+                </span>
+                {testCase.suite ? <span className="test-suite">{testCase.suite}</span> : null}
+              </button>
+            ))}
+            {!file.patchAvailable ? (
+              <div className="test-patch-missing">
+                상세 patch가 없는 immutable snapshot이라 case 단위 설명을 만들 수 없습니다.
+              </div>
+            ) : null}
+          </section>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function EvidenceContent({
