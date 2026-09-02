@@ -40,6 +40,20 @@ cosign sign "docker.io/pydemia/git-code-reviewer@sha256:..."
 cosign verify "docker.io/pydemia/git-code-reviewer@sha256:..."
 ```
 
+Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.1.0-alpha.1`, chart version tag는 `0.1.0`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
+
+```bash
+helm registry login registry-1.docker.io -u pydemia
+helm package deploy/helm/git-code-reviewer --destination dist/helm
+helm push dist/helm/git-code-reviewer-0.1.0.tgz \
+  oci://registry-1.docker.io/pydemia
+helm show chart \
+  oci://registry-1.docker.io/pydemia/git-code-reviewer \
+  --version 0.1.0
+```
+
+OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart.yaml`의 name/version으로 이를 결정한다. [Helm OCI registry](https://helm.sh/docs/topics/registries/)
+
 ## Prerequisites
 
 - Kubernetes 1.29 이상과 Helm 3
@@ -70,6 +84,22 @@ kubectl -n git-code-reviewer create secret generic git-code-reviewer-auth \
   --from-literal=OIDC_CLIENT_SECRET='...' \
   --from-literal=OIDC_REDIRECT_URI='https://git-code-reviewer.example.internal/auth/callback' \
   --from-literal=OIDC_ADMIN_GROUP='git-code-reviewer-admins'
+```
+
+Docker Hub repository가 private이면 같은 계정의 access token으로 Kubernetes image pull Secret을 만든다. Docker Desktop의 `config.json`이 credential helper만 참조하는 경우 그 파일 자체를 Secret으로 복사하면 cluster에서 동작하지 않는다.
+
+```bash
+kubectl -n git-code-reviewer create secret docker-registry dockerhub-registry \
+  --docker-server=https://index.docker.io/v1/ \
+  --docker-username=pydemia \
+  --docker-password="$DOCKERHUB_TOKEN"
+```
+
+`values.enterprise.yaml`에는 모든 Server/Worker/migration/retention Pod가 같은 Secret을 사용하도록 설정한다.
+
+```yaml
+imagePullSecrets:
+  - name: dockerhub-registry
 ```
 
 내부 CA가 필요하면 기존 trust bundle로 ConfigMap을 만든다. TLS 검증을 끄는 설정은 사용하지 않는다.
@@ -110,6 +140,16 @@ helm template git-code-reviewer deploy/helm/git-code-reviewer \
   -n git-code-reviewer -f values.enterprise.yaml > rendered.yaml
 
 helm upgrade --install git-code-reviewer deploy/helm/git-code-reviewer \
+  -n git-code-reviewer -f values.enterprise.yaml \
+  --atomic --wait --timeout 20m
+```
+
+Source checkout 없이 Docker Hub의 chart를 직접 설치할 수도 있다. 먼저 `helm registry login`을 완료해야 한다.
+
+```bash
+helm upgrade --install git-code-reviewer \
+  oci://registry-1.docker.io/pydemia/git-code-reviewer \
+  --version 0.1.0 \
   -n git-code-reviewer -f values.enterprise.yaml \
   --atomic --wait --timeout 20m
 ```

@@ -48,4 +48,4 @@ pnpm build:packages
 pnpm --filter @gcr/runtime exec tsx src/index.ts worker
 ```
 
-OCI image 기본 repository는 `docker.io/pydemia/git-code-reviewer`이며, Helm chart는 [`deploy/helm/git-code-reviewer`](deploy/helm/git-code-reviewer)에 있다.
+OCI image 기본 repository는 `docker.io/pydemia/git-code-reviewer`이며, Helm chart는 [`deploy/helm/git-code-reviewer`](deploy/helm/git-code-reviewer)에 있다. 배포본 chart는 같은 Docker Hub repository에서 `oci://registry-1.docker.io/pydemia/git-code-reviewer`로 받을 수 있다.
