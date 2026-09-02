@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "pnpm build:packages && pnpm --filter @gcr/runtime build && pnpm --filter @gcr/web build",
-    "build:packages": "pnpm --filter @gcr/contracts build && pnpm --filter @gcr/db build && pnpm --filter @gcr/github build",
+    "build:packages": "pnpm --filter @gcr/contracts build && pnpm --filter @gcr/db build && pnpm --filter @gcr/github build && pnpm --filter @gcr/git-engine build && pnpm --filter @gcr/artifact-store build",
     "dev": "pnpm build:packages && pnpm --parallel --filter @gcr/runtime --filter @gcr/web dev",
     "dev:server": "pnpm build:packages && pnpm --filter @gcr/runtime dev:server",
     "dev:web": "pnpm --filter @gcr/web dev",

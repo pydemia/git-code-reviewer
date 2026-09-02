@@ -43,6 +43,7 @@ export type PullResult =
 
 export interface GitHubReader {
   listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult>;
+  getGitCredential?(target: RepositoryTarget): Promise<{ username: string; password: string }>;
 }
 
 export class GitHubRequestError extends Error {
@@ -102,6 +103,15 @@ export class GitHubAppClient implements GitHubReader {
     }
 
     return { outcome: 'updated', etag: responseEtag, pulls };
+  }
+
+  async getGitCredential(
+    target: RepositoryTarget,
+  ): Promise<{ username: string; password: string }> {
+    return {
+      username: 'x-access-token',
+      password: await this.installationToken(target.installationId, target.apiBaseUrl),
+    };
   }
 
   private async installationRequest(

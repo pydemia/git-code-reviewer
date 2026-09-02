@@ -1,7 +1,7 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
-import Fastify from 'fastify';
 import { createDatabase, runMigrations } from '@gcr/db';
 import type { AppConfig } from './config.js';
+import { runWorker } from './jobs/worker.js';
 import { buildServer } from './server.js';
 
 export async function serve(config: AppConfig): Promise<void> {
@@ -21,23 +21,7 @@ export async function migrate(config: AppConfig): Promise<void> {
 }
 
 export async function worker(config: AppConfig): Promise<void> {
-  await mkdir(config.WORKSPACE_ROOT, { recursive: true });
-  const health = Fastify({ logger: true });
-  let loopHealthy = true;
-  health.get('/health/live', async () => ({ status: 'ok' }));
-  health.get('/health/ready', async (_request, reply) =>
-    loopHealthy ? { status: 'ok' } : reply.code(503).send({ status: 'degraded' }),
-  );
-  await health.listen({ host: config.HOST, port: config.WORKER_HEALTH_PORT });
-
-  const interval = setInterval(() => {
-    loopHealthy = true;
-  }, 5_000);
-  await waitForSignal(async () => {
-    loopHealthy = false;
-    clearInterval(interval);
-    await health.close();
-  });
+  await runWorker(config);
 }
 
 export async function retention(config: AppConfig, reconcile: boolean): Promise<void> {

@@ -142,6 +142,12 @@ textarea:focus-visible {
   height: 26px;
 }
 
+.icon-button:disabled,
+.icon-button.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .worklist-page,
 .review-page {
   min-height: 100dvh;
@@ -478,6 +484,13 @@ h1 {
   padding: 0 6px;
 }
 
+.panel-empty {
+  padding: 16px 8px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .tree-row {
   width: 100%;
   height: 27px;
@@ -633,6 +646,19 @@ h1 {
   background: var(--code);
 }
 
+.diff-empty {
+  grid-column: 1 / -1;
+  min-height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: #939ca7;
+  font-size: 11px;
+  text-align: center;
+}
+
 .code-pane {
   min-width: 370px;
   position: relative;
@@ -695,6 +721,19 @@ h1 {
 
 .code-pane pre .added {
   background: #173a32;
+}
+
+.code-pane pre .placeholder {
+  background: #1a1f26;
+}
+
+.code-pane pre .hunk {
+  color: #aeb7c3;
+  background: #252d38;
+}
+
+.code-pane pre .hunk code {
+  color: #7fc3b6;
 }
 
 .chat-panel {

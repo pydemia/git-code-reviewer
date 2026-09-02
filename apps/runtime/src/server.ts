@@ -1,11 +1,14 @@
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import fastifyStatic from '@fastify/static';
+import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import Fastify from 'fastify';
 import { errorEnvelope, schemaVersion } from '@gcr/contracts';
 import { createDatabase, pingDatabase, type Database } from '@gcr/db';
 import { registerAuthentication } from './auth/index.js';
 import type { AppConfig } from './config.js';
+import { EventHub } from './events/index.js';
+import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerWorklistRoutes } from './routes/worklist.js';
 import {
   createGitHubReader,
@@ -43,6 +46,9 @@ export async function buildServer(config: AppConfig) {
   });
   const database = createDatabase(config.DATABASE_URL, config.DATABASE_POOL_MAX);
   const github = await createGitHubReader(config);
+  const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
+  const eventHub = new EventHub(database);
+  await eventHub.start();
 
   app.addHook('onRequest', async (_request, reply) => {
     for (const [name, value] of Object.entries(securityHeaders)) {
@@ -64,6 +70,7 @@ export async function buildServer(config: AppConfig) {
 
   await registerAuthentication(app, config, database);
   await registerWorklistRoutes(app, database);
+  await registerSnapshotRoutes(app, database, eventHub, artifacts);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));
@@ -143,6 +150,7 @@ export async function buildServer(config: AppConfig) {
 
   app.addHook('onClose', async () => {
     await stopScheduler();
+    await eventHub.close();
     await database.end();
   });
   return app;

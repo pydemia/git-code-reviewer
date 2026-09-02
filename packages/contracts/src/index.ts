@@ -57,6 +57,88 @@ export const pullRequestListSchema = z.object({
   nextCursor: z.string().nullable(),
 });
 
+export const pullRequestDetailSchema = pullRequestSchema.extend({
+  schemaVersion: z.literal(schemaVersion),
+  repositoryId: z.string().uuid(),
+  owner: z.string(),
+  name: z.string(),
+  webBaseUrl: z.string().url(),
+});
+
+export const analysisListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  items: z.array(
+    z.object({
+      id: z.string().uuid().nullable(),
+      snapshotId: z.string().uuid(),
+      revision: z.number().int().nullable(),
+      state: z.string().nullable(),
+      stage: z.string().nullable(),
+      progress: z.number().int().nullable(),
+      createdAt: z.string().nullable(),
+      resolution: z.enum(['exact', 'unresolved']),
+      mergeBaseSha: z.string().nullable(),
+      baseSha: z.string(),
+      headSha: z.string(),
+    }),
+  ),
+});
+
+export const snapshotFileListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  snapshotId: z.string().uuid(),
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      path: z.string(),
+      previousPath: z.string().nullable(),
+      status: z.string(),
+      additions: z.number().nullable(),
+      deletions: z.number().nullable(),
+    }),
+  ),
+});
+
+export const diffIndexSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  patch: z.string(),
+  files: z.array(
+    z.object({
+      path: z.string(),
+      previousPath: z.string().nullable(),
+      status: z.string(),
+      additions: z.number().nullable(),
+      deletions: z.number().nullable(),
+      patch: z.string(),
+    }),
+  ),
+});
+
+export const refreshResponseSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  operationId: z.string().uuid(),
+  state: z.string(),
+  deduplicated: z.boolean(),
+  eventsUrl: z.string(),
+});
+
+export const operationSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  id: z.string().uuid(),
+  type: z.string(),
+  state: z.string(),
+  result: z
+    .object({
+      snapshotChanged: z.boolean(),
+      snapshotId: z.string().uuid().nullable(),
+      analysisId: z.string().uuid().nullable(),
+    })
+    .nullable(),
+  error: z.record(z.string(), z.unknown()).nullable(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+});
+
 export const dependencyHealthSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   status: z.enum(['ok', 'degraded']),

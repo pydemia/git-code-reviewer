@@ -28,11 +28,22 @@ import {
   Users,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { loadWorklist, type WorklistItem } from './api.ts';
+import {
+  loadWorklist,
+  loadWorkspace,
+  refreshPull,
+  waitForSnapshot,
+  type WorklistItem,
+  type WorkspaceData,
+} from './api.ts';
 
 export function App() {
-  const workspace = window.location.pathname !== '/';
-  return workspace ? <ReviewWorkspace /> : <Worklist />;
+  const match = window.location.pathname.match(/^\/repositories\/([^/]+)\/pulls\/(\d+)$/);
+  return match ? (
+    <ReviewWorkspace repositoryId={match[1]!} pullNumber={Number(match[2])} />
+  ) : (
+    <Worklist />
+  );
 }
 
 function AppHeader({ compact = false }: { compact?: boolean }) {
@@ -168,35 +179,101 @@ function formatRelativeTime(value: string): string {
   return `${Math.floor(hours / 24)}일 전`;
 }
 
-function ReviewWorkspace() {
+function ReviewWorkspace({
+  repositoryId,
+  pullNumber,
+}: {
+  repositoryId: string;
+  pullNumber: number;
+}) {
+  const [data, setData] = useState<WorkspaceData | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadWorkspace(repositoryId, pullNumber, controller.signal).then(
+      (workspace) => {
+        setData(workspace);
+        setSelectedPath(initialSelectedPath(workspace));
+        setStatus('ready');
+      },
+      (error: unknown) => {
+        if (!controller.signal.aborted) {
+          console.error(error);
+          setStatus('error');
+        }
+      },
+    );
+    return () => controller.abort();
+  }, [repositoryId, pullNumber]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    const controller = new AbortController();
+    try {
+      const refresh = await refreshPull(repositoryId, pullNumber);
+      const operation = await waitForSnapshot(refresh.operationId, controller.signal);
+      if (operation.state === 'failed') throw new Error('Snapshot failed');
+      const workspace = await loadWorkspace(repositoryId, pullNumber, controller.signal);
+      setData(workspace);
+      setSelectedPath(initialSelectedPath(workspace));
+      setStatus('ready');
+    } catch (error) {
+      console.error(error);
+      setStatus('error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const selectedFile = data?.files.find((file) => file.path === selectedPath) ?? data?.files[0];
+  const selectedDiff = data?.diff?.files.find((file) => file.path === selectedFile?.path)?.patch;
   return (
     <div className="review-page">
       <AppHeader compact />
       <div className="review-context">
         <div className="pr-context">
-          <a href="/">platform / reviewer-api</a>
+          <a href="/">{data ? `${data.pull.owner} / ${data.pull.name}` : 'Repository'}</a>
           <ChevronRight size={13} />
-          <strong>#184</strong>
-          <span className="context-title">Harden session rotation and token exchange</span>
+          <strong>#{pullNumber}</strong>
+          <span className="context-title">{data?.pull.title ?? 'Pull request'}</span>
         </div>
         <div className="review-actions">
           <span className="analysis-state">
-            <CircleCheck size={14} /> 분석 완료
+            {data?.analysis ? <CircleCheck size={14} /> : <Clock3 size={14} />}
+            {refreshing
+              ? 'Snapshot 준비 중'
+              : data?.analysis
+                ? data.analysis.state === 'queued'
+                  ? '분석 대기'
+                  : data.analysis.state
+                : '분석 없음'}
           </span>
           <button className="revision-button" type="button">
-            Revision 3 <ChevronDown size={13} />
-          </button>
-          <button className="icon-button" type="button" title="새로고침" aria-label="새로고침">
-            <RefreshCw size={16} />
+            Revision {data?.analysis?.revision ?? '-'} <ChevronDown size={13} />
           </button>
           <button
             className="icon-button"
             type="button"
+            title="새로고침"
+            aria-label="새로고침"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing}
+          >
+            <RefreshCw size={16} className={refreshing ? 'spin' : undefined} />
+          </button>
+          <a
+            className={`icon-button${data ? '' : ' disabled'}`}
             title="GHES에서 열기"
             aria-label="GHES에서 열기"
+            href={data?.pull.htmlUrl}
+            target="_blank"
+            rel="noreferrer"
           >
             <ExternalLink size={16} />
-          </button>
+          </a>
         </div>
       </div>
       <main className="workspace-grid">
@@ -217,27 +294,29 @@ function ReviewWorkspace() {
           </nav>
           <div className="panel-heading">
             <span>CHANGED FILES</span>
-            <span>4</span>
+            <span>{data?.files.length ?? 0}</span>
           </div>
           <div className="file-tree">
-            <button className="tree-row folder" type="button">
-              <ChevronDown size={14} /> src
-            </button>
-            <button className="tree-row folder nested" type="button">
-              <ChevronDown size={14} /> auth
-            </button>
-            <button className="tree-row file active" type="button">
-              <FileCode2 size={14} /> session.ts <span>+31 −8</span>
-            </button>
-            <button className="tree-row file" type="button">
-              <FileCode2 size={14} /> token.ts <span>+18 −4</span>
-            </button>
-            <button className="tree-row file top-file" type="button">
-              <TestTube2 size={14} /> session.test.ts <span>+42</span>
-            </button>
-            <button className="tree-row file top-file" type="button">
-              <FileCode2 size={14} /> package.json <span>+1 −1</span>
-            </button>
+            {data?.files.map((file) => (
+              <button
+                className={`tree-row file top-file ${file.path === selectedFile?.path ? 'active' : ''}`}
+                type="button"
+                key={file.id}
+                onClick={() => setSelectedPath(file.path)}
+              >
+                {file.path.includes('test') ? <TestTube2 size={14} /> : <FileCode2 size={14} />}
+                {file.path}
+                <span>
+                  +{file.additions ?? '-'} −{file.deletions ?? '-'}
+                </span>
+              </button>
+            ))}
+            {status === 'loading' ? (
+              <div className="panel-empty">Snapshot을 확인하는 중...</div>
+            ) : null}
+            {status === 'ready' && !data?.files.length ? (
+              <div className="panel-empty">새로고침하여 snapshot을 준비하세요.</div>
+            ) : null}
           </div>
           <div className="coverage-strip">
             <span>Coverage</span>
@@ -251,11 +330,15 @@ function ReviewWorkspace() {
         <section className="diff-panel" aria-label="코드 차이">
           <div className="diff-toolbar">
             <div className="file-path">
-              <FileCode2 size={15} /> src/auth/session.ts
+              <FileCode2 size={15} /> {selectedFile?.path ?? 'Snapshot diff'}
             </div>
-            <span className="sha-label">base a13f2c8</span>
+            <span className="sha-label">
+              base {data?.analysis?.baseSha.slice(0, 7) ?? '-------'}
+            </span>
             <span className="sha-arrow">→</span>
-            <span className="sha-label head">head d91b7a4</span>
+            <span className="sha-label head">
+              head {data?.analysis?.headSha.slice(0, 7) ?? '-------'}
+            </span>
             <div className="toolbar-spacer" />
             <div className="segmented" aria-label="Diff 형식">
               <button className="active" type="button">
@@ -268,8 +351,21 @@ function ReviewWorkspace() {
             </button>
           </div>
           <div className="diff-columns">
-            <CodePane side="base" />
-            <CodePane side="head" />
+            {selectedDiff ? (
+              <>
+                <CodePane side="base" patch={selectedDiff} />
+                <CodePane side="head" patch={selectedDiff} />
+              </>
+            ) : (
+              <div className="diff-empty">
+                <GitPullRequest size={20} />
+                <span>
+                  {status === 'error'
+                    ? 'Snapshot을 불러오지 못했습니다.'
+                    : '아직 materialized snapshot이 없습니다.'}
+                </span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -288,7 +384,8 @@ function ReviewWorkspace() {
             </button>
           </div>
           <div className="revision-lock">
-            <Link2 size={13} /> Revision 3 · d91b7a4에 고정
+            <Link2 size={13} /> Revision {data?.analysis?.revision ?? '-'} ·{' '}
+            {data?.pull.headSha.slice(0, 7) ?? '-------'}에 고정
           </div>
           <div className="chat-messages">
             <div className="assistant-message">
@@ -373,50 +470,99 @@ function ReviewWorkspace() {
   );
 }
 
-const oldLines = [
-  'export async function rotateSession(token: string) {',
-  '  const current = await sessions.findByToken(token);',
-  '  if (!current || current.revokedAt) return null;',
-  '',
-  '  await sessions.revoke(current.id);',
-  '  return sessions.create(current.userId);',
-  '}',
-];
+type DiffLine = {
+  content: string;
+  kind: 'context' | 'added' | 'removed' | 'placeholder' | 'hunk';
+  number: number | null;
+};
 
-const newLines = [
-  'export async function rotateSession(token: string) {',
-  '  return database.transaction(async (tx) => {',
-  '    const current = await sessions.findByToken(token, tx);',
-  '    if (!current || current.revokedAt) return null;',
-  '',
-  '    await sessions.revoke(current.id, tx);',
-  '    return sessions.create(current.userId, tx);',
-  '  });',
-  '}',
-];
-
-function CodePane({ side }: { side: 'base' | 'head' }) {
-  const lines = side === 'base' ? oldLines : newLines;
+function CodePane({ side, patch }: { side: 'base' | 'head'; patch: string }) {
+  const lines = splitPatch(patch)[side];
   return (
     <div className={`code-pane ${side}`}>
       <div className="pane-label">{side === 'base' ? 'BASE' : 'HEAD'}</div>
       <pre>
         {lines.map((line, index) => (
-          <span
-            className={
-              side === 'base' && index >= 4
-                ? 'removed'
-                : side === 'head' && (index === 1 || index >= 5)
-                  ? 'added'
-                  : ''
-            }
-            key={`${side}-${index}`}
-          >
-            <i>{112 + index}</i>
-            <code>{line || ' '}</code>
+          <span className={line.kind} key={`${side}-${index}`}>
+            <i>{line.number ?? ''}</i>
+            <code>{line.content || ' '}</code>
           </span>
         ))}
       </pre>
     </div>
+  );
+}
+
+function splitPatch(patch: string): { base: DiffLine[]; head: DiffLine[] } {
+  const base: DiffLine[] = [];
+  const head: DiffLine[] = [];
+  const source = patch.split('\n');
+  let baseLine = 0;
+  let headLine = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const line = source[index] ?? '';
+    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    if (hunk) {
+      baseLine = Number(hunk[1]);
+      headLine = Number(hunk[2]);
+      const entry = { content: line, kind: 'hunk' as const, number: null };
+      base.push(entry);
+      head.push(entry);
+      continue;
+    }
+    if (baseLine === 0 && headLine === 0) continue;
+
+    if (line.startsWith('-')) {
+      const removed: string[] = [];
+      while ((source[index] ?? '').startsWith('-')) {
+        removed.push((source[index] ?? '').slice(1));
+        index += 1;
+      }
+      const added: string[] = [];
+      while ((source[index] ?? '').startsWith('+')) {
+        added.push((source[index] ?? '').slice(1));
+        index += 1;
+      }
+      index -= 1;
+      const rowCount = Math.max(removed.length, added.length);
+      for (let row = 0; row < rowCount; row += 1) {
+        base.push(
+          removed[row] === undefined
+            ? { content: '', kind: 'placeholder', number: null }
+            : { content: removed[row]!, kind: 'removed', number: baseLine++ },
+        );
+        head.push(
+          added[row] === undefined
+            ? { content: '', kind: 'placeholder', number: null }
+            : { content: added[row]!, kind: 'added', number: headLine++ },
+        );
+      }
+      continue;
+    }
+    if (line.startsWith('+')) {
+      base.push({ content: '', kind: 'placeholder', number: null });
+      head.push({ content: line.slice(1), kind: 'added', number: headLine++ });
+      continue;
+    }
+    if (line.startsWith(' ') || line === '') {
+      const content = line.startsWith(' ') ? line.slice(1) : '';
+      base.push({ content, kind: 'context', number: baseLine++ });
+      head.push({ content, kind: 'context', number: headLine++ });
+    }
+  }
+  if (base.length === 0) {
+    const empty = { content: 'No textual diff available', kind: 'hunk' as const, number: null };
+    base.push(empty);
+    head.push(empty);
+  }
+  return { base, head };
+}
+
+function initialSelectedPath(workspace: WorkspaceData): string | null {
+  return (
+    workspace.diff?.files.find((file) => file.patch.includes('@@'))?.path ??
+    workspace.files[0]?.path ??
+    null
   );
 }

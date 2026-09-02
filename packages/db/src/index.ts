@@ -8,6 +8,7 @@ const { Pool } = pg;
 const migrationLockId = 746_278_431;
 
 export type Database = pg.Pool;
+export type DatabaseClient = pg.PoolClient;
 
 export function createDatabase(connectionString: string, max = 10): Database {
   return new Pool({

@@ -59,11 +59,14 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
       if (!(await canReadRepository(database, request, repoId)))
         return hiddenNotFound(request, reply);
       const result = await database.query(
-        `select id, repository_id as "repositoryId", number, title, state, draft,
+        `select pr.id, pr.repository_id as "repositoryId", pr.number, pr.title, pr.state, pr.draft,
                 author_login as "author", html_url as "htmlUrl", base_ref as "baseRef",
                 base_sha as "baseSha", head_ref as "headRef", head_sha as "headSha",
-                github_updated_at as "updatedAt", observed_at as "observedAt"
-         from pull_requests where repository_id = $1 and number = $2`,
+                github_updated_at as "updatedAt", observed_at as "observedAt",
+                r.owner, r.name, i.web_base_url as "webBaseUrl"
+         from pull_requests pr join repositories r on r.id = pr.repository_id
+         join github_instances i on i.id = r.instance_id
+         where pr.repository_id = $1 and pr.number = $2`,
         [repoId, number],
       );
       return result.rows[0] ? { schemaVersion, ...result.rows[0] } : hiddenNotFound(request, reply);

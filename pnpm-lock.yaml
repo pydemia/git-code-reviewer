@@ -47,12 +47,18 @@ importers:
       '@fastify/static':
         specifier: ^8.2.0
         version: 8.3.0
+      '@gcr/artifact-store':
+        specifier: workspace:*
+        version: link:../../packages/artifact-store
       '@gcr/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@gcr/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@gcr/git-engine':
+        specifier: workspace:*
+        version: link:../../packages/git-engine
       '@gcr/github':
         specifier: workspace:*
         version: link:../../packages/github
@@ -104,6 +110,8 @@ importers:
         specifier: ^7.1.7
         version: 7.3.6(@types/node@24.13.3)(tsx@4.23.13)
 
+  packages/artifact-store: {}
+
   packages/contracts:
     dependencies:
       zod:
@@ -119,6 +127,8 @@ importers:
       '@types/pg':
         specifier: ^8.15.5
         version: 8.23.1
+
+  packages/git-engine: {}
 
   packages/github:
     dependencies:

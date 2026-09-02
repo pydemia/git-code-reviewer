@@ -8,6 +8,7 @@ import {
 } from '@gcr/github';
 import type { Database } from '@gcr/db';
 import type { AppConfig } from '../config.js';
+import { enqueueSnapshot } from './operations.js';
 
 const schedulerLockId = 746_278_432;
 
@@ -189,7 +190,11 @@ async function persistPulls(
   try {
     await connection.query('begin');
     for (const pull of pulls) {
-      await connection.query(
+      const current = await connection.query<{ base_sha: string; head_sha: string }>(
+        `select base_sha, head_sha from pull_requests where repository_id = $1 and number = $2`,
+        [repositoryId, pull.number],
+      );
+      const persisted = await connection.query<{ id: string }>(
         `insert into pull_requests(
            repository_id, github_id, number, title, state, draft, author_login, html_url,
            base_ref, base_sha, head_ref, head_sha, github_updated_at, observed_at)
@@ -199,7 +204,8 @@ async function persistPulls(
            draft = excluded.draft, author_login = excluded.author_login, html_url = excluded.html_url,
            base_ref = excluded.base_ref, base_sha = excluded.base_sha,
            head_ref = excluded.head_ref, head_sha = excluded.head_sha,
-           github_updated_at = excluded.github_updated_at, observed_at = clock_timestamp()`,
+           github_updated_at = excluded.github_updated_at, observed_at = clock_timestamp()
+         returning id`,
         [
           repositoryId,
           pull.githubId,
@@ -216,6 +222,17 @@ async function persistPulls(
           pull.updatedAt,
         ],
       );
+      const previous = current.rows[0];
+      if (!previous || previous.base_sha !== pull.baseSha || previous.head_sha !== pull.headSha) {
+        await enqueueSnapshot(
+          connection,
+          persisted.rows[0]!.id,
+          pull.baseSha,
+          pull.headSha,
+          null,
+          'poll',
+        );
+      }
     }
     const openNumbers = pulls.map((pull) => pull.number);
     await connection.query(
