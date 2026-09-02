@@ -1,7 +1,7 @@
 image:
   repository: docker.io/pydemia/git-code-reviewer
   tag: '0.2.0-alpha.1'
-  digest: ''
+  digest: 'sha256:c43d301d8b821836e5332698dbb4a238410f93ae7c7b9deee2f691a381776440'
   pullPolicy: IfNotPresent
 
 # Required when the Docker Hub repository is private. Create this Secret in
