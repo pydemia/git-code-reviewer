@@ -6,6 +6,8 @@
 
 초기 구현은 GitHub Enterprise Cloud와 GitHub Enterprise Server(GHES)를 모두 고려하되, 하나의 조직과 제한된 저장소에서 동작하는 배포 가능한 MVP를 목표로 한다. 기준 배포는 사내망의 중앙 service가 고정된 대표 egress IP를 통해 GitHub API와 Git endpoint를 조회하는 outbound-only 구조다. GitHub에서 사내망으로 시작하는 inbound 연결은 요구하지 않는다. 문서에 명시한 기술 스택은 기준 구현안이며 조직의 표준 인프라에 맞게 같은 경계를 유지한 채 교체할 수 있다.
 
+구현 시 검수 가능한 상세 요건은 [요건정의서](./requirements-specification.md), component·state·API·event 동작은 [기능설계서](./functional-design.md), 실제 개발 순서와 logical commit 경계는 [구현계획서](./implementation-plan.md)를 따른다. 이 blueprint와 상세 문서가 충돌하면 상세 문서의 요건 ID와 명시된 미정 사항을 먼저 확인하고 문서를 함께 정정한다.
+
 ## 2. 목표와 범위
 
 ### 2.1 목표
@@ -13,7 +15,7 @@
 - PR의 `base`, `merge-base`, `head`를 고정한 분석 snapshot을 만들고 전체 diff와 commit별 diff를 설명한다.
 - correctness, security, compatibility, test coverage, maintainability 관점의 finding을 코드 근거와 함께 제시한다.
 - 변경 파일에서 시작해 연관 symbol, 호출부, 의존 모듈, test, 소유자, 과거 변경 및 관련 PR까지 탐색한다.
-- reviewer가 file tree, split diff, history, branch graph를 오가며 finding을 확인하고 같은 문맥에서 agent와 대화하게 한다.
+- reviewer가 resizable LNB, split diff, evidence/history/graph tool을 오가며 finding을 확인하고, 화면에서 Chat을 닫지 않은 채 같은 snapshot 문맥으로 agent와 대화하게 한다.
 - 분석이 불완전하거나 추론에 의존하는 부분을 명시해 reviewer가 merge 판단의 책임과 근거를 유지하게 한다.
 - private code가 허가받지 않은 모델, 저장소, 로그 또는 telemetry로 유출되지 않게 한다.
 
@@ -25,8 +27,9 @@
 - 변경 파일과 직접 연관된 symbol 및 import/dependency 탐색
 - `git log`, `git blame`, `git show` 기반의 파일·line·소유자 history
 - 근거가 있는 priority finding과 PR 전체 요약
-- file tree, split diff, finding panel, folded history, 분석 진행 상태
-- snapshot 범위 안에서 동작하는 interactive chat
+- resizable LNB/Main/Chat/FNB workspace, file tree, Findings 정리, split diff, compact evidence/history, 분석 진행 상태
+- Findings와 동시에 표시되며 snapshot 범위 안에서 동작하는 persistent Chat dock
+- PR 중심 Git graph와 file/symbol history tool
 - GitHub Check에 분석 상태와 요약 게시. inline review comment 게시는 설정으로 선택
 - repository별 규칙, 제외 경로, inline skip directive, 결과 상세도 설정
 
@@ -141,7 +144,7 @@ GitHub initiates no connection to the internal network.
 |---|---|---|
 | Monorepo | pnpm workspace + Turborepo | UI, API, worker와 공유 contract를 한 언어로 관리 |
 | Web | Next.js + React + TypeScript | server-side auth와 review UI를 함께 구성 |
-| Code/diff UI | Monaco Editor, custom virtualized tree/timeline | split diff와 line anchor, 큰 파일 rendering 제어 |
+| Code/diff/graph UI | Monaco Editor, custom virtualized tree/timeline/graph | split diff, line anchor, PR 중심 Git graph와 큰 artifact rendering 제어 |
 | API | Fastify + TypeScript | refresh command와 streaming API를 독립 process로 운영 |
 | Queue | Redis + BullMQ | MVP의 retry, dedupe, progress, cancellation 구현 |
 | Scheduler | BullMQ Job Scheduler + PostgreSQL lease | active/idle polling 예약과 다중 replica의 중복 순회 방지 |
@@ -152,13 +155,13 @@ GitHub initiates no connection to the internal network.
 | Model access | provider-neutral internal gateway | 모델 허용 목록, data residency, 비용과 감사 정책 집중 |
 | Transport | REST + SSE | query/command와 분석·chat token stream을 단순하게 분리 |
 
-초기에는 사내 VM 또는 Kubernetes의 modular monolith로 배포한다. `web`, `api`, `poller`, `worker` process는 나누되 domain package와 database를 공유한다. 사용자는 사내망 또는 VPN을 통해 web에 접근하고, GitHub 통신은 대표 egress IP를 가진 경로로만 나간다. 처리량이나 격리 요구가 확인된 뒤 analyzer와 model orchestration을 별도 service로 분리한다.
+초기에는 사내 VM 또는 Kubernetes의 modular monolith로 배포한다. `web`, `api`, `poller`, `worker` process는 나누되 domain package와 database를 공유한다. `worker`는 Git CLI, parser, analyzer와 sandbox 정책이 필요하고 web/API와 scaling·resource·network profile이 다르므로 별도 OCI image로 빌드한다. CI/CD는 이 image를 만들고 배포할 뿐 PR 분석 job을 직접 실행하지 않으며, 배포된 worker가 사내 queue를 상시 소비한다. 사용자는 사내망 또는 VPN을 통해 web에 접근하고, GitHub 통신은 대표 egress IP를 가진 경로로만 나간다. 처리량이나 격리 요구가 확인된 뒤 analyzer와 model orchestration을 별도 service로 분리한다.
 
 ### 5.2 제안 source layout
 
 ```text
 apps/
-├── web/                       # reviewer UI
+├── web/                       # resizable review workspace, diff, persistent chat, graph tools
 ├── api/                       # REST, SSE, auth, manual refresh
 ├── poller/                    # installation/repository/PR polling scheduler
 └── worker/                    # snapshot, analysis, publish workers
@@ -177,11 +180,70 @@ packages/
 ├── agent/                    # tools, prompts, orchestrator, verifier
 ├── policy/                   # priority, suppression, repository config
 └── observability/            # structured logs, trace, metrics, audit helpers
+ci/
+└── worker-image.yml          # CI provider가 호출하는 build/test/scan/sign/push/deploy pipeline
 infra/
 ├── containers/
-├── kubernetes/
+│   └── worker.Dockerfile     # pinned Git/parser/analyzer를 넣는 multi-stage build
+├── kubernetes/worker/
+│   ├── deployment.yaml       # image digest, resources, probes, config/secret reference
+│   ├── service-account.yaml  # workload identity binding
+│   └── network-policy.yaml   # queue/data/model/GitHub egress만 허용
 └── terraform/
 ```
+
+### 5.3 Worker image와 CI/CD delivery contract
+
+`worker` image는 `web`, `api`, `poller` image와 독립적으로 versioning한다. 기준 image reference는 `registry.example.internal/git-code-reviewer/worker@sha256:<digest>`이며 production manifest에서 mutable tag인 `latest`를 사용하지 않는다. 같은 source revision으로 다시 build해도 digest와 provenance가 다르면 별도 release로 취급한다.
+
+CI/CD 흐름은 다음과 같다.
+
+1. self-hosted CI/CD runner가 repository를 checkout하고 lockfile, worker unit/integration test와 manifest validation을 실행한다. 외부 control plane을 쓰는 runner는 내부 inbound port를 열지 않고 outbound job polling으로 작업을 가져온다.
+2. `infra/containers/worker.Dockerfile`로 multi-stage build를 실행한다. runtime layer에는 compiled worker, production dependency, 버전을 고정한 Git CLI, CA trust bundle, Tree-sitter parser와 승인된 deterministic analyzer만 남긴다.
+3. image를 non-root user, read-only root filesystem 전제로 검사하고 vulnerability scan, SBOM, provenance와 signature를 생성한다. build secret이 필요하면 BuildKit secret mount처럼 layer와 build log에 남지 않는 기능을 사용한다.
+4. CI workload identity 또는 짧은 수명의 registry credential로 image와 metadata를 사내 registry에 push한다.
+5. 검증된 digest를 `infra/kubernetes/worker/deployment.yaml` 또는 동등한 VM deployment descriptor에 전달한다. deployment controller가 digest, runtime ConfigMap/Secret reference와 service account binding을 적용하고 readiness·queue smoke test 뒤 rollout을 완료한다.
+
+정보는 다음 경계에 둔다.
+
+| 위치 | 저장하는 정보 | 전달 방식 | 두지 않는 정보 |
+|---|---|---|---|
+| Git repository | worker source, lockfile, Dockerfile, deployment template, NetworkPolicy, 설정 key schema | CI checkout | credential 실제 값, private key, production token |
+| CI variable store | `REGISTRY_HOST`, `WORKER_IMAGE_REPOSITORY`, target environment/namespace, scan policy | pipeline parameter | GitHub App private key, DB/Redis/model password |
+| CI identity/secret store | registry push와 deploy 권한. 가능하면 OIDC/workload identity와 짧은 수명 token 사용 | job 실행 시 runner에 한시적으로 발급 | application runtime secret, repository source를 읽는 installation token |
+| Worker OCI image | compiled worker, pinned runtime/toolchain, parser/analyzer, CA bundle, build metadata label | registry에서 digest로 pull | 환경별 endpoint, credential, repository clone, 분석 artifact |
+| Container registry | immutable image digest, SBOM, signature, provenance, scan result | deploy admission과 runtime pull | plaintext application secret |
+| Deployment manifest | image digest, command, replica/resource/probe, volume, ConfigMap/Secret reference, service account | GitOps 또는 deploy controller | secret 실제 값, mutable `latest` tag |
+| Runtime ConfigMap/환경 설정 | GitHub host/API URL, queue·DB·object storage host/name, model profile, concurrency, timeout, log level | container start 시 env 또는 read-only file | password, private key, access token |
+| Secret manager/workload identity | GitHub App private key, DB/Redis credential, object storage credential, model gateway token 또는 이를 발급할 identity | CSI/read-only file 또는 identity token exchange. process 시작·rotation 시 조회 | image layer, repository, queue payload로의 복사 |
+| Queue job | `tenant_id`, `repository_id`, `snapshot_id`, `run_id`, stage, retry/idempotency metadata | BullMQ message | source text, private key, installation token |
+| Ephemeral Git volume | 해당 job의 bare mirror/worktree와 analyzer scratch | worker가 runtime credential로 fetch하고 job 종료/TTL에 삭제 | image build 시점 repository clone, 장기 credential |
+
+권장 runtime key는 아래처럼 비밀 값과 reference를 분리한다. endpoint 이름 자체가 조직 정책상 민감하면 ConfigMap 대신 secret manager에서 함께 관리한다.
+
+```text
+# non-secret runtime config
+GCR_GITHUB_APP_ID
+GCR_GITHUB_WEB_URL
+GCR_GITHUB_API_URL
+GCR_GITHUB_GRAPHQL_URL
+GCR_REDIS_HOST / GCR_REDIS_PORT
+GCR_DATABASE_HOST / GCR_DATABASE_NAME
+GCR_OBJECT_BUCKET
+GCR_MODEL_PROFILE
+GCR_WORKER_CONCURRENCY
+GCR_JOB_TIMEOUT_MS
+GCR_GIT_WORKDIR
+GCR_LOG_LEVEL
+
+# secret file reference or workload identity binding
+GCR_GITHUB_APP_PRIVATE_KEY_FILE
+GCR_DATABASE_PASSWORD_FILE
+GCR_REDIS_PASSWORD_FILE
+GCR_MODEL_TOKEN_FILE
+```
+
+worker는 queue의 ID로 tenant와 snapshot을 확인한 뒤 실행 시점에 GitHub App key를 읽거나 workload identity로 사내 credential broker를 호출해 짧은 수명의 installation token을 발급받는다. 그 token으로 허용된 ref만 ephemeral volume에 fetch한다. token, source와 prompt는 queue, image, CI artifact와 application log에 기록하지 않는다.
 
 ## 6. Component 책임
 
@@ -525,27 +587,29 @@ event에는 적용 가능한 `event_id`, `tenant_id`, `installation_id`, `reposi
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ repo / PR #123   base…head   analysis: complete   P3 0 · P2 3 · P1 5       │
 ├──────────────────┬──────────────────────────────────────┬────────────────────┤
-│ Files / Modules  │ Split Diff                           │ Findings / Chat    │
-│                  │                                      │                    │
-│ ▾ src            │ old                         new      │ [P2] retry bypass │
-│   ▾ payment      │ 42  ...                  42  ...     │ evidence 3        │
-│     api.ts  +12  │ 43  removed              43  added  ◄── selected         │
-│     retry.ts +8  │                                      │                    │
-│ ▾ tests          │                                      │ Ask about this... │
+│ LNB              │ Main workspace                       │ Persistent Chat    │
+│ Files            │ Split / unified diff                 │ scope              │
+│ Findings         │ File / symbol / commit               │ conversation       │
+│ Outline          │ Maximized tool view                  │ evidence links     │
+│ Impact           │                                      │ composer           │
 ├──────────────────┴──────────────────────────────────────┴────────────────────┤
-│ Folded History: commit → file → symbol → line   |   Branch Graph            │
+│ FNB tool dock: Evidence · Git graph · History · Ownership · Impact · Tests  │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Header:** snapshot SHA, GitHub last-checked 시각, stale 여부, refresh/backoff 상태, run 상태, coverage, priority count를 표시한다.
-- **File Tree:** module grouping, add/delete/rename, changed line 수, 최고 priority, 분석 생략 상태를 함께 표시한다.
+- **LNB:** Files, Findings, Outline, Impact mode를 제공한다. Findings는 priority/confidence/status/file/specialist 기준으로 정리하며 Chat과 상호 배타적인 tab으로 만들지 않는다.
 - **Diff View:** old/new line coordinate, comment anchor, related symbol과 finding marker를 제공한다.
-- **Findings:** priority 외에 confidence와 suppression을 같은 수준으로 보여준다. finding 선택 시 diff/history가 함께 이동한다.
-- **Chat:** 전체 PR, 선택 file, hunk, symbol을 질문 scope로 고정할 수 있다. 답변의 evidence chip을 누르면 해당 panel이 열린다.
-- **Folded History:** 기본은 요약된 accordion이며 commit → file → symbol → line 순으로 필요한 만큼 펼친다.
-- **Branch Graph:** 현재 PR의 base/head/merge-base와 직접 관련된 branch/merge만 먼저 보여주고 전체 graph는 요청 시 불러온다.
+- **Persistent Chat:** 오른쪽 전용 dock에 항상 mount한다. 전체 PR, 선택 file, hunk, symbol, finding, commit을 질문 scope로 고정할 수 있고 evidence chip을 누르면 Main/FNB가 해당 근거로 이동한다.
+- **FNB tool dock:** 초기 높이는 132px, 접힘 높이는 48px이며 사용자가 직접 확장하지 않은 상태에서는 160px을 넘지 않는다. Evidence trail, Git graph, History, Ownership, Impact, Related tests를 제공한다.
+- **Git Graph:** base/head/merge-base와 직접 관련된 commit lane을 compact view로 먼저 보여준다. maximize, pan/zoom, branch/filter, history pagination과 commit-to-diff 이동을 지원한다.
+- **Panel resizing:** LNB는 기본 280px(220–420px), Chat은 380px(320–560px), FNB는 132px(48px–45vh)이다. pointer와 keyboard separator를 제공하고 사용자·repository별 크기를 복원한다.
+- **Responsive layout:** 1280px 이상에서는 LNB/Main/Chat을 같은 행에 표시한다. 960–1279px에서는 LNB를 rail로 줄이고, 960px 미만에서는 LNB를 sheet로, Chat을 viewport 하단 persistent dock으로 배치한다. 좁은 화면에서도 Chat scope/composer, draft와 response stream을 unmount하지 않는다.
+- **UI language:** 기본 locale은 `ko-KR`로 설정한다. 메뉴의 기술 개념과 개발자가 그대로 식별해야 하는 `PR`, `diff`, `snapshot`, `finding`, `commit`, `merge-base`, `HEAD`, `Git graph`, `Worker`, `runtime`, `queue`, `Chat`은 영어 표기를 유지한다. 버튼 동작, 상태, 오류, 도움말, finding 설명과 Chat 문장은 한글로 작성하며 영어 문장을 그대로 노출하지 않는다.
 
-diff, file tree, history는 큰 PR에서도 전체 DOM을 만들지 않도록 windowing한다. report가 완성되기 전에도 수집이 끝난 file부터 볼 수 있지만, 부분 결과임을 명확히 표시한다.
+finding, evidence chip, graph commit을 선택하면 LNB, Main, FNB, Chat이 하나의 `snapshotId`와 selection을 가리키도록 단일 transaction으로 갱신한다. diff, file tree, history와 graph는 큰 PR에서도 전체 DOM을 만들지 않도록 windowing/pagination한다. report가 완성되기 전에도 수집이 끝난 file부터 볼 수 있지만, 부분 결과임을 명확히 표시한다.
+
+`.documents/visuals/review-workspace.html`은 시각 방향과 일부 interaction을 확인하는 prototype이다. prototype에 보이지 않는다는 이유로 Git graph, ownership, impact, related test 등의 production 기능을 제외하지 않는다. panel별 구현 contract, responsive state, frontend module 경계와 acceptance criteria는 [Review Workspace UI Implementation Design](./ui-implementation-design.md)을 따른다.
 
 ## 12. Repository configuration
 
@@ -610,7 +674,8 @@ repository 전용 검토 지침은 `.gcr/rules/*.md`에 둘 수 있다. rule 파
 - model prompt에서 repository text와 system policy를 구조적으로 분리한다.
 - typed tool handler가 snapshot과 tenant를 server-side에서 주입하며 model이 repository ID나 ref를 바꾸지 못하게 한다.
 - path traversal, symlink escape, submodule URL, Git config/hook 실행을 차단한다.
-- analyzer container는 read-only root filesystem, resource limit, egress deny를 기본값으로 사용한다.
+- worker pod는 default-deny NetworkPolicy에서 queue, database, object storage, model gateway와 허용된 GitHub endpoint만 연다. repository command를 실행하는 analyzer/bisect sandbox는 worker와 분리하고 egress deny를 적용한다.
+- worker image는 CI에서 SBOM, provenance, vulnerability scan과 signature를 생성하고 admission 또는 deployment 단계에서 digest와 signature를 검증한다. runtime secret은 image build argument나 layer에 넣지 않는다.
 - model output은 schema validation, size limit, Markdown sanitization을 거친 뒤 저장·표시한다.
 
 ### 13.4 Network, polling과 게시 안전성
@@ -679,6 +744,8 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 구현:
 
 - monorepo, local development stack, database migration
+- worker 전용 OCI image, CI build/test/scan/SBOM/sign/push와 digest 기반 private runtime 배포
+- ConfigMap/secret reference, workload identity, ephemeral Git volume과 worker egress NetworkPolicy
 - GitHub App installation token과 installation/repository reconciliation
 - active/idle PR poll scheduler, durable cursor/checkpoint, manual refresh
 - repository mirror, immutable snapshot, raw diff artifact
@@ -687,6 +754,8 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 
 완료 조건:
 
+- CI가 worker image에 secret을 포함하지 않고 immutable digest, SBOM, provenance와 signature를 registry에 게시한다.
+- private runtime이 승인된 digest를 pull하고 runtime secret을 file/workload identity로 주입해 queue smoke job을 처리한다.
 - private test repository에서 poller가 PR open과 head 변경을 감지해 서로 다른 snapshot을 만든다.
 - 같은 PR/head를 반복 조회하거나 concurrent poller가 감지해도 run과 Check가 중복되지 않는다.
 - scheduler 재시작과 pagination 중단 뒤 checkpoint에서 조회를 재개한다.
@@ -696,16 +765,21 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 
 구현:
 
-- file tree, virtualized split diff, 전체/commit별 summary
+- resizable LNB/Main/Chat/FNB workspace shell, layout preference와 responsive fallback
+- LNB Files/Findings/Outline, virtualized split/unified diff, 전체/commit별 summary
 - diff/history/blame analyzer와 우선 2개 언어의 Tree-sitter symbol adapter
 - correctness, security, test specialist와 evidence verifier
 - priority/confidence contract, Check summary, optional inline comments
-- snapshot-scoped chat과 evidence deep link
+- Findings와 동시에 보이는 persistent snapshot-scoped Chat과 evidence deep link
+- compact Evidence trail, PR 중심 Git graph, file/symbol history
 - `.gcr.yml`, skip directive, richness
 
 완료 조건:
 
 - finding에서 표시한 line, symbol, commit evidence로 이동할 수 있다.
+- finding, evidence chip, graph commit을 선택했을 때 LNB/Main/FNB/Chat이 같은 snapshot과 selection을 가리킨다.
+- desktop에서 Findings와 Chat을 동시에 사용할 수 있고, panel resize와 reload 뒤 layout 복원이 pointer/keyboard 양쪽에서 동작한다.
+- Git graph에서 base/merge-base/head를 식별하고 commit을 선택해 해당 diff로 이동할 수 있다.
 - 존재하지 않는 line이나 stale head에는 GitHub comment가 게시되지 않는다.
 - parser/model 하나가 실패해도 omission이 포함된 partial report를 확인할 수 있다.
 - P3는 high confidence와 직접 evidence가 없으면 Check failure 후보가 되지 않는다.
@@ -717,7 +791,8 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 - import/reference graph와 연관 test 탐색
 - file/module/line/function/class history
 - CODEOWNERS, blame, review history를 분리한 ownership view
-- folded history와 PR 중심 branch graph
+- Impact LNB mode, folded history와 full Git graph filter/history pagination
+- ownership, impact, related test FNB tool과 Main maximize view
 - finding fingerprint를 이용한 resolved/reintroduced 추적
 
 완료 조건:
@@ -754,6 +829,8 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 
 ### Integration
 
+- worker image build → scan/sign → private registry push → digest rollout → queue smoke job을 test environment에서 검증
+- ConfigMap 변경과 secret rotation이 image rebuild 없이 반영되고 진행 중 job의 credential이 log/queue에 남지 않는지 확인
 - 실제 Git fixture로 merge-base, force-push, base 이동, merge commit, shallow fetch 처리
 - GitHub API mock으로 cursor pagination, conditional response, primary/secondary rate limit, expired token, stale comment anchor 처리
 - scheduler lease 만료, replica 동시 실행, cursor checkpoint 유실/복구와 동일 head dedupe
@@ -763,6 +840,9 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 ### End-to-end
 
 - PR open → poll 감지 → 분석 → UI diff/finding → chat → outbound Check 게시
+- LNB finding 선택 → diff anchor/FNB evidence/Chat scope 동기화 → evidence chip으로 원래 근거 복귀
+- Git graph commit 선택 → commit diff/Findings/Chat scope 동기화 → history pagination
+- LNB/Chat/FNB pointer·keyboard resize → reload 복원 → compact/stacked responsive 전환
 - 분석 중 head 변경 → 다음 poll/refresh 감지 → 이전 run superseded → 최신 head report 게시
 - reviewer refresh → 우선 조회 및 중복 요청 coalesce → 최신 snapshot 표시
 - poller 장시간 중단 → 재시작 reconciliation → 누락된 head 변경 분석
@@ -772,6 +852,8 @@ model이나 prompt를 바꿀 때 golden set을 실행한다. production traffic�
 
 ### Security
 
+- worker image layer/history, SBOM, provenance, CI log와 build cache에 secret 또는 repository clone이 남지 않는지 검사
+- unsigned image, mutable tag, 허용되지 않은 base image와 critical vulnerability의 deployment 차단
 - 코드 주석과 PR 본문을 이용한 prompt injection fixture
 - malicious filename, symlink, submodule, Git option injection
 - allowlist 밖 redirect/DNS/TLS 실패와 GitHub host 혼동

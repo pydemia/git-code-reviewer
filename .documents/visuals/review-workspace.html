@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="ko" data-locale="ko-KR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Git Code Reviewer — Review 작업공간</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17212b;
+      --ink-2: #273644;
+      --paper: #f4f2ed;
+      --panel: #ffffff;
+      --line: #d7d9dc;
+      --line-strong: #b9c0c7;
+      --muted: #64707c;
+      --cyan: #007f86;
+      --cyan-soft: #ddf3f2;
+      --amber: #884100;
+      --amber-soft: #fff0db;
+      --red: #b72d37;
+      --red-soft: #fde8e9;
+      --green: #28734b;
+      --green-soft: #e4f4e9;
+      --blue: #2b5ca7;
+      --blue-soft: #e8effa;
+      --code: #111820;
+      --code-2: #17212b;
+      --code-line: #283541;
+      --code-text: #dce5ed;
+      --code-muted: #8795a3;
+      --radius: 12px;
+      --shadow: 0 16px 40px rgba(20, 31, 42, 0.13);
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; min-height: 100%; }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    button, input, textarea { font: inherit; }
+
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 3px solid rgba(0, 127, 134, 0.35);
+      outline-offset: 2px;
+    }
+
+    ::selection { background: #b7e4e2; color: #0b3134; }
+
+    .app {
+      height: 100vh;
+      min-height: 720px;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .topbar {
+      min-height: 54px;
+      background: var(--ink);
+      color: #f7f8fa;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      padding: 0 18px;
+      border-bottom: 1px solid #0f171e;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #7f919f;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      color: #73dbd6;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .crumb {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #c7d0d8;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .crumb strong { color: #ffffff; overflow: hidden; text-overflow: ellipsis; }
+    .crumb .slash { color: #647582; }
+
+    .topbar-spacer { flex: 1; }
+
+    .top-action {
+      border: 1px solid #536571;
+      background: transparent;
+      color: #eff4f7;
+      border-radius: 7px;
+      padding: 7px 11px;
+      cursor: pointer;
+    }
+
+    .top-action:hover { background: #263541; }
+
+    .identity {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #3a5060;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .sample-notice {
+      color: #b8c4cd;
+      font-family: var(--mono);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .prbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-height: 72px;
+      padding: 10px 18px;
+    }
+
+    .pr-title { min-width: 0; flex: 1; }
+    .pr-title h1 { margin: 0 0 4px; font-size: 18px; line-height: 1.25; letter-spacing: -0.02em; }
+
+    .pr-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .state {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .state.complete { background: var(--green-soft); color: var(--green); }
+    .state.snapshot { background: var(--blue-soft); color: var(--blue); font-family: var(--mono); font-weight: 600; }
+
+    .risk-counts { display: flex; align-items: center; gap: 8px; }
+
+    .risk {
+      min-width: 42px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .risk.p3 { background: var(--red-soft); color: var(--red); }
+    .risk.p2 { background: var(--amber-soft); color: var(--amber); }
+    .risk.p1 { background: var(--blue-soft); color: var(--blue); }
+
+    .review-grid {
+      --lnb-width: 280px;
+      --chat-width: 380px;
+      --fnb-height: 132px;
+      min-height: 0;
+      height: 100%;
+      display: grid;
+      grid-template-columns: var(--lnb-width) 6px minmax(560px, 1fr) 6px var(--chat-width);
+      grid-template-rows: minmax(0, 1fr) 6px var(--fnb-height);
+      background: var(--panel);
+    }
+
+    .file-panel, .inspector { min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }
+    .file-panel { grid-column: 1; grid-row: 1; display: grid; grid-template-rows: 44px minmax(0, 1fr); }
+    .inspector { grid-column: 5; grid-row: 1; display: grid; grid-template-rows: 44px minmax(0, 1fr); }
+    .diff-panel { grid-column: 3; grid-row: 1; }
+
+    .panel-head {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fafafa;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .panel-head .count { margin-left: auto; color: var(--muted); font-family: var(--mono); }
+
+    .lnb-tabs {
+      height: 44px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-bottom: 1px solid var(--line);
+      background: #fafafa;
+    }
+
+    .lnb-tab {
+      min-width: 0;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      padding: 0 4px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .lnb-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--cyan); background: #ffffff; }
+    .lnb-body { min-height: 0; overflow: auto; scrollbar-color: #b1b8bf transparent; scrollbar-width: thin; }
+    .lnb-view { display: none; }
+    .lnb-view.active { display: block; }
+
+    .mode-summary { padding: 11px 12px; border-bottom: 1px solid var(--line); background: #fffdfa; }
+    .mode-summary strong { display: block; margin-bottom: 3px; }
+    .mode-summary span { color: var(--muted); font-size: 11px; }
+
+    .mode-list { margin: 0; padding: 8px; list-style: none; }
+    .mode-list li { padding: 9px 8px; border-bottom: 1px solid #eceeef; }
+    .mode-list strong { display: block; margin-bottom: 2px; }
+    .mode-list span { color: var(--muted); font-size: 11px; }
+
+    .resize-handle {
+      position: relative;
+      background: #e8eaec;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .resize-handle::after { content: ""; position: absolute; background: #aab3ba; }
+    .resize-handle:hover::after, .resize-handle:focus-visible::after { background: var(--cyan); }
+    .resize-handle:focus-visible { outline: 3px solid rgba(0, 127, 134, 0.35); outline-offset: -1px; }
+    .resize-handle.vertical { cursor: col-resize; }
+    .resize-handle.vertical::after { top: 0; bottom: 0; left: 2px; width: 2px; }
+    .resize-handle.horizontal { cursor: row-resize; grid-column: 1 / -1; grid-row: 2; }
+    .resize-handle.horizontal::after { left: 0; right: 0; top: 2px; height: 2px; }
+    #lnbResize { grid-column: 2; grid-row: 1; }
+    #chatResize { grid-column: 4; grid-row: 1; }
+    .is-resizing { cursor: col-resize; }
+    .is-resizing.fnb-resizing { cursor: row-resize; }
+
+    .tree { padding: 8px; }
+
+    .tree-section {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 8px 4px;
+      font-weight: 700;
+      font-size: 11px;
+      color: #41505e;
+    }
+
+    .chevron {
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid #7f8b95;
+    }
+
+    .file-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--ink-2);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 5px 8px 5px 28px;
+      border-radius: 6px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .file-item:hover { background: #f0f2f3; }
+    .file-item.active { background: var(--cyan-soft); color: #0b5559; }
+    .file-item:disabled { color: #7a858e; cursor: not-allowed; }
+    .file-item:disabled:hover { background: transparent; }
+    .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .file-stats { display: flex; gap: 5px; font-family: var(--mono); font-size: 11px; }
+    .add { color: var(--green); }
+    .del { color: var(--red); }
+
+    .file-priority {
+      display: inline-grid;
+      place-items: center;
+      min-width: 22px;
+      height: 19px;
+      margin-right: 4px;
+      border-radius: 5px;
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .tree-summary {
+      margin: 12px 8px;
+      border-top: 1px solid var(--line);
+      padding: 12px 6px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .tree-summary strong { color: var(--ink); }
+
+    .diff-panel { min-width: 0; min-height: 0; display: grid; grid-template-rows: 44px 36px 1fr; background: var(--code); }
+
+    .diff-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border-bottom: 1px solid #33404b;
+      background: #1b2731;
+      color: #e7edf2;
+    }
+
+    .diff-path { font-family: var(--mono); font-size: 11px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .diff-toolbar .spacer { flex: 1; }
+
+    .tool-button {
+      border: 1px solid #455662;
+      background: #202e39;
+      color: #dfe7ed;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .tool-button:hover { background: #2b3a46; }
+
+    .diff-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--code-2);
+      color: var(--code-muted);
+      border-bottom: 1px solid #33404b;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .diff-columns div { padding: 9px 12px; }
+    .diff-columns div + div { border-left: 1px solid #33404b; }
+
+    .diff-scroll { min-height: 0; overflow: auto; scrollbar-color: #4e606e #18222b; scrollbar-width: thin; }
+
+    .hunk {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-width: 760px;
+      border-bottom: 1px solid var(--code-line);
+    }
+
+    .code-side { min-width: 0; }
+    .code-side + .code-side { border-left: 1px solid var(--code-line); }
+
+    .code-row {
+      min-height: 26px;
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 26px;
+      color: var(--code-text);
+    }
+
+    .line-no {
+      padding-right: 10px;
+      text-align: right;
+      color: #71808e;
+      border-right: 1px solid rgba(95, 112, 126, 0.26);
+      user-select: none;
+    }
+
+    .code {
+      padding: 0 12px;
+      white-space: pre;
+      overflow: hidden;
+      text-overflow: clip;
+    }
+
+    .code-row.removed { background: rgba(183, 45, 55, 0.18); }
+    .code-row.removed .code { color: #ffc8cb; }
+    .code-row.added { background: rgba(40, 115, 75, 0.22); }
+    .code-row.added .code { color: #c7f0d7; }
+    .code-row.focus { box-shadow: inset 3px 0 var(--cyan), inset 0 0 0 1px rgba(0, 127, 134, 0.72); }
+    .code-row.empty .code { color: transparent; }
+
+    .kw { color: #8cb9ff; }
+    .fn { color: #e7c77b; }
+    .str { color: #9ed39e; }
+    .cm { color: #82909c; }
+
+    .chat-head {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fafafa;
+    }
+
+    .chat-head strong { font-size: 14px; }
+    .chat-head span { margin-left: auto; color: var(--muted); font-size: 11px; }
+    .inspector-body { min-height: 0; overflow: hidden; }
+
+    .finding-summary { padding: 13px 14px; border-bottom: 1px solid var(--line); background: #fffdfa; }
+    .finding-summary p { margin: 6px 0 0; color: #505e69; font-size: 11px; }
+
+    .finding {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+    }
+
+    .finding:hover { background: #fafafa; }
+    .finding.selected { background: #f0faf9; box-shadow: inset 3px 0 var(--cyan); }
+    .finding:focus-visible, .diff-scroll:focus-visible { outline: 3px solid rgba(0, 127, 134, 0.35); outline-offset: -3px; }
+
+    .file-panel .finding { padding: 10px 12px; }
+    .file-panel .finding h2 { margin-bottom: 3px; }
+    .file-panel .finding p { display: none; }
+    .file-panel .finding .evidence { margin-top: 7px; }
+    .file-panel .finding .evidence button:not(:first-child) { display: none; }
+
+    .finding-top { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+
+    .priority {
+      border-radius: 5px;
+      padding: 3px 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .priority.p2 { background: var(--amber-soft); color: var(--amber); }
+    .priority.p1 { background: var(--blue-soft); color: var(--blue); }
+    .confidence { color: var(--muted); font-size: 11px; margin-left: auto; white-space: nowrap; }
+    .finding h2 { margin: 0 0 6px; font-size: 14px; letter-spacing: -0.01em; }
+    .finding p { margin: 0; color: #4d5b66; font-size: 11px; line-height: 1.5; }
+
+    .evidence {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .evidence button {
+      border: 1px solid #cbd2d8;
+      background: #ffffff;
+      color: #344756;
+      border-radius: 5px;
+      padding: 4px 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .evidence button:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    .chat-view { display: grid; height: 100%; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
+
+    .messages { padding: 14px; overflow: auto; }
+    .message { margin-bottom: 16px; }
+    .message .who { font-weight: 700; margin-bottom: 5px; font-size: 11px; }
+    .message p { margin: 0; color: #42515d; }
+
+    .agent-message {
+      padding-left: 12px;
+      border-left: 2px solid var(--cyan);
+    }
+
+    .chat-input { border-top: 1px solid var(--line); padding: 10px; background: #fafafa; }
+    .chat-input textarea { width: 100%; min-height: 66px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 7px; padding: 9px; color: var(--ink); background: #ffffff; }
+    .chat-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .chat-scope { color: var(--muted); font-size: 11px; }
+    .send { margin-left: auto; border: 0; border-radius: 7px; padding: 7px 12px; background: var(--ink); color: #ffffff; font-weight: 700; cursor: pointer; }
+
+    .history {
+      min-width: 0;
+      min-height: 0;
+      grid-column: 1 / -1;
+      grid-row: 3;
+      background: #f7f7f5;
+      border-top: 1px solid var(--line-strong);
+      display: grid;
+      grid-template-rows: 42px 1fr;
+      overflow: hidden;
+    }
+
+    .history-head { display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+    .history-head strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+    .history-head .spacer { flex: 1; }
+
+    .history-tab { border: 0; background: transparent; color: var(--muted); padding: 7px 8px; cursor: pointer; border-bottom: 2px solid transparent; }
+    .history-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--cyan); font-weight: 700; }
+
+    .timeline { display: none; grid-template-columns: 190px 1fr; min-height: 0; }
+    .timeline.active { display: grid; }
+
+    .commit-list { border-right: 1px solid var(--line); padding: 8px 12px; overflow: hidden; }
+    .commit { display: grid; grid-template-columns: 12px 1fr; column-gap: 8px; margin-bottom: 8px; color: #42515d; font-size: 11px; }
+    .commit-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); margin-top: 4px; box-shadow: 0 0 0 3px #dceceb; }
+    .commit code { color: var(--muted); font-size: 11px; }
+
+    .trace { position: relative; display: flex; align-items: center; padding: 10px 24px; overflow: auto hidden; }
+    .trace-line { position: absolute; left: 40px; right: 40px; top: 50%; height: 2px; background: #aeb8c0; }
+    .trace-nodes { position: relative; width: 100%; display: flex; justify-content: space-between; align-items: center; }
+    .trace-node { width: 112px; text-align: center; color: #455462; font-size: 11px; }
+    .trace-node .dot { width: 14px; height: 14px; border-radius: 50%; margin: 0 auto 8px; background: #ffffff; border: 3px solid var(--blue); }
+    .trace-node.current .dot { border-color: var(--cyan); background: var(--cyan); box-shadow: 0 0 0 5px #d9eceb; }
+    .trace-node strong { display: block; color: var(--ink); margin-bottom: 2px; font-size: 11px; }
+
+    .branch-view { display: none; padding: 2px 28px; position: relative; overflow: auto hidden; }
+    .branch-view.active { display: block; }
+
+    .branch-svg { width: 100%; min-width: 760px; height: 84px; }
+    .branch-svg text { font-family: var(--sans); font-size: 11px; fill: #465562; }
+
+    .tool-placeholder { display: none; align-items: center; gap: 18px; padding: 14px 22px; color: #455462; }
+    .tool-placeholder.active { display: flex; }
+    .tool-placeholder strong { color: var(--ink); }
+    .tool-placeholder span { color: var(--muted); }
+
+    @media (max-width: 1279px) {
+      .review-grid { --lnb-width: 220px !important; --chat-width: 320px !important; grid-template-columns: var(--lnb-width) 6px minmax(460px, 1fr) 6px var(--chat-width); }
+      .risk-counts { display: none; }
+    }
+
+    @media (max-width: 1020px) {
+      .app { height: auto; min-height: 100vh; grid-template-rows: auto auto auto; overflow: visible; }
+      .topbar { flex-wrap: wrap; padding-top: 9px; padding-bottom: 9px; }
+      .crumb { order: 3; width: 100%; }
+      .prbar { align-items: flex-start; flex-wrap: wrap; }
+      .review-grid {
+        height: auto;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        grid-template-rows: 230px 520px 160px;
+      }
+      .file-panel { grid-column: 1; grid-row: 1; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+      .diff-panel { grid-column: 1; grid-row: 2; min-height: 520px; }
+      .inspector { grid-column: 2; grid-row: 1 / span 2; border-left: 1px solid var(--line); }
+      .history { grid-column: 1 / -1; grid-row: 3; min-height: 160px; }
+      .resize-handle { display: none; }
+      .timeline { grid-template-columns: 1fr; }
+      .commit-list { border-right: 0; border-bottom: 1px solid var(--line); display: flex; gap: 16px; overflow: auto; }
+      .commit { min-width: 160px; }
+      .file-item, .lnb-tab, .history-tab, .tool-button, .top-action, .send, .evidence button { min-height: 44px; }
+    }
+
+    @media (max-width: 720px) {
+      .sample-notice { display: none; }
+      .review-grid { grid-template-columns: 1fr; grid-template-rows: 230px 500px 320px 160px; }
+      .file-panel { grid-column: 1; grid-row: 1; }
+      .diff-panel { grid-column: 1; grid-row: 2; min-height: 500px; }
+      .inspector { grid-column: 1; grid-row: 3; border-left: 0; border-top: 1px solid var(--line); }
+      .history { grid-column: 1; grid-row: 4; }
+      .history-head { overflow-x: auto; }
+      .history-head .spacer { display: none; }
+      .trace-nodes { min-width: 620px; }
+    }
+  </style>
+</head>
+<body>
+  <!--
+  방향: 모든 review 주장은 정확한 snapshot의 evidence로 돌아간다. Code와 분리된 summary 중심 dashboard는 사용하지 않는다.
+  시각 언어: 어두운 split diff를 중심으로 따뜻한 중성색 작업공간을 구성하고, cyan은 선택한 evidence, amber/red는 위험도에만 사용한다.
+  사용 흐름: PR snapshot 확인 → LNB에서 finding 선택 → diff 검증 → 항상 열린 Chat 질문 → compact tool dock 확인.
+  첫 화면: repository와 snapshot header 아래에 크기를 조절할 수 있는 LNB/diff/Chat을 두고 하단에는 compact Git graph를 유지한다.
+  형태: seed=ledger-bench-8f3a2c1; evidence 중심 review 작업대, persistent conversation, 조절 가능한 작업 영역.
+  완료 기준: 검토와 문서화가 끝나야 완료된 상태로 본다.
+  -->
+  <main class="app" aria-label="Git Code Reviewer PR 작업공간">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">GCR</span> Git Code Reviewer</div>
+      <div class="crumb" aria-label="Repository 경로"><span>platform</span><span class="slash">/</span><strong>payments-api</strong><span class="slash">/</span><span>PR 482</span></div>
+      <span class="sample-notice">동작 예시 · 가상 데이터</span>
+      <div class="topbar-spacer"></div>
+      <button class="top-action" type="button" id="refreshButton">분석 새로고침</button>
+      <div class="identity" aria-label="J Kim 계정으로 로그인됨">JK</div>
+    </header>
+
+    <section class="prbar" aria-labelledby="pr-title">
+      <div class="pr-title">
+        <h1 id="pr-title">Retry 중 중복 settlement 방지</h1>
+        <div class="pr-meta"><span>PR #482</span><span>mina/settlement-idempotency → main</span><span>파일 18개 · +286 −74</span></div>
+      </div>
+      <span class="state complete" id="analysisState">분석 완료</span>
+      <span class="state snapshot">HEAD 8f3a2c1</span>
+      <div class="risk-counts" aria-label="Finding 개수">
+        <span class="risk p3">P3 0</span><span class="risk p2">P2 3</span><span class="risk p1">P1 5</span>
+      </div>
+    </section>
+
+    <section class="review-grid">
+      <aside class="file-panel" aria-label="Review 탐색">
+        <div class="lnb-tabs" role="tablist" aria-label="Review 탐색 방식">
+          <button class="lnb-tab" type="button" role="tab" aria-selected="false" aria-controls="filesView" data-lnb-view="filesView">Files</button>
+          <button class="lnb-tab" type="button" role="tab" aria-selected="true" aria-controls="lnbFindingsView" data-lnb-view="lnbFindingsView">Findings</button>
+          <button class="lnb-tab" type="button" role="tab" aria-selected="false" aria-controls="outlineView" data-lnb-view="outlineView">Outline</button>
+          <button class="lnb-tab" type="button" role="tab" aria-selected="false" aria-controls="impactView" data-lnb-view="impactView">Impact</button>
+        </div>
+        <div class="lnb-body">
+          <div class="lnb-view" id="filesView" role="tabpanel">
+            <div class="mode-summary"><strong>변경된 파일</strong><span>파일 18개 · coverage 18/18</span></div>
+            <nav class="tree" aria-label="File tree">
+              <div class="tree-section"><span class="chevron" aria-hidden="true"></span> src / settlement</div>
+              <button class="file-item active" type="button" data-file="retry.ts"><span class="file-name"><span class="file-priority">P2</span>retry.ts</span><span class="file-stats"><span class="add">+31</span><span class="del">−9</span></span></button>
+              <button class="file-item" type="button" data-file="service.ts" disabled aria-label="service.ts는 이 concept에서 preview를 제공하지 않음"><span class="file-name">service.ts</span><span class="file-stats"><span class="add">+46</span><span class="del">−18</span></span></button>
+              <button class="file-item" type="button" data-file="repository.ts" disabled aria-label="repository.ts는 이 concept에서 preview를 제공하지 않음"><span class="file-name"><span class="file-priority">P2</span>repository.ts</span><span class="file-stats"><span class="add">+24</span><span class="del">−7</span></span></button>
+              <div class="tree-section"><span class="chevron" aria-hidden="true"></span> src / api</div>
+              <button class="file-item" type="button" data-file="webhook.ts" disabled aria-label="webhook.ts는 이 concept에서 preview를 제공하지 않음"><span class="file-name">webhook.ts</span><span class="file-stats"><span class="add">+19</span><span class="del">−4</span></span></button>
+              <button class="file-item" type="button" data-file="routes.ts" disabled aria-label="routes.ts는 이 concept에서 preview를 제공하지 않음"><span class="file-name"><span class="file-priority">P1</span>routes.ts</span><span class="file-stats"><span class="add">+12</span><span class="del">−3</span></span></button>
+              <div class="tree-section"><span class="chevron" aria-hidden="true"></span> tests / settlement</div>
+              <button class="file-item" type="button" data-file="retry.test.ts" disabled aria-label="retry.test.ts는 이 concept에서 preview를 제공하지 않음"><span class="file-name"><span class="file-priority">P2</span>retry.test.ts</span><span class="file-stats"><span class="add">+61</span><span class="del">−8</span></span></button>
+              <button class="file-item" type="button" data-file="fixtures.ts" disabled aria-label="fixtures.ts는 이 concept에서 preview를 제공하지 않음"><span class="file-name">fixtures.ts</span><span class="file-stats"><span class="add">+15</span><span class="del">−2</span></span></button>
+            </nav>
+          </div>
+
+          <div class="lnb-view active" id="lnbFindingsView" role="tabpanel">
+            <div class="mode-summary"><strong>finding 8개 · 위험도 중간</strong><span>P2 3 · P1 5 · snapshot 8f3a2c1</span></div>
+            <article class="finding selected" tabindex="0" aria-current="true" data-lines="44,45,46" data-range="retry.ts:44–46" data-trace-finding="publish 전에 claim 처리" data-trace-missing="recovery test">
+              <div class="finding-top"><span class="priority p2">P2</span><span>correctness</span><span class="confidence">신뢰도 높음</span></div>
+              <h2>Publish 실패 후에도 retry claim이 소진됨</h2>
+              <p><code>store.claim</code>이 <code>queue.publish</code>보다 먼저 실행됩니다.</p>
+              <div class="evidence"><button type="button">retry.ts:44–46</button></div>
+            </article>
+            <article class="finding" tabindex="0" aria-current="false" data-lines="49,50" data-range="retry.ts:49–50" data-trace-finding="publish reject 경로" data-trace-missing="broker recovery test">
+              <div class="finding-top"><span class="priority p2">P2</span><span>testing</span><span class="confidence">신뢰도 중간</span></div>
+              <h2>Broker reject 이후의 recovery test가 없음</h2>
+              <p>Retry 경로에 broker reject 상황을 검증하는 test가 없습니다.</p>
+              <div class="evidence"><button type="button">retry.ts:49–50</button></div>
+            </article>
+            <article class="finding" tabindex="0" aria-current="false" data-lines="44" data-range="retry.ts:44" data-trace-finding="명시되지 않은 claim 수명" data-trace-missing="release contract">
+              <div class="finding-top"><span class="priority p1">P1</span><span>maintenance</span><span class="confidence">신뢰도 높음</span></div>
+              <h2>Claim 수명 정책이 명시되지 않음</h2>
+              <p>이 snapshot에서는 expiry와 release 동작을 확인할 수 없습니다.</p>
+              <div class="evidence"><button type="button">retry.ts:44</button></div>
+            </article>
+          </div>
+
+          <div class="lnb-view" id="outlineView" role="tabpanel">
+            <div class="mode-summary"><strong>Symbol outline</strong><span>retry.ts · symbol 4개</span></div>
+            <ul class="mode-list"><li><strong>scheduleRetry</strong><span>변경됨 · line 41–47</span></li><li><strong>publish</strong><span>scheduleRetry에서 호출</span></li><li><strong>RetryPayload</strong><span>type · reference 2개</span></li><li><strong>SettlementService.handleFailure</strong><span>caller</span></li></ul>
+          </div>
+
+          <div class="lnb-view" id="impactView" role="tabpanel">
+            <div class="mode-summary"><strong>변경 영향</strong><span>caller 2개 · 관련 test 3개</span></div>
+            <ul class="mode-list"><li><strong>SettlementService</strong><span>직접 caller · certainty 높음</span></li><li><strong>RetryWorker</strong><span>queue consumer · certainty 높음</span></li><li><strong>settlement.retry.test.ts</strong><span>관련 test · recovery 누락</span></li><li><strong>Payments module</strong><span>영향받는 경계</span></li></ul>
+          </div>
+        </div>
+      </aside>
+
+      <div class="resize-handle vertical" id="lnbResize" role="separator" tabindex="0" aria-label="Review 탐색 영역 너비 조절" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="420" aria-valuenow="280"></div>
+
+      <section class="diff-panel" aria-label="Split diff">
+        <div class="diff-toolbar">
+          <span class="diff-path" id="diffPath">src/settlement/retry.ts</span>
+          <span class="spacer"></span>
+          <button class="tool-button" type="button">Symbol 열기</button>
+          <button class="tool-button" type="button">검토함</button>
+        </div>
+        <div class="diff-columns"><div>BASE · 7c91de4</div><div>HEAD · 8f3a2c1</div></div>
+        <div class="diff-scroll" id="diffScroll" tabindex="0" aria-label="retry.ts code 변경 내용">
+          <div class="hunk">
+            <div class="code-side">
+              <div class="code-row"><span class="line-no">41</span><span class="code"><span class="kw">export async function</span> <span class="fn">scheduleRetry</span>(job: Job) {</span></div>
+              <div class="code-row"><span class="line-no">42</span><span class="code">  <span class="kw">const</span> attempt = job.attempt + 1;</span></div>
+              <div class="code-row removed"><span class="line-no">43</span><span class="code">- <span class="kw">await</span> queue.publish({ ...job, attempt });</span></div>
+              <div class="code-row removed"><span class="line-no">44</span><span class="code">- <span class="kw">return</span> { scheduled: <span class="kw">true</span> };</span></div>
+              <div class="code-row empty"><span class="line-no"></span><span class="code"> </span></div>
+              <div class="code-row empty"><span class="line-no"></span><span class="code"> </span></div>
+              <div class="code-row"><span class="line-no">45</span><span class="code">}</span></div>
+              <div class="code-row"><span class="line-no">46</span><span class="code"></span></div>
+              <div class="code-row"><span class="line-no">47</span><span class="code"><span class="kw">async function</span> <span class="fn">publish</span>(payload: RetryPayload) {</span></div>
+              <div class="code-row"><span class="line-no">48</span><span class="code">  <span class="kw">return</span> broker.send(<span class="str">'settlement.retry'</span>, payload);</span></div>
+              <div class="code-row"><span class="line-no">49</span><span class="code">}</span></div>
+              <div class="code-row"><span class="line-no">50</span><span class="code"></span></div>
+              <div class="code-row"><span class="line-no">51</span><span class="code"><span class="cm">// caller: SettlementService.handleFailure</span></span></div>
+            </div>
+            <div class="code-side">
+              <div class="code-row"><span class="line-no">41</span><span class="code"><span class="kw">export async function</span> <span class="fn">scheduleRetry</span>(job: Job) {</span></div>
+              <div class="code-row"><span class="line-no">42</span><span class="code">  <span class="kw">const</span> attempt = job.attempt + 1;</span></div>
+              <div class="code-row added"><span class="line-no">43</span><span class="code">+ <span class="kw">const</span> key = `${job.paymentId}:${attempt}`;</span></div>
+              <div class="code-row added focus"><span class="line-no">44</span><span class="code">+ <span class="kw">const</span> claimed = <span class="kw">await</span> store.claim(key);</span></div>
+              <div class="code-row added focus"><span class="line-no">45</span><span class="code">+ <span class="kw">if</span> (!claimed) <span class="kw">return</span> { scheduled: <span class="kw">false</span> };</span></div>
+              <div class="code-row added focus"><span class="line-no">46</span><span class="code">+ <span class="kw">await</span> queue.publish({ ...job, attempt });</span></div>
+              <div class="code-row"><span class="line-no">47</span><span class="code">}</span></div>
+              <div class="code-row"><span class="line-no">48</span><span class="code"></span></div>
+              <div class="code-row"><span class="line-no">49</span><span class="code"><span class="kw">async function</span> <span class="fn">publish</span>(payload: RetryPayload) {</span></div>
+              <div class="code-row"><span class="line-no">50</span><span class="code">  <span class="kw">return</span> broker.send(<span class="str">'settlement.retry'</span>, payload);</span></div>
+              <div class="code-row"><span class="line-no">51</span><span class="code">}</span></div>
+              <div class="code-row"><span class="line-no">52</span><span class="code"></span></div>
+              <div class="code-row"><span class="line-no">53</span><span class="code"><span class="cm">// caller: SettlementService.handleFailure</span></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="resize-handle vertical" id="chatResize" role="separator" tabindex="0" aria-label="Chat dock 너비 조절" aria-orientation="vertical" aria-valuemin="320" aria-valuemax="560" aria-valuenow="380"></div>
+
+      <aside class="inspector" aria-label="항상 표시되는 Review Chat">
+        <div class="chat-head"><strong>Chat</strong><span>snapshot 범위</span></div>
+        <div class="inspector-body">
+          <div class="chat-view" id="chatView">
+            <div class="messages" id="messages" aria-live="polite">
+              <div class="message"><div class="who">사용자</div><p>이 변경이 기존 retry 동작을 깨뜨릴 수 있나요?</p></div>
+              <div class="message agent-message"><div class="who">Review Agent</div><p>가능합니다. <code>store.claim</code> 뒤에 broker 오류가 발생하면 같은 payment와 attempt의 재실행이 line 45에서 종료됩니다. 현재 test에는 이 순서를 검증하는 case가 없습니다.</p><div class="evidence"><button type="button">retry.ts:44–46</button><button type="button">retry.test.ts</button></div></div>
+            </div>
+            <form class="chat-input" id="chatForm">
+              <textarea id="chatInput" aria-label="이 PR에 관해 질문하기" placeholder="선택한 finding에 관해 질문하세요…"></textarea>
+              <div class="chat-actions"><span class="chat-scope" id="chatScope">범위: retry.ts:44–46 · HEAD 8f3a2c1</span><button class="send" type="submit">질문</button></div>
+            </form>
+          </div>
+        </div>
+      </aside>
+
+      <div class="resize-handle horizontal" id="fnbResize" role="separator" tabindex="0" aria-label="Review 도구 높이 조절" aria-orientation="horizontal" aria-valuemin="48" aria-valuemax="648" aria-valuenow="132"></div>
+
+      <section class="history" aria-label="Review 도구">
+        <div class="history-head" role="tablist" aria-label="Review 도구">
+          <strong>검토 도구</strong>
+          <button class="history-tab" type="button" role="tab" aria-selected="false" data-fnb-tool="evidence">Evidence</button>
+          <button class="history-tab" type="button" role="tab" aria-selected="true" data-fnb-tool="git-graph">Git graph</button>
+          <button class="history-tab" type="button" role="tab" aria-selected="false" data-fnb-tool="history">History</button>
+          <button class="history-tab" type="button" role="tab" aria-selected="false" data-fnb-tool="ownership">Ownership</button>
+          <button class="history-tab" type="button" role="tab" aria-selected="false" data-fnb-tool="impact">Impact</button>
+          <button class="history-tab" type="button" role="tab" aria-selected="false" data-fnb-tool="tests">Tests</button>
+          <span class="spacer"></span><span class="chat-scope" id="historyLabel">retry.ts:44–46</span>
+        </div>
+        <div class="timeline" id="evidenceView">
+          <div class="commit-list">
+            <div class="commit"><span class="commit-dot"></span><span><strong>현재 변경</strong><br><code>8f3a2c1 · Mina Park</code></span></div>
+            <div class="commit"><span class="commit-dot"></span><span><strong>Retry backoff</strong><br><code>22d4fe8 · 18일 전</code></span></div>
+          </div>
+          <div class="trace" aria-label="Base부터 finding까지의 evidence 순서" aria-live="polite">
+            <div class="trace-line"></div>
+            <div class="trace-nodes">
+              <div class="trace-node"><div class="dot"></div><strong>Base 동작</strong><span>retry마다 publish</span></div>
+              <div class="trace-node"><div class="dot"></div><strong>변경된 symbol</strong><span>scheduleRetry</span></div>
+              <div class="trace-node current"><div class="dot"></div><strong>Finding</strong><span id="traceFinding">publish 전에 claim 처리</span></div>
+              <div class="trace-node"><div class="dot"></div><strong>누락된 evidence</strong><span id="traceMissing">recovery test</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="branch-view active" id="gitGraphView">
+          <svg class="branch-svg" viewBox="0 0 1040 110" role="img" aria-labelledby="branchTitle branchDesc">
+            <title id="branchTitle">PR Git graph</title><desc id="branchDesc">main과 feature branch는 merge-base 7c91de4에서 갈라지고 feature branch는 HEAD 8f3a2c1에서 끝납니다.</desc>
+            <path d="M40 34 H1000" stroke="#8b99a5" stroke-width="2" fill="none"/>
+            <path d="M270 34 C340 34 340 78 410 78 H850" stroke="#007f86" stroke-width="3" fill="none"/>
+            <g fill="#fff" stroke="#2b5ca7" stroke-width="3"><circle cx="120" cy="34" r="7"/><circle cx="270" cy="34" r="7"/><circle cx="520" cy="34" r="7"/><circle cx="760" cy="34" r="7"/></g>
+            <g fill="#fff" stroke="#007f86" stroke-width="3"><circle cx="410" cy="78" r="7"/><circle cx="620" cy="78" r="7"/><circle cx="850" cy="78" r="9" fill="#007f86"/></g>
+            <text x="98" y="17">main</text><text x="240" y="17">merge-base 7c91de4</text><text x="500" y="17">review 수정</text><text x="820" y="103">HEAD 8f3a2c1</text>
+          </svg>
+        </div>
+        <div class="tool-placeholder" id="toolPlaceholder"><strong id="toolPlaceholderTitle">History</strong><span id="toolPlaceholderCopy">Production workspace에서는 file → symbol → line 순서로 history를 확인할 수 있습니다.</span></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const fileButtons = document.querySelectorAll('.file-item');
+    const diffPath = document.getElementById('diffPath');
+    fileButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        fileButtons.forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        const file = button.dataset.file;
+        const folder = file.includes('test') || file === 'fixtures.ts' ? 'tests/settlement/' : file === 'webhook.ts' || file === 'routes.ts' ? 'src/api/' : 'src/settlement/';
+        diffPath.textContent = folder + file;
+      });
+    });
+
+    const findingArticles = document.querySelectorAll('.finding');
+    const headRows = document.querySelectorAll('.code-side:last-child .code-row');
+    const historyLabel = document.getElementById('historyLabel');
+    const traceFinding = document.getElementById('traceFinding');
+    const traceMissing = document.getElementById('traceMissing');
+    const chatScope = document.getElementById('chatScope');
+    const diffScroll = document.getElementById('diffScroll');
+
+    function selectFinding(finding) {
+      findingArticles.forEach((item) => {
+        const selected = item === finding;
+        item.classList.toggle('selected', selected);
+        item.setAttribute('aria-current', String(selected));
+      });
+
+      const lines = finding.dataset.lines.split(',');
+      let firstFocusedRow;
+      headRows.forEach((row) => {
+        const line = row.querySelector('.line-no').textContent.trim();
+        const focused = lines.includes(line);
+        row.classList.toggle('focus', focused);
+        if (focused && !firstFocusedRow) firstFocusedRow = row;
+      });
+
+      historyLabel.textContent = finding.dataset.range;
+      traceFinding.textContent = finding.dataset.traceFinding;
+      traceMissing.textContent = finding.dataset.traceMissing;
+      chatScope.textContent = `범위: ${finding.dataset.range} · HEAD 8f3a2c1`;
+      diffScroll.setAttribute('aria-label', `${finding.dataset.range}의 code evidence`);
+      if (firstFocusedRow) diffScroll.scrollTop = Math.max(0, firstFocusedRow.offsetTop - 96);
+    }
+
+    findingArticles.forEach((finding) => {
+      finding.addEventListener('click', () => selectFinding(finding));
+      finding.addEventListener('keydown', (event) => {
+        if (event.target !== finding || (event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault();
+        selectFinding(finding);
+      });
+    });
+
+    selectFinding(document.querySelector('.finding.selected'));
+
+    const lnbTabs = document.querySelectorAll('.lnb-tab');
+    const lnbViews = document.querySelectorAll('.lnb-view');
+    lnbTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        lnbTabs.forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
+        lnbViews.forEach((view) => view.classList.toggle('active', view.id === tab.dataset.lnbView));
+      });
+    });
+
+    const fnbTabs = document.querySelectorAll('[data-fnb-tool]');
+    const evidenceView = document.getElementById('evidenceView');
+    const gitGraphView = document.getElementById('gitGraphView');
+    const toolPlaceholder = document.getElementById('toolPlaceholder');
+    const toolPlaceholderTitle = document.getElementById('toolPlaceholderTitle');
+    const toolPlaceholderCopy = document.getElementById('toolPlaceholderCopy');
+    const toolLabels = { history: 'History', ownership: 'Ownership', impact: 'Impact', tests: 'Tests' };
+    const toolCopy = {
+      history: 'Production workspace에서는 file → symbol → line 순서로 history를 확인할 수 있습니다.',
+      ownership: 'CODEOWNERS, blame, review history를 서로 다른 evidence source로 표시합니다.',
+      impact: 'Caller, dependency, 영향받는 module을 확장된 tool view에서 확인할 수 있습니다.',
+      tests: '관련 test와 검증되지 않은 recovery 경로를 evidence certainty에 따라 정렬합니다.'
+    };
+
+    function selectFnbTool(tool) {
+      fnbTabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.fnbTool === tool)));
+      evidenceView.classList.toggle('active', tool === 'evidence');
+      gitGraphView.classList.toggle('active', tool === 'git-graph');
+      const placeholder = !['evidence', 'git-graph'].includes(tool);
+      toolPlaceholder.classList.toggle('active', placeholder);
+      if (placeholder) {
+        toolPlaceholderTitle.textContent = toolLabels[tool];
+        toolPlaceholderCopy.textContent = toolCopy[tool];
+      }
+    }
+
+    fnbTabs.forEach((tab) => tab.addEventListener('click', () => selectFnbTool(tab.dataset.fnbTool)));
+
+    const reviewGrid = document.querySelector('.review-grid');
+    const layoutDefaults = { lnb: 280, chat: 380, fnb: 132 };
+    const layoutLimits = { lnb: [220, 420], chat: [320, 560], fnb: [48, Math.round(window.innerHeight * 0.45)] };
+    const layoutState = { ...layoutDefaults };
+    const layoutStorageKey = 'gcr:workspace-layout:v1:sample';
+
+    function clamp(value, limits) { return Math.min(limits[1], Math.max(limits[0], value)); }
+
+    function applyLayout(kind, value, persist = true) {
+      const next = clamp(Math.round(value), layoutLimits[kind]);
+      layoutState[kind] = next;
+      reviewGrid.style.setProperty(`--${kind === 'lnb' ? 'lnb-width' : kind === 'chat' ? 'chat-width' : 'fnb-height'}`, `${next}px`);
+      document.getElementById(`${kind}Resize`).setAttribute('aria-valuenow', String(next));
+      if (persist) {
+        try { window.localStorage.setItem(layoutStorageKey, JSON.stringify(layoutState)); } catch (error) { /* layout remains session-only */ }
+      }
+    }
+
+    try {
+      const savedLayout = JSON.parse(window.localStorage.getItem(layoutStorageKey));
+      Object.keys(layoutDefaults).forEach((kind) => {
+        if (Number.isFinite(savedLayout?.[kind])) applyLayout(kind, savedLayout[kind], false);
+      });
+    } catch (error) { /* use defaults */ }
+
+    function setupResize(kind, axis, direction) {
+      const handle = document.getElementById(`${kind}Resize`);
+      handle.addEventListener('pointerdown', (event) => {
+        if (window.innerWidth <= 1020) return;
+        const origin = axis === 'x' ? event.clientX : event.clientY;
+        const start = layoutState[kind];
+        handle.setPointerCapture(event.pointerId);
+        document.body.classList.add('is-resizing');
+        document.body.classList.toggle('fnb-resizing', kind === 'fnb');
+        const move = (moveEvent) => {
+          if (!handle.hasPointerCapture(moveEvent.pointerId)) return;
+          const current = axis === 'x' ? moveEvent.clientX : moveEvent.clientY;
+          applyLayout(kind, start + ((current - origin) * direction), false);
+        };
+        const end = (endEvent) => {
+          if (handle.hasPointerCapture(endEvent.pointerId)) handle.releasePointerCapture(endEvent.pointerId);
+          handle.removeEventListener('pointermove', move);
+          handle.removeEventListener('pointercancel', end);
+          document.body.classList.remove('is-resizing', 'fnb-resizing');
+          applyLayout(kind, layoutState[kind]);
+        };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', end, { once: true });
+        handle.addEventListener('pointercancel', end, { once: true });
+      });
+      handle.addEventListener('keydown', (event) => {
+        const step = event.shiftKey ? 32 : 8;
+        const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? step : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -step : 0;
+        if (!delta) return;
+        event.preventDefault();
+        applyLayout(kind, layoutState[kind] + (delta * direction));
+      });
+      handle.addEventListener('dblclick', () => applyLayout(kind, layoutDefaults[kind]));
+    }
+
+    setupResize('lnb', 'x', 1);
+    setupResize('chat', 'x', -1);
+    setupResize('fnb', 'y', -1);
+
+    document.getElementById('refreshButton').addEventListener('click', (event) => {
+      const state = document.getElementById('analysisState');
+      state.textContent = 'HEAD 확인 중…';
+      event.currentTarget.disabled = true;
+      window.setTimeout(() => {
+        state.textContent = '분석 완료';
+        event.currentTarget.disabled = false;
+      }, 900);
+    });
+
+    document.getElementById('chatForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      const message = document.createElement('div');
+      message.className = 'message';
+      const who = document.createElement('div');
+      who.className = 'who';
+      who.textContent = '사용자';
+      const body = document.createElement('p');
+      body.textContent = text;
+      message.append(who, body);
+      document.getElementById('messages').append(message);
+      input.value = '';
+    });
+  </script>
+</body>
+</html>
