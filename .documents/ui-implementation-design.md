@@ -1,244 +1,315 @@
-# Review Workspace — UI 구현 설계
+# Review Workspace - UI 구현 설계
 
-## 1. 문서 위치와 적용 범위
+## 1. 적용 범위
 
-이 문서는 `.documents/blueprint.md`의 UI Blueprint를 실제 web application으로 구현할 때의 layout, navigation, state와 기능 경계를 정의한다. `.documents/visuals/review-workspace.html`은 정보 밀도와 시각 방향을 확인하기 위한 interaction prototype이며, production 기능 목록이나 panel 배치를 제한하지 않는다.
+이 문서는 사내 HTTPS web application의 사용자 흐름과 review workspace를 정의한다. 기준 visual artifact는 다음과 같다.
 
-기준 화면은 code reviewer가 finding과 근거를 확인하면서 agent와 동시에 대화하는 desktop workspace다. 특정 panel을 열기 위해 Chat이나 현재 선택 문맥을 닫게 만들지 않는다.
+- `visuals/review-workspace.html`
+- `visuals/review-workspace-preview.png`
 
-이 문서에서 **LNB**는 사용자가 말한 왼쪽 SNB, **Chat dock**은 오른쪽 SNB, **FNB tool dock**은 하단 navigation/tool 영역을 뜻한다.
+HTML/PNG의 Header, LNB, Main diff, right Chat, FNB 구조와 정보 밀도는 유지한다. UI는 VS Code webview, browser extension, local Git 또는 host bridge를 전제로 하지 않으며 일반 browser에서 Server REST/SSE만 사용한다.
 
-### 1.1 UI locale과 용어 정책
+기본 locale은 `ko-KR`이다. `PR`, `diff`, `snapshot`, `finding`, `commit`, `merge-base`, `Git graph`, `Chat`, `SSE`처럼 개발 문맥이 명확한 용어는 English를 유지한다.
 
-- 기본 locale은 `ko-KR`이며 document root는 `<html lang="ko">`로 렌더링한다. 사용자 설정이 없을 때 browser locale 때문에 영어로 바뀌지 않는다.
-- 버튼, 상태, 오류, 빈 화면, loading, 도움말, finding 제목·설명과 Chat 응답은 한글 문장으로 작성한다.
-- 개발 문맥에서 고유한 의미를 가진 `PR`, `diff`, `snapshot`, `finding`, `commit`, `merge-base`, `HEAD`, `Git graph`, `Worker`, `runtime`, `container`, `queue`, `Chat`, `API`, `SSE`는 영어 표기를 유지한다. 억지로 번역해 다른 개념처럼 보이게 하지 않는다.
-- code identifier, file path, branch, SHA, environment key와 API field는 원문을 유지하고 설명 조사와 서술어만 한글 문장에 자연스럽게 연결한다.
-- domain enum은 API contract의 영어 값을 유지하고 UI message catalog에서 한글 표시값으로 변환한다. 사용자에게 보이는 문구를 component와 server error에 직접 hard-code하지 않는다.
-- 날짜, 상대 시간, 숫자는 `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`, `Intl.NumberFormat`에 `ko-KR`을 지정한다. 접근성 label과 live-region 문구도 같은 message catalog를 사용한다.
-
-## 2. Workspace topology
+## 2. Route와 화면
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Header: repository · PR · snapshot · run/stale/refresh · coverage          │
-├───────────────┬──────────────────────────────────────────┬──────────────────┤
-│ LNB           │ Main workspace                           │ Chat dock        │
-│               │                                          │ always mounted   │
-│ Files         │ Split / unified diff                     │ scope            │
-│ Findings      │ File / symbol / commit view              │ conversation     │
-│ Outline       │ Tool maximized view                      │ evidence links   │
-│ Impact        │                                          │ composer         │
-├───────────────┴──────────────────────────────────────────┴──────────────────┤
-│ FNB tool dock: Evidence · Git graph · History · Ownership · Impact · Tests │
-└─────────────────────────────────────────────────────────────────────────────┘
+/                         -> 허용된 PR worklist
+/repositories/:repoId     -> repository별 PR worklist
+/repositories/:repoId/pulls/:number
+                          -> 최신 analysis로 이동하는 canonical route
+/reviews/:analysisId      -> revision에 고정된 review workspace
+/settings                 -> 사용자 preference
+/admin/repositories       -> 관리자 전용 repository 등록/상태
 ```
 
-- **LNB:** 탐색과 결과 정리를 담당한다. Findings는 Chat과 분리해 LNB에서 계속 볼 수 있다.
-- **Main workspace:** diff와 선택 artifact를 읽고 비교하는 영역이다. 너비를 가장 먼저 확보한다.
-- **Chat dock:** 오른쪽 전용 panel이며 Findings와 상호 배타적인 tab으로 만들지 않는다.
-- **FNB tool dock:** evidence와 graph 계열 도구를 필요할 때 펼치는 하단 dock이다. 기본 상태에서 화면 절반을 차지하지 않는다.
+로그인 전에는 OIDC redirect에 필요한 최소 화면만 표시한다. 로그인 후 첫 화면은 marketing page가 아니라 worklist다.
 
-## 3. Panel sizing과 resize contract
+`/reviews/:analysisId`는 browser navigation route다. REST resource는 `/api/v1/analyses/{analysisId}`처럼 `/api/v1` 아래에 두며 UI route와 API route를 혼용하지 않는다.
 
-| 영역 | 기본값 | 사용자 조절 범위 | 접힘 상태 | 제약 |
-|---|---:|---:|---:|---|
-| LNB | 280px | 220–420px | 56px rail | Main workspace를 560px 미만으로 줄이지 않는다. |
-| Chat dock | 380px | 320–560px | desktop에서는 접지 않음 | streaming 중에도 composer와 현재 scope를 유지한다. |
-| FNB tool dock | 132px | 48px–45vh | 48px tab rail | 45vh는 사용자가 직접 확장한 경우에만 허용한다. |
-| Main workspace | remaining | 최소 560px | 없음 | 다른 panel보다 우선해 읽기 너비를 확보한다. |
+### 2.1 PR worklist
 
-구현 규칙은 다음과 같다.
+worklist는 반복 업무를 위한 compact table/list다.
 
-- LNB/Main, Main/Chat, Main/FNB 경계에 `role="separator"`인 resize handle을 둔다.
-- pointer drag와 keyboard 조절을 모두 지원한다. focus된 separator에서 화살표는 8px, `Shift+화살표`는 32px 단위로 조절한다.
-- separator는 `aria-orientation`, `aria-valuemin`, `aria-valuemax`, `aria-valuenow`를 갱신한다. double click은 해당 panel의 기본 크기로 되돌린다.
-- CSS grid와 `--lnb-width`, `--chat-width`, `--fnb-height` custom property를 사용한다. drag 중에는 본문 selection을 막되 pointer capture가 끝나면 즉시 복원한다.
-- layout preference는 초기에는 `localStorage`의 `gcr:workspace-layout:v1:<userId>:<repositoryId>`에 저장한다. layout 값에는 source code나 conversation 내용을 넣지 않는다. 조직 간 이동이 필요한 시점에는 user preference API로 승격한다.
-- viewport가 작아져 저장된 크기를 적용할 수 없으면 clamp한 값을 사용한다. viewport가 다시 커져도 사용자가 저장한 원래 값은 보존한다.
-
-## 4. Responsive behavior
-
-| viewport | layout |
+| 열 | 내용 |
 |---|---|
-| 1280px 이상 | LNB, Main, Chat을 같은 행에 표시하고 FNB를 하단에 둔다. 세 panel boundary를 모두 resize할 수 있다. |
-| 960–1279px | LNB는 기본 56px rail로 시작하고 필요할 때 240px까지 펼친다. Chat은 오른쪽에서 최소 320px을 유지한다. FNB 기본 높이는 96px이다. |
-| 720–959px | LNB는 overlay sheet로 연다. Chat은 viewport 하단의 240px persistent dock으로 옮기고 FNB의 48px tool rail을 그 위에 둔다. Main은 나머지 높이를 사용한다. |
-| 720px 미만 | Chat의 scope, 최신 응답 상태와 composer를 viewport 하단에 계속 표시하고 conversation은 위로 확장한다. Findings sheet를 열어도 Chat draft와 response stream은 사라지지 않는다. |
+| PR | number, title, author, draft |
+| Repository | owner/name |
+| Change | files/additions/deletions |
+| Analysis | latest state, partial/stale, elapsed time |
+| Findings | grade와 P3/P2/P1 count |
+| Updated | GHES update와 마지막 poll 시각 |
 
-`Findings`와 `Chat`을 하나의 tab group에 넣지 않는다. 좁은 화면에서는 동시에 옆에 놓지 못하더라도 Chat의 scope와 composer가 viewport에서 사라지지 않게 하고, Findings를 열었다는 이유로 Chat을 unmount하지 않는다.
+repository, author, review state, priority, draft, updated time filter를 제공한다. 행을 선택하면 최신 immutable analysis route로 이동한다. 분석이 없으면 PR 상세 shell을 먼저 열고 refresh 상태를 표시한다.
 
-## 5. LNB information architecture
+## 3. Workspace topology
 
-LNB 상단에는 workspace mode를 전환하는 navigation을 둔다. mode별 list는 독립 scroll position과 filter를 보존한다.
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│ Global: product · repository switcher · user                              │
+│ PR: identity · refs · analysis · coverage · merge simulation · refresh    │
+├───────────────┬────────────────────────────────────────┬───────────────────┤
+│ LNB           │ Main workspace                         │ Chat dock         │
+│ Files         │ split / unified diff                   │ snapshot scope    │
+│ Findings      │ file / symbol / commit                 │ conversation      │
+│ Outline       │ maximized tool                         │ evidence links    │
+│ Impact        │                                        │ composer          │
+├───────────────┴────────────────────────────────────────┴───────────────────┤
+│ FNB: Evidence · Git graph · History · Ownership · Impact · Tests          │
+└────────────────────────────────────────────────────────────────────────────┘
+```
 
-### Files
+- **Header:** PR identity와 전체 상태를 빠르게 확인하고 refresh/revision 전환을 수행한다.
+- **LNB:** 파일, finding과 code structure를 탐색한다.
+- **Main:** 읽기 너비를 우선하는 diff/code 도구 영역이다.
+- **Chat dock:** Review Workspace가 mount된 동안 유지되는 오른쪽 대화 영역이다.
+- **FNB:** evidence와 graph 도구를 compact하게 유지하는 하단 dock이다.
 
-- module/package directory grouping
-- add/delete/rename, changed line 수, 최고 priority, 분석 생략 상태
-- changed-only와 all-context 전환
-- virtualized tree, keyboard tree navigation, 현재 diff file 표시
+## 4. Layout contract
 
-### Findings
+| 영역 | 기본값 | 조절 범위 | compact 상태 |
+|---|---:|---:|---:|
+| Global header | 54px | 고정 | 없음 |
+| PR context header | 72px | 고정 | 두 줄 wrap 허용 |
+| LNB | 280px | 220-420px | 1020-1279px에서 220px |
+| Main | remaining | 최소 560px | 폭 880px 미만이면 unified |
+| Chat | 380px | 320-560px | desktop에서 접지 않음 |
+| FNB | 132px | 48px-45vh | 48px tab rail |
 
-- priority, confidence, open/resolved/suppressed, file/module, specialist별 grouping과 filter
-- finding 선택 시 Main의 정확한 line range, FNB의 evidence/history, Chat scope를 같은 transaction으로 갱신
-- finding fingerprint를 사용한 resolved/reintroduced 상태
-- 전체 finding 수와 현재 filter로 보이는 수를 구분
+separator는 pointer와 keyboard로 조절 가능하며 `role="separator"`, 방향, 현재 값과 min/max를 제공한다. drag 중 text selection을 막되 mouse release/cancel 후 반드시 복원한다.
 
-### Outline
+layout preference key:
 
-- 현재 file의 function/class/symbol outline
-- changed symbol, caller/callee, related test 진입점
-- parser가 지원하지 않는 file은 line-based outline 또는 명시적인 unsupported state 표시
+```text
+gcr:workspace-layout:v2:<user-id>
+```
 
-### Impact
+값은 user 기본 layout과 최근 사용 repository override 최대 10개를 가진 하나의 versioned JSON document다. 오래된 override는 last-used 순서로 제거한다. 저장 대상은 panel size, selected tab, theme, locale뿐이다. source, diff, finding, report, Chat 내용과 credential은 localStorage/IndexedDB/service worker cache에 저장하지 않는다.
 
-- dependency, caller, affected module, related test 요약
-- certainty가 다른 edge를 구분하고 추론 edge에는 근거와 analyzer를 표시
-- 큰 graph는 LNB에서 요약만 보여주고 FNB 또는 Main의 maximized tool view에서 탐색
+### 4.1 Responsive
 
-## 6. Main workspace
+| viewport | 동작 |
+|---|---|
+| 1280px 이상 | LNB/Main/Chat을 같은 행에 표시하고 FNB를 하단에 둔다. |
+| 1020-1279px | LNB를 220px compact width로 시작하고 Chat은 최소 320px을 유지한다. |
+| 720-1019px | LNB는 overlay, Chat은 하단 persistent dock, FNB는 그 위 rail이 된다. |
+| 720px 미만 | scope/composer를 하단에 유지하고 conversation과 Findings는 sheet로 확장한다. |
 
-Main은 다음 surface를 동일한 snapshot selection model 위에서 전환한다.
+좁은 화면에서도 Findings를 열었다는 이유로 Chat을 unmount하거나 draft/stream을 잃지 않는다. panel이 Main 최소 너비를 침범하기 전에 compact layout으로 전환한다.
 
-- virtualized split/unified diff와 old/new line coordinate
-- commit별 diff와 전체 PR diff
-- file viewer, symbol range, binary/generated/omitted state
-- finding/comment anchor와 related symbol marker
-- FNB tool의 maximize 결과: Git graph, history, ownership, dependency/impact graph
+## 5. Header
 
-현재 선택은 URL에 `snapshot`, `file`, `commit`, `side`, `line`, `finding`, `tool`을 직렬화해 같은 권한을 가진 사용자가 deep link로 재현할 수 있게 한다. panel 크기와 개인 filter는 URL에 넣지 않는다.
+Header는 두 행으로 고정한다.
 
-## 7. Persistent Chat dock
+1. Global header: product identity, repository switcher, 사용자 menu
+2. PR context header: PR number/title, base/head와 short SHA, analysis revision selector, report state, grade/P3-P1 count, coverage, merge simulation state, refresh와 overflow menu
 
-Chat dock은 화면 오른쪽의 전용 영역이며 Review Workspace가 mount된 동안 유지한다.
+Report state는 `대기|진행 중|완료|부분 완료|실패|대체됨|취소됨` badge로 표시한다. `stale`은 별도 파생 badge이며 현재 PR의 base/head와 report의 base/head가 다를 때 표시한다. Merge simulation은 `확인 중|병합 가능|충돌|미확인|실패`처럼 별도 영역에 표시하고 report 완료 상태와 합치지 않는다.
 
-- header에 질문 scope를 `PR / file / hunk / symbol / finding / commit`으로 표시하고 사용자가 범위를 좁히거나 해제할 수 있게 한다.
-- conversation, cited evidence, tool progress, partial/failed answer state와 composer를 한 panel에 둔다.
-- LNB finding 선택 시 기본 scope를 해당 finding과 snapshot으로 갱신하되 작성 중인 draft는 삭제하지 않는다.
-- 답변의 evidence chip을 선택하면 Main과 FNB가 해당 file/line/commit으로 이동한다. Chat scroll과 draft는 유지한다.
-- head가 바뀌면 기존 conversation을 stale snapshot으로 표시하고 새 snapshot으로 질문을 이어갈지 확인한다. 기존 답변을 새 head의 근거처럼 재사용하지 않는다.
-- desktop에서는 Chat을 숨기는 collapse control을 제공하지 않는다. focus mode가 필요하면 사용자가 Chat 너비를 최소값으로 줄인다.
+Refresh는 즉시 새 report가 생기는 것처럼 보이지 않는다. 클릭 후 poll 시작, snapshot 동일, 새 snapshot 발견, run 진행 상태를 순서대로 표시한다. 동일 snapshot이면 기존 report 재사용 이유를 알린다.
 
-## 8. FNB tool dock
+새 revision이 생기면 현재 화면을 자동 교체하지 않고 `새 분석 결과가 있습니다` banner와 전환 command를 표시한다. 이전 revision을 보는 동안 Header에 stale를 유지한다.
 
-FNB는 기본 132px의 compact dock이다. tab rail과 한 줄 또는 작은 preview를 우선 표시하며, 사용자가 drag하거나 maximize를 선택했을 때만 큰 영역을 사용한다.
+## 6. LNB
 
-### Evidence trail
+### 6.1 Files
 
-- 선택 finding의 `finding → line → symbol → commit → analyzer artifact` 경로를 compact breadcrumb/timeline으로 표시
-- 기본 상태에서는 한 줄 요약과 직접 근거만 보이고, 상세 metadata는 expand 또는 inspector로 연다.
+- directory tree와 flat changed-file mode
+- modified/added/deleted/renamed/binary/generated 상태
+- additions/deletions, finding count와 review progress
+- path/status/finding filter
+- file 선택 시 Main diff 이동, 현재 snapshot 유지
 
-### Git graph
+### 6.2 Findings
 
-- base, merge-base, head와 PR에 직접 연결된 commit lane을 최초 범위로 표시
-- branch, merge, tag, author, date, CI/review 상태 filter
-- pan/zoom, keyboard 이동, commit 선택, current snapshot 강조
-- commit 선택 시 Main을 commit diff로 바꾸고 LNB Findings와 Chat scope를 같은 commit 기준으로 갱신
-- `Load more history`로 depth/cursor를 확장하고, 전체 repository graph를 처음부터 DOM에 만들지 않는다.
-- compact dock에서는 PR 중심 mini graph를, maximize하면 Main에서 full graph를 표시한다.
+- 상단 report summary에 Commit Defender식 grade, `hasCriticalFindings`, 전체 요약, 분석 file 수/시간과 coverage를 표시
+- per-file summary는 file, grade, worst priority와 요약을 compact row로 제공
+- P3/P2/P1/P0, confidence, category, file과 상태 filter
+- priority, file, confidence, category 정렬
+- Analyzer/model source와 rule, 제목, problem, impact, recommendation, file:line, evidence count와 verification 상태
+- 선택 시 Main anchor, FNB evidence와 Chat scope를 한 transaction으로 갱신
+- 직접 근거가 누락된 finding은 일반 finding처럼 표시하지 않고 limitation으로 분리
+- P0 positive observation은 조치 finding count와 분리하고 `좋았던 점` section에 표시
+- toolbar에서 report link 복사, Markdown 복사, JSON 다운로드를 제공
 
-### History와 Ownership
+### 6.3 Outline
 
-- file → symbol → line 순으로 history를 확장
-- rename/move 추적, blame, CODEOWNERS, 실제 review history를 서로 다른 source로 표시
-- ownership은 단일 점수로 합치지 않고 근거별 origin과 snapshot/ref를 유지
+- 현재 file의 symbol hierarchy
+- changed, directly referenced, unchanged context 구분
+- symbol 선택 시 base/head side와 line range를 함께 이동
 
-### Impact와 Related tests
+### 6.4 Impact
 
-- import/reference, caller/callee, affected module과 test candidate를 탐색
-- edge certainty와 analyzer source 표시
-- 관련 test가 없거나 analyzer가 실패한 상태를 빈 graph로 오해하지 않게 구분
+- `Structure | Dependencies` segmented control
+- Structure는 parent container와 child member를, Dependencies는 uses와 used-by를 별도 group으로 표시
+- direct caller/importer/consumer와 related test, relation kind와 PR 전후 added/removed 상태 요약
+- direct 관계를 먼저 표시하고 hop 수, relation kind, change와 confidence filter 제공
+- 큰 graph는 FNB 또는 Main maximized view로 전환
 
-### Analyzer artifacts
+각 mode는 독립 scroll, filter와 selection을 보존한다.
 
-- parser omission, coverage, raw diff/stat, policy decision과 verifier 결과
-- raw model response는 기본 UI에서 제외하고 권한과 retention 정책을 만족하는 운영 도구에서만 접근
+## 7. Main workspace
 
-## 9. Client state와 동기화
+### 7.1 Diff
+
+- split/unified segmented control
+- canonical split diff의 왼쪽은 `mergeBase`, 오른쪽은 `head`이며 branch tip을 뜻하는 `BASE` label로 오해시키지 않는다.
+- whitespace, context line, collapse unchanged 설정
+- old/new line number, hunk header, comment/finding marker
+- rename/binary/omitted/too-large 전용 상태
+- file/hunk virtualization과 다음 chunk loading
+
+Finding anchor는 `fileId + side + line + hunk fingerprint`를 사용한다. `side`는 `mergeBase|head`다. line mapping이 불가능하면 가장 가까운 hunk로 이동하고 정확한 line을 찾지 못했다는 상태를 표시한다.
+
+Main의 실제 가용 폭이 880px 미만이면 기본 split mode를 unified로 자동 전환하고 toolbar에 이유를 표시한다. 사용자가 split을 명시적으로 고정한 경우 column 최소 너비를 유지한 horizontal scroll을 제공하며 행이나 code text를 찌그러뜨리지 않는다.
+
+### 7.2 Tool view
+
+Git graph, History, Ownership, Impact와 Tests를 maximize하면 Main을 사용한다. 닫을 때 이전 file/diff scroll과 selection을 복원한다. tool은 동일 snapshot query만 사용하며 별도 revision을 암묵적으로 읽지 않는다.
+
+Impact maximize view는 안정된 세 column 또는 동등한 방향 graph를 사용한다. 바깥 column label은 Structure mode에서 `Parent | Selected object | Children`, Dependency mode에서 `Uses | Selected object | Used by`로 바뀌며 두 체계의 label을 동시에 섞지 않는다. Node에는 kind, qualified name, changed 상태와 직접 relation 수를, edge에는 calls/imports/extends/tests 같은 relation과 confidence를 표시한다. Cycle은 끊어서 숨기지 않고 cycle marker로 표시하며 truncated branch에는 `더 보기`와 limitation을 둔다.
+
+Node를 선택하면 definition과 incoming/outgoing reference가 갱신되고, edge를 선택하면 FNB Evidence에 해당 relation을 증명하는 file/line을 표시한다. Changed node/edge는 mergeBase/head 상태를 비교할 수 있으며, 변경되지 않은 downstream object는 finding이 아니라 impact로 표시한다.
+
+### 7.3 URL selection
+
+```text
+/reviews/:analysisId?file=<id>&side=head&line=42&finding=<id>&tool=history
+/reviews/:analysisId?finding=<id>&evidence=<evidence-id>
+/reviews/:analysisId?symbol=<object-id>&relation=<relation-id>&tool=impact
+/reviews/:analysisId?commit=<oid>&tool=graph
+```
+
+URL에는 analysis identity와 공유 가능한 selection만 둔다. panel size, 개인 filter, Chat session, source text는 넣지 않는다. history navigation은 selection 단위로 동작하고 browser reload 후 같은 위치를 복원한다.
+
+### 7.4 바로가기와 외부 GHES link
+
+Report, finding, evidence, file/line, symbol, relation과 commit header에 link 또는 link-copy command를 제공한다.
+
+- 내부 deep link는 현재 `analysisId`를 항상 포함하고 같은 tab에서 정확한 selection을 연다.
+- Copy Link는 configured public origin의 absolute URL을 clipboard에 기록한다.
+- `Open in GHES`는 exact commit SHA의 blob/line permalink를 새 tab에서 연다.
+- GHES route가 지원되지 않거나 file/line이 없으면 내부 evidence view를 유지하고 file-level link로 낮춘 이유를 표시한다.
+- Link icon button은 tooltip과 accessible name을 가지며 작은 finding row에서는 hover뿐 아니라 keyboard focus에도 노출한다.
+- Markdown/JSON export의 finding과 evidence도 UI와 같은 typed link target을 사용한다.
+
+Internal opaque ID나 external URL 자체는 권한을 부여하지 않는다. 로그인 return path는 relative route만 허용하고, 모든 deep link 진입에서 analysis/repository grant를 다시 검사한다.
+
+## 8. Persistent Chat
+
+- 상단에 analysis revision, selected finding/file/symbol scope를 표시한다.
+- scope chip은 제거/추가할 수 있지만 다른 revision의 evidence는 섞을 수 없다.
+- finding 선택 시 기본 scope를 바꾸되 작성 중 draft는 유지한다.
+- citation을 선택하면 Main/FNB가 이동하고 Chat scroll/draft는 유지한다.
+- streaming 중 stop, 재연결, 실패 후 retry와 완성 message 재조회 command를 제공한다.
+- 새 analysis 전환은 기존 conversation을 바꾸지 않고 새 session을 시작한다.
+
+assistant response의 citation은 keyboard focus가 가능한 button이다. tooltip에는 file, line/symbol, artifact type을 표시하며 source 전체를 hover card에 복제하지 않는다.
+
+## 9. FNB
+
+기본 높이 132px의 compact dock이며 tab rail과 작은 preview를 우선한다.
+
+| Tab | compact view | expanded/maximized view |
+|---|---|---|
+| Evidence | selected claim과 locator | claim-evidence chain, omission |
+| Git graph | nearby commit lanes | branch/merge graph, commit diff |
+| History | selected line/symbol commits | rename-aware file/symbol history |
+| Ownership | top contributors | path/code ownership evidence |
+| Impact | direct dependency와 selected edge summary | parent/children 또는 uses/used-by graph, evidence와 coverage |
+| Tests | related test candidates | evidence, gap와 confidence |
+
+commit을 선택하면 Main은 commit diff로 바뀌고 LNB/Chat에 commit scope를 반영한다. canonical PR diff로 돌아가는 command를 항상 제공한다.
+
+## 10. Client state
 
 ```ts
-type WorkspaceSelection = {
+type ReviewSelection = {
+  analysisId: string;
   snapshotId: string;
-  file?: string;
-  commitOid?: string;
-  side?: "base" | "head";
+  fileId?: string;
+  side?: "mergeBase" | "head";
   line?: number;
   symbolId?: string;
+  evidenceId?: string;
+  relationId?: string;
+  relationView?: "structure" | "dependency";
+  relationDirection?: "parents" | "children" | "uses" | "usedBy";
   findingId?: string;
-  tool?: "evidence" | "git-graph" | "history" | "ownership" | "impact" | "tests";
-};
-
-type WorkspaceLayout = {
-  lnbWidth: number;
-  chatWidth: number;
-  fnbHeight: number;
-  lnbMode: "files" | "findings" | "outline" | "impact";
-  fnbTool: WorkspaceSelection["tool"];
+  commitId?: string;
+  tool?: "evidence" | "graph" | "history" | "ownership" | "impact" | "tests";
 };
 ```
 
-- selection 변경은 단일 store transaction으로 처리해 diff, LNB, FNB와 Chat scope가 서로 다른 snapshot을 가리키는 중간 상태를 만들지 않는다.
-- server query key에는 항상 `snapshotId`를 포함한다. 새 head를 감지하면 기존 query를 삭제하지 않고 stale로 격리한다.
-- Chat stream, graph pagination과 diff chunk loading은 독립적으로 취소할 수 있어야 한다.
+selection 변경은 한 store transaction으로 처리한다. server query key는 반드시 `analysisId` 또는 `snapshotId`를 포함한다. Chat stream, graph page와 diff chunk request는 서로 독립적으로 cancel 가능해야 한다.
 
-## 10. Frontend source boundary
+server state cache와 local UI state를 구분한다.
+
+- server state: worklist, report, diff, finding, graph, Chat message
+- URL state: 현재 analysis와 공유 가능한 selection
+- local preference: layout, theme, locale, 개인 filter
+- transient state: hover, open menu, resize, unsent Chat draft
+
+## 11. Loading, empty와 error state
+
+| 상황 | 표시 |
+|---|---|
+| 최초 poll 전 | 등록은 됐지만 아직 조회되지 않았음을 표시 |
+| requested | `대기`, queue 상태와 대기 시간 |
+| preparing/analyzing/persisting | `진행 중`, 현재 stage, elapsed time과 마지막 event |
+| completed | `완료`, coverage와 완료 시각 |
+| partial | 사용 가능한 결과와 누락된 analyzer/범위를 함께 표시 |
+| stale | 현재 base/head와 report base/head를 비교하고 새 revision action 제공 |
+| failed | 실패 stage, retry 가능 여부, request ID와 마지막 성공 report link |
+| superseded | `대체됨`, 최신 run link |
+| cancelled | `취소됨`, 취소 주체와 시각 |
+| SSE disconnected | 기존 화면 유지, reconnect 상태와 REST refresh |
+| dependency degraded | 기존 화면을 유지하고 영향 기능에 GHES/model/artifact/DB 상태와 retry 가능 여부 표시 |
+| 권한 없음/없음 | resource 존재를 구분하지 않는 공통 화면 |
+| large file omitted | omission 이유와 raw source를 자동 요청하지 않는 상태 |
+
+Skeleton은 최종 layout과 같은 고정 크기를 사용해 panel이 이동하지 않게 한다. 오류 때문에 Chat, selection과 읽던 diff를 전체 unmount하지 않는다.
+
+## 12. 접근성과 성능
+
+- icon button은 accessible name과 tooltip을 가진다.
+- tab, tree, list, dialog, separator에 적절한 ARIA pattern을 적용한다.
+- keyboard만으로 LNB/Main/Chat/FNB와 citation을 이동할 수 있다.
+- focus ring을 숨기지 않고 modal/sheet focus trap과 return focus를 구현한다.
+- 색상만으로 priority, diff와 state를 구분하지 않는다.
+- motion preference를 존중하고 streaming/layout animation을 최소화한다.
+- diff row, file tree, finding list와 graph를 virtualize한다.
+- monospace font fallback과 line height를 고정해 horizontal alignment를 유지한다.
+
+## 13. Frontend 경계
 
 ```text
-apps/web/src/features/review-workspace/
-├── shell/             # grid, responsive layout, resize handles, preferences
-├── lnb/
-│   ├── files/
-│   ├── findings/
-│   ├── outline/
-│   └── impact/
-├── main/              # diff, file, commit and maximized tool surfaces
-├── chat/              # persistent conversation, scope, evidence links, composer
-├── fnb/
-│   ├── evidence/
-│   ├── git-graph/
-│   ├── history/
-│   ├── ownership/
-│   ├── impact/
-│   └── tests/
-├── state/             # snapshot selection, URL sync, layout preference
-└── contracts/         # workspace view models and API adapters
+src/
+  app/          # route, auth boundary, query client
+  worklist/     # repository/PR table and filters
+  workspace/    # resizable shell and header
+  files/        # tree and diff
+  findings/     # finding list/detail
+  tools/        # evidence/graph/history/ownership/impact/tests
+  chat/         # session, stream, composer, citations
+  state/        # selection, URL sync, preferences
+  api/          # generated types and REST/SSE clients
+  i18n/         # ko-KR messages
 ```
 
-layout shell은 tool별 data loading을 알지 않는다. 각 tool은 snapshot-scoped query와 selection command만 공유한다. Git graph나 impact graph를 추가해도 Chat과 diff component를 다시 구성하지 않는 경계로 유지한다.
+workspace shell은 개별 tool의 data loading을 알지 않는다. tool은 snapshot-scoped query와 selection command만 공유한다.
 
-## 11. Delivery scope
+## 14. UI 완료 조건
 
-### Reviewable MVP
-
-- resizable LNB/Main/Chat/FNB shell과 responsive fallback
-- Files, Findings, Outline
-- split/unified diff, finding deep link
-- persistent snapshot-scoped Chat
-- compact Evidence trail, PR 중심 Git graph, file/symbol history
-- layout preference와 keyboard-accessible separator
-
-### Change impact phase
-
-- Impact mode, caller/dependency graph, related test explorer
-- ownership source view, rename/moved symbol history
-- full Git graph filter와 history pagination
-- resolved/reintroduced finding 추적
-
-### Enterprise phase
-
-- cross-PR comparison, organization policy/audit surface
-- shared layout preference, feature entitlement, tenant-specific tool availability
-- very large repository graph의 server-side slice/cache와 운영 관측
-
-## 12. Acceptance criteria
-
-- 1440px viewport의 초기 FNB 높이는 132px이며 사용자가 확장하지 않은 상태에서 160px을 넘지 않는다.
-- Findings와 Chat은 desktop에서 동시에 보이고, 한쪽을 사용해도 다른 쪽의 selection, scroll, draft가 유지된다.
-- 세 resize handle은 pointer와 keyboard로 조절할 수 있고 reload 후 같은 repository에서 복원된다.
-- viewport 축소 시 panel이 Main 최소 너비를 침범하지 않고 정의된 compact/stacked layout으로 전환된다.
-- Git graph tab은 prototype 표시 여부와 관계없이 Reviewable MVP에서 접근할 수 있으며 base/merge-base/head가 식별된다.
-- finding, evidence chip, graph commit 중 하나를 선택하면 Main, LNB, FNB, Chat이 같은 `snapshotId`와 selection을 가리킨다.
-- graph, diff와 list는 큰 PR에서도 전체 node를 한 번에 DOM에 만들지 않으며 loading/partial/omitted 상태를 구분한다.
-- 사용자 locale 설정이 없는 첫 진입에서 `ko-KR`이 적용되고 버튼·상태·오류·접근성 label은 한글로 표시된다. 기술용어, code identifier, path, branch와 SHA는 원문을 유지한다.
+- 1440px과 1280px에서 visual artifact의 topology와 정보 밀도를 유지하고 1440px 초기값은 split diff다.
+- 1440px 초기 FNB는 132px이며 사용자가 확장하지 않으면 160px을 넘지 않는다.
+- desktop에서 Findings와 Chat을 동시에 사용할 수 있다.
+- 720px 미만에서도 Chat draft/stream과 현재 analysis scope가 유지된다.
+- reload/deep link 후 같은 analysis와 selection을 복원한다.
+- finding/citation/commit 선택 시 모든 panel이 같은 snapshot을 가리킨다.
+- 복사한 report/finding/evidence/object URL이 로그인 후 같은 revision과 selection을 복원한다.
+- Object graph가 structure parent/children과 dependency uses/used-by를 구분하고 edge evidence를 연다.
+- GHES source action은 branch가 아니라 exact SHA permalink를 만들며 arbitrary origin을 열지 않는다.
+- Main 폭 880px 경계에서 자동 unified 전환 또는 pinned split scroll이 layout shift 없이 동작한다.
+- Playwright screenshot에서 text overlap, horizontal page overflow와 blank panel이 없다.
+- browser storage 검사에서 source, report, finding과 Chat content가 없다.
