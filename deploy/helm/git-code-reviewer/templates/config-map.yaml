@@ -1,0 +1,19 @@
+{{ include "git-code-reviewer.validate" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+data:
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: {{ .Values.server.port | quote }}
+  WORKER_HEALTH_PORT: {{ .Values.worker.healthPort | quote }}
+  DATABASE_POOL_MAX: {{ .Values.server.databasePoolMax | quote }}
+  AUTH_MODE: {{ .Values.auth.mode | quote }}
+  ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts
+  WORKSPACE_ROOT: /tmp/git-code-reviewer/workspaces
+  RETENTION_REPORT_DAYS: {{ .Values.retention.reportDays | quote }}
+  RETENTION_CHAT_DAYS: {{ .Values.retention.chatDays | quote }}
+

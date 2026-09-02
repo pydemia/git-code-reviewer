@@ -1,0 +1,59 @@
+{{- if .Values.retention.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-retention
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: retention
+spec:
+  schedule: {{ .Values.retention.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "git-code-reviewer.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: retention
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: retention
+              image: {{ include "git-code-reviewer.image" . | quote }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args: ["retention"]
+              envFrom:
+                - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.database.existingSecret }}
+                      key: {{ .Values.database.urlKey }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              volumeMounts:
+                - { name: tmp, mountPath: /tmp }
+                - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts }
+          volumes:
+            - name: tmp
+              emptyDir: { sizeLimit: 64Mi }
+            - name: artifacts
+              persistentVolumeClaim:
+                claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}
+{{- end }}
+

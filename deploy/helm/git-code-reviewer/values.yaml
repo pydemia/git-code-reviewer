@@ -1,0 +1,72 @@
+image:
+  repository: docker.io/pydemia/git-code-reviewer
+  tag: "0.1.0"
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+server:
+  replicas: 2
+  port: 4000
+  databasePoolMax: 10
+  ingress:
+    enabled: false
+    className: ""
+    host: git-code-reviewer.example.internal
+    path: /
+    annotations: {}
+    tlsSecretName: ""
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+worker:
+  replicas: 2
+  concurrency: 2
+  healthPort: 4001
+  terminationGracePeriodSeconds: 900
+  workspace:
+    mode: emptyDir
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "2", memory: 4Gi }
+
+storage:
+  backend: pvc
+  artifacts:
+    existingClaim: ""
+    storageClass: ""
+    accessModes: [ReadWriteMany]
+    size: 100Gi
+
+database:
+  existingSecret: git-code-reviewer-db
+  urlKey: DATABASE_URL
+
+secrets:
+  githubApp: git-code-reviewer-github-app
+  oidc: git-code-reviewer-oidc
+  modelProvider: git-code-reviewer-model
+
+auth:
+  mode: oidc
+
+retention:
+  enabled: true
+  schedule: "*/10 * * * *"
+  reportDays: 90
+  chatDays: 30
+  eventLogHours: 1
+
+serviceAccount:
+  create: true
+  name: ""
+
+networkPolicy:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: true
+

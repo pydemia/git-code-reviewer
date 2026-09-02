@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-worker
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "git-code-reviewer.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: worker
+          image: {{ include "git-code-reviewer.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["worker"]
+          envFrom:
+            - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.urlKey }}
+          ports:
+            - { name: health, containerPort: {{ .Values.worker.healthPort }} }
+          readinessProbe:
+            httpGet: { path: /health/ready, port: health }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health/live, port: health }
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec: { command: ["/bin/sh", "-c", "sleep 5"] }
+          resources: {{ toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: workspace, mountPath: /tmp/git-code-reviewer/workspaces }
+            - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 128Mi }
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}
+        - name: workspace
+          {{- if eq .Values.worker.workspace.mode "emptyDir" }}
+          emptyDir:
+            sizeLimit: {{ .Values.worker.workspace.size }}
+          {{- else }}
+          ephemeral:
+            volumeClaimTemplate:
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                storageClassName: {{ .Values.worker.workspace.storageClass | quote }}
+                resources:
+                  requests:
+                    storage: {{ .Values.worker.workspace.size }}
+          {{- end }}
+

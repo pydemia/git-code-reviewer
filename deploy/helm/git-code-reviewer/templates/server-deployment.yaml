@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-server
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  replicas: {{ .Values.server.replicas }}
+  selector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        {{- include "git-code-reviewer.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+    spec:
+      serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: server
+          image: {{ include "git-code-reviewer.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["serve"]
+          envFrom:
+            - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.urlKey }}
+          ports:
+            - { name: http, containerPort: {{ .Values.server.port }} }
+          startupProbe:
+            httpGet: { path: /health/startup, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            periodSeconds: 10
+          resources: {{ toYaml .Values.server.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts, readOnly: true }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 128Mi }
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}
+

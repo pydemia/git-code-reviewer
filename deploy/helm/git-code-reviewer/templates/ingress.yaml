@@ -1,0 +1,31 @@
+{{- if .Values.server.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+  {{- with .Values.server.ingress.annotations }}
+  annotations: {{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.server.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.server.ingress.tlsSecretName }}
+  tls:
+    - hosts: [{{ $.Values.server.ingress.host | quote }}]
+      secretName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.server.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.server.ingress.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "git-code-reviewer.fullname" . }}
+                port: { name: http }
+{{- end }}
+
