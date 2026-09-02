@@ -23,7 +23,7 @@
 
 ## 개발과 배포
 
-이 repository는 browser frontend와 API/Worker를 하나의 immutable OCI image로 빌드한다. PostgreSQL은 별도로 운영하고, Kubernetes에서는 Server/Worker/migration/retention이 같은 image의 서로 다른 command를 사용한다.
+이 repository는 browser frontend와 API/Worker를 하나의 immutable OCI image로 빌드한다. Kubernetes에서는 Server/Worker/migration/retention이 같은 image의 서로 다른 command를 사용하며, PostgreSQL은 외부 서비스 또는 Helm의 선택형 Bitnami dependency로 운영한다.
 
 - [로컬 PostgreSQL 개발 가이드](docs/operations/development.md)
 - [Kubernetes/Helm 배포 가이드](docs/operations/deployment.md)

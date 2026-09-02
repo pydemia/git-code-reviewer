@@ -49,6 +49,16 @@ spec:
       ports:
         - { protocol: UDP, port: 53 }
         - { protocol: TCP, port: 53 }
+    {{- if .Values.postgresql.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: primary
+      ports:
+        - { protocol: TCP, port: {{ .Values.postgresql.primary.service.ports.postgresql }} }
+    {{- end }}
     {{- with .Values.networkPolicy.additionalEgress }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

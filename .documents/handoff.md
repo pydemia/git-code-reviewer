@@ -34,7 +34,7 @@
 - 운영 대상은 사내 Kubernetes다.
 - 하나의 immutable OCI image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
 - Server와 Worker는 같은 image를 쓰는 별도 Deployment다.
-- Helm chart가 Deployment, Service, Ingress, pre-install/pre-upgrade migration Job, retention CronJob, artifact PVC와 security resource를 관리한다.
+- Helm chart가 Deployment, Service, Ingress, migration Job/init container, retention CronJob, artifact PVC와 security resource를 관리한다. PostgreSQL은 외부 서비스가 기본이고 `postgresql.enabled=true`인 pilot에서는 Bitnami dependency와 DB PVC를 함께 설치한다.
 - Migration은 idempotent expand/contract 방식과 DB advisory lock을 사용한다.
 - Startup은 config/schema, liveness는 process, readiness는 HTTP/core DB, dependency health는 artifact/GHES/model 상태를 확인한다.
 - Worker는 SIGTERM 후 새 claim을 중단하고 job을 완료하거나 lease를 반환한다.

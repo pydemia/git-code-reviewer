@@ -1,6 +1,6 @@
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.1.0-alpha.1'
+  tag: '0.2.0-alpha.1'
   digest: ''
   pullPolicy: IfNotPresent
 imagePullSecrets: []
@@ -48,6 +48,34 @@ storage:
 database:
   existingSecret: git-code-reviewer-db
   urlKey: DATABASE_URL
+
+# Disabled by default for production installations that use a managed database.
+# When enabled, this dependency replaces database.existingSecret.
+postgresql:
+  enabled: false
+  architecture: standalone
+  fullnameOverride: ''
+  auth:
+    username: git_code_reviewer
+    database: git_code_reviewer
+    password: ''
+    existingSecret: ''
+    secretKeys:
+      userPasswordKey: password
+      adminPasswordKey: postgres-password
+  primary:
+    service:
+      ports:
+        postgresql: 5432
+    persistence:
+      enabled: true
+      storageClass: ''
+      size: 20Gi
+    networkPolicy:
+      enabled: true
+      allowExternal: true
+  metrics:
+    enabled: false
 
 secrets:
   githubApp: git-code-reviewer-github-app

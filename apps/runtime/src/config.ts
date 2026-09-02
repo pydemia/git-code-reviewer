@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 
 const booleanString = z
@@ -67,11 +68,38 @@ const configSchema = z.object({
 
 export type AppConfig = z.infer<typeof configSchema>;
 
+function withDatabaseUrl(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (environment.DATABASE_URL) return environment;
+
+  const host = environment.DATABASE_HOST;
+  const port = environment.DATABASE_PORT;
+  const database = environment.DATABASE_NAME;
+  const username = environment.DATABASE_USER;
+  const passwordFile = environment.DATABASE_PASSWORD_FILE;
+  if (!host || !port || !database || !username || !passwordFile) return environment;
+
+  let password: string;
+  try {
+    password = readFileSync(passwordFile, 'utf8').trim();
+  } catch {
+    throw new Error('Invalid configuration: DATABASE_PASSWORD_FILE');
+  }
+  if (!password) throw new Error('Invalid configuration: DATABASE_PASSWORD_FILE');
+
+  const url = new URL('postgresql://localhost');
+  url.hostname = host;
+  url.port = port;
+  url.username = username;
+  url.password = password;
+  url.pathname = `/${database}`;
+  return { ...environment, DATABASE_URL: url.toString() };
+}
+
 export function loadConfig(
   environment: NodeJS.ProcessEnv = process.env,
   command: 'serve' | 'worker' | 'migrate' | 'retention' = 'serve',
 ): AppConfig {
-  const result = configSchema.safeParse(environment);
+  const result = configSchema.safeParse(withDatabaseUrl(environment));
   if (!result.success) {
     const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Invalid configuration: ${fields}`);

@@ -34,6 +34,76 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end }}
 
+{{- define "git-code-reviewer.postgresql.fullname" -}}
+{{- if .Values.postgresql.fullnameOverride -}}
+{{- .Values.postgresql.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default "postgresql" .Values.postgresql.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{- define "git-code-reviewer.postgresql.secretName" -}}
+{{- default (include "git-code-reviewer.postgresql.fullname" .) .Values.postgresql.auth.existingSecret -}}
+{{- end }}
+
+{{- define "git-code-reviewer.databaseEnv" -}}
+{{- if .Values.postgresql.enabled }}
+- name: DATABASE_HOST
+  value: {{ include "git-code-reviewer.postgresql.fullname" . | quote }}
+- name: DATABASE_PORT
+  value: {{ .Values.postgresql.primary.service.ports.postgresql | quote }}
+- name: DATABASE_NAME
+  value: {{ .Values.postgresql.auth.database | quote }}
+- name: DATABASE_USER
+  value: {{ .Values.postgresql.auth.username | quote }}
+- name: DATABASE_PASSWORD_FILE
+  value: /run/secrets/database/password
+{{- else }}
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.existingSecret }}
+      key: {{ .Values.database.urlKey }}
+{{- end }}
+{{- end }}
+
+{{- define "git-code-reviewer.databaseVolumeMount" -}}
+{{- if .Values.postgresql.enabled }}
+- { name: database-password, mountPath: /run/secrets/database, readOnly: true }
+{{- end }}
+{{- end }}
+
+{{- define "git-code-reviewer.databaseVolume" -}}
+{{- if .Values.postgresql.enabled }}
+- name: database-password
+  secret:
+    secretName: {{ include "git-code-reviewer.postgresql.secretName" . }}
+    items:
+      - { key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey }}, path: password }
+{{- end }}
+{{- end }}
+
+{{- define "git-code-reviewer.migrationInitContainer" -}}
+- name: migrate
+  image: {{ include "git-code-reviewer.image" . | quote }}
+  imagePullPolicy: {{ .Values.image.pullPolicy }}
+  args: ["migrate"]
+  env:
+    {{- include "git-code-reviewer.databaseEnv" . | nindent 4 }}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities: { drop: ["ALL"] }
+  volumeMounts:
+    - { name: tmp, mountPath: /tmp }
+    {{- include "git-code-reviewer.databaseVolumeMount" . | nindent 4 }}
+{{- end }}
+
 {{- define "git-code-reviewer.validate" -}}
 {{- if gt (int .Values.retention.chatDays) (int .Values.retention.reportDays) -}}
 {{- fail "retention.chatDays must not exceed retention.reportDays" -}}
@@ -55,5 +125,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if and (eq .Values.model.chat.mode "openai-compatible") (or (not .Values.model.chat.endpoint) (not .Values.model.chat.name) (not .Values.secrets.chatModelProvider)) -}}
 {{- fail "chat model endpoint, explicit name, and provider Secret are required" -}}
+{{- end -}}
+{{- if and (not .Values.postgresql.enabled) (not .Values.database.existingSecret) -}}
+{{- fail "database.existingSecret is required when postgresql.enabled is false" -}}
+{{- end -}}
+{{- if and .Values.postgresql.enabled (or (not .Values.postgresql.auth.username) (not .Values.postgresql.auth.database)) -}}
+{{- fail "postgresql.auth.username and postgresql.auth.database are required when postgresql.enabled is true" -}}
 {{- end -}}
 {{- end }}

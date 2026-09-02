@@ -11,14 +11,14 @@
 | Migration hook Job | `migrate`   | advisory-lock protected forward migration                     |
 | Retention CronJob  | `retention` | bounded expiry and artifact cleanup                           |
 
-Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별도 frontend/backend image를 조합하지 않는다. PostgreSQL은 chart 밖의 별도 서비스이고, artifact는 여러 replica가 공유하는 RWX PV/PVC에 저장한다.
+Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별도 frontend/backend image를 조합하지 않는다. PostgreSQL은 운영형 외부 서비스가 기본이며, pilot에서는 선택형 Bitnami PostgreSQL dependency를 같은 release에 설치할 수 있다. Artifact는 여러 replica가 공유하는 RWX PV/PVC에 저장한다.
 
 ## Build and publish the image
 
 Release image는 amd64/arm64 manifest, BuildKit provenance와 SBOM을 함께 게시한다. `latest` 대신 version과 source revision tag를 사용한다.
 
 ```bash
-export VERSION=0.1.0-alpha.1
+export VERSION=0.2.0-alpha.1
 export REVISION="$(git rev-parse HEAD)"
 
 docker buildx build \
@@ -40,16 +40,17 @@ cosign sign "docker.io/pydemia/git-code-reviewer@sha256:..."
 cosign verify "docker.io/pydemia/git-code-reviewer@sha256:..."
 ```
 
-Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.1.0-alpha.1`, chart version tag는 `0.1.0`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
+Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.2.0-alpha.1`, chart version tag는 `0.2.0`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
 
 ```bash
 helm registry login registry-1.docker.io -u pydemia
+helm dependency build deploy/helm/git-code-reviewer
 helm package deploy/helm/git-code-reviewer --destination dist/helm
-helm push dist/helm/git-code-reviewer-0.1.0.tgz \
+helm push dist/helm/git-code-reviewer-0.2.0.tgz \
   oci://registry-1.docker.io/pydemia
 helm show chart \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.1.0
+  --version 0.2.0
 ```
 
 OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart.yaml`의 name/version으로 이를 결정한다. [Helm OCI registry](https://helm.sh/docs/topics/registries/)
@@ -57,13 +58,13 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 ## Prerequisites
 
 - Kubernetes 1.29 이상과 Helm 3
-- 외부 PostgreSQL 15 이상, TLS와 backup 설정
+- 외부 PostgreSQL 15 이상 또는 chart의 선택형 Bitnami PostgreSQL dependency
 - RWX를 제공하는 StorageClass 또는 기존 PVC
 - TLS Ingress와 OIDC provider
 - private GHES에서 설치된 read-only GitHub App
 - 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint
 
-Pre-install migration은 일반 chart resource보다 먼저 실행되므로 DB Secret과 corporate CA ConfigMap은 설치 전에 존재해야 한다. Helm hook lifecycle은 [Helm chart hooks](https://helm.sh/docs/topics/charts_hooks/)를 참고한다.
+외부 DB 모드의 pre-install migration은 일반 chart resource보다 먼저 실행되므로 DB Secret과 corporate CA ConfigMap은 설치 전에 존재해야 한다. 번들 DB 모드는 PostgreSQL resource 생성 후 Server/Worker init container가 advisory lock 아래 최초 migration을 수행하고, 이후 upgrade에서는 pre-upgrade hook도 실행한다. Helm hook lifecycle은 [Helm chart hooks](https://helm.sh/docs/topics/charts_hooks/)를 참고한다.
 
 ## Prepare namespace and secrets
 
@@ -85,6 +86,41 @@ kubectl -n git-code-reviewer create secret generic git-code-reviewer-auth \
   --from-literal=OIDC_REDIRECT_URI='https://git-code-reviewer.example.internal/auth/callback' \
   --from-literal=OIDC_ADMIN_GROUP='git-code-reviewer-admins'
 ```
+
+위 `git-code-reviewer-db` Secret은 기본 외부 DB 모드에서만 필요하다. 자체 포함 pilot은 다음 values로 Bitnami PostgreSQL과 RWO PVC를 같은 release에 설치한다.
+
+```yaml
+database:
+  existingSecret: ''
+
+postgresql:
+  enabled: true
+  auth:
+    username: git_code_reviewer
+    database: git_code_reviewer
+  primary:
+    persistence:
+      enabled: true
+      storageClass: block-storage
+      size: 20Gi
+```
+
+비밀번호를 chart가 생성하게 두면 `${RELEASE_NAME}-postgresql` Secret의 `password` key를 application Pod에 파일로 마운트한다. 기존 Secret을 사용하려면 `postgresql.auth.existingSecret`을 지정하고 `password`, `postgres-password` key를 준비한다. 평문 `postgresql.auth.password`를 Git이나 환경 values 파일에 기록하지 않는다.
+
+```bash
+kubectl -n git-code-reviewer create secret generic git-code-reviewer-postgresql-auth \
+  --from-literal=password="$POSTGRES_USER_PASSWORD" \
+  --from-literal=postgres-password="$POSTGRES_ADMIN_PASSWORD"
+```
+
+```yaml
+postgresql:
+  enabled: true
+  auth:
+    existingSecret: git-code-reviewer-postgresql-auth
+```
+
+번들 DB는 간단한 pilot과 단일 cluster 운영을 위한 선택지다. 운영 환경에서는 조직의 backup, HA, TLS, monitoring 기준을 충족하는 외부 PostgreSQL을 우선한다. Dependency chart `18.8.14`는 PostgreSQL `18.6` image를 사용하므로 chart major version을 올릴 때에는 PostgreSQL major upgrade 절차와 PV backup/restore를 먼저 검증한다. [Bitnami PostgreSQL chart](https://github.com/bitnami/charts/tree/main/bitnami/postgresql)
 
 Docker Hub repository가 private이면 같은 계정의 access token으로 Kubernetes image pull Secret을 만든다. Docker Desktop의 `config.json`이 credential helper만 참조하는 경우 그 파일 자체를 Secret으로 복사하면 cluster에서 동작하지 않는다.
 
@@ -125,6 +161,7 @@ kubectl -n git-code-reviewer create secret generic git-code-reviewer-chat-model 
 - `publicBaseUrl`, Ingress host/TLS/controller annotations
 - RWX StorageClass, artifact 용량, Worker ephemeral workspace 용량
 - DB/Auth/GitHub/Model Secret 이름
+- `postgresql.enabled`: 외부 DB는 `false`, 자체 포함 pilot은 `true`; 번들 모드에서는 DB PVC StorageClass와 용량
 - 분석과 Chat의 endpoint 및 **명시적인 model name**
 - retention 기간. `chatDays`는 `reportDays`보다 클 수 없다.
 - NetworkPolicy를 켤 경우 DB, GHES, OIDC, model endpoint의 실제 CIDR egress. values 예시의 documentation CIDR을 그대로 사용하지 않는다.
@@ -135,6 +172,7 @@ Gemini를 사용할 경우 model 목록 조회와 최소 Chat Completions 호출
 ## Validate and install
 
 ```bash
+helm dependency build deploy/helm/git-code-reviewer
 helm lint deploy/helm/git-code-reviewer -f values.enterprise.yaml
 helm template git-code-reviewer deploy/helm/git-code-reviewer \
   -n git-code-reviewer -f values.enterprise.yaml > rendered.yaml
@@ -149,7 +187,7 @@ Source checkout 없이 Docker Hub의 chart를 직접 설치할 수도 있다. �
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.1.0 \
+  --version 0.2.0 \
   -n git-code-reviewer -f values.enterprise.yaml \
   --atomic --wait --timeout 20m
 ```

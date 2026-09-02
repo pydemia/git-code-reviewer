@@ -29,6 +29,10 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
         seccompProfile: { type: RuntimeDefault }
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        {{- include "git-code-reviewer.migrationInitContainer" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: worker
           image: {{ include "git-code-reviewer.image" . | quote }}
@@ -37,11 +41,7 @@ spec:
           envFrom:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
           env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.database.existingSecret }}
-                  key: {{ .Values.database.urlKey }}
+            {{- include "git-code-reviewer.databaseEnv" . | nindent 12 }}
             {{- if eq .Values.github.mode "app" }}
             - name: GITHUB_APP_ID
               valueFrom:
@@ -84,6 +84,7 @@ spec:
             - { name: tmp, mountPath: /tmp }
             - { name: workspace, mountPath: /tmp/git-code-reviewer/workspaces }
             - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts }
+            {{- include "git-code-reviewer.databaseVolumeMount" . | nindent 12 }}
             {{- if eq .Values.github.mode "app" }}
             - { name: github-app, mountPath: /run/secrets/github-app, readOnly: true }
             {{- end }}
@@ -93,6 +94,7 @@ spec:
       volumes:
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
+        {{- include "git-code-reviewer.databaseVolume" . | nindent 8 }}
         - name: artifacts
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}

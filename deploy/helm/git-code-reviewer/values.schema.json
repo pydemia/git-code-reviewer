@@ -9,6 +9,7 @@
     "worker",
     "storage",
     "database",
+    "postgresql",
     "secrets",
     "github",
     "auth",
@@ -110,8 +111,65 @@
       "type": "object",
       "required": ["existingSecret", "urlKey"],
       "properties": {
-        "existingSecret": { "type": "string", "minLength": 1 },
+        "existingSecret": { "type": "string" },
         "urlKey": { "type": "string", "minLength": 1 }
+      }
+    },
+    "postgresql": {
+      "type": "object",
+      "required": ["enabled", "architecture", "auth", "primary"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "architecture": { "enum": ["standalone"] },
+        "fullnameOverride": { "type": "string" },
+        "auth": {
+          "type": "object",
+          "required": ["username", "database", "password", "existingSecret", "secretKeys"],
+          "properties": {
+            "username": { "type": "string" },
+            "database": { "type": "string" },
+            "password": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "secretKeys": {
+              "type": "object",
+              "required": ["userPasswordKey", "adminPasswordKey"],
+              "properties": {
+                "userPasswordKey": { "type": "string", "minLength": 1 },
+                "adminPasswordKey": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "primary": {
+          "type": "object",
+          "required": ["service", "persistence", "networkPolicy"],
+          "properties": {
+            "service": {
+              "type": "object",
+              "required": ["ports"],
+              "properties": {
+                "ports": {
+                  "type": "object",
+                  "required": ["postgresql"],
+                  "properties": {
+                    "postgresql": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                  }
+                }
+              }
+            },
+            "persistence": {
+              "type": "object",
+              "required": ["enabled", "storageClass", "size"],
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "storageClass": { "type": "string" },
+                "size": { "type": "string", "minLength": 1 }
+              }
+            },
+            "networkPolicy": { "type": "object" }
+          }
+        },
+        "metrics": { "type": "object" }
       }
     },
     "secrets": {

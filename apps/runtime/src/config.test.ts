@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
 
@@ -27,6 +30,50 @@ describe('loadConfig', () => {
 
   it('does not expose invalid values in its error', () => {
     expect(() => loadConfig({ DATABASE_URL: '' })).toThrow('Invalid configuration: DATABASE_URL');
+  });
+
+  it('constructs the database URL from a mounted password file', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'gcr-db-secret-'));
+    const passwordFile = join(directory, 'password');
+    writeFileSync(passwordFile, 'p@ss/word\n');
+    try {
+      const config = loadConfig({
+        DATABASE_HOST: 'review-postgresql',
+        DATABASE_PORT: '5432',
+        DATABASE_NAME: 'git_code_reviewer',
+        DATABASE_USER: 'git_code_reviewer',
+        DATABASE_PASSWORD_FILE: passwordFile,
+      });
+      expect(config.DATABASE_URL).toBe(
+        'postgresql://git_code_reviewer:p%40ss%2Fword@review-postgresql:5432/git_code_reviewer',
+      );
+    } finally {
+      rmSync(directory, { recursive: true });
+    }
+  });
+
+  it('does not expose a database password file path when it cannot be read', () => {
+    const passwordFile = '/missing/private/database-password';
+    expect(() =>
+      loadConfig({
+        DATABASE_HOST: 'review-postgresql',
+        DATABASE_PORT: '5432',
+        DATABASE_NAME: 'git_code_reviewer',
+        DATABASE_USER: 'git_code_reviewer',
+        DATABASE_PASSWORD_FILE: passwordFile,
+      }),
+    ).toThrow('Invalid configuration: DATABASE_PASSWORD_FILE');
+    try {
+      loadConfig({
+        DATABASE_HOST: 'review-postgresql',
+        DATABASE_PORT: '5432',
+        DATABASE_NAME: 'git_code_reviewer',
+        DATABASE_USER: 'git_code_reviewer',
+        DATABASE_PASSWORD_FILE: passwordFile,
+      });
+    } catch (error) {
+      expect(String(error)).not.toContain(passwordFile);
+    }
   });
 
   it('requires OIDC settings only for the server command', () => {

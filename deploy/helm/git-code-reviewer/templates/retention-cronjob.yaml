@@ -40,11 +40,7 @@ spec:
               envFrom:
                 - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
               env:
-                - name: DATABASE_URL
-                  valueFrom:
-                    secretKeyRef:
-                      name: {{ .Values.database.existingSecret }}
-                      key: {{ .Values.database.urlKey }}
+                {{- include "git-code-reviewer.databaseEnv" . | nindent 16 }}
                 {{- if .Values.trustedCa.existingConfigMap }}
                 - name: NODE_EXTRA_CA_CERTS
                   value: /run/config/trust/ca.crt
@@ -56,12 +52,14 @@ spec:
               volumeMounts:
                 - { name: tmp, mountPath: /tmp }
                 - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts }
+                {{- include "git-code-reviewer.databaseVolumeMount" . | nindent 16 }}
                 {{- if .Values.trustedCa.existingConfigMap }}
                 - { name: trusted-ca, mountPath: /run/config/trust, readOnly: true }
                 {{- end }}
           volumes:
             - name: tmp
               emptyDir: { sizeLimit: 64Mi }
+            {{- include "git-code-reviewer.databaseVolume" . | nindent 12 }}
             - name: artifacts
               persistentVolumeClaim:
                 claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}
