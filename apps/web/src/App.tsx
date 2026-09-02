@@ -30,7 +30,7 @@ import {
   ThumbsUp,
   Users,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import {
   loadAnalysisWorkspace,
   loadRelationships,
@@ -46,9 +46,28 @@ import {
   type WorklistItem,
   type WorkspaceData,
 } from './api.ts';
+import {
+  DEFAULT_WORKSPACE_LAYOUT,
+  WORKSPACE_LAYOUT_LIMITS,
+  constrainWorkspaceLayout,
+  parseWorkspaceLayout,
+  resizeWorkspaceLayout,
+  type WorkspaceLayout,
+  type WorkspaceResizeHandle,
+} from './workspace-layout.ts';
 
 type ReviewMode = 'files' | 'findings' | 'outline' | 'impact';
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
+type ResizeOperation = {
+  handle: WorkspaceResizeHandle;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  layout: WorkspaceLayout;
+};
+
+const WORKSPACE_LAYOUT_STORAGE_KEY = 'git-code-reviewer.workspace-layout.v1';
+const RESPONSIVE_LAYOUT_BREAKPOINT = 820;
 
 export function App() {
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
@@ -229,6 +248,92 @@ function ReviewWorkspace({
   const [chatDraft, setChatDraft] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const [diffMode, setDiffMode] = useState<'split' | 'unified'>('split');
+  const [workspaceLayout, setWorkspaceLayout] = useState(() => {
+    try {
+      return parseWorkspaceLayout(window.localStorage.getItem(WORKSPACE_LAYOUT_STORAGE_KEY));
+    } catch {
+      return DEFAULT_WORKSPACE_LAYOUT;
+    }
+  });
+  const [resizing, setResizing] = useState<WorkspaceResizeHandle | null>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
+  const resizeOperationRef = useRef<ResizeOperation | null>(null);
+
+  const workspaceBounds = () => {
+    const rect = workspaceRef.current?.getBoundingClientRect();
+    return { width: rect?.width ?? window.innerWidth, height: rect?.height ?? window.innerHeight };
+  };
+
+  const startResize = (handle: WorkspaceResizeHandle, event: PointerEvent<HTMLDivElement>) => {
+    if (workspaceBounds().width <= RESPONSIVE_LAYOUT_BREAKPOINT) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeOperationRef.current = {
+      handle,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      layout: workspaceLayout,
+    };
+    setResizing(handle);
+  };
+
+  const continueResize = (event: PointerEvent<HTMLDivElement>) => {
+    const operation = resizeOperationRef.current;
+    if (!operation || operation.pointerId !== event.pointerId) return;
+    const delta =
+      operation.handle === 'bottom'
+        ? event.clientY - operation.startY
+        : event.clientX - operation.startX;
+    setWorkspaceLayout(
+      resizeWorkspaceLayout(operation.layout, operation.handle, delta, workspaceBounds()),
+    );
+  };
+
+  const finishResize = (event: PointerEvent<HTMLDivElement>) => {
+    const operation = resizeOperationRef.current;
+    if (!operation || operation.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    resizeOperationRef.current = null;
+    setResizing(null);
+  };
+
+  const resizeWithKeyboard = (handle: WorkspaceResizeHandle, delta: number) => {
+    setWorkspaceLayout((current) =>
+      resizeWorkspaceLayout(current, handle, delta, workspaceBounds()),
+    );
+  };
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(WORKSPACE_LAYOUT_STORAGE_KEY, JSON.stringify(workspaceLayout));
+    } catch {
+      // Browser storage can be unavailable in restricted contexts; resizing still works in memory.
+    }
+  }, [workspaceLayout]);
+
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry || entry.contentRect.width <= RESPONSIVE_LAYOUT_BREAKPOINT) return;
+      setWorkspaceLayout((current) =>
+        constrainWorkspaceLayout(current, {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        }),
+      );
+    });
+    observer.observe(workspace);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle('workspace-resizing', resizing !== null);
+    return () => document.body.classList.remove('workspace-resizing');
+  }, [resizing]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -433,7 +538,17 @@ function ReviewWorkspace({
           </a>
         </div>
       </div>
-      <main className="workspace-grid">
+      <main
+        className={`workspace-grid${resizing ? ` is-resizing resize-${resizing}` : ''}`}
+        ref={workspaceRef}
+        style={
+          {
+            '--left-panel-width': `${workspaceLayout.leftWidth}px`,
+            '--chat-panel-width': `${workspaceLayout.chatWidth}px`,
+            '--bottom-panel-height': `${workspaceLayout.bottomHeight}px`,
+          } as CSSProperties
+        }
+      >
         <ReviewSidebar
           data={data}
           status={status}
@@ -558,8 +673,118 @@ function ReviewWorkspace({
             <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
           )}
         </section>
+        <WorkspaceResizeHandle
+          name="left"
+          label="탐색 패널 크기 조절"
+          value={workspaceLayout.leftWidth}
+          minimum={WORKSPACE_LAYOUT_LIMITS.leftMin}
+          maximum={WORKSPACE_LAYOUT_LIMITS.leftMax}
+          onPointerDown={startResize}
+          onPointerMove={continueResize}
+          onPointerEnd={finishResize}
+          onKeyboardResize={resizeWithKeyboard}
+          onReset={() =>
+            setWorkspaceLayout((current) => ({
+              ...current,
+              leftWidth: DEFAULT_WORKSPACE_LAYOUT.leftWidth,
+            }))
+          }
+        />
+        <WorkspaceResizeHandle
+          name="chat"
+          label="채팅 패널 크기 조절"
+          value={workspaceLayout.chatWidth}
+          minimum={WORKSPACE_LAYOUT_LIMITS.chatMin}
+          maximum={WORKSPACE_LAYOUT_LIMITS.chatMax}
+          onPointerDown={startResize}
+          onPointerMove={continueResize}
+          onPointerEnd={finishResize}
+          onKeyboardResize={resizeWithKeyboard}
+          onReset={() =>
+            setWorkspaceLayout((current) => ({
+              ...current,
+              chatWidth: DEFAULT_WORKSPACE_LAYOUT.chatWidth,
+            }))
+          }
+        />
+        <WorkspaceResizeHandle
+          name="bottom"
+          label="하단 패널 크기 조절"
+          value={workspaceLayout.bottomHeight}
+          minimum={WORKSPACE_LAYOUT_LIMITS.bottomMin}
+          maximum={Math.max(
+            WORKSPACE_LAYOUT_LIMITS.bottomMin,
+            workspaceBounds().height - WORKSPACE_LAYOUT_LIMITS.topMin,
+          )}
+          onPointerDown={startResize}
+          onPointerMove={continueResize}
+          onPointerEnd={finishResize}
+          onKeyboardResize={resizeWithKeyboard}
+          onReset={() =>
+            setWorkspaceLayout((current) => ({
+              ...current,
+              bottomHeight: DEFAULT_WORKSPACE_LAYOUT.bottomHeight,
+            }))
+          }
+        />
       </main>
     </div>
+  );
+}
+
+function WorkspaceResizeHandle({
+  name,
+  label,
+  value,
+  minimum,
+  maximum,
+  onPointerDown,
+  onPointerMove,
+  onPointerEnd,
+  onKeyboardResize,
+  onReset,
+}: {
+  name: WorkspaceResizeHandle;
+  label: string;
+  value: number;
+  minimum: number;
+  maximum: number;
+  onPointerDown: (name: WorkspaceResizeHandle, event: PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerEnd: (event: PointerEvent<HTMLDivElement>) => void;
+  onKeyboardResize: (name: WorkspaceResizeHandle, delta: number) => void;
+  onReset: () => void;
+}) {
+  const horizontal = name === 'bottom';
+  return (
+    <div
+      className={`workspace-resize-handle ${name}`}
+      role="separator"
+      tabIndex={0}
+      title={`${label} (더블클릭으로 초기화)`}
+      aria-label={label}
+      aria-orientation={horizontal ? 'horizontal' : 'vertical'}
+      aria-valuemin={minimum}
+      aria-valuemax={maximum}
+      aria-valuenow={value}
+      onPointerDown={(event) => onPointerDown(name, event)}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}
+      onDoubleClick={onReset}
+      onKeyDown={(event) => {
+        const decreaseKey = horizontal ? 'ArrowUp' : 'ArrowLeft';
+        const increaseKey = horizontal ? 'ArrowDown' : 'ArrowRight';
+        if (event.key === 'Home') {
+          event.preventDefault();
+          onReset();
+        } else if (event.key === decreaseKey || event.key === increaseKey) {
+          event.preventDefault();
+          const direction = event.key === decreaseKey ? -1 : 1;
+          onKeyboardResize(name, direction * (event.shiftKey ? 48 : 16));
+        }
+      }}
+    />
   );
 }
 

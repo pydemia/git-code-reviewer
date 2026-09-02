@@ -431,12 +431,86 @@ h1 {
 }
 
 .workspace-grid {
+  --left-panel-width: 244px;
+  --chat-panel-width: 316px;
+  --bottom-panel-height: 176px;
   min-width: 0;
   min-height: 0;
+  position: relative;
   display: grid;
-  grid-template-columns: 244px minmax(420px, 1fr) 316px;
-  grid-template-rows: minmax(260px, 1fr) 176px;
+  grid-template-columns: var(--left-panel-width) minmax(0, 1fr) var(--chat-panel-width);
+  grid-template-rows: minmax(220px, 1fr) var(--bottom-panel-height);
   overflow: hidden;
+}
+
+.workspace-resize-handle {
+  position: absolute;
+  z-index: 20;
+  touch-action: none;
+  outline: 0;
+}
+
+.workspace-resize-handle::after {
+  position: absolute;
+  content: '';
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+
+.workspace-resize-handle.left,
+.workspace-resize-handle.chat {
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  cursor: col-resize;
+}
+
+.workspace-resize-handle.left {
+  left: var(--left-panel-width);
+  transform: translateX(-4px);
+}
+
+.workspace-resize-handle.chat {
+  right: var(--chat-panel-width);
+  transform: translateX(4px);
+}
+
+.workspace-resize-handle.left::after,
+.workspace-resize-handle.chat::after {
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+}
+
+.workspace-resize-handle.bottom {
+  right: var(--chat-panel-width);
+  bottom: calc(var(--bottom-panel-height) - 4px);
+  left: var(--left-panel-width);
+  height: 9px;
+  cursor: row-resize;
+}
+
+.workspace-resize-handle.bottom::after {
+  top: 4px;
+  right: 0;
+  left: 0;
+  height: 2px;
+}
+
+.workspace-resize-handle:hover::after,
+.workspace-resize-handle:focus-visible::after,
+.workspace-grid.is-resizing .workspace-resize-handle::after {
+  background: #268b7a;
+}
+
+body.workspace-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.workspace-resizing:has(.resize-bottom) {
+  cursor: row-resize;
 }
 
 .left-panel,
@@ -1362,10 +1436,6 @@ h1 {
 }
 
 @media (max-width: 1100px) {
-  .workspace-grid {
-    grid-template-columns: 210px minmax(390px, 1fr) 280px;
-  }
-
   .context-title,
   .analysis-state,
   .sha-label,
@@ -1407,6 +1477,10 @@ h1 {
     grid-template-columns: 1fr;
     grid-template-rows: auto 52dvh auto auto;
     overflow: visible;
+  }
+
+  .workspace-resize-handle {
+    display: none;
   }
 
   .left-panel {
