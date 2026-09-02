@@ -10,6 +10,7 @@ import type { AppConfig } from './config.js';
 import { EventHub } from './events/index.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerAnalysisRoutes } from './routes/analyses.js';
+import { registerChatRoutes } from './routes/chat.js';
 import { registerWorklistRoutes } from './routes/worklist.js';
 import {
   createGitHubReader,
@@ -73,6 +74,7 @@ export async function buildServer(config: AppConfig) {
   await registerWorklistRoutes(app, database);
   await registerSnapshotRoutes(app, database, eventHub, artifacts);
   await registerAnalysisRoutes(app, database, eventHub, artifacts, config);
+  await registerChatRoutes(app, database, eventHub, artifacts, config);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));

@@ -44,6 +44,14 @@ export const pullRequestSchema = z.object({
 });
 export type PullRequest = z.infer<typeof pullRequestSchema>;
 
+export const pullRequestSummarySchema = pullRequestSchema.extend({
+  latestAnalysisId: z.string().uuid().nullable(),
+  analysisState: z.string().nullable(),
+  grade: z.enum(['exceptional', 'proficient', 'adequate', 'insufficient', 'critical']).nullable(),
+  attentionCount: z.number().int().nonnegative(),
+});
+export type PullRequestSummary = z.infer<typeof pullRequestSummarySchema>;
+
 export const repositoryListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   items: z.array(repositorySchema),
@@ -53,7 +61,7 @@ export const repositoryListSchema = z.object({
 export const pullRequestListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   repositoryId: z.string().uuid(),
-  items: z.array(pullRequestSchema),
+  items: z.array(pullRequestSummarySchema),
   nextCursor: z.string().nullable(),
 });
 
@@ -288,6 +296,50 @@ export const relationshipViewSchema = z.object({
     }),
   ),
   coverage: coverageSchema,
+});
+
+export const chatCitationSchema = z.object({
+  findingId: z.string().uuid().optional(),
+  evidenceId: z.string().uuid(),
+  fileId: z.string().uuid(),
+  line: z.number().int().positive().optional(),
+  label: z.string(),
+});
+
+export const chatSessionSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  id: z.string().uuid(),
+  analysisId: z.string().uuid(),
+  scope: z.object({
+    findingId: z.string().uuid().optional(),
+    fileId: z.string().uuid().optional(),
+    symbolId: z.string().uuid().optional(),
+  }),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const chatMessageSchema = z.object({
+  id: z.string().uuid(),
+  role: z.enum(['user', 'assistant']),
+  status: z.enum(['pending', 'completed', 'failed']),
+  content: z.string(),
+  citations: z.array(chatCitationSchema),
+  createdAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+
+export const chatMessageListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  sessionId: z.string().uuid(),
+  items: z.array(chatMessageSchema),
+});
+
+export const chatSendResponseSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  sessionId: z.string().uuid(),
+  userMessage: chatMessageSchema,
+  assistantMessage: chatMessageSchema,
 });
 
 export const dependencyHealthSchema = z.object({

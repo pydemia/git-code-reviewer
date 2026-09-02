@@ -32,6 +32,14 @@ const configSchema = z.object({
   MODEL_API_KEY: z.string().optional(),
   MODEL_NAME: z.string().optional(),
   MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  CHAT_MODEL_MODE: z.enum(['disabled', 'openai-compatible']).default('disabled'),
+  CHAT_MODEL_ENDPOINT: z.string().url().optional(),
+  CHAT_MODEL_API_KEY: z.string().optional(),
+  CHAT_MODEL_NAME: z.string().optional(),
+  CHAT_MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
+  CHAT_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(2),
+  CHAT_HOURLY_LIMIT: z.coerce.number().int().positive().default(30),
+  CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
   ANALYSIS_MAX_FILES: z.coerce.number().int().positive().default(500),
   ANALYSIS_MAX_BYTES: z.coerce
     .number()
@@ -107,6 +115,15 @@ export function loadConfig(
     (!result.data.MODEL_ENDPOINT || !result.data.MODEL_API_KEY || !result.data.MODEL_NAME)
   ) {
     throw new Error('Invalid configuration: model endpoint, API key, and name are required');
+  }
+  if (
+    command === 'serve' &&
+    result.data.CHAT_MODEL_MODE === 'openai-compatible' &&
+    (!result.data.CHAT_MODEL_ENDPOINT ||
+      !result.data.CHAT_MODEL_API_KEY ||
+      !result.data.CHAT_MODEL_NAME)
+  ) {
+    throw new Error('Invalid configuration: Chat model endpoint, API key, and name are required');
   }
   return result.data;
 }

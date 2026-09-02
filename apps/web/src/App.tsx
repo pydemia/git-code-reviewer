@@ -32,10 +32,17 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
+  loadAnalysisWorkspace,
+  loadRelationships,
   loadWorklist,
   loadWorkspace,
+  openChatSession,
   refreshPull,
+  sendChatMessage,
   waitForSnapshot,
+  type ChatMessage,
+  type ChatSession,
+  type RelationshipView,
   type WorklistItem,
   type WorkspaceData,
 } from './api.ts';
@@ -44,12 +51,13 @@ type ReviewMode = 'files' | 'findings' | 'outline' | 'impact';
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 
 export function App() {
-  const match = window.location.pathname.match(/^\/repositories\/([^/]+)\/pulls\/(\d+)$/);
-  return match ? (
-    <ReviewWorkspace repositoryId={match[1]!} pullNumber={Number(match[2])} />
-  ) : (
-    <Worklist />
-  );
+  const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
+  if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;
+  const pullMatch = window.location.pathname.match(/^\/repositories\/([^/]+)\/pulls\/(\d+)$/);
+  if (pullMatch) {
+    return <ReviewWorkspace repositoryId={pullMatch[1]!} pullNumber={Number(pullMatch[2])} />;
+  }
+  return <Worklist />;
 }
 
 function AppHeader({ compact = false }: { compact?: boolean }) {
@@ -138,7 +146,11 @@ function Worklist() {
           {state.items.map((pr) => (
             <a
               className="pr-row"
-              href={`/repositories/${pr.repository.id}/pulls/${pr.number}`}
+              href={
+                pr.latestAnalysisId
+                  ? `/reviews/${pr.latestAnalysisId}`
+                  : `/repositories/${pr.repository.id}/pulls/${pr.number}`
+              }
               key={pr.id}
             >
               <span className="pr-primary">
@@ -148,10 +160,12 @@ function Worklist() {
                 </span>
               </span>
               <span className="status-cell">
-                <Clock3 size={14} />
-                {pr.draft ? '초안' : '분석 대기'}
+                {pr.grade ? <CircleCheck size={14} /> : <Clock3 size={14} />}
+                {pr.draft ? '초안' : pr.grade ? '분석 완료' : formatAnalysisState(pr.analysisState)}
               </span>
-              <span className="risk-cell">미분석</span>
+              <span className={`risk-cell ${pr.grade ?? 'unreviewed'}`}>
+                {pr.grade ? `${pr.grade} · P2+ ${pr.attentionCount}` : '미분석'}
+              </span>
               <span className="muted-cell">{formatRelativeTime(pr.updatedAt)}</span>
             </a>
           ))}
@@ -185,12 +199,21 @@ function formatRelativeTime(value: string): string {
   return `${Math.floor(hours / 24)}일 전`;
 }
 
+function formatAnalysisState(state: string | null): string {
+  if (state === 'analyzing') return '분석 중';
+  if (state === 'failed') return '분석 실패';
+  if (state === 'partial') return '부분 완료';
+  return '분석 대기';
+}
+
 function ReviewWorkspace({
   repositoryId,
   pullNumber,
+  analysisId,
 }: {
-  repositoryId: string;
-  pullNumber: number;
+  repositoryId?: string;
+  pullNumber?: number;
+  analysisId?: string;
 }) {
   const [data, setData] = useState<WorkspaceData | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -198,10 +221,23 @@ function ReviewWorkspace({
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [reviewMode, setReviewMode] = useState<ReviewMode>('files');
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [relationship, setRelationship] = useState<RelationshipView | null>(null);
+  const [bottomTool, setBottomTool] = useState<'evidence' | 'relationships'>('evidence');
+  const [chatSession, setChatSession] = useState<ChatSession | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const [diffMode, setDiffMode] = useState<'split' | 'unified'>('split');
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadWorkspace(repositoryId, pullNumber, controller.signal).then(
+    const workspaceRequest = analysisId
+      ? loadAnalysisWorkspace(analysisId, controller.signal)
+      : repositoryId && pullNumber
+        ? loadWorkspace(repositoryId, pullNumber, controller.signal)
+        : Promise.reject(new Error('Review target is missing'));
+    void workspaceRequest.then(
       (workspace) => {
         setData(workspace);
         const requestedFindingId = new URLSearchParams(window.location.search).get('finding');
@@ -210,6 +246,15 @@ function ReviewWorkspace({
         );
         setSelectedFindingId(requestedFinding?.id ?? null);
         setReviewMode(requestedFinding ? 'findings' : 'files');
+        const requestedObjectId = new URLSearchParams(window.location.search).get('symbol');
+        const requestedObject = workspace.objects.find((object) => object.id === requestedObjectId);
+        setSelectedObjectId(
+          requestedObject?.id ??
+            workspace.objects.find((object) => object.kind === 'function')?.id ??
+            workspace.objects[0]?.id ??
+            null,
+        );
+        setBottomTool(requestedObject ? 'relationships' : 'evidence');
         setSelectedPath(
           requestedFinding
             ? (workspace.files.find((file) => file.id === requestedFinding.anchor.fileId)?.path ??
@@ -226,16 +271,51 @@ function ReviewWorkspace({
       },
     );
     return () => controller.abort();
-  }, [repositoryId, pullNumber]);
+  }, [analysisId, repositoryId, pullNumber]);
+
+  useEffect(() => {
+    const currentAnalysisId = data?.analysis?.id;
+    if (!currentAnalysisId || !selectedObjectId) {
+      setRelationship(null);
+      return;
+    }
+    const controller = new AbortController();
+    void loadRelationships(currentAnalysisId, selectedObjectId, controller.signal).then(
+      setRelationship,
+      (error: unknown) => {
+        if (!controller.signal.aborted) console.error(error);
+      },
+    );
+    return () => controller.abort();
+  }, [data?.analysis?.id, selectedObjectId]);
+
+  useEffect(() => {
+    const currentAnalysisId = data?.analysis?.id;
+    if (!currentAnalysisId || !data?.report) return;
+    const controller = new AbortController();
+    void openChatSession(currentAnalysisId, {}, controller.signal).then(
+      ({ session, messages }) => {
+        setChatSession(session);
+        setChatMessages(messages);
+      },
+      (error: unknown) => {
+        if (!controller.signal.aborted) console.error(error);
+      },
+    );
+    return () => controller.abort();
+  }, [data?.analysis?.id, data?.report]);
 
   const handleRefresh = async () => {
+    if (!data) return;
     setRefreshing(true);
     const controller = new AbortController();
     try {
-      const refresh = await refreshPull(repositoryId, pullNumber);
+      const refresh = await refreshPull(data.pull.repositoryId, data.pull.number);
       const operation = await waitForSnapshot(refresh.operationId, controller.signal);
       if (operation.state === 'failed') throw new Error('Snapshot failed');
-      const workspace = await loadWorkspace(repositoryId, pullNumber, controller.signal);
+      const workspace = analysisId
+        ? await loadAnalysisWorkspace(analysisId, controller.signal)
+        : await loadWorkspace(data.pull.repositoryId, data.pull.number, controller.signal);
       setData(workspace);
       setSelectedPath(initialSelectedPath(workspace));
       setSelectedFindingId(null);
@@ -274,6 +354,37 @@ function ReviewWorkspace({
     const link = finding.links.find((item) => item.rel === 'finding');
     if (link) window.history.replaceState(null, '', link.href);
   };
+
+  const selectObject = (objectId: string) => {
+    setSelectedObjectId(objectId);
+    setBottomTool('relationships');
+    const currentAnalysisId = data?.analysis?.id;
+    if (!currentAnalysisId) return;
+    const url = new URL(`/reviews/${currentAnalysisId}`, window.location.origin);
+    url.searchParams.set('symbol', objectId);
+    url.searchParams.set('tool', 'impact');
+    window.history.replaceState(null, '', url);
+  };
+
+  const handleChatSubmit = async () => {
+    if (!chatSession || !chatDraft.trim() || chatSending) return;
+    const content = chatDraft.trim();
+    setChatDraft('');
+    setChatSending(true);
+    try {
+      const response = await sendChatMessage(chatSession.id, content, {
+        ...(selectedFinding ? { findingId: selectedFinding.id } : {}),
+        ...(selectedFile ? { fileId: selectedFile.id } : {}),
+        ...(selectedObjectId ? { symbolId: selectedObjectId } : {}),
+      });
+      setChatMessages((messages) => [...messages, response.userMessage, response.assistantMessage]);
+    } catch (error) {
+      console.error(error);
+      setChatDraft(content);
+    } finally {
+      setChatSending(false);
+    }
+  };
   return (
     <div className="review-page">
       <AppHeader compact />
@@ -281,7 +392,7 @@ function ReviewWorkspace({
         <div className="pr-context">
           <a href="/">{data ? `${data.pull.owner} / ${data.pull.name}` : 'Repository'}</a>
           <ChevronRight size={13} />
-          <strong>#{pullNumber}</strong>
+          <strong>#{data?.pull.number ?? pullNumber ?? '-'}</strong>
           <span className="context-title">{data?.pull.title ?? 'Pull request'}</span>
         </div>
         <div className="review-actions">
@@ -329,10 +440,12 @@ function ReviewWorkspace({
           mode={reviewMode}
           selectedFileId={selectedFile?.id ?? null}
           selectedFindingId={selectedFindingId}
+          selectedObjectId={selectedObjectId}
           coveragePercent={coveragePercent}
           onModeChange={setReviewMode}
           onFileSelect={selectFile}
           onFindingSelect={selectFinding}
+          onObjectSelect={selectObject}
         />
 
         <section className="diff-panel" aria-label="코드 차이">
@@ -349,16 +462,26 @@ function ReviewWorkspace({
             </span>
             <div className="toolbar-spacer" />
             <div className="segmented" aria-label="Diff 형식">
-              <button className="active" type="button">
+              <button
+                className={diffMode === 'split' ? 'active' : ''}
+                type="button"
+                onClick={() => setDiffMode('split')}
+              >
                 Split
               </button>
-              <button type="button">Unified</button>
+              <button
+                className={diffMode === 'unified' ? 'active' : ''}
+                type="button"
+                onClick={() => setDiffMode('unified')}
+              >
+                Unified
+              </button>
             </div>
             <button className="icon-button small" type="button" title="최대화" aria-label="최대화">
               <Maximize2 size={14} />
             </button>
           </div>
-          <div className="diff-columns">
+          <div className={`diff-columns ${diffMode}`}>
             {selectedDiff ? (
               <>
                 <CodePane side="base" patch={selectedDiff} />
@@ -377,61 +500,29 @@ function ReviewWorkspace({
           </div>
         </section>
 
-        <aside className="chat-panel" aria-label="분석 Chat">
-          <div className="chat-heading">
-            <span>
-              <Sparkles size={15} /> Analysis Chat
-            </span>
-            <button
-              className="icon-button small"
-              type="button"
-              title="Chat 닫기"
-              aria-label="Chat 닫기"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-          <div className="revision-lock">
-            <Link2 size={13} /> Revision {data?.analysis?.revision ?? '-'} ·{' '}
-            {data?.pull.headSha.slice(0, 7) ?? '-------'}에 고정
-          </div>
-          <div className="chat-messages">
-            <div className="assistant-message">
-              <span className="message-author">
-                <Bot size={14} /> Reviewer
-              </span>
-              <p>세션 교체 흐름에서 이전 refresh token이 짧은 시간 동안 다시 사용될 수 있습니다.</p>
-              <button className="citation" type="button">
-                session.ts:118–132
-              </button>
-            </div>
-            <div className="user-message">
-              <p>동시 요청일 때 실제 영향 경로를 보여줘.</p>
-            </div>
-            <div className="assistant-message">
-              <span className="message-author">
-                <Bot size={14} /> Reviewer
-              </span>
-              <p>
-                <code>rotateSession</code>을 호출하는 API 두 곳이 같은 token row를 읽습니다. Impact
-                탭에서 직접 의존성 2개를 확인할 수 있습니다.
-              </p>
-            </div>
-          </div>
-          <form className="chat-composer">
-            <textarea aria-label="분석에 질문" placeholder="이 revision에 대해 질문..." rows={3} />
-            <div className="composer-actions">
-              <span>Report + selected file</span>
-              <button className="send-button" type="submit" title="보내기" aria-label="보내기">
-                <Send size={15} />
-              </button>
-            </div>
-          </form>
-        </aside>
+        <ChatPanel
+          revision={data?.analysis?.revision}
+          headSha={data?.pull.headSha}
+          selectedFinding={selectedFinding}
+          selectedFile={selectedFile?.path}
+          messages={chatMessages}
+          draft={chatDraft}
+          sending={chatSending}
+          onDraftChange={setChatDraft}
+          onSend={() => void handleChatSubmit()}
+          onCitationSelect={(findingId) => {
+            const finding = data?.report?.findings.find((item) => item.id === findingId);
+            if (finding) selectFinding(finding);
+          }}
+        />
 
         <section className="bottom-panel" aria-label="분석 근거">
           <nav className="bottom-tabs">
-            <button className="active" type="button">
+            <button
+              className={bottomTool === 'evidence' ? 'active' : ''}
+              type="button"
+              onClick={() => setBottomTool('evidence')}
+            >
               <PanelBottom size={14} /> Evidence
             </button>
             <button type="button">
@@ -443,7 +534,11 @@ function ReviewWorkspace({
             <button type="button">
               <Users size={14} /> Ownership
             </button>
-            <button type="button">
+            <button
+              className={bottomTool === 'relationships' ? 'active' : ''}
+              type="button"
+              onClick={() => setBottomTool('relationships')}
+            >
               <Network size={14} /> Relationships
             </button>
             <button type="button">
@@ -453,7 +548,15 @@ function ReviewWorkspace({
               <TestTube2 size={14} /> Tests
             </button>
           </nav>
-          <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
+          {bottomTool === 'relationships' ? (
+            <RelationshipPanel
+              relationship={relationship}
+              selectedObjectId={selectedObjectId}
+              onObjectSelect={selectObject}
+            />
+          ) : (
+            <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
+          )}
         </section>
       </main>
     </div>
@@ -466,20 +569,24 @@ function ReviewSidebar({
   mode,
   selectedFileId,
   selectedFindingId,
+  selectedObjectId,
   coveragePercent,
   onModeChange,
   onFileSelect,
   onFindingSelect,
+  onObjectSelect,
 }: {
   data: WorkspaceData | null;
   status: 'loading' | 'ready' | 'error';
   mode: ReviewMode;
   selectedFileId: string | null;
   selectedFindingId: string | null;
+  selectedObjectId: string | null;
   coveragePercent: number;
   onModeChange: (mode: ReviewMode) => void;
   onFileSelect: (path: string) => void;
   onFindingSelect: (finding: FindingView) => void;
+  onObjectSelect: (objectId: string) => void;
 }) {
   const report = data?.report;
   const issueFindings = report?.findings.filter((finding) => finding.priority !== 'P0') ?? [];
@@ -646,7 +753,12 @@ function ReviewSidebar({
             <span>{selectedObjects.length}</span>
           </div>
           {selectedObjects.map((object) => (
-            <button className="object-row" type="button" key={object.id}>
+            <button
+              className={`object-row ${object.id === selectedObjectId ? 'active' : ''}`}
+              type="button"
+              key={object.id}
+              onClick={() => onObjectSelect(object.id)}
+            >
               <Braces size={13} />
               <span>{object.qualifiedName.split('#').at(-1)}</span>
               <small>{object.kind}</small>
@@ -668,7 +780,12 @@ function ReviewSidebar({
           {report?.impact.affectedAreas.map((area) => {
             const object = data?.objects.find((item) => item.id === area.objectId);
             return (
-              <button className="impact-row" type="button" key={area.objectId}>
+              <button
+                className={`impact-row ${area.objectId === selectedObjectId ? 'active' : ''}`}
+                type="button"
+                key={area.objectId}
+                onClick={() => onObjectSelect(area.objectId)}
+              >
                 <Network size={13} />
                 <span>{object?.qualifiedName ?? 'Code object'}</span>
                 <small>{area.risk}</small>
@@ -713,6 +830,216 @@ function FindingRow({
       </small>
     </button>
   );
+}
+
+function ChatPanel({
+  revision,
+  headSha,
+  selectedFinding,
+  selectedFile,
+  messages,
+  draft,
+  sending,
+  onDraftChange,
+  onSend,
+  onCitationSelect,
+}: {
+  revision: number | null | undefined;
+  headSha: string | undefined;
+  selectedFinding: FindingView | undefined;
+  selectedFile: string | undefined;
+  messages: ChatMessage[];
+  draft: string;
+  sending: boolean;
+  onDraftChange: (value: string) => void;
+  onSend: () => void;
+  onCitationSelect: (findingId: string) => void;
+}) {
+  return (
+    <aside className="chat-panel" aria-label="분석 대화">
+      <div className="chat-heading">
+        <span>
+          <Bot size={15} /> Review chat
+        </span>
+        <span className="chat-revision">R{revision ?? '-'} locked</span>
+      </div>
+      <div className="chat-scope" title={selectedFinding?.title ?? selectedFile}>
+        <Link2 size={12} />
+        <span>{selectedFinding?.title ?? selectedFile ?? '전체 report'}</span>
+        <code>{headSha?.slice(0, 7) ?? '-------'}</code>
+      </div>
+      <div className="chat-messages" aria-live="polite">
+        {messages.length === 0 ? (
+          <div className="chat-message-empty">아직 대화가 없습니다.</div>
+        ) : null}
+        {messages.map((message) => (
+          <article className={`chat-message ${message.role}`} key={message.id}>
+            <div className="message-author">
+              {message.role === 'assistant' ? <Sparkles size={12} /> : null}
+              <strong>{message.role === 'assistant' ? 'Review assistant' : 'You'}</strong>
+              {message.status !== 'completed' ? <small>{message.status}</small> : null}
+            </div>
+            <div className="chat-message-content">{message.content}</div>
+            {message.citations.length > 0 ? (
+              <div className="chat-citations" aria-label="답변 근거">
+                {message.citations.map((citation) => (
+                  <button
+                    type="button"
+                    key={citation.evidenceId}
+                    disabled={!citation.findingId}
+                    onClick={() => citation.findingId && onCitationSelect(citation.findingId)}
+                  >
+                    <Link2 size={11} /> {citation.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        ))}
+        {sending ? (
+          <div className="chat-pending">
+            <RefreshCw size={13} className="spin" /> 답변을 생성하는 중입니다.
+          </div>
+        ) : null}
+      </div>
+      <form
+        className="chat-composer"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSend();
+        }}
+      >
+        <textarea
+          rows={3}
+          value={draft}
+          maxLength={4_000}
+          placeholder="현재 리비전에 대해 질문"
+          aria-label="질문"
+          onChange={(event) => onDraftChange(event.target.value)}
+        />
+        <div className="composer-actions">
+          <span>{draft.length}/4000</span>
+          <button
+            className="send-button"
+            type="submit"
+            title="질문 보내기"
+            aria-label="질문 보내기"
+            disabled={!draft.trim() || sending}
+          >
+            <Send size={14} />
+          </button>
+        </div>
+      </form>
+    </aside>
+  );
+}
+
+type RelationshipMode = 'structure' | 'dependencies';
+type CodeObjectView = RelationshipView['objects'][number];
+type CodeRelationView = RelationshipView['structure']['parents'][number];
+
+function RelationshipPanel({
+  relationship,
+  selectedObjectId,
+  onObjectSelect,
+}: {
+  relationship: RelationshipView | null;
+  selectedObjectId: string | null;
+  onObjectSelect: (objectId: string) => void;
+}) {
+  const [mode, setMode] = useState<RelationshipMode>('structure');
+  if (!relationship || !selectedObjectId) {
+    return <div className="panel-empty relationship-empty">관계 데이터를 불러오는 중입니다.</div>;
+  }
+
+  const selected = relationship.objects.find((object) => object.id === selectedObjectId);
+  const leftRelations =
+    mode === 'structure' ? relationship.structure.parents : relationship.dependencies.uses;
+  const rightRelations =
+    mode === 'structure' ? relationship.structure.children : relationship.dependencies.usedBy;
+
+  return (
+    <div className="relationship-panel">
+      <div className="relationship-controls segmented" aria-label="관계 형식">
+        <button
+          className={mode === 'structure' ? 'active' : ''}
+          type="button"
+          onClick={() => setMode('structure')}
+        >
+          Structure
+        </button>
+        <button
+          className={mode === 'dependencies' ? 'active' : ''}
+          type="button"
+          onClick={() => setMode('dependencies')}
+        >
+          Dependencies
+        </button>
+      </div>
+      <div className="relationship-columns">
+        <RelationshipColumn
+          label={mode === 'structure' ? 'PARENT' : 'USES'}
+          relations={leftRelations}
+          objects={relationship.objects}
+          target={mode === 'structure' ? 'source' : 'target'}
+          onObjectSelect={onObjectSelect}
+        />
+        <div className="relationship-current">
+          <span>SELECTED OBJECT</span>
+          <strong>{shortObjectName(selected)}</strong>
+          <small>
+            {selected?.kind ?? 'unknown'} · {selected?.change ?? 'unchanged'}
+          </small>
+        </div>
+        <RelationshipColumn
+          label={mode === 'structure' ? 'CHILDREN' : 'USED BY'}
+          relations={rightRelations}
+          objects={relationship.objects}
+          target={mode === 'structure' ? 'target' : 'source'}
+          onObjectSelect={onObjectSelect}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RelationshipColumn({
+  label,
+  relations,
+  objects,
+  target,
+  onObjectSelect,
+}: {
+  label: string;
+  relations: CodeRelationView[];
+  objects: CodeObjectView[];
+  target: 'source' | 'target';
+  onObjectSelect: (objectId: string) => void;
+}) {
+  return (
+    <div className="relationship-column">
+      <span>{label}</span>
+      <div>
+        {relations.map((relation) => {
+          const objectId = target === 'source' ? relation.sourceObjectId : relation.targetObjectId;
+          const object = objects.find((item) => item.id === objectId);
+          return (
+            <button type="button" key={relation.id} onClick={() => onObjectSelect(objectId)}>
+              <strong>{shortObjectName(object)}</strong>
+              <small>
+                {relation.kind} · {relation.confidence} · {relation.change}
+              </small>
+            </button>
+          );
+        })}
+        {relations.length === 0 ? <small className="relationship-none">없음</small> : null}
+      </div>
+    </div>
+  );
+}
+
+function shortObjectName(object: CodeObjectView | undefined): string {
+  return object?.qualifiedName.split('#').at(-1) ?? 'Unknown object';
 }
 
 function EvidenceContent({

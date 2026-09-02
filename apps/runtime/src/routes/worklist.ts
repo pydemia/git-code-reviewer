@@ -40,11 +40,26 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
       if (!(await canReadRepository(database, request, repoId)))
         return hiddenNotFound(request, reply);
       const result = await database.query(
-        `select id, number, title, state, draft, author_login as "author", html_url as "htmlUrl",
-                base_ref as "baseRef", base_sha as "baseSha", head_ref as "headRef", head_sha as "headSha",
-                github_updated_at as "updatedAt", observed_at as "observedAt"
-         from pull_requests where repository_id = $1 and state = 'open'
-         order by github_updated_at desc limit 100`,
+        `select pr.id, pr.number, pr.title, pr.state, pr.draft, pr.author_login as "author",
+                pr.html_url as "htmlUrl", pr.base_ref as "baseRef", pr.base_sha as "baseSha",
+                pr.head_ref as "headRef", pr.head_sha as "headSha",
+                pr.github_updated_at as "updatedAt", pr.observed_at as "observedAt",
+                latest.id as "latestAnalysisId", latest.state as "analysisState",
+                latest.grade, coalesce(latest.attention_count, 0) as "attentionCount"
+         from pull_requests pr
+         left join lateral (
+           select ar.id, ar.state, report.grade,
+                  (select count(*)::integer from findings f
+                   where f.report_id = report.id and f.priority in ('P2', 'P3')) as attention_count
+           from snapshot_requests sr
+           join snapshots snapshot on snapshot.request_id = sr.id
+           join analysis_runs ar on ar.snapshot_id = snapshot.id
+           left join reports report on report.analysis_run_id = ar.id
+           where sr.pull_request_id = pr.id
+           order by ar.created_at desc limit 1
+         ) latest on true
+         where pr.repository_id = $1 and pr.state = 'open'
+         order by pr.github_updated_at desc limit 100`,
         [repoId],
       );
       return { schemaVersion, repositoryId: repoId, items: result.rows, nextCursor: null };
