@@ -137,10 +137,10 @@ docs/
 | M1-02 | 조건부 proxy identity assertion 검증과 spoofed identity header negative test |
 | M1-03 | users, github_instances, repositories, grants, pull_requests, poll_states schema |
 | M1-04 | GitHub App JWT/installation token memory cache와 redacted HTTP client |
-| M1-05 | Administrator repository registration API/UI |
+| M1-05 | Administrator tenant/user/membership와 tenant-scoped repository registration API/UI |
 | M1-06 | Paginated/conditional open PR poll과 authoritative base/head 관측 |
 | M1-07 | PostgreSQL advisory-lock scheduler leader, hot/active/idle/draft tier와 request budget |
-| M1-08 | Repository/PR authorization middleware와 existence-hiding negative test |
+| M1-08 | Keycloak OIDC role mapping, Cerbos RBAC+ABAC middleware와 tenant-aware existence-hiding negative test |
 | M1-09 | Compact PR worklist, filters, loading/empty/rate-limit/degraded states |
 | M1-10 | Audit catalogue, redaction policy와 login/config/poll lifecycle event |
 
@@ -202,7 +202,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M3-03 | History/blame/direct reference/related-test artifact |
 | M3-04 | File/byte/model-call/time budget을 가진 change-pack planner |
 | M3-05 | Provider-neutral model adapter와 Worker 전용 batch model credential |
-| M3-06 | Correctness/security/compatibility/testing specialist prompts |
+| M3-06 | Immutable base guard와 administrator가 version 관리하는 tenant-scoped analysis prompt |
 | M3-07 | Line/symbol/reference verifier, fingerprint와 deduplication |
 | M3-08 | P3-P0 priority/category/confidence contract와 P3 direct-evidence gate |
 | M3-09 | Analysis-scope selected context artifact와 immutable report composer |
