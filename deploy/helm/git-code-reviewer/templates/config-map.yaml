@@ -23,6 +23,9 @@ data:
   CHAT_MODEL_ENDPOINT: {{ .Values.model.chat.endpoint | quote }}
   CHAT_MODEL_NAME: {{ .Values.model.chat.name | quote }}
   CHAT_MODEL_TIMEOUT_MS: {{ .Values.model.chat.timeoutMs | quote }}
+  CHATGPT_ACCOUNT_HOME: {{ .Values.model.chat.account.home | quote }}
+  CHATGPT_ACCOUNT_REFRESH_ENDPOINT: {{ .Values.model.chat.account.refreshEndpoint | quote }}
+  CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES: {{ .Values.model.chat.account.proactiveRefreshMinutes | quote }}
   CHAT_CONCURRENCY_LIMIT: {{ .Values.model.chat.concurrencyLimit | quote }}
   CHAT_HOURLY_LIMIT: {{ .Values.model.chat.hourlyLimit | quote }}
   CHAT_SESSION_MESSAGE_LIMIT: {{ .Values.model.chat.sessionMessageLimit | quote }}

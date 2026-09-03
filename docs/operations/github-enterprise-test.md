@@ -60,6 +60,8 @@ Batch 분석과 interactive Chat은 서로 다른 Secret과 model name을 사용
 - 설정에서 model name이 비어 있으면 startup/template validation 실패
 - provider timeout 시 analysis는 가능한 deterministic 결과를 partial로 보존
 - Chat provider 실패 시 report 상태는 바뀌지 않고 retryable `CHAT_MODEL_FAILED`
+- ChatGPT account mode에서 account header가 browser에 노출되지 않고 만료 token refresh 후 질문이 1회 재시도됨
+- account Secret의 `bootstrapRevision`이 같으면 Pod restart 후 PVC의 회전된 refresh token이 유지됨
 - rate/session/concurrency 초과 시 typed `429 CHAT_LIMIT_EXCEEDED`
 - source와 질문을 untrusted input으로 취급하며 답변 citation은 현재 immutable report 범위만 사용
 

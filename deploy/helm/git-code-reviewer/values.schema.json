@@ -174,12 +174,13 @@
     },
     "secrets": {
       "type": "object",
-      "required": ["githubApp", "auth", "modelProvider", "chatModelProvider"],
+      "required": ["githubApp", "auth", "modelProvider", "chatModelProvider", "chatgptAccount"],
       "properties": {
         "githubApp": { "type": "string" },
         "auth": { "type": "string" },
         "modelProvider": { "type": "string" },
-        "chatModelProvider": { "type": "string" }
+        "chatModelProvider": { "type": "string" },
+        "chatgptAccount": { "type": "string" }
       }
     },
     "github": {
@@ -204,20 +205,7 @@
       "required": ["analysis", "chat"],
       "properties": {
         "analysis": { "$ref": "#/$defs/model" },
-        "chat": {
-          "allOf": [
-            { "$ref": "#/$defs/model" },
-            {
-              "type": "object",
-              "required": ["concurrencyLimit", "hourlyLimit", "sessionMessageLimit"],
-              "properties": {
-                "concurrencyLimit": { "type": "integer", "minimum": 1 },
-                "hourlyLimit": { "type": "integer", "minimum": 1 },
-                "sessionMessageLimit": { "type": "integer", "minimum": 1 }
-              }
-            }
-          ]
-        }
+        "chat": { "$ref": "#/$defs/chatModel" }
       }
     },
     "retention": {
@@ -265,6 +253,62 @@
         "name": { "type": "string" },
         "apiKeyKey": { "type": "string", "minLength": 1 },
         "timeoutMs": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "chatModel": {
+      "type": "object",
+      "required": [
+        "mode",
+        "endpoint",
+        "name",
+        "apiKeyKey",
+        "timeoutMs",
+        "concurrencyLimit",
+        "hourlyLimit",
+        "sessionMessageLimit",
+        "account"
+      ],
+      "properties": {
+        "mode": { "enum": ["disabled", "openai-compatible", "chatgpt-account"] },
+        "endpoint": { "type": "string" },
+        "name": { "type": "string" },
+        "apiKeyKey": { "type": "string", "minLength": 1 },
+        "timeoutMs": { "type": "integer", "minimum": 1 },
+        "concurrencyLimit": { "type": "integer", "minimum": 1 },
+        "hourlyLimit": { "type": "integer", "minimum": 1 },
+        "sessionMessageLimit": { "type": "integer", "minimum": 1 },
+        "account": {
+          "type": "object",
+          "required": [
+            "authFileKey",
+            "bootstrapRevision",
+            "home",
+            "refreshEndpoint",
+            "proactiveRefreshMinutes",
+            "persistence"
+          ],
+          "properties": {
+            "authFileKey": { "type": "string", "minLength": 1 },
+            "bootstrapRevision": { "type": "string", "minLength": 1 },
+            "home": { "const": "/var/lib/git-code-reviewer/chatgpt-account" },
+            "refreshEndpoint": { "const": "https://auth.openai.com/oauth/token" },
+            "proactiveRefreshMinutes": { "type": "integer", "minimum": 1, "maximum": 60 },
+            "persistence": {
+              "type": "object",
+              "required": ["existingClaim", "storageClass", "accessModes", "size"],
+              "properties": {
+                "existingClaim": { "type": "string" },
+                "storageClass": { "type": "string" },
+                "accessModes": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "enum": ["ReadWriteOnce", "ReadWriteMany"] }
+                },
+                "size": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
       }
     }
   }

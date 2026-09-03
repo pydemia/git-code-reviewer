@@ -82,6 +82,7 @@ secrets:
   auth: git-code-reviewer-auth
   modelProvider: git-code-reviewer-model
   chatModelProvider: git-code-reviewer-chat-model
+  chatgptAccount: git-code-reviewer-chatgpt-account
 
 github:
   mode: app
@@ -108,6 +109,17 @@ model:
     concurrencyLimit: 2
     hourlyLimit: 30
     sessionMessageLimit: 200
+    account:
+      authFileKey: auth.json
+      bootstrapRevision: initial
+      home: /var/lib/git-code-reviewer/chatgpt-account
+      refreshEndpoint: https://auth.openai.com/oauth/token
+      proactiveRefreshMinutes: 5
+      persistence:
+        existingClaim: ''
+        storageClass: ''
+        accessModes: [ReadWriteMany]
+        size: 1Gi
 
 retention:
   enabled: true

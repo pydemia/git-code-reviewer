@@ -51,6 +51,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (include "git-code-reviewer.postgresql.fullname" .) .Values.postgresql.auth.existingSecret -}}
 {{- end }}
 
+{{- define "git-code-reviewer.chatgptAccount.claimName" -}}
+{{- default (printf "%s-chatgpt-account" (include "git-code-reviewer.fullname" .)) .Values.model.chat.account.persistence.existingClaim -}}
+{{- end }}
+
 {{- define "git-code-reviewer.databaseEnv" -}}
 {{- if .Values.postgresql.enabled }}
 - name: DATABASE_HOST
@@ -125,6 +129,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if and (eq .Values.model.chat.mode "openai-compatible") (or (not .Values.model.chat.endpoint) (not .Values.model.chat.name) (not .Values.secrets.chatModelProvider)) -}}
 {{- fail "chat model endpoint, explicit name, and provider Secret are required" -}}
+{{- end -}}
+{{- if and (eq .Values.model.chat.mode "chatgpt-account") (or (not .Values.model.chat.name) (not .Values.secrets.chatgptAccount) (not .Values.model.chat.account.authFileKey) (not .Values.model.chat.account.bootstrapRevision) (not .Values.model.chat.account.home)) -}}
+{{- fail "ChatGPT account mode requires an explicit model name, auth Secret, bootstrap revision, auth file key, and account home" -}}
 {{- end -}}
 {{- if and (not .Values.postgresql.enabled) (not .Values.database.existingSecret) -}}
 {{- fail "database.existingSecret is required when postgresql.enabled is false" -}}

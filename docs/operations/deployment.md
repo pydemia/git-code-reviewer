@@ -62,7 +62,7 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 - RWX를 제공하는 StorageClass 또는 기존 PVC
 - TLS Ingress와 OIDC provider
 - private GHES에서 설치된 read-only GitHub App
-- 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint
+- 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint 또는 deployment-owned ChatGPT/Codex account
 
 외부 DB 모드의 pre-install migration은 일반 chart resource보다 먼저 실행되므로 DB Secret과 corporate CA ConfigMap은 설치 전에 존재해야 한다. 번들 DB 모드는 PostgreSQL resource 생성 후 Server/Worker init container가 advisory lock 아래 최초 migration을 수행하고, 이후 upgrade에서는 pre-upgrade hook도 실행한다. Helm hook lifecycle은 [Helm chart hooks](https://helm.sh/docs/topics/charts_hooks/)를 참고한다.
 
@@ -144,7 +144,7 @@ imagePullSecrets:
 kubectl -n git-code-reviewer create configmap corporate-ca --from-file=ca.crt=./corporate-ca.pem
 ```
 
-Model을 활성화할 때에만 component별 Secret을 만든다. 분석 key는 Worker에만, Chat key는 Server에만 mount된다.
+OpenAI-compatible model을 활성화할 때에만 component별 Secret을 만든다. 분석 key는 Worker에만, Chat key는 Server에만 mount된다.
 
 ```bash
 kubectl -n git-code-reviewer create secret generic git-code-reviewer-model \
@@ -152,6 +152,62 @@ kubectl -n git-code-reviewer create secret generic git-code-reviewer-model \
 kubectl -n git-code-reviewer create secret generic git-code-reviewer-chat-model \
   --from-literal=API_KEY='...'
 ```
+
+### ChatGPT account mode
+
+API key 대신 ChatGPT/Codex account로 Review Chat을 실행할 수 있다. 이 mode는 Demian의 Codex provider와 같은 방식으로 `codex login`이 만든 account token을 사용하고, Codex Responses stream을 Server에서 호출한다. 모든 application 사용자가 하나의 deployment-owned account quota를 공유하므로 개인 계정보다 조직이 승인한 전용 account를 권장한다. OpenAI는 Codex에서 ChatGPT subscription login과 API key login을 별도 방식으로 제공한다. [OpenAI Codex authentication](https://learn.chatgpt.com/docs/auth)
+
+cluster 외부의 보안 관리 terminal에서 로그인하고 `auth.json`을 Secret으로 등록한다. Secret 원문을 values나 Git에 넣지 않는다.
+
+```bash
+export ACCOUNT_CODEX_HOME="$HOME/.codex-git-code-reviewer"
+CODEX_HOME="$ACCOUNT_CODEX_HOME" codex login --device-auth
+CODEX_HOME="$ACCOUNT_CODEX_HOME" codex login status
+
+kubectl -n git-code-reviewer create secret generic git-code-reviewer-chatgpt-account \
+  --from-file=auth.json="$ACCOUNT_CODEX_HOME/auth.json"
+```
+
+ChatGPT account mode는 refresh token 회전 결과를 보존해야 하므로 Secret을 시작 seed로만 사용한다. Chart의 init container가 최초 설치나 `bootstrapRevision` 변경 시 전용 PVC로 account 파일을 복사하고, Server만 이 PVC를 read-write로 mount한다. Worker와 browser에는 mount하지 않는다.
+
+```yaml
+secrets:
+  chatgptAccount: git-code-reviewer-chatgpt-account
+
+model:
+  chat:
+    mode: chatgpt-account
+    endpoint: '' # 기본값: https://chatgpt.com/backend-api/codex/
+    name: gpt-5.6-sol
+    account:
+      authFileKey: auth.json
+      bootstrapRevision: initial
+      home: /var/lib/git-code-reviewer/chatgpt-account
+      refreshEndpoint: https://auth.openai.com/oauth/token
+      proactiveRefreshMinutes: 5
+      persistence:
+        existingClaim: ''
+        storageClass: rwx-storage
+        accessModes: [ReadWriteMany]
+        size: 1Gi
+```
+
+account에서 로그아웃했거나 refresh token이 폐기되면 관리 terminal에서 다시 로그인하고 Secret을 갱신한다. 그다음 `bootstrapRevision`을 이전과 다른 불투명 값으로 변경하여 Helm upgrade한다. 동일 revision의 일반 Pod restart는 PVC의 갱신된 token을 Secret의 오래된 seed로 덮어쓰지 않는다.
+
+```bash
+kubectl -n git-code-reviewer create secret generic git-code-reviewer-chatgpt-account \
+  --from-file=auth.json="$ACCOUNT_CODEX_HOME/auth.json" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade git-code-reviewer deploy/helm/git-code-reviewer \
+  -n git-code-reviewer -f values.enterprise.yaml \
+  --set-string model.chat.account.bootstrapRevision="$(date -u +%Y%m%dT%H%M%SZ)" \
+  --atomic --wait --timeout 20m
+```
+
+account PVC에는 access/refresh token이 포함되므로 encrypted StorageClass, namespace RBAC 제한과 backup 제외 정책을 적용한다. PVC를 복구하거나 복제할 때에는 account token도 함께 복제된다는 점을 보안 검토에 포함한다. NetworkPolicy 사용 시 `chatgpt.com:443`과 `auth.openai.com:443`으로 해석되는 조직 승인 egress를 추가한다.
+
+이 provider는 공개 OpenAI API가 아니라 Codex account transport와의 Demian-compatible integration이다. Codex 인증 또는 endpoint contract가 바뀔 수 있으므로 image upgrade 전에 account smoke test를 실행하고, 장기 운영에서는 조직의 ChatGPT workspace 정책과 전용 service account 제공 여부를 함께 검토한다.
 
 ## Configure values
 
@@ -162,7 +218,7 @@ kubectl -n git-code-reviewer create secret generic git-code-reviewer-chat-model 
 - RWX StorageClass, artifact 용량, Worker ephemeral workspace 용량
 - DB/Auth/GitHub/Model Secret 이름
 - `postgresql.enabled`: 외부 DB는 `false`, 자체 포함 pilot은 `true`; 번들 모드에서는 DB PVC StorageClass와 용량
-- 분석과 Chat의 endpoint 및 **명시적인 model name**
+- 분석과 Chat의 provider mode 및 **명시적인 model name**. ChatGPT account mode이면 account Secret, bootstrap revision과 전용 PVC
 - retention 기간. `chatDays`는 `reportDays`보다 클 수 없다.
 - NetworkPolicy를 켤 경우 DB, GHES, OIDC, model endpoint의 실제 CIDR egress. values 예시의 documentation CIDR을 그대로 사용하지 않는다.
 - private registry를 사용할 경우 모든 Server/Worker/migration/retention Pod에 적용할 `imagePullSecrets`
@@ -199,7 +255,7 @@ kubectl -n git-code-reviewer rollout status deploy/git-code-reviewer-worker
 helm test git-code-reviewer -n git-code-reviewer
 ```
 
-Server artifact mount는 read-only이고 Worker/retention만 write할 수 있어야 한다. Pod는 non-root, read-only root filesystem, dropped capabilities, disabled service-account token으로 실행된다.
+Server artifact mount는 read-only이고 Worker/retention만 write할 수 있어야 한다. ChatGPT account mode의 Server에는 별도 account PVC만 write 권한을 준다. Pod는 non-root, read-only root filesystem, dropped capabilities, disabled service-account token으로 실행된다.
 
 ## Upgrade and rollback
 

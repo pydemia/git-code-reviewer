@@ -28,9 +28,41 @@ spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.postgresql.enabled }}
+      {{- if or .Values.postgresql.enabled (eq .Values.model.chat.mode "chatgpt-account") }}
       initContainers:
+        {{- if .Values.postgresql.enabled }}
         {{- include "git-code-reviewer.migrationInitContainer" . | nindent 8 }}
+        {{- end }}
+        {{- if eq .Values.model.chat.mode "chatgpt-account" }}
+        - name: bootstrap-chatgpt-account
+          image: {{ include "git-code-reviewer.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              umask 077
+              target={{ printf "%s/auth.json" .Values.model.chat.account.home | quote }}
+              marker={{ printf "%s/.bootstrap-revision" .Values.model.chat.account.home | quote }}
+              revision={{ .Values.model.chat.account.bootstrapRevision | quote }}
+              current_revision="$(cat "$marker" 2>/dev/null || true)"
+              if [ ! -s "$target" ] || [ "$current_revision" != "$revision" ]; then
+                temporary="$(mktemp "${target}.XXXXXX")"
+                cp /run/secrets/chatgpt-account/auth.json "$temporary"
+                chmod 600 "$temporary"
+                mv "$temporary" "$target"
+                marker_temporary="$(mktemp "${marker}.XXXXXX")"
+                printf '%s\n' "$revision" > "$marker_temporary"
+                mv "$marker_temporary" "$marker"
+              fi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: chatgpt-account-bootstrap, mountPath: /run/secrets/chatgpt-account, readOnly: true }
+            - { name: chatgpt-account, mountPath: {{ .Values.model.chat.account.home | quote }} }
+        {{- end }}
       {{- end }}
       containers:
         - name: server
@@ -98,6 +130,9 @@ spec:
             {{- if .Values.trustedCa.existingConfigMap }}
             - { name: trusted-ca, mountPath: /run/config/trust, readOnly: true }
             {{- end }}
+            {{- if eq .Values.model.chat.mode "chatgpt-account" }}
+            - { name: chatgpt-account, mountPath: {{ .Values.model.chat.account.home | quote }} }
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
@@ -125,4 +160,14 @@ spec:
             name: {{ .Values.trustedCa.existingConfigMap }}
             items:
               - { key: {{ .Values.trustedCa.key }}, path: ca.crt }
+        {{- end }}
+        {{- if eq .Values.model.chat.mode "chatgpt-account" }}
+        - name: chatgpt-account-bootstrap
+          secret:
+            secretName: {{ .Values.secrets.chatgptAccount }}
+            items:
+              - { key: {{ .Values.model.chat.account.authFileKey }}, path: auth.json }
+        - name: chatgpt-account
+          persistentVolumeClaim:
+            claimName: {{ include "git-code-reviewer.chatgptAccount.claimName" . }}
         {{- end }}
