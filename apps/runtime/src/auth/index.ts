@@ -78,7 +78,7 @@ export async function registerAuthentication(
         {
           subject: payload.sub,
           displayName: typeof payload.name === 'string' ? payload.name : payload.sub,
-          role: identityRole(payload, groups, config),
+          role: resolveIdentityRole(payload, groups, config),
           groups,
         },
         config,
@@ -175,7 +175,7 @@ export async function registerAuthentication(
             : typeof claims.preferred_username === 'string'
               ? claims.preferred_username
               : claims.sub,
-        role: identityRole(claims, groups, config),
+        role: resolveIdentityRole(claims, groups, config),
         groups,
       },
       config,
@@ -315,10 +315,10 @@ async function hydrateUser(
   };
 }
 
-function identityRole(
+export function resolveIdentityRole(
   claims: Record<string, unknown>,
   groups: string[],
-  config: AppConfig,
+  config: Pick<AppConfig, 'OIDC_CLIENT_ID' | 'OIDC_ADMIN_ROLE' | 'OIDC_ADMIN_GROUP'>,
 ): 'reviewer' | 'administrator' {
   const realmAccess = objectValue(claims.realm_access);
   const resourceAccess = objectValue(claims.resource_access);

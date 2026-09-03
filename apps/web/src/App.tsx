@@ -21,7 +21,6 @@ import {
   Network,
   PanelBottom,
   RefreshCw,
-  Search,
   Send,
   ShieldCheck,
   Sparkles,
@@ -41,7 +40,11 @@ import {
   type ChatSession,
   type WorklistItem,
   type WorkspaceData,
+  type User,
+  loadCurrentUser,
 } from './api.ts';
+import { AdminPage } from './AdminPage.tsx';
+import { AppHeader } from './AppHeader.tsx';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
@@ -65,6 +68,7 @@ type ResizeOperation = {
 };
 
 const WORKSPACE_LAYOUT_STORAGE_KEY = 'git-code-reviewer.workspace-layout.v1';
+const WORKLIST_TENANT_STORAGE_KEY = 'git-code-reviewer.worklist-tenant.v1';
 const RESPONSIVE_LAYOUT_BREAKPOINT = 820;
 
 function isBottomTool(value: string | null): value is BottomTool {
@@ -72,6 +76,7 @@ function isBottomTool(value: string | null): value is BottomTool {
 }
 
 export function App() {
+  if (window.location.pathname === '/admin') return <AdminPage />;
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
   if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;
   const pullMatch = window.location.pathname.match(/^\/repositories\/([^/]+)\/pulls\/(\d+)$/);
@@ -81,31 +86,12 @@ export function App() {
   return <Worklist />;
 }
 
-function AppHeader({ compact = false }: { compact?: boolean }) {
-  return (
-    <header className="app-header">
-      <div className="brand-row">
-        <a className="brand" href="/" aria-label="Git Code Reviewer 홈">
-          <ShieldCheck size={19} strokeWidth={2.2} />
-          <span>Git Code Reviewer</span>
-        </a>
-        {!compact ? (
-          <div className="header-actions">
-            <button className="icon-button" type="button" title="검색" aria-label="검색">
-              <Search size={17} />
-            </button>
-            <span className="avatar" aria-label="Local Reviewer">
-              LR
-            </span>
-          </div>
-        ) : null}
-      </div>
-    </header>
-  );
-}
-
 function Worklist() {
   const [reloadToken, setReloadToken] = useState(0);
+  const [user, setUser] = useState<User | null>(null);
+  const [selectedTenantId, setSelectedTenantId] = useState(
+    () => window.localStorage.getItem(WORKLIST_TENANT_STORAGE_KEY) ?? '',
+  );
   const [state, setState] = useState<{
     status: 'loading' | 'ready' | 'error';
     items: WorklistItem[];
@@ -114,21 +100,36 @@ function Worklist() {
   useEffect(() => {
     const controller = new AbortController();
     setState((current) => ({ ...current, status: 'loading' }));
-    void loadWorklist(controller.signal).then(
-      (items) => setState({ status: 'ready', items }),
-      (error: unknown) => {
-        if (!controller.signal.aborted) {
-          console.error(error);
-          setState({ status: 'error', items: [] });
-        }
-      },
-    );
+    void loadCurrentUser(controller.signal)
+      .then((currentUser) => {
+        const tenantId = currentUser.tenants.some((tenant) => tenant.id === selectedTenantId)
+          ? selectedTenantId
+          : (currentUser.tenants[0]?.id ?? '');
+        setUser(currentUser);
+        if (tenantId !== selectedTenantId) setSelectedTenantId(tenantId);
+        if (tenantId) window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
+        return loadWorklist(controller.signal, tenantId || undefined);
+      })
+      .then(
+        (items) => setState({ status: 'ready', items }),
+        (error: unknown) => {
+          if (!controller.signal.aborted) {
+            console.error(error);
+            setState({ status: 'error', items: [] });
+          }
+        },
+      );
     return () => controller.abort();
-  }, [reloadToken]);
+  }, [reloadToken, selectedTenantId]);
+
+  const selectTenant = (tenantId: string) => {
+    window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
+    setSelectedTenantId(tenantId);
+  };
 
   return (
     <div className="worklist-page">
-      <AppHeader />
+      <AppHeader user={user} selectedTenantId={selectedTenantId} onTenantChange={selectTenant} />
       <main className="worklist-main">
         <div className="worklist-title-row">
           <div>

@@ -1,5 +1,7 @@
 import {
+  adminUserListSchema,
   analysisListSchema,
+  analysisPromptListSchema,
   chatMessageListSchema,
   chatSendResponseSchema,
   chatSessionSchema,
@@ -13,8 +15,14 @@ import {
   reportViewSchema,
   snapshotCommitListSchema,
   snapshotFileListSchema,
+  tenantListSchema,
+  userSchema,
+  type AdminUser,
+  type AnalysisPromptVersion,
   type PullRequestSummary,
   type Repository,
+  type Tenant,
+  type User,
 } from '@gcr/contracts';
 
 export type WorklistItem = PullRequestSummary & { repository: Repository };
@@ -29,10 +37,20 @@ export type WorkspaceData = {
 };
 export type ChatMessage = ReturnType<typeof chatMessageListSchema.parse>['items'][number];
 export type ChatSession = ReturnType<typeof chatSessionSchema.parse>;
+export type { AdminUser, AnalysisPromptVersion, Tenant, User };
+export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
 
-export async function loadWorklist(signal: AbortSignal): Promise<WorklistItem[]> {
+export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
+  return userSchema.parse(await fetchJson('/api/v1/me', signal));
+}
+
+export async function loadWorklist(
+  signal: AbortSignal,
+  tenantId?: string,
+): Promise<WorklistItem[]> {
+  const query = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
   const repositories = repositoryListSchema.parse(
-    await fetchJson('/api/v1/repositories', signal),
+    await fetchJson(`/api/v1/repositories${query}`, signal),
   ).items;
   const pulls = await Promise.all(
     repositories.map(async (repository) => {
@@ -43,6 +61,63 @@ export async function loadWorklist(signal: AbortSignal): Promise<WorklistItem[]>
     }),
   );
   return [...pulls.flat()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export async function loadAdminTenants(signal: AbortSignal): Promise<Tenant[]> {
+  return tenantListSchema.parse(await fetchJson('/api/v1/admin/tenants', signal)).items;
+}
+
+export async function createTenant(slug: string, displayName: string): Promise<void> {
+  await mutateJson('/api/v1/admin/tenants', 'POST', { slug, displayName });
+}
+
+export async function updateTenant(
+  tenantId: string,
+  values: { displayName?: string; enabled?: boolean },
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/tenants/${tenantId}`, 'PATCH', values);
+}
+
+export async function loadAdminUsers(signal: AbortSignal): Promise<AdminUser[]> {
+  return adminUserListSchema.parse(await fetchJson('/api/v1/admin/users', signal)).items;
+}
+
+export async function updateUserAccess(userId: string, enabled: boolean): Promise<void> {
+  await mutateJson(`/api/v1/admin/users/${userId}`, 'PATCH', { enabled });
+}
+
+export async function updateTenantMembership(
+  tenantId: string,
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/tenants/${tenantId}/members/${userId}`, 'PUT', { enabled });
+}
+
+export async function loadAnalysisPrompts(
+  tenantId: string,
+  signal: AbortSignal,
+): Promise<AnalysisPromptList> {
+  return analysisPromptListSchema.parse(
+    await fetchJson(`/api/v1/admin/tenants/${tenantId}/analysis-prompts`, signal),
+  );
+}
+
+export async function saveAnalysisPrompt(tenantId: string, instructions: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/tenants/${tenantId}/analysis-prompts`, 'POST', {
+    instructions,
+  });
+}
+
+export async function activateAnalysisPrompt(tenantId: string, promptId: string): Promise<void> {
+  await mutateJson(
+    `/api/v1/admin/tenants/${tenantId}/analysis-prompts/${promptId}/activate`,
+    'POST',
+  );
+}
+
+export async function resetAnalysisPrompt(tenantId: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/tenants/${tenantId}/analysis-prompts/reset`, 'POST');
 }
 
 export async function loadWorkspace(
@@ -177,8 +252,38 @@ async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
     window.location.assign(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
     return new Promise(() => undefined);
   }
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  if (!response.ok) throw await requestError(response);
   return response.json();
+}
+
+async function mutateJson(
+  url: string,
+  method: 'POST' | 'PUT' | 'PATCH',
+  body?: Record<string, unknown>,
+): Promise<unknown> {
+  const response = await fetch(url, {
+    method,
+    credentials: 'same-origin',
+    ...(body
+      ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
+      : {}),
+  });
+  if (response.status === 401) {
+    window.location.assign(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
+    return new Promise(() => undefined);
+  }
+  if (!response.ok) throw await requestError(response);
+  return response.status === 204 ? null : response.json();
+}
+
+async function requestError(response: Response): Promise<Error> {
+  const fallback = `Request failed: ${response.status}`;
+  try {
+    const body = (await response.json()) as { error?: { message?: unknown } };
+    return new Error(typeof body.error?.message === 'string' ? body.error.message : fallback);
+  } catch {
+    return new Error(fallback);
+  }
 }
 
 function delay(milliseconds: number, signal: AbortSignal): Promise<void> {

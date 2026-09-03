@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import { errorEnvelope, schemaVersion } from '@gcr/contracts';
 import { createDatabase, pingDatabase, type Database } from '@gcr/db';
 import { registerAuthentication } from './auth/index.js';
+import { ZodError } from 'zod';
 import type { AppConfig } from './config.js';
 import { EventHub } from './events/index.js';
 import { registerSnapshotRoutes } from './routes/snapshots.js';
@@ -101,6 +102,12 @@ export async function buildServer(config: AppConfig) {
   }));
 
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof ZodError) {
+      request.log.warn({ issues: error.issues }, 'request validation failed');
+      return reply
+        .code(400)
+        .send(errorEnvelope('INVALID_REQUEST', '요청 값이 올바르지 않습니다.', request.id));
+    }
     request.log.error({ err: error }, 'request failed');
     if (error instanceof AuthorizationUnavailableError) {
       return reply
