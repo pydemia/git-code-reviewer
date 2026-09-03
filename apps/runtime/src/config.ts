@@ -6,11 +6,16 @@ const booleanString = z
   .default('false')
   .transform((value) => value === 'true');
 
+const optionalUrl = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.string().url().optional(),
+);
+
 const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(4000),
-  PUBLIC_BASE_URL: z.string().url().optional(),
+  PUBLIC_BASE_URL: optionalUrl,
   WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4001),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
   DATABASE_URL: z.string().min(1),
@@ -27,18 +32,21 @@ const configSchema = z.object({
   GITHUB_MODE: z.enum(['disabled', 'fixture', 'app']).default('fixture'),
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_PRIVATE_KEY_FILE: z.string().optional(),
-  GITHUB_API_BASE_URL: z.string().url().optional(),
-  GITHUB_WEB_BASE_URL: z.string().url().optional(),
+  GITHUB_API_BASE_URL: optionalUrl,
+  GITHUB_WEB_BASE_URL: optionalUrl,
   MODEL_MODE: z.enum(['disabled', 'openai-compatible']).default('disabled'),
-  MODEL_ENDPOINT: z.string().url().optional(),
+  MODEL_ENDPOINT: optionalUrl,
   MODEL_API_KEY: z.string().optional(),
   MODEL_NAME: z.string().optional(),
   MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
-  CHAT_MODEL_MODE: z.enum(['disabled', 'openai-compatible']).default('disabled'),
-  CHAT_MODEL_ENDPOINT: z.string().url().optional(),
+  CHAT_MODEL_MODE: z.enum(['disabled', 'openai-compatible', 'chatgpt-account']).default('disabled'),
+  CHAT_MODEL_ENDPOINT: optionalUrl,
   CHAT_MODEL_API_KEY: z.string().optional(),
   CHAT_MODEL_NAME: z.string().optional(),
   CHAT_MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
+  CHATGPT_ACCOUNT_HOME: z.string().optional(),
+  CHATGPT_ACCOUNT_REFRESH_ENDPOINT: z.string().url().default('https://auth.openai.com/oauth/token'),
+  CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
   CHAT_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(2),
   CHAT_HOURLY_LIMIT: z.coerce.number().int().positive().default(30),
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
@@ -49,10 +57,10 @@ const configSchema = z.object({
     .positive()
     .default(10 * 1024 * 1024),
   ANALYSIS_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().default(4),
-  OIDC_ISSUER: z.string().url().optional(),
+  OIDC_ISSUER: optionalUrl,
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),
-  OIDC_REDIRECT_URI: z.string().url().optional(),
+  OIDC_REDIRECT_URI: optionalUrl,
   OIDC_ADMIN_GROUP: z.string().default('git-code-reviewer-admins'),
   PROXY_IDENTITY_PUBLIC_KEY_FILE: z.string().optional(),
   PROXY_IDENTITY_ISSUER: z.string().optional(),
@@ -157,6 +165,13 @@ export function loadConfig(
       !result.data.CHAT_MODEL_NAME)
   ) {
     throw new Error('Invalid configuration: Chat model endpoint, API key, and name are required');
+  }
+  if (
+    command === 'serve' &&
+    result.data.CHAT_MODEL_MODE === 'chatgpt-account' &&
+    !result.data.CHAT_MODEL_NAME
+  ) {
+    throw new Error('Invalid configuration: ChatGPT account model name is required');
   }
   return result.data;
 }

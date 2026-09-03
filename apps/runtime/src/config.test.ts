@@ -97,6 +97,22 @@ describe('loadConfig', () => {
     ).toThrow('Chat model endpoint, API key, and name are required');
   });
 
+  it('accepts ChatGPT account mode without an API key and requires its model', () => {
+    expect(
+      loadConfig({
+        ...baseEnvironment,
+        CHAT_MODEL_MODE: 'chatgpt-account',
+        CHAT_MODEL_NAME: 'gpt-account-model',
+      }).CHAT_MODEL_MODE,
+    ).toBe('chatgpt-account');
+    expect(() =>
+      loadConfig({
+        ...baseEnvironment,
+        CHAT_MODEL_MODE: 'chatgpt-account',
+      }),
+    ).toThrow('ChatGPT account model name is required');
+  });
+
   it('requires an explicit batch analysis model selection', () => {
     expect(() =>
       loadConfig(

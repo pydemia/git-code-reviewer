@@ -18,6 +18,7 @@ import {
   pollRepository,
   startPollScheduler,
 } from './services/repositories.js';
+import { createChatModel } from './services/chat-model.js';
 
 const securityHeaders = {
   'content-security-policy':
@@ -49,6 +50,7 @@ export async function buildServer(config: AppConfig) {
   const database = createDatabase(config.DATABASE_URL, config.DATABASE_POOL_MAX);
   const github = await createGitHubReader(config);
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
+  const chatModel = createChatModel(config);
   const eventHub = new EventHub(database);
   await eventHub.start();
 
@@ -74,7 +76,7 @@ export async function buildServer(config: AppConfig) {
   await registerWorklistRoutes(app, database);
   await registerSnapshotRoutes(app, database, eventHub, artifacts);
   await registerAnalysisRoutes(app, database, eventHub, artifacts, config);
-  await registerChatRoutes(app, database, eventHub, artifacts, config);
+  await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));

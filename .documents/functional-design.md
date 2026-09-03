@@ -76,7 +76,7 @@ Helm release
 | Analysis worker | isolated clone, artifact pipeline, report persist | arbitrary repo command, public ingress |
 | Artifact store | immutable large object와 checksum | authorization 결정 |
 | PostgreSQL | metadata, state, leases, audit metadata | source tree 보관 |
-| Model adapter | Server Chat와 Worker batch를 위한 provider-neutral request/stream/usage/error | local CLI credential 재사용 |
+| Model adapter | Server Chat와 Worker batch를 위한 provider-neutral request/stream/usage/error, Server 전용 deployment-owned ChatGPT account | host home 자동 mount, browser token 전달, 사용자별 local CLI credential 암묵 재사용 |
 
 ## 3. Identity와 domain key
 
@@ -499,7 +499,7 @@ GET    /api/v1/admin/audit-events                 # DEC-016이 product UI일 때
 
 List API는 opaque cursor pagination을 사용한다. Diff API는 file/hunk cursor, context line 수와 view mode를 받는다. Relation API는 `view=structure|dependency`, `direction=parents|children|uses|used-by`, bounded `depth`와 cursor를 받는다. 모든 response는 `schemaVersion`, resource `id`, `snapshotId` 또는 `analysisRevisionId` 중 해당 identity와 허용된 typed links를 포함한다. Admin route는 별도 role/scope를 요구하며 audit 조회를 외부 로그 시스템에 위임하면 마지막 endpoint를 제공하지 않는다.
 
-Chat session response는 `model.available`과 공개 가능한 model name을 포함한다. `CHAT_MODEL_MODE=disabled`이면 message POST는 user/assistant row를 만들기 전에 typed `CHAT_MODEL_DISABLED` 503을 반환한다. Fixture GHES adapter도 interactive model이 설정되어 있으면 같은 provider 호출 경로를 사용하며 report 문구를 deterministic Chat 답변으로 대신하지 않는다.
+Chat session response는 `model.available`과 공개 가능한 model name을 포함한다. `CHAT_MODEL_MODE=disabled`이면 message POST는 user/assistant row를 만들기 전에 typed `CHAT_MODEL_DISABLED` 503을 반환한다. `openai-compatible`은 API key 기반 Chat Completions를, `chatgpt-account`는 deployment-owned account의 Codex Responses stream과 access token refresh를 사용한다. Fixture GHES adapter도 interactive model이 설정되어 있으면 같은 provider 호출 경로를 사용하며 report 문구를 deterministic Chat 답변으로 대신하지 않는다.
 
 Operation response:
 
@@ -646,6 +646,7 @@ Audit catalogue는 login/session, grant/role, repository/config/retention 변경
 - pod는 non-root, privilege escalation 금지, capability drop, seccomp와 read-only rootfs를 기본으로 한다.
 - application ServiceAccount는 Kubernetes API permission을 필요로 하지 않는 구성을 우선한다.
 - Secret은 existing Secret 또는 external secret controller가 만들고 chart는 이름만 참조한다.
+- ChatGPT account auth Secret은 seed로만 사용한다. init container는 bootstrap revision이 바뀔 때 Server 전용 encrypted PVC에 원자 복사하며, Server는 회전된 refresh token을 같은 PVC에 mode `0600`으로 보존한다.
 - NetworkPolicy는 server ingress와 server/worker/retention egress allowlist를 분리한다. Server는 GHES polling과 Chat model, Worker는 GHES Git/API와 batch model, 두 workload는 DB와 선택한 artifact backend만 허용한다.
 - workspace와 artifact mount를 component별 최소 권한으로 나눈다.
 

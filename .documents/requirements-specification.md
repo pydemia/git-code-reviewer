@@ -198,7 +198,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | REQ-CHAT-004 | 필수 | 허용 tool은 report, snapshot file, symbol, history, impact, test, diff 조회로 제한한다. |
 | REQ-CHAT-005 | 필수 | 질문과 repository text를 untrusted input으로 취급한다. |
 | REQ-CHAT-006 | 필수 | Chat stream이 끊기면 완료 message를 재조회하거나 명시적으로 재시도할 수 있다. |
-| REQ-CHAT-007 | 필수 | model credential은 server-side secret이며 local CLI login을 재사용하지 않는다. |
+| REQ-CHAT-007 | 필수 | model credential은 server-side secret이다. ChatGPT account mode는 관리자가 명시적으로 등록한 deployment-owned Codex account만 허용하고 host home 자동 mount, browser token 전달과 사용자별 local CLI credential 암묵 재사용을 금지한다. 회전된 refresh token은 Server 전용 encrypted persistent store에 보존한다. |
 | REQ-CHAT-008 | 필수 | Chat은 사용자별 concurrency, rate, tool-turn과 timeout limit을 강제하고 초과 시 typed `429` 또는 limit error를 반환한다. |
 | REQ-CHAT-009 | 필수 | Interactive model이 비활성화되면 Chat 가용 상태를 명시하고 message를 저장하기 전에 typed `503`을 반환한다. Report 문구를 합성 답변처럼 재사용하지 않으며 fixture GHES mode도 model 호출 여부를 바꾸지 않는다. |
 

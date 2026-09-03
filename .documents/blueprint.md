@@ -362,7 +362,7 @@ conversation은 `analysis_revision_id`에 고정한다. 새 head 분석이 완�
 
 답변에는 file, line, symbol, commit 또는 analyzer artifact citation이 있어야 한다. 사용자 질문과 repository text는 모두 untrusted input으로 처리한다.
 
-자동 분석과 remote Chat은 browser가 닫혀도 동작해야 하므로 조직이 승인한 server-side model credential을 사용한다. Worker는 batch 분석을, Server는 interactive Chat을 직접 호출하며 각 workload에 필요한 credential만 주입한다. Commit Defender의 local CLI login은 이 서비스 credential로 재사용하지 않는다.
+자동 분석과 remote Chat은 browser가 닫혀도 동작해야 하므로 조직이 승인한 server-side model credential을 사용한다. Worker는 batch 분석을, Server는 interactive Chat을 직접 호출하며 각 workload에 필요한 credential만 주입한다. 기본은 API credential이고, interactive Chat에는 관리자가 명시적으로 등록한 deployment-owned ChatGPT/Codex account도 허용한다. 이 account는 Secret으로 bootstrap한 뒤 Server 전용 encrypted PVC에서 refresh rotation을 보존하며 host home 자동 mount, browser token 전달과 사용자별 local CLI credential 암묵 재사용은 금지한다.
 
 ## 12. 데이터와 API
 

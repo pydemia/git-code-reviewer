@@ -235,7 +235,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M4-03 | Analysis deep link, URL selection, revision selector와 user-level preference document |
 | M4-04 | Snapshot commit 기반 Git graph, Impact, added test summary/case compact와 maximized view |
 | M4-05 | Atomic ReviewSelection store와 panel scroll 복원 |
-| M4-06 | User + analysis revision 고정 Chat session과 Server-side model 호출 |
+| M4-06 | User + analysis revision 고정 Chat session, OpenAI-compatible 및 deployment-owned ChatGPT account Server-side model 호출 |
 | M4-07 | Bounded report/file/symbol/history/impact Chat tools와 per-user limit |
 | M4-08 | Chat delta stream, stop/retry와 final message persist/reconcile |
 | M4-09 | Citation navigation, report/merge state 분리와 stale revision banner |

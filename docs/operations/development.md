@@ -50,7 +50,7 @@ Browser workspace는 `http://127.0.0.1:5173`에서 연다. `GITHUB_MODE=fixture`
 
 ## Model setup
 
-Model을 사용하지 않으면 `MODEL_MODE=disabled`, `CHAT_MODEL_MODE=disabled`로 둔다. 활성화할 때는 endpoint, API key뿐 아니라 model name을 반드시 명시한다. Server 시작 시 Chat 설정을, Worker 시작 시 분석 설정을 검증하므로 name 누락은 즉시 실패한다.
+Model을 사용하지 않으면 `MODEL_MODE=disabled`, `CHAT_MODEL_MODE=disabled`로 둔다. OpenAI-compatible mode를 활성화할 때는 endpoint, API key뿐 아니라 model name을 반드시 명시한다. Server 시작 시 Chat 설정을, Worker 시작 시 분석 설정을 검증하므로 name 누락은 즉시 실패한다.
 
 Gemini OpenAI compatibility를 사용할 때 현재 공식 base URL은 `https://generativelanguage.googleapis.com/v1beta/openai/`이다. 사용 가능한 model을 먼저 조회하고, 반환된 정확한 ID를 `MODEL_NAME`과 `CHAT_MODEL_NAME`에 선택한다. 특정 model 이름을 기본값으로 가정하지 않는다. [Gemini OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai)
 
@@ -76,6 +76,27 @@ CHAT_MODEL_ENDPOINT=https://generativelanguage.googleapis.com/v1beta/openai/
 CHAT_MODEL_API_KEY=...
 CHAT_MODEL_NAME=<selected-model-id>
 ```
+
+### ChatGPT account for local Chat
+
+오른쪽 Review Chat만 ChatGPT/Codex 구독 계정으로 실행하려면 먼저 Codex CLI에서 로그인한다. 이 mode는 batch 분석 Worker에는 적용되지 않는다. OpenAI 공식 문서의 ChatGPT login과 API key login은 서로 다른 인증 방식이다. [OpenAI Codex authentication](https://learn.chatgpt.com/docs/auth)
+
+```bash
+codex login
+codex login status
+```
+
+그다음 host의 Codex credential directory를 Server에 지정한다. `CHAT_MODEL_ENDPOINT`를 생략하면 Codex account endpoint를 사용하며, model은 계정에서 사용할 수 있는 정확한 ID를 명시한다.
+
+```dotenv
+CHAT_MODEL_MODE=chatgpt-account
+CHAT_MODEL_NAME=gpt-5.6-sol
+CHATGPT_ACCOUNT_HOME=/home/user/.codex
+CHATGPT_ACCOUNT_REFRESH_ENDPOINT=https://auth.openai.com/oauth/token
+CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES=5
+```
+
+Server는 `auth.json`을 읽고 access token 만료 전에 refresh token을 회전하여 같은 파일에 mode `0600`으로 원자 저장한다. 이 개발 편의 경로를 container의 hostPath mount로 옮기지 않는다. Kubernetes에서는 아래 배포 가이드의 Secret bootstrap과 전용 PVC를 사용한다.
 
 ## Verification
 
