@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-03
 - branch: `feat/browser-review-service`
-- 단계: browser review service의 tenancy, authorization, admin prompt 기능과 `0.5.0-alpha.1` preview release 완료
+- 단계: browser review service의 tenancy, authorization, admin provider/prompt 기능과 `0.6.0-alpha.1` preview release 완료
 - remote: phase별 구현 및 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -15,7 +15,7 @@
 1. GUI는 VS Code/browser extension이 아니라 Server가 제공하는 browser application이다.
 2. Server는 bundled web UI, REST/SSE, 인증, 인가, polling과 interactive Review Chat을 담당한다.
 3. Worker는 Git fetch, immutable snapshot materialization, deterministic analysis와 선택형 batch model 분석을 담당한다.
-4. PostgreSQL이 tenant, application user, membership, repository grant, prompt version, durable job, operation/event, report와 Chat record의 정본이다. 별도 queue는 두지 않는다.
+4. PostgreSQL이 tenant, application user, membership, repository grant, provider/prompt version, durable job, operation/event, report와 Chat record의 정본이다. 별도 queue는 두지 않는다.
 5. Artifact는 shared RWX PVC를 사용한다. Worker workspace는 `emptyDir` 또는 pod 단위 generic ephemeral PVC를 사용한다.
 6. GitHub Enterprise 접근은 read-only GitHub App과 outbound polling/manual refresh를 사용하며 repository workflow와 webhook은 요구하지 않는다.
 7. Report는 Commit Defender의 grade, summary, per-file summary, P0-P3 category, finding, evidence와 exact-revision link를 계승한다.
@@ -39,13 +39,18 @@ Keycloak은 application과 DB, HA, backup, patch lifecycle이 다르므로 chart
 
 - tenant 생성, 표시 이름 변경, 활성/비활성 전환
 - 사용자 검색, application 접근 kill switch, tenant membership 관리
+- 전역 분석 Provider immutable version 생성, 연결 테스트, 과거 version 재활성화, deployment 설정 복원
 - tenant별 분석 prompt immutable version 생성, 과거 version 재활성화, built-in prompt 복원
 
-## 4. 분석 prompt 관리
+## 4. 분석 Provider와 prompt 관리
+
+분석 Provider는 모든 tenant가 공유하는 전역 설정이다. `/admin?tab=provider`에서 `disabled` 또는 `openai-compatible` mode, endpoint, 정확한 model ID, timeout과 API key를 설정한다. Endpoint는 deployment가 정한 exact-origin allowlist를 통과해야 하며, 연결 테스트에는 repository source, diff와 tenant prompt를 보내지 않고 `Reply with OK.` 최소 요청만 보낸다.
+
+Provider version은 수정하거나 삭제하지 않는다. API key는 deployment Secret의 32-byte master key로 AES-256-GCM 암호화하며 API와 browser에는 설정 여부만 반환한다. Active 관리자 version이 없으면 deployment 환경 설정으로 fallback한다. 같은 key를 유지한 새 version을 만들 수 있지만, deployment fallback 또는 credential이 없는 version에서 OpenAI-compatible mode를 저장할 때는 새 key가 필요하다.
 
 관리자 지침은 built-in source-as-untrusted guard와 structured JSON output contract 사이에만 추가된다. Tenant prompt가 이 두 고정 경계를 교체할 수 없고, report와 audit event에는 원문 대신 prompt version ID와 SHA-256 hash만 기록한다.
 
-분석 작업 생성 시 active prompt version과 hash를 `analysis_runs`에 고정한다. 이후 관리자가 active version을 변경해도 이미 queue된 분석은 기존 version을 사용한다. 같은 지침을 다시 저장하면 중복 row를 만들지 않고 기존 version을 활성화한다. 과거 version은 report 재현성을 위해 삭제하지 않는다.
+분석 작업 생성 시 active provider와 prompt의 version/hash를 `analysis_runs`에 함께 고정한다. 이후 관리자가 active version을 변경해도 이미 queue된 분석은 기존 조합을 사용한다. 같은 prompt 지침을 다시 저장하면 중복 row를 만들지 않고 기존 version을 활성화한다. 과거 version은 report 재현성을 위해 삭제하지 않는다.
 
 주요 파일:
 
@@ -54,6 +59,7 @@ Keycloak은 application과 DB, HA, backup, patch lifecycle이 다르므로 chart
 - `apps/runtime/src/jobs/worker.ts`
 - `apps/web/src/AdminPage.tsx`
 - `packages/db/migrations/0007_tenancy_authorization_prompts.sql`
+- `packages/db/migrations/0008_analysis_provider_administration.sql`
 - `deploy/helm/git-code-reviewer/cerbos/policies/`
 - `docs/operations/identity-authorization.md`
 
@@ -69,9 +75,9 @@ Server 구현은 deployment-owned Codex `auth.json`을 전용 writable PVC에서
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.5.0-alpha.1`
-- source tag: `docker.io/pydemia/git-code-reviewer:sha-c688c7506de8`
-- manifest digest: `sha256:49af56a755b868e09b0917511d27f0a1837eaa51c0cb8773e943be23357d9790`
+- image: `docker.io/pydemia/git-code-reviewer:0.6.0-alpha.1`
+- source tag: `docker.io/pydemia/git-code-reviewer:sha-898144c4730c`
+- manifest digest: `sha256:488540f6d426fc55900cca994f3c38586f2348ce07a149c95e519dfc43400ca3`
 - platform: `linux/amd64`, `linux/arm64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
@@ -80,14 +86,14 @@ Server 구현은 deployment-owned Codex `auth.json`을 전용 writable PVC에서
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.5.0`
-- app version: `0.5.0-alpha.1`
-- chart digest: `sha256:7f6aeeb8bfe2b2854c248654445d5a092034275d194f157a234f9d9948f4f858`
+- version: `0.6.0`
+- app version: `0.6.0-alpha.1`
+- chart digest: `sha256:a8747424e87d744c6db183a3b62de0a895a1d3f0d2eb218cf7476224f5ca3c6d`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - authorization: `authorization.mode=cerbos`, `cerbos.enabled=true`이면 bundled Cerbos와 versioned policy 설치
 
-Enterprise values 예시는 image manifest digest를 고정한다. Chart는 Server/Worker Deployment, Service/Ingress, migration 경로, retention CronJob, artifact PVC, 선택형 account PVC, Cerbos, security 설정과 선택형 PostgreSQL dependency를 생성한다. Keycloak은 외부 서비스로 연결한다.
+Enterprise values 예시는 image manifest digest를 고정한다. Chart는 Server/Worker Deployment, Service/Ingress, migration 경로, retention CronJob, artifact PVC, 선택형 account PVC, Cerbos, security 설정과 선택형 PostgreSQL dependency를 생성한다. Provider 관리가 켜지면 allowlist를 ConfigMap에 넣고 같은 model Secret의 암호화 master key를 Server와 Worker에 주입한다. Keycloak은 외부 서비스로 연결한다.
 
 ## 7. 검증 상태
 
@@ -95,19 +101,20 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 12개 파일, 49개 test
-- 실제 Cerbos 0.55.0 policy compile/decision test 20개
+- Vitest 13개 파일, 56개 test
+- 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - 기본, enterprise, bundled PostgreSQL+Cerbos Helm lint
 - bundled PostgreSQL+Cerbos+ChatGPT account 복합 Helm render
 - local PostgreSQL migration과 실제 Cerbos mode authorization integration test
-- 관리자 browser UI의 tenant/user/prompt workflow 확인
-- 관리자 prompt 화면 390x844, 1440x1000 visual/overflow 확인
+- 관리자 browser UI의 tenant/user/provider/prompt workflow 확인
+- 관리자 Provider 저장/활성화, deployment 복원과 API response credential 비노출 확인
+- 관리자 Provider 화면 390x844, 1440x1000 visual/overflow 확인
 - browser error overlay, console error와 page error 없음
 - axe-core accessibility audit: 36 pass, 0 violation, 0 incomplete
 - multi-platform image build/push와 registry manifest 재조회
 - OCI Helm chart push와 registry metadata 재조회
 
-Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
+Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 
 사용자의 enterprise 환경에서 남은 검증:
 
@@ -120,7 +127,16 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 
 ## 8. Commit 순서
 
-이번 확장의 phase commit은 다음과 같다.
+이번 Provider 관리 확장의 phase commit은 다음과 같다.
+
+- `5a6cb57` `docs: design administrator model provider settings`
+- `0147cc4` `feat: add administrator analysis provider settings`
+- `8317b43` `feat: expose analysis provider administration`
+- `6e08fea` `feat: configure provider administration in Helm`
+- `898144c` `release: prepare provider administration preview`
+- `faf28a8` `release: pin provider preview image digest`
+
+직전 tenant/prompt 관리 확장은 다음 commit에 있다.
 
 - `f528fdc` `docs: design tenant authorization and prompt administration`
 - `315e03f` `feat: add tenant authorization and prompt versioning`
@@ -157,6 +173,8 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 ## 10. 주의사항
 
 - GitHub, model, OIDC, database 또는 ChatGPT account credential을 browser, ConfigMap, plain values나 log에 노출하지 않는다.
+- `MODEL_CREDENTIAL_ENCRYPTION_KEY`는 Server와 Worker에 동일하게 주입하고 PostgreSQL, ConfigMap 또는 plain values에 두지 않는다. Key를 잃거나 바로 교체하면 기존 Provider version을 복호화할 수 없다.
+- Provider origin allowlist는 application SSRF 경계일 뿐 NetworkPolicy를 대체하지 않는다. 실제 model CIDR/port egress도 함께 제한한다.
 - Prompt 원문은 관리자 route 밖의 report, audit metadata, log와 trace에 노출하지 않는다.
 - 운영자 host home이나 local `~/.codex`를 production Pod에 mount하지 않는다.
 - ChatGPT account credential을 Worker, migration 또는 retention workload에 mount하지 않는다.
