@@ -495,9 +495,20 @@ POST   /api/v1/admin/analyses/{analysisId}/cancel
 GET    /api/v1/admin/jobs
 POST   /api/v1/admin/jobs/{jobId}/requeue
 GET    /api/v1/admin/audit-events                 # DEC-016이 product UI일 때
+GET    /api/v1/admin/analysis-provider
+POST   /api/v1/admin/analysis-provider/versions
+POST   /api/v1/admin/analysis-provider/versions/{providerId}/activate
+POST   /api/v1/admin/analysis-provider/reset
+POST   /api/v1/admin/analysis-provider/test
+GET    /api/v1/admin/tenants/{tenantId}/analysis-prompts
+POST   /api/v1/admin/tenants/{tenantId}/analysis-prompts
+POST   /api/v1/admin/tenants/{tenantId}/analysis-prompts/{promptId}/activate
+POST   /api/v1/admin/tenants/{tenantId}/analysis-prompts/reset
 ```
 
 List API는 opaque cursor pagination을 사용한다. Diff API는 file/hunk cursor, context line 수와 view mode를 받는다. Relation API는 `view=structure|dependency`, `direction=parents|children|uses|used-by`, bounded `depth`와 cursor를 받는다. 모든 response는 `schemaVersion`, resource `id`, `snapshotId` 또는 `analysisRevisionId` 중 해당 identity와 허용된 typed links를 포함한다. Admin route는 별도 role/scope를 요구하며 audit 조회를 외부 로그 시스템에 위임하면 마지막 endpoint를 제공하지 않는다.
+
+Analysis provider admin API는 전역 immutable version을 관리한다. Credential은 deployment Secret의 encryption key로 AES-256-GCM 암호화하고 response에는 설정 여부만 포함한다. Dynamic endpoint는 exact-origin allowlist를 통과해야 하며 test request에는 source, diff와 tenant prompt를 포함하지 않는다. Analysis run은 생성 시 provider version/hash를 고정해 이후 active 설정 변경의 영향을 받지 않는다.
 
 Chat session response는 `model.available`과 공개 가능한 model name을 포함한다. `CHAT_MODEL_MODE=disabled`이면 message POST는 user/assistant row를 만들기 전에 typed `CHAT_MODEL_DISABLED` 503을 반환한다. `openai-compatible`은 API key 기반 Chat Completions를, `chatgpt-account`는 deployment-owned account의 Codex Responses stream과 access token refresh를 사용한다. Fixture GHES adapter도 interactive model이 설정되어 있으면 같은 provider 호출 경로를 사용하며 report 문구를 deterministic Chat 답변으로 대신하지 않는다.
 
@@ -777,6 +788,14 @@ secrets:
   githubApp: git-code-reviewer-github-app
   oidc: git-code-reviewer-oidc
   modelProvider: git-code-reviewer-model
+
+model:
+  analysis:
+    admin:
+      enabled: true
+      encryptionKeyKey: SETTINGS_ENCRYPTION_KEY
+      allowedOrigins:
+        - https://models.example.internal
 
 retention:
   enabled: true

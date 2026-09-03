@@ -201,7 +201,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M3-02 | Tree-sitter language adapter 두 개와 mergeBase/head symbol diff |
 | M3-03 | History/blame/direct reference/related-test artifact |
 | M3-04 | File/byte/model-call/time budget을 가진 change-pack planner |
-| M3-05 | Provider-neutral model adapter와 Worker 전용 batch model credential |
+| M3-05 | Provider-neutral model adapter, 암호화된 immutable provider version과 관리자 Provider UI |
 | M3-06 | Immutable base guard와 administrator가 version 관리하는 tenant-scoped analysis prompt |
 | M3-07 | Line/symbol/reference verifier, fingerprint와 deduplication |
 | M3-08 | P3-P0 priority/category/confidence contract와 P3 direct-evidence gate |
@@ -215,6 +215,8 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 - 모든 P3는 현재 materialization의 직접 evidence와 high confidence를 가진다.
 - Model timeout, analyzer 실패와 budget 초과는 가능한 결과를 보존한 partial report가 된다.
 - Report가 materialization/analyzer/model/policy version, coverage와 omission을 표시한다.
+- Analysis run 생성 시 provider/prompt version과 hash가 함께 고정되고 API key는 browser, report, audit와 log에 노출되지 않는다.
+- 관리자 provider endpoint는 application allowlist와 cluster NetworkPolicy를 모두 통과해야 한다.
 - 같은 stage input은 checksum이 유효하면 retry에서 재사용한다.
 - Fixture PR의 rename, deletion, old/new line, pre-existing issue와 category를 검증한다.
 - Commit Defender fixture의 summary, grade, per-file summary, P0-P3/category와 source/rule 의미가 canonical report에 보존된다.
@@ -297,7 +299,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | Unit | key/state transition, diff mapping, verifier, redaction, backoff, retention relation |
 | Contract | REST/SSE, Commit Defender adapter, link target, relationship/artifact version, provider/GHES error |
 | Integration | DB-clock lease, migration lock, event fan-out, artifact race, Git/relationship fixture |
-| Security | authorization, proxy spoof, path/symlink, Git option, prompt/tool scope, secret leak |
+| Security | authorization, proxy spoof, path/symlink, Git option, provider SSRF, prompt/tool scope, secret leak |
 | Browser E2E | login, worklist, report/export, deep link, GHES permalink, object graph, Chat, responsive/degraded state |
 | Image | four commands, non-root, read-only rootfs, health, SBOM, no build secret |
 | Helm | lint/schema/template, hook, CronJob, clean install, upgrade, rollback, PVC/Secret refs |
