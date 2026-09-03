@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { requireUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
 import { EventHub, formatServerSentEvent } from '../events/index.js';
+import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from './worklist.js';
 
 const analysisParams = z.object({ analysisId: z.string().uuid() });
@@ -47,10 +48,11 @@ export async function registerAnalysisRoutes(
   eventHub: EventHub,
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
+  authorization: AuthorizationService,
 ) {
   app.get('/api/v1/analyses/:analysisId', { preHandler: requireUser }, async (request, reply) => {
     const { analysisId } = analysisParams.parse(request.params);
-    const context = await authorizedContext(database, request, analysisId);
+    const context = await authorizedContext(database, authorization, request, analysisId);
     if (!context) return hiddenNotFound(request, reply);
     const report = await readReport(database, artifacts, analysisId);
     if (!report) return artifactUnavailable(request, reply);
@@ -62,7 +64,7 @@ export async function registerAnalysisRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { analysisId } = analysisParams.parse(request.params);
-      if (!(await authorizedContext(database, request, analysisId))) {
+      if (!(await authorizedContext(database, authorization, request, analysisId))) {
         return hiddenNotFound(request, reply);
       }
       const result = await database.query<{ coverage: ReviewReport['coverage'] }>(
@@ -80,7 +82,7 @@ export async function registerAnalysisRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { analysisId } = analysisParams.parse(request.params);
-      const context = await authorizedContext(database, request, analysisId);
+      const context = await authorizedContext(database, authorization, request, analysisId);
       if (!context) return hiddenNotFound(request, reply);
       const report = await readReport(database, artifacts, analysisId);
       if (!report) return artifactUnavailable(request, reply);
@@ -97,7 +99,7 @@ export async function registerAnalysisRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { analysisId, findingId } = findingParams.parse(request.params);
-      const context = await authorizedContext(database, request, analysisId);
+      const context = await authorizedContext(database, authorization, request, analysisId);
       if (!context) return hiddenNotFound(request, reply);
       const report = await readReport(database, artifacts, analysisId);
       const finding = report?.findings.find((item) => item.id === findingId);
@@ -112,7 +114,7 @@ export async function registerAnalysisRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { analysisId } = analysisParams.parse(request.params);
-      if (!(await authorizedContext(database, request, analysisId))) {
+      if (!(await authorizedContext(database, authorization, request, analysisId))) {
         return hiddenNotFound(request, reply);
       }
       const graph = await readGraph(database, artifacts, analysisId);
@@ -128,7 +130,7 @@ export async function registerAnalysisRoutes(
     async (request, reply) => {
       const { analysisId, objectId } = objectParams.parse(request.params);
       const query = relationshipQuery.parse(request.query);
-      if (!(await authorizedContext(database, request, analysisId))) {
+      if (!(await authorizedContext(database, authorization, request, analysisId))) {
         return hiddenNotFound(request, reply);
       }
       const graph = await readGraph(database, artifacts, analysisId);
@@ -173,7 +175,7 @@ export async function registerAnalysisRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { analysisId } = analysisParams.parse(request.params);
-      if (!(await authorizedContext(database, request, analysisId))) {
+      if (!(await authorizedContext(database, authorization, request, analysisId))) {
         return hiddenNotFound(request, reply);
       }
       const lastEventId = Number(request.headers['last-event-id'] ?? 0);
@@ -205,7 +207,7 @@ export async function registerAnalysisRoutes(
     async (request, reply) => {
       const { analysisId } = analysisParams.parse(request.params);
       const query = exportQuery.parse(request.query);
-      const context = await authorizedContext(database, request, analysisId);
+      const context = await authorizedContext(database, authorization, request, analysisId);
       if (!context) return hiddenNotFound(request, reply);
       const report = await readReport(database, artifacts, analysisId);
       if (!report) return artifactUnavailable(request, reply);
@@ -226,6 +228,7 @@ export async function registerAnalysisRoutes(
 
 async function authorizedContext(
   database: Database,
+  authorization: AuthorizationService,
   request: FastifyRequest,
   analysisId: string,
 ): Promise<AnalysisContext | null> {
@@ -253,7 +256,12 @@ async function authorizedContext(
     [analysisId],
   );
   const row = result.rows[0];
-  if (!row || !(await canReadRepository(database, request, row.repository_id))) return null;
+  if (
+    !row ||
+    !(await canReadRepository(database, authorization, request, row.repository_id, 'view'))
+  ) {
+    return null;
+  }
   const files = await database.query<{ id: string; path: string }>(
     `select sf.id, sf.path from snapshot_files sf
      join analysis_runs ar on ar.snapshot_id = sf.snapshot_id where ar.id = $1`,

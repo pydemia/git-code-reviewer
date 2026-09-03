@@ -3,10 +3,12 @@ import type { Database } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireAdministrator, requireUser } from '../auth/index.js';
+import type { AuthorizationAction, AuthorizationService } from '../services/authorization.js';
 
 const repositoryParams = z.object({ repoId: z.string().uuid() });
 const pullParams = repositoryParams.extend({ number: z.coerce.number().int().positive() });
 const repositoryBody = z.object({
+  tenantId: z.string().uuid(),
   instanceName: z.string().min(1).max(120),
   apiBaseUrl: z.string().url(),
   webBaseUrl: z.string().url(),
@@ -16,19 +18,25 @@ const repositoryBody = z.object({
   name: z.string().regex(/^[A-Za-z0-9_.-]+$/),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).default(120),
 });
+const repositoryListQuery = z.object({ tenantId: z.string().uuid().optional() });
 const repositoryPatch = z.object({
   enabled: z.boolean().optional(),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).optional(),
 });
 
-export async function registerWorklistRoutes(app: FastifyInstance, database: Database) {
+export async function registerWorklistRoutes(
+  app: FastifyInstance,
+  database: Database,
+  authorization: AuthorizationService,
+) {
   app.get('/api/v1/me', { preHandler: requireUser }, async (request) => ({
     schemaVersion,
     ...request.user,
   }));
 
   app.get('/api/v1/repositories', { preHandler: requireUser }, async (request) => {
-    const rows = await listAuthorizedRepositories(database, request);
+    const { tenantId } = repositoryListQuery.parse(request.query);
+    const rows = await listAuthorizedRepositories(database, authorization, request, tenantId);
     return { schemaVersion, items: rows, nextCursor: null };
   });
 
@@ -37,7 +45,7 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
     { preHandler: requireUser },
     async (request, reply) => {
       const { repoId } = repositoryParams.parse(request.params);
-      if (!(await canReadRepository(database, request, repoId)))
+      if (!(await canReadRepository(database, authorization, request, repoId)))
         return hiddenNotFound(request, reply);
       const result = await database.query(
         `select pr.id, pr.number, pr.title, pr.state, pr.draft, pr.author_login as "author",
@@ -71,7 +79,7 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
     { preHandler: requireUser },
     async (request, reply) => {
       const { repoId, number } = pullParams.parse(request.params);
-      if (!(await canReadRepository(database, request, repoId)))
+      if (!(await canReadRepository(database, authorization, request, repoId)))
         return hiddenNotFound(request, reply);
       const result = await database.query(
         `select pr.id, pr.repository_id as "repositoryId", pr.number, pr.title, pr.state, pr.draft,
@@ -88,17 +96,44 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
     },
   );
 
-  app.get('/api/v1/admin/repositories', { preHandler: requireAdministrator }, async () => ({
-    schemaVersion,
-    items: await listRepositories(database),
-    nextCursor: null,
-  }));
+  app.get(
+    '/api/v1/admin/repositories',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      const { tenantId } = repositoryListQuery.parse(request.query);
+      if (
+        !(await authorization.isAllowed(
+          request.user!,
+          'view',
+          { kind: 'repository', id: 'all', ...(tenantId ? { tenantId } : {}) },
+          request.id,
+        ))
+      ) {
+        return hiddenNotFound(request, reply);
+      }
+      return {
+        schemaVersion,
+        items: await listRepositories(database, tenantId),
+        nextCursor: null,
+      };
+    },
+  );
 
   app.post(
     '/api/v1/admin/repositories',
     { preHandler: requireAdministrator },
     async (request, reply) => {
       const body = repositoryBody.parse(request.body);
+      if (
+        !(await authorization.isAllowed(
+          request.user!,
+          'create',
+          { kind: 'repository', id: 'new', tenantId: body.tenantId },
+          request.id,
+        ))
+      ) {
+        return hiddenNotFound(request, reply);
+      }
       assertCredentialFreeUrl(body.apiBaseUrl);
       assertCredentialFreeUrl(body.webBaseUrl);
       const connection = await database.connect();
@@ -117,10 +152,11 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
           ],
         );
         const repository = await connection.query<{ id: string }>(
-          `insert into repositories(instance_id, github_id, installation_id, owner, name, poll_interval_seconds)
-           values ($1,$2,$3,$4,$5,$6)
+          `insert into repositories(tenant_id, instance_id, github_id, installation_id, owner, name, poll_interval_seconds)
+           select tenant.id,$1,$2,$3,$4,$5,$6 from tenants tenant where tenant.id = $7 and tenant.enabled
            on conflict (instance_id, github_id) do update set
-             installation_id = excluded.installation_id, owner = excluded.owner, name = excluded.name,
+             tenant_id = excluded.tenant_id, installation_id = excluded.installation_id,
+             owner = excluded.owner, name = excluded.name,
              poll_interval_seconds = excluded.poll_interval_seconds, enabled = true,
              updated_at = clock_timestamp()
            returning id`,
@@ -131,8 +167,10 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
             body.owner,
             body.name,
             body.pollIntervalSeconds,
+            body.tenantId,
           ],
         );
+        if (!repository.rows[0]) throw new Error('Tenant is unavailable');
         await connection.query(
           `insert into poll_states(repository_id, next_poll_at)
            values ($1, clock_timestamp()) on conflict (repository_id) do update set next_poll_at = clock_timestamp()`,
@@ -161,6 +199,9 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
     { preHandler: requireAdministrator },
     async (request, reply) => {
       const { repoId } = repositoryParams.parse(request.params);
+      if (!(await canReadRepository(database, authorization, request, repoId, 'update'))) {
+        return hiddenNotFound(request, reply);
+      }
       const patch = repositoryPatch.parse(request.body);
       const result = await database.query(
         `update repositories set
@@ -177,64 +218,110 @@ export async function registerWorklistRoutes(app: FastifyInstance, database: Dat
   );
 }
 
-async function listAuthorizedRepositories(database: Database, request: FastifyRequest) {
-  if (request.user!.role === 'administrator') return listRepositories(database);
+async function listAuthorizedRepositories(
+  database: Database,
+  authorization: AuthorizationService,
+  request: FastifyRequest,
+  tenantId?: string,
+) {
+  if (request.user!.role === 'administrator') {
+    const rows = await listRepositories(database, tenantId);
+    return filterRepositoryRows(authorization, request, rows, true);
+  }
   const principals = [
     request.user!.subject,
     ...request.user!.groups.map((group) => `group:${group}`),
   ];
   const result = await database.query(
-    `select r.id, r.github_id as "githubId", r.owner, r.name, i.web_base_url as "webBaseUrl",
+    `select r.id, r.github_id as "githubId", r.tenant_id as "tenantId",
+            tenant.slug as "tenantSlug", tenant.display_name as "tenantName",
+            r.owner, r.name, i.web_base_url as "webBaseUrl", r.enabled,
             p.last_polled_at as "lastPolledAt", p.next_poll_at as "nextPollAt",
             p.last_outcome as "pollOutcome", p.last_error_code as "pollError"
      from repositories r join github_instances i on i.id = r.instance_id
+     join tenants tenant on tenant.id = r.tenant_id
      left join poll_states p on p.repository_id = r.id
-     where r.enabled and i.enabled and exists (
+     where r.enabled and i.enabled and tenant.enabled and r.tenant_id = any($1::uuid[])
+       and ($3::uuid is null or r.tenant_id = $3) and exists (
        select 1 from repository_grants g
-       where g.repository_id = r.id and g.subject_or_group = any($1::text[])
+       where g.repository_id = r.id and g.subject_or_group = any($2::text[])
      ) order by r.owner, r.name`,
-    [principals],
+    [request.user!.tenantIds, principals, tenantId ?? null],
   );
-  return result.rows;
+  return filterRepositoryRows(authorization, request, result.rows, true);
 }
 
-async function listRepositories(database: Database) {
+async function listRepositories(database: Database, tenantId?: string) {
   const result = await database.query(
     `select r.id, r.github_id as "githubId", r.installation_id as "installationId",
+            r.tenant_id as "tenantId", tenant.slug as "tenantSlug",
+            tenant.display_name as "tenantName",
             r.owner, r.name, r.enabled, r.poll_interval_seconds as "pollIntervalSeconds",
             i.name as "instanceName", i.api_base_url as "apiBaseUrl", i.web_base_url as "webBaseUrl",
             p.last_polled_at as "lastPolledAt", p.next_poll_at as "nextPollAt",
             p.last_outcome as "pollOutcome", p.last_error_code as "pollError"
      from repositories r join github_instances i on i.id = r.instance_id
+     join tenants tenant on tenant.id = r.tenant_id
      left join poll_states p on p.repository_id = r.id
-     order by r.owner, r.name`,
+     where ($1::uuid is null or r.tenant_id = $1)
+     order by tenant.display_name, r.owner, r.name`,
+    [tenantId ?? null],
   );
   return result.rows;
 }
 
 export async function canReadRepository(
   database: Database,
+  authorization: AuthorizationService,
   request: FastifyRequest,
   repositoryId: string,
+  action: AuthorizationAction = 'view',
 ): Promise<boolean> {
-  if (request.user?.role === 'administrator') {
-    const result = await database.query('select 1 from repositories where id = $1 and enabled', [
-      repositoryId,
-    ]);
-    return Boolean(result.rowCount);
-  }
   if (!request.user) return false;
   const principals = [
     request.user.subject,
     ...request.user.groups.map((group) => `group:${group}`),
   ];
-  const result = await database.query(
-    `select 1 from repositories r where r.id = $1 and r.enabled and exists (
-       select 1 from repository_grants g where g.repository_id = r.id
-         and g.subject_or_group = any($2::text[]))`,
+  const result = await database.query<{ tenantId: string; enabled: boolean; granted: boolean }>(
+    `select r.tenant_id as "tenantId", (r.enabled and tenant.enabled and instance.enabled) as enabled,
+            exists (select 1 from repository_grants grant_row
+              where grant_row.repository_id = r.id and grant_row.subject_or_group = any($2::text[])) as granted
+     from repositories r join tenants tenant on tenant.id = r.tenant_id
+     join github_instances instance on instance.id = r.instance_id where r.id = $1`,
     [repositoryId, principals],
   );
-  return Boolean(result.rowCount);
+  const row = result.rows[0];
+  return row
+    ? authorization.isAllowed(
+        request.user,
+        action,
+        {
+          kind: 'repository',
+          id: repositoryId,
+          tenantId: row.tenantId,
+          granted: request.user.role === 'administrator' || row.granted,
+          enabled: row.enabled,
+        },
+        request.id,
+      )
+    : false;
+}
+
+async function filterRepositoryRows(
+  authorization: AuthorizationService,
+  request: FastifyRequest,
+  rows: Array<Record<string, unknown>>,
+  granted: boolean,
+) {
+  const resources = rows.map((row) => ({
+    kind: 'repository' as const,
+    id: String(row.id),
+    tenantId: String(row.tenantId),
+    granted,
+    enabled: row.enabled !== false,
+  }));
+  const allowed = await authorization.filterAllowed(request.user!, 'view', resources, request.id);
+  return rows.filter((row) => allowed.has(String(row.id)));
 }
 
 function hiddenNotFound(request: FastifyRequest, reply: import('fastify').FastifyReply) {

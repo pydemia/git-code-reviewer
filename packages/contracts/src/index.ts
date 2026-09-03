@@ -11,12 +11,99 @@ export const userSchema = z.object({
   subject: z.string(),
   displayName: z.string(),
   role: roleSchema,
+  enabled: z.boolean(),
+  tenants: z.array(
+    z.object({
+      id: z.string().uuid(),
+      slug: z.string(),
+      displayName: z.string(),
+    }),
+  ),
 });
 export type User = z.infer<typeof userSchema>;
+
+export const tenantSchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  displayName: z.string(),
+  enabled: z.boolean(),
+  memberCount: z.number().int().nonnegative(),
+  repositoryCount: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Tenant = z.infer<typeof tenantSchema>;
+
+export const tenantListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  items: z.array(tenantSchema),
+});
+
+export const adminUserSchema = z.object({
+  id: z.string().uuid(),
+  subject: z.string(),
+  displayName: z.string(),
+  role: roleSchema,
+  enabled: z.boolean(),
+  groups: z.array(z.string()),
+  memberships: z.array(
+    z.object({
+      tenantId: z.string().uuid(),
+      tenantSlug: z.string(),
+      tenantName: z.string(),
+      enabled: z.boolean(),
+    }),
+  ),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AdminUser = z.infer<typeof adminUserSchema>;
+
+export const adminUserListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  items: z.array(adminUserSchema),
+});
+
+export const analysisPromptVersionSchema = z.object({
+  id: z.string().uuid(),
+  tenantId: z.string().uuid(),
+  version: z.number().int().positive(),
+  instructions: z.string(),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  active: z.boolean(),
+  createdBy: z.object({
+    subject: z.string(),
+    displayName: z.string(),
+  }),
+  activatedBy: z
+    .object({
+      subject: z.string(),
+      displayName: z.string(),
+    })
+    .nullable(),
+  activatedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AnalysisPromptVersion = z.infer<typeof analysisPromptVersionSchema>;
+
+export const analysisPromptListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  tenant: z.object({
+    id: z.string().uuid(),
+    slug: z.string(),
+    displayName: z.string(),
+  }),
+  model: z.object({ enabled: z.boolean(), name: z.string().nullable() }),
+  active: analysisPromptVersionSchema.nullable(),
+  items: z.array(analysisPromptVersionSchema),
+});
 
 export const repositorySchema = z.object({
   id: z.string().uuid(),
   githubId: z.string(),
+  tenantId: z.string().uuid(),
+  tenantSlug: z.string(),
+  tenantName: z.string(),
   owner: z.string(),
   name: z.string(),
   webBaseUrl: z.string().url(),

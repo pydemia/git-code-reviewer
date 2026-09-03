@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  analysisPromptListSchema,
   chatSessionSchema,
   chatSendResponseSchema,
   dependencyHealthSchema,
@@ -123,5 +124,29 @@ describe('API contracts', () => {
       ],
     });
     expect(graph.commits[0]?.subject).toBe('Add transaction coverage');
+  });
+
+  it('accepts a tenant-scoped immutable analysis prompt version', () => {
+    const promptId = '8aff9bde-4c15-45b0-9fb2-65b70d2f98c2';
+    const tenantId = '62f1b4ae-8c15-4a27-8857-a4ea940acfe8';
+    const result = analysisPromptListSchema.parse({
+      schemaVersion: 1,
+      tenant: { id: tenantId, slug: 'platform', displayName: 'Platform' },
+      model: { enabled: true, name: 'review-model' },
+      active: {
+        id: promptId,
+        tenantId,
+        version: 3,
+        instructions: 'Prioritize transaction boundary regressions.',
+        contentHash: 'a'.repeat(64),
+        active: true,
+        createdBy: { subject: 'admin', displayName: 'Administrator' },
+        activatedBy: { subject: 'admin', displayName: 'Administrator' },
+        activatedAt: '2026-09-03T00:00:01.000Z',
+        createdAt: '2026-09-03T00:00:00.000Z',
+      },
+      items: [],
+    });
+    expect(result.active?.version).toBe(3);
   });
 });

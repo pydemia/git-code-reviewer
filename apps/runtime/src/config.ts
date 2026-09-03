@@ -25,6 +25,9 @@ const configSchema = z.object({
   ARTIFACT_ROOT: z.string().default('/var/lib/git-code-reviewer/artifacts'),
   WORKSPACE_ROOT: z.string().default('/tmp/git-code-reviewer/workspaces'),
   AUTH_MODE: z.enum(['development', 'oidc', 'proxy']).default('development'),
+  AUTHORIZATION_MODE: z.enum(['local', 'cerbos']).default('local'),
+  CERBOS_URL: optionalUrl,
+  CERBOS_TIMEOUT_MS: z.coerce.number().int().positive().max(10_000).default(2_000),
   SESSION_SECRET: z.string().default('development-only-session-secret-32'),
   DEV_USER_SUBJECT: z.string().default('local-reviewer'),
   DEV_USER_NAME: z.string().default('Local Reviewer'),
@@ -62,6 +65,12 @@ const configSchema = z.object({
   OIDC_CLIENT_SECRET: z.string().optional(),
   OIDC_REDIRECT_URI: optionalUrl,
   OIDC_ADMIN_GROUP: z.string().default('git-code-reviewer-admins'),
+  OIDC_ADMIN_ROLE: z.string().default('git-code-reviewer-admin'),
+  DEFAULT_TENANT_SLUG: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9-]{1,62}$/)
+    .default('default'),
+  AUTO_JOIN_DEFAULT_TENANT: booleanString,
   PROXY_IDENTITY_PUBLIC_KEY_FILE: z.string().optional(),
   PROXY_IDENTITY_ISSUER: z.string().optional(),
   PROXY_IDENTITY_AUDIENCE: z.string().default('git-code-reviewer'),
@@ -123,6 +132,13 @@ export function loadConfig(
     result.data.SESSION_SECRET.length < 32
   ) {
     throw new Error('Invalid configuration: SESSION_SECRET must contain at least 32 characters');
+  }
+  if (
+    command === 'serve' &&
+    result.data.AUTHORIZATION_MODE === 'cerbos' &&
+    !result.data.CERBOS_URL
+  ) {
+    throw new Error('Invalid configuration: CERBOS_URL is required for cerbos authorization');
   }
   if (
     command === 'serve' &&

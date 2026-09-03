@@ -12,6 +12,7 @@ import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerAnalysisRoutes } from './routes/analyses.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerWorklistRoutes } from './routes/worklist.js';
+import { registerAdminRoutes } from './routes/admin.js';
 import {
   createGitHubReader,
   ensureFixtureRepository,
@@ -19,6 +20,7 @@ import {
   startPollScheduler,
 } from './services/repositories.js';
 import { createChatModel } from './services/chat-model.js';
+import { AuthorizationService, AuthorizationUnavailableError } from './services/authorization.js';
 
 const securityHeaders = {
   'content-security-policy':
@@ -51,6 +53,7 @@ export async function buildServer(config: AppConfig) {
   const github = await createGitHubReader(config);
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
   const chatModel = createChatModel(config);
+  const authorization = new AuthorizationService(config);
   const eventHub = new EventHub(database);
   await eventHub.start();
 
@@ -73,10 +76,11 @@ export async function buildServer(config: AppConfig) {
   });
 
   await registerAuthentication(app, config, database);
-  await registerWorklistRoutes(app, database);
-  await registerSnapshotRoutes(app, database, eventHub, artifacts);
-  await registerAnalysisRoutes(app, database, eventHub, artifacts, config);
-  await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel);
+  await registerWorklistRoutes(app, database, authorization);
+  await registerAdminRoutes(app, database, authorization, config);
+  await registerSnapshotRoutes(app, database, eventHub, artifacts, authorization);
+  await registerAnalysisRoutes(app, database, eventHub, artifacts, config, authorization);
+  await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel, authorization);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));
@@ -88,7 +92,7 @@ export async function buildServer(config: AppConfig) {
       return reply.code(503).send({ status: 'degraded', schemaVersion });
     }
   });
-  app.get('/health/dependencies', async () => dependencyHealth(database, config));
+  app.get('/health/dependencies', async () => dependencyHealth(database, config, authorization));
   app.get('/api/v1/system', async () => ({
     schemaVersion,
     service: 'git-code-reviewer',
@@ -98,6 +102,18 @@ export async function buildServer(config: AppConfig) {
 
   app.setErrorHandler((error, request, reply) => {
     request.log.error({ err: error }, 'request failed');
+    if (error instanceof AuthorizationUnavailableError) {
+      return reply
+        .code(503)
+        .send(
+          errorEnvelope(
+            'AUTHORIZATION_UNAVAILABLE',
+            '인가 서비스를 사용할 수 없습니다.',
+            request.id,
+            true,
+          ),
+        );
+    }
     const statusCode =
       typeof error === 'object' &&
       error !== null &&
@@ -162,12 +178,17 @@ export async function buildServer(config: AppConfig) {
   return app;
 }
 
-async function dependencyHealth(database: Database, config: AppConfig) {
+async function dependencyHealth(
+  database: Database,
+  config: AppConfig,
+  authorization: AuthorizationService,
+) {
   try {
     const latencyMs = await pingDatabase(database);
+    const authorizationStatus = await authorization.health();
     return {
       schemaVersion,
-      status: 'ok',
+      status: authorizationStatus === 'degraded' ? 'degraded' : 'ok',
       dependencies: {
         database: { status: 'ok', latencyMs },
         github: {
@@ -178,6 +199,7 @@ async function dependencyHealth(database: Database, config: AppConfig) {
           status: config.MODEL_MODE === 'disabled' ? 'disabled' : 'ok',
           latencyMs: null,
         },
+        authorization: { status: authorizationStatus, latencyMs: null },
       },
     };
   } catch {
@@ -188,6 +210,7 @@ async function dependencyHealth(database: Database, config: AppConfig) {
         database: { status: 'degraded', latencyMs: null, message: 'Database unavailable' },
         github: { status: 'disabled', latencyMs: null },
         model: { status: 'disabled', latencyMs: null },
+        authorization: { status: 'degraded', latencyMs: null },
       },
     };
   }

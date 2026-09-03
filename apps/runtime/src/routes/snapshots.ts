@@ -7,6 +7,7 @@ import { requireUser } from '../auth/index.js';
 import { EventHub, formatServerSentEvent } from '../events/index.js';
 import { canReadRepository } from './worklist.js';
 import { requestPullRefresh } from '../services/operations.js';
+import type { AuthorizationService } from '../services/authorization.js';
 
 const repositoryPullParams = z.object({
   repoId: z.string().uuid(),
@@ -19,13 +20,14 @@ export async function registerSnapshotRoutes(
   database: Database,
   eventHub: EventHub,
   artifacts: FilesystemArtifactStore,
+  authorization: AuthorizationService,
 ) {
   app.post(
     '/api/v1/repositories/:repoId/pulls/:number/refresh',
     { preHandler: requireUser },
     async (request, reply) => {
       const { repoId, number } = repositoryPullParams.parse(request.params);
-      if (!(await canReadRepository(database, request, repoId)))
+      if (!(await canReadRepository(database, authorization, request, repoId, 'refresh')))
         return hiddenNotFound(request, reply);
       const active = await database.query<{ count: string }>(
         `select count(*)::text as count from operations
@@ -59,7 +61,7 @@ export async function registerSnapshotRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { repoId, number } = repositoryPullParams.parse(request.params);
-      if (!(await canReadRepository(database, request, repoId)))
+      if (!(await canReadRepository(database, authorization, request, repoId)))
         return hiddenNotFound(request, reply);
       const result = await database.query(
         `select ar.id, ar.snapshot_id as "snapshotId", ar.revision, ar.state, ar.stage, ar.progress,
@@ -82,7 +84,7 @@ export async function registerSnapshotRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { repoId, number } = repositoryPullParams.parse(request.params);
-      if (!(await canReadRepository(database, request, repoId)))
+      if (!(await canReadRepository(database, authorization, request, repoId)))
         return hiddenNotFound(request, reply);
       const pull = await database.query<{ id: string }>(
         'select id from pull_requests where repository_id = $1 and number = $2',
@@ -130,7 +132,7 @@ export async function registerSnapshotRoutes(
       [id],
     );
     const row = result.rows[0];
-    if (!row || !(await canReadRepository(database, request, row.repository_id))) {
+    if (!row || !(await canReadRepository(database, authorization, request, row.repository_id))) {
       return hiddenNotFound(request, reply);
     }
     return {
@@ -147,7 +149,9 @@ export async function registerSnapshotRoutes(
 
   app.get('/api/v1/snapshots/:id/files', { preHandler: requireUser }, async (request, reply) => {
     const { id } = idParams.parse(request.params);
-    if (!(await canReadSnapshot(database, request, id))) return hiddenNotFound(request, reply);
+    if (!(await canReadSnapshot(database, authorization, request, id))) {
+      return hiddenNotFound(request, reply);
+    }
     const result = await database.query(
       `select id, path, previous_path as "previousPath", status, additions, deletions
        from snapshot_files where snapshot_id = $1 order by path`,
@@ -158,7 +162,9 @@ export async function registerSnapshotRoutes(
 
   app.get('/api/v1/snapshots/:id/diff', { preHandler: requireUser }, async (request, reply) => {
     const { id } = idParams.parse(request.params);
-    if (!(await canReadSnapshot(database, request, id))) return hiddenNotFound(request, reply);
+    if (!(await canReadSnapshot(database, authorization, request, id))) {
+      return hiddenNotFound(request, reply);
+    }
     const locator = await artifactLocator(database, id, 'diff-index');
     if (!locator) return artifactUnavailable(request, reply);
     return artifacts.readJson(locator);
@@ -166,14 +172,21 @@ export async function registerSnapshotRoutes(
 
   app.get('/api/v1/snapshots/:id/commits', { preHandler: requireUser }, async (request, reply) => {
     const { id } = idParams.parse(request.params);
-    if (!(await canReadSnapshot(database, request, id))) return hiddenNotFound(request, reply);
+    if (!(await canReadSnapshot(database, authorization, request, id))) {
+      return hiddenNotFound(request, reply);
+    }
     const locator = await artifactLocator(database, id, 'commits');
     if (!locator) return artifactUnavailable(request, reply);
     return artifacts.readJson(locator);
   });
 }
 
-async function canReadSnapshot(database: Database, request: FastifyRequest, snapshotId: string) {
+async function canReadSnapshot(
+  database: Database,
+  authorization: AuthorizationService,
+  request: FastifyRequest,
+  snapshotId: string,
+) {
   const result = await database.query<{ repository_id: string }>(
     `select pr.repository_id from snapshots s
      join snapshot_requests sr on sr.id = s.request_id
@@ -181,7 +194,7 @@ async function canReadSnapshot(database: Database, request: FastifyRequest, snap
     [snapshotId],
   );
   return result.rows[0]
-    ? canReadRepository(database, request, result.rows[0].repository_id)
+    ? canReadRepository(database, authorization, request, result.rows[0].repository_id)
     : false;
 }
 

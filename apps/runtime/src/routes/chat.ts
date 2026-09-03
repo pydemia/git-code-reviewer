@@ -8,6 +8,7 @@ import { requireUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
 import { appendEvent, EventHub, formatServerSentEvent } from '../events/index.js';
 import type { ChatModel } from '../services/chat-model.js';
+import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from './worklist.js';
 
 const analysisParams = z.object({ analysisId: z.string().uuid() });
@@ -55,6 +56,7 @@ export async function registerChatRoutes(
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
   chatModel: ChatModel | null,
+  authorization: AuthorizationService,
 ) {
   app.post(
     '/api/v1/analyses/:analysisId/chat-sessions',
@@ -62,7 +64,7 @@ export async function registerChatRoutes(
     async (request, reply) => {
       const { analysisId } = analysisParams.parse(request.params);
       const scope = sessionBody.parse(request.body ?? {});
-      if (!(await canReadAnalysis(database, request, analysisId))) {
+      if (!(await canReadAnalysis(database, authorization, request, analysisId))) {
         return hiddenNotFound(request, reply);
       }
       const result = await database.query<ChatSessionRow>(
@@ -82,7 +84,7 @@ export async function registerChatRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { sessionId } = sessionParams.parse(request.params);
-      const session = await ownedSession(database, request, sessionId);
+      const session = await ownedSession(database, authorization, request, sessionId);
       return session ? sessionView(session, chatModel) : hiddenNotFound(request, reply);
     },
   );
@@ -92,7 +94,7 @@ export async function registerChatRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { sessionId } = sessionParams.parse(request.params);
-      if (!(await ownedSession(database, request, sessionId))) {
+      if (!(await ownedSession(database, authorization, request, sessionId))) {
         return hiddenNotFound(request, reply);
       }
       const result = await database.query<ChatMessageRow>(
@@ -110,7 +112,7 @@ export async function registerChatRoutes(
     async (request, reply) => {
       const { sessionId } = sessionParams.parse(request.params);
       const body = messageBody.parse(request.body);
-      const session = await ownedSession(database, request, sessionId);
+      const session = await ownedSession(database, authorization, request, sessionId);
       if (!session) return hiddenNotFound(request, reply);
       if (!chatModel) {
         return reply.code(503).send({
@@ -187,7 +189,7 @@ export async function registerChatRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { sessionId } = sessionParams.parse(request.params);
-      if (!(await ownedSession(database, request, sessionId))) {
+      if (!(await ownedSession(database, authorization, request, sessionId))) {
         return hiddenNotFound(request, reply);
       }
       const lastEventId = Number(request.headers['last-event-id'] ?? 0);
@@ -334,6 +336,7 @@ async function recentConversation(
 
 async function ownedSession(
   database: Database,
+  authorization: AuthorizationService,
   request: FastifyRequest,
   sessionId: string,
 ): Promise<ChatSessionRow | null> {
@@ -342,10 +345,18 @@ async function ownedSession(
      from chat_sessions where id = $1 and user_id = $2`,
     [sessionId, request.user!.id],
   );
-  return result.rows[0] ?? null;
+  const session = result.rows[0];
+  return session && (await canReadAnalysis(database, authorization, request, session.analysis_id))
+    ? session
+    : null;
 }
 
-async function canReadAnalysis(database: Database, request: FastifyRequest, analysisId: string) {
+async function canReadAnalysis(
+  database: Database,
+  authorization: AuthorizationService,
+  request: FastifyRequest,
+  analysisId: string,
+) {
   const result = await database.query<{ repository_id: string }>(
     `select pr.repository_id from analysis_runs ar join snapshots s on s.id = ar.snapshot_id
      join snapshot_requests sr on sr.id = s.request_id
@@ -353,7 +364,7 @@ async function canReadAnalysis(database: Database, request: FastifyRequest, anal
     [analysisId],
   );
   return result.rows[0]
-    ? canReadRepository(database, request, result.rows[0].repository_id)
+    ? canReadRepository(database, authorization, request, result.rows[0].repository_id, 'chat')
     : false;
 }
 

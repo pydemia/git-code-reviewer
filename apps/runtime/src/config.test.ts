@@ -16,6 +16,7 @@ describe('loadConfig', () => {
     expect(config.TRUST_PROXY).toBe(false);
     expect(config.WORKER_CONCURRENCY).toBe(2);
     expect(config.CHAT_CONCURRENCY_LIMIT).toBe(2);
+    expect(config.AUTHORIZATION_MODE).toBe('local');
   });
 
   it('rejects chat retention beyond report retention', () => {
@@ -125,5 +126,14 @@ describe('loadConfig', () => {
         'worker',
       ),
     ).toThrow('model endpoint, API key, and name are required');
+  });
+
+  it('requires a Cerbos endpoint only for the server command', () => {
+    expect(() => loadConfig({ ...baseEnvironment, AUTHORIZATION_MODE: 'cerbos' })).toThrow(
+      'CERBOS_URL is required',
+    );
+    expect(
+      loadConfig({ ...baseEnvironment, AUTHORIZATION_MODE: 'cerbos' }, 'worker').AUTHORIZATION_MODE,
+    ).toBe('cerbos');
   });
 });

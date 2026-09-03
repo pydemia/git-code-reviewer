@@ -341,11 +341,37 @@ async function persistMaterialization(
 
     let analysisId: string | null = null;
     if (materialization.resolution === 'exact') {
+      const prompt = await connection.query<{
+        id: string | null;
+        content_hash: string | null;
+      }>(
+        `select active_prompt.id, active_prompt.content_hash
+         from snapshot_requests request
+         join pull_requests pull_request on pull_request.id = request.pull_request_id
+         join repositories repository on repository.id = pull_request.repository_id
+         left join lateral (
+           select id, content_hash from analysis_prompt_versions
+           where tenant_id = repository.tenant_id and active order by version desc limit 1
+         ) active_prompt on true
+         where request.id = $1`,
+        [snapshotRequestId],
+      );
+      const promptVersionId = prompt.rows[0]?.id ?? null;
+      const promptHash = prompt.rows[0]?.content_hash ?? 'builtin-v1';
       const analysis = await connection.query<{ id: string }>(
-        `insert into analysis_runs(snapshot_id, analysis_key, state, stage, progress, model_profile)
-         values ($1, $2, 'queued', 'planning', 0, $3)
+        `insert into analysis_runs(
+           snapshot_id, analysis_key, state, stage, progress, model_profile,
+           prompt_version_id, prompt_hash, policy_hash
+         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
-        [snapshotId, `analysis:${snapshotId}:default:v1`, 'configured-at-worker'],
+        [
+          snapshotId,
+          `analysis:${snapshotId}:default:v2:${promptHash}`,
+          'configured-at-worker',
+          promptVersionId,
+          promptHash,
+          `default-v1:${promptHash}`,
+        ],
       );
       analysisId = analysis.rows[0]!.id;
       await connection.query(
@@ -416,10 +442,21 @@ async function executeAnalysisJob(
   ]);
   if (existing.rowCount) return;
   await updateAnalysisState(database, job, 'analyzing', 'deterministic', 20);
-  const identity = await database.query<{ base_sha: string; head_sha: string }>(
-    `select sr.base_sha, sr.head_sha from snapshots s
-     join snapshot_requests sr on sr.id = s.request_id where s.id = $1`,
-    [snapshotId],
+  const identity = await database.query<{
+    base_sha: string;
+    head_sha: string;
+    prompt_instructions: string | null;
+    prompt_version: number | null;
+    prompt_hash: string;
+  }>(
+    `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
+            prompt.version as prompt_version, analysis.prompt_hash
+     from snapshots snapshot
+     join snapshot_requests sr on sr.id = snapshot.request_id
+     join analysis_runs analysis on analysis.snapshot_id = snapshot.id and analysis.id = $2
+     left join analysis_prompt_versions prompt on prompt.id = analysis.prompt_version_id
+     where snapshot.id = $1`,
+    [snapshotId, analysisId],
   );
   const row = identity.rows[0];
   if (!row) throw new Error('Analysis snapshot is unavailable');
@@ -453,6 +490,15 @@ async function executeAnalysisJob(
     files,
     fixtureMode: config.GITHUB_MODE === 'fixture',
     ...(model ? { model } : {}),
+    ...(row.prompt_instructions && row.prompt_version
+      ? {
+          prompt: {
+            instructions: row.prompt_instructions,
+            version: row.prompt_version,
+            hash: row.prompt_hash,
+          },
+        }
+      : {}),
     budgets: {
       maxFiles: config.ANALYSIS_MAX_FILES,
       maxBytes: config.ANALYSIS_MAX_BYTES,

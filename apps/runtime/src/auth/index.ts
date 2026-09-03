@@ -13,6 +13,9 @@ export type AuthUser = {
   displayName: string;
   role: 'reviewer' | 'administrator';
   groups: string[];
+  enabled: boolean;
+  tenantIds: string[];
+  tenants: Array<{ id: string; slug: string; displayName: string }>;
 };
 
 declare module 'fastify' {
@@ -40,13 +43,18 @@ export async function registerAuthentication(
   app.addHook('preHandler', async (request) => {
     if (request.url.startsWith('/health/')) return;
     if (config.AUTH_MODE === 'development') {
-      developmentUser ??= upsertUser(database, {
-        subject: config.DEV_USER_SUBJECT,
-        displayName: config.DEV_USER_NAME,
-        role: config.DEV_USER_ROLE === 'admin' ? 'administrator' : config.DEV_USER_ROLE,
-        groups: [],
-      });
-      request.user = await developmentUser;
+      developmentUser ??= upsertUser(
+        database,
+        {
+          subject: config.DEV_USER_SUBJECT,
+          displayName: config.DEV_USER_NAME,
+          role: config.DEV_USER_ROLE === 'admin' ? 'administrator' : config.DEV_USER_ROLE,
+          groups: [],
+        },
+        config,
+      );
+      const user = await developmentUser;
+      request.user = user.enabled ? user : null;
       return;
     }
 
@@ -65,12 +73,17 @@ export async function registerAuthentication(
       const groups = Array.isArray(payload.groups)
         ? payload.groups.filter((group): group is string => typeof group === 'string')
         : [];
-      request.user = await upsertUser(database, {
-        subject: payload.sub,
-        displayName: typeof payload.name === 'string' ? payload.name : payload.sub,
-        role: groups.includes(config.OIDC_ADMIN_GROUP) ? 'administrator' : 'reviewer',
-        groups,
-      });
+      const user = await upsertUser(
+        database,
+        {
+          subject: payload.sub,
+          displayName: typeof payload.name === 'string' ? payload.name : payload.sub,
+          role: identityRole(payload, groups, config),
+          groups,
+        },
+        config,
+      );
+      request.user = user.enabled ? user : null;
       return;
     }
 
@@ -152,17 +165,22 @@ export async function registerAuthentication(
     const groups = Array.isArray(claims.groups)
       ? claims.groups.filter((group): group is string => typeof group === 'string')
       : [];
-    const user = await upsertUser(database, {
-      subject: claims.sub,
-      displayName:
-        typeof claims.name === 'string'
-          ? claims.name
-          : typeof claims.preferred_username === 'string'
-            ? claims.preferred_username
-            : claims.sub,
-      role: groups.includes(config.OIDC_ADMIN_GROUP) ? 'administrator' : 'reviewer',
-      groups,
-    });
+    const user = await upsertUser(
+      database,
+      {
+        subject: claims.sub,
+        displayName:
+          typeof claims.name === 'string'
+            ? claims.name
+            : typeof claims.preferred_username === 'string'
+              ? claims.preferred_username
+              : claims.sub,
+        role: identityRole(claims, groups, config),
+        groups,
+      },
+      config,
+    );
+    if (!user.enabled) return reply.code(403).send({ error: 'Application access is disabled' });
     const token = randomBytes(32).toString('base64url');
     await database.query(
       `insert into user_sessions(id_hash, user_id, expires_at)
@@ -206,13 +224,18 @@ export async function requireAdministrator(request: FastifyRequest, reply: Fasti
   });
 }
 
-async function upsertUser(database: Database, user: Omit<AuthUser, 'id'>): Promise<AuthUser> {
+async function upsertUser(
+  database: Database,
+  user: Pick<AuthUser, 'subject' | 'displayName' | 'role' | 'groups'>,
+  config: AppConfig,
+): Promise<AuthUser> {
   const result = await database.query<{
     id: string;
     oidc_subject: string;
     display_name: string;
     role: 'reviewer' | 'administrator';
     groups_json: string[];
+    enabled: boolean;
   }>(
     `insert into users(oidc_subject, display_name, role, groups_json)
      values ($1, $2, $3, $4::jsonb)
@@ -221,17 +244,26 @@ async function upsertUser(database: Database, user: Omit<AuthUser, 'id'>): Promi
        role = excluded.role,
        groups_json = excluded.groups_json,
        updated_at = clock_timestamp()
-     returning id, oidc_subject, display_name, role, groups_json`,
+     returning id, oidc_subject, display_name, role, groups_json, enabled`,
     [user.subject, user.displayName, user.role, JSON.stringify(user.groups)],
   );
   const row = result.rows[0]!;
-  return {
+  if (config.AUTO_JOIN_DEFAULT_TENANT) {
+    await database.query(
+      `insert into tenant_memberships(tenant_id, user_id)
+       select id, $1 from tenants where slug = $2 and enabled
+       on conflict (tenant_id, user_id) do nothing`,
+      [row.id, config.DEFAULT_TENANT_SLUG],
+    );
+  }
+  return hydrateUser(database, {
     id: row.id,
     subject: row.oidc_subject,
     displayName: row.display_name,
     role: row.role,
     groups: row.groups_json,
-  };
+    enabled: row.enabled,
+  });
 }
 
 async function findSessionUser(database: Database, token: string): Promise<AuthUser | null> {
@@ -241,23 +273,72 @@ async function findSessionUser(database: Database, token: string): Promise<AuthU
     display_name: string;
     role: 'reviewer' | 'administrator';
     groups_json: string[];
+    enabled: boolean;
   }>(
     `update user_sessions s set last_seen_at = clock_timestamp()
      from users u
-     where s.id_hash = $1 and s.expires_at > clock_timestamp() and u.id = s.user_id
-     returning u.id, u.oidc_subject, u.display_name, u.role, u.groups_json`,
+     where s.id_hash = $1 and s.expires_at > clock_timestamp() and u.id = s.user_id and u.enabled
+     returning u.id, u.oidc_subject, u.display_name, u.role, u.groups_json, u.enabled`,
     [hash(token)],
   );
   const row = result.rows[0];
   return row
-    ? {
+    ? hydrateUser(database, {
         id: row.id,
         subject: row.oidc_subject,
         displayName: row.display_name,
         role: row.role,
         groups: row.groups_json,
-      }
+        enabled: row.enabled,
+      })
     : null;
+}
+
+async function hydrateUser(
+  database: Database,
+  user: Omit<AuthUser, 'tenantIds' | 'tenants'>,
+): Promise<AuthUser> {
+  const result = await database.query<{ id: string; slug: string; displayName: string }>(
+    user.role === 'administrator'
+      ? `select id, slug, display_name as "displayName" from tenants
+         where enabled order by display_name, id`
+      : `select tenant.id, tenant.slug, tenant.display_name as "displayName"
+         from tenant_memberships membership join tenants tenant on tenant.id = membership.tenant_id
+         where membership.user_id = $1 and membership.enabled and tenant.enabled
+         order by tenant.display_name, tenant.id`,
+    user.role === 'administrator' ? [] : [user.id],
+  );
+  return {
+    ...user,
+    tenantIds: result.rows.map((tenant) => tenant.id),
+    tenants: result.rows,
+  };
+}
+
+function identityRole(
+  claims: Record<string, unknown>,
+  groups: string[],
+  config: AppConfig,
+): 'reviewer' | 'administrator' {
+  const realmAccess = objectValue(claims.realm_access);
+  const resourceAccess = objectValue(claims.resource_access);
+  const clientAccess = objectValue(resourceAccess?.[config.OIDC_CLIENT_ID ?? '']);
+  const roles = [...stringArray(realmAccess?.roles), ...stringArray(clientAccess?.roles)];
+  return roles.includes(config.OIDC_ADMIN_ROLE) || groups.includes(config.OIDC_ADMIN_GROUP)
+    ? 'administrator'
+    : 'reviewer';
+}
+
+function objectValue(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
 function setCookie(

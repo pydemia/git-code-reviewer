@@ -34,9 +34,13 @@ export async function ensureFixtureRepository(database: Database): Promise<void>
      returning id`,
   );
   const repository = await database.query<{ id: string }>(
-    `insert into repositories(instance_id, github_id, installation_id, owner, name, poll_interval_seconds)
-     values ($1, 101, 'fixture', 'platform', 'reviewer-api', 120)
-     on conflict (instance_id, github_id) do update set enabled = true, updated_at = clock_timestamp()
+    `insert into repositories(
+       tenant_id, instance_id, github_id, installation_id, owner, name, poll_interval_seconds
+     )
+     select tenant.id, $1, 101, 'fixture', 'platform', 'reviewer-api', 120
+     from tenants tenant where tenant.slug = 'default'
+     on conflict (instance_id, github_id) do update set
+       tenant_id = excluded.tenant_id, enabled = true, updated_at = clock_timestamp()
      returning id`,
     [instance.rows[0]!.id],
   );
@@ -119,8 +123,10 @@ export async function startPollScheduler(
     try {
       const due = await database.query<{ repository_id: string }>(
         `select p.repository_id
-         from poll_states p join repositories r on r.id = p.repository_id
-         where r.enabled and p.next_poll_at <= clock_timestamp()
+         from poll_states p
+         join repositories r on r.id = p.repository_id
+         join tenants tenant on tenant.id = r.tenant_id
+         where r.enabled and tenant.enabled and p.next_poll_at <= clock_timestamp()
            and (p.backoff_until is null or p.backoff_until <= clock_timestamp())
          order by p.next_poll_at limit 20`,
       );
@@ -162,8 +168,10 @@ export async function getRepository(
   }>(
     `select r.id, r.github_id, r.installation_id, r.owner, r.name, r.poll_interval_seconds,
             i.api_base_url, i.web_base_url
-     from repositories r join github_instances i on i.id = r.instance_id
-     where r.id = $1 and r.enabled and i.enabled`,
+     from repositories r
+     join tenants tenant on tenant.id = r.tenant_id
+     join github_instances i on i.id = r.instance_id
+     where r.id = $1 and r.enabled and tenant.enabled and i.enabled`,
     [repositoryId],
   );
   const row = result.rows[0];
