@@ -51,6 +51,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (include "git-code-reviewer.postgresql.fullname" .) .Values.postgresql.auth.existingSecret -}}
 {{- end }}
 
+{{- define "git-code-reviewer.keycloak.fullname" -}}
+{{- if .Values.keycloak.fullnameOverride -}}
+{{- .Values.keycloak.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-keycloak" .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end }}
+
 {{- define "git-code-reviewer.chatgptAccount.claimName" -}}
 {{- default (printf "%s-chatgpt-account" (include "git-code-reviewer.fullname" .)) .Values.model.chat.account.persistence.existingClaim -}}
 {{- end }}
@@ -158,5 +166,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if and .Values.cerbos.enabled .Values.authorization.cerbosUrl -}}
 {{- fail "use either bundled cerbos or authorization.cerbosUrl, not both" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (ne .Values.auth.mode "oidc") -}}
+{{- fail "keycloak.enabled requires auth.mode=oidc" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (or (not .Values.keycloak.ingress.enabled) (not .Values.keycloak.ingress.hostname) (not .Values.keycloak.ingress.tls) (not .Values.keycloak.ingress.extraTls)) -}}
+{{- fail "bundled Keycloak requires a TLS ingress hostname and existing TLS Secret mapping" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (or (not .Values.keycloak.auth.existingSecret) (not .Values.keycloak.auth.passwordSecretKey)) -}}
+{{- fail "bundled Keycloak requires an existing admin credential Secret" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (or (not .Values.keycloak.postgresql.enabled) (not .Values.keycloak.postgresql.auth.existingSecret)) -}}
+{{- fail "bundled Keycloak requires its bundled PostgreSQL and an existing database credential Secret" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (not .Values.keycloak.keycloakConfigCli.enabled) -}}
+{{- fail "bundled Keycloak requires keycloakConfigCli.enabled for realm provisioning" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (or (not .Values.keycloak.gitCodeReviewer.realm) (not .Values.keycloak.gitCodeReviewer.issuer) (not .Values.keycloak.gitCodeReviewer.clientId) (not .Values.keycloak.gitCodeReviewer.adminRole) (not .Values.keycloak.gitCodeReviewer.authSecret) (not .Values.keycloak.gitCodeReviewer.clientSecretKey) (not .Values.keycloak.gitCodeReviewer.redirectUri) (not .Values.keycloak.gitCodeReviewer.webOrigin)) -}}
+{{- fail "bundled Keycloak requires complete gitCodeReviewer OIDC bootstrap settings" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (ne .Values.keycloak.gitCodeReviewer.authSecret .Values.secrets.auth) -}}
+{{- fail "keycloak.gitCodeReviewer.authSecret must match secrets.auth" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (ne .Values.keycloak.gitCodeReviewer.adminRole .Values.auth.adminRole) -}}
+{{- fail "keycloak.gitCodeReviewer.adminRole must match auth.adminRole" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (ne .Values.keycloak.gitCodeReviewer.redirectUri (printf "%s/auth/callback" (trimSuffix "/" .Values.publicBaseUrl))) -}}
+{{- fail "bundled Keycloak redirectUri must be PUBLIC_BASE_URL/auth/callback" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (ne .Values.keycloak.gitCodeReviewer.webOrigin (trimSuffix "/" .Values.publicBaseUrl)) -}}
+{{- fail "bundled Keycloak webOrigin must match publicBaseUrl" -}}
+{{- end -}}
+{{- if and .Values.keycloak.enabled (not (hasSuffix (printf "/realms/%s" .Values.keycloak.gitCodeReviewer.realm) .Values.keycloak.gitCodeReviewer.issuer)) -}}
+{{- fail "bundled Keycloak issuer must end with /realms/<realm>" -}}
 {{- end -}}
 {{- end }}

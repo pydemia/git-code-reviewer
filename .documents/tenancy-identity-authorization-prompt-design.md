@@ -21,7 +21,7 @@ Self-hosted identity provider가 필요하면 Keycloak을 1순위로 사용한�
 
 조직에 이미 Entra ID, Okta, PingFederate 같은 표준 OIDC provider가 운영 중이면 새 Keycloak을 추가하는 것보다 기존 provider를 재사용하는 편이 낫다. Application contract는 Keycloak 전용 adapter가 아니라 OIDC claim mapping으로 유지한다.
 
-Keycloak은 application Helm chart에 bundled dependency로 설치하지 않는다. Identity database, realm backup, upgrade, TLS와 HA lifecycle은 review service보다 높은 운영 등급이 필요하므로 별도 platform service로 운영한다.
+Helm chart는 self-contained enterprise 배포를 위해 Bitnami Keycloak을 선택형 dependency로 제공하고 enterprise values 예시에서는 활성화한다. Chart가 전용 realm, confidential OIDC client, PKCE, 관리자 client role과 groups mapper를 bootstrap한다. 조직 OIDC 재사용을 위해 기본 values의 `keycloak.enabled`는 `false`로 유지한다. Bundled 여부와 관계없이 identity database, realm backup, upgrade, TLS와 HA lifecycle은 review service와 분리된 운영 책임이다.
 
 ### 2.2 Cerbos 채택 범위
 
@@ -170,7 +170,7 @@ Fixture/deterministic analysis에서는 custom prompt가 model output을 위조�
 
 ## 9. Deployment
 
-- Keycloak은 외부 OIDC service로 연결하고 realm/client 설정 guide를 제공한다.
+- Keycloak은 외부 OIDC service로 연결하거나 선택형 Bitnami dependency로 설치한다. Bundled mode는 TLS Ingress, 전용 PostgreSQL PVC와 Secret 기반 realm/client bootstrap을 제공한다.
 - Helm chart는 선택형 Cerbos Deployment/Service와 read-only policy ConfigMap을 제공한다.
 - Server만 Cerbos HTTP endpoint에 연결한다. Worker는 authorization decision을 수행하지 않는다.
 - Provider 관리자 기능을 켜면 동일한 model Secret의 encryption key를 Server와 Worker에 주입한다. Credential은 encrypted DB row 외에는 Server/Worker memory에만 복호화한다.
@@ -188,7 +188,7 @@ Fixture/deterministic analysis에서는 custom prompt가 model output을 위조�
 5. Prompt version 변경은 실행 중 analysis에 영향을 주지 않고 다음 run부터 적용된다.
 6. Report version metadata로 사용한 prompt version/hash를 확인할 수 있으며 원문은 report, artifact, event와 log에 없다.
 7. Keycloak logout/login 뒤 signed client role과 display name이 local cache에 동기화된다.
-8. Helm default, external Cerbos, bundled Cerbos와 bundled PostgreSQL 조합이 schema/lint/render를 통과한다.
+8. Helm default, external Cerbos, bundled Cerbos, bundled application PostgreSQL과 bundled Keycloak 조합이 schema/lint/render를 통과한다.
 9. Administrator가 provider를 저장하면 API key 원문을 다시 읽을 수 없고 audit/log에도 남지 않는다.
 10. Provider 변경 뒤 이미 queue된 run은 이전 provider version을, 다음 run은 새 version을 사용한다.
 11. Allowlist 밖 endpoint와 잘못된 encryption key는 provider 저장/실행 전에 거부된다.

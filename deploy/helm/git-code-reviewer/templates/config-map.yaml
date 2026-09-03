@@ -14,6 +14,11 @@ data:
   DATABASE_POOL_MAX: {{ .Values.server.databasePoolMax | quote }}
   PUBLIC_BASE_URL: {{ .Values.publicBaseUrl | quote }}
   AUTH_MODE: {{ .Values.auth.mode | quote }}
+  {{- if .Values.keycloak.enabled }}
+  OIDC_ISSUER: {{ .Values.keycloak.gitCodeReviewer.issuer | quote }}
+  OIDC_CLIENT_ID: {{ .Values.keycloak.gitCodeReviewer.clientId | quote }}
+  OIDC_REDIRECT_URI: {{ .Values.keycloak.gitCodeReviewer.redirectUri | quote }}
+  {{- end }}
   AUTHORIZATION_MODE: {{ .Values.authorization.mode | quote }}
   CERBOS_URL: {{ include "git-code-reviewer.cerbos.url" . | quote }}
   CERBOS_TIMEOUT_MS: {{ .Values.authorization.timeoutMs | quote }}

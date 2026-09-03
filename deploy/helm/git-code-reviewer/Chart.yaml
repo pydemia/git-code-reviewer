@@ -2,10 +2,14 @@ apiVersion: v2
 name: git-code-reviewer
 description: Browser-based pull request review service for GitHub Enterprise Server
 type: application
-version: 0.6.0
+version: 0.7.0
 appVersion: '0.6.0-alpha.1'
 dependencies:
   - name: postgresql
     version: 18.8.14
     repository: oci://registry-1.docker.io/bitnamicharts
     condition: postgresql.enabled
+  - name: keycloak
+    version: 25.2.0
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: keycloak.enabled

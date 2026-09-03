@@ -9,7 +9,8 @@ PostgreSQL은 resource identity와 참조의 정본이고 artifact PV는 immutab
 3. PostgreSQL backup/restore point를 기록한다.
 4. 그 직후 artifact PVC volume snapshot 또는 storage-native backup을 만든다.
 5. image digest, Helm values, schema migration 목록을 함께 기록한다.
-6. retention을 다시 활성화한다.
+6. Bundled Keycloak을 사용하면 같은 recovery window에 Keycloak 전용 PostgreSQL을 backup하고 realm export와 chart version을 기록한다.
+7. retention을 다시 활성화한다.
 
 ```bash
 kubectl -n git-code-reviewer patch cronjob git-code-reviewer-retention \
@@ -22,6 +23,8 @@ kubectl -n git-code-reviewer patch cronjob git-code-reviewer-retention \
 ```
 
 PV snapshot command는 cluster CSI/storage 절차를 따른다. DB dump나 artifact backup에 credential을 포함하지 않고 암호화·접근 통제를 적용한다.
+
+Bundled Keycloak의 database와 Secret은 application database와 별개다. Keycloak database backup, realm export와 TLS/admin/client Secret의 암호화 backup을 같은 recovery set으로 관리하되 credential 원문을 일반 Helm values 또는 application backup에 합치지 않는다.
 
 ## Restore
 

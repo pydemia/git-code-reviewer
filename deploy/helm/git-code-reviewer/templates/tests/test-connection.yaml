@@ -33,3 +33,17 @@ spec:
         runAsUser: 65534
         seccompProfile: { type: RuntimeDefault }
     {{- end }}
+    {{- if .Values.keycloak.enabled }}
+    - name: keycloak
+      image: busybox:1.36
+      command: ["wget"]
+      args:
+        - "--spider"
+        - "http://{{ include "git-code-reviewer.keycloak.fullname" . }}:{{ .Values.keycloak.service.ports.http }}/realms/{{ .Values.keycloak.gitCodeReviewer.realm }}/.well-known/openid-configuration"
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: { drop: ["ALL"] }
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile: { type: RuntimeDefault }
+    {{- end }}

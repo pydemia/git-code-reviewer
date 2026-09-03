@@ -136,6 +136,16 @@ spec:
       ports:
         - { protocol: TCP, port: {{ .Values.cerbos.port }} }
     {{- end }}
+    {{- if .Values.keycloak.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: keycloak
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: keycloak
+      ports:
+        - { protocol: TCP, port: {{ .Values.keycloak.containerPorts.http }} }
+    {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

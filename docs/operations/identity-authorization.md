@@ -8,11 +8,13 @@
 | PostgreSQL | 앱 접근 enabled 상태, tenant, membership, repository grant, prompt version |
 | Cerbos     | principal/action/resource의 RBAC+ABAC decision                             |
 
-조직이 이미 Entra ID, Okta, PingFederate 같은 OIDC provider를 운영하면 Keycloak을 새로 설치하지 않고 기존 provider를 사용하는 편이 낫다. 필요한 contract는 표준 Authorization Code + PKCE와 ID token의 role/group claim이다. Keycloak은 자체 DB, HA, backup, 보안 patch 주기가 application과 다르므로 Git Code Reviewer chart에 포함하지 않는다.
+조직이 이미 Entra ID, Okta, PingFederate 같은 OIDC provider를 운영하면 Keycloak을 새로 설치하지 않고 기존 provider를 사용하는 편이 낫다. 필요한 contract는 표준 Authorization Code + PKCE와 ID token의 role/group claim이다. 자체 운영이 필요하면 Helm chart의 선택형 Bitnami Keycloak dependency를 사용할 수 있으며 enterprise values 예시는 이를 활성화한다. Bundled mode에서도 Keycloak DB, realm, TLS, backup과 보안 patch lifecycle은 별도 운영 대상으로 취급한다.
 
 Cerbos는 이 서비스의 resource 중심 정책에 맞고 정책 테스트 도구를 제공하므로 기본 권장 PDP다. 조직이 이미 OPA/Gatekeeper 정책 운영 체계를 갖췄다면 같은 `AuthorizationService` 경계에 OPA adapter를 추가할 수 있다. 관계 기반 공유가 tenant membership보다 훨씬 복잡해질 때에만 OpenFGA 같은 ReBAC 저장소를 검토한다.
 
 ## Keycloak client
+
+`keycloak.enabled=true`이면 chart의 `keycloak-config-cli` hook이 아래 realm/client 설정을 자동 적용한다. Client secret은 `secrets.auth`가 가리키는 Secret에서 읽고 ConfigMap이나 values에 기록하지 않는다. 외부 Keycloak 또는 다른 OIDC provider를 사용할 때에는 다음 contract를 수동으로 구성한다.
 
 1. 운영 realm에 confidential OIDC client `git-code-reviewer`를 생성한다.
 2. Standard flow와 PKCE `S256`을 사용하고 implicit/direct access grant는 끈다.
@@ -24,7 +26,7 @@ Cerbos는 이 서비스의 resource 중심 정책에 맞고 정책 테스트 도
 
 앱은 `OIDC_ADMIN_ROLE` client/realm role 또는 `OIDC_ADMIN_GROUP` 중 하나가 일치하면 `administrator`, 아니면 `reviewer`로 동기화한다. 역할은 로그인할 때마다 identity provider 값으로 갱신되며 앱 관리 화면에서 바꾸지 않는다. 자세한 role scope와 protocol mapper 설정은 [Keycloak Server Administration Guide](https://www.keycloak.org/docs/latest/server_admin/)를 기준으로 한다.
 
-OIDC 설정은 Kubernetes Secret에만 둔다.
+외부 OIDC 설정은 Kubernetes Secret에만 둔다.
 
 ```bash
 kubectl -n git-code-reviewer create secret generic git-code-reviewer-auth \
@@ -43,6 +45,34 @@ auth:
   defaultTenantSlug: default
   autoJoinDefaultTenant: false
 ```
+
+Bundled Keycloak에서는 공개 설정을 `keycloak.gitCodeReviewer` values에서 ConfigMap으로 주입하고 Secret에는 두 값만 둔다.
+
+```bash
+kubectl -n git-code-reviewer create secret generic git-code-reviewer-auth \
+  --from-literal=SESSION_SECRET="$(openssl rand -base64 48)" \
+  --from-literal=OIDC_CLIENT_SECRET="$(openssl rand -base64 48)"
+```
+
+```yaml
+auth:
+  mode: oidc
+  adminRole: git-code-reviewer-admin
+
+keycloak:
+  enabled: true
+  gitCodeReviewer:
+    realm: git-code-reviewer
+    issuer: https://git-code-reviewer-id.example.internal/realms/git-code-reviewer
+    clientId: git-code-reviewer
+    adminRole: git-code-reviewer-admin
+    authSecret: git-code-reviewer-auth
+    clientSecretKey: OIDC_CLIENT_SECRET
+    redirectUri: https://git-code-reviewer.example.internal/auth/callback
+    webOrigin: https://git-code-reviewer.example.internal
+```
+
+Keycloak administrator와 전용 PostgreSQL Secret, TLS Ingress 설정은 [Kubernetes deployment](./deployment.md#bundled-keycloak)를 따른다. Bootstrap은 기본 사용자를 만들지 않으므로 Keycloak Admin Console 또는 directory federation에서 사용자를 준비하고 관리자에게만 `git-code-reviewer-admin` client role을 할당한다.
 
 `autoJoinDefaultTenant`는 pilot migration 때만 편리하다. 운영에서는 `false`로 두고 관리자가 membership을 명시적으로 할당한다.
 

@@ -11,7 +11,7 @@
 | Migration hook Job | `migrate`   | advisory-lock protected forward migration                     |
 | Retention CronJob  | `retention` | bounded expiry and artifact cleanup                           |
 
-Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별도 frontend/backend image를 조합하지 않는다. PostgreSQL은 운영형 외부 서비스가 기본이며, pilot에서는 선택형 Bitnami PostgreSQL dependency를 같은 release에 설치할 수 있다. Artifact는 여러 replica가 공유하는 RWX PV/PVC에 저장한다. Keycloak 같은 OIDC provider는 외부 운영하고, Cerbos PDP는 chart에서 선택적으로 함께 배포할 수 있다.
+Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별도 frontend/backend image를 조합하지 않는다. PostgreSQL은 운영형 외부 서비스가 기본이며, pilot에서는 선택형 Bitnami PostgreSQL dependency를 같은 release에 설치할 수 있다. Artifact는 여러 replica가 공유하는 RWX PV/PVC에 저장한다. OIDC는 기존 사내 provider를 연결하거나 선택형 Bitnami Keycloak dependency를 함께 설치할 수 있고, Cerbos PDP도 chart에서 선택적으로 배포할 수 있다.
 
 ## Build and publish the image
 
@@ -40,17 +40,17 @@ cosign sign "docker.io/pydemia/git-code-reviewer@sha256:..."
 cosign verify "docker.io/pydemia/git-code-reviewer@sha256:..."
 ```
 
-Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.6.0-alpha.1`, chart version tag는 `0.6.0`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
+Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.6.0-alpha.1`, chart version tag는 `0.7.0`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
 
 ```bash
 helm registry login registry-1.docker.io -u pydemia
 helm dependency build deploy/helm/git-code-reviewer
 helm package deploy/helm/git-code-reviewer --destination dist/helm
-helm push dist/helm/git-code-reviewer-0.6.0.tgz \
+helm push dist/helm/git-code-reviewer-0.7.0.tgz \
   oci://registry-1.docker.io/pydemia
 helm show chart \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.6.0
+  --version 0.7.0
 ```
 
 OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart.yaml`의 name/version으로 이를 결정한다. [Helm OCI registry](https://helm.sh/docs/topics/registries/)
@@ -60,8 +60,9 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 - Kubernetes 1.29 이상과 Helm 3
 - 외부 PostgreSQL 15 이상 또는 chart의 선택형 Bitnami PostgreSQL dependency
 - RWX를 제공하는 StorageClass 또는 기존 PVC
-- TLS Ingress와 OIDC provider
-- 외부 OIDC/Keycloak client와 선택형 Cerbos PDP
+- TLS Ingress와 외부 OIDC provider 또는 chart의 선택형 Bitnami Keycloak dependency
+- 선택형 bundled Keycloak을 사용할 경우 Keycloak용 TLS 인증서와 RWO StorageClass
+- 외부 또는 bundled OIDC client와 선택형 Cerbos PDP
 - private GHES에서 설치된 read-only GitHub App
 - 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint 또는 deployment-owned ChatGPT/Codex account
 
@@ -87,7 +88,7 @@ kubectl -n git-code-reviewer create secret generic git-code-reviewer-auth \
   --from-literal=OIDC_REDIRECT_URI='https://git-code-reviewer.example.internal/auth/callback'
 ```
 
-Keycloak client role, app의 tenant membership과 Cerbos 정책 설정은 [Identity, authorization, and tenant administration](./identity-authorization.md)을 따른다.
+위 형태는 외부 OIDC provider를 연결할 때 사용한다. Bundled Keycloak에서는 issuer/client/callback을 chart가 주입하므로 같은 이름의 Secret에 `SESSION_SECRET`, `OIDC_CLIENT_SECRET`만 둔다. Keycloak client role, app의 tenant membership과 Cerbos 정책 설정은 [Identity, authorization, and tenant administration](./identity-authorization.md)을 따른다.
 
 위 `git-code-reviewer-db` Secret은 기본 외부 DB 모드에서만 필요하다. 자체 포함 pilot은 다음 values로 Bitnami PostgreSQL과 RWO PVC를 같은 release에 설치한다.
 
@@ -123,6 +124,85 @@ postgresql:
 ```
 
 번들 DB는 간단한 pilot과 단일 cluster 운영을 위한 선택지다. 운영 환경에서는 조직의 backup, HA, TLS, monitoring 기준을 충족하는 외부 PostgreSQL을 우선한다. Dependency chart `18.8.14`는 PostgreSQL `18.6` image를 사용하므로 chart major version을 올릴 때에는 PostgreSQL major upgrade 절차와 PV backup/restore를 먼저 검증한다. [Bitnami PostgreSQL chart](https://github.com/bitnami/charts/tree/main/bitnami/postgresql)
+
+### Bundled Keycloak
+
+Enterprise values 예시는 Bitnami Keycloak chart `25.2.0`을 `keycloak.enabled=true`로 설치한다. Keycloak 2개 replica, TLS Ingress, 전용 PostgreSQL과 RWO PVC를 만들고 `keycloak-config-cli` Job이 다음 항목을 idempotent하게 구성한다.
+
+- realm `git-code-reviewer`
+- confidential OIDC client `git-code-reviewer`와 Authorization Code + PKCE `S256`
+- 정확한 callback URI와 Web origin
+- client role `git-code-reviewer-admin`
+- ID/access/UserInfo token의 `groups` claim mapper
+
+먼저 application session/client secret, Keycloak administrator, Keycloak PostgreSQL credential과 TLS Secret을 준비한다. 같은 `OIDC_CLIENT_SECRET`을 Server와 realm bootstrap Job이 읽지만 원문은 ConfigMap이나 values에 들어가지 않는다.
+
+```bash
+export OIDC_CLIENT_SECRET="$(openssl rand -base64 48)"
+export KEYCLOAK_ADMIN_PASSWORD="$(openssl rand -base64 48)"
+export KEYCLOAK_DB_PASSWORD="$(openssl rand -base64 48)"
+export KEYCLOAK_DB_ADMIN_PASSWORD="$(openssl rand -base64 48)"
+
+kubectl -n git-code-reviewer create secret generic git-code-reviewer-auth \
+  --from-literal=SESSION_SECRET="$(openssl rand -base64 48)" \
+  --from-literal=OIDC_CLIENT_SECRET="$OIDC_CLIENT_SECRET"
+
+kubectl -n git-code-reviewer create secret generic git-code-reviewer-keycloak \
+  --from-literal=admin-password="$KEYCLOAK_ADMIN_PASSWORD"
+
+kubectl -n git-code-reviewer create secret generic git-code-reviewer-keycloak-postgresql \
+  --from-literal=password="$KEYCLOAK_DB_PASSWORD" \
+  --from-literal=postgres-password="$KEYCLOAK_DB_ADMIN_PASSWORD"
+
+kubectl -n git-code-reviewer create secret tls git-code-reviewer-keycloak-tls \
+  --cert=./keycloak-tls.crt \
+  --key=./keycloak-tls.key
+```
+
+환경의 두 public hostname을 values에 맞춘다. `issuer`는 browser뿐 아니라 Server Pod에서도 DNS/TLS로 접근 가능해야 한다.
+
+```yaml
+auth:
+  mode: oidc
+  adminRole: git-code-reviewer-admin
+
+keycloak:
+  enabled: true
+  auth:
+    existingSecret: git-code-reviewer-keycloak
+    passwordSecretKey: admin-password
+  ingress:
+    enabled: true
+    hostname: git-code-reviewer-id.example.internal
+    ingressClassName: nginx
+    tls: true
+    extraTls:
+      - hosts: [git-code-reviewer-id.example.internal]
+        secretName: git-code-reviewer-keycloak-tls
+  postgresql:
+    enabled: true
+    auth:
+      existingSecret: git-code-reviewer-keycloak-postgresql
+    primary:
+      persistence:
+        storageClass: block-storage
+        size: 20Gi
+  gitCodeReviewer:
+    realm: git-code-reviewer
+    issuer: https://git-code-reviewer-id.example.internal/realms/git-code-reviewer
+    clientId: git-code-reviewer
+    adminRole: git-code-reviewer-admin
+    authSecret: git-code-reviewer-auth
+    clientSecretKey: OIDC_CLIENT_SECRET
+    redirectUri: https://git-code-reviewer.example.internal/auth/callback
+    webOrigin: https://git-code-reviewer.example.internal
+```
+
+Chart validation은 bundled Keycloak과 `auth.mode=oidc`, app/admin role, auth Secret 이름, callback/origin, TLS Ingress와 Keycloak PostgreSQL 구성이 어긋나면 설치 전에 실패한다. Realm bootstrap은 사용자 계정을 만들지 않는다. 최초 로그인 전 Keycloak Admin Console에서 사용자를 생성하거나 사내 directory federation을 연결하고, 관리자에게만 `git-code-reviewer-admin` client role을 할당한다.
+
+Bitnami가 2025년에 versioned community image를 `bitnami/*`에서 이동했기 때문에 OCI chart의 기본 image reference는 현재 pull되지 않는다. 이 chart의 기본 bundled 설정은 설치 가능성을 위해 정확한 기존 tag를 `bitnamilegacy/*`에서 사용하고 `global.security.allowInsecureImages=true`를 명시한다. Legacy image는 보안 update나 지원을 받지 않으므로 pilot 이후에는 조직이 검증·재빌드한 internal registry 또는 Bitnami Secure Images로 `keycloak.image`, config-cli와 Keycloak PostgreSQL의 image repository/digest를 교체해야 한다. [Bitnami catalog transition notice](https://github.com/bitnami/containers/issues/83267)
+
+Bundled mode는 단일 release 설치 편의를 위한 선택지이지 identity 운영 책임을 없애지 않는다. Keycloak realm과 전용 DB를 application DB/PVC와 별도로 backup하고, chart 또는 Keycloak major upgrade 전에 realm export와 DB restore rehearsal을 수행한다. 이미 조직 OIDC가 있다면 `keycloak.enabled=false`로 두고 기존 provider를 사용하는 구성이 여전히 권장된다. [Bitnami Keycloak chart](https://github.com/bitnami/charts/tree/main/bitnami/keycloak)
 
 Docker Hub repository가 private이면 같은 계정의 access token으로 Kubernetes image pull Secret을 만든다. Docker Desktop의 `config.json`이 credential helper만 참조하는 경우 그 파일 자체를 Secret으로 복사하면 cluster에서 동작하지 않는다.
 
@@ -245,6 +325,7 @@ account PVC에는 access/refresh token이 포함되므로 encrypted StorageClass
 - `auth.adminRole`, `auth.adminGroup`, default tenant 자동 가입 여부
 - `authorization.mode`: 운영 권장값은 `cerbos`; bundled PDP는 `cerbos.enabled: true`, 외부 PDP는 `authorization.cerbosUrl`
 - `postgresql.enabled`: 외부 DB는 `false`, 자체 포함 pilot은 `true`; 번들 모드에서는 DB PVC StorageClass와 용량
+- `keycloak.enabled`: enterprise 예시는 `true`; Keycloak hostname/TLS, app/admin/DB Secret과 전용 DB PVC를 실제 환경 값으로 교체
 - 분석과 Chat의 provider mode 및 **명시적인 model name**. 관리자 분석 Provider를 쓸 경우 `admin.enabled`, master key, exact origin allowlist. ChatGPT account mode이면 account Secret, bootstrap revision과 전용 PVC
 - retention 기간. `chatDays`는 `reportDays`보다 클 수 없다.
 - NetworkPolicy를 켤 경우 DB, GHES, OIDC, model endpoint의 실제 CIDR egress. values 예시의 documentation CIDR을 그대로 사용하지 않는다.
@@ -270,7 +351,7 @@ Source checkout 없이 Docker Hub의 chart를 직접 설치할 수도 있다. �
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.6.0 \
+  --version 0.7.0 \
   -n git-code-reviewer -f values.enterprise.yaml \
   --atomic --wait --timeout 20m
 ```
@@ -286,6 +367,13 @@ Bundled Cerbos를 활성화한 release에서는 PDP rollout도 확인한다.
 
 ```bash
 kubectl -n git-code-reviewer rollout status deploy/git-code-reviewer-cerbos
+```
+
+Bundled Keycloak은 StatefulSet rollout과 `helm test`의 realm discovery 검사를 확인한다. Release 이름이 다르면 resource prefix도 달라진다. Realm bootstrap Job은 Helm post-install/post-upgrade hook으로 완료 후 삭제된다.
+
+```bash
+kubectl -n git-code-reviewer rollout status statefulset/git-code-reviewer-keycloak
+helm test git-code-reviewer -n git-code-reviewer
 ```
 
 Server artifact mount는 read-only이고 Worker/retention만 write할 수 있어야 한다. ChatGPT account mode의 Server에는 별도 account PVC만 write 권한을 준다. Pod는 non-root, read-only root filesystem, dropped capabilities, disabled service-account token으로 실행된다.
@@ -319,5 +407,7 @@ curl -fsS http://127.0.0.1:8080/health/dependencies
 ```
 
 Bundled Cerbos를 켰다면 `health/dependencies`의 `authorization.status`가 `ok`인지 확인한다. Cerbos 정책은 image와 별도인 chart ConfigMap에 포함되며 정책 변경 시 Cerbos Pod checksum이, application 설정 변경 시 Server Pod checksum이 갱신된다.
+
+Bundled Keycloak을 켰다면 `helm test`가 realm의 OIDC discovery endpoint를 cluster 내부 Service로 조회한다. Browser에서 issuer의 discovery URL과 application login/callback도 별도로 확인한다.
 
 로그에는 source, diff, prompt, Chat 원문, token이 없어야 한다. Database pool 상한은 `(server replicas x pool) + (worker replicas x pool) + migration/retention/LISTEN 여유`로 계산한다.

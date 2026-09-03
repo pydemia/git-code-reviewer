@@ -10,6 +10,7 @@
     "storage",
     "database",
     "postgresql",
+    "keycloak",
     "secrets",
     "github",
     "auth",
@@ -172,6 +173,137 @@
           }
         },
         "metrics": { "type": "object" }
+      }
+    },
+    "keycloak": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "replicaCount",
+        "auth",
+        "production",
+        "proxyHeaders",
+        "httpEnabled",
+        "hostnameStrict",
+        "containerPorts",
+        "service",
+        "ingress",
+        "networkPolicy",
+        "postgresql",
+        "keycloakConfigCli",
+        "gitCodeReviewer"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "fullnameOverride": { "type": "string" },
+        "global": { "type": "object" },
+        "image": { "type": "object" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "auth": {
+          "type": "object",
+          "required": ["adminUser", "adminPassword", "existingSecret", "passwordSecretKey"],
+          "properties": {
+            "adminUser": { "type": "string", "minLength": 1 },
+            "adminPassword": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "passwordSecretKey": { "type": "string" }
+          }
+        },
+        "production": { "type": "boolean" },
+        "proxyHeaders": { "type": "string" },
+        "httpEnabled": { "type": "boolean" },
+        "hostnameStrict": { "type": "boolean" },
+        "containerPorts": {
+          "type": "object",
+          "required": ["http"],
+          "properties": {
+            "http": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "service": {
+          "type": "object",
+          "required": ["ports"],
+          "properties": {
+            "ports": {
+              "type": "object",
+              "required": ["http"],
+              "properties": {
+                "http": { "type": "integer", "minimum": 1, "maximum": 65535 }
+              }
+            }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "required": ["enabled", "hostname", "tls", "extraTls"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "hostname": { "type": "string", "minLength": 1 },
+            "ingressClassName": { "type": "string" },
+            "annotations": { "type": "object" },
+            "tls": { "type": "boolean" },
+            "extraTls": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "networkPolicy": { "type": "object" },
+        "resources": { "type": "object" },
+        "postgresql": {
+          "type": "object",
+          "required": ["enabled", "architecture", "auth", "primary"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "architecture": { "enum": ["standalone"] },
+            "auth": {
+              "type": "object",
+              "required": ["username", "database", "existingSecret", "secretKeys"],
+              "properties": {
+                "username": { "type": "string", "minLength": 1 },
+                "database": { "type": "string", "minLength": 1 },
+                "existingSecret": { "type": "string" },
+                "secretKeys": {
+                  "type": "object",
+                  "required": ["userPasswordKey"],
+                  "properties": {
+                    "userPasswordKey": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
+            },
+            "primary": { "type": "object" }
+          }
+        },
+        "keycloakConfigCli": {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "extraEnvVars": { "type": "array" },
+            "configuration": { "type": "object" }
+          }
+        },
+        "gitCodeReviewer": {
+          "type": "object",
+          "required": [
+            "realm",
+            "issuer",
+            "clientId",
+            "adminRole",
+            "authSecret",
+            "clientSecretKey",
+            "redirectUri",
+            "webOrigin"
+          ],
+          "properties": {
+            "realm": { "type": "string", "minLength": 1 },
+            "issuer": { "type": "string", "format": "uri" },
+            "clientId": { "type": "string", "minLength": 1 },
+            "adminRole": { "type": "string", "minLength": 1 },
+            "authSecret": { "type": "string", "minLength": 1 },
+            "clientSecretKey": { "type": "string", "minLength": 1 },
+            "redirectUri": { "type": "string", "format": "uri" },
+            "webOrigin": { "type": "string", "format": "uri" }
+          }
+        }
       }
     },
     "secrets": {

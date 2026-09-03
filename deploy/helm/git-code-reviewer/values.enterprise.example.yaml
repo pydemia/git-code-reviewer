@@ -57,6 +57,59 @@ postgresql:
       storageClass: block-storage
       size: 20Gi
 
+# Bundled identity provider. The application OIDC Secret and the two Keycloak
+# credential Secrets must exist before Helm install; no password is stored here.
+keycloak:
+  enabled: true
+  replicaCount: 2
+  auth:
+    adminUser: admin
+    existingSecret: git-code-reviewer-keycloak
+    passwordSecretKey: admin-password
+  production: true
+  proxyHeaders: xforwarded
+  httpEnabled: true
+  hostnameStrict: true
+  ingress:
+    enabled: true
+    hostname: git-code-reviewer-id.example.internal
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+    tls: true
+    extraTls:
+      - hosts:
+          - git-code-reviewer-id.example.internal
+        secretName: git-code-reviewer-keycloak-tls
+  networkPolicy:
+    enabled: true
+    allowExternal: true
+    allowExternalEgress: true
+  postgresql:
+    enabled: true
+    auth:
+      username: bn_keycloak
+      database: bitnami_keycloak
+      existingSecret: git-code-reviewer-keycloak-postgresql
+      secretKeys:
+        userPasswordKey: password
+    primary:
+      persistence:
+        enabled: true
+        storageClass: block-storage
+        size: 20Gi
+  keycloakConfigCli:
+    enabled: true
+  gitCodeReviewer:
+    realm: git-code-reviewer
+    issuer: https://git-code-reviewer-id.example.internal/realms/git-code-reviewer
+    clientId: git-code-reviewer
+    adminRole: git-code-reviewer-admin
+    authSecret: git-code-reviewer-auth
+    clientSecretKey: OIDC_CLIENT_SECRET
+    redirectUri: https://git-code-reviewer.example.internal/auth/callback
+    webOrigin: https://git-code-reviewer.example.internal
+
 secrets:
   githubApp: git-code-reviewer-github-app
   auth: git-code-reviewer-auth

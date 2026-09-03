@@ -77,6 +77,164 @@ postgresql:
   metrics:
     enabled: false
 
+# Bundled identity is disabled in the reusable defaults so an existing OIDC
+# provider can still be used. The enterprise example enables this dependency.
+keycloak:
+  enabled: false
+  fullnameOverride: ''
+  # Bitnami moved these pinned community images out of bitnami/* in 2025.
+  # Replace the legacy repositories with an approved maintained registry for production.
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/keycloak
+    tag: 26.3.3-debian-12-r0
+    digest: ''
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  auth:
+    adminUser: admin
+    adminPassword: ''
+    existingSecret: git-code-reviewer-keycloak
+    passwordSecretKey: admin-password
+  production: true
+  proxyHeaders: xforwarded
+  httpEnabled: true
+  hostnameStrict: true
+  containerPorts:
+    http: 8080
+  service:
+    ports:
+      http: 80
+  ingress:
+    enabled: false
+    hostname: keycloak.example.internal
+    ingressClassName: ''
+    annotations: {}
+    tls: true
+    extraTls: []
+  networkPolicy:
+    enabled: true
+    allowExternal: true
+    allowExternalEgress: true
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: '1', memory: 1Gi }
+  postgresql:
+    enabled: true
+    architecture: standalone
+    nameOverride: keycloak-postgresql
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/postgresql
+      tag: 17.6.0-debian-12-r0
+      digest: ''
+    volumePermissions:
+      image:
+        registry: docker.io
+        repository: bitnamilegacy/os-shell
+        tag: 12-debian-12-r50
+        digest: ''
+    metrics:
+      image:
+        registry: docker.io
+        repository: bitnamilegacy/postgres-exporter
+        tag: 0.17.1-debian-12-r15
+        digest: ''
+    auth:
+      username: bn_keycloak
+      database: bitnami_keycloak
+      existingSecret: git-code-reviewer-keycloak-postgresql
+      secretKeys:
+        userPasswordKey: password
+    primary:
+      persistence:
+        enabled: true
+        storageClass: ''
+        size: 20Gi
+  keycloakConfigCli:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/keycloak-config-cli
+      tag: 6.4.0-debian-12-r11
+      digest: ''
+      pullPolicy: IfNotPresent
+    extraEnvVars:
+      - name: IMPORT_VARSUBSTITUTION_ENABLED
+        value: 'true'
+      - name: GCR_OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: '{{ .Values.gitCodeReviewer.authSecret }}'
+            key: '{{ .Values.gitCodeReviewer.clientSecretKey }}'
+    configuration:
+      git-code-reviewer-realm.json: |-
+        {
+          "realm": {{ .Values.gitCodeReviewer.realm | quote }},
+          "displayName": "Git Code Reviewer",
+          "enabled": true,
+          "registrationAllowed": false,
+          "resetPasswordAllowed": true,
+          "loginWithEmailAllowed": true,
+          "roles": {
+            "client": {
+              {{ .Values.gitCodeReviewer.clientId | quote }}: [
+                {
+                  "name": {{ .Values.gitCodeReviewer.adminRole | quote }},
+                  "description": "Git Code Reviewer administrator"
+                }
+              ]
+            }
+          },
+          "clients": [
+            {
+              "clientId": {{ .Values.gitCodeReviewer.clientId | quote }},
+              "name": "Git Code Reviewer",
+              "enabled": true,
+              "protocol": "openid-connect",
+              "publicClient": false,
+              "secret": "${GCR_OIDC_CLIENT_SECRET}",
+              "standardFlowEnabled": true,
+              "implicitFlowEnabled": false,
+              "directAccessGrantsEnabled": false,
+              "serviceAccountsEnabled": false,
+              "redirectUris": [{{ .Values.gitCodeReviewer.redirectUri | quote }}],
+              "webOrigins": [{{ .Values.gitCodeReviewer.webOrigin | quote }}],
+              "attributes": {
+                "pkce.code.challenge.method": "S256",
+                "post.logout.redirect.uris": {{ printf "%s/*" .Values.gitCodeReviewer.webOrigin | quote }}
+              },
+              "protocolMappers": [
+                {
+                  "name": "groups",
+                  "protocol": "openid-connect",
+                  "protocolMapper": "oidc-group-membership-mapper",
+                  "consentRequired": false,
+                  "config": {
+                    "claim.name": "groups",
+                    "full.path": "true",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true",
+                    "userinfo.token.claim": "true"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+  gitCodeReviewer:
+    realm: git-code-reviewer
+    issuer: https://keycloak.example.internal/realms/git-code-reviewer
+    clientId: git-code-reviewer
+    adminRole: git-code-reviewer-admin
+    authSecret: git-code-reviewer-auth
+    clientSecretKey: OIDC_CLIENT_SECRET
+    redirectUri: https://git-code-reviewer.example.internal/auth/callback
+    webOrigin: https://git-code-reviewer.example.internal
+
 secrets:
   githubApp: git-code-reviewer-github-app
   auth: git-code-reviewer-auth
