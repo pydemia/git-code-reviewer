@@ -72,6 +72,8 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 
 DNS와 TLS Ingress를 준비하기 전에는 development authentication, bundled PostgreSQL, `kubectl port-forward`를 조합해 한정된 pilot을 실행할 수 있다. 이 mode에서는 요청자가 자동으로 administrator가 되므로 Ingress와 외부 Service를 열지 않고 운영 데이터가 없는 격리된 namespace에서만 사용한다. GHES 연동은 Server와 Worker에서 GHES API/Git endpoint로 나가는 요청이므로 application용 public domain이나 inbound webhook이 필요하지 않다.
 
+`SKTAI-DEV`에는 별도 환경 overlay와 실행 runbook인 [`deploy/environments/sktai-dev`](../../deploy/environments/sktai-dev/README.md)를 사용한다.
+
 ### 1. Check cluster access and storage
 
 ```bash
