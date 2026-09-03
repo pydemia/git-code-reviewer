@@ -40,17 +40,17 @@ cosign sign "docker.io/pydemia/git-code-reviewer@sha256:..."
 cosign verify "docker.io/pydemia/git-code-reviewer@sha256:..."
 ```
 
-Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.6.0-alpha.1`, chart version tag는 `0.7.0`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
+Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.6.0-alpha.1`, chart version tag는 `0.7.1`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
 
 ```bash
 helm registry login registry-1.docker.io -u pydemia
 helm dependency build deploy/helm/git-code-reviewer
 helm package deploy/helm/git-code-reviewer --destination dist/helm
-helm push dist/helm/git-code-reviewer-0.7.0.tgz \
+helm push dist/helm/git-code-reviewer-0.7.1.tgz \
   oci://registry-1.docker.io/pydemia
 helm show chart \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.7.0
+  --version 0.7.1
 ```
 
 OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart.yaml`의 name/version으로 이를 결정한다. [Helm OCI registry](https://helm.sh/docs/topics/registries/)
@@ -67,6 +67,170 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 - 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint 또는 deployment-owned ChatGPT/Codex account
 
 외부 DB 모드의 pre-install migration은 일반 chart resource보다 먼저 실행되므로 DB Secret과 corporate CA ConfigMap은 설치 전에 존재해야 한다. 번들 DB 모드는 PostgreSQL resource 생성 후 Server/Worker init container가 advisory lock 아래 최초 migration을 수행하고, 이후 upgrade에서는 pre-upgrade hook도 실행한다. Helm hook lifecycle은 [Helm chart hooks](https://helm.sh/docs/topics/charts_hooks/)를 참고한다.
+
+## Domain-free GHES pilot
+
+DNS와 TLS Ingress를 준비하기 전에는 development authentication, bundled PostgreSQL, `kubectl port-forward`를 조합해 한정된 pilot을 실행할 수 있다. 이 mode에서는 요청자가 자동으로 administrator가 되므로 Ingress와 외부 Service를 열지 않고 운영 데이터가 없는 격리된 namespace에서만 사용한다. GHES 연동은 Server와 Worker에서 GHES API/Git endpoint로 나가는 요청이므로 application용 public domain이나 inbound webhook이 필요하지 않다.
+
+### 1. Check cluster access and storage
+
+```bash
+kubectl config current-context
+kubectl --request-timeout=10s get nodes
+kubectl get storageclass
+```
+
+Artifact PVC는 Server와 Worker가 함께 mount하므로 RWX StorageClass가 필요하다. Bundled PostgreSQL에는 일반 RWO block StorageClass를 사용한다. 두 class를 먼저 식별하지 못하면 설치를 진행하지 않는다.
+
+### 2. Prepare pilot values
+
+[`values.pilot-ip.example.yaml`](../../deploy/helm/git-code-reviewer/values.pilot-ip.example.yaml)을 Git 외부의 임시 파일로 복사하고 `rwx-storage`, `block-storage`를 앞에서 확인한 실제 StorageClass 이름으로 바꾼다.
+
+```bash
+cp deploy/helm/git-code-reviewer/values.pilot-ip.example.yaml \
+  /tmp/git-code-reviewer-pilot.yaml
+${EDITOR:-vi} /tmp/git-code-reviewer-pilot.yaml
+```
+
+이 profile은 Server/Worker를 각각 1개만 실행하고 model과 Chat을 비활성화한다. 먼저 deterministic report와 GHES polling을 검증한 뒤 provider를 연결한다.
+
+### 3. Create the namespace and credentials
+
+GitHub App에는 대상 repository만 설치하고 Metadata, Contents, Pull requests read-only 권한을 준다. App ID와 installation ID를 기록하고 private key PEM을 관리 terminal에 둔다.
+
+```bash
+export NAMESPACE=git-code-reviewer
+export GITHUB_APP_ID='REPLACE_ME'
+export GITHUB_APP_PRIVATE_KEY="$HOME/secure/git-code-reviewer.pem"
+export POSTGRES_USER_PASSWORD="$(openssl rand -base64 36)"
+export POSTGRES_ADMIN_PASSWORD="$(openssl rand -base64 36)"
+
+kubectl create namespace "$NAMESPACE" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-github-app \
+  --from-literal=APP_ID="$GITHUB_APP_ID" \
+  --from-file=PRIVATE_KEY="$GITHUB_APP_PRIVATE_KEY" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-postgresql-auth \
+  --from-literal=password="$POSTGRES_USER_PASSWORD" \
+  --from-literal=postgres-password="$POSTGRES_ADMIN_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+unset POSTGRES_USER_PASSWORD POSTGRES_ADMIN_PASSWORD
+```
+
+GHES가 사내 CA 인증서를 사용하면 CA bundle도 등록하고 pilot values의 `trustedCa.existingConfigMap`을 `corporate-ca`로 설정한다. IP URL을 사용할 때에는 인증서 SAN에 해당 IP가 있어야 한다.
+
+```bash
+kubectl -n "$NAMESPACE" create configmap corporate-ca \
+  --from-file=ca.crt=./corporate-ca.pem \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+### 4. Validate and install
+
+```bash
+helm dependency build deploy/helm/git-code-reviewer
+helm lint deploy/helm/git-code-reviewer \
+  -f /tmp/git-code-reviewer-pilot.yaml
+
+helm upgrade --install git-code-reviewer deploy/helm/git-code-reviewer \
+  -n "$NAMESPACE" \
+  -f /tmp/git-code-reviewer-pilot.yaml \
+  --atomic --wait --timeout 20m
+```
+
+OCI chart를 사용할 때에는 local chart 경로를 다음 주소와 version으로 교체한다.
+
+```bash
+helm upgrade --install git-code-reviewer \
+  oci://registry-1.docker.io/pydemia/git-code-reviewer \
+  --version 0.7.1 \
+  -n "$NAMESPACE" \
+  -f /tmp/git-code-reviewer-pilot.yaml \
+  --atomic --wait --timeout 20m
+```
+
+### 5. Check rollout and health
+
+```bash
+kubectl -n "$NAMESPACE" get pod,pvc,job
+kubectl -n "$NAMESPACE" rollout status deploy/git-code-reviewer-server
+kubectl -n "$NAMESPACE" rollout status deploy/git-code-reviewer-worker
+helm test git-code-reviewer -n "$NAMESPACE"
+
+kubectl -n "$NAMESPACE" port-forward svc/git-code-reviewer 8080:80
+```
+
+다른 terminal에서 health와 browser UI를 확인한다.
+
+```bash
+curl -fsS http://127.0.0.1:8080/health/live
+curl -fsS http://127.0.0.1:8080/health/ready
+curl -fsS http://127.0.0.1:8080/health/dependencies | jq
+```
+
+Browser에서는 `http://127.0.0.1:8080/admin`을 연다.
+
+### 6. Register the GHES repository
+
+GHES repository numeric ID와 GitHub App installation ID를 먼저 확인한다. Development administrator는 session cookie가 필요 없으므로 같은 port-forward를 통해 REST API를 호출할 수 있다.
+
+```bash
+export TENANT_ID="$(curl -fsS http://127.0.0.1:8080/api/v1/admin/tenants \
+  | jq -r '.items[] | select(.slug == "default") | .id')"
+export GHES_API_BASE_URL='https://10.20.30.40/api/v3/'
+export GHES_WEB_BASE_URL='https://10.20.30.40/'
+export GHES_REPOSITORY_ID='123456'
+export GITHUB_INSTALLATION_ID='98765'
+export REPOSITORY_OWNER='platform'
+export REPOSITORY_NAME='reviewer-api'
+
+jq -n \
+  --arg tenantId "$TENANT_ID" \
+  --arg apiBaseUrl "$GHES_API_BASE_URL" \
+  --arg webBaseUrl "$GHES_WEB_BASE_URL" \
+  --arg installationId "$GITHUB_INSTALLATION_ID" \
+  --arg owner "$REPOSITORY_OWNER" \
+  --arg name "$REPOSITORY_NAME" \
+  --argjson githubId "$GHES_REPOSITORY_ID" \
+  '{tenantId: $tenantId, instanceName: "Internal GHES", apiBaseUrl: $apiBaseUrl,
+    webBaseUrl: $webBaseUrl, githubId: $githubId, installationId: $installationId,
+    owner: $owner, name: $name, pollIntervalSeconds: 30}' \
+  | curl -fsS http://127.0.0.1:8080/api/v1/admin/repositories \
+      -H 'content-type: application/json' --data-binary @- | jq
+```
+
+등록 직후 polling 시각이 현재로 설정된다. 결과는 다음 API와 Server log에서 확인한다.
+
+```bash
+curl -fsS http://127.0.0.1:8080/api/v1/repositories | jq
+kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/component=server \
+  --since=10m --all-containers=true
+```
+
+### 7. Trigger and verify analysis
+
+대상 repository에 작은 PR을 만들거나 기존 PR에 commit을 push한다. 최대 polling interval과 scheduler tick을 합친 약 45초 안에 PR이 worklist에 나타나고, base/head SHA가 처음 관찰되거나 달라지면 분석 작업이 자동 enqueue된다.
+
+```bash
+kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/component=worker \
+  --since=10m --all-containers=true -f
+```
+
+Browser worklist에서 PR을 열어 snapshot, changed files, deterministic finding, graph와 report를 확인한다. 같은 head SHA에서 Refresh를 여러 번 눌러도 active operation은 하나로 deduplicate되어야 한다.
+
+### 8. End the pilot
+
+개발 인증 배포를 방치하지 않는다. 테스트가 끝나면 port-forward를 종료하고 release 또는 namespace를 제거한다.
+
+```bash
+helm uninstall git-code-reviewer -n "$NAMESPACE"
+kubectl delete namespace "$NAMESPACE"
+rm -f /tmp/git-code-reviewer-pilot.yaml
+```
 
 ## Prepare namespace and secrets
 
@@ -351,7 +515,7 @@ Source checkout 없이 Docker Hub의 chart를 직접 설치할 수도 있다. �
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.7.0 \
+  --version 0.7.1 \
   -n git-code-reviewer -f values.enterprise.yaml \
   --atomic --wait --timeout 20m
 ```

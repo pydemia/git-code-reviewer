@@ -1,0 +1,74 @@
+# Domain-free pilot profile. Expose the UI with kubectl port-forward and never
+# use development authentication on a shared or production network.
+publicBaseUrl: http://127.0.0.1:8080
+
+server:
+  replicas: 1
+  ingress:
+    enabled: false
+
+worker:
+  replicas: 1
+  concurrency: 1
+  workspace:
+    mode: emptyDir
+    size: 5Gi
+
+storage:
+  backend: pvc
+  artifacts:
+    # Replace with an RWX StorageClass available in the target cluster.
+    storageClass: rwx-storage
+    accessModes: [ReadWriteMany]
+    size: 10Gi
+
+database:
+  existingSecret: ''
+
+postgresql:
+  enabled: true
+  architecture: standalone
+  auth:
+    username: git_code_reviewer
+    database: git_code_reviewer
+    existingSecret: git-code-reviewer-postgresql-auth
+  primary:
+    persistence:
+      enabled: true
+      # Replace with an RWO StorageClass available in the target cluster.
+      storageClass: block-storage
+      size: 10Gi
+
+keycloak:
+  enabled: false
+
+secrets:
+  githubApp: git-code-reviewer-github-app
+
+github:
+  mode: app
+
+auth:
+  mode: development
+  development:
+    subject: pilot-administrator
+    displayName: Pilot Administrator
+    role: administrator
+  autoJoinDefaultTenant: true
+
+authorization:
+  mode: local
+
+cerbos:
+  enabled: false
+
+model:
+  analysis:
+    mode: disabled
+    admin:
+      enabled: false
+  chat:
+    mode: disabled
+
+networkPolicy:
+  enabled: false

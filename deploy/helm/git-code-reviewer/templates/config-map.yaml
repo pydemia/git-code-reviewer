@@ -14,6 +14,11 @@ data:
   DATABASE_POOL_MAX: {{ .Values.server.databasePoolMax | quote }}
   PUBLIC_BASE_URL: {{ .Values.publicBaseUrl | quote }}
   AUTH_MODE: {{ .Values.auth.mode | quote }}
+  {{- if eq .Values.auth.mode "development" }}
+  DEV_USER_SUBJECT: {{ .Values.auth.development.subject | quote }}
+  DEV_USER_NAME: {{ .Values.auth.development.displayName | quote }}
+  DEV_USER_ROLE: {{ .Values.auth.development.role | quote }}
+  {{- end }}
   {{- if .Values.keycloak.enabled }}
   OIDC_ISSUER: {{ .Values.keycloak.gitCodeReviewer.issuer | quote }}
   OIDC_CLIENT_ID: {{ .Values.keycloak.gitCodeReviewer.clientId | quote }}

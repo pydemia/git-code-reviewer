@@ -330,6 +330,7 @@
       "type": "object",
       "required": [
         "mode",
+        "development",
         "proxyPublicKeyKey",
         "adminRole",
         "adminGroup",
@@ -338,6 +339,15 @@
       ],
       "properties": {
         "mode": { "enum": ["development", "oidc", "proxy"] },
+        "development": {
+          "type": "object",
+          "required": ["subject", "displayName", "role"],
+          "properties": {
+            "subject": { "type": "string", "minLength": 1 },
+            "displayName": { "type": "string", "minLength": 1 },
+            "role": { "enum": ["reviewer", "administrator"] }
+          }
+        },
         "proxyPublicKeyKey": { "type": "string", "minLength": 1 },
         "adminRole": { "type": "string", "minLength": 1 },
         "adminGroup": { "type": "string", "minLength": 1 },

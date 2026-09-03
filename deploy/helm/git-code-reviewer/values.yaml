@@ -249,6 +249,11 @@ github:
 
 auth:
   mode: oidc
+  # Development auth bypasses login and must only be used for an isolated pilot.
+  development:
+    subject: pilot-administrator
+    displayName: Pilot Administrator
+    role: administrator
   proxyPublicKeyKey: PROXY_IDENTITY_PUBLIC_KEY
   adminRole: git-code-reviewer-admin
   adminGroup: git-code-reviewer-admins
