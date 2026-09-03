@@ -55,6 +55,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (printf "%s-chatgpt-account" (include "git-code-reviewer.fullname" .)) .Values.model.chat.account.persistence.existingClaim -}}
 {{- end }}
 
+{{- define "git-code-reviewer.cerbos.url" -}}
+{{- if .Values.authorization.cerbosUrl -}}
+{{- .Values.authorization.cerbosUrl -}}
+{{- else if .Values.cerbos.enabled -}}
+{{- printf "http://%s-cerbos:%v/" (include "git-code-reviewer.fullname" .) .Values.cerbos.port -}}
+{{- end -}}
+{{- end }}
+
 {{- define "git-code-reviewer.databaseEnv" -}}
 {{- if .Values.postgresql.enabled }}
 - name: DATABASE_HOST
@@ -138,5 +146,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if and .Values.postgresql.enabled (or (not .Values.postgresql.auth.username) (not .Values.postgresql.auth.database)) -}}
 {{- fail "postgresql.auth.username and postgresql.auth.database are required when postgresql.enabled is true" -}}
+{{- end -}}
+{{- if and (eq .Values.authorization.mode "cerbos") (not .Values.cerbos.enabled) (not .Values.authorization.cerbosUrl) -}}
+{{- fail "cerbos authorization requires cerbos.enabled or authorization.cerbosUrl" -}}
+{{- end -}}
+{{- if and .Values.cerbos.enabled (ne .Values.authorization.mode "cerbos") -}}
+{{- fail "cerbos.enabled requires authorization.mode=cerbos" -}}
+{{- end -}}
+{{- if and .Values.cerbos.enabled .Values.authorization.cerbosUrl -}}
+{{- fail "use either bundled cerbos or authorization.cerbosUrl, not both" -}}
 {{- end -}}
 {{- end }}

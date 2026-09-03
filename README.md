@@ -11,7 +11,8 @@
 5. [Review Workspace UI 설계](.documents/ui-implementation-design.md)
 6. [구현 계획서](.documents/implementation-plan.md)
 7. [설계 검토 처리 결정](.documents/design-review-resolution-2026-09-02.md)
-8. [Agent handoff](.documents/handoff.md)
+8. [테넌시·인가·프롬프트 설계](.documents/tenancy-identity-authorization-prompt-design.md)
+9. [Agent handoff](.documents/handoff.md)
 
 ## Visual
 
@@ -27,6 +28,7 @@
 
 - [로컬 PostgreSQL 개발 가이드](docs/operations/development.md)
 - [Kubernetes/Helm 배포 가이드](docs/operations/deployment.md)
+- [Identity·인가·테넌트 운영 가이드](docs/operations/identity-authorization.md)
 - [Private GHES 연동 테스트 가이드](docs/operations/github-enterprise-test.md)
 - [Backup/restore 및 reconcile 가이드](docs/operations/backup-restore.md)
 

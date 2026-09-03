@@ -1,0 +1,15 @@
+{{- if .Values.cerbos.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-cerbos
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cerbos
+spec:
+  selector:
+    {{- include "git-code-reviewer.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: cerbos
+  ports:
+    - { name: http, port: {{ .Values.cerbos.port }}, targetPort: http }
+{{- end }}

@@ -13,6 +13,8 @@
     "secrets",
     "github",
     "auth",
+    "authorization",
+    "cerbos",
     "model",
     "retention"
   ],
@@ -194,10 +196,52 @@
     },
     "auth": {
       "type": "object",
-      "required": ["mode", "proxyPublicKeyKey"],
+      "required": [
+        "mode",
+        "proxyPublicKeyKey",
+        "adminRole",
+        "adminGroup",
+        "defaultTenantSlug",
+        "autoJoinDefaultTenant"
+      ],
       "properties": {
         "mode": { "enum": ["development", "oidc", "proxy"] },
-        "proxyPublicKeyKey": { "type": "string", "minLength": 1 }
+        "proxyPublicKeyKey": { "type": "string", "minLength": 1 },
+        "adminRole": { "type": "string", "minLength": 1 },
+        "adminGroup": { "type": "string", "minLength": 1 },
+        "defaultTenantSlug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+        },
+        "autoJoinDefaultTenant": { "type": "boolean" }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["mode", "cerbosUrl", "timeoutMs"],
+      "properties": {
+        "mode": { "enum": ["local", "cerbos"] },
+        "cerbosUrl": { "type": "string" },
+        "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "cerbos": {
+      "type": "object",
+      "required": ["enabled", "replicas", "port", "image", "resources"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicas": { "type": "integer", "minimum": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "image": {
+          "type": "object",
+          "required": ["repository", "tag", "pullPolicy"],
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string", "minLength": 1 },
+            "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+          }
+        },
+        "resources": { "type": "object" }
       }
     },
     "model": {

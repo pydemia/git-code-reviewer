@@ -16,6 +16,8 @@ spec:
       labels:
         {{- include "git-code-reviewer.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: server
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
       automountServiceAccountToken: false

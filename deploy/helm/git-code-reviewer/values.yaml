@@ -92,6 +92,27 @@ github:
 auth:
   mode: oidc
   proxyPublicKeyKey: PROXY_IDENTITY_PUBLIC_KEY
+  adminRole: git-code-reviewer-admin
+  adminGroup: git-code-reviewer-admins
+  defaultTenantSlug: default
+  autoJoinDefaultTenant: false
+
+authorization:
+  mode: local
+  cerbosUrl: ''
+  timeoutMs: 2000
+
+cerbos:
+  enabled: false
+  replicas: 2
+  port: 3592
+  image:
+    repository: ghcr.io/cerbos/cerbos
+    tag: 0.55.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
 
 model:
   analysis:

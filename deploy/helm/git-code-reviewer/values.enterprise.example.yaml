@@ -69,6 +69,30 @@ github:
 
 auth:
   mode: oidc
+  # Keycloak client role. Include it in the ID token or UserInfo response.
+  adminRole: git-code-reviewer-admin
+  adminGroup: git-code-reviewer-admins
+  defaultTenantSlug: default
+  # Keep false when administrators explicitly assign tenant memberships.
+  autoJoinDefaultTenant: false
+
+authorization:
+  mode: cerbos
+  # Leave empty when using the bundled Cerbos deployment below.
+  cerbosUrl: ''
+  timeoutMs: 2000
+
+cerbos:
+  enabled: true
+  replicas: 2
+  port: 3592
+  image:
+    repository: ghcr.io/cerbos/cerbos
+    tag: 0.55.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
 
 model:
   analysis:

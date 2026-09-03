@@ -1,0 +1,68 @@
+{{- if .Values.cerbos.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-cerbos
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cerbos
+spec:
+  replicas: {{ .Values.cerbos.replicas }}
+  selector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: cerbos
+  template:
+    metadata:
+      labels:
+        {{- include "git-code-reviewer.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: cerbos
+      annotations:
+        checksum/policies: {{ include (print $.Template.BasePath "/cerbos-config-map.yaml") . | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: cerbos
+          image: {{ printf "%s:%s" .Values.cerbos.image.repository .Values.cerbos.image.tag | quote }}
+          imagePullPolicy: {{ .Values.cerbos.image.pullPolicy }}
+          args: ["server", "--config=/config/.cerbos.yaml"]
+          ports:
+            - { name: http, containerPort: {{ .Values.cerbos.port }} }
+          startupProbe:
+            httpGet: { path: /_cerbos/health, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /_cerbos/health, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /_cerbos/health, port: http }
+            periodSeconds: 10
+          resources: {{ toYaml .Values.cerbos.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: config, mountPath: /config, readOnly: true }
+            - { name: policies, mountPath: /policies, readOnly: true }
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "git-code-reviewer.fullname" . }}-cerbos
+            items:
+              - { key: .cerbos.yaml, path: .cerbos.yaml }
+        - name: policies
+          configMap:
+            name: {{ include "git-code-reviewer.fullname" . }}-cerbos
+            items:
+              {{- range $path, $_ := .Files.Glob "cerbos/policies/*.yaml" }}
+              - { key: {{ base $path }}, path: {{ base $path }} }
+              {{- end }}
+{{- end }}

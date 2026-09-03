@@ -46,7 +46,24 @@ pnpm build:packages
 pnpm --filter @gcr/runtime exec tsx src/index.ts worker
 ```
 
-Browser workspace는 `http://127.0.0.1:5173`에서 연다. `GITHUB_MODE=fixture`, `DEV_USER_ROLE=admin`이면 fixture repository와 PR이 자동 준비된다. 첫 PR에서 refresh를 실행하면 별도 Worker가 snapshot과 report를 생성한다.
+Browser workspace는 `http://127.0.0.1:5173`에서 연다. `GITHUB_MODE=fixture`, `DEV_USER_ROLE=admin`이면 fixture repository와 PR이 자동 준비되고 `/admin`에서 tenant, user membership과 분석 prompt를 관리할 수 있다. 첫 PR에서 refresh를 실행하면 별도 Worker가 snapshot과 report를 생성한다.
+
+로컬 인가 정책을 실제 Cerbos로 확인할 때에는 정책 compile을 먼저 실행하고 PDP를 띄운다.
+
+```bash
+docker run --rm \
+  -v "$PWD/deploy/helm/git-code-reviewer/cerbos/policies:/policies:ro" \
+  ghcr.io/cerbos/cerbos:0.55.0 compile --strict-evaluation /policies
+
+docker run --rm --name git-code-reviewer-cerbos -p 3592:3592 \
+  -v "$PWD/deploy/helm/git-code-reviewer/cerbos/policies:/policies:ro" \
+  ghcr.io/cerbos/cerbos:0.55.0
+```
+
+```dotenv
+AUTHORIZATION_MODE=cerbos
+CERBOS_URL=http://127.0.0.1:3592/
+```
 
 ## Model setup
 

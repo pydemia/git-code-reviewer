@@ -14,6 +14,13 @@ data:
   DATABASE_POOL_MAX: {{ .Values.server.databasePoolMax | quote }}
   PUBLIC_BASE_URL: {{ .Values.publicBaseUrl | quote }}
   AUTH_MODE: {{ .Values.auth.mode | quote }}
+  AUTHORIZATION_MODE: {{ .Values.authorization.mode | quote }}
+  CERBOS_URL: {{ include "git-code-reviewer.cerbos.url" . | quote }}
+  CERBOS_TIMEOUT_MS: {{ .Values.authorization.timeoutMs | quote }}
+  OIDC_ADMIN_ROLE: {{ .Values.auth.adminRole | quote }}
+  OIDC_ADMIN_GROUP: {{ .Values.auth.adminGroup | quote }}
+  DEFAULT_TENANT_SLUG: {{ .Values.auth.defaultTenantSlug | quote }}
+  AUTO_JOIN_DEFAULT_TENANT: {{ .Values.auth.autoJoinDefaultTenant | quote }}
   GITHUB_MODE: {{ .Values.github.mode | quote }}
   MODEL_MODE: {{ .Values.model.analysis.mode | quote }}
   MODEL_ENDPOINT: {{ .Values.model.analysis.endpoint | quote }}

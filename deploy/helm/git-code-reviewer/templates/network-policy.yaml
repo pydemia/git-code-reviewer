@@ -62,4 +62,108 @@ spec:
     {{- with .Values.networkPolicy.additionalEgress }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+{{- if .Values.cerbos.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-server-to-cerbos
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "git-code-reviewer.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: cerbos
+      ports:
+        - { protocol: TCP, port: {{ .Values.cerbos.port }} }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-cerbos-ingress
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: cerbos
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "git-code-reviewer.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: server
+      ports:
+        - { protocol: TCP, port: {{ .Values.cerbos.port }} }
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-helm-test-connectivity
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: test
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "git-code-reviewer.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: server
+      ports:
+        - { protocol: TCP, port: {{ .Values.server.port }} }
+    {{- if .Values.cerbos.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "git-code-reviewer.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: cerbos
+      ports:
+        - { protocol: TCP, port: {{ .Values.cerbos.port }} }
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-helm-test-ingress
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [{{ include "git-code-reviewer.name" . }}]
+      - key: app.kubernetes.io/instance
+        operator: In
+        values: [{{ .Release.Name }}]
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - server
+          {{- if .Values.cerbos.enabled }}
+          - cerbos
+          {{- end }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "git-code-reviewer.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: test
 {{- end }}

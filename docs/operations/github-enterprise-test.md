@@ -14,7 +14,7 @@ Webhook과 write permission은 필요하지 않다. 설치할 repository를 명�
 
 ## 2. Register a repository
 
-OIDC로 관리자 그룹 사용자가 로그인한 후 browser DevTools Network에서 `/api/v1/me` 요청을 `Copy as cURL` 한다. 같은 origin과 HttpOnly session cookie를 유지한 로컬 terminal에서 URL과 method/body만 아래처럼 바꾼다. 복사한 command에는 세션 cookie가 있으므로 shell history나 문서에 남기지 않는다.
+OIDC로 관리자 역할 사용자가 로그인한 후 `/admin`에서 대상 tenant ID를 확인한다. Browser DevTools Network에서 `/api/v1/me` 요청을 `Copy as cURL` 한다. 같은 origin과 HttpOnly session cookie를 유지한 로컬 terminal에서 URL과 method/body만 아래처럼 바꾼다. 복사한 command에는 세션 cookie가 있으므로 shell history나 문서에 남기지 않는다.
 
 ```bash
 curl 'https://git-code-reviewer.example.internal/api/v1/admin/repositories' \
@@ -23,6 +23,7 @@ curl 'https://git-code-reviewer.example.internal/api/v1/admin/repositories' \
   -H 'origin: https://git-code-reviewer.example.internal' \
   -H 'cookie: gcr_session=REDACTED' \
   --data '{
+    "tenantId":"00000000-0000-0000-0000-000000000000",
     "instanceName":"Enterprise GHES",
     "apiBaseUrl":"https://github.example.internal/api/v3/",
     "webBaseUrl":"https://github.example.internal/",
@@ -48,6 +49,8 @@ Repository ID는 GHES `GET /repos/{owner}/{repo}` 응답의 numeric `id`를 사�
 8. Outline에서 object를 선택하고 Structure parent/children, Dependencies uses/used-by를 전환한다. object URL을 reload해 선택이 복원되는지 확인한다.
 9. Chat 질문을 보내고 답변, persisted message, citation 이동을 확인한다. 다른 user는 session ID를 알아도 404를 받아야 한다.
 10. Markdown과 JSON report export가 동일한 canonical finding/link를 포함하는지 확인한다.
+11. Tenant A reviewer가 Tenant B repository와 analysis URL에서 404를 받는지 확인한다.
+12. `/admin?tab=prompt`에서 tenant prompt를 활성화하고 새 analysis report의 prompt version/hash가 일치하는지 확인한다. 이전에 queue된 run의 hash는 바뀌지 않아야 한다.
 
 현재 MVP code object extractor는 bounded lexical adapter로 TypeScript/Python의 변경 범위를 분석한다. 외부 repository dependent는 추정하지 않으며 coverage limitation으로 표시한다. Pilot에서 language precision 요구를 측정한 뒤 tree-sitter adapter 확장을 결정한다.
 
@@ -64,6 +67,7 @@ Batch 분석과 interactive Chat은 서로 다른 Secret과 model name을 사용
 - account Secret의 `bootstrapRevision`이 같으면 Pod restart 후 PVC의 회전된 refresh token이 유지됨
 - rate/session/concurrency 초과 시 typed `429 CHAT_LIMIT_EXCEEDED`
 - source와 질문을 untrusted input으로 취급하며 답변 citation은 현재 immutable report 범위만 사용
+- tenant prompt가 source-as-untrusted guard와 structured output contract를 제거하지 않으며 report에는 prompt 원문 대신 version/hash만 표시
 
 ## 5. Failure and replica tests
 
@@ -82,6 +86,8 @@ kubectl -n git-code-reviewer logs -f job/retention-manual
 ```
 
 추가로 GHES 401/403, 429/5xx, PostgreSQL 일시 중단, model timeout, artifact 파일 누락을 각각 주입한다. 복구 후 operation/report/chat 최종 상태는 REST로 다시 조회 가능해야 하며 secret/source/Chat 원문이 log나 browser storage에 남지 않아야 한다.
+
+Cerbos mode에서는 PDP 일시 중단도 주입한다. 보호 API는 cache된 허용으로 우회하지 않고 `503 AUTHORIZATION_UNAVAILABLE`로 실패해야 하며 `/health/dependencies`가 `degraded`를 보고해야 한다.
 
 ## 6. Browser matrix
 

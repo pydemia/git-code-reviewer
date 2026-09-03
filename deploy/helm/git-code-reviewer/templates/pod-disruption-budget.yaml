@@ -12,6 +12,21 @@ spec:
       {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: server
 {{- end }}
+{{- if and .Values.podDisruptionBudget.enabled .Values.cerbos.enabled (gt (int .Values.cerbos.replicas) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-cerbos
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: cerbos
+{{- end }}
 {{- if and .Values.podDisruptionBudget.enabled (gt (int .Values.worker.replicas) 1) }}
 ---
 apiVersion: policy/v1
@@ -27,4 +42,3 @@ spec:
       {{- include "git-code-reviewer.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: worker
 {{- end }}
-

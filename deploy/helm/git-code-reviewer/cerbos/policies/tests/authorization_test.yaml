@@ -1,0 +1,94 @@
+name: GitCodeReviewerAuthorization
+description: Tenant RBAC and repository grant boundaries
+
+principals:
+  administrator:
+    id: admin@example.internal
+    roles: [administrator]
+    attr:
+      enabled: true
+      tenantIds: []
+  disabled-administrator:
+    id: disabled-admin@example.internal
+    roles: [administrator]
+    attr:
+      enabled: false
+      tenantIds: []
+  tenant-reviewer:
+    id: reviewer@example.internal
+    roles: [reviewer]
+    attr:
+      enabled: true
+      tenantIds: [tenant-a]
+
+resources:
+  tenant-a:
+    id: tenant-a
+    kind: tenant
+    attr:
+      tenantId: tenant-a
+      enabled: true
+  granted-repository:
+    id: repository-a
+    kind: repository
+    attr:
+      tenantId: tenant-a
+      enabled: true
+      granted: true
+  ungranted-repository:
+    id: repository-b
+    kind: repository
+    attr:
+      tenantId: tenant-a
+      enabled: true
+      granted: false
+  other-tenant-repository:
+    id: repository-c
+    kind: repository
+    attr:
+      tenantId: tenant-b
+      enabled: true
+      granted: true
+  tenant-prompt:
+    id: tenant-a
+    kind: analysis_prompt
+    attr:
+      tenantId: tenant-a
+      enabled: true
+
+tests:
+  - name: Administrator manages tenant prompts
+    input:
+      principals: [administrator, disabled-administrator, tenant-reviewer]
+      resources: [tenant-prompt]
+      actions: [view, manage]
+    expected:
+      - principal: administrator
+        resource: tenant-prompt
+        actions:
+          view: EFFECT_ALLOW
+          manage: EFFECT_ALLOW
+
+  - name: Reviewer sees only granted repositories in own tenant
+    input:
+      principals: [tenant-reviewer]
+      resources: [granted-repository, ungranted-repository, other-tenant-repository]
+      actions: [view, refresh, chat, update]
+    expected:
+      - principal: tenant-reviewer
+        resource: granted-repository
+        actions:
+          view: EFFECT_ALLOW
+          refresh: EFFECT_ALLOW
+          chat: EFFECT_ALLOW
+
+  - name: Reviewer sees own enabled tenant
+    input:
+      principals: [tenant-reviewer]
+      resources: [tenant-a]
+      actions: [view, update]
+    expected:
+      - principal: tenant-reviewer
+        resource: tenant-a
+        actions:
+          view: EFFECT_ALLOW

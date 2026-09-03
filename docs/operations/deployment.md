@@ -11,7 +11,7 @@
 | Migration hook Job | `migrate`   | advisory-lock protected forward migration                     |
 | Retention CronJob  | `retention` | bounded expiry and artifact cleanup                           |
 
-Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별도 frontend/backend image를 조합하지 않는다. PostgreSQL은 운영형 외부 서비스가 기본이며, pilot에서는 선택형 Bitnami PostgreSQL dependency를 같은 release에 설치할 수 있다. Artifact는 여러 replica가 공유하는 RWX PV/PVC에 저장한다.
+Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별도 frontend/backend image를 조합하지 않는다. PostgreSQL은 운영형 외부 서비스가 기본이며, pilot에서는 선택형 Bitnami PostgreSQL dependency를 같은 release에 설치할 수 있다. Artifact는 여러 replica가 공유하는 RWX PV/PVC에 저장한다. Keycloak 같은 OIDC provider는 외부 운영하고, Cerbos PDP는 chart에서 선택적으로 함께 배포할 수 있다.
 
 ## Build and publish the image
 
@@ -61,6 +61,7 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 - 외부 PostgreSQL 15 이상 또는 chart의 선택형 Bitnami PostgreSQL dependency
 - RWX를 제공하는 StorageClass 또는 기존 PVC
 - TLS Ingress와 OIDC provider
+- 외부 OIDC/Keycloak client와 선택형 Cerbos PDP
 - private GHES에서 설치된 read-only GitHub App
 - 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint 또는 deployment-owned ChatGPT/Codex account
 
@@ -83,9 +84,10 @@ kubectl -n git-code-reviewer create secret generic git-code-reviewer-auth \
   --from-literal=OIDC_ISSUER='https://id.example.internal/realms/company' \
   --from-literal=OIDC_CLIENT_ID='git-code-reviewer' \
   --from-literal=OIDC_CLIENT_SECRET='...' \
-  --from-literal=OIDC_REDIRECT_URI='https://git-code-reviewer.example.internal/auth/callback' \
-  --from-literal=OIDC_ADMIN_GROUP='git-code-reviewer-admins'
+  --from-literal=OIDC_REDIRECT_URI='https://git-code-reviewer.example.internal/auth/callback'
 ```
+
+Keycloak client role, app의 tenant membership과 Cerbos 정책 설정은 [Identity, authorization, and tenant administration](./identity-authorization.md)을 따른다.
 
 위 `git-code-reviewer-db` Secret은 기본 외부 DB 모드에서만 필요하다. 자체 포함 pilot은 다음 values로 Bitnami PostgreSQL과 RWO PVC를 같은 release에 설치한다.
 
@@ -217,6 +219,8 @@ account PVC에는 access/refresh token이 포함되므로 encrypted StorageClass
 - `publicBaseUrl`, Ingress host/TLS/controller annotations
 - RWX StorageClass, artifact 용량, Worker ephemeral workspace 용량
 - DB/Auth/GitHub/Model Secret 이름
+- `auth.adminRole`, `auth.adminGroup`, default tenant 자동 가입 여부
+- `authorization.mode`: 운영 권장값은 `cerbos`; bundled PDP는 `cerbos.enabled: true`, 외부 PDP는 `authorization.cerbosUrl`
 - `postgresql.enabled`: 외부 DB는 `false`, 자체 포함 pilot은 `true`; 번들 모드에서는 DB PVC StorageClass와 용량
 - 분석과 Chat의 provider mode 및 **명시적인 model name**. ChatGPT account mode이면 account Secret, bootstrap revision과 전용 PVC
 - retention 기간. `chatDays`는 `reportDays`보다 클 수 없다.
@@ -255,6 +259,12 @@ kubectl -n git-code-reviewer rollout status deploy/git-code-reviewer-worker
 helm test git-code-reviewer -n git-code-reviewer
 ```
 
+Bundled Cerbos를 활성화한 release에서는 PDP rollout도 확인한다.
+
+```bash
+kubectl -n git-code-reviewer rollout status deploy/git-code-reviewer-cerbos
+```
+
 Server artifact mount는 read-only이고 Worker/retention만 write할 수 있어야 한다. ChatGPT account mode의 Server에는 별도 account PVC만 write 권한을 준다. Pod는 non-root, read-only root filesystem, dropped capabilities, disabled service-account token으로 실행된다.
 
 ## Upgrade and rollback
@@ -284,5 +294,7 @@ curl -fsS http://127.0.0.1:8080/health/live
 curl -fsS http://127.0.0.1:8080/health/ready
 curl -fsS http://127.0.0.1:8080/health/dependencies
 ```
+
+Bundled Cerbos를 켰다면 `health/dependencies`의 `authorization.status`가 `ok`인지 확인한다. Cerbos 정책은 image와 별도인 chart ConfigMap에 포함되며 정책 변경 시 Cerbos Pod checksum이, application 설정 변경 시 Server Pod checksum이 갱신된다.
 
 로그에는 source, diff, prompt, Chat 원문, token이 없어야 한다. Database pool 상한은 `(server replicas x pool) + (worker replicas x pool) + migration/retention/LISTEN 여유`로 계산한다.
