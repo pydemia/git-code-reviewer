@@ -101,6 +101,11 @@ model:
     name: ''
     apiKeyKey: API_KEY
     timeoutMs: 120000
+    admin:
+      enabled: true
+      encryptionKeyKey: SETTINGS_ENCRYPTION_KEY
+      allowedOrigins:
+        - https://models.example.internal
   chat:
     mode: disabled
     endpoint: ''

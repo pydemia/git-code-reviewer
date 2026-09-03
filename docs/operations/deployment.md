@@ -146,14 +146,37 @@ imagePullSecrets:
 kubectl -n git-code-reviewer create configmap corporate-ca --from-file=ca.crt=./corporate-ca.pem
 ```
 
-OpenAI-compatible model을 활성화할 때에만 component별 Secret을 만든다. 분석 key는 Worker에만, Chat key는 Server에만 mount된다.
+OpenAI-compatible model을 환경 변수로 고정할 때 component별 Secret을 만든다. 관리자 Provider 설정을 켜면 분석 Secret에 별도의 32-byte master key도 준비한다. 분석 Secret은 Server와 Worker에, Chat key는 Server에만 주입되며 browser에는 반환되지 않는다.
 
 ```bash
 kubectl -n git-code-reviewer create secret generic git-code-reviewer-model \
-  --from-literal=API_KEY='...'
+  --from-literal=API_KEY='...' \
+  --from-literal=SETTINGS_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 kubectl -n git-code-reviewer create secret generic git-code-reviewer-chat-model \
   --from-literal=API_KEY='...'
 ```
+
+### Analysis provider administration
+
+Deployment 재배포 없이 분석 Provider와 model을 교체하려면 관리자 설정을 활성화한다. `allowedOrigins`는 관리자가 입력할 수 있는 endpoint의 exact origin이며 path는 포함하지 않는다. 여러 origin을 쓸 수 있지만 사내에서 승인한 대상만 등록한다.
+
+```yaml
+model:
+  analysis:
+    # 관리자 버전이 없거나 rollback하면 이 deployment 설정을 사용한다.
+    mode: disabled
+    endpoint: ''
+    name: ''
+    admin:
+      enabled: true
+      encryptionKeyKey: SETTINGS_ENCRYPTION_KEY
+      allowedOrigins:
+        - https://models.example.internal
+```
+
+배포 후 administrator로 `/admin?tab=provider`에서 **OpenAI 호환**을 선택하고 endpoint, 정확한 model ID, API key를 입력한다. **연결 테스트**는 repository source나 분석 prompt를 보내지 않고 최소 요청만 전송한다. 통과한 설정을 새 immutable version으로 저장·활성화하면 이후 queue되는 분석부터 provider version/hash가 고정된다. **Deployment 설정**은 active 관리자 version을 해제하고 values의 fallback으로 돌아간다.
+
+API key는 AES-256-GCM으로 PostgreSQL에 암호화되고 UI와 응답에는 설정 여부만 나타난다. `SETTINGS_ENCRYPTION_KEY`를 변경하면 기존 version을 복호화할 수 없다. 회전 전 active version을 deployment fallback으로 복원하고, 새 key로 rollout한 뒤 Provider를 다시 등록한다. 이 allowlist는 SSRF 제어이며 NetworkPolicy를 대체하지 않으므로 model endpoint의 실제 CIDR/port egress도 함께 제한한다.
 
 ### ChatGPT account mode
 
@@ -218,11 +241,11 @@ account PVC에는 access/refresh token이 포함되므로 encrypted StorageClass
 - `image.digest`: pilot 이후에는 mutable tag 대신 registry digest 권장
 - `publicBaseUrl`, Ingress host/TLS/controller annotations
 - RWX StorageClass, artifact 용량, Worker ephemeral workspace 용량
-- DB/Auth/GitHub/Model Secret 이름
+- DB/Auth/GitHub/Model Secret 이름. Provider 관리자 설정을 켜면 분석 Secret의 master key 이름도 확정
 - `auth.adminRole`, `auth.adminGroup`, default tenant 자동 가입 여부
 - `authorization.mode`: 운영 권장값은 `cerbos`; bundled PDP는 `cerbos.enabled: true`, 외부 PDP는 `authorization.cerbosUrl`
 - `postgresql.enabled`: 외부 DB는 `false`, 자체 포함 pilot은 `true`; 번들 모드에서는 DB PVC StorageClass와 용량
-- 분석과 Chat의 provider mode 및 **명시적인 model name**. ChatGPT account mode이면 account Secret, bootstrap revision과 전용 PVC
+- 분석과 Chat의 provider mode 및 **명시적인 model name**. 관리자 분석 Provider를 쓸 경우 `admin.enabled`, master key, exact origin allowlist. ChatGPT account mode이면 account Secret, bootstrap revision과 전용 PVC
 - retention 기간. `chatDays`는 `reportDays`보다 클 수 없다.
 - NetworkPolicy를 켤 경우 DB, GHES, OIDC, model endpoint의 실제 CIDR egress. values 예시의 documentation CIDR을 그대로 사용하지 않는다.
 - private registry를 사용할 경우 모든 Server/Worker/migration/retention Pod에 적용할 `imagePullSecrets`

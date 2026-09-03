@@ -135,6 +135,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and (eq .Values.model.analysis.mode "openai-compatible") (or (not .Values.model.analysis.endpoint) (not .Values.model.analysis.name) (not .Values.secrets.modelProvider)) -}}
 {{- fail "analysis model endpoint, explicit name, and provider Secret are required" -}}
 {{- end -}}
+{{- if and .Values.model.analysis.admin.enabled (or (not .Values.secrets.modelProvider) (not .Values.model.analysis.admin.encryptionKeyKey) (not .Values.model.analysis.admin.allowedOrigins)) -}}
+{{- fail "analysis provider administration requires a provider Secret, encryption key name, and at least one allowed origin" -}}
+{{- end -}}
 {{- if and (eq .Values.model.chat.mode "openai-compatible") (or (not .Values.model.chat.endpoint) (not .Values.model.chat.name) (not .Values.secrets.chatModelProvider)) -}}
 {{- fail "chat model endpoint, explicit name, and provider Secret are required" -}}
 {{- end -}}

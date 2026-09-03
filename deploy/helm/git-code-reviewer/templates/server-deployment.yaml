@@ -87,6 +87,20 @@ spec:
             - name: GITHUB_PRIVATE_KEY_FILE
               value: /run/secrets/github-app/private-key.pem
             {{- end }}
+            {{- if eq .Values.model.analysis.mode "openai-compatible" }}
+            - name: MODEL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.modelProvider }}
+                  key: {{ .Values.model.analysis.apiKeyKey }}
+            {{- end }}
+            {{- if .Values.model.analysis.admin.enabled }}
+            - name: MODEL_CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.modelProvider }}
+                  key: {{ .Values.model.analysis.admin.encryptionKeyKey }}
+            {{- end }}
             {{- if eq .Values.model.chat.mode "openai-compatible" }}
             - name: CHAT_MODEL_API_KEY
               valueFrom:

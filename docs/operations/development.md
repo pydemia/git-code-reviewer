@@ -46,7 +46,7 @@ pnpm build:packages
 pnpm --filter @gcr/runtime exec tsx src/index.ts worker
 ```
 
-Browser workspace는 `http://127.0.0.1:5173`에서 연다. `GITHUB_MODE=fixture`, `DEV_USER_ROLE=admin`이면 fixture repository와 PR이 자동 준비되고 `/admin`에서 tenant, user membership과 분석 prompt를 관리할 수 있다. 첫 PR에서 refresh를 실행하면 별도 Worker가 snapshot과 report를 생성한다.
+Browser workspace는 `http://127.0.0.1:5173`에서 연다. `GITHUB_MODE=fixture`, `DEV_USER_ROLE=admin`이면 fixture repository와 PR이 자동 준비되고 `/admin`에서 tenant, user membership, 분석 Provider와 tenant별 prompt를 관리할 수 있다. 첫 PR에서 refresh를 실행하면 별도 Worker가 snapshot과 report를 생성한다.
 
 로컬 인가 정책을 실제 Cerbos로 확인할 때에는 정책 compile을 먼저 실행하고 PDP를 띄운다.
 
@@ -93,6 +93,20 @@ CHAT_MODEL_ENDPOINT=https://generativelanguage.googleapis.com/v1beta/openai/
 CHAT_MODEL_API_KEY=...
 CHAT_MODEL_NAME=<selected-model-id>
 ```
+
+분석 Provider를 process restart 없이 관리하려면 deployment fallback은 유지하고 다음 값을 Server와 Worker에 동일하게 설정한다. 암호화 key는 base64로 encoding한 정확히 32 byte여야 하며, allowlist는 path가 아닌 exact origin을 comma로 구분한다.
+
+```bash
+export MODEL_CREDENTIAL_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+```
+
+```dotenv
+MODEL_ADMIN_ENABLED=true
+MODEL_CREDENTIAL_ENCRYPTION_KEY=<the-same-key-for-server-and-worker>
+MODEL_PROVIDER_ALLOWED_ORIGINS=https://generativelanguage.googleapis.com,https://models.example.internal
+```
+
+Administrator로 `/admin?tab=provider`에서 Provider를 저장하고 `/admin?tab=prompt`에서 tenant 지침을 저장한다. API key는 다시 표시되지 않으며, 이후 생성한 analysis run이 해당 provider/prompt version과 hash를 보존하는지 확인한다.
 
 ### ChatGPT account for local Chat
 

@@ -52,6 +52,7 @@ auth:
 
 - **테넌트**: 생성, 표시 이름 변경, 활성/비활성 전환
 - **사용자**: 앱 접근 enabled kill switch, tenant membership
+- **분석 Provider**: deployment에서 허용한 origin 내의 endpoint/model/credential immutable version 생성과 rollback
 - **분석 프롬프트**: tenant별 immutable version 생성, 이전 version 활성화, built-in prompt 복원
 
 사용자를 비활성화하면 모든 앱 session이 즉시 삭제된다. 관리자는 자신의 현재 계정을 비활성화할 수 없다. Keycloak 계정, 암호, MFA와 role assignment는 Keycloak에서 관리한다. Tenant를 비활성화하면 해당 tenant의 repository는 polling과 사용자 조회에서 제외된다.
@@ -94,12 +95,19 @@ docker run --rm \
 
 Audit event에는 prompt 원문 대신 tenant ID, prompt version ID와 hash만 기록한다. 잘못된 새 지침은 `/admin?tab=prompt`에서 이전 version을 다시 활성화하거나 **기본값 복원**으로 즉시 rollback한다. 기존 report의 재현성을 위해 과거 version row는 삭제하지 않는다.
 
+## Provider version operations
+
+`/admin?tab=provider`는 deployment에서 `model.analysis.admin.enabled=true`로 설정했을 때만 편집할 수 있다. Provider는 전체 deployment에 하나만 active하며 tenant prompt와는 다른 전역 설정이다. API key는 deployment master key로 암호화하고 administrator에게도 재표시하지 않는다.
+
+분석 run을 queue할 때 active provider version ID/hash와 prompt version ID/hash를 함께 고정한다. 이후 관리자가 두 설정을 바꾸어도 이미 queue된 run은 기존 provider/prompt 조합을 사용한다. Provider audit metadata에는 mode, model name, configuration hash만 남기고 credential은 남기지 않는다.
+
 ## Acceptance checks
 
 1. Keycloak admin role 사용자에게만 `/admin` 링크가 보이고 API가 200인지 확인한다.
 2. 일반 reviewer가 `/api/v1/admin/tenants`에서 404를 받는지 확인한다.
 3. 두 tenant에 같은 reviewer를 배치하고 repository grant 유무에 따라 worklist가 분리되는지 확인한다.
 4. 사용자 비활성화 직후 기존 session과 새 로그인이 모두 차단되는지 확인한다.
-5. 프롬프트 v1으로 분석을 queue한 뒤 v2를 활성화하고, 첫 run은 v1 hash, 다음 run은 v2 hash인지 확인한다.
-6. Cerbos Pod를 중지했을 때 보호 API가 503으로 fail closed되고 복구 후 정상화되는지 확인한다.
-7. application log, audit metadata와 일반 report에 prompt 원문이나 OIDC token이 없는지 확인한다.
+5. Provider v1과 prompt v1으로 분석을 queue한 뒤 각각 v2를 활성화하고, 첫 run은 v1 hash, 다음 run은 v2 hash인지 확인한다.
+6. Provider API key가 browser response/storage, audit metadata와 application log에 노출되지 않는지 확인한다.
+7. Cerbos Pod를 중지했을 때 보호 API가 503으로 fail closed되고 복구 후 정상화되는지 확인한다.
+8. application log, audit metadata와 일반 report에 prompt 원문이나 OIDC token이 없는지 확인한다.

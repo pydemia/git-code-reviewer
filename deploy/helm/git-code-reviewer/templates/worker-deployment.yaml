@@ -58,6 +58,13 @@ spec:
                   name: {{ .Values.secrets.modelProvider }}
                   key: {{ .Values.model.analysis.apiKeyKey }}
             {{- end }}
+            {{- if .Values.model.analysis.admin.enabled }}
+            - name: MODEL_CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.modelProvider }}
+                  key: {{ .Values.model.analysis.admin.encryptionKeyKey }}
+            {{- end }}
             {{- if .Values.trustedCa.existingConfigMap }}
             - name: NODE_EXTRA_CA_CERTS
               value: /run/config/trust/ca.crt

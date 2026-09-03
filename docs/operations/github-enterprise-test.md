@@ -50,7 +50,8 @@ Repository ID는 GHES `GET /repos/{owner}/{repo}` 응답의 numeric `id`를 사�
 9. Chat 질문을 보내고 답변, persisted message, citation 이동을 확인한다. 다른 user는 session ID를 알아도 404를 받아야 한다.
 10. Markdown과 JSON report export가 동일한 canonical finding/link를 포함하는지 확인한다.
 11. Tenant A reviewer가 Tenant B repository와 analysis URL에서 404를 받는지 확인한다.
-12. `/admin?tab=prompt`에서 tenant prompt를 활성화하고 새 analysis report의 prompt version/hash가 일치하는지 확인한다. 이전에 queue된 run의 hash는 바뀌지 않아야 한다.
+12. `/admin?tab=provider`에서 승인된 endpoint/model을 연결 테스트하고 Provider version을 활성화한다. API key 원문은 UI, API response, browser storage에 다시 나타나지 않아야 한다.
+13. `/admin?tab=prompt`에서 tenant prompt를 활성화하고 새 analysis report의 provider/prompt version/hash가 일치하는지 확인한다. 이전에 queue된 run의 hash는 바뀌지 않아야 한다.
 
 현재 MVP code object extractor는 bounded lexical adapter로 TypeScript/Python의 변경 범위를 분석한다. 외부 repository dependent는 추정하지 않으며 coverage limitation으로 표시한다. Pilot에서 language precision 요구를 측정한 뒤 tree-sitter adapter 확장을 결정한다.
 
@@ -61,6 +62,8 @@ Batch 분석과 interactive Chat은 서로 다른 Secret과 model name을 사용
 검증 항목:
 
 - 설정에서 model name이 비어 있으면 startup/template validation 실패
+- Provider 관리자 설정에서 allowlist 밖 endpoint를 저장하거나 테스트하면 안전하게 거부
+- Provider 연결 테스트는 최소 `Reply with OK.` 요청만 보내고 repository source/diff/prompt를 전송하지 않음
 - provider timeout 시 analysis는 가능한 deterministic 결과를 partial로 보존
 - Chat provider 실패 시 report 상태는 바뀌지 않고 retryable `CHAT_MODEL_FAILED`
 - ChatGPT account mode에서 account header가 browser에 노출되지 않고 만료 token refresh 후 질문이 1회 재시도됨

@@ -26,6 +26,8 @@ data:
   MODEL_ENDPOINT: {{ .Values.model.analysis.endpoint | quote }}
   MODEL_NAME: {{ .Values.model.analysis.name | quote }}
   MODEL_TIMEOUT_MS: {{ .Values.model.analysis.timeoutMs | quote }}
+  MODEL_ADMIN_ENABLED: {{ .Values.model.analysis.admin.enabled | quote }}
+  MODEL_PROVIDER_ALLOWED_ORIGINS: {{ join "," .Values.model.analysis.admin.allowedOrigins | quote }}
   CHAT_MODEL_MODE: {{ .Values.model.chat.mode | quote }}
   CHAT_MODEL_ENDPOINT: {{ .Values.model.chat.endpoint | quote }}
   CHAT_MODEL_NAME: {{ .Values.model.chat.name | quote }}

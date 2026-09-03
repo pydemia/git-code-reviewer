@@ -290,13 +290,25 @@
   "$defs": {
     "model": {
       "type": "object",
-      "required": ["mode", "endpoint", "name", "apiKeyKey", "timeoutMs"],
+      "required": ["mode", "endpoint", "name", "apiKeyKey", "timeoutMs", "admin"],
       "properties": {
         "mode": { "enum": ["disabled", "openai-compatible"] },
         "endpoint": { "type": "string" },
         "name": { "type": "string" },
         "apiKeyKey": { "type": "string", "minLength": 1 },
-        "timeoutMs": { "type": "integer", "minimum": 1 }
+        "timeoutMs": { "type": "integer", "minimum": 1 },
+        "admin": {
+          "type": "object",
+          "required": ["enabled", "encryptionKeyKey", "allowedOrigins"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "encryptionKeyKey": { "type": "string", "minLength": 1 },
+            "allowedOrigins": {
+              "type": "array",
+              "items": { "type": "string", "format": "uri" }
+            }
+          }
+        }
       }
     },
     "chatModel": {
