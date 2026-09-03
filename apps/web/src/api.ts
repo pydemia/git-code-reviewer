@@ -1,5 +1,7 @@
 import {
   adminUserListSchema,
+  analysisProviderSettingsSchema,
+  analysisProviderTestResultSchema,
   analysisListSchema,
   analysisPromptListSchema,
   chatMessageListSchema,
@@ -18,6 +20,8 @@ import {
   tenantListSchema,
   userSchema,
   type AdminUser,
+  type AnalysisProviderMode,
+  type AnalysisProviderVersion,
   type AnalysisPromptVersion,
   type PullRequestSummary,
   type Repository,
@@ -37,8 +41,16 @@ export type WorkspaceData = {
 };
 export type ChatMessage = ReturnType<typeof chatMessageListSchema.parse>['items'][number];
 export type ChatSession = ReturnType<typeof chatSessionSchema.parse>;
-export type { AdminUser, AnalysisPromptVersion, Tenant, User };
+export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Tenant, User };
 export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
+export type AnalysisProviderSettings = ReturnType<typeof analysisProviderSettingsSchema.parse>;
+export type AnalysisProviderInput = {
+  mode: AnalysisProviderMode;
+  endpoint?: string;
+  modelName?: string;
+  timeoutMs: number;
+  apiKey?: string;
+};
 
 export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
   return userSchema.parse(await fetchJson('/api/v1/me', signal));
@@ -118,6 +130,29 @@ export async function activateAnalysisPrompt(tenantId: string, promptId: string)
 
 export async function resetAnalysisPrompt(tenantId: string): Promise<void> {
   await mutateJson(`/api/v1/admin/tenants/${tenantId}/analysis-prompts/reset`, 'POST');
+}
+
+export async function loadAnalysisProvider(signal: AbortSignal): Promise<AnalysisProviderSettings> {
+  return analysisProviderSettingsSchema.parse(
+    await fetchJson('/api/v1/admin/analysis-provider', signal),
+  );
+}
+
+export async function saveAnalysisProvider(values: AnalysisProviderInput): Promise<void> {
+  await mutateJson('/api/v1/admin/analysis-provider/versions', 'POST', values);
+}
+
+export async function activateAnalysisProvider(providerId: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/analysis-provider/versions/${providerId}/activate`, 'POST');
+}
+
+export async function resetAnalysisProvider(): Promise<void> {
+  await mutateJson('/api/v1/admin/analysis-provider/reset', 'POST');
+}
+
+export async function testAnalysisProvider(values: AnalysisProviderInput): Promise<number> {
+  const response = await mutateJson('/api/v1/admin/analysis-provider/test', 'POST', values);
+  return analysisProviderTestResultSchema.parse(response).latencyMs;
 }
 
 export async function loadWorkspace(

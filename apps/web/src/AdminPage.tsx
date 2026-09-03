@@ -1,9 +1,11 @@
 import {
   Building2,
   Check,
+  Cpu,
   FileText,
   KeyRound,
   Pencil,
+  Play,
   Plus,
   RotateCcw,
   Save,
@@ -13,30 +15,44 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
+  activateAnalysisProvider,
   activateAnalysisPrompt,
   createTenant,
   loadAdminTenants,
   loadAdminUsers,
+  loadAnalysisProvider,
   loadAnalysisPrompts,
   loadCurrentUser,
+  resetAnalysisProvider,
   resetAnalysisPrompt,
+  saveAnalysisProvider,
   saveAnalysisPrompt,
+  testAnalysisProvider,
   updateTenant,
   updateTenantMembership,
   updateUserAccess,
   type AdminUser,
+  type AnalysisProviderInput,
+  type AnalysisProviderSettings,
   type AnalysisPromptList,
   type Tenant,
   type User,
 } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
 
-type AdminTab = 'tenants' | 'users' | 'prompt';
+type AdminTab = 'tenants' | 'users' | 'provider' | 'prompt';
 type TenantForm = {
   id?: string;
   slug: string;
   displayName: string;
   enabled: boolean;
+};
+type ProviderDraft = {
+  mode: 'disabled' | 'openai-compatible';
+  endpoint: string;
+  modelName: string;
+  timeoutMs: number;
+  apiKey: string;
 };
 
 const ADMIN_TENANT_STORAGE_KEY = 'git-code-reviewer.admin-tenant.v1';
@@ -52,6 +68,14 @@ export function AdminPage() {
   );
   const [promptData, setPromptData] = useState<AnalysisPromptList | null>(null);
   const [promptDraft, setPromptDraft] = useState('');
+  const [providerData, setProviderData] = useState<AnalysisProviderSettings | null>(null);
+  const [providerDraft, setProviderDraft] = useState<ProviderDraft>({
+    mode: 'disabled',
+    endpoint: '',
+    modelName: '',
+    timeoutMs: 120_000,
+    apiKey: '',
+  });
   const [tenantForm, setTenantForm] = useState<TenantForm | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -65,8 +89,9 @@ export function AdminPage() {
       loadCurrentUser(controller.signal),
       loadAdminTenants(controller.signal),
       loadAdminUsers(controller.signal),
+      loadAnalysisProvider(controller.signal),
     ]).then(
-      ([currentUser, tenantItems, userItems]) => {
+      ([currentUser, tenantItems, userItems, providerSettings]) => {
         if (currentUser.role !== 'administrator') {
           window.location.replace('/');
           return;
@@ -74,6 +99,8 @@ export function AdminPage() {
         setUser(currentUser);
         setTenants(tenantItems);
         setUsers(userItems);
+        setProviderData(providerSettings);
+        setProviderDraft(providerDraftFrom(providerSettings));
         setSelectedTenantId((current) => {
           const selected = tenantItems.some((tenant) => tenant.id === current)
             ? current
@@ -181,6 +208,39 @@ export function AdminPage() {
     );
   };
 
+  const providerInput = (): AnalysisProviderInput =>
+    providerDraft.mode === 'disabled'
+      ? { mode: 'disabled', timeoutMs: providerDraft.timeoutMs }
+      : {
+          mode: 'openai-compatible',
+          endpoint: providerDraft.endpoint,
+          modelName: providerDraft.modelName,
+          timeoutMs: providerDraft.timeoutMs,
+          ...(providerDraft.apiKey.trim() ? { apiKey: providerDraft.apiKey.trim() } : {}),
+        };
+
+  const submitProvider = async () => {
+    const succeeded = await runMutation(
+      'provider:save',
+      () => saveAnalysisProvider(providerInput()),
+      '새 Provider 버전을 활성화했습니다.',
+    );
+    if (succeeded) setProviderDraft((current) => ({ ...current, apiKey: '' }));
+  };
+
+  const testProvider = async () => {
+    setBusyKey('provider:test');
+    setMessage(null);
+    try {
+      const latencyMs = await testAnalysisProvider(providerInput());
+      setMessage({ tone: 'success', text: `Provider 연결을 확인했습니다. ${latencyMs}ms` });
+    } catch (error) {
+      setMessage({ tone: 'error', text: errorMessage(error) });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div className="admin-page">
       <AppHeader user={user} />
@@ -203,6 +263,13 @@ export function AdminPage() {
             onClick={() => selectTab('users')}
           >
             <Users size={16} /> 사용자
+          </button>
+          <button
+            className={tab === 'provider' ? 'active' : ''}
+            type="button"
+            onClick={() => selectTab('provider')}
+          >
+            <Cpu size={16} /> 분석 Provider
           </button>
           <button
             className={tab === 'prompt' ? 'active' : ''}
@@ -272,6 +339,32 @@ export function AdminPage() {
                   `${item.displayName}의 테넌트 멤버십을 변경했습니다.`,
                 )
               }
+            />
+          ) : null}
+
+          {tab === 'provider' ? (
+            <ProviderPanel
+              data={providerData}
+              draft={providerDraft}
+              busyKey={busyKey}
+              onDraftChange={setProviderDraft}
+              onTest={() => void testProvider()}
+              onSave={() => void submitProvider()}
+              onActivate={(providerId) =>
+                void runMutation(
+                  `provider:${providerId}`,
+                  () => activateAnalysisProvider(providerId),
+                  '선택한 Provider 버전을 활성화했습니다.',
+                )
+              }
+              onReset={() => {
+                if (!window.confirm('배포 환경의 Provider 설정으로 되돌릴까요?')) return;
+                void runMutation(
+                  'provider:reset',
+                  resetAnalysisProvider,
+                  '배포 환경의 Provider 설정으로 되돌렸습니다.',
+                );
+              }}
             />
           ) : null}
 
@@ -681,9 +774,235 @@ function PromptPanel({
   );
 }
 
+function ProviderPanel({
+  data,
+  draft,
+  busyKey,
+  onDraftChange,
+  onTest,
+  onSave,
+  onActivate,
+  onReset,
+}: {
+  data: AnalysisProviderSettings | null;
+  draft: ProviderDraft;
+  busyKey: string | null;
+  onDraftChange: (value: ProviderDraft) => void;
+  onTest: () => void;
+  onSave: () => void;
+  onActivate: (providerId: string) => void;
+  onReset: () => void;
+}) {
+  const editable = data?.editable ?? false;
+  const activeCredentialReusable = Boolean(
+    data?.active?.mode === 'openai-compatible' && data.active.apiKeyConfigured,
+  );
+  const openAiComplete = Boolean(
+    draft.endpoint.trim() &&
+    draft.modelName.trim() &&
+    (draft.apiKey.trim() || activeCredentialReusable),
+  );
+  const canSave =
+    editable &&
+    busyKey === null &&
+    (draft.mode === 'disabled' || openAiComplete) &&
+    draft.timeoutMs >= 1_000 &&
+    draft.timeoutMs <= 600_000;
+
+  return (
+    <section className="admin-section provider-section">
+      <div className="admin-title-row">
+        <div>
+          <p className="eyebrow">Analysis runtime</p>
+          <h1>분석 Provider</h1>
+        </div>
+      </div>
+
+      <div className="provider-status-bar">
+        <span>
+          <strong>
+            {data?.effective.source === 'administration' ? 'Admin 설정' : 'Deployment 설정'}
+          </strong>
+          <code>
+            {data?.effective.version ? `v${data.effective.version}` : 'environment fallback'}
+          </code>
+        </span>
+        <span className={data?.effective.mode === 'disabled' ? 'model-off' : 'model-on'}>
+          {data?.effective.mode === 'disabled' ? 'Model disabled' : data?.effective.modelName}
+        </span>
+        <span>{data?.effective.apiKeyConfigured ? 'Credential configured' : 'No credential'}</span>
+      </div>
+
+      <div className="provider-editor">
+        <div className="provider-mode-control" role="group" aria-label="Provider mode">
+          <button
+            type="button"
+            aria-pressed={draft.mode === 'disabled'}
+            className={draft.mode === 'disabled' ? 'active' : ''}
+            disabled={!editable || busyKey !== null}
+            onClick={() => onDraftChange({ ...draft, mode: 'disabled' })}
+          >
+            비활성
+          </button>
+          <button
+            type="button"
+            aria-pressed={draft.mode === 'openai-compatible'}
+            className={draft.mode === 'openai-compatible' ? 'active' : ''}
+            disabled={!editable || busyKey !== null}
+            onClick={() => onDraftChange({ ...draft, mode: 'openai-compatible' })}
+          >
+            OpenAI 호환
+          </button>
+        </div>
+
+        <div className="provider-form-grid">
+          <label className="field-label provider-endpoint-field">
+            Endpoint
+            <input
+              type="url"
+              value={draft.endpoint}
+              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+              placeholder="https://models.example.internal/v1/"
+              onChange={(event) => onDraftChange({ ...draft, endpoint: event.target.value })}
+            />
+          </label>
+          <label className="field-label">
+            Model
+            <input
+              value={draft.modelName}
+              maxLength={200}
+              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+              placeholder="정확한 model ID"
+              onChange={(event) => onDraftChange({ ...draft, modelName: event.target.value })}
+            />
+          </label>
+          <label className="field-label">
+            Timeout (ms)
+            <input
+              type="number"
+              min={1_000}
+              max={600_000}
+              step={1_000}
+              value={draft.timeoutMs}
+              disabled={!editable || busyKey !== null}
+              onChange={(event) =>
+                onDraftChange({ ...draft, timeoutMs: Number(event.target.value) })
+              }
+            />
+          </label>
+          <label className="field-label provider-key-field">
+            API key
+            <input
+              type="password"
+              value={draft.apiKey}
+              maxLength={16_384}
+              autoComplete="new-password"
+              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+              placeholder={activeCredentialReusable ? '설정됨 · 비워 두면 유지' : 'API key'}
+              onChange={(event) => onDraftChange({ ...draft, apiKey: event.target.value })}
+            />
+          </label>
+        </div>
+
+        <div className="provider-origin-row">
+          <strong>허용 origin</strong>
+          {data?.allowedOrigins.length ? (
+            data.allowedOrigins.map((origin) => <code key={origin}>{origin}</code>)
+          ) : (
+            <span>설정되지 않음</span>
+          )}
+        </div>
+
+        <div className="provider-actions">
+          <button
+            className="command-button"
+            type="button"
+            disabled={!data?.active || busyKey !== null}
+            onClick={onReset}
+          >
+            <RotateCcw size={15} /> Deployment 설정
+          </button>
+          <span />
+          <button
+            className="command-button"
+            type="button"
+            disabled={!canSave || draft.mode === 'disabled'}
+            onClick={onTest}
+          >
+            <Play size={15} /> 연결 테스트
+          </button>
+          <button
+            className="command-button primary"
+            type="button"
+            disabled={!canSave}
+            onClick={onSave}
+          >
+            <Save size={15} /> 새 버전 저장 및 활성화
+          </button>
+        </div>
+      </div>
+
+      {!editable && data ? (
+        <div className="provider-disabled-state">
+          Provider 관리자 설정은 deployment configuration에서 비활성 상태입니다.
+        </div>
+      ) : null}
+
+      <div className="prompt-history-heading">
+        <strong>버전 기록</strong>
+        <span>{data?.items.length ?? 0}</span>
+      </div>
+      <div className="provider-history">
+        {data?.items.map((provider) => (
+          <article
+            className={`provider-version${provider.active ? ' active' : ''}`}
+            key={provider.id}
+          >
+            <div className="provider-version-main">
+              <span>
+                <strong>v{provider.version}</strong>
+                {provider.active ? <b>Active</b> : null}
+              </span>
+              <span>{provider.mode}</span>
+              <code>{provider.modelName ?? 'disabled'}</code>
+              <code>{provider.configurationHash.slice(0, 12)}</code>
+            </div>
+            <div className="provider-version-action">
+              <time>{formatAdminDate(provider.createdAt)}</time>
+              {!provider.active ? (
+                <button
+                  className="command-button"
+                  type="button"
+                  disabled={!editable || busyKey !== null}
+                  onClick={() => onActivate(provider.id)}
+                >
+                  <Check size={14} /> 활성화
+                </button>
+              ) : null}
+            </div>
+          </article>
+        ))}
+        {data && data.items.length === 0 ? (
+          <div className="admin-empty">저장된 Provider 버전이 없습니다.</div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function readTab(): AdminTab {
   const value = new URLSearchParams(window.location.search).get('tab');
-  return value === 'users' || value === 'prompt' ? value : 'tenants';
+  return value === 'users' || value === 'provider' || value === 'prompt' ? value : 'tenants';
+}
+
+function providerDraftFrom(settings: AnalysisProviderSettings): ProviderDraft {
+  return {
+    mode: settings.effective.mode,
+    endpoint: settings.effective.endpoint ?? '',
+    modelName: settings.effective.modelName ?? '',
+    timeoutMs: settings.effective.timeoutMs,
+    apiKey: '',
+  };
 }
 
 function formatAdminDate(value: string): string {

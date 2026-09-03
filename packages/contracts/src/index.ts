@@ -152,6 +152,12 @@ export const analysisProviderSettingsSchema = z.object({
   items: z.array(analysisProviderVersionSchema),
 });
 
+export const analysisProviderTestResultSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  status: z.literal('ok'),
+  latencyMs: z.number().int().nonnegative(),
+});
+
 export const repositorySchema = z.object({
   id: z.string().uuid(),
   githubId: z.string(),
