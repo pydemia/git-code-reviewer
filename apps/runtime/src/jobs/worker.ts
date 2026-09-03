@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  analyzeSnapshot,
-  OpenAICompatibleReviewModel,
-  type AnalysisFile,
-  type ReviewModel,
-} from '@gcr/analysis-engine';
+import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
 import { FilesystemArtifactStore, type ArtifactCommit } from '@gcr/artifact-store';
 import { createDatabase, type Database, type DatabaseClient } from '@gcr/db';
 import {
@@ -19,6 +14,12 @@ import type { RelationshipGraph, ReviewReport } from '@gcr/review-contract';
 import Fastify from 'fastify';
 import type { AppConfig } from '../config.js';
 import { appendEvent } from '../events/index.js';
+import {
+  createReviewModel,
+  deploymentAnalysisProvider,
+  getActiveAnalysisProviderRow,
+  resolveAnalysisProvider,
+} from '../services/analysis-provider.js';
 import { createGitHubReader, getRepository } from '../services/repositories.js';
 
 type JobPayload = {
@@ -49,7 +50,6 @@ export async function runWorker(config: AppConfig): Promise<void> {
   const database = createDatabase(config.DATABASE_URL, Math.max(2, config.DATABASE_POOL_MAX));
   const github = await createGitHubReader(config);
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
-  const model = createReviewModel(config);
   const executor = `${process.env.HOSTNAME ?? 'local'}:${process.pid}`;
   const health = Fastify({ logger: true });
   let lastLoopAt = Date.now();
@@ -74,18 +74,11 @@ export async function runWorker(config: AppConfig): Promise<void> {
       const job = await claimJob(database, executor);
       if (!job) break;
       claimed = true;
-      const task = executeJob(
-        database,
-        github,
-        model,
-        artifacts,
-        config,
-        executor,
-        job,
-        health.log,
-      ).catch((error: unknown) => {
-        health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
-      });
+      const task = executeJob(database, github, artifacts, config, executor, job, health.log).catch(
+        (error: unknown) => {
+          health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
+        },
+      );
       active.add(task);
       void task.finally(() => active.delete(task));
     }
@@ -144,7 +137,6 @@ async function claimJob(database: Database, executor: string): Promise<ClaimedJo
 async function executeJob(
   database: Database,
   github: GitHubReader | null,
-  model: ReviewModel | undefined,
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
   executor: string,
@@ -166,7 +158,7 @@ async function executeJob(
     if (job.type === 'snapshot.materialize') {
       await executeSnapshotJob(database, github, artifacts, config, workspace, job);
     } else {
-      await executeAnalysisJob(database, model, artifacts, config, job);
+      await executeAnalysisJob(database, artifacts, config, job);
     }
     await completeJob(database, job);
     logger.info({ jobId: job.id, type: job.type }, 'job completed');
@@ -201,7 +193,7 @@ async function executeSnapshotJob(
     [job.payload.operationId],
   );
   const materialization = await createMaterialization(database, github, config, workspace, job);
-  await persistMaterialization(database, artifacts, job, materialization);
+  await persistMaterialization(database, artifacts, config, job, materialization);
 }
 
 async function createMaterialization(
@@ -244,6 +236,7 @@ async function createMaterialization(
 async function persistMaterialization(
   database: Database,
   artifacts: FilesystemArtifactStore,
+  config: AppConfig,
   job: ClaimedJob,
   materialization: SnapshotMaterialization,
 ): Promise<void> {
@@ -358,19 +351,31 @@ async function persistMaterialization(
       );
       const promptVersionId = prompt.rows[0]?.id ?? null;
       const promptHash = prompt.rows[0]?.content_hash ?? 'builtin-v1';
+      const activeProvider = await getActiveAnalysisProviderRow(connection);
+      const deploymentProvider = deploymentAnalysisProvider(config);
+      const providerVersionId = activeProvider?.id ?? null;
+      const providerHash =
+        activeProvider?.configurationHash ?? deploymentProvider.configurationHash;
+      const modelProfile = activeProvider
+        ? activeProvider.mode === 'openai-compatible' && activeProvider.modelName
+          ? `openai-compatible:${activeProvider.modelName}`
+          : 'disabled'
+        : deploymentProvider.profile;
       const analysis = await connection.query<{ id: string }>(
         `insert into analysis_runs(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
-           prompt_version_id, prompt_hash, policy_hash
-         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6)
+           prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash
+         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v2:${promptHash}`,
-          'configured-at-worker',
+          `analysis:${snapshotId}:default:v3:${promptHash}:${providerHash}`,
+          modelProfile,
           promptVersionId,
           promptHash,
-          `default-v1:${promptHash}`,
+          providerVersionId,
+          providerHash,
+          `default-v1:${promptHash}:${providerHash}`,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -430,7 +435,6 @@ async function persistMaterialization(
 
 async function executeAnalysisJob(
   database: Database,
-  model: ReviewModel | undefined,
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
   job: ClaimedJob,
@@ -448,9 +452,11 @@ async function executeAnalysisJob(
     prompt_instructions: string | null;
     prompt_version: number | null;
     prompt_hash: string;
+    provider_version_id: string | null;
   }>(
     `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
-            prompt.version as prompt_version, analysis.prompt_hash
+            prompt.version as prompt_version, analysis.prompt_hash,
+            analysis.provider_version_id
      from snapshots snapshot
      join snapshot_requests sr on sr.id = snapshot.request_id
      join analysis_runs analysis on analysis.snapshot_id = snapshot.id and analysis.id = $2
@@ -460,6 +466,8 @@ async function executeAnalysisJob(
   );
   const row = identity.rows[0];
   if (!row) throw new Error('Analysis snapshot is unavailable');
+  const provider = await resolveAnalysisProvider(database, config, row.provider_version_id);
+  const model = createReviewModel(provider);
   const locator = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'snapshot' and scope_id = $1
      and artifact_type = 'diff-index' and version = 1 and state = 'available'`,
@@ -745,17 +753,6 @@ async function insertArtifact(
     [scopeType, scopeId, type, artifact.checksum, artifact.byteSize, artifact.locator, attemptId],
   );
   return result.rows[0]!.id;
-}
-
-function createReviewModel(config: AppConfig): ReviewModel | undefined {
-  return config.MODEL_MODE === 'openai-compatible'
-    ? new OpenAICompatibleReviewModel(
-        config.MODEL_ENDPOINT!,
-        config.MODEL_API_KEY!,
-        config.MODEL_NAME!,
-        config.MODEL_TIMEOUT_MS,
-      )
-    : undefined;
 }
 
 function requiredPayload(job: ClaimedJob, key: keyof JobPayload): string {

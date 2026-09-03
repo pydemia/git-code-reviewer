@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  analysisProviderSettingsSchema,
   analysisPromptListSchema,
   chatSessionSchema,
   chatSendResponseSchema,
@@ -148,5 +149,52 @@ describe('API contracts', () => {
       items: [],
     });
     expect(result.active?.version).toBe(3);
+  });
+
+  it('accepts provider metadata without exposing its API key', () => {
+    const version = {
+      id: '9f9d2fe9-bdfb-49b2-a126-dc8de5932fac',
+      version: 2,
+      mode: 'openai-compatible',
+      endpoint: 'https://models.example.test/v1/',
+      modelName: 'review-model',
+      timeoutMs: 120_000,
+      apiKeyConfigured: true,
+      configurationHash: 'b'.repeat(64),
+      active: true,
+      createdBy: { subject: 'admin', displayName: 'Administrator' },
+      activatedBy: { subject: 'admin', displayName: 'Administrator' },
+      activatedAt: '2026-09-03T00:00:01.000Z',
+      createdAt: '2026-09-03T00:00:00.000Z',
+    } as const;
+    const result = analysisProviderSettingsSchema.parse({
+      schemaVersion: 1,
+      editable: true,
+      allowedOrigins: ['https://models.example.test'],
+      effective: {
+        source: 'administration',
+        versionId: version.id,
+        version: 2,
+        mode: version.mode,
+        endpoint: version.endpoint,
+        modelName: version.modelName,
+        timeoutMs: version.timeoutMs,
+        apiKeyConfigured: true,
+        configurationHash: version.configurationHash,
+      },
+      deployment: {
+        mode: 'disabled',
+        endpoint: null,
+        modelName: null,
+        timeoutMs: 120_000,
+        apiKeyConfigured: false,
+        configurationHash: 'c'.repeat(64),
+      },
+      active: version,
+      items: [version],
+    });
+
+    expect(result.effective.modelName).toBe('review-model');
+    expect(result).not.toHaveProperty('apiKey');
   });
 });

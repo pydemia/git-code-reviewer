@@ -1,7 +1,8 @@
 import type { AuthUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
 
-export type AuthorizationAction = 'view' | 'create' | 'update' | 'manage' | 'refresh' | 'chat';
+export type AuthorizationAction =
+  'view' | 'create' | 'update' | 'manage' | 'test' | 'refresh' | 'chat';
 
 export type AuthorizationResource = {
   kind:
@@ -11,7 +12,8 @@ export type AuthorizationResource = {
     | 'repository'
     | 'pull_request'
     | 'analysis'
-    | 'analysis_prompt';
+    | 'analysis_prompt'
+    | 'analysis_provider';
   id: string;
   tenantId?: string;
   granted?: boolean;

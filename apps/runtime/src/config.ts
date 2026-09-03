@@ -42,6 +42,9 @@ const configSchema = z.object({
   MODEL_API_KEY: z.string().optional(),
   MODEL_NAME: z.string().optional(),
   MODEL_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  MODEL_ADMIN_ENABLED: booleanString,
+  MODEL_CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
+  MODEL_PROVIDER_ALLOWED_ORIGINS: z.string().default(''),
   CHAT_MODEL_MODE: z.enum(['disabled', 'openai-compatible', 'chatgpt-account']).default('disabled'),
   CHAT_MODEL_ENDPOINT: optionalUrl,
   CHAT_MODEL_API_KEY: z.string().optional(),
@@ -174,6 +177,16 @@ export function loadConfig(
     throw new Error('Invalid configuration: model endpoint, API key, and name are required');
   }
   if (
+    ['serve', 'worker'].includes(command) &&
+    result.data.MODEL_ADMIN_ENABLED &&
+    (!validEncryptionKey(result.data.MODEL_CREDENTIAL_ENCRYPTION_KEY) ||
+      providerAllowedOrigins(result.data.MODEL_PROVIDER_ALLOWED_ORIGINS).length === 0)
+  ) {
+    throw new Error(
+      'Invalid configuration: model administration requires a 32-byte base64 encryption key and allowed origins',
+    );
+  }
+  if (
     command === 'serve' &&
     result.data.CHAT_MODEL_MODE === 'openai-compatible' &&
     (!result.data.CHAT_MODEL_ENDPOINT ||
@@ -190,4 +203,30 @@ export function loadConfig(
     throw new Error('Invalid configuration: ChatGPT account model name is required');
   }
   return result.data;
+}
+
+export function providerAllowedOrigins(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ].map((item) => {
+    const url = new URL(item);
+    if (url.origin !== item.replace(/\/$/, '')) {
+      throw new Error('Invalid configuration: MODEL_PROVIDER_ALLOWED_ORIGINS');
+    }
+    return url.origin;
+  });
+}
+
+function validEncryptionKey(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    return Buffer.from(value, 'base64').byteLength === 32;
+  } catch {
+    return false;
+  }
 }

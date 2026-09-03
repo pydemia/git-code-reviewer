@@ -98,6 +98,60 @@ export const analysisPromptListSchema = z.object({
   items: z.array(analysisPromptVersionSchema),
 });
 
+export const analysisProviderModeSchema = z.enum(['disabled', 'openai-compatible']);
+export type AnalysisProviderMode = z.infer<typeof analysisProviderModeSchema>;
+
+export const analysisProviderVersionSchema = z.object({
+  id: z.string().uuid(),
+  version: z.number().int().positive(),
+  mode: analysisProviderModeSchema,
+  endpoint: z.string().url().nullable(),
+  modelName: z.string().nullable(),
+  timeoutMs: z.number().int().positive(),
+  apiKeyConfigured: z.boolean(),
+  configurationHash: z.string().regex(/^[0-9a-f]{64}$/),
+  active: z.boolean(),
+  createdBy: z.object({
+    subject: z.string(),
+    displayName: z.string(),
+  }),
+  activatedBy: z
+    .object({
+      subject: z.string(),
+      displayName: z.string(),
+    })
+    .nullable(),
+  activatedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AnalysisProviderVersion = z.infer<typeof analysisProviderVersionSchema>;
+
+export const analysisProviderEffectiveSchema = z.object({
+  source: z.enum(['administration', 'deployment']),
+  versionId: z.string().uuid().nullable(),
+  version: z.number().int().positive().nullable(),
+  mode: analysisProviderModeSchema,
+  endpoint: z.string().url().nullable(),
+  modelName: z.string().nullable(),
+  timeoutMs: z.number().int().positive(),
+  apiKeyConfigured: z.boolean(),
+  configurationHash: z.string().regex(/^[0-9a-f]{64}$/),
+});
+
+export const analysisProviderSettingsSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  editable: z.boolean(),
+  allowedOrigins: z.array(z.string().url()),
+  effective: analysisProviderEffectiveSchema,
+  deployment: analysisProviderEffectiveSchema.omit({
+    source: true,
+    versionId: true,
+    version: true,
+  }),
+  active: analysisProviderVersionSchema.nullable(),
+  items: z.array(analysisProviderVersionSchema),
+});
+
 export const repositorySchema = z.object({
   id: z.string().uuid(),
   githubId: z.string(),

@@ -55,8 +55,26 @@ resources:
     attr:
       tenantId: tenant-a
       enabled: true
+  analysis-provider:
+    id: global
+    kind: analysis_provider
+    attr:
+      enabled: true
 
 tests:
+  - name: Administrator manages and tests the analysis provider
+    input:
+      principals: [administrator, disabled-administrator, tenant-reviewer]
+      resources: [analysis-provider]
+      actions: [view, manage, test]
+    expected:
+      - principal: administrator
+        resource: analysis-provider
+        actions:
+          view: EFFECT_ALLOW
+          manage: EFFECT_ALLOW
+          test: EFFECT_ALLOW
+
   - name: Administrator manages tenant prompts
     input:
       principals: [administrator, disabled-administrator, tenant-reviewer]

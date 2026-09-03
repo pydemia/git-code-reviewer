@@ -22,6 +22,10 @@ import {
 } from './services/repositories.js';
 import { createChatModel } from './services/chat-model.js';
 import { AuthorizationService, AuthorizationUnavailableError } from './services/authorization.js';
+import {
+  getActiveAnalysisProviderRow,
+  resolveAnalysisProvider,
+} from './services/analysis-provider.js';
 
 const securityHeaders = {
   'content-security-policy':
@@ -193,9 +197,17 @@ async function dependencyHealth(
   try {
     const latencyMs = await pingDatabase(database);
     const authorizationStatus = await authorization.health();
+    let modelStatus: 'ok' | 'disabled' | 'degraded';
+    try {
+      const activeProvider = await getActiveAnalysisProviderRow(database);
+      const provider = await resolveAnalysisProvider(database, config, activeProvider?.id ?? null);
+      modelStatus = provider.mode === 'disabled' ? 'disabled' : 'ok';
+    } catch {
+      modelStatus = 'degraded';
+    }
     return {
       schemaVersion,
-      status: authorizationStatus === 'degraded' ? 'degraded' : 'ok',
+      status: authorizationStatus === 'degraded' || modelStatus === 'degraded' ? 'degraded' : 'ok',
       dependencies: {
         database: { status: 'ok', latencyMs },
         github: {
@@ -203,7 +215,7 @@ async function dependencyHealth(
           latencyMs: null,
         },
         model: {
-          status: config.MODEL_MODE === 'disabled' ? 'disabled' : 'ok',
+          status: modelStatus,
           latencyMs: null,
         },
         authorization: { status: authorizationStatus, latencyMs: null },

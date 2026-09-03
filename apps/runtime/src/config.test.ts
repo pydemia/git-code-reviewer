@@ -128,6 +128,27 @@ describe('loadConfig', () => {
     ).toThrow('model endpoint, API key, and name are required');
   });
 
+  it('requires an encryption key and endpoint allowlist for provider administration', () => {
+    expect(() => loadConfig({ ...baseEnvironment, MODEL_ADMIN_ENABLED: 'true' })).toThrow(
+      'model administration requires',
+    );
+    expect(() =>
+      loadConfig({
+        ...baseEnvironment,
+        MODEL_ADMIN_ENABLED: 'true',
+        MODEL_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+      }),
+    ).toThrow('model administration requires');
+    expect(
+      loadConfig({
+        ...baseEnvironment,
+        MODEL_ADMIN_ENABLED: 'true',
+        MODEL_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+        MODEL_PROVIDER_ALLOWED_ORIGINS: 'https://models.example.test',
+      }).MODEL_ADMIN_ENABLED,
+    ).toBe(true);
+  });
+
   it('requires a Cerbos endpoint only for the server command', () => {
     expect(() => loadConfig({ ...baseEnvironment, AUTHORIZATION_MODE: 'cerbos' })).toThrow(
       'CERBOS_URL is required',

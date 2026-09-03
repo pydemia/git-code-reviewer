@@ -4,13 +4,25 @@ import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireAdministrator } from '../auth/index.js';
-import type { AppConfig } from '../config.js';
+import { providerAllowedOrigins, type AppConfig } from '../config.js';
+import {
+  AnalysisProviderConfigurationError,
+  analysisProviderView,
+  deploymentAnalysisProvider,
+  getActiveAnalysisProviderRow,
+  getAnalysisProviderRow,
+  listAnalysisProviderRows,
+  prepareAnalysisProvider,
+  reusableProviderCredential,
+  testAnalysisProvider,
+} from '../services/analysis-provider.js';
 import type { AuthorizationResource, AuthorizationService } from '../services/authorization.js';
 
 const tenantParams = z.object({ tenantId: z.string().uuid() });
 const userParams = z.object({ userId: z.string().uuid() });
 const membershipParams = tenantParams.merge(userParams);
 const promptParams = tenantParams.extend({ promptId: z.string().uuid() });
+const providerParams = z.object({ providerId: z.string().uuid() });
 const tenantCreateBody = z.object({
   slug: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/),
   displayName: z.string().trim().min(1).max(120),
@@ -24,6 +36,20 @@ const tenantPatchBody = z
 const userPatchBody = z.object({ enabled: z.boolean() });
 const membershipBody = z.object({ enabled: z.boolean().default(true) });
 const promptBody = z.object({ instructions: z.string().trim().min(1).max(12_000) });
+const providerVersionBody = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('disabled'),
+    timeoutMs: z.number().int().min(1_000).max(600_000).default(120_000),
+  }),
+  z.object({
+    mode: z.literal('openai-compatible'),
+    endpoint: z.string().url().max(2_048),
+    modelName: z.string().trim().min(1).max(200),
+    timeoutMs: z.number().int().min(1_000).max(600_000),
+    apiKey: z.string().trim().min(1).max(16_384).optional(),
+  }),
+]);
+const providerTestBody = providerVersionBody.options[1];
 
 type PromptRow = {
   id: string;
@@ -236,6 +262,249 @@ export async function registerAdminRoutes(
   );
 
   app.get(
+    '/api/v1/admin/analysis-provider',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      if (!(await canManageProvider(authorization, request, 'view'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const result = await listAnalysisProviderRows(database);
+      const items = result.rows.map(analysisProviderView);
+      const active = items.find((item) => item.active) ?? null;
+      const deployment = deploymentAnalysisProvider(config);
+      const effective = active
+        ? {
+            source: 'administration' as const,
+            versionId: active.id,
+            version: active.version,
+            mode: active.mode,
+            endpoint: active.endpoint,
+            modelName: active.modelName,
+            timeoutMs: active.timeoutMs,
+            apiKeyConfigured: active.apiKeyConfigured,
+            configurationHash: active.configurationHash,
+          }
+        : providerEffectiveView(deployment);
+      return {
+        schemaVersion,
+        editable: config.MODEL_ADMIN_ENABLED,
+        allowedOrigins: providerAllowedOrigins(config.MODEL_PROVIDER_ALLOWED_ORIGINS),
+        effective,
+        deployment: {
+          mode: deployment.mode,
+          endpoint: deployment.endpoint,
+          modelName: deployment.modelName,
+          timeoutMs: deployment.timeoutMs,
+          apiKeyConfigured: deployment.apiKey !== null,
+          configurationHash: deployment.configurationHash,
+        },
+        active,
+        items,
+      };
+    },
+  );
+
+  app.post(
+    '/api/v1/admin/analysis-provider/versions',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      if (!(await canManageProvider(authorization, request, 'manage'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const body = providerVersionBody.parse(request.body);
+      const connection = await database.connect();
+      let providerId: string;
+      let hash: string;
+      try {
+        await connection.query('begin');
+        await lockProvider(connection);
+        const current = await getActiveAnalysisProviderRow(connection);
+        const reusableCredential =
+          body.mode === 'openai-compatible' && !body.apiKey
+            ? reusableProviderCredential(current, config)
+            : undefined;
+        const prepared = prepareAnalysisProvider(body, config, reusableCredential);
+        hash = prepared.configurationHash;
+        await connection.query('update analysis_provider_versions set active = false where active');
+        const existing = await connection.query<{ id: string }>(
+          'select id from analysis_provider_versions where configuration_hash = $1',
+          [hash],
+        );
+        if (existing.rows[0]) {
+          providerId = existing.rows[0].id;
+          await activateProvider(connection, providerId, request.user!.id);
+        } else {
+          const created = await connection.query<{ id: string }>(
+            `insert into analysis_provider_versions(
+               version, mode, endpoint, model_name, timeout_ms,
+               credential_ciphertext, credential_iv, credential_auth_tag,
+               configuration_hash, active, created_by, activated_by, activated_at
+             ) values (
+               (select coalesce(max(version), 0) + 1 from analysis_provider_versions),
+               $1, $2, $3, $4, $5, $6, $7, $8, true, $9, $9, clock_timestamp()
+             ) returning id`,
+            [
+              prepared.mode,
+              prepared.endpoint,
+              prepared.modelName,
+              prepared.timeoutMs,
+              prepared.credentialCiphertext,
+              prepared.credentialIv,
+              prepared.credentialAuthTag,
+              prepared.configurationHash,
+              request.user!.id,
+            ],
+          );
+          providerId = created.rows[0]!.id;
+        }
+        await writeAudit(
+          connection,
+          request,
+          'analysis_provider.activate',
+          'analysis_provider',
+          providerId,
+          {
+            mode: prepared.mode,
+            modelName: prepared.modelName,
+            configurationHash: prepared.configurationHash,
+          },
+        );
+        await connection.query('commit');
+      } catch (error) {
+        await connection.query('rollback');
+        if (error instanceof AnalysisProviderConfigurationError) {
+          return providerBadRequest(request, reply, error.message);
+        }
+        throw error;
+      } finally {
+        connection.release();
+      }
+      return reply.code(201).send({ schemaVersion, id: providerId, configurationHash: hash });
+    },
+  );
+
+  app.post(
+    '/api/v1/admin/analysis-provider/versions/:providerId/activate',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      if (!(await canManageProvider(authorization, request, 'manage'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const { providerId } = providerParams.parse(request.params);
+      if (!config.MODEL_ADMIN_ENABLED) {
+        return providerBadRequest(request, reply, 'Provider 관리자 설정이 비활성화되어 있습니다.');
+      }
+      const connection = await database.connect();
+      try {
+        await connection.query('begin');
+        await lockProvider(connection);
+        const provider = await getAnalysisProviderRow(connection, providerId);
+        if (!provider) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        if (provider.mode === 'openai-compatible') {
+          reusableProviderCredential(provider, config);
+        }
+        await connection.query('update analysis_provider_versions set active = false where active');
+        const result = await activateProvider(connection, providerId, request.user!.id);
+        if (!result.rowCount) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        await writeAudit(
+          connection,
+          request,
+          'analysis_provider.activate',
+          'analysis_provider',
+          providerId,
+          {},
+        );
+        await connection.query('commit');
+      } catch (error) {
+        await connection.query('rollback');
+        throw error;
+      } finally {
+        connection.release();
+      }
+      return { schemaVersion, id: providerId };
+    },
+  );
+
+  app.post(
+    '/api/v1/admin/analysis-provider/reset',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      if (!(await canManageProvider(authorization, request, 'manage'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const connection = await database.connect();
+      try {
+        await connection.query('begin');
+        await lockProvider(connection);
+        await connection.query('update analysis_provider_versions set active = false where active');
+        await writeAudit(
+          connection,
+          request,
+          'analysis_provider.reset',
+          'analysis_provider',
+          'deployment',
+          {},
+        );
+        await connection.query('commit');
+      } catch (error) {
+        await connection.query('rollback');
+        throw error;
+      } finally {
+        connection.release();
+      }
+      return { schemaVersion, active: null };
+    },
+  );
+
+  app.post(
+    '/api/v1/admin/analysis-provider/test',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      if (!(await canManageProvider(authorization, request, 'test'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const body = providerTestBody.parse(request.body);
+      try {
+        const current = await getActiveAnalysisProviderRow(database);
+        const apiKey = body.apiKey?.trim() || reusableProviderCredential(current, config);
+        const prepared = prepareAnalysisProvider(body, config, apiKey);
+        const latencyMs = await testAnalysisProvider({
+          source: 'administration',
+          versionId: null,
+          version: null,
+          mode: prepared.mode,
+          endpoint: prepared.endpoint,
+          modelName: prepared.modelName,
+          timeoutMs: prepared.timeoutMs,
+          apiKey: apiKey ?? null,
+          configurationHash: prepared.configurationHash,
+          profile: `openai-compatible:${prepared.modelName}`,
+        });
+        await writeAudit(
+          database,
+          request,
+          'analysis_provider.test',
+          'analysis_provider',
+          'draft',
+          { modelName: prepared.modelName, outcome: 'success' },
+        );
+        return { schemaVersion, status: 'ok', latencyMs };
+      } catch (error) {
+        if (error instanceof AnalysisProviderConfigurationError) {
+          return providerBadRequest(request, reply, error.message);
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.get(
     '/api/v1/admin/tenants/:tenantId/analysis-prompts',
     { preHandler: requireAdministrator },
     async (request, reply) => {
@@ -404,11 +673,16 @@ async function listPrompts(database: Database, config: AppConfig, tenantId: stri
      where prompt.tenant_id = $1 order by prompt.version desc`,
     [tenantId],
   );
+  const provider = await getActiveAnalysisProviderRow(database);
+  const deployment = deploymentAnalysisProvider(config);
   const items = result.rows.map(promptView);
   return {
     schemaVersion,
     tenant: tenantResult.rows[0]!,
-    model: { enabled: config.MODEL_MODE !== 'disabled', name: config.MODEL_NAME ?? null },
+    model: {
+      enabled: provider ? provider.mode !== 'disabled' : deployment.mode !== 'disabled',
+      name: provider?.modelName ?? deployment.modelName,
+    },
     active: items.find((item) => item.active) ?? null,
     items,
   };
@@ -450,6 +724,60 @@ async function lockPrompt(database: Pick<DatabaseClient, 'query'>, tenantId: str
     `select pg_advisory_xact_lock(hashtextextended('analysis-prompt:' || $1, 0))`,
     [tenantId],
   );
+}
+
+async function lockProvider(database: Pick<DatabaseClient, 'query'>) {
+  await database.query(`select pg_advisory_xact_lock(hashtextextended('analysis-provider', 0))`);
+}
+
+async function activateProvider(
+  database: Pick<Database, 'query'>,
+  providerId: string,
+  actorId: string,
+) {
+  return database.query(
+    `update analysis_provider_versions set active = true, activated_by = $2,
+       activated_at = clock_timestamp() where id = $1 returning id`,
+    [providerId, actorId],
+  );
+}
+
+async function canManageProvider(
+  authorization: AuthorizationService,
+  request: FastifyRequest,
+  action: 'view' | 'manage' | 'test',
+) {
+  return authorization.isAllowed(
+    request.user!,
+    action,
+    { kind: 'analysis_provider', id: 'global' },
+    request.id,
+  );
+}
+
+function providerEffectiveView(provider: ReturnType<typeof deploymentAnalysisProvider>) {
+  return {
+    source: provider.source,
+    versionId: provider.versionId,
+    version: provider.version,
+    mode: provider.mode,
+    endpoint: provider.endpoint,
+    modelName: provider.modelName,
+    timeoutMs: provider.timeoutMs,
+    apiKeyConfigured: provider.apiKey !== null,
+    configurationHash: provider.configurationHash,
+  };
+}
+
+function providerBadRequest(request: FastifyRequest, reply: FastifyReply, message: string) {
+  return reply.code(400).send({
+    error: {
+      code: 'INVALID_PROVIDER_CONFIGURATION',
+      message,
+      requestId: request.id,
+      retryable: false,
+    },
+  });
 }
 
 async function allowed(
