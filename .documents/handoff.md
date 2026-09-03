@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-03
 - branch: `feat/browser-review-service`
-- 단계: browser review service의 tenancy, authorization, admin provider/prompt 기능과 `0.6.0-alpha.1` preview release 완료
+- 단계: browser review service의 tenancy, authorization, admin provider/prompt와 bundled Keycloak Helm `0.7.0` release 완료
 - remote: phase별 구현 및 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -33,7 +33,7 @@
 
 Role은 `reviewer`, `administrator` 두 개다. Keycloak client role `git-code-reviewer-admin`, realm role 또는 설정된 admin group을 administrator로 매핑한다. Reviewer는 enabled tenant membership과 repository subject/group grant를 모두 가져야 repository와 PR을 볼 수 있다. 권한 없는 단일 resource는 존재 여부를 감추도록 404를 반환하며 Cerbos timeout, 오류 또는 잘못된 응답은 503으로 fail closed한다.
 
-Keycloak은 application과 DB, HA, backup, patch lifecycle이 다르므로 chart에 포함하지 않았다. 조직이 Entra ID, Okta, PingFederate 같은 OIDC provider를 이미 운영하면 Keycloak 대신 그대로 사용할 수 있다. Cerbos는 chart에 선택적으로 포함하거나 외부 PDP URL을 지정한다. 기존 OPA 운영 체계가 있다면 `AuthorizationService` adapter를 추가할 수 있고, 관계 모델이 훨씬 복잡해질 때만 OpenFGA 계열 ReBAC을 검토한다.
+Keycloak은 선택형 Bitnami chart dependency로 포함했고 enterprise values 예시에서 활성화한다. 전용 realm, confidential client, PKCE, admin client role과 groups mapper를 `keycloak-config-cli` hook으로 구성하며 별도 PostgreSQL PVC를 사용한다. 조직이 Entra ID, Okta, PingFederate 같은 OIDC provider를 이미 운영하면 기본값처럼 `keycloak.enabled=false`로 두고 기존 provider를 사용할 수 있다. Bundled mode에서도 identity DB, realm, TLS, HA, backup과 patch lifecycle은 application과 분리해 운영한다. Cerbos는 chart에 선택적으로 포함하거나 외부 PDP URL을 지정한다.
 
 관리자 browser UI `/admin`은 다음 기능을 제공한다.
 
@@ -86,14 +86,17 @@ Server 구현은 deployment-owned Codex `auth.json`을 전용 writable PVC에서
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.6.0`
+- version: `0.7.0`
 - app version: `0.6.0-alpha.1`
-- chart digest: `sha256:a8747424e87d744c6db183a3b62de0a895a1d3f0d2eb218cf7476224f5ca3c6d`
+- chart digest: `sha256:b39fb1bc5206f58970f3e4b11360c34af890a02ff65d59197948fad32b62ef42`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
+- identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
 - authorization: `authorization.mode=cerbos`, `cerbos.enabled=true`이면 bundled Cerbos와 versioned policy 설치
 
-Enterprise values 예시는 image manifest digest를 고정한다. Chart는 Server/Worker Deployment, Service/Ingress, migration 경로, retention CronJob, artifact PVC, 선택형 account PVC, Cerbos, security 설정과 선택형 PostgreSQL dependency를 생성한다. Provider 관리가 켜지면 allowlist를 ConfigMap에 넣고 같은 model Secret의 암호화 master key를 Server와 Worker에 주입한다. Keycloak은 외부 서비스로 연결한다.
+Enterprise values 예시는 image manifest digest를 고정한다. Chart는 Server/Worker Deployment, Service/Ingress, migration 경로, retention CronJob, artifact PVC, 선택형 account PVC, Keycloak, Cerbos, security 설정과 선택형 PostgreSQL dependency를 생성한다. Provider 관리가 켜지면 allowlist를 ConfigMap에 넣고 같은 model Secret의 암호화 master key를 Server와 Worker에 주입한다.
+
+Bitnami의 2025 community catalog 전환으로 Keycloak chart `25.2.0`의 원래 `bitnami/*` 고정 image tag는 현재 pull되지 않는다. Bundled 기본값은 실제 존재를 확인한 정확한 `bitnamilegacy/*` tag를 사용하지만 보안 update가 없으므로 pilot 용도다. 운영 전에는 조직이 검증한 internal rebuild/mirror 또는 Bitnami Secure Images의 repository/digest로 교체해야 한다.
 
 ## 7. 검증 상태
 
@@ -104,6 +107,9 @@ Local에서 완료한 항목:
 - Vitest 13개 파일, 56개 test
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - 기본, enterprise, bundled PostgreSQL+Cerbos Helm lint
+- default Keycloak 비활성, enterprise Keycloak 활성과 앱/Keycloak PostgreSQL 동시 render
+- Keycloak TLS Ingress, Secret 참조, realm/client/PKCE/admin role/groups mapper JSON과 OIDC discovery Helm test 확인
+- 잘못된 auth mode, TLS, auth Secret, admin role, callback과 database 설정의 fail-fast 확인
 - bundled PostgreSQL+Cerbos+ChatGPT account 복합 Helm render
 - local PostgreSQL migration과 실제 Cerbos mode authorization integration test
 - 관리자 browser UI의 tenant/user/provider/prompt workflow 확인
@@ -120,7 +126,7 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 
 1. Private GHES repository에 GitHub App을 설치하고 repository를 tenant에 등록한다.
 2. GHES REST/GraphQL/Git fetch, exact SHA link, polling과 manual refresh를 검증한다.
-3. Keycloak 또는 승인된 OIDC provider, StorageClass, TLS ingress, CA bundle과 network policy로 배포한다.
+3. Bundled Keycloak 또는 승인된 외부 OIDC provider, StorageClass, TLS ingress, CA bundle과 network policy로 배포한다.
 4. 실제 사용자에게 Keycloak role, tenant membership과 repository grant를 할당해 격리를 확인한다.
 5. `docs/operations/github-enterprise-test.md`의 end-to-end와 failure test를 수행한다.
 6. 공유 ChatGPT/Codex deployment account와 quota/data policy가 조직 정책에 부합하는지 확인한다.
@@ -135,6 +141,10 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 - `6e08fea` `feat: configure provider administration in Helm`
 - `898144c` `release: prepare provider administration preview`
 - `faf28a8` `release: pin provider preview image digest`
+
+Bundled Keycloak Helm 확장은 다음 commit에 있다.
+
+- `92a6e5e` `feat: bundle Keycloak with Helm deployments`
 
 직전 tenant/prompt 관리 확장은 다음 commit에 있다.
 
@@ -161,7 +171,8 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 8. `.documents/design-review-resolution-2026-09-02.md`
 9. `docs/operations/deployment.md`
 10. `docs/operations/identity-authorization.md`
-11. `docs/operations/github-enterprise-test.md`
+11. `docs/operations/backup-restore.md`
+12. `docs/operations/github-enterprise-test.md`
 
 시각 기준은 수정하지 않았다.
 
@@ -173,6 +184,8 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 ## 10. 주의사항
 
 - GitHub, model, OIDC, database 또는 ChatGPT account credential을 browser, ConfigMap, plain values나 log에 노출하지 않는다.
+- Bundled Keycloak의 `bitnamilegacy/*` image를 보안 update가 제공되는 production image로 간주하지 않는다. 운영 전 승인된 registry/digest로 교체한다.
+- Application PostgreSQL과 Keycloak PostgreSQL은 별도 DB/PVC/Secret이며 함께 활성화해도 resource name과 backup lifecycle을 분리한다.
 - `MODEL_CREDENTIAL_ENCRYPTION_KEY`는 Server와 Worker에 동일하게 주입하고 PostgreSQL, ConfigMap 또는 plain values에 두지 않는다. Key를 잃거나 바로 교체하면 기존 Provider version을 복호화할 수 없다.
 - Provider origin allowlist는 application SSRF 경계일 뿐 NetworkPolicy를 대체하지 않는다. 실제 model CIDR/port egress도 함께 제한한다.
 - Prompt 원문은 관리자 route 밖의 report, audit metadata, log와 trace에 노출하지 않는다.
