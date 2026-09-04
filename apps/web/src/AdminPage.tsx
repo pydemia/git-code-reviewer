@@ -3,7 +3,9 @@ import {
   Check,
   Cpu,
   FileText,
+  Github,
   KeyRound,
+  MessageSquare,
   Pencil,
   Play,
   Plus,
@@ -18,6 +20,13 @@ import {
   activateAnalysisProvider,
   activateAnalysisPrompt,
   createTenant,
+  createChatAccount,
+  createGitHubConnection,
+  registerGitHubRepository,
+  loadAdminChatAccounts,
+  loadAdminRepositories,
+  loadGitHubConnections,
+  pollAdminRepository,
   loadAdminTenants,
   loadAdminUsers,
   loadAnalysisProvider,
@@ -28,19 +37,25 @@ import {
   saveAnalysisProvider,
   saveAnalysisPrompt,
   testAnalysisProvider,
+  testGitHubConnection,
+  updateAdminRepository,
+  updateChatAccount,
   updateTenant,
   updateTenantMembership,
   updateUserAccess,
   type AdminUser,
+  type AdminChatAccount,
+  type AdminRepository,
   type AnalysisProviderInput,
   type AnalysisProviderSettings,
   type AnalysisPromptList,
   type Tenant,
+  type GitHubConnection,
   type User,
 } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
 
-type AdminTab = 'tenants' | 'users' | 'provider' | 'prompt';
+type AdminTab = 'tenants' | 'users' | 'provider' | 'prompt' | 'chat' | 'github';
 type TenantForm = {
   id?: string;
   slug: string;
@@ -69,6 +84,9 @@ export function AdminPage() {
   const [promptData, setPromptData] = useState<AnalysisPromptList | null>(null);
   const [promptDraft, setPromptDraft] = useState('');
   const [providerData, setProviderData] = useState<AnalysisProviderSettings | null>(null);
+  const [chatAccounts, setChatAccounts] = useState<AdminChatAccount[]>([]);
+  const [githubConnections, setGithubConnections] = useState<GitHubConnection[]>([]);
+  const [adminRepositories, setAdminRepositories] = useState<AdminRepository[]>([]);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>({
     mode: 'disabled',
     endpoint: '',
@@ -90,8 +108,19 @@ export function AdminPage() {
       loadAdminTenants(controller.signal),
       loadAdminUsers(controller.signal),
       loadAnalysisProvider(controller.signal),
+      loadAdminChatAccounts(controller.signal),
+      loadGitHubConnections(controller.signal),
+      loadAdminRepositories(controller.signal),
     ]).then(
-      ([currentUser, tenantItems, userItems, providerSettings]) => {
+      ([
+        currentUser,
+        tenantItems,
+        userItems,
+        providerSettings,
+        accountItems,
+        connectionItems,
+        repositories,
+      ]) => {
         if (currentUser.role !== 'administrator') {
           window.location.replace('/');
           return;
@@ -101,6 +130,9 @@ export function AdminPage() {
         setUsers(userItems);
         setProviderData(providerSettings);
         setProviderDraft(providerDraftFrom(providerSettings));
+        setChatAccounts(accountItems);
+        setGithubConnections(connectionItems);
+        setAdminRepositories(repositories);
         setSelectedTenantId((current) => {
           const selected = tenantItems.some((tenant) => tenant.id === current)
             ? current
@@ -278,6 +310,20 @@ export function AdminPage() {
           >
             <FileText size={16} /> 분석 프롬프트
           </button>
+          <button
+            className={tab === 'chat' ? 'active' : ''}
+            type="button"
+            onClick={() => selectTab('chat')}
+          >
+            <MessageSquare size={16} /> ChatGPT accounts
+          </button>
+          <button
+            className={tab === 'github' ? 'active' : ''}
+            type="button"
+            onClick={() => selectTab('github')}
+          >
+            <Github size={16} /> GHES 연결
+          </button>
         </aside>
 
         <main className="admin-main">
@@ -394,6 +440,75 @@ export function AdminPage() {
                   '기본 분석 프롬프트로 되돌렸습니다.',
                 );
               }}
+            />
+          ) : null}
+
+          {tab === 'chat' ? (
+            <ChatAccountPanel
+              accounts={chatAccounts}
+              tenants={tenants}
+              busyKey={busyKey}
+              onCreate={(values) =>
+                runMutation(
+                  'chat-account:create',
+                  () => createChatAccount(values),
+                  'ChatGPT account를 등록했습니다.',
+                )
+              }
+              onToggle={(accountId, enabled) =>
+                runMutation(
+                  `chat-account:${accountId}`,
+                  () => updateChatAccount(accountId, { enabled }),
+                  `ChatGPT account를 ${enabled ? '활성화' : '비활성화'}했습니다.`,
+                )
+              }
+            />
+          ) : null}
+
+          {tab === 'github' ? (
+            <GitHubConnectionPanel
+              connections={githubConnections}
+              repositories={adminRepositories}
+              tenants={tenants}
+              users={users}
+              busyKey={busyKey}
+              onCreate={(values) =>
+                runMutation(
+                  'github:create',
+                  () => createGitHubConnection(values),
+                  'GHES access token 연결을 등록했습니다.',
+                )
+              }
+              onTest={(connectionId) =>
+                runMutation(
+                  `github:test:${connectionId}`,
+                  async () => {
+                    await testGitHubConnection(connectionId);
+                  },
+                  'GHES 연결을 확인했습니다.',
+                )
+              }
+              onRegisterRepository={(connectionId, values) =>
+                runMutation(
+                  'github:repository',
+                  () => registerGitHubRepository(connectionId, values),
+                  'Review 대상 repository를 등록하고 polling을 예약했습니다.',
+                )
+              }
+              onRepositoryPollingChange={(repositoryId, enabled) =>
+                runMutation(
+                  `repository:${repositoryId}`,
+                  () => updateAdminRepository(repositoryId, { pollingEnabled: enabled }),
+                  `Repository polling을 ${enabled ? '활성화' : '중지'}했습니다.`,
+                )
+              }
+              onPollNow={(repositoryId) =>
+                runMutation(
+                  `repository:poll:${repositoryId}`,
+                  () => pollAdminRepository(repositoryId),
+                  '즉시 polling을 예약했습니다.',
+                )
+              }
             />
           ) : null}
 
@@ -990,9 +1105,465 @@ function ProviderPanel({
   );
 }
 
+function ChatAccountPanel({
+  accounts,
+  tenants,
+  busyKey,
+  onCreate,
+  onToggle,
+}: {
+  accounts: AdminChatAccount[];
+  tenants: Tenant[];
+  busyKey: string | null;
+  onCreate: (values: {
+    displayName: string;
+    endpoint?: string;
+    authJson: string;
+    models: Array<{
+      id: string;
+      displayName: string;
+      allowedEfforts: string[];
+      defaultEffort: string;
+    }>;
+    assignments: Array<{ scopeType: string; scopeId: string }>;
+  }) => Promise<unknown>;
+  onToggle: (accountId: string, enabled: boolean) => Promise<unknown>;
+}) {
+  const [displayName, setDisplayName] = useState('');
+  const [authJson, setAuthJson] = useState('');
+  const [endpoint, setEndpoint] = useState('');
+  const [modelName, setModelName] = useState('');
+  const [efforts, setEfforts] = useState('medium,high');
+  const [defaultEffort, setDefaultEffort] = useState('medium');
+  const [tenantId, setTenantId] = useState(tenants[0]?.id ?? '');
+
+  useEffect(() => {
+    if (!tenantId && tenants[0]) setTenantId(tenants[0].id);
+  }, [tenantId, tenants]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const allowedEfforts = [
+      ...new Set(
+        efforts
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    ];
+    await onCreate({
+      displayName,
+      ...(endpoint.trim() ? { endpoint: endpoint.trim() } : {}),
+      authJson,
+      models: [{ id: modelName, displayName: modelName, allowedEfforts, defaultEffort }],
+      assignments: tenantId
+        ? [{ scopeType: 'tenant', scopeId: tenantId }]
+        : [{ scopeType: 'all', scopeId: '*' }],
+    });
+    setAuthJson('');
+  };
+
+  return (
+    <section className="admin-section">
+      <div className="admin-title-row">
+        <div>
+          <p className="eyebrow">Chat credential registry</p>
+          <h1>ChatGPT accounts</h1>
+        </div>
+      </div>
+      <p className="admin-section-description">
+        Codex의 ChatGPT login으로 생성한 auth.json을 등록합니다. Credential 원문은 저장 후 다시
+        표시하지 않으며 사용자는 할당받은 account에서 model과 effort를 선택합니다.
+      </p>
+      <form className="registry-form" onSubmit={(event) => void submit(event)}>
+        <label className="field-label">
+          표시 이름
+          <input
+            required
+            maxLength={120}
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          Tenant 할당
+          <select value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
+            <option value="">모든 사용자</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-label">
+          Model ID
+          <input
+            required
+            maxLength={200}
+            value={modelName}
+            placeholder="Codex에서 사용할 model ID"
+            onChange={(event) => setModelName(event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          허용 effort
+          <input required value={efforts} onChange={(event) => setEfforts(event.target.value)} />
+        </label>
+        <label className="field-label">
+          기본 effort
+          <select value={defaultEffort} onChange={(event) => setDefaultEffort(event.target.value)}>
+            {[
+              ...new Set(
+                efforts
+                  .split(',')
+                  .map((value) => value.trim())
+                  .filter(Boolean),
+              ),
+            ].map((effort) => (
+              <option key={effort}>{effort}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field-label">
+          Codex endpoint (선택)
+          <input
+            type="url"
+            value={endpoint}
+            placeholder="기본 ChatGPT Codex endpoint 사용"
+            onChange={(event) => setEndpoint(event.target.value)}
+          />
+        </label>
+        <label className="field-label registry-secret-field">
+          auth.json
+          <input
+            type="password"
+            required
+            autoComplete="new-password"
+            value={authJson}
+            onChange={(event) => setAuthJson(event.target.value)}
+          />
+        </label>
+        <button className="command-button primary" type="submit" disabled={busyKey !== null}>
+          <Plus size={15} /> Account 등록
+        </button>
+      </form>
+      <div className="registry-list">
+        {accounts.map((account) => (
+          <article className="registry-card" key={account.id}>
+            <div>
+              <strong>{account.displayName}</strong>
+              <span>
+                {account.health} · credential v{account.credentialVersion}
+              </span>
+            </div>
+            <code>…{account.credentialFingerprint}</code>
+            <span>
+              {account.models
+                .map((model) => `${model.displayName} (${model.allowedEfforts.join('/')})`)
+                .join(', ')}
+            </span>
+            <div className="registry-card-actions">
+              <span>
+                {account.assignments
+                  .map((assignment) => `${assignment.scopeType}:${assignment.scopeId}`)
+                  .join(', ')}
+              </span>
+              <button
+                className="command-button"
+                type="button"
+                disabled={busyKey !== null}
+                onClick={() => void onToggle(account.id, !account.enabled)}
+              >
+                {account.enabled ? '비활성화' : '활성화'}
+              </button>
+            </div>
+          </article>
+        ))}
+        {accounts.length === 0 ? (
+          <div className="admin-empty">등록된 ChatGPT account가 없습니다.</div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function GitHubConnectionPanel({
+  connections,
+  repositories,
+  tenants,
+  users,
+  busyKey,
+  onCreate,
+  onTest,
+  onRegisterRepository,
+  onRepositoryPollingChange,
+  onPollNow,
+}: {
+  connections: GitHubConnection[];
+  repositories: AdminRepository[];
+  tenants: Tenant[];
+  users: AdminUser[];
+  busyKey: string | null;
+  onCreate: (values: {
+    name: string;
+    apiBaseUrl: string;
+    webBaseUrl: string;
+    credentialLabel: string;
+    accessToken: string;
+  }) => Promise<unknown>;
+  onTest: (connectionId: string) => Promise<unknown>;
+  onRegisterRepository: (
+    connectionId: string,
+    values: {
+      tenantId: string;
+      owner: string;
+      name: string;
+      pollIntervalSeconds: number;
+      grantSubjects: string[];
+    },
+  ) => Promise<unknown>;
+  onRepositoryPollingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
+  onPollNow: (repositoryId: string) => Promise<unknown>;
+}) {
+  const [name, setName] = useState('');
+  const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [webBaseUrl, setWebBaseUrl] = useState('');
+  const [credentialLabel, setCredentialLabel] = useState('default');
+  const [accessToken, setAccessToken] = useState('');
+  const [connectionId, setConnectionId] = useState('');
+  const [tenantId, setTenantId] = useState(tenants[0]?.id ?? '');
+  const [owner, setOwner] = useState('');
+  const [repositoryName, setRepositoryName] = useState('');
+  const [pollIntervalSeconds, setPollIntervalSeconds] = useState(120);
+  const [grantSubject, setGrantSubject] = useState('');
+
+  useEffect(() => {
+    if (!connectionId && connections[0]) setConnectionId(connections[0].id);
+    if (!tenantId && tenants[0]) setTenantId(tenants[0].id);
+  }, [connectionId, connections, tenantId, tenants]);
+
+  const submitConnection = async (event: FormEvent) => {
+    event.preventDefault();
+    await onCreate({ name, apiBaseUrl, webBaseUrl, credentialLabel, accessToken });
+    setAccessToken('');
+  };
+  const submitRepository = async (event: FormEvent) => {
+    event.preventDefault();
+    await onRegisterRepository(connectionId, {
+      tenantId,
+      owner,
+      name: repositoryName,
+      pollIntervalSeconds,
+      grantSubjects: grantSubject ? [grantSubject] : [],
+    });
+  };
+
+  return (
+    <section className="admin-section">
+      <div className="admin-title-row">
+        <div>
+          <p className="eyebrow">Outbound polling</p>
+          <h1>GHES 연결 및 repository</h1>
+        </div>
+      </div>
+      <p className="admin-section-description">
+        GHES가 이 서비스로 inbound 요청을 보내지 않습니다. Server가 access token으로 GHES API를
+        polling하고 Worker가 같은 token으로 필요한 commit만 clone합니다.
+      </p>
+      <form className="registry-form" onSubmit={(event) => void submitConnection(event)}>
+        <label className="field-label">
+          연결 이름
+          <input required value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <label className="field-label">
+          API base URL
+          <input
+            required
+            type="url"
+            placeholder="https://ghes.example/api/v3/"
+            value={apiBaseUrl}
+            onChange={(event) => setApiBaseUrl(event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          Web base URL
+          <input
+            required
+            type="url"
+            placeholder="https://ghes.example/"
+            value={webBaseUrl}
+            onChange={(event) => setWebBaseUrl(event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          Credential label
+          <input
+            required
+            value={credentialLabel}
+            onChange={(event) => setCredentialLabel(event.target.value)}
+          />
+        </label>
+        <label className="field-label registry-secret-field">
+          Access token
+          <input
+            required
+            type="password"
+            autoComplete="new-password"
+            value={accessToken}
+            onChange={(event) => setAccessToken(event.target.value)}
+          />
+        </label>
+        <button className="command-button primary" type="submit" disabled={busyKey !== null}>
+          <Plus size={15} /> 연결 등록
+        </button>
+      </form>
+      <div className="registry-list">
+        {connections.map((connection) => (
+          <article className="registry-card" key={connection.id}>
+            <div>
+              <strong>{connection.name}</strong>
+              <span>
+                {connection.health} · token v{connection.credentialVersion}
+              </span>
+            </div>
+            <code>{connection.apiBaseUrl}</code>
+            <code>…{connection.tokenFingerprint}</code>
+            <button
+              className="command-button"
+              type="button"
+              disabled={busyKey !== null}
+              onClick={() => void onTest(connection.id)}
+            >
+              <Play size={14} /> 연결 테스트
+            </button>
+          </article>
+        ))}
+      </div>
+      <div className="prompt-history-heading">
+        <strong>Review repository 등록</strong>
+      </div>
+      <form className="registry-form" onSubmit={(event) => void submitRepository(event)}>
+        <label className="field-label">
+          GHES 연결
+          <select
+            required
+            value={connectionId}
+            onChange={(event) => setConnectionId(event.target.value)}
+          >
+            {connections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {connection.name} / {connection.credentialLabel}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-label">
+          Tenant
+          <select required value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-label">
+          Owner
+          <input required value={owner} onChange={(event) => setOwner(event.target.value)} />
+        </label>
+        <label className="field-label">
+          Repository
+          <input
+            required
+            value={repositoryName}
+            onChange={(event) => setRepositoryName(event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          Polling interval (초)
+          <input
+            type="number"
+            min={30}
+            max={86400}
+            value={pollIntervalSeconds}
+            onChange={(event) => setPollIntervalSeconds(Number(event.target.value))}
+          />
+        </label>
+        <label className="field-label">
+          사용자 권한
+          <select value={grantSubject} onChange={(event) => setGrantSubject(event.target.value)}>
+            <option value="">관리자만</option>
+            {users.map((item) => (
+              <option key={item.id} value={item.subject}>
+                {item.displayName} ({item.subject})
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="command-button primary"
+          type="submit"
+          disabled={!connectionId || !tenantId || busyKey !== null}
+        >
+          <Plus size={15} /> Repository 등록
+        </button>
+      </form>
+      <div className="registry-list">
+        {repositories.map((repository) => (
+          <article className="registry-card" key={repository.id}>
+            <div>
+              <strong>
+                {repository.owner}/{repository.name}
+              </strong>
+              <span>
+                {repository.tenantName} · {repository.credentialLabel ?? 'GitHub App/fixture'}
+              </span>
+            </div>
+            <span>
+              {repository.pollIntervalSeconds}초 · {repository.pollOutcome ?? '대기'}
+            </span>
+            <span>
+              {repository.lastPolledAt
+                ? `마지막 ${formatAdminDate(repository.lastPolledAt)}`
+                : 'polling 이력 없음'}
+            </span>
+            <div className="registry-card-actions">
+              <button
+                className="command-button"
+                type="button"
+                disabled={!repository.pollingEnabled || busyKey !== null}
+                onClick={() => void onPollNow(repository.id)}
+              >
+                <RotateCcw size={14} /> 지금 Poll
+              </button>
+              <button
+                className="command-button"
+                type="button"
+                disabled={busyKey !== null}
+                onClick={() =>
+                  void onRepositoryPollingChange(repository.id, !repository.pollingEnabled)
+                }
+              >
+                {repository.pollingEnabled ? 'Polling 중지' : 'Polling 시작'}
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function readTab(): AdminTab {
   const value = new URLSearchParams(window.location.search).get('tab');
-  return value === 'users' || value === 'provider' || value === 'prompt' ? value : 'tenants';
+  return value === 'users' ||
+    value === 'provider' ||
+    value === 'prompt' ||
+    value === 'chat' ||
+    value === 'github'
+    ? value
+    : 'tenants';
 }
 
 function providerDraftFrom(settings: AnalysisProviderSettings): ProviderDraft {
