@@ -187,6 +187,7 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 이번 GHES credential 가이드와 Web GNB 확장은 다음 commit에 있다.
 
 - `a02ceb8` `feat: add in-app GHES credential guide`
+- `5a5cc38` `release: deploy GHES credential guide to PRISM-DEV`
 
 이번 Local account와 사용자별 repository grant 확장은 다음 commit에 있다.
 
