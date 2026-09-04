@@ -1,0 +1,108 @@
+# Single-node kind profile for GitHub.com integration tests. The RWO artifact
+# volume is only appropriate because every workload runs on the same node.
+image:
+  repository: docker.io/pydemia/git-code-reviewer
+  tag: '0.6.0-alpha.1'
+  digest: 'sha256:488540f6d426fc55900cca994f3c38586f2348ce07a149c95e519dfc43400ca3'
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+publicBaseUrl: http://127.0.0.1:4181
+
+server:
+  replicas: 1
+  databasePoolMax: 5
+  ingress:
+    enabled: false
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: '1', memory: 1Gi }
+
+worker:
+  replicas: 1
+  concurrency: 1
+  workspace:
+    mode: emptyDir
+    size: 5Gi
+    storageClass: ''
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: '2', memory: 4Gi }
+
+storage:
+  backend: pvc
+  artifacts:
+    existingClaim: ''
+    storageClass: standard
+    accessModes: [ReadWriteOnce]
+    size: 10Gi
+
+database:
+  existingSecret: ''
+
+postgresql:
+  enabled: true
+  architecture: standalone
+  auth:
+    username: git_code_reviewer
+    database: git_code_reviewer
+    existingSecret: git-code-reviewer-postgresql-auth
+  primary:
+    persistence:
+      enabled: true
+      storageClass: standard
+      size: 10Gi
+  metrics:
+    enabled: false
+
+keycloak:
+  enabled: false
+
+secrets:
+  githubApp: git-code-reviewer-github-app
+
+github:
+  mode: app
+
+auth:
+  mode: development
+  development:
+    subject: kind-administrator
+    displayName: Local kind Administrator
+    role: administrator
+  defaultTenantSlug: default
+  autoJoinDefaultTenant: true
+
+authorization:
+  mode: local
+
+cerbos:
+  enabled: false
+
+model:
+  analysis:
+    mode: disabled
+    admin:
+      enabled: false
+  chat:
+    mode: disabled
+
+trustedCa:
+  existingConfigMap: ''
+  key: ca.crt
+
+retention:
+  enabled: true
+  schedule: '*/10 * * * *'
+  reportDays: 14
+  chatDays: 7
+  eventLogHours: 24
+  orphanGraceHours: 24
+  deleteGraceHours: 1
+  batchSize: 500
+
+networkPolicy:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
