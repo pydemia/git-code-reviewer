@@ -5,7 +5,7 @@
 - 최종 갱신: 2026-09-04
 - branch: `feat/browser-review-service`
 - 단계: Local account 로그인, 시스템관리자·일반사용자 관리, 사용자별 repository grant와 PRISM-DEV Helm `0.9.0` 배포·검증 완료
-- remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push하는 단계
+- remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
@@ -175,7 +175,7 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 
 - `b466ec8` `feat: add local user authentication and administration`
 - `8f75b5c` `feat: manage user repository grants`
-- 배포 digest와 검증 문서 release commit은 push 후 이 목록에 추가한다.
+- `6d567fd` `release: verify local accounts on PRISM-DEV`
 
 이번 Provider 관리 확장의 phase commit은 다음과 같다.
 
