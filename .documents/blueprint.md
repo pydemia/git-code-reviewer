@@ -83,7 +83,7 @@ Git Code Reviewer는 PR diff를 요약하는 도구가 아니라, finding에서 
 
 - **Reviewer:** PR 위험, 근거, 영향 범위와 누락 test를 조사한다.
 - **PR author:** finding을 확인하고 수정 후 새 snapshot 분석을 요청한다.
-- **Service administrator:** GHES App, repository 등록, model, 보존 기간과 사용자를 관리한다.
+- **Service administrator:** Chat account/model/effort 정책, GHES access-token connection, repository/grant/polling, 보존 기간과 사용자를 관리한다.
 - **Operator:** Kubernetes release, storage, backup, 보존과 audit metadata를 관리한다.
 
 ### 5.2 Browser 사용 흐름
@@ -126,7 +126,7 @@ Reviewer가 `분석 새로고침`을 누르면 해당 PR poll을 background scan
 │ Pull Request API · GraphQL · Git HTTPS              │
 └──────────────────────────▲───────────────────────────┘
                            │ outbound HTTPS only
-                           │ installation access token
+                           │ administrator-registered access token
 ┌──────────────────────────┴───────────────────────────┐
 │ Git Code Reviewer Server                             │
 │                                                      │
@@ -182,7 +182,7 @@ MVP는 하나의 source repository와 하나의 release artifact로 관리한다
 
 ## 7. GitHub 연결과 polling
 
-### 7.1 GitHub App
+### 7.1 GHES access-token connection
 
 MVP permission은 read-only로 시작한다.
 
@@ -190,11 +190,11 @@ MVP permission은 read-only로 시작한다.
 - Contents: Read
 - Pull requests: Read
 
-server는 App JWT로 installation access token을 발급하고 API, GraphQL과 Git HTTPS에 사용한다. token은 짧게 cache하되 DB, job payload, Git remote URL과 log에 저장하지 않는다.
+시스템 관리자는 GHES instance와 승인된 service identity의 access token을 connection으로 등록한다. Token은 deployment master key로 암호화한 DB row로 보존하고 API header와 ephemeral Git credential helper에서만 복호화한다. DB 평문, job payload, Git remote URL과 log에는 저장하지 않는다. 시스템 관리자는 token으로 실제 조회 가능한 repository만 tenant에 등록하고 repository별 poll interval, disabled 상태와 Poll now trigger를 관리한다.
 
 ### 7.2 Repository 등록
 
-관리자는 App installation에서 허용된 repository를 분석 대상으로 등록한다. scheduler는 등록된 repository만 조회한다. 임의 clone URL, owner 또는 repository name을 browser request에서 받지 않고 server-side registry의 numeric ID로 해석한다.
+관리자는 등록한 GHES access token으로 조회 가능한 repository를 검색·검증한 뒤 분석 대상으로 등록한다. Scheduler는 등록된 repository만 조회한다. 임의 clone URL은 받지 않고 owner/name 입력도 GHES API에서 확인한 numeric repository ID로 정규화한 뒤 server-side registry에 저장한다. GHES token 권한과 application user/group grant는 별도로 관리한다.
 
 ### 7.3 Poll state
 
@@ -362,7 +362,7 @@ conversation은 `analysis_revision_id`에 고정한다. 새 head 분석이 완�
 
 답변에는 file, line, symbol, commit 또는 analyzer artifact citation이 있어야 한다. 사용자 질문과 repository text는 모두 untrusted input으로 처리한다.
 
-자동 분석과 remote Chat은 browser가 닫혀도 동작해야 하므로 조직이 승인한 server-side model credential을 사용한다. Worker는 batch 분석을, Server는 interactive Chat을 직접 호출하며 각 workload에 필요한 credential만 주입한다. 기본은 API credential이고, interactive Chat에는 관리자가 명시적으로 등록한 deployment-owned ChatGPT/Codex account도 허용한다. 이 account는 Secret으로 bootstrap한 뒤 Server 전용 encrypted PVC에서 refresh rotation을 보존하며 host home 자동 mount, browser token 전달과 사용자별 local CLI credential 암묵 재사용은 금지한다.
+자동 분석과 remote Chat은 browser가 닫혀도 동작해야 하므로 조직이 승인한 server-side credential을 사용한다. Worker는 batch 분석을, Server는 interactive Chat을 호출한다. 시스템 관리자는 여러 Chat account와 account별 model/reasoning effort capability, assignment와 quota를 등록한다. 일반 사용자는 자신에게 허용된 account, model과 effort를 고르고 이 선택은 analysis revision과 함께 Chat session에 고정된다. Credential과 refresh 결과는 deployment master key로 암호화한 PostgreSQL row에 보존하며 host home 자동 mount와 사용자 local CLI credential 암묵 재사용은 금지한다. 상세 설계는 [Chat account registry와 GHES repository 관리 설계](account-and-ghes-administration-design.md)를 따른다.
 
 ## 12. 데이터와 API
 
@@ -394,7 +394,7 @@ Browser API는 repository/PR worklist, refresh operation, immutable analysis, sn
 ## 13. 보안과 privacy
 
 - browser 사용자는 application OIDC를 기본으로 인증하고 repository grant를 확인한다. Reverse proxy identity는 signed assertion 검증, client header 제거와 ingress network 제한을 모두 만족할 때만 사용한다.
-- GitHub App private key와 model credential은 secret file 또는 vault reference로 주입한다.
+- GHES·Chat credential은 deployment master key로 암호화한 DB row로 보존하고 master key, OIDC와 DB secret만 Secret 또는 vault reference로 주입한다.
 - source, diff, prompt와 model response를 application log와 trace attribute에 넣지 않는다.
 - artifact volume과 database는 암호화하고 report/chat retention을 설정한다.
 - worker filesystem path는 server-generated run ID만 사용한다.
@@ -515,7 +515,7 @@ Milestone task와 완료 조건의 정본은 [구현 계획서](implementation-p
 
 ## 17. 구현 전 결정 gate
 
-결정 ID와 상태의 정본은 [요구사항 명세서](requirements-specification.md#15-구현-전-확정-항목)의 `DEC-001`부터 `DEC-016`이다. M0-00에서 GHES version/token/API/Git, fork/pull-ref, partial clone/deepen, rate-limit, model data policy, OIDC와 storage viability를 실제 환경으로 확인한다. 확인되지 않은 값은 조직 정책처럼 hard-code하지 않고 typed config와 명시적 validation error로 남긴다.
+결정 ID와 상태의 정본은 [요구사항 명세서](requirements-specification.md#15-구현-전-확정-항목)의 `DEC-001`부터 `DEC-019`다. M0-00에서 GHES version/access-token/API/Git, fork/pull-ref, partial clone/deepen, rate-limit, Chat account/model/effort, model data policy, OIDC와 storage viability를 실제 환경으로 확인한다. 확인되지 않은 값은 조직 정책처럼 hard-code하지 않고 typed config와 명시적 validation error로 남긴다.
 
 ## 18. 참고 자료
 

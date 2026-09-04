@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 신규 제품 기준안 v1 |
+| 상태 | 신규 제품 기준안 v2 |
 | 상위 설계 | `blueprint.md` |
 | 상세 설계 | `functional-design.md`, `ui-implementation-design.md` |
 | 사용자 접점 | 사내 HTTPS browser application |
@@ -22,7 +22,9 @@
 
 | 용어 | 정의 |
 |---|---|
-| registered repository | 관리자가 GitHub App 설치 범위 안에서 분석 대상으로 허용한 repository |
+| GHES connection | 시스템 관리자가 등록한 GHES instance와 암호화된 access token credential의 조합 |
+| registered repository | 시스템 관리자가 GHES connection의 token 권한을 검증하고 분석 대상으로 허용한 repository |
+| Chat account | 시스템 관리자가 등록하고 tenant/user/group 사용 범위를 정한 server-side ChatGPT 또는 승인된 API account |
 | snapshot request | Poll이 관측한 `repository + PR number + base SHA + head SHA` 분석 후보 |
 | snapshot materialization | request를 clone한 뒤 merge-base 결과와 계산 정책을 포함해 append-only로 확정한 불변 입력. API에서는 `snapshotId`로 식별한다. |
 | analysis revision | snapshot materialization, analyzer/model/policy version 조합으로 생성한 불변 report |
@@ -65,7 +67,7 @@
 | 사용자 | 허용 작업 |
 |---|---|
 | Reviewer/PR author | 허용된 repository/PR 조회, report 탐색, refresh 요청, 개인 Chat |
-| Service administrator | GitHub connection, repository, analysis profile, retention 설정 |
+| Service administrator | Chat account/model/effort 정책, GHES access-token connection, repository/grant/polling, analysis profile, retention 설정 |
 | Operator | 배포, metric/audit metadata 조회, backup/restore, 장애 복구 |
 
 | ID | 수준 | 요구사항 |
@@ -80,8 +82,8 @@
 
 | ID | 수준 | 요구사항 |
 |---|---|---|
-| REQ-GH-001 | 필수 | GitHub App permission은 Metadata, Contents, Pull requests의 Read로 제한한다. |
-| REQ-GH-002 | 필수 | App installation token을 API, GraphQL, Git HTTPS에 사용하고 영구 저장하지 않는다. |
+| REQ-GH-001 | 필수 | 시스템 관리자는 승인된 service identity의 GHES access token을 connection으로 등록하며 token 권한은 대상 private repository의 Metadata, Contents와 Pull requests read에 필요한 최소 범위로 제한한다. |
+| REQ-GH-002 | 필수 | GHES access token은 deployment master key로 암호화해 저장하고 API header와 ephemeral Git credential helper에서만 복호화해 사용한다. Browser response, clone URL, Git config, job payload와 log에 원문이나 ciphertext를 넣지 않는다. |
 | REQ-GH-003 | 필수 | scheduler는 registered repository만 polling한다. |
 | REQ-GH-004 | 필수 | open PR과 base/head SHA 변화를 browser가 닫혀 있어도 감지한다. |
 | REQ-GH-005 | 필수 | active PR과 idle/draft repository에 서로 다른 poll interval과 backoff를 적용한다. |
@@ -93,6 +95,10 @@
 | REQ-GH-011 | 제외 | MVP는 GitHub에 report, comment, Check 또는 status를 쓰지 않는다. |
 | REQ-GH-012 | 필수 | poll은 PR의 현재 base branch tip을 authoritative source에서 관측하고 base 또는 head가 바뀌면 새 snapshot request를 만든다. |
 | REQ-GH-013 | 필수 | draft PR도 polling과 자동 분석 대상에 포함하되 idle tier를 기본으로 하며 관리자가 자동 분석을 끌 수 있다. Manual refresh는 항상 허용한다. |
+| REQ-GH-014 | 필수 | 시스템 관리자는 GHES connection을 등록·검증·회전·비활성화하고 token expiry, 마지막 검증, rate-limit과 401/403 상태를 확인한다. |
+| REQ-GH-015 | 필수 | 시스템 관리자는 token으로 실제 조회 가능한 repository만 tenant에 등록하고 automatic polling, hot/active/idle/draft interval과 Poll now trigger를 관리한다. |
+| REQ-GH-016 | 필수 | GHES token의 외부 repository read 권한과 application의 tenant membership/repository grant를 별도 경계로 검사한다. |
+| REQ-GH-017 | 필수 | 시스템 관리자는 repository별 user/group grant를 browser UI와 API에서 조회·부여·회수할 수 있다. |
 
 ## 6. Snapshot과 Git workspace
 
@@ -198,15 +204,20 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | REQ-CHAT-004 | 필수 | 허용 tool은 report, snapshot file, symbol, history, impact, test, diff 조회로 제한한다. |
 | REQ-CHAT-005 | 필수 | 질문과 repository text를 untrusted input으로 취급한다. |
 | REQ-CHAT-006 | 필수 | Chat stream이 끊기면 완료 message를 재조회하거나 명시적으로 재시도할 수 있다. |
-| REQ-CHAT-007 | 필수 | model credential은 server-side secret이다. ChatGPT account mode는 관리자가 명시적으로 등록한 deployment-owned Codex account만 허용하고 host home 자동 mount, browser token 전달과 사용자별 local CLI credential 암묵 재사용을 금지한다. 회전된 refresh token은 Server 전용 encrypted persistent store에 보존한다. |
+| REQ-CHAT-007 | 필수 | 시스템 관리자는 여러 Chat account를 server-side registry에 등록·검증·회전·비활성화하고 tenant/user/group assignment를 설정한다. Credential과 refresh 결과는 deployment master key로 암호화하며 host home 자동 mount와 사용자 local CLI credential의 암묵 재사용을 금지한다. |
 | REQ-CHAT-008 | 필수 | Chat은 사용자별 concurrency, rate, tool-turn과 timeout limit을 강제하고 초과 시 typed `429` 또는 limit error를 반환한다. |
 | REQ-CHAT-009 | 필수 | Interactive model이 비활성화되면 Chat 가용 상태를 명시하고 message를 저장하기 전에 typed `503`을 반환한다. Report 문구를 합성 답변처럼 재사용하지 않으며 fixture GHES mode도 model 호출 여부를 바꾸지 않는다. |
+| REQ-CHAT-010 | 필수 | 일반 사용자는 자신에게 할당된 enabled Chat account, 해당 account에 허용된 model과 reasoning effort를 선택할 수 있다. |
+| REQ-CHAT-011 | 필수 | Chat session은 `user + analysis revision + account + model + reasoning effort + credential version`을 생성 시 고정한다. Account/model/effort 변경은 기존 session 수정이 아니라 새 session을 만든다. |
+| REQ-CHAT-012 | 필수 | 시스템 관리자는 account별 model ID, 지원 effort 목록, 기본/최대 effort, account/user concurrency와 기간별 사용 한도를 관리한다. |
+| REQ-CHAT-013 | 필수 | Server는 account assignment와 model/effort capability를 session 생성과 message 전송 시 다시 검사하고 허용되지 않은 조합을 provider 호출 전에 거부한다. |
+| REQ-CHAT-014 | 조건부 | ChatGPT/Codex account token을 다중 사용자 service에서 보관·갱신하는 방식은 OpenAI와 조직 정책이 허용하는 인증 contract를 확인한 경우에만 활성화한다. 승인되지 않은 account로 자동 fallback하지 않는다. |
 
 ## 10. API, data와 상태
 
 | ID | 수준 | 요구사항 |
 |---|---|---|
-| REQ-DATA-001 | 필수 | PostgreSQL에 users, repositories, PR, poll state, snapshot requests/materializations, runs, jobs, reports와 Chat metadata를 저장한다. |
+| REQ-DATA-001 | 필수 | PostgreSQL에 users/tenants/memberships, GHES instances/encrypted credentials, repositories/grants/poll policies, Chat accounts/assignments/capabilities, PR, snapshot, run, job, report와 session metadata를 저장한다. |
 | REQ-DATA-002 | 필수 | bounded source/diff/index/report artifact는 checksum과 schema version을 가진 별도 storage object로 저장한다. |
 | REQ-DATA-003 | 필수 | analysis run은 `requested|preparing|analyzing|persisting|completed|partial|failed|superseded|cancelled` 상태를 가진다. |
 | REQ-DATA-004 | 필수 | job claim은 lease와 heartbeat를 사용해 executor 종료 후 복구할 수 있다. |
@@ -226,7 +237,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 
 | ID | 수준 | 요구사항 |
 |---|---|---|
-| REQ-SEC-001 | 필수 | GitHub App key, OIDC secret, DB credential, model key는 runtime secret으로 주입한다. |
+| REQ-SEC-001 | 필수 | OIDC/DB secret과 GHES·Chat credential을 암호화하는 master key는 runtime Secret으로 주입한다. Admin이 등록한 GHES·Chat credential은 이 key로 암호화한 DB row로 보존한다. |
 | REQ-SEC-002 | 필수 | secret을 image layer, repository와 plain Helm values에 넣지 않는다. |
 | REQ-SEC-003 | 필수 | server와 worker egress는 각 workload가 실제 사용하는 GHES, model, PostgreSQL, artifact backend와 필수 infrastructure로 제한한다. |
 | REQ-SEC-004 | 필수 | model tool handler가 repository/snapshot/path scope를 server-side에서 강제한다. |
@@ -234,7 +245,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | REQ-SEC-006 | 필수 | DB와 persistent artifact는 조직 정책에 따라 at-rest encryption과 backup을 적용한다. |
 | REQ-SEC-007 | 필수 | log/metric/trace label에 source, diff, prompt, token, repository path를 넣지 않는다. |
 | REQ-SEC-008 | 필수 | report/chat/source retention과 사용자 삭제 범위를 설정하며 Chat은 참조 report보다 오래 보존하지 않는다. |
-| REQ-SEC-009 | 필수 | model credential은 실제 model을 호출하는 server와 worker에만 주입한다. |
+| REQ-SEC-009 | 필수 | Chat account credential은 Server만, GHES credential은 polling Server와 clone Worker만, batch model credential은 Worker만 복호화할 수 있다. |
 | REQ-SEC-010 | 필수 | CSP, referrer/content-type/permissions 보안 header와 외부 resource 차단 정책을 적용한다. HSTS는 ingress/platform 정책을 따른다. |
 | REQ-SEC-011 | 조건부 | reverse proxy identity는 signed assertion 검증, client identity header 제거와 ingress network 제한이 함께 적용될 때만 신뢰한다. |
 | REQ-SEC-012 | 필수 | audit event catalogue를 정의하고 source/prompt 원문 없이 actor/action/resource/outcome/request/time metadata만 기록한다. |
@@ -307,12 +318,17 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | AC-22 | report 바로가기 | 복사한 report/finding/evidence/object link가 로그인 후 같은 analysis revision과 selection을 연다. |
 | AC-23 | GHES 바로가기 | File/line link가 exact SHA의 GHES source를 열며 path/line이 없거나 권한이 없으면 안전한 fallback을 표시한다. |
 | AC-24 | 객체 관계 탐색 | 선택 symbol의 parent/children과 uses/used-by, edge evidence와 PR 전후 상태를 탐색하고 transitive omission을 확인한다. |
+| AC-25 | Chat account 선택 | 관리자 assignment에 따라 사용자별 account 목록이 분리되고 선택한 account/model/effort가 새 session에 고정된다. |
+| AC-26 | Chat 설정 변경 | 대화 중 account/model/effort를 바꾸면 기존 대화는 유지되고 새 session이 생성된다. |
+| AC-27 | GHES token 등록 | 관리자가 access token을 등록·검증해 조회 가능한 repository만 tenant에 등록하며 credential 원문이 노출되지 않는다. |
+| AC-28 | Polling 관리 | repository별 interval/disabled 설정과 Poll now가 적용되고 401/403/429 상태가 독립적으로 표시된다. |
+| AC-29 | 이중 권한 경계 | GHES token 권한과 application repository grant 중 하나라도 없으면 해당 경계에서 접근이 차단된다. |
 
 ## 15. 구현 전 확정 항목
 
 | ID | 항목 |
 |---|---|
-| DEC-001 | 대상 GHES exact version과 App 설치 정책 |
+| DEC-001 | 대상 GHES exact version, access-token 종류와 최소 read scope |
 | DEC-002 | OIDC integration 방식과 group/role mapping |
 | DEC-003 | 우선 지원 언어 두 개 |
 | DEC-004 | registered repository/open PR 규모와 허용 poll lag |
@@ -328,6 +344,9 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | DEC-014 | Poll 규모가 scheduler sharding을 요구하는 기준 |
 | DEC-015 | Analysis/Chat/workspace resource budget 초기값 |
 | DEC-016 | Audit 조회를 제품 UI 또는 외부 로그 시스템 중 어디에 제공할지 |
+| DEC-017 | ChatGPT account를 server registry에서 보관·갱신하는 방식에 대한 OpenAI/조직 승인 여부 |
+| DEC-018 | Chat account별 허용 model/effort capability와 사용자·account quota 정책 |
+| DEC-019 | GHES token service identity, 만료/rotation 주기와 repository별 polling interval 범위 |
 
 ## 16. 요구사항 추적 기준
 

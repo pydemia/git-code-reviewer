@@ -2,13 +2,24 @@
 
 ## 1. 현재 상태
 
-- 최종 갱신: 2026-09-03
+- 최종 갱신: 2026-09-04
 - branch: `feat/browser-review-service`
 - 단계: browser review service의 tenancy, authorization, admin provider/prompt와 bundled Keycloak Helm `0.7.0` release 완료
 - remote: phase별 구현 및 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 1.1 2026-09-04 확정 요구사항과 현재 gap
+
+사용자가 다음 target behavior를 확정했다.
+
+- 시스템 관리자는 여러 ChatGPT account를 등록하고 account별 model, 허용/default/max reasoning effort와 tenant/user/group assignment를 관리한다.
+- 일반 사용자는 허용된 Chat account, model과 effort를 선택해 대화를 시작한다. 선택은 session에 고정되고 변경하면 새 session을 만든다.
+- 시스템 관리자는 GHES access-token connection과 review repository를 등록하고 repository별 polling interval/disabled/Poll now trigger 및 user/group grant를 관리한다.
+- GHES token이 부여하는 외부 read 권한과 application repository grant는 별도로 검사한다.
+
+현재 code와 PRISM-DEV 배포는 이 target을 충족하지 않는다. Chat은 deployment account 하나와 고정 model/medium effort만 지원하고, GHES는 전역 GitHub App credential만 지원한다. Repository 등록은 backend API만 있으며 repository grant API/UI, Chat account registry/selector, GHES token connection/polling Admin UI가 없다. 구현 전 정본은 [Chat account registry와 GHES repository 관리 설계](account-and-ghes-administration-design.md)와 구현 계획의 CP-01~CP-10이다.
 
 ## 2. 제품과 runtime 경계
 
