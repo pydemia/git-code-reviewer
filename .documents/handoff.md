@@ -101,6 +101,7 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
 - version: `0.8.2`
 - app version: `0.7.0-alpha.3`
+- chart digest: `sha256:7e3559a2c3d00d0f0ad83821fd18c7ec5f00c94493bfd6abb6d3704b21d71398`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
