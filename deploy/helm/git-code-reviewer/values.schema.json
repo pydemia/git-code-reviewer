@@ -12,6 +12,7 @@
     "postgresql",
     "keycloak",
     "secrets",
+    "credentialRegistry",
     "github",
     "auth",
     "authorization",
@@ -308,20 +309,36 @@
     },
     "secrets": {
       "type": "object",
-      "required": ["githubApp", "auth", "modelProvider", "chatModelProvider", "chatgptAccount"],
+      "required": [
+        "githubApp",
+        "auth",
+        "modelProvider",
+        "chatModelProvider",
+        "chatgptAccount",
+        "credentialRegistry"
+      ],
       "properties": {
         "githubApp": { "type": "string" },
         "auth": { "type": "string" },
         "modelProvider": { "type": "string" },
         "chatModelProvider": { "type": "string" },
-        "chatgptAccount": { "type": "string" }
+        "chatgptAccount": { "type": "string" },
+        "credentialRegistry": { "type": "string" }
+      }
+    },
+    "credentialRegistry": {
+      "type": "object",
+      "required": ["enabled", "encryptionKeyKey"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "encryptionKeyKey": { "type": "string", "minLength": 1 }
       }
     },
     "github": {
       "type": "object",
       "required": ["mode", "appIdKey", "privateKeyKey"],
       "properties": {
-        "mode": { "enum": ["disabled", "fixture", "app"] },
+        "mode": { "enum": ["disabled", "fixture", "app", "registry"] },
         "appIdKey": { "type": "string", "minLength": 1 },
         "privateKeyKey": { "type": "string", "minLength": 1 }
       }
@@ -467,7 +484,7 @@
         "account"
       ],
       "properties": {
-        "mode": { "enum": ["disabled", "openai-compatible", "chatgpt-account"] },
+        "mode": { "enum": ["disabled", "openai-compatible", "chatgpt-account", "registry"] },
         "endpoint": { "type": "string" },
         "name": { "type": "string" },
         "apiKeyKey": { "type": "string", "minLength": 1 },

@@ -42,6 +42,13 @@ spec:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
           env:
             {{- include "git-code-reviewer.databaseEnv" . | nindent 12 }}
+            {{- if .Values.credentialRegistry.enabled }}
+            - name: CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.credentialRegistry }}
+                  key: {{ .Values.credentialRegistry.encryptionKeyKey }}
+            {{- end }}
             {{- if eq .Values.github.mode "app" }}
             - name: GITHUB_APP_ID
               valueFrom:

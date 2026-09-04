@@ -1,0 +1,101 @@
+# PRISM-DEV 검증 전용 profile.
+#
+# - kube context: PRISM-DEV (~/.kube/config)
+# - Kubernetes API: https://10.250.107.193:6443
+# - namespace: git-code-reviewer
+# - StorageClass: nfs-csi (RWX artifact, RWO PostgreSQL)
+# - 접근: kubectl port-forward only
+# - 인증/GitHub/model: fixture smoke test용
+
+image:
+  repository: docker.io/pydemia/git-code-reviewer
+  tag: '0.7.0-alpha.1'
+  digest: ''
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+publicBaseUrl: http://127.0.0.1:8080
+
+server:
+  replicas: 1
+  ingress:
+    enabled: false
+
+worker:
+  replicas: 1
+  concurrency: 1
+  workspace:
+    mode: emptyDir
+    size: 5Gi
+    storageClass: ''
+
+storage:
+  backend: pvc
+  artifacts:
+    existingClaim: ''
+    storageClass: nfs-csi
+    accessModes: [ReadWriteMany]
+    size: 10Gi
+
+database:
+  existingSecret: ''
+
+postgresql:
+  enabled: true
+  architecture: standalone
+  image:
+    # postgresql chart 18.8.14의 기본값은 latest이므로 PRISM-DEV 검증에서는
+    # 현재 linux/amd64 manifest를 고정한다.
+    digest: 'sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204'
+  auth:
+    username: git_code_reviewer
+    database: git_code_reviewer
+    existingSecret: git-code-reviewer-postgresql-auth
+  primary:
+    persistence:
+      enabled: true
+      storageClass: nfs-csi
+      size: 10Gi
+
+keycloak:
+  enabled: false
+
+secrets:
+  githubApp: ''
+  credentialRegistry: git-code-reviewer-credential-registry
+
+credentialRegistry:
+  enabled: true
+  encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
+
+github:
+  mode: fixture
+
+auth:
+  mode: development
+  development:
+    subject: prism-dev-administrator
+    displayName: PRISM-DEV Administrator
+    role: administrator
+  autoJoinDefaultTenant: true
+
+authorization:
+  mode: local
+
+cerbos:
+  enabled: false
+
+model:
+  analysis:
+    mode: disabled
+    admin:
+      enabled: false
+  chat:
+    mode: registry
+
+networkPolicy:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
