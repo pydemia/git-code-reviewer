@@ -119,6 +119,24 @@ PostgreSQL 최초 초기화 중 Server와 Worker의 `migrate` init container가 
 
 자동 Browser 검증은 실행 환경에 연결된 browser instance가 없어 수행하지 못했다. 대신 `/`와 `/admin`이 HTTP 200, `text/html`, `<title>Git Code Reviewer</title>`을 반환하는 것까지 확인했다.
 
+### Credential registry 배포 검증
+
+Helm release revision 4에서 application `0.7.0-alpha.3`, chart `0.8.2`를 배포했다.
+
+| 검증 항목       | 결과                                                                      |
+| --------------- | ------------------------------------------------------------------------- |
+| Server/Worker   | 각 1개 `Ready`, restart 0회                                               |
+| Image           | `sha256:52d95d8ca295b72409dc50933bf33e6cf965e9ef6fcf744262d1cc66443e94b4` |
+| DB migration    | `0009_account_and_ghes_registries.sql` 적용                               |
+| Registry API    | 사용자/admin Chat account, GHES connection, admin repository API HTTP 200 |
+| Credential 저장 | synthetic auth.json 원문이 ciphertext에 포함되지 않음을 DB에서 확인       |
+| Chat 선택       | account, model, `high` effort와 credential version의 session 고정 확인    |
+| Polling         | Poll now 요청 후 fixture repository의 `lastPolledAt` 갱신                 |
+| Scheduler       | rolling update 후 advisory lock leadership 획득 확인                      |
+| UI artifact     | ChatGPT accounts, GHES 연결, 빈 account 안내, Git graph marker 확인       |
+
+검증에 사용한 synthetic account와 Chat session은 확인 직후 삭제했다. 실제 GHES token과 ChatGPT auth.json은 제공되지 않아 외부 provider 인증 E2E는 수행하지 않았다. `agent-browser` 실행 파일과 연결된 browser instance가 없어 자동 visual 검증은 수행하지 못했으며 HTML/JavaScript artifact와 API를 검증했다.
+
 ## 실제 GHES 및 ChatGPT account 등록
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.

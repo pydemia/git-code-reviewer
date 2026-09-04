@@ -4,13 +4,13 @@
 
 - 최종 갱신: 2026-09-04
 - branch: `feat/browser-review-service`
-- 단계: browser review service의 tenancy, authorization, admin provider/prompt와 bundled Keycloak Helm `0.7.0` release 완료
+- 단계: ChatGPT account/GHES credential registry, 사용자 model·effort 선택, repository별 polling과 PRISM-DEV Helm `0.8.2` 배포 완료
 - remote: phase별 구현 및 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 1.1 2026-09-04 확정 요구사항과 현재 gap
+### 1.1 2026-09-04 확정 요구사항과 구현 상태
 
 사용자가 다음 target behavior를 확정했다.
 
@@ -19,7 +19,7 @@
 - 시스템 관리자는 GHES access-token connection과 review repository를 등록하고 repository별 polling interval/disabled/Poll now trigger 및 user/group grant를 관리한다.
 - GHES token이 부여하는 외부 read 권한과 application repository grant는 별도로 검사한다.
 
-현재 code와 PRISM-DEV 배포는 이 target을 충족하지 않는다. Chat은 deployment account 하나와 고정 model/medium effort만 지원하고, GHES는 전역 GitHub App credential만 지원한다. Repository 등록은 backend API만 있으며 repository grant API/UI, Chat account registry/selector, GHES token connection/polling Admin UI가 없다. 구현 전 정본은 [Chat account registry와 GHES repository 관리 설계](account-and-ghes-administration-design.md)와 구현 계획의 CP-01~CP-10이다.
+위 동작은 migration `0009`, encrypted credential registry, 관리자 API/UI, 사용자 Chat selector와 저장소별 reader 선택으로 구현됐다. PRISM-DEV에는 registry를 활성화했지만 실제 ChatGPT account와 GHES token은 등록하지 않아 registry가 빈 상태다. 실제 credential을 전달받은 뒤 `/admin?tab=chat`, `/admin?tab=github`에서 등록·연결 테스트를 수행해야 외부 E2E가 완료된다. Repository grant는 등록 시 사용자 subject 1개를 선택할 수 있으며 다중 user/group grant를 사후 편집하는 전용 UI는 후속 범위다.
 
 ## 2. 제품과 runtime 경계
 
@@ -76,20 +76,22 @@ Provider version은 수정하거나 삭제하지 않는다. API key는 deploymen
 
 ## 5. ChatGPT account 연동
 
-Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account` 세 mode를 지원한다.
+Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account`, `registry` 네 mode를 지원한다.
 
 `chatgpt-account`는 Demian의 Node.js Codex provider에서 확인한 공개 동작과 호환되도록 구현했다. `demian-cli` package는 관련 없는 agent runtime까지 bundle하고 안정적인 TypeScript declaration을 제공하지 않으므로 dependency로 추가하지 않고 작은 local provider boundary만 유지했다.
 
-Server 구현은 deployment-owned Codex `auth.json`을 전용 writable PVC에서 읽고, account/installation header를 포함한 streaming Codex Responses request, proactive token refresh, HTTP 401 뒤 한 번의 refresh/retry와 mode `0600` 원자 저장을 수행한다. 이 credential은 interactive Chat에만 사용하며 Worker에 전달하지 않는다. 각 사용자의 local Codex login을 암묵적으로 재사용하지 않고 모든 application 사용자가 하나의 deployment account를 공유한다.
+기존 `chatgpt-account` mode는 deployment-owned Codex `auth.json`을 전용 writable PVC에서 읽는다. 새 `registry` mode에서는 관리자가 auth.json을 등록하고 tenant/user/group에 account를 할당한다. AES-256-GCM 암호문만 PostgreSQL에 저장하며 API는 credential 원문을 반환하지 않는다. 사용자는 할당된 account, model, effort를 선택하고 이 조합과 credential version은 Chat session에 고정된다. Token refresh 결과도 같은 master key로 다시 암호화해 version을 올린다.
+
+GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone 직전에만 token을 복호화한다. Fixture/GitHub App 전역 reader와 token 기반 reader를 저장소 단위로 함께 사용할 수 있다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다.
 
 ## 6. 배포 artifact
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.6.0-alpha.1`
-- source tag: `docker.io/pydemia/git-code-reviewer:sha-898144c4730c`
-- manifest digest: `sha256:488540f6d426fc55900cca994f3c38586f2348ce07a149c95e519dfc43400ca3`
-- platform: `linux/amd64`, `linux/arm64`
+- image: `docker.io/pydemia/git-code-reviewer:0.7.0-alpha.3`
+- source tag: `docker.io/pydemia/git-code-reviewer:sha-cb12b514035a`
+- manifest digest: `sha256:52d95d8ca295b72409dc50933bf33e6cf965e9ef6fcf744262d1cc66443e94b4`
+- platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
 하나의 immutable image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
@@ -97,9 +99,8 @@ Server 구현은 deployment-owned Codex `auth.json`을 전용 writable PVC에서
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.7.0`
-- app version: `0.6.0-alpha.1`
-- chart digest: `sha256:b39fb1bc5206f58970f3e4b11360c34af890a02ff65d59197948fad32b62ef42`
+- version: `0.8.2`
+- app version: `0.7.0-alpha.3`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -115,7 +116,7 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 13개 파일, 56개 test
+- Vitest 15개 파일, 61개 test
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - 기본, enterprise, bundled PostgreSQL+Cerbos Helm lint
 - default Keycloak 비활성, enterprise Keycloak 활성과 앱/Keycloak PostgreSQL 동시 render
@@ -123,6 +124,16 @@ Local에서 완료한 항목:
 - 잘못된 auth mode, TLS, auth Secret, admin role, callback과 database 설정의 fail-fast 확인
 - bundled PostgreSQL+Cerbos+ChatGPT account 복합 Helm render
 - local PostgreSQL migration과 실제 Cerbos mode authorization integration test
+
+PRISM-DEV release revision 4 검증:
+
+- Kubernetes API `https://10.250.107.193:6443`, namespace/release `git-code-reviewer`
+- Server/Worker 1개씩 Ready, restart 0회, image digest `sha256:52d95d...e94b4`
+- migration `0009_account_and_ghes_registries.sql` 적용
+- Helm test, health API, fixture repository 1개/PR 2개와 기존 분석 결과 확인
+- synthetic ChatGPT account의 암호문 저장, 사용자 catalog, model/`high` effort session binding 확인 후 test row 삭제
+- repository Poll now 이후 `lastPolledAt` 갱신, scheduler leadership 획득 확인
+- 실제 ChatGPT/GHES credential은 없으므로 외부 provider E2E는 미실행
 - 관리자 browser UI의 tenant/user/provider/prompt workflow 확인
 - 관리자 Provider 저장/활성화, deployment 복원과 API response credential 비노출 확인
 - 관리자 Provider 화면 390x844, 1440x1000 visual/overflow 확인
