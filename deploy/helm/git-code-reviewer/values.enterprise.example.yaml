@@ -111,14 +111,18 @@ keycloak:
     webOrigin: https://git-code-reviewer.example.internal
 
 secrets:
-  githubApp: git-code-reviewer-github-app
   auth: git-code-reviewer-auth
   modelProvider: git-code-reviewer-model
   chatModelProvider: git-code-reviewer-chat-model
   chatgptAccount: git-code-reviewer-chatgpt-account
+  credentialRegistry: git-code-reviewer-credential-registry
+
+credentialRegistry:
+  enabled: true
+  encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
 
 github:
-  mode: app
+  mode: registry
 
 auth:
   mode: oidc

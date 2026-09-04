@@ -1,10 +1,24 @@
 import type { Database, DatabaseClient } from '@gcr/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FixtureGitHubClient } from '@gcr/github';
-import { startPollScheduler } from './repositories.js';
+import { loadConfig } from '../config.js';
+import { createGitHubReader, startPollScheduler } from './repositories.js';
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('GitHub reader selection', () => {
+  it('uses repository credentials instead of a global reader in registry mode', async () => {
+    const config = loadConfig({
+      DATABASE_URL: 'postgresql://example.invalid/reviewer',
+      GITHUB_MODE: 'registry',
+      CREDENTIAL_REGISTRY_ENABLED: 'true',
+      CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32).toString('base64'),
+    });
+
+    await expect(createGitHubReader(config)).resolves.toBeNull();
+  });
 });
 
 describe('poll scheduler leadership', () => {

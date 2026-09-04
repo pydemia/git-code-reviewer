@@ -76,7 +76,7 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 - TLS Ingress와 외부 OIDC provider 또는 chart의 선택형 Bitnami Keycloak dependency
 - 선택형 bundled Keycloak을 사용할 경우 Keycloak용 TLS 인증서와 RWO StorageClass
 - 외부 또는 bundled OIDC client와 선택형 Cerbos PDP
-- private GHES에서 설치된 read-only GitHub App
+- 대상 repository를 읽을 수 있는 GHES service account의 read-only access token
 - 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint 또는 deployment-owned ChatGPT/Codex account
 
 외부 DB 모드의 pre-install migration은 일반 chart resource보다 먼저 실행되므로 DB Secret과 corporate CA ConfigMap은 설치 전에 존재해야 한다. 번들 DB 모드는 PostgreSQL resource 생성 후 Server/Worker init container가 advisory lock 아래 최초 migration을 수행하고, 이후 upgrade에서는 pre-upgrade hook도 실행한다. Helm hook lifecycle은 [Helm chart hooks](https://helm.sh/docs/topics/charts_hooks/)를 참고한다.
@@ -111,21 +111,19 @@ ${EDITOR:-vi} /tmp/git-code-reviewer-pilot.yaml
 
 ### 3. Create the namespace and credentials
 
-GitHub App에는 대상 repository만 설치하고 Metadata, Contents, Pull requests read-only 권한을 준다. App ID와 installation ID를 기록하고 private key PEM을 관리 terminal에 둔다.
+GHES access token은 배포 Secret에 넣지 않는다. Credential registry Secret에는 PostgreSQL에 저장되는 token을 AES-256-GCM으로 암호화할 32-byte master key만 저장한다. 운영 시에는 이 key를 외부 secret manager에도 보관하고 rotation 절차 없이 변경하지 않는다.
 
 ```bash
 export NAMESPACE=git-code-reviewer
-export GITHUB_APP_ID='REPLACE_ME'
-export GITHUB_APP_PRIVATE_KEY="$HOME/secure/git-code-reviewer.pem"
 export POSTGRES_USER_PASSWORD="$(openssl rand -base64 36)"
 export POSTGRES_ADMIN_PASSWORD="$(openssl rand -base64 36)"
+export CREDENTIAL_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 
 kubectl create namespace "$NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-github-app \
-  --from-literal=APP_ID="$GITHUB_APP_ID" \
-  --from-file=PRIVATE_KEY="$GITHUB_APP_PRIVATE_KEY" \
+kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-credential-registry \
+  --from-literal=CREDENTIAL_ENCRYPTION_KEY="$CREDENTIAL_ENCRYPTION_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-postgresql-auth \
@@ -133,7 +131,7 @@ kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-postgresql-auth 
   --from-literal=postgres-password="$POSTGRES_ADMIN_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-unset POSTGRES_USER_PASSWORD POSTGRES_ADMIN_PASSWORD
+unset POSTGRES_USER_PASSWORD POSTGRES_ADMIN_PASSWORD CREDENTIAL_ENCRYPTION_KEY
 ```
 
 GHES가 사내 CA 인증서를 사용하면 CA bundle도 등록하고 pilot values의 `trustedCa.existingConfigMap`을 `corporate-ca`로 설정한다. IP URL을 사용할 때에는 인증서 SAN에 해당 IP가 있어야 한다.
@@ -191,30 +189,46 @@ Browser에서는 `http://127.0.0.1:8080/admin`을 연다.
 
 ### 6. Register the GHES repository
 
-GHES repository numeric ID와 GitHub App installation ID를 먼저 확인한다. Development administrator는 session cookie가 필요 없으므로 같은 port-forward를 통해 REST API를 호출할 수 있다.
+GHES service account에서 대상 repository에 한정된 read-only PAT를 발급한다. Metadata, Contents, Pull requests Read 권한만 필요하며 webhook, Admin, write 권한은 필요하지 않다. Browser의 `/admin?tab=github`에서 연결과 token을 등록하고 연결 테스트 후 repository를 등록하는 방법을 권장한다.
+
+Development administrator에서는 다음 REST 호출로 같은 절차를 재현할 수 있다. `read -s`로 받은 token은 shell history, command output, URL과 Kubernetes Secret에 남기지 않는다. Server는 repository numeric ID를 GHES API에서 직접 조회한다.
 
 ```bash
 export TENANT_ID="$(curl -fsS http://127.0.0.1:8080/api/v1/admin/tenants \
   | jq -r '.items[] | select(.slug == "default") | .id')"
 export GHES_API_BASE_URL='https://10.20.30.40/api/v3/'
 export GHES_WEB_BASE_URL='https://10.20.30.40/'
-export GHES_REPOSITORY_ID='123456'
-export GITHUB_INSTALLATION_ID='98765'
 export REPOSITORY_OWNER='platform'
 export REPOSITORY_NAME='reviewer-api'
+read -rsp 'GHES access token: ' GHES_ACCESS_TOKEN
+printf '\n'
+
+jq -n \
+  --arg name 'Internal GHES' \
+  --arg apiBaseUrl "$GHES_API_BASE_URL" \
+  --arg webBaseUrl "$GHES_WEB_BASE_URL" \
+  --arg credentialLabel 'reviewer-readonly' \
+  --arg accessToken "$GHES_ACCESS_TOKEN" \
+  '{name: $name, apiBaseUrl: $apiBaseUrl, webBaseUrl: $webBaseUrl,
+    credentialLabel: $credentialLabel, accessToken: $accessToken}' \
+  | curl -fsS http://127.0.0.1:8080/api/v1/admin/github-connections \
+      -H 'content-type: application/json' --data-binary @- \
+  | tee /tmp/git-code-reviewer-ghes-connection.json | jq
+
+export CREDENTIAL_ID="$(jq -r '.id' /tmp/git-code-reviewer-ghes-connection.json)"
+unset GHES_ACCESS_TOKEN
+
+curl -fsS -X POST \
+  "http://127.0.0.1:8080/api/v1/admin/github-connections/$CREDENTIAL_ID/test" | jq
 
 jq -n \
   --arg tenantId "$TENANT_ID" \
-  --arg apiBaseUrl "$GHES_API_BASE_URL" \
-  --arg webBaseUrl "$GHES_WEB_BASE_URL" \
-  --arg installationId "$GITHUB_INSTALLATION_ID" \
   --arg owner "$REPOSITORY_OWNER" \
   --arg name "$REPOSITORY_NAME" \
-  --argjson githubId "$GHES_REPOSITORY_ID" \
-  '{tenantId: $tenantId, instanceName: "Internal GHES", apiBaseUrl: $apiBaseUrl,
-    webBaseUrl: $webBaseUrl, githubId: $githubId, installationId: $installationId,
-    owner: $owner, name: $name, pollIntervalSeconds: 30}' \
-  | curl -fsS http://127.0.0.1:8080/api/v1/admin/repositories \
+  '{tenantId: $tenantId, owner: $owner, name: $name,
+    pollIntervalSeconds: 30, grantSubjects: []}' \
+  | curl -fsS \
+      "http://127.0.0.1:8080/api/v1/admin/github-connections/$CREDENTIAL_ID/repositories" \
       -H 'content-type: application/json' --data-binary @- | jq
 ```
 

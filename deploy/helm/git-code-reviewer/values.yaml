@@ -244,11 +244,11 @@ secrets:
   credentialRegistry: git-code-reviewer-credential-registry
 
 credentialRegistry:
-  enabled: false
+  enabled: true
   encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
 
 github:
-  mode: app
+  mode: registry
   appIdKey: APP_ID
   privateKeyKey: PRIVATE_KEY
 

@@ -22,7 +22,7 @@ export type RepositoryRecord = RepositoryTarget & {
 };
 
 export async function createGitHubReader(config: AppConfig): Promise<GitHubReader | null> {
-  if (config.GITHUB_MODE === 'disabled') return null;
+  if (config.GITHUB_MODE === 'disabled' || config.GITHUB_MODE === 'registry') return null;
   if (config.GITHUB_MODE === 'fixture') return new FixtureGitHubClient();
   const privateKey = await readFile(config.GITHUB_PRIVATE_KEY_FILE!, 'utf8');
   return new GitHubAppClient(config.GITHUB_APP_ID!, privateKey);

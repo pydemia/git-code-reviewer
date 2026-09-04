@@ -43,10 +43,14 @@ keycloak:
   enabled: false
 
 secrets:
-  githubApp: git-code-reviewer-github-app
+  credentialRegistry: git-code-reviewer-credential-registry
+
+credentialRegistry:
+  enabled: true
+  encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
 
 github:
-  mode: app
+  mode: registry
 
 auth:
   mode: development

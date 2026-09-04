@@ -13,7 +13,7 @@ Development authentication은 접속자를 `SKTAI-DEV Administrator`로 처리�
 | `values.local.example.yaml` | StorageClass와 CA처럼 cluster마다 달라지는 override 예시 |
 | `values.local.yaml`         | 실제 override. `.gitignore` 대상                         |
 
-Secret 값과 GitHub App private key는 이 디렉터리에 커밋하지 않는다.
+Secret 값과 credential encryption key는 이 디렉터리에 커밋하지 않는다. GHES access token은 Kubernetes Secret이나 values가 아니라 Admin credential registry에서 입력한다.
 
 ## 1. Preflight
 
@@ -41,16 +41,14 @@ GHES 인증서가 사내 CA를 사용하면 CA 파일을 ConfigMap으로 등록�
 
 ```bash
 export NAMESPACE=git-code-reviewer
-export GITHUB_APP_ID='REPLACE_ME'
-export GITHUB_APP_PRIVATE_KEY="$HOME/secure/git-code-reviewer.pem"
 export POSTGRES_USER_PASSWORD="$(openssl rand -base64 36)"
 export POSTGRES_ADMIN_PASSWORD="$(openssl rand -base64 36)"
+export CREDENTIAL_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 
 kubectl apply -f deploy/environments/sktai-dev/namespace.yaml
 
-kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-github-app \
-  --from-literal=APP_ID="$GITHUB_APP_ID" \
-  --from-file=PRIVATE_KEY="$GITHUB_APP_PRIVATE_KEY" \
+kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-credential-registry \
+  --from-literal=CREDENTIAL_ENCRYPTION_KEY="$CREDENTIAL_ENCRYPTION_KEY" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-postgresql-auth \
@@ -58,7 +56,7 @@ kubectl -n "$NAMESPACE" create secret generic git-code-reviewer-postgresql-auth 
   --from-literal=postgres-password="$POSTGRES_ADMIN_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-unset POSTGRES_USER_PASSWORD POSTGRES_ADMIN_PASSWORD
+unset POSTGRES_USER_PASSWORD POSTGRES_ADMIN_PASSWORD CREDENTIAL_ENCRYPTION_KEY
 ```
 
 사내 CA를 사용하는 경우에만 다음 ConfigMap을 추가한다.
@@ -95,7 +93,7 @@ helm upgrade --install git-code-reviewer \
   -n "$NAMESPACE" \
   -f deploy/environments/sktai-dev/values.yaml \
   -f deploy/environments/sktai-dev/values.local.yaml \
-  --atomic --wait --timeout 20m
+  --rollback-on-failure --wait --timeout 20m
 ```
 
 ## 5. Verify and access
@@ -117,7 +115,7 @@ curl -fsS http://127.0.0.1:8080/health/ready
 curl -fsS http://127.0.0.1:8080/health/dependencies | jq
 ```
 
-Browser UI는 `http://127.0.0.1:8080/admin`에서 연다. GHES repository 등록과 PR trigger 확인은 [deployment runbook](../../../docs/operations/deployment.md#6-register-the-ghes-repository)을 따른다.
+Browser UI는 `http://127.0.0.1:8080/admin?tab=github`에서 연다. Read-only PAT 등록, 연결 테스트, repository 등록과 PR polling 확인은 [private GHES test guide](../../../docs/operations/github-enterprise-test.md)를 따른다.
 
 ## 6. Upgrade and remove
 
@@ -130,7 +128,7 @@ helm upgrade git-code-reviewer \
   -n "$NAMESPACE" \
   -f deploy/environments/sktai-dev/values.yaml \
   -f deploy/environments/sktai-dev/values.local.yaml \
-  --atomic --wait --timeout 20m
+  --rollback-on-failure --wait --timeout 20m
 ```
 
 Pilot을 완전히 제거할 때에는 release와 namespace를 삭제한다. Namespace 삭제는 PostgreSQL과 artifact PVC의 데이터도 제거한다.
