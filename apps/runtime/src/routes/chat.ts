@@ -7,20 +7,27 @@ import { z } from 'zod';
 import { requireUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
 import { appendEvent, EventHub, formatServerSentEvent } from '../events/index.js';
+import { resolveChatAccountSelection } from '../services/account-registry.js';
 import type { ChatModel } from '../services/chat-model.js';
 import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from './worklist.js';
 
 const analysisParams = z.object({ analysisId: z.string().uuid() });
 const sessionParams = z.object({ sessionId: z.string().uuid() });
-const sessionBody = z.object({
+const scopeSchema = z.object({
   findingId: z.string().uuid().optional(),
   fileId: z.string().uuid().optional(),
   symbolId: z.string().uuid().optional(),
 });
+const sessionBody = scopeSchema.extend({
+  accountId: z.string().uuid().optional(),
+  modelName: z.string().trim().min(1).max(200).optional(),
+  reasoningEffort: z.string().trim().min(1).max(40).optional(),
+  newSession: z.boolean().default(false),
+});
 const messageBody = z.object({
   content: z.string().trim().min(1).max(4_000),
-  scope: sessionBody.default({}),
+  scope: scopeSchema.default({}),
 });
 
 type ChatCitation = {
@@ -34,7 +41,12 @@ type ChatCitation = {
 type ChatSessionRow = {
   id: string;
   analysis_id: string;
-  scope: Record<string, string>;
+  scope: Record<string, string | undefined>;
+  chat_account_id: string | null;
+  account_name: string | null;
+  model_name: string | null;
+  reasoning_effort: string | null;
+  credential_version: number | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -63,16 +75,81 @@ export async function registerChatRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { analysisId } = analysisParams.parse(request.params);
-      const scope = sessionBody.parse(request.body ?? {});
+      const body = sessionBody.parse(request.body ?? {});
+      const scope = scopeSchema.parse(body);
       if (!(await canReadAnalysis(database, authorization, request, analysisId))) {
         return hiddenNotFound(request, reply);
+      }
+      if (config.CHAT_MODEL_MODE === 'registry') {
+        if (!body.accountId || !body.modelName || !body.reasoningEffort) {
+          return reply.code(400).send({
+            error: {
+              code: 'CHAT_SELECTION_REQUIRED',
+              message: 'ChatGPT account, model, effort를 선택해 주세요.',
+              requestId: request.id,
+              retryable: false,
+            },
+          });
+        }
+        const selection = await resolveChatAccountSelection(
+          database,
+          config,
+          request.user!.id,
+          body.accountId,
+          body.modelName,
+          body.reasoningEffort,
+        );
+        if (!selection) return hiddenNotFound(request, reply);
+        if (!body.newSession) {
+          const existing = await findExistingSession(
+            database,
+            analysisId,
+            request.user!.id,
+            body.accountId,
+            body.modelName,
+            body.reasoningEffort,
+          );
+          if (existing) return reply.code(200).send(sessionView(existing, selection.model));
+        }
+        const result = await database.query<ChatSessionRow>(
+          `with inserted as (
+             insert into chat_sessions(
+               analysis_run_id, user_id, scope, chat_account_id, model_name,
+               reasoning_effort, credential_version)
+             values ($1, $2, $3::jsonb, $4, $5, $6, $7)
+             returning *
+           )
+           select inserted.id, inserted.analysis_run_id as analysis_id, inserted.scope,
+                  inserted.chat_account_id, $8::text as account_name, inserted.model_name,
+                  inserted.reasoning_effort, inserted.credential_version,
+                  inserted.created_at, inserted.updated_at from inserted`,
+          [
+            analysisId,
+            request.user!.id,
+            JSON.stringify(scope),
+            selection.accountId,
+            selection.modelName,
+            selection.reasoningEffort,
+            selection.credentialVersion,
+            selection.accountName,
+          ],
+        );
+        return reply.code(201).send(sessionView(result.rows[0]!, selection.model));
+      }
+      const existing = await findExistingSession(database, analysisId, request.user!.id);
+      if (existing) {
+        await database.query(
+          `update chat_sessions set scope = $2::jsonb, updated_at = clock_timestamp() where id = $1`,
+          [existing.id, JSON.stringify(scope)],
+        );
+        return reply.code(200).send(sessionView({ ...existing, scope }, chatModel));
       }
       const result = await database.query<ChatSessionRow>(
         `insert into chat_sessions(analysis_run_id, user_id, scope)
          values ($1, $2, $3::jsonb)
-         on conflict (analysis_run_id, user_id) do update set
-           scope = excluded.scope, updated_at = clock_timestamp()
-         returning id, analysis_run_id as analysis_id, scope, created_at, updated_at`,
+         returning id, analysis_run_id as analysis_id, scope,
+           null::uuid as chat_account_id, null::text as account_name,
+           model_name, reasoning_effort, credential_version, created_at, updated_at`,
         [analysisId, request.user!.id, JSON.stringify(scope)],
       );
       return reply.code(201).send(sessionView(result.rows[0]!, chatModel));
@@ -114,7 +191,23 @@ export async function registerChatRoutes(
       const body = messageBody.parse(request.body);
       const session = await ownedSession(database, authorization, request, sessionId);
       if (!session) return hiddenNotFound(request, reply);
-      if (!chatModel) {
+      const effectiveModel =
+        config.CHAT_MODEL_MODE === 'registry' &&
+        session.chat_account_id &&
+        session.model_name &&
+        session.reasoning_effort
+          ? (
+              await resolveChatAccountSelection(
+                database,
+                config,
+                request.user!.id,
+                session.chat_account_id,
+                session.model_name,
+                session.reasoning_effort,
+              )
+            )?.model
+          : chatModel;
+      if (!effectiveModel) {
         return reply.code(503).send({
           error: {
             code: 'CHAT_MODEL_DISABLED',
@@ -141,12 +234,13 @@ export async function registerChatRoutes(
         const report = await readReport(database, artifacts, session.analysis_id);
         if (!report) throw new Error('Review report is unavailable');
         const generated = await answerQuestion(
-          chatModel,
+          effectiveModel,
           report,
           body.content,
           body.scope,
           history,
           sessionId,
+          session.reasoning_effort ?? undefined,
         );
         const completed = await database.query<ChatMessageRow>(
           `update chat_messages set status = 'completed', content = $2,
@@ -278,9 +372,10 @@ async function answerQuestion(
   chatModel: ChatModel,
   report: ReviewReport,
   question: string,
-  scope: z.infer<typeof sessionBody>,
+  scope: z.infer<typeof scopeSchema>,
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   sessionId: string,
+  reasoningEffort?: string,
 ): Promise<{ content: string; citations: ChatCitation[] }> {
   const finding =
     report.findings.find((item) => item.id === scope.findingId) ??
@@ -297,6 +392,7 @@ async function answerQuestion(
     : [];
   const content = await chatModel.generate({
     cacheKey: sessionId,
+    ...(reasoningEffort ? { reasoningEffort } : {}),
     messages: [
       {
         role: 'system',
@@ -341,8 +437,12 @@ async function ownedSession(
   sessionId: string,
 ): Promise<ChatSessionRow | null> {
   const result = await database.query<ChatSessionRow>(
-    `select id, analysis_run_id as analysis_id, scope, created_at, updated_at
-     from chat_sessions where id = $1 and user_id = $2`,
+    `select session.id, session.analysis_run_id as analysis_id, session.scope,
+            session.chat_account_id, account.display_name as account_name,
+            session.model_name, session.reasoning_effort, session.credential_version,
+            session.created_at, session.updated_at
+     from chat_sessions session left join chat_accounts account on account.id = session.chat_account_id
+     where session.id = $1 and session.user_id = $2`,
     [sessionId, request.user!.id],
   );
   const session = result.rows[0];
@@ -402,10 +502,38 @@ function sessionView(row: ChatSessionRow, chatModel: ChatModel | null) {
     model: {
       available: modelAvailable,
       name: chatModel?.name ?? null,
+      accountId: row.chat_account_id,
+      accountName: row.account_name,
+      reasoningEffort: row.reasoning_effort,
+      credentialVersion: row.credential_version,
     },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+async function findExistingSession(
+  database: Database,
+  analysisId: string,
+  userId: string,
+  accountId: string | null = null,
+  modelName: string | null = null,
+  reasoningEffort: string | null = null,
+): Promise<ChatSessionRow | null> {
+  const result = await database.query<ChatSessionRow>(
+    `select session.id, session.analysis_run_id as analysis_id, session.scope,
+            session.chat_account_id, account.display_name as account_name,
+            session.model_name, session.reasoning_effort, session.credential_version,
+            session.created_at, session.updated_at
+     from chat_sessions session left join chat_accounts account on account.id = session.chat_account_id
+     where session.analysis_run_id = $1 and session.user_id = $2
+       and session.chat_account_id is not distinct from $3::uuid
+       and session.model_name is not distinct from $4::text
+       and session.reasoning_effort is not distinct from $5::text
+     order by session.created_at desc limit 1`,
+    [analysisId, userId, accountId, modelName, reasoningEffort],
+  );
+  return result.rows[0] ?? null;
 }
 
 function messageView(row: ChatMessageRow) {

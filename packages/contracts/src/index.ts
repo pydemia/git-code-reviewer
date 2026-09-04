@@ -174,6 +174,35 @@ export const repositorySchema = z.object({
 });
 export type Repository = z.infer<typeof repositorySchema>;
 
+export const adminRepositoryListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      githubId: z.string(),
+      installationId: z.string(),
+      tenantId: z.string().uuid(),
+      tenantSlug: z.string(),
+      tenantName: z.string(),
+      owner: z.string(),
+      name: z.string(),
+      enabled: z.boolean(),
+      pollingEnabled: z.boolean(),
+      pollIntervalSeconds: z.number().int(),
+      credentialId: z.string().uuid().nullable(),
+      credentialLabel: z.string().nullable(),
+      instanceName: z.string(),
+      apiBaseUrl: z.string().url(),
+      webBaseUrl: z.string().url(),
+      lastPolledAt: z.string().nullable(),
+      nextPollAt: z.string().nullable(),
+      pollOutcome: z.string().nullable(),
+      pollError: z.string().nullable(),
+    }),
+  ),
+  nextCursor: z.null(),
+});
+
 export const pullRequestSchema = z.object({
   id: z.string().uuid(),
   number: z.number().int().positive(),
@@ -465,6 +494,72 @@ export const chatCitationSchema = z.object({
   label: z.string(),
 });
 
+export const chatAccountModelSchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  allowedEfforts: z.array(z.string()).min(1),
+  defaultEffort: z.string(),
+});
+
+export const chatAccountCatalogSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  enabled: z.boolean(),
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      displayName: z.string(),
+      health: z.string(),
+      models: z.array(chatAccountModelSchema),
+    }),
+  ),
+});
+
+export const adminChatAccountListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  enabled: z.boolean(),
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      displayName: z.string(),
+      providerType: z.string(),
+      endpoint: z.string().url().nullable(),
+      credentialVersion: z.number().int().positive(),
+      credentialFingerprint: z.string(),
+      health: z.string(),
+      enabled: z.boolean(),
+      expiresAt: z.string().nullable(),
+      lastValidatedAt: z.string().nullable(),
+      createdAt: z.string(),
+      models: z.array(chatAccountModelSchema.extend({ enabled: z.boolean() })),
+      assignments: z.array(
+        z.object({ scopeType: z.string(), scopeId: z.string(), enabled: z.boolean() }),
+      ),
+    }),
+  ),
+});
+
+export const githubConnectionListSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  enabled: z.boolean(),
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      instanceId: z.string().uuid(),
+      name: z.string(),
+      apiBaseUrl: z.string().url(),
+      webBaseUrl: z.string().url(),
+      credentialLabel: z.string(),
+      credentialVersion: z.number().int().positive(),
+      tokenFingerprint: z.string(),
+      health: z.string(),
+      enabled: z.boolean(),
+      expiresAt: z.string().nullable(),
+      lastValidatedAt: z.string().nullable(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+
 export const chatSessionSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   id: z.string().uuid(),
@@ -477,6 +572,10 @@ export const chatSessionSchema = z.object({
   model: z.object({
     available: z.boolean(),
     name: z.string().nullable(),
+    accountId: z.string().uuid().nullable().default(null),
+    accountName: z.string().nullable().default(null),
+    reasoningEffort: z.string().nullable().default(null),
+    credentialVersion: z.number().int().positive().nullable().default(null),
   }),
   createdAt: z.string(),
   updatedAt: z.string(),

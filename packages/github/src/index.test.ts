@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPermanentFileUrl, FixtureGitHubClient } from './index.js';
+import { buildPermanentFileUrl, FixtureGitHubClient, GitHubAccessTokenClient } from './index.js';
 
 describe('GitHub adapter', () => {
   it('builds exact-SHA file links from trusted components', () => {
@@ -36,5 +36,27 @@ describe('GitHub adapter', () => {
     const second = await client.listOpenPulls(target, first.etag);
     expect(first.outcome).toBe('updated');
     expect(second.outcome).toBe('not-modified');
+  });
+
+  it('uses bearer access tokens without putting them in the URL', async () => {
+    let capturedUrl = '';
+    let authorization = '';
+    const client = new GitHubAccessTokenClient('secret-token', async (input, init) => {
+      capturedUrl = String(input);
+      authorization = new Headers(init?.headers).get('authorization') ?? '';
+      return new Response('[]', { status: 200, headers: { etag: 'test' } });
+    });
+    await client.listOpenPulls({
+      installationId: 'unused',
+      apiBaseUrl: 'https://github.example/api/v3/',
+      owner: 'platform',
+      name: 'reviewer-api',
+    });
+    expect(authorization).toBe('Bearer secret-token');
+    expect(capturedUrl).not.toContain('secret-token');
+    await expect(client.getGitCredential()).resolves.toEqual({
+      username: 'git-code-reviewer',
+      password: 'secret-token',
+    });
   });
 });

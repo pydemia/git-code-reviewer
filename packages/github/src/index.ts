@@ -184,6 +184,60 @@ export class GitHubAppClient implements GitHubReader {
   }
 }
 
+export class GitHubAccessTokenClient implements GitHubReader {
+  constructor(
+    private readonly token: string,
+    private readonly request: typeof fetch = fetch,
+  ) {
+    if (!token.trim()) throw new Error('GitHub access token is required');
+  }
+
+  async listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
+    const pulls: PullRequestObservation[] = [];
+    let page = 1;
+    let responseEtag: string | null = null;
+    while (page <= 20) {
+      const url = new URL(
+        `repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/pulls`,
+        ensureTrailingSlash(target.apiBaseUrl),
+      );
+      url.searchParams.set('state', 'open');
+      url.searchParams.set('sort', 'updated');
+      url.searchParams.set('direction', 'desc');
+      url.searchParams.set('per_page', '100');
+      url.searchParams.set('page', String(page));
+      const headers = new Headers({
+        accept: 'application/vnd.github+json',
+        authorization: `Bearer ${this.token}`,
+        'x-github-api-version': '2022-11-28',
+      });
+      if (page === 1 && etag) headers.set('if-none-match', etag);
+      const response = await this.request(url, { headers });
+      if (response.status === 304) {
+        return { outcome: 'not-modified', etag: etag ?? null, pulls: [] };
+      }
+      if (!response.ok) {
+        const retryAfter = Number(response.headers.get('retry-after'));
+        throw new GitHubRequestError(
+          response.status,
+          response.status === 429 || response.status >= 500,
+          Number.isFinite(retryAfter) ? retryAfter : null,
+        );
+      }
+      responseEtag ??= response.headers.get('etag');
+      const body = z.array(pullSchema).parse(await response.json());
+      pulls.push(...body.map(normalizePull));
+      if (body.length < 100) break;
+      page += 1;
+    }
+    return { outcome: 'updated', etag: responseEtag, pulls };
+  }
+
+  async getGitCredential(): Promise<{ username: string; password: string }> {
+    return { username: 'git-code-reviewer', password: this.token };
+  }
+}
+
 export class FixtureGitHubClient implements GitHubReader {
   async listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
     const fixtureEtag = `"fixture-${createHash('sha1').update(`${target.owner}/${target.name}`).digest('hex').slice(0, 8)}"`;

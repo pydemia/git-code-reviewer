@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config.js';
-import { ChatModelError, createChatModel } from './chat-model.js';
+import { ChatModelError, RegisteredChatGptAccountModel, createChatModel } from './chat-model.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -16,6 +16,41 @@ afterEach(async () => {
 });
 
 describe('ChatGPT account chat model', () => {
+  it('uses the model and reasoning effort selected for a registered account', async () => {
+    const accessToken = jwt({ exp: Math.floor(Date.now() / 1_000) + 3_600 });
+    let capturedBody: Record<string, unknown> = {};
+    const model = new RegisteredChatGptAccountModel({
+      name: 'gpt-selected',
+      endpoint: 'https://chatgpt.example.test/backend-api/codex/',
+      timeoutMs: 10_000,
+      authJson: JSON.stringify({
+        auth_mode: 'chatgpt',
+        tokens: { access_token: accessToken, refresh_token: 'refresh-secret' },
+        last_refresh: new Date().toISOString(),
+      }),
+      installationId: '71ca4ebc-44ae-4f98-a84e-4f4fb5ea4138',
+      refreshUrl: 'https://auth.example.test/oauth/token',
+      proactiveRefreshMinutes: 5,
+      persistAuthJson: async () => undefined,
+      fetch: mockFetch(async (_input, init) => {
+        capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return codexStream('선택 적용');
+      }),
+    });
+
+    await expect(
+      model.generate({
+        cacheKey: 'session-selected',
+        reasoningEffort: 'high',
+        messages: [{ role: 'user', content: '검토해 줘' }],
+      }),
+    ).resolves.toBe('선택 적용');
+    expect(capturedBody).toMatchObject({
+      model: 'gpt-selected',
+      reasoning: { effort: 'high', summary: 'auto' },
+    });
+  });
+
   it('uses Codex account headers and converts messages to a Responses request', async () => {
     const home = await codexHome({
       accessToken: jwt({
