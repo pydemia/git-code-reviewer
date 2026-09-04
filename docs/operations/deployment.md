@@ -33,6 +33,19 @@ docker buildx build \
 docker buildx imagetools inspect "docker.io/pydemia/git-code-reviewer:$VERSION"
 ```
 
+Build network가 Alpine package mirror의 TLS chain을 검증하지 못하지만 직전 승인 image를 pull할 수
+있는 환경에서는 직전 image를 runtime base로 재사용할 수 있다. Build stage는 현재 source에서 다시
+생성하며, runtime base에 이미 설치된 `git`과 `tini`만 재사용한다.
+
+```bash
+docker buildx build \
+  --build-arg RUNTIME_BASE="docker.io/pydemia/git-code-reviewer@sha256:<previous-digest>" \
+  --build-arg REUSE_RUNTIME_BASE=true \
+  --build-arg VERSION="$VERSION" \
+  --build-arg REVISION="$REVISION" \
+  --platform linux/amd64 --push .
+```
+
 운영 values에는 위 inspect 결과의 manifest digest를 `image.digest`로 넣는다. 조직에서 Cosign keyless 또는 KMS key를 승인한 경우 같은 digest를 서명하고 admission policy로 검증한다.
 
 ```bash

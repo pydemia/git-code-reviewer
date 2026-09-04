@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1.7
+ARG RUNTIME_BASE=node:22-alpine
 FROM node:22-alpine AS build
 WORKDIR /app
 RUN npm install --global pnpm@10.17.1
@@ -9,15 +10,17 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm config set store-dir /pnp
   && pnpm install --frozen-lockfile \
   && pnpm build
 
-FROM node:22-alpine AS runtime
+FROM ${RUNTIME_BASE} AS runtime
 ARG VERSION=0.1.0
 ARG REVISION=development
+ARG REUSE_RUNTIME_BASE=false
 LABEL org.opencontainers.image.title="Git Code Reviewer" \
   org.opencontainers.image.description="Browser-based pull request review service for GitHub Enterprise Server" \
   org.opencontainers.image.source="https://github.com/pydemia/git-code-reviewer" \
   org.opencontainers.image.version="${VERSION}" \
   org.opencontainers.image.revision="${REVISION}"
-RUN apk add --no-cache git tini \
+USER root
+RUN if [ "${REUSE_RUNTIME_BASE}" != "true" ]; then apk add --no-cache git tini; fi \
   && mkdir -p /app /var/lib/git-code-reviewer/artifacts /tmp/git-code-reviewer/workspaces \
   && chown -R node:node /app /var/lib/git-code-reviewer /tmp/git-code-reviewer
 WORKDIR /app
