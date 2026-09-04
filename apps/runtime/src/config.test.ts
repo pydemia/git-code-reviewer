@@ -87,6 +87,23 @@ describe('loadConfig', () => {
     ).toBe('oidc');
   });
 
+  it('requires local bootstrap credentials and a strong session secret', () => {
+    expect(() =>
+      loadConfig({ ...baseEnvironment, AUTH_MODE: 'local', SESSION_SECRET: 'x'.repeat(32) }),
+    ).toThrow('local auth requires valid bootstrap credentials');
+    expect(
+      loadConfig({
+        ...baseEnvironment,
+        AUTH_MODE: 'local',
+        SESSION_SECRET: 'x'.repeat(32),
+        LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'admin',
+        LOCAL_BOOTSTRAP_ADMIN_PASSWORD: 'correct horse battery staple',
+        LOCAL_BOOTSTRAP_REVIEWER_USERNAME: 'reviewer',
+        LOCAL_BOOTSTRAP_REVIEWER_PASSWORD: 'another correct horse battery staple',
+      }).AUTH_MODE,
+    ).toBe('local');
+  });
+
   it('requires an explicit interactive chat model selection', () => {
     expect(() =>
       loadConfig({

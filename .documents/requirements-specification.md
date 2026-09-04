@@ -7,7 +7,7 @@
 | 상태 | 신규 제품 기준안 v2 |
 | 상위 설계 | `blueprint.md` |
 | 상세 설계 | `functional-design.md`, `ui-implementation-design.md` |
-| 사용자 접점 | 사내 HTTPS browser application |
+| 사용자 접점 | 사내 HTTPS browser application, PRISM-DEV는 port-forward Local account |
 | 운영 환경 | 사내 Kubernetes, OCI image, Helm |
 | 기본 locale | `ko-KR` |
 
@@ -72,8 +72,10 @@
 
 | ID | 수준 | 요구사항 |
 |---|---|---|
-| REQ-AUTH-001 | 필수 | 모든 browser route와 API는 사내 OIDC session을 요구하며 application OIDC를 기본 방식으로 한다. |
+| REQ-AUTH-001 | 필수 | 모든 browser route와 API는 인증된 server session을 요구한다. 운영은 application OIDC를 기본으로 하며 외부 OIDC endpoint가 없는 private pilot은 Local account를 사용할 수 있다. |
 | REQ-AUTH-002 | 필수 | server는 요청마다 사용자의 repository grant를 검증한다. |
+| REQ-AUTH-003 | 조건부 | Local account mode는 scrypt password hash, 12자 이상의 비밀번호, 계정 존재 여부를 숨기는 오류, 로그인 실패 제한, HttpOnly session cookie와 로그아웃을 제공한다. |
+| REQ-AUTH-004 | 필수 | 시스템관리자는 일반사용자와 시스템관리자 Local account를 생성하고 role, 활성 상태, tenant membership과 비밀번호를 관리할 수 있다. 자신의 관리자 role 또는 접근 권한은 낮출 수 없다. |
 | REQ-AUTH-003 | 필수 | browser가 전달한 owner/name/path를 신뢰하지 않고 server-side ID로 scope를 결정한다. |
 | REQ-AUTH-004 | 필수 | administrator와 operator 기능은 일반 reviewer와 분리한다. |
 | REQ-AUTH-005 | 필수 | source, diff, Chat 원문을 audit log에 기록하지 않는다. |

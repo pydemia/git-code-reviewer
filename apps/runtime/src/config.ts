@@ -24,7 +24,7 @@ const configSchema = z.object({
   MIGRATIONS_DIR: z.string().optional(),
   ARTIFACT_ROOT: z.string().default('/var/lib/git-code-reviewer/artifacts'),
   WORKSPACE_ROOT: z.string().default('/tmp/git-code-reviewer/workspaces'),
-  AUTH_MODE: z.enum(['development', 'oidc', 'proxy']).default('development'),
+  AUTH_MODE: z.enum(['development', 'local', 'oidc', 'proxy']).default('development'),
   AUTHORIZATION_MODE: z.enum(['local', 'cerbos']).default('local'),
   CERBOS_URL: optionalUrl,
   CERBOS_TIMEOUT_MS: z.coerce.number().int().positive().max(10_000).default(2_000),
@@ -32,6 +32,12 @@ const configSchema = z.object({
   DEV_USER_SUBJECT: z.string().default('local-reviewer'),
   DEV_USER_NAME: z.string().default('Local Reviewer'),
   DEV_USER_ROLE: z.enum(['reviewer', 'administrator', 'admin']).default('reviewer'),
+  LOCAL_BOOTSTRAP_ADMIN_USERNAME: z.string().optional(),
+  LOCAL_BOOTSTRAP_ADMIN_PASSWORD: z.string().optional(),
+  LOCAL_BOOTSTRAP_ADMIN_NAME: z.string().default('시스템 관리자'),
+  LOCAL_BOOTSTRAP_REVIEWER_USERNAME: z.string().optional(),
+  LOCAL_BOOTSTRAP_REVIEWER_PASSWORD: z.string().optional(),
+  LOCAL_BOOTSTRAP_REVIEWER_NAME: z.string().default('일반 사용자'),
   GITHUB_MODE: z.enum(['disabled', 'fixture', 'app', 'registry']).default('fixture'),
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_PRIVATE_KEY_FILE: z.string().optional(),
@@ -139,6 +145,18 @@ export function loadConfig(
     result.data.SESSION_SECRET.length < 32
   ) {
     throw new Error('Invalid configuration: SESSION_SECRET must contain at least 32 characters');
+  }
+  if (
+    command === 'serve' &&
+    result.data.AUTH_MODE === 'local' &&
+    (!result.data.LOCAL_BOOTSTRAP_ADMIN_USERNAME ||
+      !result.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD ||
+      result.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD.length < 12 ||
+      Boolean(result.data.LOCAL_BOOTSTRAP_REVIEWER_USERNAME) !==
+        Boolean(result.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD) ||
+      (result.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD?.length ?? 12) < 12)
+  ) {
+    throw new Error('Invalid configuration: local auth requires valid bootstrap credentials');
   }
   if (
     ['serve', 'worker'].includes(command) &&

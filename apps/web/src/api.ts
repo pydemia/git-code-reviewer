@@ -64,6 +64,28 @@ export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
   return userSchema.parse(await fetchJson('/api/v1/me', signal));
 }
 
+export async function loginLocalAccount(
+  username: string,
+  password: string,
+  returnTo: string,
+): Promise<string> {
+  const response = await fetch('/auth/local/login', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username, password, returnTo }),
+  });
+  if (!response.ok) throw await requestError(response);
+  const body = (await response.json()) as { returnTo?: unknown };
+  return typeof body.returnTo === 'string' ? body.returnTo : '/';
+}
+
+export async function logout(): Promise<void> {
+  const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  if (!response.ok && response.status !== 401) throw await requestError(response);
+  window.location.assign('/login');
+}
+
 export async function loadWorklist(
   signal: AbortSignal,
   tenantId?: string,
@@ -102,8 +124,25 @@ export async function loadAdminUsers(signal: AbortSignal): Promise<AdminUser[]> 
   return adminUserListSchema.parse(await fetchJson('/api/v1/admin/users', signal)).items;
 }
 
-export async function updateUserAccess(userId: string, enabled: boolean): Promise<void> {
-  await mutateJson(`/api/v1/admin/users/${userId}`, 'PATCH', { enabled });
+export async function createLocalUser(values: {
+  username: string;
+  displayName: string;
+  role: 'reviewer' | 'administrator';
+  password: string;
+  tenantIds: string[];
+}): Promise<void> {
+  await mutateJson('/api/v1/admin/users', 'POST', values);
+}
+
+export async function updateUser(
+  userId: string,
+  values: { displayName?: string; role?: 'reviewer' | 'administrator'; enabled?: boolean },
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/users/${userId}`, 'PATCH', values);
+}
+
+export async function resetLocalUserPassword(userId: string, password: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/users/${userId}/password`, 'PUT', { password });
 }
 
 export async function updateTenantMembership(

@@ -47,6 +47,7 @@ import {
 } from './api.ts';
 import { AdminPage } from './AdminPage.tsx';
 import { AppHeader } from './AppHeader.tsx';
+import { LoginPage } from './LoginPage.tsx';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
@@ -78,6 +79,7 @@ function isBottomTool(value: string | null): value is BottomTool {
 }
 
 export function App() {
+  if (window.location.pathname === '/login') return <LoginPage />;
   if (window.location.pathname === '/admin') return <AdminPage />;
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
   if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;
@@ -240,6 +242,7 @@ function ReviewWorkspace({
   analysisId?: string;
 }) {
   const [data, setData] = useState<WorkspaceData | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -351,8 +354,9 @@ function ReviewWorkspace({
       : repositoryId && pullNumber
         ? loadWorkspace(repositoryId, pullNumber, controller.signal)
         : Promise.reject(new Error('Review target is missing'));
-    void workspaceRequest.then(
-      (workspace) => {
+    void Promise.all([loadCurrentUser(controller.signal), workspaceRequest]).then(
+      ([currentUser, workspace]) => {
+        setUser(currentUser);
         setData(workspace);
         const search = new URLSearchParams(window.location.search);
         const requestedFindingId = search.get('finding');
@@ -562,7 +566,7 @@ function ReviewWorkspace({
   };
   return (
     <div className="review-page">
-      <AppHeader compact />
+      <AppHeader compact user={user} />
       <div className="review-context">
         <div className="pr-context">
           <a href="/">{data ? `${data.pull.owner} / ${data.pull.name}` : 'Repository'}</a>

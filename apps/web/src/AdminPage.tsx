@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   activateAnalysisProvider,
   activateAnalysisPrompt,
+  createLocalUser,
   createTenant,
   createChatAccount,
   createGitHubConnection,
@@ -34,6 +35,7 @@ import {
   loadCurrentUser,
   resetAnalysisProvider,
   resetAnalysisPrompt,
+  resetLocalUserPassword,
   saveAnalysisProvider,
   saveAnalysisPrompt,
   testAnalysisProvider,
@@ -42,7 +44,7 @@ import {
   updateChatAccount,
   updateTenant,
   updateTenantMembership,
-  updateUserAccess,
+  updateUser,
   type AdminUser,
   type AdminChatAccount,
   type AdminRepository,
@@ -69,6 +71,16 @@ type ProviderDraft = {
   timeoutMs: number;
   apiKey: string;
 };
+type UserForm = {
+  id?: string;
+  username: string;
+  displayName: string;
+  role: 'reviewer' | 'administrator';
+  password: string;
+  tenantIds: string[];
+  enabled: boolean;
+};
+type PasswordForm = { id: string; displayName: string; password: string };
 
 const ADMIN_TENANT_STORAGE_KEY = 'git-code-reviewer.admin-tenant.v1';
 
@@ -95,6 +107,8 @@ export function AdminPage() {
     apiKey: '',
   });
   const [tenantForm, setTenantForm] = useState<TenantForm | null>(null);
+  const [userForm, setUserForm] = useState<UserForm | null>(null);
+  const [passwordForm, setPasswordForm] = useState<PasswordForm | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -229,6 +243,41 @@ export function AdminPage() {
       tenantForm.id ? '테넌트 설정을 저장했습니다.' : '테넌트를 생성했습니다.',
     );
     if (succeeded) setTenantForm(null);
+  };
+
+  const submitUser = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!userForm) return;
+    const succeeded = await runMutation(
+      userForm.id ? `user:${userForm.id}` : 'user:new',
+      () =>
+        userForm.id
+          ? updateUser(userForm.id, {
+              displayName: userForm.displayName,
+              role: userForm.role,
+              enabled: userForm.enabled,
+            })
+          : createLocalUser({
+              username: userForm.username,
+              displayName: userForm.displayName,
+              role: userForm.role,
+              password: userForm.password,
+              tenantIds: userForm.tenantIds,
+            }),
+      userForm.id ? '사용자 정보를 저장했습니다.' : 'Local account를 생성했습니다.',
+    );
+    if (succeeded) setUserForm(null);
+  };
+
+  const submitPassword = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!passwordForm) return;
+    const succeeded = await runMutation(
+      `password:${passwordForm.id}`,
+      () => resetLocalUserPassword(passwordForm.id, passwordForm.password),
+      `${passwordForm.displayName}의 비밀번호를 변경했습니다.`,
+    );
+    if (succeeded) setPasswordForm(null);
   };
 
   const submitPrompt = async () => {
@@ -371,10 +420,36 @@ export function AdminPage() {
               busyKey={busyKey}
               onSearch={setSearch}
               onTenantChange={selectTenant}
+              onCreate={() =>
+                setUserForm({
+                  username: '',
+                  displayName: '',
+                  role: 'reviewer',
+                  password: '',
+                  tenantIds: selectedTenantId ? [selectedTenantId] : [],
+                  enabled: true,
+                })
+              }
+              onEdit={(item) =>
+                setUserForm({
+                  id: item.id,
+                  username: item.username ?? '',
+                  displayName: item.displayName,
+                  role: item.role,
+                  password: '',
+                  tenantIds: item.memberships
+                    .filter((membership) => membership.enabled)
+                    .map((membership) => membership.tenantId),
+                  enabled: item.enabled,
+                })
+              }
+              onResetPassword={(item) =>
+                setPasswordForm({ id: item.id, displayName: item.displayName, password: '' })
+              }
               onAccessChange={(item, enabled) =>
                 void runMutation(
                   `user:${item.id}`,
-                  () => updateUserAccess(item.id, enabled),
+                  () => updateUser(item.id, { enabled }),
                   `${item.displayName}의 앱 접근 권한을 변경했습니다.`,
                 )
               }
@@ -595,6 +670,25 @@ export function AdminPage() {
           </form>
         </div>
       ) : null}
+      {userForm ? (
+        <UserDialog
+          value={userForm}
+          tenants={tenants}
+          busy={busyKey !== null}
+          onChange={setUserForm}
+          onClose={() => setUserForm(null)}
+          onSubmit={submitUser}
+        />
+      ) : null}
+      {passwordForm ? (
+        <PasswordDialog
+          value={passwordForm}
+          busy={busyKey !== null}
+          onChange={setPasswordForm}
+          onClose={() => setPasswordForm(null)}
+          onSubmit={submitPassword}
+        />
+      ) : null}
     </div>
   );
 }
@@ -677,6 +771,9 @@ function UserPanel({
   busyKey,
   onSearch,
   onTenantChange,
+  onCreate,
+  onEdit,
+  onResetPassword,
   onAccessChange,
   onMembershipChange,
 }: {
@@ -688,6 +785,9 @@ function UserPanel({
   busyKey: string | null;
   onSearch: (value: string) => void;
   onTenantChange: (value: string) => void;
+  onCreate: () => void;
+  onEdit: (user: AdminUser) => void;
+  onResetPassword: (user: AdminUser) => void;
   onAccessChange: (user: AdminUser, enabled: boolean) => void;
   onMembershipChange: (user: AdminUser, enabled: boolean) => void;
 }) {
@@ -698,6 +798,9 @@ function UserPanel({
           <p className="eyebrow">Identity access</p>
           <h1>사용자</h1>
         </div>
+        <button className="command-button primary" type="button" onClick={onCreate}>
+          <Plus size={15} /> 사용자 생성
+        </button>
       </div>
       <div className="admin-toolbar">
         <label className="toolbar-search">
@@ -725,6 +828,7 @@ function UserPanel({
           <span>역할</span>
           <span>앱 접근</span>
           <span>테넌트 멤버</span>
+          <span>관리</span>
         </div>
         {users.map((item) => {
           const membership = item.memberships.find((value) => value.tenantId === selectedTenantId);
@@ -732,7 +836,7 @@ function UserPanel({
             <div className="admin-table-row" key={item.id}>
               <span className="admin-primary">
                 <strong>{item.displayName}</strong>
-                <code>{item.subject}</code>
+                <code>{item.identityType === 'local' ? item.username : item.subject}</code>
               </span>
               <span className={`role-badge ${item.role}`}>
                 {item.role === 'administrator' ? 'Administrator' : 'Reviewer'}
@@ -757,12 +861,239 @@ function UserPanel({
                 <span aria-hidden="true" />
                 <b>{membership?.enabled ? '소속' : '미소속'}</b>
               </label>
+              <span className="user-row-actions">
+                <button
+                  className="icon-button surface-icon"
+                  type="button"
+                  title="사용자 편집"
+                  aria-label={`${item.displayName} 편집`}
+                  disabled={item.identityType !== 'local'}
+                  onClick={() => onEdit(item)}
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  className="icon-button surface-icon"
+                  type="button"
+                  title="비밀번호 재설정"
+                  aria-label={`${item.displayName} 비밀번호 재설정`}
+                  disabled={item.identityType !== 'local'}
+                  onClick={() => onResetPassword(item)}
+                >
+                  <KeyRound size={14} />
+                </button>
+              </span>
             </div>
           );
         })}
         {users.length === 0 ? <div className="admin-empty">일치하는 사용자가 없습니다.</div> : null}
       </div>
     </section>
+  );
+}
+
+function UserDialog({
+  value,
+  tenants,
+  busy,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  value: UserForm;
+  tenants: Tenant[];
+  busy: boolean;
+  onChange: (value: UserForm) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  const toggleTenant = (tenantId: string, selected: boolean) => {
+    onChange({
+      ...value,
+      tenantIds: selected
+        ? [...new Set([...value.tenantIds, tenantId])]
+        : value.tenantIds.filter((id) => id !== tenantId),
+    });
+  };
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <form
+        className="admin-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-dialog-title"
+        onSubmit={onSubmit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-heading">
+          <h2 id="user-dialog-title">{value.id ? '사용자 편집' : 'Local account 생성'}</h2>
+          <button
+            className="icon-button surface-icon"
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        {!value.id ? (
+          <label className="field-label">
+            사용자 이름
+            <input
+              required
+              minLength={3}
+              maxLength={64}
+              pattern="[a-z0-9][a-z0-9._-]{2,63}"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoComplete="off"
+              value={value.username}
+              onChange={(event) =>
+                onChange({ ...value, username: event.target.value.toLowerCase() })
+              }
+            />
+          </label>
+        ) : null}
+        <label className="field-label">
+          표시 이름
+          <input
+            required
+            maxLength={120}
+            value={value.displayName}
+            onChange={(event) => onChange({ ...value, displayName: event.target.value })}
+          />
+        </label>
+        <label className="field-label">
+          역할
+          <select
+            value={value.role}
+            onChange={(event) =>
+              onChange({ ...value, role: event.target.value as UserForm['role'] })
+            }
+          >
+            <option value="reviewer">일반사용자 (Reviewer)</option>
+            <option value="administrator">시스템관리자 (Administrator)</option>
+          </select>
+        </label>
+        {!value.id ? (
+          <>
+            <label className="field-label">
+              초기 비밀번호
+              <input
+                required
+                type="password"
+                minLength={12}
+                maxLength={128}
+                autoComplete="new-password"
+                value={value.password}
+                onChange={(event) => onChange({ ...value, password: event.target.value })}
+              />
+              <small>12~128자로 입력합니다. 비밀번호 원문은 저장하지 않습니다.</small>
+            </label>
+            <fieldset className="tenant-checkboxes">
+              <legend>초기 tenant 멤버십</legend>
+              {tenants
+                .filter((tenant) => tenant.enabled)
+                .map((tenant) => (
+                  <label className="checkbox-row" key={tenant.id}>
+                    <input
+                      type="checkbox"
+                      checked={value.tenantIds.includes(tenant.id)}
+                      onChange={(event) => toggleTenant(tenant.id, event.target.checked)}
+                    />
+                    {tenant.displayName}
+                  </label>
+                ))}
+            </fieldset>
+          </>
+        ) : (
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={value.enabled}
+              onChange={(event) => onChange({ ...value, enabled: event.target.checked })}
+            />
+            앱 접근 허용
+          </label>
+        )}
+        <div className="dialog-actions">
+          <button className="command-button" type="button" onClick={onClose}>
+            취소
+          </button>
+          <button
+            className="command-button primary"
+            type="submit"
+            disabled={busy || (!value.id && value.tenantIds.length === 0)}
+          >
+            <Save size={15} /> 저장
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function PasswordDialog({
+  value,
+  busy,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  value: PasswordForm;
+  busy: boolean;
+  onChange: (value: PasswordForm) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <form
+        className="admin-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="password-dialog-title"
+        onSubmit={onSubmit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-heading">
+          <h2 id="password-dialog-title">비밀번호 재설정</h2>
+          <button
+            className="icon-button surface-icon"
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <p className="dialog-description">
+          {value.displayName} 계정의 활성 session은 재설정 후 종료됩니다.
+        </p>
+        <label className="field-label">
+          새 비밀번호
+          <input
+            required
+            type="password"
+            minLength={12}
+            maxLength={128}
+            autoComplete="new-password"
+            value={value.password}
+            onChange={(event) => onChange({ ...value, password: event.target.value })}
+            autoFocus
+          />
+          <small>12~128자로 입력합니다.</small>
+        </label>
+        <div className="dialog-actions">
+          <button className="command-button" type="button" onClick={onClose}>
+            취소
+          </button>
+          <button className="command-button primary" type="submit" disabled={busy}>
+            <KeyRound size={15} /> 변경
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

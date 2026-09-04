@@ -153,7 +153,7 @@ Terminal failure는 `last_error_code`를 보존하며 administrator가 동일 do
 
 ### 5.1 로그인과 worklist
 
-1. 기본 application OIDC가 user identity를 확인한다. Proxy identity mode는 §9.2의 trust 조건을 충족할 때만 사용한다.
+1. 운영 환경은 기본 application OIDC가 user identity를 확인한다. Proxy identity mode는 §9.2의 trust 조건을 충족할 때만 사용한다. 외부 OIDC endpoint가 없는 private pilot은 Local account와 server session을 사용한다.
 2. server는 subject를 `users`에 upsert하고 role/group mapping을 적용한다.
 3. `GET /repositories`는 grant가 있는 registered repository만 반환한다.
 4. PR 목록은 현재 observed head, 최신 analysis state, priority count와 poll 상태를 함께 반환한다.
@@ -664,7 +664,7 @@ artifacts/.staging/<attempt-id>/...
 
 ### 9.2 Application
 
-- Application OIDC Authorization Code flow와 secure server session을 기본으로 한다. Session cookie는 `Secure`, `HttpOnly`, `SameSite=Lax`와 조직이 정한 idle timeout을 사용한다.
+- 운영 환경은 Application OIDC Authorization Code flow와 secure server session을 기본으로 한다. PRISM-DEV의 Local account mode는 scrypt password hash, 로그인 실패 제한과 관리자 계정 수명주기를 적용한다. Session cookie는 `HttpOnly`, `SameSite=Lax`를 사용하고 HTTPS에서는 `Secure`를 설정한다. 상세 contract는 [Local account 인증·사용자 관리 설계](local-account-authentication.md)를 따른다.
 - Reverse proxy identity mode는 ingress에서 온 signed assertion을 검증하고 신뢰 경계 밖의 identity header를 제거한다. Pod 직접 접근과 forged header를 negative test한다.
 - state-changing API는 origin/CSRF protection과 idempotency를 적용한다.
 - Markdown renderer는 raw HTML과 unsafe scheme을 차단하고 external image를 자동 load하지 않는다. External link에는 `noopener noreferrer`를 적용한다.

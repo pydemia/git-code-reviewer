@@ -5,7 +5,14 @@ import type { Database } from '@gcr/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { importSPKI, jwtVerify } from 'jose';
 import * as oidc from 'openid-client';
+import { z } from 'zod';
 import type { AppConfig } from '../config.js';
+import {
+  assertLocalUsername,
+  hashLocalPassword,
+  normalizeLocalUsername,
+  verifyLocalPassword,
+} from '../services/local-accounts.js';
 
 export type AuthUser = {
   id: string;
@@ -27,6 +34,12 @@ declare module 'fastify' {
 const sessionCookie = 'gcr_session';
 const transactionCookie = 'gcr_oidc_tx';
 const sessionTtlSeconds = 8 * 60 * 60;
+const localLoginBody = z.object({
+  username: z.string().min(1).max(64),
+  password: z.string().min(1).max(128),
+  returnTo: z.string().optional(),
+});
+const unavailablePasswordHash = hashLocalPassword('unavailable local account credential');
 
 export async function registerAuthentication(
   app: FastifyInstance,
@@ -35,6 +48,8 @@ export async function registerAuthentication(
 ): Promise<void> {
   await app.register(cookie, { secret: config.SESSION_SECRET, hook: 'onRequest' });
   app.decorateRequest('user', null);
+
+  if (config.AUTH_MODE === 'local') await bootstrapLocalAccounts(database, config);
 
   let developmentUser: Promise<AuthUser> | undefined;
   let oidcConfiguration: Promise<oidc.Configuration> | undefined;
@@ -95,6 +110,9 @@ export async function registerAuthentication(
   app.get('/auth/login', async (request, reply) => {
     if (config.AUTH_MODE === 'development' || config.AUTH_MODE === 'proxy') {
       return reply.redirect(safeReturnTo(request.query));
+    }
+    if (config.AUTH_MODE === 'local') {
+      return reply.redirect(`/login?returnTo=${encodeURIComponent(safeReturnTo(request.query))}`);
     }
 
     oidcConfiguration ??= oidc.discovery(
@@ -190,6 +208,62 @@ export async function registerAuthentication(
     setCookie(reply, sessionCookie, token, config, sessionTtlSeconds);
     reply.clearCookie(transactionCookie, { path: '/auth' });
     return reply.redirect(row.return_to);
+  });
+
+  app.post('/auth/local/login', async (request, reply) => {
+    if (config.AUTH_MODE !== 'local') {
+      return reply.code(404).send({ error: 'Local login is unavailable' });
+    }
+    const body = localLoginBody.parse(request.body);
+    await database.query(
+      `delete from local_login_limits
+       where updated_at < clock_timestamp() - interval '1 day'`,
+    );
+    const username = normalizeLocalUsername(body.username);
+    const usernameHash = hash(username);
+    const limited = await localLoginLimited(database, usernameHash);
+    const result = await database.query<{
+      userId: string;
+      passwordHash: string;
+      enabled: boolean;
+    }>(
+      `select credential.user_id as "userId", credential.password_hash as "passwordHash",
+              app_user.enabled
+       from local_credentials credential join users app_user on app_user.id = credential.user_id
+       where credential.username = $1`,
+      [username],
+    );
+    const credential = result.rows[0];
+    const valid = await verifyLocalPassword(
+      body.password,
+      credential?.passwordHash ?? (await unavailablePasswordHash),
+    );
+    if (limited || !credential?.enabled || !valid) {
+      await recordLocalLoginFailure(database, usernameHash);
+      return reply.code(401).send({
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: '사용자 이름 또는 비밀번호가 올바르지 않습니다.',
+          requestId: request.id,
+          retryable: false,
+        },
+      });
+    }
+    await database.query('delete from local_login_limits where username_hash = $1', [usernameHash]);
+    await database.query('delete from user_sessions where expires_at <= clock_timestamp()');
+    const token = randomBytes(32).toString('base64url');
+    await database.query(
+      `insert into user_sessions(id_hash, user_id, expires_at)
+       values ($1, $2, clock_timestamp() + interval '8 hours')`,
+      [hash(token), credential.userId],
+    );
+    setCookie(reply, sessionCookie, token, config, sessionTtlSeconds);
+    await database.query(
+      `insert into audit_events(actor, action, resource_type, resource_id, outcome, request_id)
+       values ($1, 'auth.login', 'user', $2, 'success', $3)`,
+      [`local:${username}`, credential.userId, request.id],
+    );
+    return { returnTo: safeReturnTo({ returnTo: body.returnTo }) };
   });
 
   app.post('/auth/logout', async (request, reply) => {
@@ -352,11 +426,115 @@ function setCookie(
   reply.setCookie(name, value, {
     path: name === transactionCookie ? '/auth' : '/',
     httpOnly: true,
-    secure: config.NODE_ENV === 'production',
+    secure: config.PUBLIC_BASE_URL
+      ? new URL(config.PUBLIC_BASE_URL).protocol === 'https:'
+      : config.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge,
     signed,
   });
+}
+
+async function bootstrapLocalAccounts(database: Database, config: AppConfig): Promise<void> {
+  await bootstrapLocalAccount(
+    database,
+    config,
+    config.LOCAL_BOOTSTRAP_ADMIN_USERNAME!,
+    config.LOCAL_BOOTSTRAP_ADMIN_PASSWORD!,
+    config.LOCAL_BOOTSTRAP_ADMIN_NAME,
+    'administrator',
+  );
+  if (config.LOCAL_BOOTSTRAP_REVIEWER_USERNAME && config.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD) {
+    await bootstrapLocalAccount(
+      database,
+      config,
+      config.LOCAL_BOOTSTRAP_REVIEWER_USERNAME,
+      config.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD,
+      config.LOCAL_BOOTSTRAP_REVIEWER_NAME,
+      'reviewer',
+    );
+  }
+}
+
+async function bootstrapLocalAccount(
+  database: Database,
+  config: AppConfig,
+  usernameValue: string,
+  password: string,
+  displayName: string,
+  role: 'reviewer' | 'administrator',
+): Promise<void> {
+  const username = assertLocalUsername(usernameValue);
+  const passwordHash = await hashLocalPassword(password);
+  const connection = await database.connect();
+  try {
+    await connection.query('begin');
+    const user = await connection.query<{ id: string }>(
+      `insert into users(oidc_subject, display_name, role)
+       values ($1, $2, $3)
+       on conflict (oidc_subject) do update set updated_at = users.updated_at
+       returning id`,
+      [`local:${username}`, displayName, role],
+    );
+    await connection.query(
+      `insert into local_credentials(user_id, username, password_hash)
+       values ($1, $2, $3) on conflict (user_id) do nothing`,
+      [user.rows[0]!.id, username, passwordHash],
+    );
+    if (config.AUTO_JOIN_DEFAULT_TENANT) {
+      await connection.query(
+        `insert into tenant_memberships(tenant_id, user_id)
+         select id, $1 from tenants where slug = $2 and enabled
+         on conflict (tenant_id, user_id) do nothing`,
+        [user.rows[0]!.id, config.DEFAULT_TENANT_SLUG],
+      );
+    }
+    await connection.query('commit');
+  } catch (error) {
+    await connection.query('rollback');
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function localLoginLimited(database: Database, usernameHash: string): Promise<boolean> {
+  const result = await database.query<{ limited: boolean }>(
+    `select coalesce(locked_until > clock_timestamp(), false) as limited
+     from local_login_limits where username_hash = $1`,
+    [usernameHash],
+  );
+  return result.rows[0]?.limited ?? false;
+}
+
+async function recordLocalLoginFailure(database: Database, usernameHash: string): Promise<void> {
+  await database.query(
+    `insert into local_login_limits(username_hash, failed_count)
+     values ($1, 1)
+     on conflict (username_hash) do update set
+       failed_count = case
+         when local_login_limits.window_started_at < clock_timestamp() - interval '15 minutes'
+           then 1
+         else local_login_limits.failed_count + 1
+       end,
+       window_started_at = case
+         when local_login_limits.window_started_at < clock_timestamp() - interval '15 minutes'
+           then clock_timestamp()
+         else local_login_limits.window_started_at
+       end,
+       locked_until = case
+         when (
+           case
+             when local_login_limits.window_started_at < clock_timestamp() - interval '15 minutes'
+               then 1
+             else local_login_limits.failed_count + 1
+           end
+         ) >= 5 then clock_timestamp() + interval '15 minutes'
+         else local_login_limits.locked_until
+       end,
+       updated_at = clock_timestamp()`,
+    [usernameHash],
+  );
 }
 
 function hash(value: string): string {

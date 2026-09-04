@@ -177,7 +177,7 @@ MVP는 하나의 source repository와 하나의 release artifact로 관리한다
 | Git | system Git CLI, argument vector | exact SHA, merge-base, diff, blame와 history 재사용 |
 | Parser | Tree-sitter adapter | 언어별 symbol을 공통 contract로 정규화 |
 | Model | approved provider-neutral adapter | 조직 model 정책과 provider 교체 경계 유지 |
-| Auth | application OIDC 기본, 조건부 reverse proxy identity | 별도 password system 구축을 피하고 사내 identity 재사용 |
+| Auth | 운영은 application OIDC 기본, 조건부 reverse proxy identity, endpoint가 없는 private pilot은 Local account | 사내 identity를 우선 재사용하되 port-forward 검증 환경에도 실제 다중 사용자와 role을 제공 |
 | Streaming | SSE | analysis progress와 Chat token stream에 충분함 |
 
 ## 7. GitHub 연결과 polling
@@ -370,7 +370,7 @@ conversation은 `analysis_revision_id`에 고정한다. 새 head 분석이 완�
 
 | Entity | 목적 |
 |---|---|
-| `users` | OIDC subject와 profile |
+| `users` | OIDC/proxy/Local identity와 profile |
 | `repositories` | 등록 GHES repository와 installation scope |
 | `pull_requests` | 현재 PR state와 observed refs |
 | `poll_states` | checkpoint, interval, quota, backoff |
@@ -393,7 +393,7 @@ Browser API는 repository/PR worklist, refresh operation, immutable analysis, sn
 
 ## 13. 보안과 privacy
 
-- browser 사용자는 application OIDC를 기본으로 인증하고 repository grant를 확인한다. Reverse proxy identity는 signed assertion 검증, client header 제거와 ingress network 제한을 모두 만족할 때만 사용한다.
+- 운영 browser 사용자는 application OIDC를 기본으로 인증하고 repository grant를 확인한다. Reverse proxy identity는 signed assertion 검증, client header 제거와 ingress network 제한을 모두 만족할 때만 사용한다. PRISM-DEV처럼 browser에서 접근할 OIDC endpoint가 없고 port-forward만 사용하는 private pilot은 [Local account 인증·사용자 관리 설계](local-account-authentication.md)를 적용한다.
 - GHES·Chat credential은 deployment master key로 암호화한 DB row로 보존하고 master key, OIDC와 DB secret만 Secret 또는 vault reference로 주입한다.
 - source, diff, prompt와 model response를 application log와 trace attribute에 넣지 않는다.
 - artifact volume과 database는 암호화하고 report/chat retention을 설정한다.

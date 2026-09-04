@@ -50,6 +50,8 @@ export async function buildServer(config: AppConfig) {
           '*.privateKey',
           '*.authJson',
           '*.accessToken',
+          '*.password',
+          '*.passwordHash',
         ],
         censor: '[REDACTED]',
       },

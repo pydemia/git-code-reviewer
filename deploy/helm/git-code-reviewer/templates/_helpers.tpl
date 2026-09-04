@@ -173,6 +173,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.keycloak.enabled (ne .Values.auth.mode "oidc") -}}
 {{- fail "keycloak.enabled requires auth.mode=oidc" -}}
 {{- end -}}
+{{- if and (eq .Values.auth.mode "local") (not .Values.secrets.auth) -}}
+{{- fail "local auth requires secrets.auth with session and bootstrap account credentials" -}}
+{{- end -}}
 {{- if and .Values.keycloak.enabled (or (not .Values.keycloak.ingress.enabled) (not .Values.keycloak.ingress.hostname) (not .Values.keycloak.ingress.tls) (not .Values.keycloak.ingress.extraTls)) -}}
 {{- fail "bundled Keycloak requires a TLS ingress hostname and existing TLS Secret mapping" -}}
 {{- end -}}

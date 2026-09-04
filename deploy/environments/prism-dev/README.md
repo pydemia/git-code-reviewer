@@ -23,15 +23,15 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - namespace: `git-code-reviewer`
 - release: `git-code-reviewer`
 - GitHub: `fixture`
-- auth: `development`
+- auth: `local` (`administrator`, `reviewer` bootstrap account)
 - 분석 model: disabled
 - Chat: DB credential registry 사용. 실제 account는 관리자 화면에서 등록
 - Ingress: disabled
 - 접근: `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.7.0-alpha.3`의 고정 digest
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.1`의 고정 digest
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
-Development auth는 요청자를 administrator로 취급하므로 이 profile에 Ingress나 외부 Service를 추가하지 않는다.
+Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
 
 ## 배포
 
@@ -46,6 +46,15 @@ kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
   --from-literal=postgres-password="$(openssl rand -base64 36)" \
   --dry-run=client -o yaml \
   | kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV apply -f -
+
+# 최초 1회만 생성한다. 실제 비밀번호와 session secret은 Git/values에 기록하지 않는다.
+kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
+  -n git-code-reviewer create secret generic git-code-reviewer-auth \
+  --from-literal=SESSION_SECRET="$(openssl rand -base64 48)" \
+  --from-literal=LOCAL_BOOTSTRAP_ADMIN_USERNAME=admin \
+  --from-literal=LOCAL_BOOTSTRAP_ADMIN_PASSWORD="$(openssl rand -base64 24)" \
+  --from-literal=LOCAL_BOOTSTRAP_REVIEWER_USERNAME=reviewer \
+  --from-literal=LOCAL_BOOTSTRAP_REVIEWER_PASSWORD="$(openssl rand -base64 24)"
 
 # 최초 1회만 생성한다. 이미 존재하면 기존 key를 유지해야 등록 credential을 복호화할 수 있다.
 openssl rand -base64 32 \
@@ -88,10 +97,10 @@ Port-forward를 유지한 상태에서 확인한다.
 curl -fsS http://127.0.0.1:8080/health/live
 curl -fsS http://127.0.0.1:8080/health/ready
 curl -fsS http://127.0.0.1:8080/health/dependencies
-curl -fsS http://127.0.0.1:8080/api/v1/repositories
+curl -i http://127.0.0.1:8080/api/v1/repositories # 로그인 전 HTTP 401 확인
 ```
 
-Browser에서는 `http://127.0.0.1:8080`과 `http://127.0.0.1:8080/admin`을 확인한다.
+Browser에서는 `http://127.0.0.1:8080/login`에서 로그인한다. 시스템관리자는 `/admin?tab=users`에서 Local account를 생성하고 role, 활성 상태, tenant membership과 비밀번호를 관리한다. 일반사용자에게는 관리 메뉴가 표시되지 않으며 관리자 API도 404를 반환해야 한다.
 
 ## 2026-09-04 검증 결과
 

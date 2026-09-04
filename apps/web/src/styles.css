@@ -45,7 +45,8 @@ body {
 
 button,
 textarea,
-input {
+input,
+select {
   font: inherit;
   letter-spacing: 0;
 }
@@ -137,6 +138,65 @@ textarea:focus-visible {
   color: #dce2e8;
   font-size: 10px;
   font-weight: 700;
+}
+
+.login-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, rgb(23 107 93 / 8%), transparent 42%), #eef1f4;
+}
+
+.login-card {
+  width: min(390px, 100%);
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 16px 45px rgb(24 32 40 / 12%);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #233039;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.login-brand svg {
+  color: var(--accent);
+}
+
+.login-heading {
+  margin: 34px 0 24px;
+}
+
+.login-heading h1 {
+  font-size: 24px;
+}
+
+.login-heading > p:last-child {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.login-error {
+  margin: 4px 0 12px;
+  padding: 8px 9px;
+  color: #8f2922;
+  background: #fff0ee;
+  border: 1px solid #efc7c3;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 6px;
 }
 
 .icon-button,
@@ -1893,7 +1953,12 @@ body.workspace-resizing:has(.resize-bottom) {
 
 .user-table .admin-table-head,
 .user-table .admin-table-row {
-  grid-template-columns: minmax(260px, 1fr) 140px 145px 145px;
+  grid-template-columns: minmax(220px, 1fr) 130px 130px 130px 70px;
+}
+
+.user-row-actions {
+  display: flex;
+  gap: 2px;
 }
 
 .admin-table-head {
@@ -2517,7 +2582,8 @@ body.workspace-resizing:has(.resize-bottom) {
   font-weight: 700;
 }
 
-.field-label input {
+.field-label input,
+.field-label select {
   width: 100%;
   height: 34px;
   padding: 0 9px;
@@ -2526,6 +2592,37 @@ body.workspace-resizing:has(.resize-bottom) {
   border: 1px solid var(--border-strong);
   border-radius: 5px;
   font-size: 11px;
+}
+
+.field-label small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.tenant-checkboxes {
+  display: grid;
+  gap: 8px;
+  max-height: 150px;
+  margin: 4px 0 0;
+  padding: 11px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.tenant-checkboxes legend {
+  padding: 0 4px;
+  color: #505a65;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.dialog-description {
+  margin: -7px 0 15px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .field-label input:disabled {

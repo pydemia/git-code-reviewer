@@ -348,6 +348,7 @@
       "required": [
         "mode",
         "development",
+        "local",
         "proxyPublicKeyKey",
         "adminRole",
         "adminGroup",
@@ -355,7 +356,7 @@
         "autoJoinDefaultTenant"
       ],
       "properties": {
-        "mode": { "enum": ["development", "oidc", "proxy"] },
+        "mode": { "enum": ["development", "local", "oidc", "proxy"] },
         "development": {
           "type": "object",
           "required": ["subject", "displayName", "role"],
@@ -363,6 +364,14 @@
             "subject": { "type": "string", "minLength": 1 },
             "displayName": { "type": "string", "minLength": 1 },
             "role": { "enum": ["reviewer", "administrator"] }
+          }
+        },
+        "local": {
+          "type": "object",
+          "required": ["adminDisplayName", "reviewerDisplayName"],
+          "properties": {
+            "adminDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "reviewerDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 }
           }
         },
         "proxyPublicKeyKey": { "type": "string", "minLength": 1 },

@@ -45,6 +45,8 @@ export const adminUserSchema = z.object({
   displayName: z.string(),
   role: roleSchema,
   enabled: z.boolean(),
+  identityType: z.enum(['local', 'external']),
+  username: z.string().nullable(),
   groups: z.array(z.string()),
   memberships: z.array(
     z.object({
