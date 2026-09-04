@@ -33,6 +33,8 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
 
+PRISM-DEV의 outbound HTTPS는 `SK holdings C&C` TLS inspection CA로 다시 서명된다. ChatGPT/Codex와 GHES HTTPS 요청을 검증하려면 해당 root CA를 `git-code-reviewer-corporate-ca` ConfigMap의 `ca.crt` key로 먼저 등록해야 한다. 인증서 파일은 Git에 넣지 않는다.
+
 ## 배포
 
 ```bash
@@ -55,6 +57,13 @@ kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
   --from-literal=LOCAL_BOOTSTRAP_ADMIN_PASSWORD="$(openssl rand -base64 24)" \
   --from-literal=LOCAL_BOOTSTRAP_REVIEWER_USERNAME=reviewer \
   --from-literal=LOCAL_BOOTSTRAP_REVIEWER_PASSWORD="$(openssl rand -base64 24)"
+
+# macOS System Keychain에 설치된 PRISM-DEV outbound TLS inspection root CA를 등록한다.
+security find-certificate -c 'SK holdings C&C' -p /Library/Keychains/System.keychain \
+  | kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
+      -n git-code-reviewer create configmap git-code-reviewer-corporate-ca \
+      --from-file=ca.crt=/dev/stdin --dry-run=client -o yaml \
+  | kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV apply -f -
 
 # 최초 1회만 생성한다. 이미 존재하면 기존 key를 유지해야 등록 credential을 복호화할 수 있다.
 openssl rand -base64 32 \
@@ -179,6 +188,12 @@ OCI chart는 `oci://registry-1.docker.io/pydemia/git-code-reviewer:0.9.0`에 게
 | Helm/Health       | Helm test 성공, live/ready/dependencies 모두 HTTP 200                               |
 
 Bootstrap credential은 `git-code-reviewer-auth` Secret에만 있다. 최초 로그인 후 시스템관리자가 `/admin?tab=users`에서 각 Local account 비밀번호를 변경하고 조직의 전달 절차로 사용자에게 제공한다. Secret key를 바꾸어도 이미 생성된 account 비밀번호는 자동으로 덮어쓰지 않는다.
+
+### ChatGPT account TLS 검증
+
+ChatGPT account 등록 후 Chat 요청이 HTTP 502 `CHAT_MODEL_FAILED`로 끝날 때 failed message에는 `fetch failed`가 기록됐다. Server Pod에서 `chatgpt.com`과 `auth.openai.com`은 DNS가 정상 해석됐지만 두 HTTPS 요청 모두 `SELF_SIGNED_CERT_IN_CHAIN`으로 실패했다. 위 ConfigMap을 `trustedCa.existingConfigMap`에 연결하면 Server에 `/run/config/trust/ca.crt`가 read-only mount되고 `NODE_EXTRA_CA_CERTS`가 해당 경로로 설정된다.
+
+Helm release revision 7에 CA를 적용한 뒤 두 endpoint가 TLS handshake를 통과했고, 등록된 account와 `gpt-5.6-sol`, `medium` effort로 실행한 실제 Chat 요청이 HTTP 201과 `completed` assistant message를 반환했다. OAuth token refresh 후 account health는 `ready`, credential version은 2가 됐다. 검증용으로 만든 Chat session은 확인 직후 삭제했다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 

@@ -17,6 +17,10 @@ imagePullSecrets: []
 
 publicBaseUrl: http://127.0.0.1:8080
 
+trustedCa:
+  existingConfigMap: git-code-reviewer-corporate-ca
+  key: ca.crt
+
 server:
   replicas: 1
   ingress:
