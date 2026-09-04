@@ -109,18 +109,22 @@ OpenAI 공식 Codex 인증은 ChatGPT 로그인과 API key 로그인을 구분�
 | `poll_policies` | repository ID, automatic enabled, hot/active/idle interval, draft mode, request budget |
 | `repository_grants` | repository ID, application subject/group, role |
 
-Token은 GHES의 승인된 service/machine account에서 발급하고 대상 repository에 필요한 read 권한만 부여한다. GHES version이 fine-grained personal access token을 지원하고 조직 정책이 허용하면 repository를 명시하고 Contents/Pull requests read 범위로 제한한다. Classic personal access token만 지원하면 `repo` scope가 넓다는 점을 security review와 rotation 주기에 반영한다.
+Token은 GHES의 승인된 service/machine account에서 발급하고 대상 repository에 필요한 read 권한만 부여한다. GHES version이 fine-grained personal access token을 지원하고 조직 정책이 허용하면 repository를 명시하고 Metadata/Contents/Pull requests read 범위로 제한한다. Metadata는 repository 확인, Pull requests는 polling, Contents는 HTTPS Git fetch에 사용한다. Classic personal access token만 지원하면 `repo` scope가 넓다는 점을 security review와 rotation 주기에 반영한다. Admin, write와 workflow scope는 요구하지 않는다.
+
+`credentialLabel`은 token 문자열이나 GHES username이 아니라 같은 instance 안에서 credential을 구분하는 application 관리용 이름이다. 같은 instance와 label로 다시 등록하면 암호화 token을 교체하고 credential version을 증가시키므로 token rotation에도 같은 label을 사용한다. Access token 입력에는 `Bearer` 접두어, 따옴표나 URL을 붙이지 않는다.
 
 ### 4.2 등록과 검증
 
 시스템 관리자는 다음 순서로 connection과 repository를 등록한다.
 
-1. GHES API/Web base URL, access token과 optional CA profile을 입력한다.
-2. Server가 credential을 저장하기 전에 GHES identity와 rate-limit endpoint를 최소 호출로 검증한다.
-3. Server가 token으로 조회 가능한 repository를 검색하거나 owner/name으로 검증한다.
+1. GHES API/Web base URL, credential label, access token, 만료일과 optional CA profile을 입력한다.
+2. Server는 credential을 암호화해 저장하고 별도 연결 테스트에서 `GET /user`를 호출해 token identity를 검증한다.
+3. Repository 등록 시 Server가 `GET /repos/{owner}/{repo}`로 권한과 numeric ID를 검증한다.
 4. 선택한 repository의 numeric ID와 기본 branch를 authoritative API에서 읽어 등록한다.
 5. Tenant, application user/group grant와 polling policy를 지정한다.
 6. `Poll now`로 open PR 조회를 실행하고 마지막 성공 시각과 오류를 확인한다.
+
+GNB의 `/guide#ghes-credential`은 위 발급 절차와 입력 형식, classic PAT fallback, 401/403/404, Poll 성공 후 Git fetch 실패의 구분 방법을 시스템 관리자에게 제공한다. 연결 테스트 성공은 repository API와 Git fetch 권한까지 보장하지 않으므로 최초 repository는 등록, Poll now, snapshot 분석까지 검증한다.
 
 Token은 `Authorization` header와 ephemeral Git credential helper에서만 사용한다. Browser response, clone URL, Git config, job payload, audit, log와 metric label에는 원문이나 ciphertext를 넣지 않는다. Job은 `credentialId`만 보관하고 실행 시점에 Server/Worker가 암호화 저장소에서 읽는다.
 

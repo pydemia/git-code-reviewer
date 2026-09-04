@@ -185,6 +185,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | REQ-UI-021 | 필수 | Impact view는 선택 object를 중심으로 structure의 parent/children과 dependency의 uses/used-by를 명확히 구분한다. |
 | REQ-UI-022 | 필수 | Relation graph는 direct 관계를 먼저 표시하고 transitive depth, cycle, truncation과 분석 coverage를 시각적으로 구분한다. |
 | REQ-UI-023 | 필수 | Relation node 선택은 source definition, incoming/outgoing reference 목록과 관련 finding/test를 같은 revision에서 갱신한다. |
+| REQ-UI-024 | 필수 | 로그인 사용자는 모든 주요 화면의 GNB에서 한국어 사용 가이드로 이동할 수 있다. 가이드는 role별 흐름, GHES PAT 최소 권한·입력 형식·회전, repository polling, Chat 설정과 오류 진단을 실제 구현 동작에 맞춰 제공한다. |
 
 | Run state | UI badge | 표시 내용 |
 |---|---|---|

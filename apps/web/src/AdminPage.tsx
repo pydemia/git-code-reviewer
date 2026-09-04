@@ -1801,6 +1801,7 @@ function GitHubConnectionPanel({
     webBaseUrl: string;
     credentialLabel: string;
     accessToken: string;
+    expiresAt?: string;
   }) => Promise<unknown>;
   onTest: (connectionId: string) => Promise<unknown>;
   onRegisterRepository: (
@@ -1819,8 +1820,9 @@ function GitHubConnectionPanel({
   const [name, setName] = useState('');
   const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [webBaseUrl, setWebBaseUrl] = useState('');
-  const [credentialLabel, setCredentialLabel] = useState('default');
+  const [credentialLabel, setCredentialLabel] = useState('');
   const [accessToken, setAccessToken] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
   const [connectionId, setConnectionId] = useState('');
   const [tenantId, setTenantId] = useState(tenants[0]?.id ?? '');
   const [owner, setOwner] = useState('');
@@ -1835,7 +1837,14 @@ function GitHubConnectionPanel({
 
   const submitConnection = async (event: FormEvent) => {
     event.preventDefault();
-    await onCreate({ name, apiBaseUrl, webBaseUrl, credentialLabel, accessToken });
+    await onCreate({
+      name,
+      apiBaseUrl,
+      webBaseUrl,
+      credentialLabel,
+      accessToken,
+      ...(expiresAt ? { expiresAt: new Date(`${expiresAt}T23:59:59`).toISOString() } : {}),
+    });
     setAccessToken('');
   };
   const submitRepository = async (event: FormEvent) => {
@@ -1859,7 +1868,8 @@ function GitHubConnectionPanel({
       </div>
       <p className="admin-section-description">
         GHES가 이 서비스로 inbound 요청을 보내지 않습니다. Server가 access token으로 GHES API를
-        polling하고 Worker가 같은 token으로 필요한 commit만 clone합니다.
+        polling하고 Worker가 같은 token으로 필요한 commit만 clone합니다.{' '}
+        <a href="/guide#ghes-credential">Credential 발급·입력 방법</a>
       </p>
       <form className="registry-form" onSubmit={(event) => void submitConnection(event)}>
         <label className="field-label">
@@ -1890,9 +1900,13 @@ function GitHubConnectionPanel({
           Credential label
           <input
             required
+            placeholder="ghes-reviewer-readonly"
             value={credentialLabel}
             onChange={(event) => setCredentialLabel(event.target.value)}
           />
+          <small>
+            이 서비스 안에서 token을 구분하는 이름입니다. 같은 label로 등록하면 token이 회전됩니다.
+          </small>
         </label>
         <label className="field-label registry-secret-field">
           Access token
@@ -1900,9 +1914,22 @@ function GitHubConnectionPanel({
             required
             type="password"
             autoComplete="new-password"
+            placeholder="발급받은 token 원문"
             value={accessToken}
             onChange={(event) => setAccessToken(event.target.value)}
           />
+          <small>
+            <code>Bearer</code>나 따옴표 없이 token 문자열만 입력합니다.
+          </small>
+        </label>
+        <label className="field-label">
+          Token 만료일
+          <input
+            type="date"
+            value={expiresAt}
+            onChange={(event) => setExpiresAt(event.target.value)}
+          />
+          <small>GHES에서 지정한 만료일과 같게 입력합니다.</small>
         </label>
         <button className="command-button primary" type="submit" disabled={busyKey !== null}>
           <Plus size={15} /> 연결 등록

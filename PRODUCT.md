@@ -13,7 +13,7 @@ Git Code Reviewer는 사내 GitHub Enterprise Server의 PR을 중앙에서 분�
 
 ## 사용자 접점
 
-사용자는 사내 HTTPS URL을 일반 browser로 연다. VS Code extension, browser extension과 native client는 제공하지 않는다. 첫 화면은 등록 repository의 PR worklist이며 각 PR에서 dense review workspace로 이동한다.
+사용자는 사내 HTTPS URL을 일반 browser로 연다. VS Code extension, browser extension과 native client는 제공하지 않는다. 첫 화면은 등록 repository의 PR worklist이며 각 PR에서 dense review workspace로 이동한다. GNB의 `사용 가이드`는 role별 시작 절차, GHES credential 최소 권한과 입력값, repository polling, Review Chat과 오류 진단을 설명한다.
 
 Review workspace는 제공된 visual artifact의 구조를 따른다.
 

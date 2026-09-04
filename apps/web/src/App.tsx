@@ -47,6 +47,7 @@ import {
 } from './api.ts';
 import { AdminPage } from './AdminPage.tsx';
 import { AppHeader } from './AppHeader.tsx';
+import { GuidePage } from './GuidePage.tsx';
 import { LoginPage } from './LoginPage.tsx';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
@@ -80,6 +81,7 @@ function isBottomTool(value: string | null): value is BottomTool {
 
 export function App() {
   if (window.location.pathname === '/login') return <LoginPage />;
+  if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
   if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;

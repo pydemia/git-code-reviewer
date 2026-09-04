@@ -1,4 +1,4 @@
-import { LogOut, Settings, ShieldCheck } from 'lucide-react';
+import { BookOpenText, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { logout, type User } from './api.ts';
 
 type AppHeaderProps = {
@@ -48,6 +48,16 @@ export function AppHeader({
             {!compact && user?.role === 'administrator' ? (
               <a className="icon-button" href="/admin" title="관리" aria-label="관리">
                 <Settings size={17} />
+              </a>
+            ) : null}
+            {user ? (
+              <a
+                className="header-guide-link"
+                href="/guide"
+                aria-current={window.location.pathname === '/guide' ? 'page' : undefined}
+              >
+                <BookOpenText size={15} />
+                <span>사용 가이드</span>
               </a>
             ) : null}
             <span className="avatar" role="img" aria-label={user?.displayName ?? '사용자'}>
