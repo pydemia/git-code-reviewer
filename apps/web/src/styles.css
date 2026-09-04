@@ -1953,12 +1953,34 @@ body.workspace-resizing:has(.resize-bottom) {
 
 .user-table .admin-table-head,
 .user-table .admin-table-row {
-  grid-template-columns: minmax(220px, 1fr) 130px 130px 130px 70px;
+  grid-template-columns: minmax(190px, 1fr) 120px 120px 120px 72px 70px;
 }
 
 .user-row-actions {
   display: flex;
   gap: 2px;
+}
+
+.repository-grant-button {
+  min-height: 27px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid #bddbd4;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.repository-grant-button:disabled {
+  color: var(--muted);
+  background: #f2f4f5;
+  border-color: var(--border);
+  cursor: default;
+}
+
+.repository-checkboxes {
+  max-height: 260px;
 }
 
 .admin-table-head {

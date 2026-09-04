@@ -56,6 +56,12 @@ export const adminUserSchema = z.object({
       enabled: z.boolean(),
     }),
   ),
+  repositoryGrants: z.array(
+    z.object({
+      repositoryId: z.string().uuid(),
+      role: z.enum(['viewer', 'reviewer', 'administrator']),
+    }),
+  ),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

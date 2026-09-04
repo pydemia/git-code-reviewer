@@ -42,6 +42,7 @@ import {
   testGitHubConnection,
   updateAdminRepository,
   updateChatAccount,
+  updateRepositoryGrant,
   updateTenant,
   updateTenantMembership,
   updateUser,
@@ -81,6 +82,13 @@ type UserForm = {
   enabled: boolean;
 };
 type PasswordForm = { id: string; displayName: string; password: string };
+type RepositoryGrantForm = {
+  userId: string;
+  displayName: string;
+  tenantId: string;
+  initialRepositoryIds: string[];
+  repositoryIds: string[];
+};
 
 const ADMIN_TENANT_STORAGE_KEY = 'git-code-reviewer.admin-tenant.v1';
 
@@ -109,6 +117,7 @@ export function AdminPage() {
   const [tenantForm, setTenantForm] = useState<TenantForm | null>(null);
   const [userForm, setUserForm] = useState<UserForm | null>(null);
   const [passwordForm, setPasswordForm] = useState<PasswordForm | null>(null);
+  const [repositoryGrantForm, setRepositoryGrantForm] = useState<RepositoryGrantForm | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -280,6 +289,36 @@ export function AdminPage() {
     if (succeeded) setPasswordForm(null);
   };
 
+  const submitRepositoryGrants = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!repositoryGrantForm) return;
+    const repositoryIds = adminRepositories
+      .filter((repository) => repository.tenantId === repositoryGrantForm.tenantId)
+      .map((repository) => repository.id);
+    const succeeded = await runMutation(
+      `repository-grants:${repositoryGrantForm.userId}`,
+      async () => {
+        await Promise.all(
+          repositoryIds
+            .filter(
+              (repositoryId) =>
+                repositoryGrantForm.initialRepositoryIds.includes(repositoryId) !==
+                repositoryGrantForm.repositoryIds.includes(repositoryId),
+            )
+            .map((repositoryId) =>
+              updateRepositoryGrant(
+                repositoryId,
+                repositoryGrantForm.userId,
+                repositoryGrantForm.repositoryIds.includes(repositoryId),
+              ),
+            ),
+        );
+      },
+      `${repositoryGrantForm.displayName}의 repository 접근 권한을 저장했습니다.`,
+    );
+    if (succeeded) setRepositoryGrantForm(null);
+  };
+
   const submitPrompt = async () => {
     if (!selectedTenantId || !promptDraft.trim()) return;
     await runMutation(
@@ -415,6 +454,7 @@ export function AdminPage() {
               currentUserId={user?.id ?? ''}
               users={visibleUsers}
               tenants={tenants}
+              repositories={adminRepositories}
               selectedTenantId={selectedTenantId}
               search={search}
               busyKey={busyKey}
@@ -446,6 +486,16 @@ export function AdminPage() {
               onResetPassword={(item) =>
                 setPasswordForm({ id: item.id, displayName: item.displayName, password: '' })
               }
+              onManageRepositories={(item) => {
+                const repositoryIds = item.repositoryGrants.map((grant) => grant.repositoryId);
+                setRepositoryGrantForm({
+                  userId: item.id,
+                  displayName: item.displayName,
+                  tenantId: selectedTenantId,
+                  initialRepositoryIds: repositoryIds,
+                  repositoryIds,
+                });
+              }}
               onAccessChange={(item, enabled) =>
                 void runMutation(
                   `user:${item.id}`,
@@ -689,6 +739,18 @@ export function AdminPage() {
           onSubmit={submitPassword}
         />
       ) : null}
+      {repositoryGrantForm ? (
+        <RepositoryGrantDialog
+          value={repositoryGrantForm}
+          repositories={adminRepositories.filter(
+            (repository) => repository.tenantId === repositoryGrantForm.tenantId,
+          )}
+          busy={busyKey !== null}
+          onChange={setRepositoryGrantForm}
+          onClose={() => setRepositoryGrantForm(null)}
+          onSubmit={submitRepositoryGrants}
+        />
+      ) : null}
     </div>
   );
 }
@@ -766,6 +828,7 @@ function UserPanel({
   currentUserId,
   users,
   tenants,
+  repositories,
   selectedTenantId,
   search,
   busyKey,
@@ -774,12 +837,14 @@ function UserPanel({
   onCreate,
   onEdit,
   onResetPassword,
+  onManageRepositories,
   onAccessChange,
   onMembershipChange,
 }: {
   currentUserId: string;
   users: AdminUser[];
   tenants: Tenant[];
+  repositories: AdminRepository[];
   selectedTenantId: string;
   search: string;
   busyKey: string | null;
@@ -788,6 +853,7 @@ function UserPanel({
   onCreate: () => void;
   onEdit: (user: AdminUser) => void;
   onResetPassword: (user: AdminUser) => void;
+  onManageRepositories: (user: AdminUser) => void;
   onAccessChange: (user: AdminUser, enabled: boolean) => void;
   onMembershipChange: (user: AdminUser, enabled: boolean) => void;
 }) {
@@ -828,10 +894,17 @@ function UserPanel({
           <span>역할</span>
           <span>앱 접근</span>
           <span>테넌트 멤버</span>
+          <span>저장소</span>
           <span>관리</span>
         </div>
         {users.map((item) => {
           const membership = item.memberships.find((value) => value.tenantId === selectedTenantId);
+          const tenantRepositories = repositories.filter(
+            (repository) => repository.tenantId === selectedTenantId,
+          );
+          const repositoryGrantCount = tenantRepositories.filter((repository) =>
+            item.repositoryGrants.some((grant) => grant.repositoryId === repository.id),
+          ).length;
           return (
             <div className="admin-table-row" key={item.id}>
               <span className="admin-primary">
@@ -861,6 +934,16 @@ function UserPanel({
                 <span aria-hidden="true" />
                 <b>{membership?.enabled ? '소속' : '미소속'}</b>
               </label>
+              <button
+                className="repository-grant-button"
+                type="button"
+                disabled={item.role === 'administrator' || !membership?.enabled}
+                onClick={() => onManageRepositories(item)}
+              >
+                {item.role === 'administrator'
+                  ? '전체'
+                  : `${repositoryGrantCount}/${tenantRepositories.length}`}
+              </button>
               <span className="user-row-actions">
                 <button
                   className="icon-button surface-icon"
@@ -1090,6 +1173,82 @@ function PasswordDialog({
           </button>
           <button className="command-button primary" type="submit" disabled={busy}>
             <KeyRound size={15} /> 변경
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function RepositoryGrantDialog({
+  value,
+  repositories,
+  busy,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  value: RepositoryGrantForm;
+  repositories: AdminRepository[];
+  busy: boolean;
+  onChange: (value: RepositoryGrantForm) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
+}) {
+  const toggleRepository = (repositoryId: string, selected: boolean) => {
+    onChange({
+      ...value,
+      repositoryIds: selected
+        ? [...new Set([...value.repositoryIds, repositoryId])]
+        : value.repositoryIds.filter((id) => id !== repositoryId),
+    });
+  };
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <form
+        className="admin-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="repository-grant-dialog-title"
+        onSubmit={onSubmit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-heading">
+          <h2 id="repository-grant-dialog-title">Repository 접근 권한</h2>
+          <button
+            className="icon-button surface-icon"
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <p className="dialog-description">
+          {value.displayName}에게 허용할 repository를 선택합니다.
+        </p>
+        <fieldset className="tenant-checkboxes repository-checkboxes">
+          <legend>Repository</legend>
+          {repositories.map((repository) => (
+            <label className="checkbox-row" key={repository.id}>
+              <input
+                type="checkbox"
+                checked={value.repositoryIds.includes(repository.id)}
+                onChange={(event) => toggleRepository(repository.id, event.target.checked)}
+              />
+              {repository.owner}/{repository.name}
+            </label>
+          ))}
+          {repositories.length === 0 ? (
+            <span className="dialog-description">등록된 repository가 없습니다.</span>
+          ) : null}
+        </fieldset>
+        <div className="dialog-actions">
+          <button className="command-button" type="button" onClick={onClose}>
+            취소
+          </button>
+          <button className="command-button primary" type="submit" disabled={busy}>
+            <Save size={15} /> 저장
           </button>
         </div>
       </form>

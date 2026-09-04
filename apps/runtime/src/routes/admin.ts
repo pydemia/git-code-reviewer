@@ -180,6 +180,12 @@ export async function registerAdminRoutes(
               app_user.groups_json as groups,
               credential.username,
               case when credential.user_id is not null then 'local' else 'external' end as "identityType",
+              coalesce((select jsonb_agg(jsonb_build_object(
+                'repositoryId', grant_row.repository_id,
+                'role', grant_row.role
+              ) order by grant_row.repository_id)
+              from repository_grants grant_row
+              where grant_row.subject_or_group = app_user.oidc_subject), '[]'::jsonb) as "repositoryGrants",
               coalesce(jsonb_agg(jsonb_build_object(
                 'tenantId', tenant.id,
                 'tenantSlug', tenant.slug,

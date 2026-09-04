@@ -6,6 +6,7 @@ import { requireAdministrator, requireUser } from '../auth/index.js';
 import type { AuthorizationAction, AuthorizationService } from '../services/authorization.js';
 
 const repositoryParams = z.object({ repoId: z.string().uuid() });
+const repositoryGrantParams = repositoryParams.extend({ userId: z.string().uuid() });
 const pullParams = repositoryParams.extend({ number: z.coerce.number().int().positive() });
 const repositoryBody = z.object({
   tenantId: z.string().uuid(),
@@ -24,6 +25,7 @@ const repositoryPatch = z.object({
   pollingEnabled: z.boolean().optional(),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).optional(),
 });
+const repositoryGrantBody = z.object({ enabled: z.boolean() });
 
 export async function registerWorklistRoutes(
   app: FastifyInstance,
@@ -192,6 +194,42 @@ export async function registerWorklistRoutes(
       } finally {
         connection.release();
       }
+    },
+  );
+
+  app.put(
+    '/api/v1/admin/repositories/:repoId/grants/:userId',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      const { repoId, userId } = repositoryGrantParams.parse(request.params);
+      if (!(await canReadRepository(database, authorization, request, repoId, 'update'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const body = repositoryGrantBody.parse(request.body);
+      const target = await database.query<{ subject: string }>(
+        `select app_user.oidc_subject as subject
+         from users app_user join tenant_memberships membership on membership.user_id = app_user.id
+         join repositories repository on repository.tenant_id = membership.tenant_id
+         where app_user.id = $1 and app_user.enabled and membership.enabled
+           and repository.id = $2 and repository.enabled`,
+        [userId, repoId],
+      );
+      if (!target.rows[0]) return hiddenNotFound(request, reply);
+      if (body.enabled) {
+        await database.query(
+          `insert into repository_grants(repository_id, subject_or_group, role)
+           values ($1, $2, 'reviewer')
+           on conflict (repository_id, subject_or_group) do update set role = 'reviewer'`,
+          [repoId, target.rows[0].subject],
+        );
+      } else {
+        await database.query(
+          `delete from repository_grants where repository_id = $1 and subject_or_group = $2`,
+          [repoId, target.rows[0].subject],
+        );
+      }
+      await writeAudit(database, request, 'repository.grant.update', repoId, 'success');
+      return { schemaVersion, repositoryId: repoId, userId, enabled: body.enabled };
     },
   );
 

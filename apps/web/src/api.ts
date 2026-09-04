@@ -251,6 +251,16 @@ export async function updateAdminRepository(
   await mutateJson(`/api/v1/admin/repositories/${repositoryId}`, 'PATCH', values);
 }
 
+export async function updateRepositoryGrant(
+  repositoryId: string,
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/repositories/${repositoryId}/grants/${userId}`, 'PUT', {
+    enabled,
+  });
+}
+
 export async function pollAdminRepository(repositoryId: string): Promise<void> {
   await mutateJson(`/api/v1/admin/repositories/${repositoryId}/poll`, 'POST');
 }
