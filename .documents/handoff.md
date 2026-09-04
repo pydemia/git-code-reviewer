@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-04
 - branch: `feat/browser-review-service`
-- 단계: Local account와 Chat 실사용 검증 완료. GHES credential 가이드와 Web GNB `/guide` 구현·배포 진행 중
+- 단계: Local account와 Chat 실사용 검증, GHES credential 가이드와 Web GNB `/guide` 구현 및 PRISM-DEV 배포 완료
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -31,7 +31,7 @@ Credential registry는 migration `0009`, Local account는 migration `0010`으로
 3. Worker는 Git fetch, immutable snapshot materialization, deterministic analysis와 선택형 batch model 분석을 담당한다.
 4. PostgreSQL이 tenant, application user, membership, repository grant, provider/prompt version, durable job, operation/event, report와 Chat record의 정본이다. 별도 queue는 두지 않는다.
 5. Artifact는 shared RWX PVC를 사용한다. Worker workspace는 `emptyDir` 또는 pod 단위 generic ephemeral PVC를 사용한다.
-6. GitHub Enterprise 접근은 read-only GitHub App과 outbound polling/manual refresh를 사용하며 repository workflow와 webhook은 요구하지 않는다.
+6. GitHub Enterprise 접근은 repository 범위를 제한한 read-only fine-grained PAT과 outbound polling/manual refresh를 사용하며 repository workflow와 webhook은 요구하지 않는다. GHES 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다.
 7. Report는 Commit Defender의 grade, summary, per-file summary, P0-P3 category, finding, evidence와 exact-revision link를 계승한다.
 8. Workspace는 크기를 조절할 수 있는 LNB/Main/Chat/FNB panel, 실제 Evidence/Git graph/Impact/Tests view와 responsive unified diff fallback을 제공한다.
 9. Object impact는 structure parent/children과 dependency uses/used-by를 구분한다. 중복된 FNB 최상위 tab 대신 Impact 내부에서 표현한다.
@@ -92,9 +92,9 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.1`
-- source tag: `docker.io/pydemia/git-code-reviewer:sha-8f75b5c188a2`
-- manifest digest: `sha256:b952e8f07a112b2615e7a628d5a7ab163c3fedc10e85f7bfcc895b7f5dfe3cae`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.2`
+- source tag: `docker.io/pydemia/git-code-reviewer:sha-a02ceb85baf9`
+- manifest digest: `sha256:84d6a475be2e66ee79f0e6603531b7ee13dda61969622397f601c267c42a99c8`
 - platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
@@ -103,9 +103,9 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.9.0`
-- app version: `0.8.0-alpha.1`
-- chart digest: `sha256:c170c33ea24d28d51002bdd21e2c61c268a1e5f3cc6c30f17c6238b49f66fc69`
+- version: `0.10.0`
+- app version: `0.8.0-alpha.2`
+- chart digest: `sha256:1a8773174479e87921402a189a34298edfb0fa217d7f4e0ee54ac7f7370abc67`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -161,11 +161,21 @@ PRISM-DEV release revision 6 Local account 검증:
 - ChatGPT account 첫 실사용에서 PRISM-DEV outbound TLS inspection CA 미신뢰로 `SELF_SIGNED_CERT_IN_CHAIN`이 발생했다. `git-code-reviewer-corporate-ca` ConfigMap을 만들고 PRISM-DEV `trustedCa` values에서 참조하도록 보완했다. Corporate CA PEM은 Git에 저장하지 않는다.
 - Helm release revision 7에서 CA 적용 후 `chatgpt.com`, `auth.openai.com` TLS 연결과 `gpt-5.6-sol` 실제 Chat 요청 HTTP 201을 확인했다. OAuth refresh 결과 account health가 `ready`, credential version이 2로 갱신됐고 검증용 Chat session은 삭제했다.
 
+PRISM-DEV release revision 8 GHES 사용 가이드 검증:
+
+- Server/Worker 각 1개 `Ready`, image digest `sha256:84d6a475...99c8` 적용
+- Helm chart `0.10.0`, application `0.8.0-alpha.2`, Helm test 성공
+- live/ready/startup/dependencies 모두 HTTP 200, rollout 이후 application error 없음
+- `/guide` HTTP 200과 배포 JavaScript의 GHES credential, Token 만료일, 사용 가이드 marker 확인
+- desktop 1440px와 CSS viewport 390px에서 GNB, sticky 목차, 본문 overflow와 이동 동작 확인
+- rollout 전 등록된 Local user, ChatGPT account와 GHES credential row가 유지됨을 확인
+- 기존 사용자의 변경된 비밀번호를 덮어쓰지 않기 위해 배포 환경의 authenticated visual test는 생략하고 local mocked current-user API로 관리자·일반사용자 UI를 모두 확인
+
 Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 
 사용자의 enterprise 환경에서 남은 검증:
 
-1. Private GHES repository에 GitHub App을 설치하고 repository를 tenant에 등록한다.
+1. 전용 service account에서 대상 repository만 선택한 fine-grained PAT을 발급하고 `/admin?tab=github`에 등록한다. 조직 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다.
 2. GHES REST/GraphQL/Git fetch, exact SHA link, polling과 manual refresh를 검증한다.
 3. Bundled Keycloak 또는 승인된 외부 OIDC provider, StorageClass, TLS ingress, CA bundle과 network policy로 배포한다.
 4. 실제 사용자에게 Keycloak role, tenant membership과 repository grant를 할당해 격리를 확인한다.
@@ -173,6 +183,10 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 6. 공유 ChatGPT/Codex deployment account와 quota/data policy가 조직 정책에 부합하는지 확인한다.
 
 ## 8. Commit 순서
+
+이번 GHES credential 가이드와 Web GNB 확장은 다음 commit에 있다.
+
+- `a02ceb8` `feat: add in-app GHES credential guide`
 
 이번 Local account와 사용자별 repository grant 확장은 다음 commit에 있다.
 

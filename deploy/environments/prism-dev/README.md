@@ -28,7 +28,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - Chat: DB credential registry 사용. 실제 account는 관리자 화면에서 등록
 - Ingress: disabled
 - 접근: `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.1@sha256:b952e8f07a112b2615e7a628d5a7ab163c3fedc10e85f7bfcc895b7f5dfe3cae`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.2@sha256:84d6a475be2e66ee79f0e6603531b7ee13dda61969622397f601c267c42a99c8`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -194,6 +194,22 @@ Bootstrap credential은 `git-code-reviewer-auth` Secret에만 있다. 최초 로
 ChatGPT account 등록 후 Chat 요청이 HTTP 502 `CHAT_MODEL_FAILED`로 끝날 때 failed message에는 `fetch failed`가 기록됐다. Server Pod에서 `chatgpt.com`과 `auth.openai.com`은 DNS가 정상 해석됐지만 두 HTTPS 요청 모두 `SELF_SIGNED_CERT_IN_CHAIN`으로 실패했다. 위 ConfigMap을 `trustedCa.existingConfigMap`에 연결하면 Server에 `/run/config/trust/ca.crt`가 read-only mount되고 `NODE_EXTRA_CA_CERTS`가 해당 경로로 설정된다.
 
 Helm release revision 7에 CA를 적용한 뒤 두 endpoint가 TLS handshake를 통과했고, 등록된 account와 `gpt-5.6-sol`, `medium` effort로 실행한 실제 Chat 요청이 HTTP 201과 `completed` assistant message를 반환했다. OAuth token refresh 후 account health는 `ready`, credential version은 2가 됐다. 검증용으로 만든 Chat session은 확인 직후 삭제했다.
+
+### GHES credential 사용 가이드 배포 검증
+
+Helm release revision 8에서 application `0.8.0-alpha.2`, chart `0.10.0`을 배포했다. OCI chart는 `oci://registry-1.docker.io/pydemia/git-code-reviewer:0.10.0`에 게시했으며 digest는 `sha256:1a8773174479e87921402a189a34298edfb0fa217d7f4e0ee54ac7f7370abc67`다.
+
+| 검증 항목      | 결과                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------ |
+| Server/Worker  | 각 1개 `Ready`, rollout 이후 application error 없음                                  |
+| Image          | `sha256:84d6a475be2e66ee79f0e6603531b7ee13dda61969622397f601c267c42a99c8`            |
+| Helm/Health    | Helm test 성공, live/ready/startup/dependencies 모두 HTTP 200                        |
+| Guide route    | `/guide` HTTP 200                                                                    |
+| UI artifact    | GHES credential 발급·입력, Token 만료일, 사용 가이드 문구를 배포 JavaScript에서 확인 |
+| Responsive     | 1440px와 CSS viewport 390px에서 GNB, 목차, 본문 이동과 가로 overflow 없음            |
+| 기존 data 보존 | Local user, ChatGPT account와 GHES credential registry row 유지                      |
+
+배포 환경의 기존 사용자 비밀번호는 최초 bootstrap 이후 변경된 상태다. 이를 재설정하지 않고 배포 bundle과 route를 검증했으며, authenticated 관리자·일반사용자 화면은 local mocked current-user API로 확인했다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 
