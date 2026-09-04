@@ -21,6 +21,7 @@ import {
   resolveAnalysisProvider,
 } from '../services/analysis-provider.js';
 import { createGitHubReader, getRepository } from '../services/repositories.js';
+import { registeredGitHubReader } from '../services/account-registry.js';
 
 type JobPayload = {
   operationId: string;
@@ -217,10 +218,18 @@ async function createMaterialization(
   );
   const row = request.rows[0];
   if (!row) throw new Error('Snapshot request is unavailable');
-  if (config.GITHUB_MODE === 'fixture')
-    return materializeFixtureSnapshot(row.base_sha, row.head_sha);
   const repository = await getRepository(database, row.repository_id);
-  if (!repository || !github?.getGitCredential) throw new Error('GitHub repository is unavailable');
+  if (!repository) throw new Error('GitHub repository is unavailable');
+  if (config.GITHUB_MODE === 'fixture' && !repository.credentialId)
+    return materializeFixtureSnapshot(row.base_sha, row.head_sha);
+  const reader = repository.credentialId
+    ? await registeredGitHubReader(
+        database,
+        config.CREDENTIAL_ENCRYPTION_KEY,
+        repository.credentialId,
+      )
+    : github;
+  if (!reader?.getGitCredential) throw new Error('GitHub credential is unavailable');
   return materializeGitSnapshot({
     workspace,
     webBaseUrl: repository.webBaseUrl,
@@ -229,7 +238,7 @@ async function createMaterialization(
     pullNumber: row.number,
     baseSha: row.base_sha,
     headSha: row.head_sha,
-    credential: await github.getGitCredential(repository),
+    credential: await reader.getGitCredential(repository),
   });
 }
 

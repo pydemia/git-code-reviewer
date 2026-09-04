@@ -14,6 +14,7 @@ import { registerAnalysisRoutes } from './routes/analyses.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerWorklistRoutes } from './routes/worklist.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerAccountRegistryRoutes } from './routes/account-registry.js';
 import {
   createGitHubReader,
   ensureFixtureRepository,
@@ -47,6 +48,10 @@ export async function buildServer(config: AppConfig) {
           'res.headers.set-cookie',
           '*.token',
           '*.privateKey',
+          '*.authJson',
+          '*.accessToken',
+          '*.password',
+          '*.passwordHash',
         ],
         censor: '[REDACTED]',
       },
@@ -83,6 +88,7 @@ export async function buildServer(config: AppConfig) {
   await registerAuthentication(app, config, database);
   await registerWorklistRoutes(app, database, authorization);
   await registerAdminRoutes(app, database, authorization, config);
+  await registerAccountRegistryRoutes(app, database, config);
   await registerSnapshotRoutes(app, database, eventHub, artifacts, authorization);
   await registerAnalysisRoutes(app, database, eventHub, artifacts, config, authorization);
   await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel, authorization);
@@ -179,7 +185,12 @@ export async function buildServer(config: AppConfig) {
     if (fixtureRepository.rows[0])
       await pollRepository(database, github, fixtureRepository.rows[0].id);
   }
-  const stopScheduler = await startPollScheduler(database, github, app.log);
+  const stopScheduler = await startPollScheduler(
+    database,
+    github,
+    app.log,
+    config.CREDENTIAL_ENCRYPTION_KEY,
+  );
 
   app.addHook('onClose', async () => {
     await stopScheduler();

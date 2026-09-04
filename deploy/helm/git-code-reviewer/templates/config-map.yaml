@@ -19,6 +19,10 @@ data:
   DEV_USER_NAME: {{ .Values.auth.development.displayName | quote }}
   DEV_USER_ROLE: {{ .Values.auth.development.role | quote }}
   {{- end }}
+  {{- if eq .Values.auth.mode "local" }}
+  LOCAL_BOOTSTRAP_ADMIN_NAME: {{ .Values.auth.local.adminDisplayName | quote }}
+  LOCAL_BOOTSTRAP_REVIEWER_NAME: {{ .Values.auth.local.reviewerDisplayName | quote }}
+  {{- end }}
   {{- if .Values.keycloak.enabled }}
   OIDC_ISSUER: {{ .Values.keycloak.gitCodeReviewer.issuer | quote }}
   OIDC_CLIENT_ID: {{ .Values.keycloak.gitCodeReviewer.clientId | quote }}
@@ -32,6 +36,7 @@ data:
   DEFAULT_TENANT_SLUG: {{ .Values.auth.defaultTenantSlug | quote }}
   AUTO_JOIN_DEFAULT_TENANT: {{ .Values.auth.autoJoinDefaultTenant | quote }}
   GITHUB_MODE: {{ .Values.github.mode | quote }}
+  CREDENTIAL_REGISTRY_ENABLED: {{ .Values.credentialRegistry.enabled | quote }}
   MODEL_MODE: {{ .Values.model.analysis.mode | quote }}
   MODEL_ENDPOINT: {{ .Values.model.analysis.endpoint | quote }}
   MODEL_NAME: {{ .Values.model.analysis.name | quote }}

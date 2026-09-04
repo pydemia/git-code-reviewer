@@ -24,7 +24,7 @@ const configSchema = z.object({
   MIGRATIONS_DIR: z.string().optional(),
   ARTIFACT_ROOT: z.string().default('/var/lib/git-code-reviewer/artifacts'),
   WORKSPACE_ROOT: z.string().default('/tmp/git-code-reviewer/workspaces'),
-  AUTH_MODE: z.enum(['development', 'oidc', 'proxy']).default('development'),
+  AUTH_MODE: z.enum(['development', 'local', 'oidc', 'proxy']).default('development'),
   AUTHORIZATION_MODE: z.enum(['local', 'cerbos']).default('local'),
   CERBOS_URL: optionalUrl,
   CERBOS_TIMEOUT_MS: z.coerce.number().int().positive().max(10_000).default(2_000),
@@ -32,7 +32,13 @@ const configSchema = z.object({
   DEV_USER_SUBJECT: z.string().default('local-reviewer'),
   DEV_USER_NAME: z.string().default('Local Reviewer'),
   DEV_USER_ROLE: z.enum(['reviewer', 'administrator', 'admin']).default('reviewer'),
-  GITHUB_MODE: z.enum(['disabled', 'fixture', 'app']).default('fixture'),
+  LOCAL_BOOTSTRAP_ADMIN_USERNAME: z.string().optional(),
+  LOCAL_BOOTSTRAP_ADMIN_PASSWORD: z.string().optional(),
+  LOCAL_BOOTSTRAP_ADMIN_NAME: z.string().default('시스템 관리자'),
+  LOCAL_BOOTSTRAP_REVIEWER_USERNAME: z.string().optional(),
+  LOCAL_BOOTSTRAP_REVIEWER_PASSWORD: z.string().optional(),
+  LOCAL_BOOTSTRAP_REVIEWER_NAME: z.string().default('일반 사용자'),
+  GITHUB_MODE: z.enum(['disabled', 'fixture', 'app', 'registry']).default('fixture'),
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_PRIVATE_KEY_FILE: z.string().optional(),
   GITHUB_API_BASE_URL: optionalUrl,
@@ -45,7 +51,9 @@ const configSchema = z.object({
   MODEL_ADMIN_ENABLED: booleanString,
   MODEL_CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
   MODEL_PROVIDER_ALLOWED_ORIGINS: z.string().default(''),
-  CHAT_MODEL_MODE: z.enum(['disabled', 'openai-compatible', 'chatgpt-account']).default('disabled'),
+  CHAT_MODEL_MODE: z
+    .enum(['disabled', 'openai-compatible', 'chatgpt-account', 'registry'])
+    .default('disabled'),
   CHAT_MODEL_ENDPOINT: optionalUrl,
   CHAT_MODEL_API_KEY: z.string().optional(),
   CHAT_MODEL_NAME: z.string().optional(),
@@ -56,6 +64,8 @@ const configSchema = z.object({
   CHAT_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(2),
   CHAT_HOURLY_LIMIT: z.coerce.number().int().positive().default(30),
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
+  CREDENTIAL_REGISTRY_ENABLED: booleanString,
+  CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
   ANALYSIS_MAX_FILES: z.coerce.number().int().positive().default(500),
   ANALYSIS_MAX_BYTES: z.coerce
     .number()
@@ -135,6 +145,29 @@ export function loadConfig(
     result.data.SESSION_SECRET.length < 32
   ) {
     throw new Error('Invalid configuration: SESSION_SECRET must contain at least 32 characters');
+  }
+  if (
+    command === 'serve' &&
+    result.data.AUTH_MODE === 'local' &&
+    (!result.data.LOCAL_BOOTSTRAP_ADMIN_USERNAME ||
+      !result.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD ||
+      result.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD.length < 12 ||
+      Boolean(result.data.LOCAL_BOOTSTRAP_REVIEWER_USERNAME) !==
+        Boolean(result.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD) ||
+      (result.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD?.length ?? 12) < 12)
+  ) {
+    throw new Error('Invalid configuration: local auth requires valid bootstrap credentials');
+  }
+  if (
+    ['serve', 'worker'].includes(command) &&
+    (result.data.CREDENTIAL_REGISTRY_ENABLED ||
+      result.data.GITHUB_MODE === 'registry' ||
+      result.data.CHAT_MODEL_MODE === 'registry') &&
+    !validEncryptionKey(result.data.CREDENTIAL_ENCRYPTION_KEY)
+  ) {
+    throw new Error(
+      'Invalid configuration: credential registry requires a 32-byte base64 encryption key',
+    );
   }
   if (
     command === 'serve' &&

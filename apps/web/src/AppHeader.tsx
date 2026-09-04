@@ -1,5 +1,5 @@
-import { Settings, ShieldCheck } from 'lucide-react';
-import type { User } from './api.ts';
+import { BookOpenText, LogOut, Settings, ShieldCheck } from 'lucide-react';
+import { logout, type User } from './api.ts';
 
 type AppHeaderProps = {
   compact?: boolean;
@@ -28,9 +28,9 @@ export function AppHeader({
           <ShieldCheck size={19} strokeWidth={2.2} />
           <span>Git Code Reviewer</span>
         </a>
-        {!compact ? (
+        {!compact || user ? (
           <div className="header-actions">
-            {user && user.tenants.length > 0 && onTenantChange ? (
+            {!compact && user && user.tenants.length > 0 && onTenantChange ? (
               <label className="tenant-picker">
                 <span className="sr-only">Tenant</span>
                 <select
@@ -45,14 +45,35 @@ export function AppHeader({
                 </select>
               </label>
             ) : null}
-            {user?.role === 'administrator' ? (
+            {!compact && user?.role === 'administrator' ? (
               <a className="icon-button" href="/admin" title="관리" aria-label="관리">
                 <Settings size={17} />
+              </a>
+            ) : null}
+            {user ? (
+              <a
+                className="header-guide-link"
+                href="/guide"
+                aria-current={window.location.pathname === '/guide' ? 'page' : undefined}
+              >
+                <BookOpenText size={15} />
+                <span>사용 가이드</span>
               </a>
             ) : null}
             <span className="avatar" role="img" aria-label={user?.displayName ?? '사용자'}>
               {initials || '--'}
             </span>
+            {user ? (
+              <button
+                className="icon-button"
+                type="button"
+                title="로그아웃"
+                aria-label="로그아웃"
+                onClick={() => void logout()}
+              >
+                <LogOut size={16} />
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>

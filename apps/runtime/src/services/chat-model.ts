@@ -17,6 +17,7 @@ export type ChatModelMessage = {
 export type ChatModelRequest = {
   messages: ChatModelMessage[];
   cacheKey: string;
+  reasoningEffort?: string;
 };
 
 export interface ChatModel {
@@ -56,7 +57,7 @@ export function createChatModel(
   config: AppConfig,
   options: { fetch?: typeof fetch } = {},
 ): ChatModel | null {
-  if (config.CHAT_MODEL_MODE === 'disabled') return null;
+  if (config.CHAT_MODEL_MODE === 'disabled' || config.CHAT_MODEL_MODE === 'registry') return null;
   if (config.CHAT_MODEL_MODE === 'openai-compatible') {
     return new OpenAiCompatibleChatModel(config, options.fetch ?? fetch);
   }
@@ -158,6 +159,125 @@ export class ChatGptAccountChatModel implements ChatModel {
       signal: AbortSignal.timeout(this.config.CHAT_MODEL_TIMEOUT_MS),
     });
   }
+}
+
+export class RegisteredChatGptAccountModel implements ChatModel {
+  readonly name: string;
+  private readonly baseUrl: string;
+  private readonly auth: RegisteredCodexAccountAuthStore;
+
+  constructor(options: {
+    name: string;
+    endpoint?: string | null;
+    timeoutMs: number;
+    authJson: string;
+    installationId: string;
+    refreshUrl: string;
+    proactiveRefreshMinutes: number;
+    persistAuthJson: (authJson: string) => Promise<void>;
+    fetch?: typeof fetch;
+  }) {
+    this.name = options.name;
+    this.baseUrl = ensureTrailingSlash(options.endpoint || defaultCodexBaseUrl);
+    this.auth = new RegisteredCodexAccountAuthStore(options);
+    this.options = options;
+  }
+
+  private readonly options: {
+    name: string;
+    endpoint?: string | null;
+    timeoutMs: number;
+    authJson: string;
+    installationId: string;
+    refreshUrl: string;
+    proactiveRefreshMinutes: number;
+    persistAuthJson: (authJson: string) => Promise<void>;
+    fetch?: typeof fetch;
+  };
+
+  async generate(request: ChatModelRequest): Promise<string> {
+    const body = JSON.stringify(
+      toCodexResponsesPayload(this.name, request, this.options.installationId),
+    );
+    let response = await this.send(body);
+    if (response.status === 401) {
+      await response.text().catch(() => '');
+      await this.auth.refresh();
+      response = await this.send(body);
+    }
+    if (!response.ok) {
+      throw new ChatModelError(
+        'provider_request_failed',
+        `ChatGPT account model failed with HTTP ${response.status}`,
+      );
+    }
+    return readCodexResponse(response);
+  }
+
+  private async send(body: string): Promise<Response> {
+    return (this.options.fetch ?? fetch)(new URL('responses', this.baseUrl), {
+      method: 'POST',
+      headers: {
+        ...(await this.auth.requestHeaders(this.options.installationId)),
+        accept: 'text/event-stream',
+        'content-type': 'application/json',
+        originator: 'git-code-reviewer',
+        'user-agent': 'git-code-reviewer',
+      },
+      body,
+      signal: AbortSignal.timeout(this.options.timeoutMs),
+    });
+  }
+}
+
+class RegisteredCodexAccountAuthStore {
+  private auth: CodexAuthPayload;
+  private refreshPromise: Promise<CodexCredential> | undefined;
+
+  constructor(
+    private readonly options: {
+      authJson: string;
+      refreshUrl: string;
+      proactiveRefreshMinutes: number;
+      persistAuthJson: (authJson: string) => Promise<void>;
+      fetch?: typeof fetch;
+    },
+  ) {
+    this.auth = parseCodexAuthJson(options.authJson);
+  }
+
+  async requestHeaders(installationId: string): Promise<Record<string, string>> {
+    const credential = needsRefresh(this.auth, this.options.proactiveRefreshMinutes)
+      ? await this.refresh()
+      : normalizeCredential(this.auth);
+    return {
+      authorization: `Bearer ${credential.accessToken}`,
+      ...(credential.accountId ? { 'ChatGPT-Account-ID': credential.accountId } : {}),
+      ...(credential.fedramp ? { 'X-OpenAI-Fedramp': 'true' } : {}),
+      'x-codex-installation-id': installationId,
+    };
+  }
+
+  async refresh(): Promise<CodexCredential> {
+    this.refreshPromise ??= this.refreshOnce().finally(() => {
+      this.refreshPromise = undefined;
+    });
+    return this.refreshPromise;
+  }
+
+  private async refreshOnce(): Promise<CodexCredential> {
+    this.auth = await refreshCodexAuth(
+      this.auth,
+      this.options.refreshUrl,
+      this.options.fetch ?? fetch,
+    );
+    await this.options.persistAuthJson(JSON.stringify(this.auth));
+    return normalizeCredential(this.auth);
+  }
+}
+
+export function validateChatGptAuthJson(value: string): void {
+  normalizeCredential(parseCodexAuthJson(value));
 }
 
 export class CodexAccountAuthStore {
@@ -291,7 +411,7 @@ function toCodexResponsesPayload(
     stream: true,
     store: false,
     parallel_tool_calls: false,
-    reasoning: { effort: 'medium', summary: 'auto' },
+    reasoning: { effort: request.reasoningEffort ?? 'medium', summary: 'auto' },
     include: ['reasoning.encrypted_content'],
     prompt_cache_key: request.cacheKey,
     client_metadata: { 'x-codex-installation-id': installationId },
@@ -433,6 +553,52 @@ function parseRefreshResponse(value: string): {
   } catch {
     throw new ChatModelError('refresh_failed', 'ChatGPT account token refresh was invalid.');
   }
+}
+
+function parseCodexAuthJson(value: string): CodexAuthPayload {
+  try {
+    return JSON.parse(value) as CodexAuthPayload;
+  } catch {
+    throw new ChatModelError('invalid_auth', 'ChatGPT account auth.json is invalid.');
+  }
+}
+
+async function refreshCodexAuth(
+  auth: CodexAuthPayload,
+  refreshUrl: string,
+  fetcher: typeof fetch,
+): Promise<CodexAuthPayload> {
+  const refreshToken = auth.tokens?.refresh_token;
+  if (!refreshToken) {
+    throw new ChatModelError('refresh_unavailable', 'ChatGPT account has no refresh token.');
+  }
+  const response = await fetcher(refreshUrl || defaultRefreshUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      client_id: codexOauthClientId,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new ChatModelError(
+      'refresh_failed',
+      `ChatGPT account token refresh failed with HTTP ${response.status}.`,
+    );
+  }
+  const refreshed = parseRefreshResponse(responseText);
+  return {
+    ...auth,
+    tokens: {
+      ...(auth.tokens ?? {}),
+      ...(refreshed.id_token ? { id_token: refreshed.id_token } : {}),
+      ...(refreshed.access_token ? { access_token: refreshed.access_token } : {}),
+      ...(refreshed.refresh_token ? { refresh_token: refreshed.refresh_token } : {}),
+    },
+    last_refresh: new Date().toISOString(),
+  };
 }
 
 function refreshTokenReused(value: string): boolean {

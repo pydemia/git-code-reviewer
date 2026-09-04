@@ -1,6 +1,6 @@
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.6.0-alpha.1'
+  tag: '0.7.0-alpha.3'
   digest: ''
   pullPolicy: IfNotPresent
 imagePullSecrets: []
@@ -241,6 +241,11 @@ secrets:
   modelProvider: git-code-reviewer-model
   chatModelProvider: git-code-reviewer-chat-model
   chatgptAccount: git-code-reviewer-chatgpt-account
+  credentialRegistry: git-code-reviewer-credential-registry
+
+credentialRegistry:
+  enabled: false
+  encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
 
 github:
   mode: app
@@ -254,6 +259,12 @@ auth:
     subject: pilot-administrator
     displayName: Pilot Administrator
     role: administrator
+  # Local account mode is intended for private deployments that do not expose
+  # an OIDC endpoint. The referenced auth Secret must contain SESSION_SECRET,
+  # LOCAL_BOOTSTRAP_ADMIN_USERNAME/PASSWORD and optional reviewer counterparts.
+  local:
+    adminDisplayName: 시스템 관리자
+    reviewerDisplayName: 일반 사용자
   proxyPublicKeyKey: PROXY_IDENTITY_PUBLIC_KEY
   adminRole: git-code-reviewer-admin
   adminGroup: git-code-reviewer-admins

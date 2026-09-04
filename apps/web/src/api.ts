@@ -1,14 +1,18 @@
 import {
+  adminChatAccountListSchema,
+  adminRepositoryListSchema,
   adminUserListSchema,
   analysisProviderSettingsSchema,
   analysisProviderTestResultSchema,
   analysisListSchema,
   analysisPromptListSchema,
+  chatAccountCatalogSchema,
   chatMessageListSchema,
   chatSendResponseSchema,
   chatSessionSchema,
   codeObjectListSchema,
   diffIndexSchema,
+  githubConnectionListSchema,
   operationSchema,
   pullRequestDetailSchema,
   pullRequestListSchema,
@@ -41,6 +45,10 @@ export type WorkspaceData = {
 };
 export type ChatMessage = ReturnType<typeof chatMessageListSchema.parse>['items'][number];
 export type ChatSession = ReturnType<typeof chatSessionSchema.parse>;
+export type ChatAccountCatalog = ReturnType<typeof chatAccountCatalogSchema.parse>;
+export type AdminChatAccount = ReturnType<typeof adminChatAccountListSchema.parse>['items'][number];
+export type GitHubConnection = ReturnType<typeof githubConnectionListSchema.parse>['items'][number];
+export type AdminRepository = ReturnType<typeof adminRepositoryListSchema.parse>['items'][number];
 export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Tenant, User };
 export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
 export type AnalysisProviderSettings = ReturnType<typeof analysisProviderSettingsSchema.parse>;
@@ -54,6 +62,28 @@ export type AnalysisProviderInput = {
 
 export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
   return userSchema.parse(await fetchJson('/api/v1/me', signal));
+}
+
+export async function loginLocalAccount(
+  username: string,
+  password: string,
+  returnTo: string,
+): Promise<string> {
+  const response = await fetch('/auth/local/login', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username, password, returnTo }),
+  });
+  if (!response.ok) throw await requestError(response);
+  const body = (await response.json()) as { returnTo?: unknown };
+  return typeof body.returnTo === 'string' ? body.returnTo : '/';
+}
+
+export async function logout(): Promise<void> {
+  const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  if (!response.ok && response.status !== 401) throw await requestError(response);
+  window.location.assign('/login');
 }
 
 export async function loadWorklist(
@@ -94,8 +124,25 @@ export async function loadAdminUsers(signal: AbortSignal): Promise<AdminUser[]> 
   return adminUserListSchema.parse(await fetchJson('/api/v1/admin/users', signal)).items;
 }
 
-export async function updateUserAccess(userId: string, enabled: boolean): Promise<void> {
-  await mutateJson(`/api/v1/admin/users/${userId}`, 'PATCH', { enabled });
+export async function createLocalUser(values: {
+  username: string;
+  displayName: string;
+  role: 'reviewer' | 'administrator';
+  password: string;
+  tenantIds: string[];
+}): Promise<void> {
+  await mutateJson('/api/v1/admin/users', 'POST', values);
+}
+
+export async function updateUser(
+  userId: string,
+  values: { displayName?: string; role?: 'reviewer' | 'administrator'; enabled?: boolean },
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/users/${userId}`, 'PATCH', values);
+}
+
+export async function resetLocalUserPassword(userId: string, password: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/users/${userId}/password`, 'PUT', { password });
 }
 
 export async function updateTenantMembership(
@@ -153,6 +200,103 @@ export async function resetAnalysisProvider(): Promise<void> {
 export async function testAnalysisProvider(values: AnalysisProviderInput): Promise<number> {
   const response = await mutateJson('/api/v1/admin/analysis-provider/test', 'POST', values);
   return analysisProviderTestResultSchema.parse(response).latencyMs;
+}
+
+export async function loadChatAccounts(signal: AbortSignal): Promise<ChatAccountCatalog> {
+  return chatAccountCatalogSchema.parse(await fetchJson('/api/v1/chat-accounts', signal));
+}
+
+export async function loadAdminChatAccounts(signal: AbortSignal): Promise<AdminChatAccount[]> {
+  return adminChatAccountListSchema.parse(await fetchJson('/api/v1/admin/chat-accounts', signal))
+    .items;
+}
+
+export async function createChatAccount(values: {
+  displayName: string;
+  endpoint?: string;
+  authJson: string;
+  models: Array<{
+    id: string;
+    displayName: string;
+    allowedEfforts: string[];
+    defaultEffort: string;
+  }>;
+  assignments: Array<{ scopeType: string; scopeId: string }>;
+}): Promise<void> {
+  await mutateJson('/api/v1/admin/chat-accounts', 'POST', values);
+}
+
+export async function updateChatAccount(
+  accountId: string,
+  values: { enabled?: boolean; authJson?: string },
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/chat-accounts/${accountId}`, 'PATCH', values);
+}
+
+export async function loadGitHubConnections(signal: AbortSignal): Promise<GitHubConnection[]> {
+  return githubConnectionListSchema.parse(
+    await fetchJson('/api/v1/admin/github-connections', signal),
+  ).items;
+}
+
+export async function loadAdminRepositories(signal: AbortSignal): Promise<AdminRepository[]> {
+  return adminRepositoryListSchema.parse(await fetchJson('/api/v1/admin/repositories', signal))
+    .items;
+}
+
+export async function updateAdminRepository(
+  repositoryId: string,
+  values: { enabled?: boolean; pollingEnabled?: boolean; pollIntervalSeconds?: number },
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/repositories/${repositoryId}`, 'PATCH', values);
+}
+
+export async function updateRepositoryGrant(
+  repositoryId: string,
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/repositories/${repositoryId}/grants/${userId}`, 'PUT', {
+    enabled,
+  });
+}
+
+export async function pollAdminRepository(repositoryId: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/repositories/${repositoryId}/poll`, 'POST');
+}
+
+export async function createGitHubConnection(values: {
+  name: string;
+  apiBaseUrl: string;
+  webBaseUrl: string;
+  credentialLabel: string;
+  accessToken: string;
+  expiresAt?: string;
+}): Promise<void> {
+  await mutateJson('/api/v1/admin/github-connections', 'POST', values);
+}
+
+export async function testGitHubConnection(connectionId: string): Promise<{
+  status: number;
+  latencyMs: number;
+}> {
+  return (await mutateJson(`/api/v1/admin/github-connections/${connectionId}/test`, 'POST')) as {
+    status: number;
+    latencyMs: number;
+  };
+}
+
+export async function registerGitHubRepository(
+  connectionId: string,
+  values: {
+    tenantId: string;
+    owner: string;
+    name: string;
+    pollIntervalSeconds: number;
+    grantSubjects: string[];
+  },
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/github-connections/${connectionId}/repositories`, 'POST', values);
 }
 
 export async function loadWorkspace(
@@ -222,14 +366,22 @@ export async function loadAnalysisWorkspace(
 
 export async function openChatSession(
   analysisId: string,
-  scope: { findingId?: string; fileId?: string; symbolId?: string },
+  values: {
+    findingId?: string;
+    fileId?: string;
+    symbolId?: string;
+    accountId?: string;
+    modelName?: string;
+    reasoningEffort?: string;
+    newSession?: boolean;
+  },
   signal: AbortSignal,
 ): Promise<{ session: ChatSession; messages: ChatMessage[] }> {
   const response = await fetch(`/api/v1/analyses/${analysisId}/chat-sessions`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(scope),
+    body: JSON.stringify(values),
     signal,
   });
   if (!response.ok) throw new Error(`Chat session failed: ${response.status}`);

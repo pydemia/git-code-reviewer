@@ -140,6 +140,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and (eq .Values.github.mode "app") (not .Values.secrets.githubApp) -}}
 {{- fail "secrets.githubApp is required for GitHub App mode" -}}
 {{- end -}}
+{{- if and .Values.credentialRegistry.enabled (or (not .Values.secrets.credentialRegistry) (not .Values.credentialRegistry.encryptionKeyKey)) -}}
+{{- fail "credential registry requires a Secret and encryption key name" -}}
+{{- end -}}
 {{- if and (eq .Values.model.analysis.mode "openai-compatible") (or (not .Values.model.analysis.endpoint) (not .Values.model.analysis.name) (not .Values.secrets.modelProvider)) -}}
 {{- fail "analysis model endpoint, explicit name, and provider Secret are required" -}}
 {{- end -}}
@@ -169,6 +172,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if and .Values.keycloak.enabled (ne .Values.auth.mode "oidc") -}}
 {{- fail "keycloak.enabled requires auth.mode=oidc" -}}
+{{- end -}}
+{{- if and (eq .Values.auth.mode "local") (not .Values.secrets.auth) -}}
+{{- fail "local auth requires secrets.auth with session and bootstrap account credentials" -}}
 {{- end -}}
 {{- if and .Values.keycloak.enabled (or (not .Values.keycloak.ingress.enabled) (not .Values.keycloak.ingress.hostname) (not .Values.keycloak.ingress.tls) (not .Values.keycloak.ingress.extraTls)) -}}
 {{- fail "bundled Keycloak requires a TLS ingress hostname and existing TLS Secret mapping" -}}

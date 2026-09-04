@@ -30,6 +30,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import {
   loadAnalysisWorkspace,
+  loadChatAccounts,
   loadWorklist,
   loadWorkspace,
   openChatSession,
@@ -37,6 +38,7 @@ import {
   sendChatMessage,
   waitForSnapshot,
   type ChatMessage,
+  type ChatAccountCatalog,
   type ChatSession,
   type WorklistItem,
   type WorkspaceData,
@@ -45,6 +47,8 @@ import {
 } from './api.ts';
 import { AdminPage } from './AdminPage.tsx';
 import { AppHeader } from './AppHeader.tsx';
+import { GuidePage } from './GuidePage.tsx';
+import { LoginPage } from './LoginPage.tsx';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
@@ -76,6 +80,8 @@ function isBottomTool(value: string | null): value is BottomTool {
 }
 
 export function App() {
+  if (window.location.pathname === '/login') return <LoginPage />;
+  if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
   if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;
@@ -238,6 +244,7 @@ function ReviewWorkspace({
   analysisId?: string;
 }) {
   const [data, setData] = useState<WorkspaceData | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -246,6 +253,11 @@ function ReviewWorkspace({
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [bottomTool, setBottomTool] = useState<BottomTool>('evidence');
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
+  const [chatAccounts, setChatAccounts] = useState<ChatAccountCatalog | null>(null);
+  const [chatAccountId, setChatAccountId] = useState('');
+  const [chatModelName, setChatModelName] = useState('');
+  const [chatEffort, setChatEffort] = useState('');
+  const [chatSelectionRevision, setChatSelectionRevision] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatSending, setChatSending] = useState(false);
@@ -344,8 +356,9 @@ function ReviewWorkspace({
       : repositoryId && pullNumber
         ? loadWorkspace(repositoryId, pullNumber, controller.signal)
         : Promise.reject(new Error('Review target is missing'));
-    void workspaceRequest.then(
-      (workspace) => {
+    void Promise.all([loadCurrentUser(controller.signal), workspaceRequest]).then(
+      ([currentUser, workspace]) => {
+        setUser(currentUser);
         setData(workspace);
         const search = new URLSearchParams(window.location.search);
         const requestedFindingId = search.get('finding');
@@ -385,10 +398,44 @@ function ReviewWorkspace({
   }, [analysisId, repositoryId, pullNumber]);
 
   useEffect(() => {
-    const currentAnalysisId = data?.analysis?.id;
-    if (!currentAnalysisId || !data?.report) return;
     const controller = new AbortController();
-    void openChatSession(currentAnalysisId, {}, controller.signal).then(
+    void loadChatAccounts(controller.signal).then(
+      (catalog) => {
+        setChatAccounts(catalog);
+        const account = catalog.items[0];
+        const model = account?.models[0];
+        setChatAccountId((current) => current || account?.id || '');
+        setChatModelName((current) => current || model?.id || '');
+        setChatEffort((current) => current || model?.defaultEffort || '');
+      },
+      (error: unknown) => {
+        if (!controller.signal.aborted) console.error(error);
+      },
+    );
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const currentAnalysisId = data?.analysis?.id;
+    if (!currentAnalysisId || !data?.report || !chatAccounts) return;
+    if (chatAccounts.enabled && (!chatAccountId || !chatModelName || !chatEffort)) {
+      setChatSession(null);
+      setChatMessages([]);
+      return;
+    }
+    const controller = new AbortController();
+    void openChatSession(
+      currentAnalysisId,
+      chatAccounts.enabled
+        ? {
+            accountId: chatAccountId,
+            modelName: chatModelName,
+            reasoningEffort: chatEffort,
+            newSession: chatSelectionRevision > 0,
+          }
+        : {},
+      controller.signal,
+    ).then(
       ({ session, messages }) => {
         setChatSession(session);
         setChatMessages(messages);
@@ -398,7 +445,38 @@ function ReviewWorkspace({
       },
     );
     return () => controller.abort();
-  }, [data?.analysis?.id, data?.report]);
+  }, [
+    chatAccountId,
+    chatAccounts,
+    chatEffort,
+    chatModelName,
+    chatSelectionRevision,
+    data?.analysis?.id,
+    data?.report,
+  ]);
+
+  const selectedChatAccount = chatAccounts?.items.find((item) => item.id === chatAccountId);
+
+  const selectChatAccount = (accountId: string) => {
+    const account = chatAccounts?.items.find((item) => item.id === accountId);
+    const model = account?.models[0];
+    setChatAccountId(accountId);
+    setChatModelName(model?.id ?? '');
+    setChatEffort(model?.defaultEffort ?? '');
+    setChatSelectionRevision((value) => value + 1);
+  };
+
+  const selectChatModel = (modelName: string) => {
+    const model = selectedChatAccount?.models.find((item) => item.id === modelName);
+    setChatModelName(modelName);
+    setChatEffort(model?.defaultEffort ?? '');
+    setChatSelectionRevision((value) => value + 1);
+  };
+
+  const selectChatEffort = (effort: string) => {
+    setChatEffort(effort);
+    setChatSelectionRevision((value) => value + 1);
+  };
 
   const handleRefresh = async () => {
     if (!data) return;
@@ -490,7 +568,7 @@ function ReviewWorkspace({
   };
   return (
     <div className="review-page">
-      <AppHeader compact />
+      <AppHeader compact user={user} />
       <div className="review-context">
         <div className="pr-context">
           <a href="/">{data ? `${data.pull.owner} / ${data.pull.name}` : 'Repository'}</a>
@@ -619,10 +697,17 @@ function ReviewWorkspace({
           selectedFinding={selectedFinding}
           selectedFile={selectedFile?.path}
           model={chatSession?.model ?? null}
+          accountCatalog={chatAccounts}
+          accountId={chatAccountId}
+          modelName={chatModelName}
+          reasoningEffort={chatEffort}
           messages={chatMessages}
           draft={chatDraft}
           sending={chatSending}
           onDraftChange={setChatDraft}
+          onAccountChange={selectChatAccount}
+          onModelChange={selectChatModel}
+          onEffortChange={selectChatEffort}
           onSend={() => void handleChatSubmit()}
           onCitationSelect={(findingId) => {
             const finding = data?.report?.findings.find((item) => item.id === findingId);
@@ -1074,10 +1159,17 @@ function ChatPanel({
   selectedFinding,
   selectedFile,
   model,
+  accountCatalog,
+  accountId,
+  modelName,
+  reasoningEffort,
   messages,
   draft,
   sending,
   onDraftChange,
+  onAccountChange,
+  onModelChange,
+  onEffortChange,
   onSend,
   onCitationSelect,
 }: {
@@ -1086,15 +1178,27 @@ function ChatPanel({
   selectedFinding: FindingView | undefined;
   selectedFile: string | undefined;
   model: ChatSession['model'] | null;
+  accountCatalog: ChatAccountCatalog | null;
+  accountId: string;
+  modelName: string;
+  reasoningEffort: string;
   messages: ChatMessage[];
   draft: string;
   sending: boolean;
   onDraftChange: (value: string) => void;
+  onAccountChange: (value: string) => void;
+  onModelChange: (value: string) => void;
+  onEffortChange: (value: string) => void;
   onSend: () => void;
   onCitationSelect: (findingId: string) => void;
 }) {
+  const account = accountCatalog?.items.find((item) => item.id === accountId);
+  const selectedModel = account?.models.find((item) => item.id === modelName);
   return (
-    <aside className="chat-panel" aria-label="분석 대화">
+    <aside
+      className={`chat-panel${accountCatalog?.enabled ? ' registry-enabled' : ''}`}
+      aria-label="분석 대화"
+    >
       <div className="chat-heading">
         <span>
           <Bot size={15} /> Review chat
@@ -1106,9 +1210,53 @@ function ChatPanel({
         <span>{selectedFinding?.title ?? selectedFile ?? '전체 report'}</span>
         <code>{headSha?.slice(0, 7) ?? '-------'}</code>
       </div>
+      {accountCatalog?.enabled ? (
+        <div className="chat-model-selectors" aria-label="Chat model 설정">
+          <label>
+            <span>Account</span>
+            <select value={accountId} onChange={(event) => onAccountChange(event.target.value)}>
+              {accountCatalog.items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Model</span>
+            <select value={modelName} onChange={(event) => onModelChange(event.target.value)}>
+              {(account?.models ?? []).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Effort</span>
+            <select
+              value={reasoningEffort}
+              onChange={(event) => onEffortChange(event.target.value)}
+            >
+              {(selectedModel?.allowedEfforts ?? []).map((effort) => (
+                <option key={effort} value={effort}>
+                  {effort}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
       <div className="chat-messages" aria-live="polite">
-        {!model ? (
+        {!model && !(accountCatalog?.enabled && accountCatalog.items.length === 0) ? (
           <div className="chat-message-empty">Chat 연결 상태를 확인하는 중입니다.</div>
+        ) : null}
+        {accountCatalog?.enabled && accountCatalog.items.length === 0 ? (
+          <div className="chat-unavailable">
+            <Bot size={22} />
+            <strong>사용 가능한 ChatGPT account가 없습니다.</strong>
+            <span>시스템 관리자에게 account 할당을 요청해 주세요.</span>
+          </div>
         ) : null}
         {model && !model.available ? (
           <div className="chat-unavailable">

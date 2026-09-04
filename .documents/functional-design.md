@@ -76,7 +76,8 @@ Helm release
 | Analysis worker | isolated clone, artifact pipeline, report persist | arbitrary repo command, public ingress |
 | Artifact store | immutable large object와 checksum | authorization 결정 |
 | PostgreSQL | metadata, state, leases, audit metadata | source tree 보관 |
-| Model adapter | Server Chat와 Worker batch를 위한 provider-neutral request/stream/usage/error, Server 전용 deployment-owned ChatGPT account | host home 자동 mount, browser token 전달, 사용자별 local CLI credential 암묵 재사용 |
+| Chat account registry | 관리자 등록 account, assignment, model/effort capability, encrypted credential와 refresh 상태 | 사용자 local credential 암묵 재사용, browser credential 반환 |
+| Model adapter | Session에 고정된 account/model/reasoning effort로 Server Chat 호출, Worker batch provider 호출 | 허용되지 않은 account/model/effort 자동 fallback |
 
 ## 3. Identity와 domain key
 
@@ -152,7 +153,7 @@ Terminal failure는 `last_error_code`를 보존하며 administrator가 동일 do
 
 ### 5.1 로그인과 worklist
 
-1. 기본 application OIDC가 user identity를 확인한다. Proxy identity mode는 §9.2의 trust 조건을 충족할 때만 사용한다.
+1. 운영 환경은 기본 application OIDC가 user identity를 확인한다. Proxy identity mode는 §9.2의 trust 조건을 충족할 때만 사용한다. 외부 OIDC endpoint가 없는 private pilot은 Local account와 server session을 사용한다.
 2. server는 subject를 `users`에 upsert하고 role/group mapping을 적용한다.
 3. `GET /repositories`는 grant가 있는 registered repository만 반환한다.
 4. PR 목록은 현재 observed head, 최신 analysis state, priority count와 poll 상태를 함께 반환한다.
@@ -161,7 +162,7 @@ Terminal failure는 `last_error_code`를 보존하며 administrator가 동일 do
 ### 5.2 Background poll
 
 1. leader scheduler가 `next_poll_at <= now()` target을 claim한다.
-2. GitHub App JWT로 installation token을 발급하거나 memory cache에서 가져온다.
+2. Repository가 참조하는 GHES credential을 암호화 저장소에서 읽고 access token과 현재 권한 상태를 확인한다.
 3. conditional request와 pagination으로 open PR을 읽는다.
 4. PR adapter가 PR metadata 또는 명시적 ref query로 현재 base branch tip과 head SHA를 확정한다.
 5. PR number/state/base/head를 저장된 관측값과 비교한다.
@@ -191,7 +192,7 @@ SSE는 poll 시작/완료, snapshot request/materialization과 analysis 상태�
 
 1. worker가 snapshot request와 server-side registry에서 GHES clone endpoint를 얻는다.
 2. opaque run directory와 `emptyDir` 또는 generic ephemeral workspace를 만든다.
-3. credential helper 또는 header로 installation token을 전달하고 URL에 넣지 않는다.
+3. credential helper 또는 Authorization header로 access token을 전달하고 URL에 넣지 않는다.
 4. `--no-tags`, bounded depth와 가능한 경우 `--filter=blob:none`으로 독립 clone한다.
 5. exact base/head를 fetch하고 merge-base가 없으면 정책 한도까지 deepen한다.
 6. 계산 결과를 새 append-only snapshot materialization으로 commit한다.
@@ -425,11 +426,13 @@ worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제�
 | Table | 핵심 필드 | 주요 제약 |
 |---|---|---|
 | `users` | oidc_subject, display_name, role | subject unique |
-| `github_instances` | api_base_url, app_id, secret_ref | host unique |
-| `repositories` | github_id, installation_id, owner, name, enabled | instance/github_id unique |
+| `github_instances` | api_base_url, web_base_url, ca_profile, enabled | host unique |
+| `github_credentials` | instance_id, label, encrypted_token, version, expiry, health | credential write-only |
+| `repositories` | tenant_id, instance_id, credential_id, github_id, owner, name, enabled | instance/github_id unique |
 | `repository_grants` | repository_id, subject_or_group, role | scope unique |
 | `pull_requests` | repository_id, number, state, base_sha, head_sha | repository/number unique |
-| `poll_states` | repository_id, next_poll_at, etag, backoff | repository unique |
+| `poll_policies` | repository_id, enabled, hot/active/idle/draft interval, manual_refresh | repository unique |
+| `poll_states` | repository_id, next_poll_at, etag, backoff, credential_health | repository unique |
 | `operations` | type, scope, state, dedupe_key, result, error | active dedupe key unique |
 | `snapshot_requests` | pr_id, base_sha, head_sha, state | pr/base/head unique |
 | `snapshots` | request_id, version, merge_base_sha, resolution, policy | request/version unique, append-only |
@@ -440,7 +443,10 @@ worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제�
 | `artifacts` | scope/id, type, version, checksum, locator, committed_at, producer_attempt | scope/id/type/version unique |
 | `reports` | run_id, revision, summary, grade, has_critical, coverage | run unique, immutable |
 | `findings` | report_id, source/rule, title/body, priority, category, confidence, anchor, fingerprint | report/fingerprint unique |
-| `chat_sessions` | user_id, analysis_revision_id, title | owner-scoped |
+| `chat_accounts` | label, provider_type, encrypted credential, version, health, enabled | credential write-only |
+| `chat_account_assignments` | account_id, tenant/user/group scope | scope unique |
+| `chat_model_capabilities` | account_id, model_id, allowed/default/max effort, limits | account/model unique |
+| `chat_sessions` | user_id, analysis_revision_id, account_id, model_id, reasoning_effort, credential_version | owner-scoped, immutable selection |
 | `chat_messages` | session_id, role, content_ref, status, usage | ordered sequence |
 | `audit_events` | actor, action, resource_type/id, outcome, request_id, time | append-only metadata |
 
@@ -482,6 +488,8 @@ GET    /api/v1/snapshots/{snapshotId}/commits
 GET    /api/v1/snapshots/{snapshotId}/merge-simulation
 
 POST   /api/v1/analyses/{analysisId}/chat-sessions
+GET    /api/v1/chat-accounts
+GET    /api/v1/chat-accounts/{accountId}/models
 GET    /api/v1/chat-sessions/{sessionId}
 POST   /api/v1/chat-sessions/{sessionId}/messages
 GET    /api/v1/chat-sessions/{sessionId}/events
@@ -489,6 +497,22 @@ GET    /api/v1/chat-sessions/{sessionId}/events
 GET    /api/v1/admin/repositories
 POST   /api/v1/admin/repositories
 PATCH  /api/v1/admin/repositories/{repoId}
+PUT    /api/v1/admin/repositories/{repoId}/poll-policy
+POST   /api/v1/admin/repositories/{repoId}/poll-now
+GET    /api/v1/admin/repositories/{repoId}/grants
+PUT    /api/v1/admin/repositories/{repoId}/grants/{principalId}
+DELETE /api/v1/admin/repositories/{repoId}/grants/{principalId}
+GET    /api/v1/admin/github-connections
+POST   /api/v1/admin/github-connections
+PATCH  /api/v1/admin/github-connections/{connectionId}
+POST   /api/v1/admin/github-connections/{connectionId}/credential
+POST   /api/v1/admin/github-connections/{connectionId}/test
+GET    /api/v1/admin/chat-accounts
+POST   /api/v1/admin/chat-accounts
+PATCH  /api/v1/admin/chat-accounts/{accountId}
+POST   /api/v1/admin/chat-accounts/{accountId}/credential
+POST   /api/v1/admin/chat-accounts/{accountId}/test
+PUT    /api/v1/admin/chat-accounts/{accountId}/assignments
 GET    /api/v1/admin/retention
 PUT    /api/v1/admin/retention
 POST   /api/v1/admin/analyses/{analysisId}/cancel
@@ -510,7 +534,7 @@ List API는 opaque cursor pagination을 사용한다. Diff API는 file/hunk curs
 
 Analysis provider admin API는 전역 immutable version을 관리한다. Credential은 deployment Secret의 encryption key로 AES-256-GCM 암호화하고 response에는 설정 여부만 포함한다. Dynamic endpoint는 exact-origin allowlist를 통과해야 하며 test request에는 source, diff와 tenant prompt를 포함하지 않는다. Analysis run은 생성 시 provider version/hash를 고정해 이후 active 설정 변경의 영향을 받지 않는다.
 
-Chat session response는 `model.available`과 공개 가능한 model name을 포함한다. `CHAT_MODEL_MODE=disabled`이면 message POST는 user/assistant row를 만들기 전에 typed `CHAT_MODEL_DISABLED` 503을 반환한다. `openai-compatible`은 API key 기반 Chat Completions를, `chatgpt-account`는 deployment-owned account의 Codex Responses stream과 access token refresh를 사용한다. Fixture GHES adapter도 interactive model이 설정되어 있으면 같은 provider 호출 경로를 사용하며 report 문구를 deterministic Chat 답변으로 대신하지 않는다.
+Chat session 생성 요청은 사용자가 선택한 `accountId`, `modelId`, `reasoningEffort`를 포함한다. Server는 assignment와 account capability를 검증하고 credential version과 함께 session에 고정한다. 선택을 바꾸면 새 session을 만들며 provider 장애 시 다른 account/model로 자동 fallback하지 않는다. 사용 가능한 account가 없으면 message row를 만들기 전에 typed `CHAT_ACCOUNT_UNAVAILABLE` 503을 반환한다. 상세 contract는 [Chat account registry와 GHES repository 관리 설계](account-and-ghes-administration-design.md)를 따른다.
 
 Operation response:
 
@@ -640,7 +664,7 @@ artifacts/.staging/<attempt-id>/...
 
 ### 9.2 Application
 
-- Application OIDC Authorization Code flow와 secure server session을 기본으로 한다. Session cookie는 `Secure`, `HttpOnly`, `SameSite=Lax`와 조직이 정한 idle timeout을 사용한다.
+- 운영 환경은 Application OIDC Authorization Code flow와 secure server session을 기본으로 한다. PRISM-DEV의 Local account mode는 scrypt password hash, 로그인 실패 제한과 관리자 계정 수명주기를 적용한다. Session cookie는 `HttpOnly`, `SameSite=Lax`를 사용하고 HTTPS에서는 `Secure`를 설정한다. 상세 contract는 [Local account 인증·사용자 관리 설계](local-account-authentication.md)를 따른다.
 - Reverse proxy identity mode는 ingress에서 온 signed assertion을 검증하고 신뢰 경계 밖의 identity header를 제거한다. Pod 직접 접근과 forged header를 negative test한다.
 - state-changing API는 origin/CSRF protection과 idempotency를 적용한다.
 - Markdown renderer는 raw HTML과 unsafe scheme을 차단하고 external image를 자동 load하지 않는다. External link에는 `noopener noreferrer`를 적용한다.
@@ -657,7 +681,7 @@ Audit catalogue는 login/session, grant/role, repository/config/retention 변경
 - pod는 non-root, privilege escalation 금지, capability drop, seccomp와 read-only rootfs를 기본으로 한다.
 - application ServiceAccount는 Kubernetes API permission을 필요로 하지 않는 구성을 우선한다.
 - Secret은 existing Secret 또는 external secret controller가 만들고 chart는 이름만 참조한다.
-- ChatGPT account auth Secret은 seed로만 사용한다. init container는 bootstrap revision이 바뀔 때 Server 전용 encrypted PVC에 원자 복사하며, Server는 회전된 refresh token을 같은 PVC에 mode `0600`으로 보존한다.
+- Kubernetes Secret에는 GHES·Chat credential row를 암호화하는 master key만 둔다. 관리자가 등록한 credential과 refresh 결과는 PostgreSQL에 AEAD 암호화하고 Server replica 간 refresh/rotation은 DB lock과 credential version으로 직렬화한다.
 - NetworkPolicy는 server ingress와 server/worker/retention egress allowlist를 분리한다. Server는 GHES polling과 Chat model, Worker는 GHES Git/API와 batch model, 두 workload는 DB와 선택한 artifact backend만 허용한다.
 - workspace와 artifact mount를 component별 최소 권한으로 나눈다.
 

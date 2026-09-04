@@ -1,41 +1,30 @@
 # Private GHES test guide
 
-## 1. GitHub App preflight
+## 1. Access token preflight
 
-private GHES에 GitHub App을 만들고 대상 repository에 설치한다. Repository permission은 최소 다음 read-only 범위로 제한한다.
+회사에서 관리하는 bot 또는 service account에 대상 private repository의 Read 권한을 부여한다. 개인 관리자 계정은 사용하지 않는다. GHES와 organization 정책이 허용하면 `Settings → Developer settings → Personal access tokens → Fine-grained tokens`에서 token을 만들고 Resource owner와 대상 repository를 명시한다.
+
+Repository permission은 다음 read-only 범위로 제한한다.
 
 - Metadata: Read-only
 - Contents: Read-only
 - Pull requests: Read-only
 
-Webhook과 write permission은 필요하지 않다. 설치할 repository를 명시적으로 선택한다. 권한별 API 범위는 대상 GHES 버전의 [GitHub App permissions 문서](https://docs.github.com/en/enterprise-server@3.21/rest/authentication/permissions-required-for-github-apps)를 확인한다.
+Metadata는 repository 등록 시 `GET /repos/{owner}/{repo}`, Pull requests는 outbound polling, Contents는 Worker의 HTTPS Git fetch에 사용한다. Webhook, Admin, write와 workflow permission은 필요하지 않다. Fine-grained PAT을 사용할 수 없으면 classic PAT의 `repo` scope를 사용할 수 있지만 계정이 접근 가능한 private repository 전체로 범위가 넓으므로 전용 계정과 짧은 만료·회전 주기를 적용한다. 권한별 API 범위는 대상 GHES 버전의 [fine-grained PAT permissions 문서](https://docs.github.com/en/enterprise-server@3.21/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens)를 확인한다.
 
-확인할 값은 App ID, installation ID, API base URL(`https://GHES/api/v3/`), web base URL(`https://GHES/`), private key다. Cluster의 Server와 Worker Pod에서 GHES DNS/TLS/API와 Git HTTPS clone이 모두 가능해야 한다.
+확인할 값은 API base URL(`https://GHES/api/v3/`), web base URL(`https://GHES/`), token 만료일과 access token 원문이다. Organization 승인이 필요한 fine-grained PAT은 승인 완료 상태여야 한다. Cluster의 Server와 Worker Pod에서 GHES DNS/TLS/API와 Git HTTPS fetch가 모두 가능해야 한다.
 
 ## 2. Register a repository
 
-OIDC로 관리자 역할 사용자가 로그인한 후 `/admin`에서 대상 tenant ID를 확인한다. Browser DevTools Network에서 `/api/v1/me` 요청을 `Copy as cURL` 한다. 같은 origin과 HttpOnly session cookie를 유지한 로컬 terminal에서 URL과 method/body만 아래처럼 바꾼다. 복사한 command에는 세션 cookie가 있으므로 shell history나 문서에 남기지 않는다.
+1. 시스템 관리자 계정으로 로그인하고 GNB의 `사용 가이드 → GHES credential`을 확인한다.
+2. `/admin?tab=github`에서 연결 이름, API/Web base URL, credential label, access token과 만료일을 입력한다.
+3. Credential label은 `ghes-reviewer-readonly`처럼 용도와 권한을 나타내는 관리용 이름을 사용한다. Token, GHES username이나 password를 label에 넣지 않는다.
+4. Access token에는 GHES 발급 화면에 나온 문자열만 입력한다. `Bearer` 접두어, 따옴표와 URL은 붙이지 않는다.
+5. `연결 테스트`를 실행한다. 이 요청은 `GET /user`만 확인하므로 성공해도 다음 repository 검증과 Git fetch를 계속 수행한다.
+6. GHES 연결, tenant, owner/repository, polling interval과 사용자 권한을 선택해 repository를 등록한다. Server가 numeric repository ID를 직접 조회한다.
+7. `Poll now`로 open PR을 가져온 뒤 첫 snapshot 분석에서 Worker의 HTTPS Git fetch를 확인한다.
 
-```bash
-curl 'https://git-code-reviewer.example.internal/api/v1/admin/repositories' \
-  -X POST \
-  -H 'content-type: application/json' \
-  -H 'origin: https://git-code-reviewer.example.internal' \
-  -H 'cookie: gcr_session=REDACTED' \
-  --data '{
-    "tenantId":"00000000-0000-0000-0000-000000000000",
-    "instanceName":"Enterprise GHES",
-    "apiBaseUrl":"https://github.example.internal/api/v3/",
-    "webBaseUrl":"https://github.example.internal/",
-    "githubId":123456,
-    "installationId":"98765",
-    "owner":"platform",
-    "name":"reviewer-api",
-    "pollIntervalSeconds":120
-  }'
-```
-
-Repository ID는 GHES `GET /repos/{owner}/{repo}` 응답의 numeric `id`를 사용한다. API/Web URL에 credential이나 임의 origin을 포함하면 등록이 거부되어야 한다.
+같은 GHES instance와 credential label로 새 token을 등록하면 기존 credential이 교체되고 version이 증가한다. Token을 rotate할 때는 label을 유지하고 연결 테스트부터 다시 수행한다. API/Web URL에 credential을 포함하면 등록이 거부되어야 한다.
 
 ## 3. End-to-end acceptance
 

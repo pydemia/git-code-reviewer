@@ -6,6 +6,7 @@ import { requireAdministrator, requireUser } from '../auth/index.js';
 import type { AuthorizationAction, AuthorizationService } from '../services/authorization.js';
 
 const repositoryParams = z.object({ repoId: z.string().uuid() });
+const repositoryGrantParams = repositoryParams.extend({ userId: z.string().uuid() });
 const pullParams = repositoryParams.extend({ number: z.coerce.number().int().positive() });
 const repositoryBody = z.object({
   tenantId: z.string().uuid(),
@@ -21,8 +22,10 @@ const repositoryBody = z.object({
 const repositoryListQuery = z.object({ tenantId: z.string().uuid().optional() });
 const repositoryPatch = z.object({
   enabled: z.boolean().optional(),
+  pollingEnabled: z.boolean().optional(),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).optional(),
 });
+const repositoryGrantBody = z.object({ enabled: z.boolean() });
 
 export async function registerWorklistRoutes(
   app: FastifyInstance,
@@ -194,6 +197,42 @@ export async function registerWorklistRoutes(
     },
   );
 
+  app.put(
+    '/api/v1/admin/repositories/:repoId/grants/:userId',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      const { repoId, userId } = repositoryGrantParams.parse(request.params);
+      if (!(await canReadRepository(database, authorization, request, repoId, 'update'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const body = repositoryGrantBody.parse(request.body);
+      const target = await database.query<{ subject: string }>(
+        `select app_user.oidc_subject as subject
+         from users app_user join tenant_memberships membership on membership.user_id = app_user.id
+         join repositories repository on repository.tenant_id = membership.tenant_id
+         where app_user.id = $1 and app_user.enabled and membership.enabled
+           and repository.id = $2 and repository.enabled`,
+        [userId, repoId],
+      );
+      if (!target.rows[0]) return hiddenNotFound(request, reply);
+      if (body.enabled) {
+        await database.query(
+          `insert into repository_grants(repository_id, subject_or_group, role)
+           values ($1, $2, 'reviewer')
+           on conflict (repository_id, subject_or_group) do update set role = 'reviewer'`,
+          [repoId, target.rows[0].subject],
+        );
+      } else {
+        await database.query(
+          `delete from repository_grants where repository_id = $1 and subject_or_group = $2`,
+          [repoId, target.rows[0].subject],
+        );
+      }
+      await writeAudit(database, request, 'repository.grant.update', repoId, 'success');
+      return { schemaVersion, repositoryId: repoId, userId, enabled: body.enabled };
+    },
+  );
+
   app.patch(
     '/api/v1/admin/repositories/:repoId',
     { preHandler: requireAdministrator },
@@ -207,13 +246,42 @@ export async function registerWorklistRoutes(
         `update repositories set
            enabled = coalesce($2, enabled),
            poll_interval_seconds = coalesce($3, poll_interval_seconds),
+           polling_enabled = coalesce($4, polling_enabled),
            updated_at = clock_timestamp()
          where id = $1 returning id`,
-        [repoId, patch.enabled ?? null, patch.pollIntervalSeconds ?? null],
+        [
+          repoId,
+          patch.enabled ?? null,
+          patch.pollIntervalSeconds ?? null,
+          patch.pollingEnabled ?? null,
+        ],
       );
       if (!result.rowCount) return hiddenNotFound(request, reply);
       await writeAudit(database, request, 'repository.update', repoId, 'success');
       return { schemaVersion, id: repoId };
+    },
+  );
+
+  app.post(
+    '/api/v1/admin/repositories/:repoId/poll',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      const { repoId } = repositoryParams.parse(request.params);
+      if (!(await canReadRepository(database, authorization, request, repoId, 'update'))) {
+        return hiddenNotFound(request, reply);
+      }
+      const result = await database.query(
+        `insert into poll_states(repository_id, next_poll_at, backoff_until, updated_at)
+         select id, clock_timestamp(), null, clock_timestamp()
+         from repositories where id = $1 and enabled and polling_enabled
+         on conflict (repository_id) do update set next_poll_at = clock_timestamp(),
+           backoff_until = null, updated_at = clock_timestamp()
+         returning repository_id`,
+        [repoId],
+      );
+      if (!result.rowCount) return hiddenNotFound(request, reply);
+      await writeAudit(database, request, 'repository.poll-now', repoId, 'success');
+      return reply.code(202).send({ schemaVersion, id: repoId, state: 'queued' });
     },
   );
 }
@@ -257,11 +325,14 @@ async function listRepositories(database: Database, tenantId?: string) {
             r.tenant_id as "tenantId", tenant.slug as "tenantSlug",
             tenant.display_name as "tenantName",
             r.owner, r.name, r.enabled, r.poll_interval_seconds as "pollIntervalSeconds",
+            r.polling_enabled as "pollingEnabled", r.credential_id as "credentialId",
             i.name as "instanceName", i.api_base_url as "apiBaseUrl", i.web_base_url as "webBaseUrl",
+            credential.label as "credentialLabel",
             p.last_polled_at as "lastPolledAt", p.next_poll_at as "nextPollAt",
             p.last_outcome as "pollOutcome", p.last_error_code as "pollError"
      from repositories r join github_instances i on i.id = r.instance_id
      join tenants tenant on tenant.id = r.tenant_id
+     left join github_credentials credential on credential.id = r.credential_id
      left join poll_states p on p.repository_id = r.id
      where ($1::uuid is null or r.tenant_id = $1)
      order by tenant.display_name, r.owner, r.name`,

@@ -17,6 +17,11 @@ import {
   testAnalysisProvider,
 } from '../services/analysis-provider.js';
 import type { AuthorizationResource, AuthorizationService } from '../services/authorization.js';
+import {
+  assertLocalUsername,
+  hashLocalPassword,
+  LocalAccountInputError,
+} from '../services/local-accounts.js';
 
 const tenantParams = z.object({ tenantId: z.string().uuid() });
 const userParams = z.object({ userId: z.string().uuid() });
@@ -33,7 +38,24 @@ const tenantPatchBody = z
     enabled: z.boolean().optional(),
   })
   .refine((value) => value.displayName !== undefined || value.enabled !== undefined);
-const userPatchBody = z.object({ enabled: z.boolean() });
+const userCreateBody = z.object({
+  username: z.string().min(1).max(64),
+  displayName: z.string().trim().min(1).max(120),
+  role: z.enum(['reviewer', 'administrator']),
+  password: z.string().min(12).max(128),
+  tenantIds: z.array(z.string().uuid()).min(1).max(100),
+});
+const userPatchBody = z
+  .object({
+    displayName: z.string().trim().min(1).max(120).optional(),
+    role: z.enum(['reviewer', 'administrator']).optional(),
+    enabled: z.boolean().optional(),
+  })
+  .refine(
+    (value) =>
+      value.displayName !== undefined || value.role !== undefined || value.enabled !== undefined,
+  );
+const userPasswordBody = z.object({ password: z.string().min(12).max(128) });
 const membershipBody = z.object({ enabled: z.boolean().default(true) });
 const promptBody = z.object({ instructions: z.string().trim().min(1).max(12_000) });
 const providerVersionBody = z.discriminatedUnion('mode', [
@@ -156,6 +178,14 @@ export async function registerAdminRoutes(
       `select app_user.id, app_user.oidc_subject as subject,
               app_user.display_name as "displayName", app_user.role, app_user.enabled,
               app_user.groups_json as groups,
+              credential.username,
+              case when credential.user_id is not null then 'local' else 'external' end as "identityType",
+              coalesce((select jsonb_agg(jsonb_build_object(
+                'repositoryId', grant_row.repository_id,
+                'role', grant_row.role
+              ) order by grant_row.repository_id)
+              from repository_grants grant_row
+              where grant_row.subject_or_group = app_user.oidc_subject), '[]'::jsonb) as "repositoryGrants",
               coalesce(jsonb_agg(jsonb_build_object(
                 'tenantId', tenant.id,
                 'tenantSlug', tenant.slug,
@@ -164,11 +194,107 @@ export async function registerAdminRoutes(
               ) order by tenant.display_name) filter (where tenant.id is not null), '[]'::jsonb) as memberships,
               app_user.created_at as "createdAt", app_user.updated_at as "updatedAt"
        from users app_user
+       left join local_credentials credential on credential.user_id = app_user.id
        left join tenant_memberships membership on membership.user_id = app_user.id
        left join tenants tenant on tenant.id = membership.tenant_id
-       group by app_user.id order by app_user.display_name, app_user.id`,
+       group by app_user.id, credential.user_id, credential.username
+       order by app_user.display_name, app_user.id`,
     );
     return { schemaVersion, items: result.rows };
+  });
+
+  app.post('/api/v1/admin/users', { preHandler: requireAdministrator }, async (request, reply) => {
+    if (!(await allowed(authorization, request, 'create', { kind: 'user', id: 'new' }))) {
+      return hiddenNotFound(request, reply);
+    }
+    if (config.AUTH_MODE !== 'local') {
+      return localAccountBadRequest(
+        request,
+        reply,
+        '현재 인증 mode에서는 Identity Provider에서 사용자를 생성해야 합니다.',
+      );
+    }
+    const body = userCreateBody.parse(request.body);
+    let username: string;
+    let passwordHash: string;
+    try {
+      username = assertLocalUsername(body.username);
+      passwordHash = await hashLocalPassword(body.password);
+    } catch (error) {
+      if (error instanceof LocalAccountInputError) {
+        return localAccountBadRequest(request, reply, error.message);
+      }
+      throw error;
+    }
+    const connection = await database.connect();
+    try {
+      await connection.query('begin');
+      const existing = await connection.query(
+        `select 1 from users where oidc_subject = $1
+           union all select 1 from local_credentials where username = $2 limit 1`,
+        [`local:${username}`, username],
+      );
+      if (existing.rowCount) {
+        await connection.query('rollback');
+        return reply.code(409).send({
+          error: {
+            code: 'USERNAME_EXISTS',
+            message: '이미 사용 중인 사용자 이름입니다.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
+      }
+      const appUser = await connection.query<{ id: string }>(
+        `insert into users(oidc_subject, display_name, role)
+           values ($1, $2, $3) returning id`,
+        [`local:${username}`, body.displayName, body.role],
+      );
+      const userId = appUser.rows[0]!.id;
+      await connection.query(
+        `insert into local_credentials(user_id, username, password_hash)
+           values ($1, $2, $3)`,
+        [userId, username, passwordHash],
+      );
+      const memberships = await connection.query(
+        `insert into tenant_memberships(tenant_id, user_id, created_by)
+           select id, $1, $2 from tenants where id = any($3::uuid[]) and enabled
+           on conflict (tenant_id, user_id) do update set
+             enabled = true, updated_at = clock_timestamp()
+           returning tenant_id`,
+        [userId, request.user!.id, body.tenantIds],
+      );
+      if (memberships.rowCount !== new Set(body.tenantIds).size) {
+        await connection.query('rollback');
+        return localAccountBadRequest(
+          request,
+          reply,
+          '선택한 tenant 중 사용할 수 없는 항목이 있습니다.',
+        );
+      }
+      await writeAudit(connection, request, 'user.create', 'user', userId, {
+        username,
+        role: body.role,
+        tenantIds: [...new Set(body.tenantIds)],
+      });
+      await connection.query('commit');
+      return reply.code(201).send({ schemaVersion, id: userId });
+    } catch (error) {
+      await connection.query('rollback');
+      if (isUniqueViolation(error)) {
+        return reply.code(409).send({
+          error: {
+            code: 'USERNAME_EXISTS',
+            message: '이미 사용 중인 사용자 이름입니다.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
+      }
+      throw error;
+    } finally {
+      connection.release();
+    }
   });
 
   app.patch(
@@ -180,26 +306,65 @@ export async function registerAdminRoutes(
         return hiddenNotFound(request, reply);
       }
       const body = userPatchBody.parse(request.body);
-      if (userId === request.user!.id && !body.enabled) {
+      if (userId === request.user!.id && (body.enabled === false || body.role === 'reviewer')) {
         return reply.code(409).send({
           error: {
-            code: 'SELF_DISABLE_NOT_ALLOWED',
-            message: '현재 로그인한 관리자는 자신을 비활성화할 수 없습니다.',
+            code: 'SELF_ACCESS_CHANGE_NOT_ALLOWED',
+            message: '현재 로그인한 관리자는 자신의 접근 권한이나 역할을 낮출 수 없습니다.',
             requestId: request.id,
             retryable: false,
           },
         });
       }
       const result = await database.query(
-        `update users set enabled = $2, updated_at = clock_timestamp() where id = $1 returning id`,
-        [userId, body.enabled],
+        `update users set display_name = coalesce($2, display_name),
+           role = coalesce($3, role), enabled = coalesce($4, enabled),
+           updated_at = clock_timestamp() where id = $1 returning id`,
+        [userId, body.displayName ?? null, body.role ?? null, body.enabled ?? null],
       );
       if (!result.rowCount) return hiddenNotFound(request, reply);
-      if (!body.enabled)
+      if (body.enabled === false || (body.role !== undefined && userId !== request.user!.id))
         await database.query('delete from user_sessions where user_id = $1', [userId]);
       await writeAudit(database, request, 'user.access.update', 'user', userId, {
-        enabled: body.enabled,
+        fields: Object.keys(body),
       });
+      return { schemaVersion, id: userId };
+    },
+  );
+
+  app.put(
+    '/api/v1/admin/users/:userId/password',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      const { userId } = userParams.parse(request.params);
+      if (!(await allowed(authorization, request, 'update', { kind: 'user', id: userId }))) {
+        return hiddenNotFound(request, reply);
+      }
+      const body = userPasswordBody.parse(request.body);
+      let passwordHash: string;
+      try {
+        passwordHash = await hashLocalPassword(body.password);
+      } catch (error) {
+        if (error instanceof LocalAccountInputError) {
+          return localAccountBadRequest(request, reply, error.message);
+        }
+        throw error;
+      }
+      const result = await database.query(
+        `update local_credentials set password_hash = $2,
+           password_changed_at = clock_timestamp(), updated_at = clock_timestamp()
+         where user_id = $1 returning user_id`,
+        [userId, passwordHash],
+      );
+      if (!result.rowCount) {
+        return localAccountBadRequest(
+          request,
+          reply,
+          'Local account에만 비밀번호를 설정할 수 있습니다.',
+        );
+      }
+      await database.query('delete from user_sessions where user_id = $1', [userId]);
+      await writeAudit(database, request, 'user.password.reset', 'user', userId, {});
       return { schemaVersion, id: userId };
     },
   );
@@ -778,6 +943,21 @@ function providerBadRequest(request: FastifyRequest, reply: FastifyReply, messag
       retryable: false,
     },
   });
+}
+
+function localAccountBadRequest(request: FastifyRequest, reply: FastifyReply, message: string) {
+  return reply.code(400).send({
+    error: {
+      code: 'INVALID_LOCAL_ACCOUNT',
+      message,
+      requestId: request.id,
+      retryable: false,
+    },
+  });
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '23505');
 }
 
 async function allowed(

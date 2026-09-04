@@ -2,7 +2,7 @@
 
 ## 1. 목적
 
-Git Code Reviewer에 tenant 격리, 일반 사용자와 관리자 구분, 사용자 관리, RBAC+ABAC 인가, 전역 analysis provider와 tenant별 code analysis prompt 관리를 추가한다. 인증과 인가를 application code에 중복 구현하지 않고 다음 책임으로 분리한다.
+Git Code Reviewer에 tenant 격리, 일반 사용자와 시스템 관리자 구분, 사용자 관리, RBAC+ABAC 인가, 선택형 Chat account/model/effort, GHES connection/repository grant, 전역 analysis provider와 tenant별 code analysis prompt 관리를 추가한다.
 
 | 영역 | 정본 | 책임 |
 |---|---|---|
@@ -38,7 +38,7 @@ Production의 `AUTHORIZATION_MODE=cerbos`는 PDP timeout, malformed response 또
 | Role | 의미 |
 |---|---|
 | `reviewer` | 자신이 member인 tenant 안에서 명시적으로 grant된 repository를 조회·refresh·Chat 사용 |
-| `administrator` | tenant, membership, user 상태, repository, analysis provider와 prompt를 관리하고 모든 tenant resource 조회 |
+| `administrator` | tenant, membership, user 상태, Chat account/model/effort assignment, GHES token connection, repository/grant/polling, analysis provider와 prompt 관리 |
 
 OIDC token의 Keycloak client role `git-code-reviewer-admin`이 있으면 `administrator`, 없으면 `reviewer`다. 기존 `OIDC_ADMIN_GROUP` mapping은 호환 fallback으로 유지한다. Role은 로그인 때 signed claim에서 동기화하며 application admin UI에서 임의 승격하지 않는다.
 
@@ -88,6 +88,10 @@ Cerbos resource:
 - `analysis_runs.prompt_hash`: built-in 또는 custom prompt identity
 - `analysis_runs.provider_version_id`: run 생성 시 고정된 admin provider version. Deployment fallback이면 null
 - `analysis_runs.provider_hash`: provider mode, endpoint, model, timeout과 credential identity를 포함한 hash
+- `chat_accounts`, `chat_account_assignments`, `chat_model_capabilities`: 관리자 등록 credential과 사용자 선택 가능 범위
+- `chat_sessions.chat_account_id/model_id/reasoning_effort/credential_version`: 생성 시 고정된 Chat 실행 선택
+- `github_credentials`: GHES instance별 암호화 access token, version, expiry와 health
+- `poll_policies`: repository별 automatic polling과 interval profile
 
 Migration은 `default` tenant를 만들고 기존 repository와 사용자를 그 tenant에 backfill한다. 신규 production 사용자는 첫 OIDC login으로 local identity가 만들어진 뒤 administrator가 membership을 부여한다. Development mode만 default tenant auto-join을 허용한다.
 
@@ -109,6 +113,9 @@ Provider API key는 `MODEL_CREDENTIAL_ENCRYPTION_KEY`의 32-byte key로 AES-256-
 | analysis | `view`, `chat` | parent repository 조건 | allow |
 | analysis_prompt | `view`, `manage` | deny | allow |
 | analysis_provider | `view`, `manage`, `test` | deny | allow |
+| chat_account | `view`, `use` | assigned account/capability만 | allow |
+| chat_account | `create`, `update`, `test` | deny | allow |
+| github_connection | `view`, `create`, `update`, `test` | deny | allow |
 
 List endpoint는 먼저 tenant/grant predicate를 SQL에 적용해 다른 tenant row를 읽지 않고, 반환 후보에 Cerbos batch check를 적용한다. 단일 resource endpoint는 tenant와 grant attribute를 조회한 뒤 Cerbos check를 수행한다. Deny는 기존 정책대로 `404 RESOURCE_NOT_FOUND`로 응답해 존재 여부를 숨긴다.
 
@@ -161,12 +168,15 @@ Fixture/deterministic analysis에서는 custom prompt가 model output을 위조�
 
 - Header에는 현재 사용자와 tenant selector를 표시한다.
 - Administrator에게만 `/admin` navigation을 표시한다.
-- Admin은 `Tenants`, `Users`, `Analysis provider`, `Analysis prompt` tab을 사용한다.
+- Admin은 `Tenants`, `Users`, `Chat accounts`, `GHES connections`, `Repositories`, `Analysis provider`, `Analysis prompt` tab을 사용한다.
 - Users에서 local enabled 상태와 tenant membership을 관리한다. Global role은 Keycloak 동기화 상태로 표시하고 편집하지 않는다.
 - Analysis provider에서 effective source, mode, allowlisted endpoint, model name, timeout과 credential 설정 여부를 확인한다. API key input은 저장 뒤 즉시 비우고 다시 표시하지 않는다.
 - Provider 저장과 활성화는 별도 command이며 최소 연결 test가 성공했다고 자동 저장하지 않는다.
 - Analysis prompt에서 tenant를 선택하고 editor, active version/hash, version history, activate와 built-in reset을 사용한다.
 - Prompt 저장은 `저장 및 활성화`라는 명시적 command이며 성공/실패 상태를 화면에 표시한다.
+- 일반 사용자는 persistent Chat에서 허용된 account, model과 reasoning effort를 고른다. 선택 변경은 새 session을 생성하며 기존 session metadata를 바꾸지 않는다.
+
+Chat account와 GHES connection의 data/API/UX 상세는 [Chat account registry와 GHES repository 관리 설계](account-and-ghes-administration-design.md)를 따른다.
 
 ## 9. Deployment
 

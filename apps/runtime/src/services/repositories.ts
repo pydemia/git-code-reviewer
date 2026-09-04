@@ -6,9 +6,10 @@ import {
   type PullRequestObservation,
   type RepositoryTarget,
 } from '@gcr/github';
-import type { Database } from '@gcr/db';
+import type { Database, DatabaseClient } from '@gcr/db';
 import type { AppConfig } from '../config.js';
 import { enqueueSnapshot } from './operations.js';
+import { registeredGitHubReader } from './account-registry.js';
 
 const schedulerLockId = 746_278_432;
 
@@ -17,6 +18,7 @@ export type RepositoryRecord = RepositoryTarget & {
   githubId: string;
   webBaseUrl: string;
   pollIntervalSeconds: number;
+  credentialId: string | null;
 };
 
 export async function createGitHubReader(config: AppConfig): Promise<GitHubReader | null> {
@@ -53,18 +55,23 @@ export async function ensureFixtureRepository(database: Database): Promise<void>
 
 export async function pollRepository(
   database: Database,
-  github: GitHubReader,
+  github: GitHubReader | null,
   repositoryId: string,
+  credentialEncryptionKey?: string,
 ): Promise<'updated' | 'not-modified'> {
   const repository = await getRepository(database, repositoryId);
   if (!repository) throw new Error('Repository is unavailable');
+  const reader = repository.credentialId
+    ? await registeredGitHubReader(database, credentialEncryptionKey, repository.credentialId)
+    : github;
+  if (!reader) throw new Error('GitHub credential is unavailable');
   const pollState = await database.query<{ etag: string | null }>(
     'select etag from poll_states where repository_id = $1',
     [repositoryId],
   );
 
   try {
-    const result = await github.listOpenPulls(repository, pollState.rows[0]?.etag);
+    const result = await reader.listOpenPulls(repository, pollState.rows[0]?.etag);
     if (result.outcome === 'updated') await persistPulls(database, repositoryId, result.pulls);
     await database.query(
       `insert into poll_states(repository_id, next_poll_at, last_polled_at, etag, consecutive_failures, backoff_until, last_outcome, last_error_code, updated_at)
@@ -102,38 +109,53 @@ export async function startPollScheduler(
     info(value: object, message: string): void;
     error(value: object, message: string): void;
   },
+  credentialEncryptionKey?: string,
 ): Promise<() => Promise<void>> {
-  if (!github) return async () => undefined;
-  const connection = await database.connect();
-  const result = await connection.query<{ acquired: boolean }>(
-    'select pg_try_advisory_lock($1) as acquired',
-    [schedulerLockId],
-  );
-  if (!result.rows[0]?.acquired) {
-    connection.release();
-    logger.info({ component: 'poll-scheduler' }, 'another replica owns the scheduler lease');
-    return async () => undefined;
-  }
-
+  if (!github && !credentialEncryptionKey) return async () => undefined;
   let stopped = false;
   let running = false;
+  let connection: DatabaseClient | null = null;
+  let waitingLogged = false;
   const tick = async () => {
     if (stopped || running) return;
     running = true;
     try {
+      if (!connection) {
+        const candidate = await database.connect();
+        const result = await candidate.query<{ acquired: boolean }>(
+          'select pg_try_advisory_lock($1) as acquired',
+          [schedulerLockId],
+        );
+        if (!result.rows[0]?.acquired) {
+          candidate.release();
+          if (!waitingLogged) {
+            waitingLogged = true;
+            logger.info(
+              { component: 'poll-scheduler' },
+              'another replica owns the scheduler lease; acquisition will be retried',
+            );
+          }
+          return;
+        }
+        connection = candidate;
+        waitingLogged = false;
+        logger.info({ component: 'poll-scheduler' }, 'poll scheduler leadership acquired');
+      }
       const due = await database.query<{ repository_id: string }>(
         `select p.repository_id
          from poll_states p
          join repositories r on r.id = p.repository_id
          join tenants tenant on tenant.id = r.tenant_id
-         where r.enabled and tenant.enabled and p.next_poll_at <= clock_timestamp()
+         where r.enabled and r.polling_enabled and tenant.enabled and p.next_poll_at <= clock_timestamp()
            and (p.backoff_until is null or p.backoff_until <= clock_timestamp())
          order by p.next_poll_at limit 20`,
       );
       for (const row of due.rows) {
-        await pollRepository(database, github, row.repository_id).catch((error: unknown) => {
-          logger.error({ err: error, repositoryId: row.repository_id }, 'repository poll failed');
-        });
+        await pollRepository(database, github, row.repository_id, credentialEncryptionKey).catch(
+          (error: unknown) => {
+            logger.error({ err: error, repositoryId: row.repository_id }, 'repository poll failed');
+          },
+        );
       }
     } finally {
       running = false;
@@ -141,14 +163,15 @@ export async function startPollScheduler(
   };
   await tick();
   const interval = setInterval(() => void tick(), 15_000);
-  logger.info({ component: 'poll-scheduler' }, 'poll scheduler leadership acquired');
 
   return async () => {
     stopped = true;
     clearInterval(interval);
     while (running) await new Promise((resolve) => setTimeout(resolve, 25));
-    await connection.query('select pg_advisory_unlock($1)', [schedulerLockId]);
-    connection.release();
+    if (connection) {
+      await connection.query('select pg_advisory_unlock($1)', [schedulerLockId]);
+      connection.release();
+    }
   };
 }
 
@@ -160,13 +183,14 @@ export async function getRepository(
     id: string;
     github_id: string;
     installation_id: string;
+    credential_id: string | null;
     owner: string;
     name: string;
     poll_interval_seconds: number;
     api_base_url: string;
     web_base_url: string;
   }>(
-    `select r.id, r.github_id, r.installation_id, r.owner, r.name, r.poll_interval_seconds,
+    `select r.id, r.github_id, r.installation_id, r.credential_id, r.owner, r.name, r.poll_interval_seconds,
             i.api_base_url, i.web_base_url
      from repositories r
      join tenants tenant on tenant.id = r.tenant_id
@@ -183,6 +207,7 @@ export async function getRepository(
         owner: row.owner,
         name: row.name,
         pollIntervalSeconds: row.poll_interval_seconds,
+        credentialId: row.credential_id,
         apiBaseUrl: row.api_base_url,
         webBaseUrl: row.web_base_url,
       }

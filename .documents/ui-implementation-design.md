@@ -20,7 +20,9 @@ HTML/PNG의 Header, LNB, Main diff, right Chat, FNB 구조와 정보 밀도는 �
                           -> 최신 analysis로 이동하는 canonical route
 /reviews/:analysisId      -> revision에 고정된 review workspace
 /settings                 -> 사용자 preference
-/admin/repositories       -> 관리자 전용 repository 등록/상태
+/admin/chat-accounts      -> Chat account, model/effort, assignment 관리
+/admin/github-connections -> GHES access token connection 관리
+/admin/repositories       -> repository/grant/polling 등록·상태
 ```
 
 로그인 전에는 OIDC redirect에 필요한 최소 화면만 표시한다. 로그인 후 첫 화면은 marketing page가 아니라 worklist다.
@@ -197,6 +199,10 @@ Internal opaque ID나 external URL 자체는 권한을 부여하지 않는다. �
 
 ## 8. Persistent Chat
 
+- 상단에 사용자가 접근 가능한 Account | Model | Effort selector와 새 대화 시작 command를 둔다.
+- Model과 Effort option은 선택한 account에서 관리자가 허용한 capability만 표시한다.
+- 첫 message 전까지 선택을 조정할 수 있다. Message가 있는 session에서 account/model/effort를 바꾸면 기존 대화를 수정하지 않고 새 session 생성 확인을 표시한다.
+- Session header에는 실제 account email이나 credential 대신 account display label, model과 effort를 표시한다.
 - 상단에 analysis revision, selected finding/file/symbol scope를 표시한다.
 - scope chip은 제거/추가할 수 있지만 다른 revision의 evidence는 섞을 수 없다.
 - finding 선택 시 기본 scope를 바꾸되 작성 중 draft는 유지한다.
@@ -205,6 +211,13 @@ Internal opaque ID나 external URL 자체는 권한을 부여하지 않는다. �
 - 새 analysis 전환은 기존 conversation을 바꾸지 않고 새 session을 시작한다.
 - Server가 반환하는 model availability가 false이면 이전 합성 답변을 conversation처럼 표시하지 않고 composer를 비활성화한다.
 - 비활성 model에 대한 전송은 message persist 전에 `CHAT_MODEL_DISABLED`로 종료한다. GHES fixture 여부와 interactive model 사용 여부는 독립적이다.
+
+### 8.1 Admin 화면
+
+- Chat accounts: account 등록·검증·비활성화, credential 회전, model별 허용/default/max effort, tenant/user/group assignment와 quota를 관리한다.
+- GHES connections: GHES API/Web URL, write-only access token, CA profile, token health/expiry/rate-limit과 연결 test를 관리한다.
+- Repositories: connection에서 조회 가능한 repository를 선택하고 tenant, user/group grant, automatic polling, hot/active/idle/draft interval, 마지막 poll 상태와 Poll now를 관리한다.
+- Credential input은 저장 성공 직후 비우며 browser storage, URL과 화면 재조회 response에 원문을 남기지 않는다.
 
 assistant response의 citation은 keyboard focus가 가능한 button이다. tooltip에는 file, line/symbol, artifact type을 표시하며 source 전체를 hover card에 복제하지 않는다.
 

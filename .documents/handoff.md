@@ -2,13 +2,27 @@
 
 ## 1. 현재 상태
 
-- 최종 갱신: 2026-09-03
+- 최종 갱신: 2026-09-04
 - branch: `feat/browser-review-service`
-- 단계: browser review service의 tenancy, authorization, admin provider/prompt와 bundled Keycloak Helm `0.7.0` release 완료
-- remote: phase별 구현 및 release commit을 `origin/feat/browser-review-service`에 push함
+- 단계: Local account와 Chat 실사용 검증, GHES credential 가이드와 Web GNB `/guide` 구현 및 PRISM-DEV 배포 완료
+- remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 1.1 2026-09-04 확정 요구사항과 구현 상태
+
+사용자가 다음 target behavior를 확정했다.
+
+- 시스템 관리자는 여러 ChatGPT account를 등록하고 account별 model, 허용/default/max reasoning effort와 tenant/user/group assignment를 관리한다.
+- 일반 사용자는 허용된 Chat account, model과 effort를 선택해 대화를 시작한다. 선택은 session에 고정되고 변경하면 새 session을 만든다.
+- 시스템 관리자는 GHES access-token connection과 review repository를 등록하고 repository별 polling interval/disabled/Poll now trigger 및 user/group grant를 관리한다.
+- GHES token이 부여하는 외부 read 권한과 application repository grant는 별도로 검사한다.
+- 외부 OIDC endpoint를 browser에서 사용할 수 없는 PRISM-DEV에서는 Local account mode로 시스템관리자와 일반사용자를 구분한다.
+- 시스템관리자는 Local account의 role, 활성 상태, tenant membership, repository grant와 비밀번호를 관리한다. 일반사용자는 grant를 받은 repository만 조회한다.
+- 로그인 사용자는 모든 주요 화면의 GNB에서 `/guide`로 이동해 role별 사용 절차, GHES PAT 최소 권한·입력·회전, repository polling, Review Chat과 오류 진단을 확인한다.
+
+Credential registry는 migration `0009`, Local account는 migration `0010`으로 구현됐다. PRISM-DEV에는 `admin` 시스템관리자와 `reviewer` 일반사용자가 있고 fixture repository grant는 `reviewer`에게 부여되어 있다. Bootstrap 비밀번호는 Kubernetes Secret에만 있으며 Git에는 없다. 실제 ChatGPT account는 등록되어 `gpt-5.6-sol` Chat까지 검증했지만 실제 GHES token과 private repository E2E는 남아 있다. `/admin?tab=github`에서 실제 credential을 등록·검증해야 한다. Local user의 repository grant는 `/admin?tab=users`에서 사후 부여·회수할 수 있다. Group grant 편집 UI는 후속 범위다.
 
 ## 2. 제품과 runtime 경계
 
@@ -17,7 +31,7 @@
 3. Worker는 Git fetch, immutable snapshot materialization, deterministic analysis와 선택형 batch model 분석을 담당한다.
 4. PostgreSQL이 tenant, application user, membership, repository grant, provider/prompt version, durable job, operation/event, report와 Chat record의 정본이다. 별도 queue는 두지 않는다.
 5. Artifact는 shared RWX PVC를 사용한다. Worker workspace는 `emptyDir` 또는 pod 단위 generic ephemeral PVC를 사용한다.
-6. GitHub Enterprise 접근은 read-only GitHub App과 outbound polling/manual refresh를 사용하며 repository workflow와 webhook은 요구하지 않는다.
+6. GitHub Enterprise 접근은 repository 범위를 제한한 read-only fine-grained PAT과 outbound polling/manual refresh를 사용하며 repository workflow와 webhook은 요구하지 않는다. GHES 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다.
 7. Report는 Commit Defender의 grade, summary, per-file summary, P0-P3 category, finding, evidence와 exact-revision link를 계승한다.
 8. Workspace는 크기를 조절할 수 있는 LNB/Main/Chat/FNB panel, 실제 Evidence/Git graph/Impact/Tests view와 responsive unified diff fallback을 제공한다.
 9. Object impact는 structure parent/children과 dependency uses/used-by를 구분한다. 중복된 FNB 최상위 tab 대신 Impact 내부에서 표현한다.
@@ -28,6 +42,7 @@
 책임은 다음과 같이 분리한다.
 
 - Keycloak 또는 기존 사내 OIDC provider: 로그인, MFA/SSO, 사용자 identity와 관리자 role
+- Local account mode: 외부 OIDC endpoint가 없는 private pilot의 application 로그인과 role
 - PostgreSQL: application enabled 상태, tenant, membership, repository grant와 prompt version
 - Cerbos: principal/action/resource 속성을 사용하는 RBAC+ABAC decision
 
@@ -38,7 +53,7 @@ Keycloak은 선택형 Bitnami chart dependency로 포함했고 enterprise values
 관리자 browser UI `/admin`은 다음 기능을 제공한다.
 
 - tenant 생성, 표시 이름 변경, 활성/비활성 전환
-- 사용자 검색, application 접근 kill switch, tenant membership 관리
+- Local account 생성, 표시 이름·role·활성 상태·비밀번호, tenant membership과 repository grant 관리
 - 전역 분석 Provider immutable version 생성, 연결 테스트, 과거 version 재활성화, deployment 설정 복원
 - tenant별 분석 prompt immutable version 생성, 과거 version 재활성화, built-in prompt 복원
 
@@ -65,20 +80,22 @@ Provider version은 수정하거나 삭제하지 않는다. API key는 deploymen
 
 ## 5. ChatGPT account 연동
 
-Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account` 세 mode를 지원한다.
+Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account`, `registry` 네 mode를 지원한다.
 
 `chatgpt-account`는 Demian의 Node.js Codex provider에서 확인한 공개 동작과 호환되도록 구현했다. `demian-cli` package는 관련 없는 agent runtime까지 bundle하고 안정적인 TypeScript declaration을 제공하지 않으므로 dependency로 추가하지 않고 작은 local provider boundary만 유지했다.
 
-Server 구현은 deployment-owned Codex `auth.json`을 전용 writable PVC에서 읽고, account/installation header를 포함한 streaming Codex Responses request, proactive token refresh, HTTP 401 뒤 한 번의 refresh/retry와 mode `0600` 원자 저장을 수행한다. 이 credential은 interactive Chat에만 사용하며 Worker에 전달하지 않는다. 각 사용자의 local Codex login을 암묵적으로 재사용하지 않고 모든 application 사용자가 하나의 deployment account를 공유한다.
+기존 `chatgpt-account` mode는 deployment-owned Codex `auth.json`을 전용 writable PVC에서 읽는다. 새 `registry` mode에서는 관리자가 auth.json을 등록하고 tenant/user/group에 account를 할당한다. AES-256-GCM 암호문만 PostgreSQL에 저장하며 API는 credential 원문을 반환하지 않는다. 사용자는 할당된 account, model, effort를 선택하고 이 조합과 credential version은 Chat session에 고정된다. Token refresh 결과도 같은 master key로 다시 암호화해 version을 올린다.
+
+GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone 직전에만 token을 복호화한다. Fixture/GitHub App 전역 reader와 token 기반 reader를 저장소 단위로 함께 사용할 수 있다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository와 Metadata/Contents/Pull requests read만 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다.
 
 ## 6. 배포 artifact
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.6.0-alpha.1`
-- source tag: `docker.io/pydemia/git-code-reviewer:sha-898144c4730c`
-- manifest digest: `sha256:488540f6d426fc55900cca994f3c38586f2348ce07a149c95e519dfc43400ca3`
-- platform: `linux/amd64`, `linux/arm64`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.2`
+- source tag: `docker.io/pydemia/git-code-reviewer:sha-a02ceb85baf9`
+- manifest digest: `sha256:84d6a475be2e66ee79f0e6603531b7ee13dda61969622397f601c267c42a99c8`
+- platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
 하나의 immutable image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
@@ -86,9 +103,9 @@ Server 구현은 deployment-owned Codex `auth.json`을 전용 writable PVC에서
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.7.0`
-- app version: `0.6.0-alpha.1`
-- chart digest: `sha256:b39fb1bc5206f58970f3e4b11360c34af890a02ff65d59197948fad32b62ef42`
+- version: `0.10.0`
+- app version: `0.8.0-alpha.2`
+- chart digest: `sha256:1a8773174479e87921402a189a34298edfb0fa217d7f4e0ee54ac7f7370abc67`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -104,7 +121,7 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 13개 파일, 56개 test
+- Vitest 16개 파일, 65개 test
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - 기본, enterprise, bundled PostgreSQL+Cerbos Helm lint
 - default Keycloak 비활성, enterprise Keycloak 활성과 앱/Keycloak PostgreSQL 동시 render
@@ -112,6 +129,16 @@ Local에서 완료한 항목:
 - 잘못된 auth mode, TLS, auth Secret, admin role, callback과 database 설정의 fail-fast 확인
 - bundled PostgreSQL+Cerbos+ChatGPT account 복합 Helm render
 - local PostgreSQL migration과 실제 Cerbos mode authorization integration test
+
+PRISM-DEV release revision 4 검증:
+
+- Kubernetes API `https://10.250.107.193:6443`, namespace/release `git-code-reviewer`
+- Server/Worker 1개씩 Ready, restart 0회, image digest `sha256:52d95d...e94b4`
+- migration `0009_account_and_ghes_registries.sql` 적용
+- Helm test, health API, fixture repository 1개/PR 2개와 기존 분석 결과 확인
+- synthetic ChatGPT account의 암호문 저장, 사용자 catalog, model/`high` effort session binding 확인 후 test row 삭제
+- repository Poll now 이후 `lastPolledAt` 갱신, scheduler leadership 획득 확인
+- 실제 ChatGPT/GHES credential은 없으므로 외부 provider E2E는 미실행
 - 관리자 browser UI의 tenant/user/provider/prompt workflow 확인
 - 관리자 Provider 저장/활성화, deployment 복원과 API response credential 비노출 확인
 - 관리자 Provider 화면 390x844, 1440x1000 visual/overflow 확인
@@ -120,11 +147,35 @@ Local에서 완료한 항목:
 - multi-platform image build/push와 registry manifest 재조회
 - OCI Helm chart push와 registry metadata 재조회
 
+PRISM-DEV release revision 6 Local account 검증:
+
+- Server/Worker 각 1개 Ready, restart 0회, image digest `sha256:b952e8f...3cae`
+- migration `0010_local_accounts.sql`, scrypt credential 2개와 `admin`/`reviewer` account 확인
+- 로그인 전 401, Local login 200, 일반사용자의 관리자 API 404 확인
+- 시스템관리자 self-disable 409, 비밀번호 재설정 시 기존 일반사용자 session 401 확인
+- 같은 사용자 이름의 로그인 실패 5회 후 15분 잠금 확인, 시험용 제한 row 삭제
+- repository grant 회수 시 일반사용자 repository 0개, 재부여 시 1개 확인
+- Helm test와 live/ready/dependencies HTTP 200, scheduler leadership와 application error 없음
+- `/login`과 배포 JavaScript HTTP 200, Local account/repository 권한 UI marker 확인
+- `agent-browser` 실행 파일이 없어 이번 변경의 자동 visual Browser 검증은 미실행
+- ChatGPT account 첫 실사용에서 PRISM-DEV outbound TLS inspection CA 미신뢰로 `SELF_SIGNED_CERT_IN_CHAIN`이 발생했다. `git-code-reviewer-corporate-ca` ConfigMap을 만들고 PRISM-DEV `trustedCa` values에서 참조하도록 보완했다. Corporate CA PEM은 Git에 저장하지 않는다.
+- Helm release revision 7에서 CA 적용 후 `chatgpt.com`, `auth.openai.com` TLS 연결과 `gpt-5.6-sol` 실제 Chat 요청 HTTP 201을 확인했다. OAuth refresh 결과 account health가 `ready`, credential version이 2로 갱신됐고 검증용 Chat session은 삭제했다.
+
+PRISM-DEV release revision 8 GHES 사용 가이드 검증:
+
+- Server/Worker 각 1개 `Ready`, image digest `sha256:84d6a475...99c8` 적용
+- Helm chart `0.10.0`, application `0.8.0-alpha.2`, Helm test 성공
+- live/ready/startup/dependencies 모두 HTTP 200, rollout 이후 application error 없음
+- `/guide` HTTP 200과 배포 JavaScript의 GHES credential, Token 만료일, 사용 가이드 marker 확인
+- desktop 1440px와 CSS viewport 390px에서 GNB, sticky 목차, 본문 overflow와 이동 동작 확인
+- rollout 전 등록된 Local user, ChatGPT account와 GHES credential row가 유지됨을 확인
+- 기존 사용자의 변경된 비밀번호를 덮어쓰지 않기 위해 배포 환경의 authenticated visual test는 생략하고 local mocked current-user API로 관리자·일반사용자 UI를 모두 확인
+
 Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 
 사용자의 enterprise 환경에서 남은 검증:
 
-1. Private GHES repository에 GitHub App을 설치하고 repository를 tenant에 등록한다.
+1. 전용 service account에서 대상 repository만 선택한 fine-grained PAT을 발급하고 `/admin?tab=github`에 등록한다. 조직 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다.
 2. GHES REST/GraphQL/Git fetch, exact SHA link, polling과 manual refresh를 검증한다.
 3. Bundled Keycloak 또는 승인된 외부 OIDC provider, StorageClass, TLS ingress, CA bundle과 network policy로 배포한다.
 4. 실제 사용자에게 Keycloak role, tenant membership과 repository grant를 할당해 격리를 확인한다.
@@ -132,6 +183,17 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 6. 공유 ChatGPT/Codex deployment account와 quota/data policy가 조직 정책에 부합하는지 확인한다.
 
 ## 8. Commit 순서
+
+이번 GHES credential 가이드와 Web GNB 확장은 다음 commit에 있다.
+
+- `a02ceb8` `feat: add in-app GHES credential guide`
+- `5a5cc38` `release: deploy GHES credential guide to PRISM-DEV`
+
+이번 Local account와 사용자별 repository grant 확장은 다음 commit에 있다.
+
+- `b466ec8` `feat: add local user authentication and administration`
+- `8f75b5c` `feat: manage user repository grants`
+- `6d567fd` `release: verify local accounts on PRISM-DEV`
 
 이번 Provider 관리 확장의 phase commit은 다음과 같다.
 
@@ -168,11 +230,12 @@ Bundled Keycloak Helm 확장은 다음 commit에 있다.
 5. `.documents/ui-implementation-design.md`
 6. `.documents/tenancy-identity-authorization-prompt-design.md`
 7. `.documents/implementation-plan.md`
-8. `.documents/design-review-resolution-2026-09-02.md`
-9. `docs/operations/deployment.md`
-10. `docs/operations/identity-authorization.md`
-11. `docs/operations/backup-restore.md`
-12. `docs/operations/github-enterprise-test.md`
+8. `.documents/local-account-authentication.md`
+9. `.documents/design-review-resolution-2026-09-02.md`
+10. `docs/operations/deployment.md`
+11. `docs/operations/identity-authorization.md`
+12. `docs/operations/backup-restore.md`
+13. `docs/operations/github-enterprise-test.md`
 
 시각 기준은 수정하지 않았다.
 
@@ -196,4 +259,7 @@ Bundled Keycloak Helm 확장은 다음 commit에 있다.
 - External source link는 browser 입력 origin이 아니라 등록된 GHES origin과 exact SHA로 만든다.
 - Cerbos 장애 시 이전 allow decision을 재사용하거나 local mode로 fallback하지 않는다.
 - Keycloak account, password, MFA와 role assignment를 application 관리자 UI에서 직접 편집하지 않는다.
+- Local account mode는 private pilot 전용이다. Bootstrap password를 values나 문서에 기록하지 않고 최초 로그인 뒤 관리자 UI에서 변경한다.
+- Local account의 tenant membership만으로 repository 접근을 허용하지 않는다. 사용자별 repository grant를 별도로 부여한다.
+- PRISM-DEV의 ChatGPT/Codex HTTPS는 `SK holdings C&C` root CA를 `git-code-reviewer-corporate-ca/ca.crt`로 mount하고 `NODE_EXTRA_CA_CERTS`로 검증한다. `NODE_TLS_REJECT_UNAUTHORIZED=0` 같은 우회 설정은 사용하지 않는다.
 - `.vscode/` 또는 관련 없는 사용자 변경을 되돌리지 않는다.

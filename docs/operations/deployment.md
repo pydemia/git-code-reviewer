@@ -18,7 +18,7 @@ Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별
 Release image는 amd64/arm64 manifest, BuildKit provenance와 SBOM을 함께 게시한다. `latest` 대신 version과 source revision tag를 사용한다.
 
 ```bash
-export VERSION=0.6.0-alpha.1
+export VERSION=0.7.0-alpha.3
 export REVISION="$(git rev-parse HEAD)"
 
 docker buildx build \
@@ -33,6 +33,19 @@ docker buildx build \
 docker buildx imagetools inspect "docker.io/pydemia/git-code-reviewer:$VERSION"
 ```
 
+Build network가 Alpine package mirror의 TLS chain을 검증하지 못하지만 직전 승인 image를 pull할 수
+있는 환경에서는 직전 image를 runtime base로 재사용할 수 있다. Build stage는 현재 source에서 다시
+생성하며, runtime base에 이미 설치된 `git`과 `tini`만 재사용한다.
+
+```bash
+docker buildx build \
+  --build-arg RUNTIME_BASE="docker.io/pydemia/git-code-reviewer@sha256:<previous-digest>" \
+  --build-arg REUSE_RUNTIME_BASE=true \
+  --build-arg VERSION="$VERSION" \
+  --build-arg REVISION="$REVISION" \
+  --platform linux/amd64 --push .
+```
+
 운영 values에는 위 inspect 결과의 manifest digest를 `image.digest`로 넣는다. 조직에서 Cosign keyless 또는 KMS key를 승인한 경우 같은 digest를 서명하고 admission policy로 검증한다.
 
 ```bash
@@ -40,7 +53,7 @@ cosign sign "docker.io/pydemia/git-code-reviewer@sha256:..."
 cosign verify "docker.io/pydemia/git-code-reviewer@sha256:..."
 ```
 
-Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.6.0-alpha.1`, chart version tag는 `0.7.1`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
+Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.7.0-alpha.3`, chart version tag는 `0.8.2`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
 
 ```bash
 helm registry login registry-1.docker.io -u pydemia
