@@ -28,7 +28,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - Chat: DB credential registry 사용. 실제 account는 관리자 화면에서 등록
 - Ingress: disabled
 - 접근: `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.1`의 고정 digest
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.1@sha256:b952e8f07a112b2615e7a628d5a7ab163c3fedc10e85f7bfcc895b7f5dfe3cae`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -100,7 +100,19 @@ curl -fsS http://127.0.0.1:8080/health/dependencies
 curl -i http://127.0.0.1:8080/api/v1/repositories # 로그인 전 HTTP 401 확인
 ```
 
-Browser에서는 `http://127.0.0.1:8080/login`에서 로그인한다. 시스템관리자는 `/admin?tab=users`에서 Local account를 생성하고 role, 활성 상태, tenant membership과 비밀번호를 관리한다. 일반사용자에게는 관리 메뉴가 표시되지 않으며 관리자 API도 404를 반환해야 한다.
+Browser에서는 `http://127.0.0.1:8080/login`에서 로그인한다. 시스템관리자는 `/admin?tab=users`에서 Local account를 생성하고 role, 활성 상태, tenant membership, repository 접근 권한과 비밀번호를 관리한다. 일반사용자에게는 관리 메뉴가 표시되지 않으며 관리자 API도 404를 반환해야 한다.
+
+Bootstrap 사용자 이름은 `admin`, `reviewer`다. 비밀번호는 권한이 있는 운영자만 Secret에서 확인한다.
+
+```bash
+kubectl --context=PRISM-DEV -n git-code-reviewer get secret git-code-reviewer-auth \
+  -o jsonpath='{.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD}' | base64 --decode; printf '\n'
+
+kubectl --context=PRISM-DEV -n git-code-reviewer get secret git-code-reviewer-auth \
+  -o jsonpath='{.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD}' | base64 --decode; printf '\n'
+```
+
+명령 결과를 shell history, ticket 또는 Git 문서에 복사하지 않는다. 시스템관리자는 최초 로그인 직후 두 account의 비밀번호를 관리자 화면에서 변경한다.
 
 ## 2026-09-04 검증 결과
 
@@ -145,6 +157,28 @@ Helm release revision 4에서 application `0.7.0-alpha.3`, chart `0.8.2`를 배�
 | UI artifact     | ChatGPT accounts, GHES 연결, 빈 account 안내, Git graph marker 확인       |
 
 검증에 사용한 synthetic account와 Chat session은 확인 직후 삭제했다. 실제 GHES token과 ChatGPT auth.json은 제공되지 않아 외부 provider 인증 E2E는 수행하지 않았다. `agent-browser` 실행 파일과 연결된 browser instance가 없어 자동 visual 검증은 수행하지 못했으며 HTML/JavaScript artifact와 API를 검증했다.
+
+### Local account 배포 검증
+
+Helm release revision 6에서 application `0.8.0-alpha.1`, chart `0.9.0`을 배포했다.
+
+OCI chart는 `oci://registry-1.docker.io/pydemia/git-code-reviewer:0.9.0`에 게시했으며 digest는 `sha256:c170c33ea24d28d51002bdd21e2c61c268a1e5f3cc6c30f17c6238b49f66fc69`다.
+
+| 검증 항목         | 결과                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| Server/Worker     | 각 1개 `Ready`, restart 0회                                                         |
+| Image             | `sha256:b952e8f07a112b2615e7a628d5a7ab163c3fedc10e85f7bfcc895b7f5dfe3cae`           |
+| DB migration      | `0010_local_accounts.sql` 적용, Local credential 2개 모두 scrypt hash               |
+| Bootstrap account | `admin` 시스템관리자와 `reviewer` 일반사용자 생성, 각 tenant membership 1개         |
+| 관리자 보호       | 로그인한 시스템관리자의 self-disable 요청 HTTP 409                                  |
+| Session 폐기      | 일반사용자 비밀번호 재설정 후 기존 session HTTP 401, 재로그인 HTTP 200              |
+| 로그인 제한       | 동일 사용자 이름 5회 실패 후 15분 잠금 확인, 시험용 제한 row 삭제                   |
+| Repository grant  | 회수 후 일반사용자 repository 0개, 재부여 후 1개 확인                               |
+| 관리자 격리       | 일반사용자의 관리자 API 요청 HTTP 404                                               |
+| UI artifact       | `/login`과 JavaScript HTTP 200, 로그인·계정 생성·repository 권한·로그아웃 문구 확인 |
+| Helm/Health       | Helm test 성공, live/ready/dependencies 모두 HTTP 200                               |
+
+Bootstrap credential은 `git-code-reviewer-auth` Secret에만 있다. 최초 로그인 후 시스템관리자가 `/admin?tab=users`에서 각 Local account 비밀번호를 변경하고 조직의 전달 절차로 사용자에게 제공한다. Secret key를 바꾸어도 이미 생성된 account 비밀번호는 자동으로 덮어쓰지 않는다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 

@@ -4,8 +4,8 @@
 
 - 최종 갱신: 2026-09-04
 - branch: `feat/browser-review-service`
-- 단계: ChatGPT account/GHES credential registry, 사용자 model·effort 선택, repository별 polling과 PRISM-DEV Helm `0.8.2` 배포 완료
-- remote: phase별 구현 및 release commit을 `origin/feat/browser-review-service`에 push함
+- 단계: Local account 로그인, 시스템관리자·일반사용자 관리, 사용자별 repository grant와 PRISM-DEV Helm `0.9.0` 배포·검증 완료
+- remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push하는 단계
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
@@ -18,8 +18,10 @@
 - 일반 사용자는 허용된 Chat account, model과 effort를 선택해 대화를 시작한다. 선택은 session에 고정되고 변경하면 새 session을 만든다.
 - 시스템 관리자는 GHES access-token connection과 review repository를 등록하고 repository별 polling interval/disabled/Poll now trigger 및 user/group grant를 관리한다.
 - GHES token이 부여하는 외부 read 권한과 application repository grant는 별도로 검사한다.
+- 외부 OIDC endpoint를 browser에서 사용할 수 없는 PRISM-DEV에서는 Local account mode로 시스템관리자와 일반사용자를 구분한다.
+- 시스템관리자는 Local account의 role, 활성 상태, tenant membership, repository grant와 비밀번호를 관리한다. 일반사용자는 grant를 받은 repository만 조회한다.
 
-위 동작은 migration `0009`, encrypted credential registry, 관리자 API/UI, 사용자 Chat selector와 저장소별 reader 선택으로 구현됐다. PRISM-DEV에는 registry를 활성화했지만 실제 ChatGPT account와 GHES token은 등록하지 않아 registry가 빈 상태다. 실제 credential을 전달받은 뒤 `/admin?tab=chat`, `/admin?tab=github`에서 등록·연결 테스트를 수행해야 외부 E2E가 완료된다. Repository grant는 등록 시 사용자 subject 1개를 선택할 수 있으며 다중 user/group grant를 사후 편집하는 전용 UI는 후속 범위다.
+Credential registry는 migration `0009`, Local account는 migration `0010`으로 구현됐다. PRISM-DEV에는 `admin` 시스템관리자와 `reviewer` 일반사용자가 있고 fixture repository grant는 `reviewer`에게 부여되어 있다. Bootstrap 비밀번호는 Kubernetes Secret에만 있으며 Git에는 없다. 실제 ChatGPT account와 GHES token은 등록하지 않아 외부 provider 인증 E2E는 남아 있다. `/admin?tab=chat`, `/admin?tab=github`에서 실제 credential을 등록·검증해야 한다. Local user의 repository grant는 `/admin?tab=users`에서 사후 부여·회수할 수 있다. Group grant 편집 UI는 후속 범위다.
 
 ## 2. 제품과 runtime 경계
 
@@ -39,6 +41,7 @@
 책임은 다음과 같이 분리한다.
 
 - Keycloak 또는 기존 사내 OIDC provider: 로그인, MFA/SSO, 사용자 identity와 관리자 role
+- Local account mode: 외부 OIDC endpoint가 없는 private pilot의 application 로그인과 role
 - PostgreSQL: application enabled 상태, tenant, membership, repository grant와 prompt version
 - Cerbos: principal/action/resource 속성을 사용하는 RBAC+ABAC decision
 
@@ -49,7 +52,7 @@ Keycloak은 선택형 Bitnami chart dependency로 포함했고 enterprise values
 관리자 browser UI `/admin`은 다음 기능을 제공한다.
 
 - tenant 생성, 표시 이름 변경, 활성/비활성 전환
-- 사용자 검색, application 접근 kill switch, tenant membership 관리
+- Local account 생성, 표시 이름·role·활성 상태·비밀번호, tenant membership과 repository grant 관리
 - 전역 분석 Provider immutable version 생성, 연결 테스트, 과거 version 재활성화, deployment 설정 복원
 - tenant별 분석 prompt immutable version 생성, 과거 version 재활성화, built-in prompt 복원
 
@@ -88,9 +91,9 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.7.0-alpha.3`
-- source tag: `docker.io/pydemia/git-code-reviewer:sha-cb12b514035a`
-- manifest digest: `sha256:52d95d8ca295b72409dc50933bf33e6cf965e9ef6fcf744262d1cc66443e94b4`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.1`
+- source tag: `docker.io/pydemia/git-code-reviewer:sha-8f75b5c188a2`
+- manifest digest: `sha256:b952e8f07a112b2615e7a628d5a7ab163c3fedc10e85f7bfcc895b7f5dfe3cae`
 - platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
@@ -99,9 +102,9 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.8.2`
-- app version: `0.7.0-alpha.3`
-- chart digest: `sha256:7e3559a2c3d00d0f0ad83821fd18c7ec5f00c94493bfd6abb6d3704b21d71398`
+- version: `0.9.0`
+- app version: `0.8.0-alpha.1`
+- chart digest: `sha256:c170c33ea24d28d51002bdd21e2c61c268a1e5f3cc6c30f17c6238b49f66fc69`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -117,7 +120,7 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 15개 파일, 61개 test
+- Vitest 16개 파일, 65개 test
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - 기본, enterprise, bundled PostgreSQL+Cerbos Helm lint
 - default Keycloak 비활성, enterprise Keycloak 활성과 앱/Keycloak PostgreSQL 동시 render
@@ -143,6 +146,18 @@ PRISM-DEV release revision 4 검증:
 - multi-platform image build/push와 registry manifest 재조회
 - OCI Helm chart push와 registry metadata 재조회
 
+PRISM-DEV release revision 6 Local account 검증:
+
+- Server/Worker 각 1개 Ready, restart 0회, image digest `sha256:b952e8f...3cae`
+- migration `0010_local_accounts.sql`, scrypt credential 2개와 `admin`/`reviewer` account 확인
+- 로그인 전 401, Local login 200, 일반사용자의 관리자 API 404 확인
+- 시스템관리자 self-disable 409, 비밀번호 재설정 시 기존 일반사용자 session 401 확인
+- 같은 사용자 이름의 로그인 실패 5회 후 15분 잠금 확인, 시험용 제한 row 삭제
+- repository grant 회수 시 일반사용자 repository 0개, 재부여 시 1개 확인
+- Helm test와 live/ready/dependencies HTTP 200, scheduler leadership와 application error 없음
+- `/login`과 배포 JavaScript HTTP 200, Local account/repository 권한 UI marker 확인
+- `agent-browser` 실행 파일이 없어 이번 변경의 자동 visual Browser 검증은 미실행
+
 Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 
 사용자의 enterprise 환경에서 남은 검증:
@@ -155,6 +170,12 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 6. 공유 ChatGPT/Codex deployment account와 quota/data policy가 조직 정책에 부합하는지 확인한다.
 
 ## 8. Commit 순서
+
+이번 Local account와 사용자별 repository grant 확장은 다음 commit에 있다.
+
+- `b466ec8` `feat: add local user authentication and administration`
+- `8f75b5c` `feat: manage user repository grants`
+- 배포 digest와 검증 문서 release commit은 push 후 이 목록에 추가한다.
 
 이번 Provider 관리 확장의 phase commit은 다음과 같다.
 
@@ -191,11 +212,12 @@ Bundled Keycloak Helm 확장은 다음 commit에 있다.
 5. `.documents/ui-implementation-design.md`
 6. `.documents/tenancy-identity-authorization-prompt-design.md`
 7. `.documents/implementation-plan.md`
-8. `.documents/design-review-resolution-2026-09-02.md`
-9. `docs/operations/deployment.md`
-10. `docs/operations/identity-authorization.md`
-11. `docs/operations/backup-restore.md`
-12. `docs/operations/github-enterprise-test.md`
+8. `.documents/local-account-authentication.md`
+9. `.documents/design-review-resolution-2026-09-02.md`
+10. `docs/operations/deployment.md`
+11. `docs/operations/identity-authorization.md`
+12. `docs/operations/backup-restore.md`
+13. `docs/operations/github-enterprise-test.md`
 
 시각 기준은 수정하지 않았다.
 
@@ -219,4 +241,6 @@ Bundled Keycloak Helm 확장은 다음 commit에 있다.
 - External source link는 browser 입력 origin이 아니라 등록된 GHES origin과 exact SHA로 만든다.
 - Cerbos 장애 시 이전 allow decision을 재사용하거나 local mode로 fallback하지 않는다.
 - Keycloak account, password, MFA와 role assignment를 application 관리자 UI에서 직접 편집하지 않는다.
+- Local account mode는 private pilot 전용이다. Bootstrap password를 values나 문서에 기록하지 않고 최초 로그인 뒤 관리자 UI에서 변경한다.
+- Local account의 tenant membership만으로 repository 접근을 허용하지 않는다. 사용자별 repository grant를 별도로 부여한다.
 - `.vscode/` 또는 관련 없는 사용자 변경을 되돌리지 않는다.

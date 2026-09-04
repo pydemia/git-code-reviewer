@@ -17,8 +17,9 @@ Role은 다음 두 가지다.
 - `local_credentials`는 정규화된 사용자 이름과 scrypt password hash를 `users`에 1:1로 연결한다.
 - 비밀번호는 12~128자로 제한하며 random 16-byte salt, scrypt `N=32768`, `r=8`, `p=1`, 64-byte derived key를 사용한다. 원문 비밀번호는 DB, API response, log와 audit metadata에 저장하지 않는다.
 - 초기 시스템관리자와 선택적인 일반사용자는 Kubernetes auth Secret으로만 주입한다. Server는 해당 사용자 이름이 처음 나타날 때만 account와 credential을 생성하므로 Secret 변경이 관리자가 설정한 비밀번호를 덮어쓰지 않는다.
-- 관리자는 `/admin?tab=users`에서 Local account를 생성하고 표시 이름, role, 활성 상태, tenant membership을 관리하거나 비밀번호를 재설정한다.
+- 관리자는 `/admin?tab=users`에서 Local account를 생성하고 표시 이름, role, 활성 상태, tenant membership, repository grant를 관리하거나 비밀번호를 재설정한다.
 - 비밀번호 재설정, 사용자 비활성화 또는 role 변경 시 해당 사용자의 기존 server session을 폐기한다. 현재 시스템관리자는 자신의 role을 낮추거나 접근을 차단할 수 없다.
+- 일반사용자 account를 만들거나 tenant membership을 설정하는 것만으로 repository가 공개되지는 않는다. 시스템관리자가 같은 tenant의 repository grant를 명시적으로 부여해야 일반사용자의 worklist에 나타난다.
 
 ## 3. 로그인과 session
 
@@ -56,6 +57,7 @@ POST  /api/v1/admin/users
 PATCH /api/v1/admin/users/{userId}
 PUT   /api/v1/admin/users/{userId}/password
 PUT   /api/v1/admin/tenants/{tenantId}/members/{userId}
+PUT   /api/v1/admin/repositories/{repositoryId}/grants/{userId}
 ```
 
-사용자 생성에는 `username`, `displayName`, `role`, 초기 `password`, 하나 이상의 `tenantIds`가 필요하다. 사용자 목록은 credential 자체 대신 `identityType=local|external`과 Local account의 `username`만 반환한다.
+사용자 생성에는 `username`, `displayName`, `role`, 초기 `password`, 하나 이상의 `tenantIds`가 필요하다. 사용자 목록은 credential 자체 대신 `identityType=local|external`, Local account의 `username`, tenant membership과 repository grant만 반환한다. Grant API는 대상 사용자가 해당 repository의 tenant에 속하고 두 resource가 모두 활성 상태일 때만 권한을 부여한다.

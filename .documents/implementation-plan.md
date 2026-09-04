@@ -339,7 +339,7 @@ GHES와 model test double은 recorded private payload 대신 synthetic fixture�
 | CP-06 | 사용자 Chat 선택과 session 고정 | Account/Model/Effort selector, 새 session 분기, authorization negative test |
 | CP-07 | Multi-account refresh와 adapter | account별 refresh lock, effort 전달, revoke/rate-limit/failure 격리 |
 | CP-08 | Identity/Admin navigation | OIDC 다중 사용자, 전역 tenant/admin/user menu와 compact workspace 접근 |
-| CP-08A | Private pilot Local account | scrypt credential, login/session/logout, bootstrap Secret, 사용자 생성·role·비밀번호·membership 관리와 권한 negative test |
+| CP-08A | Private pilot Local account | scrypt credential, login/session/logout, bootstrap Secret, 사용자 생성·role·비밀번호·membership·repository grant 관리와 권한 negative test |
 | CP-09 | Helm/operation 전환 | master-key Secret, NetworkPolicy, backup/rotation과 single credential migration |
 | CP-10 | PRISM-DEV acceptance/release | 실제 GHES/token, 승인 Chat account, 두 사용자 격리, image/chart 검증 |
 
