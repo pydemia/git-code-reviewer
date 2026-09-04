@@ -809,9 +809,16 @@ database:
   existingSecret: git-code-reviewer-db
 
 secrets:
-  githubApp: git-code-reviewer-github-app
+  credentialRegistry: git-code-reviewer-credential-registry
   oidc: git-code-reviewer-oidc
   modelProvider: git-code-reviewer-model
+
+credentialRegistry:
+  enabled: true
+  encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
+
+github:
+  mode: registry
 
 model:
   analysis:

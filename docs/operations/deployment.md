@@ -18,7 +18,7 @@ Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별
 Release image는 amd64/arm64 manifest, BuildKit provenance와 SBOM을 함께 게시한다. `latest` 대신 version과 source revision tag를 사용한다.
 
 ```bash
-export VERSION=0.7.0-alpha.3
+export VERSION=0.8.0-alpha.3
 export REVISION="$(git rev-parse HEAD)"
 
 docker buildx build \
@@ -53,17 +53,17 @@ cosign sign "docker.io/pydemia/git-code-reviewer@sha256:..."
 cosign verify "docker.io/pydemia/git-code-reviewer@sha256:..."
 ```
 
-Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.7.0-alpha.3`, chart version tag는 `0.8.2`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
+Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.8.0-alpha.3`, chart version tag는 `0.10.1`을 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
 
 ```bash
 helm registry login registry-1.docker.io -u pydemia
 helm dependency build deploy/helm/git-code-reviewer
 helm package deploy/helm/git-code-reviewer --destination dist/helm
-helm push dist/helm/git-code-reviewer-0.7.1.tgz \
+helm push dist/helm/git-code-reviewer-0.10.1.tgz \
   oci://registry-1.docker.io/pydemia
 helm show chart \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.7.1
+  --version 0.10.1
 ```
 
 OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart.yaml`의 name/version으로 이를 결정한다. [Helm OCI registry](https://helm.sh/docs/topics/registries/)
@@ -160,7 +160,7 @@ OCI chart를 사용할 때에는 local chart 경로를 다음 주소와 version�
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.7.1 \
+  --version 0.10.1 \
   -n "$NAMESPACE" \
   -f /tmp/git-code-reviewer-pilot.yaml \
   --atomic --wait --timeout 20m
@@ -544,7 +544,7 @@ Source checkout 없이 Docker Hub의 chart를 직접 설치할 수도 있다. �
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.7.1 \
+  --version 0.10.1 \
   -n git-code-reviewer -f values.enterprise.yaml \
   --atomic --wait --timeout 20m
 ```

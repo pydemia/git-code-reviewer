@@ -520,7 +520,7 @@ Milestone task와 완료 조건의 정본은 [구현 계획서](implementation-p
 ## 18. 참고 자료
 
 - Commit Defender의 `github-enterprise-pr-analysis-server-design.md` 초안(별도 repository)
-- [GitHub App installation 인증](https://docs.github.com/en/enterprise-server@3.20/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation)
+- [Fine-grained PAT 권한](https://docs.github.com/en/enterprise-server@3.20/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens)
 - [GHES Pull Request REST API](https://docs.github.com/en/enterprise-server@3.20/rest/pulls/pulls)
 - [GHES REST API best practices](https://docs.github.com/en/enterprise-server@3.20/rest/using-the-rest-api/best-practices-for-using-the-rest-api)
 - [Git clone options](https://git-scm.com/docs/git-clone)

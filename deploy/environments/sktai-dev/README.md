@@ -84,12 +84,12 @@ helm template git-code-reviewer deploy/helm/git-code-reviewer \
   > /tmp/git-code-reviewer-sktai-dev.yaml
 ```
 
-OCI chart `0.7.1`을 설치한다.
+OCI chart `0.10.1`을 설치한다.
 
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.7.1 \
+  --version 0.10.1 \
   -n "$NAMESPACE" \
   -f deploy/environments/sktai-dev/values.yaml \
   -f deploy/environments/sktai-dev/values.local.yaml \
@@ -124,7 +124,7 @@ Browser UI는 `http://127.0.0.1:8080/admin?tab=github`에서 연다. Read-only P
 ```bash
 helm upgrade git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.7.1 \
+  --version 0.10.1 \
   -n "$NAMESPACE" \
   -f deploy/environments/sktai-dev/values.yaml \
   -f deploy/environments/sktai-dev/values.local.yaml \

@@ -2,8 +2,8 @@
 # kubectl port-forward while development authentication is enabled.
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.6.0-alpha.1'
-  digest: 'sha256:488540f6d426fc55900cca994f3c38586f2348ce07a149c95e519dfc43400ca3'
+  tag: '0.8.0-alpha.3'
+  digest: 'sha256:bb8ec547ccb09e1d9dee9e193bffb714cd66befdd48e25faa6486fba6124d9e6'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

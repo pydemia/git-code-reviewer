@@ -86,16 +86,16 @@ Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account`, `registry` �
 
 기존 `chatgpt-account` mode는 deployment-owned Codex `auth.json`을 전용 writable PVC에서 읽는다. 새 `registry` mode에서는 관리자가 auth.json을 등록하고 tenant/user/group에 account를 할당한다. AES-256-GCM 암호문만 PostgreSQL에 저장하며 API는 credential 원문을 반환하지 않는다. 사용자는 할당된 account, model, effort를 선택하고 이 조합과 credential version은 Chat session에 고정된다. Token refresh 결과도 같은 master key로 다시 암호화해 version을 올린다.
 
-GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone 직전에만 token을 복호화한다. Fixture/GitHub App 전역 reader와 token 기반 reader를 저장소 단위로 함께 사용할 수 있다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository와 Metadata/Contents/Pull requests read만 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다.
+GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone 직전에만 token을 복호화한다. 기본 `registry` mode는 전역 GitHub reader를 만들지 않고 저장소별 token reader만 사용한다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository와 Metadata/Contents/Pull requests read만 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다.
 
 ## 6. 배포 artifact
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.2`
-- source tag: `docker.io/pydemia/git-code-reviewer:sha-a02ceb85baf9`
-- manifest digest: `sha256:84d6a475be2e66ee79f0e6603531b7ee13dda61969622397f601c267c42a99c8`
-- platform: `linux/amd64`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.3`
+- source revision: `e8623d1`
+- manifest digest: `sha256:bb8ec547ccb09e1d9dee9e193bffb714cd66befdd48e25faa6486fba6124d9e6`
+- platform: `linux/amd64`, `linux/arm64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
 하나의 immutable image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
@@ -103,9 +103,9 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.0`
-- app version: `0.8.0-alpha.2`
-- chart digest: `sha256:1a8773174479e87921402a189a34298edfb0fa217d7f4e0ee54ac7f7370abc67`
+- version: `0.10.1`
+- app version: `0.8.0-alpha.3`
+- chart digest: `sha256:73745604f956b420bb5e1b88a43b6bfdb5a886c42daa79b7bf50b2f174db1516`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -121,8 +121,10 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 16개 파일, 65개 test
+- Vitest 16개 파일, 66개 test
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
+- ARM64 Docker Desktop의 kind Kubernetes 1.34.8에서 PostgreSQL/Server/Worker/PVC Ready
+- `GITHUB_MODE=registry`, credential registry API 활성화와 dependencies health HTTP 200
 - 기본, enterprise, bundled PostgreSQL+Cerbos Helm lint
 - default Keycloak 비활성, enterprise Keycloak 활성과 앱/Keycloak PostgreSQL 동시 render
 - Keycloak TLS Ingress, Secret 참조, realm/client/PKCE/admin role/groups mapper JSON과 OIDC discovery Helm test 확인
