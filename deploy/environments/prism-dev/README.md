@@ -28,7 +28,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - Chat: DB credential registry 사용. 실제 account는 관리자 화면에서 등록
 - Ingress: disabled
 - 접근: `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.7.0-alpha.2`의 고정 digest
+- image: `docker.io/pydemia/git-code-reviewer:0.7.0-alpha.3`의 고정 digest
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Development auth는 요청자를 administrator로 취급하므로 이 profile에 Ingress나 외부 Service를 추가하지 않는다.

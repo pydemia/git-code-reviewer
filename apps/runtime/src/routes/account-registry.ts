@@ -20,7 +20,14 @@ const uuidParams = z.object({ id: z.string().uuid() });
 const effortSchema = z.enum(reasoningEfforts);
 const accountBody = z.object({
   displayName: z.string().trim().min(1).max(120),
-  endpoint: z.string().url().max(2_048).optional(),
+  endpoint: z
+    .string()
+    .url()
+    .max(2_048)
+    .refine((value) => new URL(value).origin === 'https://chatgpt.com', {
+      message: 'Only the ChatGPT Codex endpoint is allowed',
+    })
+    .optional(),
   authJson: z.string().trim().min(2).max(100_000),
   models: z
     .array(
@@ -121,7 +128,8 @@ export async function registerAccountRegistryRoutes(
       if (body.enabled !== undefined) {
         const result = await database.query(
           `update chat_accounts set enabled = $2,
-             health = case when $2 then health else 'disabled' end,
+             health = case when $2 and health = 'disabled' then 'unverified'
+                           when not $2 then 'disabled' else health end,
              updated_at = clock_timestamp() where id = $1`,
           [id, body.enabled],
         );

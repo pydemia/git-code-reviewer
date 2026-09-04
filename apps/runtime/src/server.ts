@@ -48,6 +48,8 @@ export async function buildServer(config: AppConfig) {
           'res.headers.set-cookie',
           '*.token',
           '*.privateKey',
+          '*.authJson',
+          '*.accessToken',
         ],
         censor: '[REDACTED]',
       },

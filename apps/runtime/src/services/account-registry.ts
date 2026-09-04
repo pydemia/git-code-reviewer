@@ -63,15 +63,15 @@ export async function listAvailableChatAccounts(database: Database, userId: stri
        select 1 from chat_account_assignments assignment
        where assignment.account_id = account.id and assignment.enabled and (
          (assignment.scope_type = 'all' and assignment.scope_id = '*') or
-         (assignment.scope_type = 'user' and assignment.scope_id = $1::text) or
+         (assignment.scope_type = 'user' and assignment.scope_id = ($1::uuid)::text) or
          (assignment.scope_type = 'tenant' and exists (
            select 1 from tenant_memberships membership
-           where membership.user_id = $1 and membership.tenant_id::text = assignment.scope_id
+           where membership.user_id = $1::uuid and membership.tenant_id::text = assignment.scope_id
              and membership.enabled
          )) or
          (assignment.scope_type = 'group' and exists (
            select 1 from users app_user
-           where app_user.id = $1 and app_user.groups_json ? assignment.scope_id
+           where app_user.id = $1::uuid and app_user.groups_json ? assignment.scope_id
          ))
        )
      )
@@ -134,15 +134,15 @@ export async function resolveChatAccountSelection(
          select 1 from chat_account_assignments assignment
          where assignment.account_id = account.id and assignment.enabled and (
            (assignment.scope_type = 'all' and assignment.scope_id = '*') or
-           (assignment.scope_type = 'user' and assignment.scope_id = $1::text) or
+           (assignment.scope_type = 'user' and assignment.scope_id = ($1::uuid)::text) or
            (assignment.scope_type = 'tenant' and exists (
              select 1 from tenant_memberships membership
-             where membership.user_id = $1 and membership.tenant_id::text = assignment.scope_id
+             where membership.user_id = $1::uuid and membership.tenant_id::text = assignment.scope_id
                and membership.enabled
            )) or
            (assignment.scope_type = 'group' and exists (
              select 1 from users app_user
-             where app_user.id = $1 and app_user.groups_json ? assignment.scope_id
+             where app_user.id = $1::uuid and app_user.groups_json ? assignment.scope_id
            ))
          )
        )`,
@@ -209,7 +209,7 @@ export async function createChatAccount(
     assignments: Array<{ scopeType: 'all' | 'tenant' | 'user' | 'group'; scopeId: string }>;
   },
 ) {
-  validateChatGptAuthJson(input.authJson);
+  assertChatGptAuthJson(input.authJson);
   const encrypted = encryptCredential(
     input.authJson,
     config.CREDENTIAL_ENCRYPTION_KEY,
@@ -272,7 +272,7 @@ export async function rotateChatAccountCredential(
   accountId: string,
   authJson: string,
 ) {
-  validateChatGptAuthJson(authJson);
+  assertChatGptAuthJson(authJson);
   const encrypted = encryptCredential(authJson, config.CREDENTIAL_ENCRYPTION_KEY, 'chat-account');
   return database.query(
     `update chat_accounts set credential_ciphertext = $2, credential_iv = $3,
@@ -584,4 +584,14 @@ function credentialFreeUrl(value: string): string {
     throw Object.assign(new Error('URL must not contain credentials'), { statusCode: 400 });
   }
   return ensureTrailingSlash(url.toString());
+}
+
+function assertChatGptAuthJson(value: string): void {
+  try {
+    validateChatGptAuthJson(value);
+  } catch (error) {
+    throw Object.assign(error instanceof Error ? error : new Error('Invalid ChatGPT auth.json'), {
+      statusCode: 400,
+    });
+  }
 }
