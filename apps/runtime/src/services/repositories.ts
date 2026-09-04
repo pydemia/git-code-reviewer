@@ -6,7 +6,7 @@ import {
   type PullRequestObservation,
   type RepositoryTarget,
 } from '@gcr/github';
-import type { Database } from '@gcr/db';
+import type { Database, DatabaseClient } from '@gcr/db';
 import type { AppConfig } from '../config.js';
 import { enqueueSnapshot } from './operations.js';
 import { registeredGitHubReader } from './account-registry.js';
@@ -112,23 +112,35 @@ export async function startPollScheduler(
   credentialEncryptionKey?: string,
 ): Promise<() => Promise<void>> {
   if (!github && !credentialEncryptionKey) return async () => undefined;
-  const connection = await database.connect();
-  const result = await connection.query<{ acquired: boolean }>(
-    'select pg_try_advisory_lock($1) as acquired',
-    [schedulerLockId],
-  );
-  if (!result.rows[0]?.acquired) {
-    connection.release();
-    logger.info({ component: 'poll-scheduler' }, 'another replica owns the scheduler lease');
-    return async () => undefined;
-  }
-
   let stopped = false;
   let running = false;
+  let connection: DatabaseClient | null = null;
+  let waitingLogged = false;
   const tick = async () => {
     if (stopped || running) return;
     running = true;
     try {
+      if (!connection) {
+        const candidate = await database.connect();
+        const result = await candidate.query<{ acquired: boolean }>(
+          'select pg_try_advisory_lock($1) as acquired',
+          [schedulerLockId],
+        );
+        if (!result.rows[0]?.acquired) {
+          candidate.release();
+          if (!waitingLogged) {
+            waitingLogged = true;
+            logger.info(
+              { component: 'poll-scheduler' },
+              'another replica owns the scheduler lease; acquisition will be retried',
+            );
+          }
+          return;
+        }
+        connection = candidate;
+        waitingLogged = false;
+        logger.info({ component: 'poll-scheduler' }, 'poll scheduler leadership acquired');
+      }
       const due = await database.query<{ repository_id: string }>(
         `select p.repository_id
          from poll_states p
@@ -151,14 +163,15 @@ export async function startPollScheduler(
   };
   await tick();
   const interval = setInterval(() => void tick(), 15_000);
-  logger.info({ component: 'poll-scheduler' }, 'poll scheduler leadership acquired');
 
   return async () => {
     stopped = true;
     clearInterval(interval);
     while (running) await new Promise((resolve) => setTimeout(resolve, 25));
-    await connection.query('select pg_advisory_unlock($1)', [schedulerLockId]);
-    connection.release();
+    if (connection) {
+      await connection.query('select pg_advisory_unlock($1)', [schedulerLockId]);
+      connection.release();
+    }
   };
 }
 
