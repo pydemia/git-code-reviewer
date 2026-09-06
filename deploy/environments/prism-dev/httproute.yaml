@@ -1,0 +1,31 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: git-code-reviewer-route
+  namespace: git-code-reviewer
+  labels:
+    app.kubernetes.io/name: git-code-reviewer
+    app.kubernetes.io/component: server
+  annotations:
+    gateway.envoyproxy.io/upstream-settings: |
+      {"enableWebsocket": true}
+spec:
+  hostnames:
+    - dev-git-code-reviewer.prism.ai
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-gateway
+      namespace: envoy-gateway-system
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: git-code-reviewer
+          port: 80
+          weight: 1
