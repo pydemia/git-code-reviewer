@@ -205,6 +205,10 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 
 ## 8. Commit 순서
 
+PRISM-DEV 전용 HTTPRoute 배포는 다음 commit에 있다.
+
+- `fc97965` `release: add PRISM-DEV HTTPRoute`
+
 이번 credential registry outbound polling 수정은 다음 commit에 있다.
 
 - `2827f78` `ops: add local kind GitHub test profile`
