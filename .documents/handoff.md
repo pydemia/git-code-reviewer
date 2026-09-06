@@ -201,6 +201,7 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 - `2827f78` `ops: add local kind GitHub test profile`
 - `e8623d1` `fix: use credential registry for outbound polling`
 - `c808f83` `release: publish outbound polling registry profile`
+- `642d346` `release: redeploy polling fix to PRISM-DEV`
 
 이번 GHES credential 가이드와 Web GNB 확장은 다음 commit에 있다.
 
