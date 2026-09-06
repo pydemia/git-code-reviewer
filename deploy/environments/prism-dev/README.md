@@ -27,7 +27,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - 분석 model: disabled
 - Chat: DB credential registry 사용. 실제 account는 관리자 화면에서 등록
 - Ingress: disabled
-- Gateway API: `dev-git-code-reviewer.prism.ai` 전용 HTTPRoute
+- Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
 - image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.3@sha256:bb8ec547ccb09e1d9dee9e193bffb714cd66befdd48e25faa6486fba6124d9e6`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
@@ -115,10 +115,10 @@ curl -i http://127.0.0.1:8080/api/v1/repositories # 로그인 전 HTTP 401 확�
 
 Browser에서는 `http://127.0.0.1:8080/login`에서 로그인한다. 시스템관리자는 `/admin?tab=users`에서 Local account를 생성하고 role, 활성 상태, tenant membership, repository 접근 권한과 비밀번호를 관리한다. 일반사용자에게는 관리 메뉴가 표시되지 않으며 관리자 API도 404를 반환해야 한다.
 
-HTTPRoute는 `envoy-gateway-system/envoy-gateway`의 `http` listener에 연결되고 `git-code-reviewer` Service port 80으로 전체 path를 전달한다. 사내 DNS에 record가 없으면 접속할 PC의 hosts 파일에 다음 항목을 추가한 뒤 `http://dev-git-code-reviewer.prism.ai`로 접속한다.
+HTTPRoute는 `envoy-gateway-system/envoy-gateway`의 `http` listener에 연결되고 `git-code-reviewer` Service port 80으로 전체 path를 전달한다. 사내 DNS에 record가 없으면 접속할 PC의 hosts 파일에 다음 항목을 추가한 뒤 `http://pr-review.prism.ai`로 접속한다.
 
 ```text
-10.250.107.189 dev-git-code-reviewer.prism.ai
+10.250.107.189 pr-review.prism.ai
 ```
 
 Route 상태와 DNS 등록 전 전달 동작은 다음처럼 확인한다.
@@ -127,7 +127,7 @@ Route 상태와 DNS 등록 전 전달 동작은 다음처럼 확인한다.
 kubectl --context=PRISM-DEV -n git-code-reviewer \
   get httproute git-code-reviewer-route
 
-curl -fsS -H 'Host: dev-git-code-reviewer.prism.ai' \
+curl -fsS -H 'Host: pr-review.prism.ai' \
   http://10.250.107.189/health/live
 ```
 
@@ -249,7 +249,7 @@ PRISM-DEV에는 실제 credential을 연결한 repository가 아직 없다. 기�
 
 ### 전용 HTTPRoute 배포 검증
 
-Helm release revision 10에서 `PUBLIC_BASE_URL`을 `http://dev-git-code-reviewer.prism.ai`로 변경하고 `httproute.yaml`을 적용했다.
+Helm release revision 11에서 `PUBLIC_BASE_URL`을 `http://pr-review.prism.ai`로 변경하고 `httproute.yaml`을 적용했다.
 
 | 검증 항목       | 결과                                                                             |
 | --------------- | -------------------------------------------------------------------------------- |
@@ -258,7 +258,7 @@ Helm release revision 10에서 `PUBLIC_BASE_URL`을 `http://dev-git-code-reviewe
 | Route condition | `Accepted=True`, `ResolvedRefs=True`                                             |
 | Backend         | `git-code-reviewer` Service port 80                                              |
 | Host request    | `/health/live` HTTP 200, `/guide` HTTP 200, 비로그인 repository API HTTP 401     |
-| Helm            | revision 10, Server/Worker `Ready`, Helm test 성공                               |
+| Helm            | revision 11, Server/Worker `Ready`, Helm test 성공                               |
 | 외부 이름 해석  | 사내 DNS record가 없어 개발 PC hosts 파일에 `10.250.107.189` mapping이 현재 필요 |
 
 ## 실제 GHES 및 ChatGPT account 등록

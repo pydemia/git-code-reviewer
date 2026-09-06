@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: Credential registry outbound polling 수정과 전용 Gateway API HTTPRoute의 PRISM-DEV revision 10 배포·검증 완료
+- 단계: Credential registry outbound polling 수정과 전용 Gateway API HTTPRoute의 PRISM-DEV revision 11 배포·검증 완료
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -183,14 +183,14 @@ PRISM-DEV release revision 9 credential registry polling 수정 검증:
 - 사용자 3명, ChatGPT account 1개, GHES credential 1개, fixture repository 1개가 rollout 전후 유지됨
 - 실제 credential을 연결한 repository는 아직 없다. PRISM-DEV는 기존 fixture 검증을 유지하도록 `github.mode=fixture`로 두며, credential이 지정된 repository는 repository별 token reader를 우선 사용한다.
 
-PRISM-DEV release revision 10 전용 HTTPRoute 검증:
+PRISM-DEV release revision 11 전용 HTTPRoute 검증:
 
 - `git-code-reviewer/git-code-reviewer-route`를 `envoy-gateway-system/envoy-gateway`의 `http` listener에 연결
-- 전용 hostname `dev-git-code-reviewer.prism.ai`의 전체 path를 `git-code-reviewer` Service port 80으로 전달
+- 전용 hostname `pr-review.prism.ai`의 전체 path를 `git-code-reviewer` Service port 80으로 전달
 - Route 상태 `Accepted=True`, `ResolvedRefs=True` 확인
 - Host header 기반 요청에서 `/health/live` HTTP 200, `/guide` HTTP 200, 비로그인 repository API HTTP 401 확인
-- Helm `PUBLIC_BASE_URL`을 `http://dev-git-code-reviewer.prism.ai`로 변경하고 revision 10 rollout 및 Helm test 완료
-- Gateway Service의 LoadBalancer 주소와 사내 DNS record는 없다. 현재 개발 PC에서는 `10.250.107.189 dev-git-code-reviewer.prism.ai` hosts 항목이 필요하다.
+- Helm `PUBLIC_BASE_URL`을 `http://pr-review.prism.ai`로 변경하고 revision 11 rollout 및 Helm test 완료
+- Gateway Service의 LoadBalancer 주소와 사내 DNS record는 없다. 현재 개발 PC에서는 `10.250.107.189 pr-review.prism.ai` hosts 항목이 필요하다.
 
 Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 

@@ -11,7 +11,7 @@ metadata:
       {"enableWebsocket": true}
 spec:
   hostnames:
-    - dev-git-code-reviewer.prism.ai
+    - pr-review.prism.ai
   parentRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway

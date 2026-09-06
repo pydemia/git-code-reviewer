@@ -15,7 +15,7 @@ image:
 
 imagePullSecrets: []
 
-publicBaseUrl: http://dev-git-code-reviewer.prism.ai
+publicBaseUrl: http://pr-review.prism.ai
 
 trustedCa:
   existingConfigMap: git-code-reviewer-corporate-ca
