@@ -28,7 +28,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - Chat: DB credential registry 사용. 실제 account는 관리자 화면에서 등록
 - Ingress: disabled
 - 접근: `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.2@sha256:84d6a475be2e66ee79f0e6603531b7ee13dda61969622397f601c267c42a99c8`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.3@sha256:bb8ec547ccb09e1d9dee9e193bffb714cd66befdd48e25faa6486fba6124d9e6`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -210,6 +210,22 @@ Helm release revision 8에서 application `0.8.0-alpha.2`, chart `0.10.0`을 배
 | 기존 data 보존 | Local user, ChatGPT account와 GHES credential registry row 유지                      |
 
 배포 환경의 기존 사용자 비밀번호는 최초 bootstrap 이후 변경된 상태다. 이를 재설정하지 않고 배포 bundle과 route를 검증했으며, authenticated 관리자·일반사용자 화면은 local mocked current-user API로 확인했다.
+
+### Credential registry polling 수정 재배포
+
+Helm release revision 9에서 application `0.8.0-alpha.3`, chart `0.10.1`을 배포했다. 적용한 image manifest digest는 `sha256:bb8ec547ccb09e1d9dee9e193bffb714cd66befdd48e25faa6486fba6124d9e6`다.
+
+| 검증 항목      | 결과                                                                              |
+| -------------- | --------------------------------------------------------------------------------- |
+| Server/Worker  | 각 1개 `Ready`, restart 0회, 새 image digest 적용                                 |
+| Helm/Health    | Helm test 성공, live/ready/startup/dependencies 모두 HTTP 200                     |
+| Web/API        | `/guide` HTTP 200, 로그인 전 repository API HTTP 401                              |
+| Scheduler      | rolling update 이후 advisory lock leadership 재획득, application error 없음       |
+| Storage        | 기존 `nfs-csi` RWX artifact PVC와 RWO PostgreSQL PVC 유지                         |
+| 기존 data 보존 | 사용자 3명, ChatGPT account 1개, GHES credential 1개, fixture repository 1개 유지 |
+| Local test     | Vitest 16개 파일 66건, TypeScript typecheck, ESLint, PRISM values Helm lint 통과  |
+
+PRISM-DEV에는 실제 credential을 연결한 repository가 아직 없다. 기존 fixture 검증을 유지하기 위해 `github.mode=fixture`로 배포했으며, 이후 관리자 화면에서 등록하는 repository는 해당 repository의 credential을 우선 사용한다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 

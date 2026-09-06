@@ -2,9 +2,9 @@
 
 ## 1. 현재 상태
 
-- 최종 갱신: 2026-09-04
+- 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: Local account와 Chat 실사용 검증, GHES credential 가이드와 Web GNB `/guide` 구현 및 PRISM-DEV 배포 완료
+- 단계: Credential registry outbound polling 수정과 image `0.8.0-alpha.3`의 PRISM-DEV revision 9 재배포·검증 완료
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -173,6 +173,16 @@ PRISM-DEV release revision 8 GHES 사용 가이드 검증:
 - rollout 전 등록된 Local user, ChatGPT account와 GHES credential row가 유지됨을 확인
 - 기존 사용자의 변경된 비밀번호를 덮어쓰지 않기 위해 배포 환경의 authenticated visual test는 생략하고 local mocked current-user API로 관리자·일반사용자 UI를 모두 확인
 
+PRISM-DEV release revision 9 credential registry polling 수정 검증:
+
+- Helm chart `0.10.1`, application `0.8.0-alpha.3`, image digest `sha256:bb8ec547...d9e6` 적용
+- Server/Worker 각 1개 `Ready`, restart 0회, Helm test 성공
+- live/ready/startup/dependencies 모두 HTTP 200, `/guide` HTTP 200, 로그인 전 repository API HTTP 401
+- Server가 rolling update 직후 scheduler leadership을 재획득했고 Server/Worker application error가 없음
+- 기존 `nfs-csi` RWX artifact PVC와 RWO PostgreSQL PVC의 volume ID가 유지됨
+- 사용자 3명, ChatGPT account 1개, GHES credential 1개, fixture repository 1개가 rollout 전후 유지됨
+- 실제 credential을 연결한 repository는 아직 없다. PRISM-DEV는 기존 fixture 검증을 유지하도록 `github.mode=fixture`로 두며, credential이 지정된 repository는 repository별 token reader를 우선 사용한다.
+
 Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 
 사용자의 enterprise 환경에서 남은 검증:
@@ -185,6 +195,12 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 6. 공유 ChatGPT/Codex deployment account와 quota/data policy가 조직 정책에 부합하는지 확인한다.
 
 ## 8. Commit 순서
+
+이번 credential registry outbound polling 수정은 다음 commit에 있다.
+
+- `2827f78` `ops: add local kind GitHub test profile`
+- `e8623d1` `fix: use credential registry for outbound polling`
+- `c808f83` `release: publish outbound polling registry profile`
 
 이번 GHES credential 가이드와 Web GNB 확장은 다음 commit에 있다.
 
