@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { reviewAnalysisSchema } from './skills.js';
+export * from './skills.js';
 
 export const prioritySchema = z.enum(['P0', 'P1', 'P2', 'P3']);
 export const gradeSchema = z.enum([
@@ -164,6 +166,7 @@ export const reviewReportSchema = z.object({
   coverage: coverageSchema,
   versions: z.record(z.string(), z.string()),
   durationMs: z.number().int().nonnegative(),
+  analysis: reviewAnalysisSchema.optional(),
 });
 export type ReviewReport = z.infer<typeof reviewReportSchema>;
 

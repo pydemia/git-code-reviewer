@@ -55,6 +55,7 @@ COPY --from=build --chown=node:node /app/packages/review-contract/dist ./package
 COPY --from=build --chown=node:node /app/packages/analysis-engine/package.json ./packages/analysis-engine/package.json
 COPY --from=build --chown=node:node /app/packages/analysis-engine/node_modules ./packages/analysis-engine/node_modules
 COPY --from=build --chown=node:node /app/packages/analysis-engine/dist ./packages/analysis-engine/dist
+COPY --from=build --chown=node:node /app/packages/analysis-engine/skills ./packages/analysis-engine/skills
 USER node
 EXPOSE 4000 4001
 ENTRYPOINT ["/sbin/tini", "--", "node", "apps/runtime/dist/index.js"]

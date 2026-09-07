@@ -46,4 +46,7 @@ Built-in Skill은 application package에 포함한다. 관리자 version은 전�
 
 ## 진행 기록
 
-- Phase A: 참조 정본과 요구사항을 확인했다. R1–R10의 구현·검증은 아직 완료되지 않았다.
+- Phase A: `9e5ded5`로 요구사항을 기록하고 원격 branch에 push했다.
+- Phase B: 9개 기본 SKILL.md, 제한된 frontmatter parser, bundle hash 검증, stage별 prompt 조립, base/head별 bounded window와 overlap, unit/segment/파일 요약의 일대일·일대다 contract 및 집계 함수를 추가했다. 기존 v1 report에는 optional `analysis` 확장으로 추가한다. 새 metadata는 아직 Worker/UI에 연결하지 않았다.
+- Phase B 검증: review-contract/analysis-engine의 24 tests와 두 package build, 전체 lint를 통과했다. Dockerfile에 기본 Skill directory COPY를 추가했다. 실제 image build와 Worker/browser 검증은 Phase E에 남아 있다.
+- 다음 작업: Phase C 관리자 version/API/DB 및 모델 orchestration, Phase D report 화면/export/게시, Phase E 통합 검증. R1–R10 전체 완료를 아직 주장하지 않는다.

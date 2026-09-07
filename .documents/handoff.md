@@ -5,10 +5,20 @@
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
 - 단계: PRISM-DEV revision 15 이후 Workspace tree/line navigation과 등록 account 기반 batch 분석을 로컬 구현·검증함. 사용자 요청에 따라 phase commit·push를 진행하며 클러스터에는 아직 배포하지 않음
-- remote: 직전 release `64a4ebd`까지 `origin/feat/browser-review-service`에 push함
+- remote: 선행 구현 `4ca28e3`, Skill/report 요구사항 `9e5ded5`까지 `origin/feat/browser-review-service`에 push함. 이후 Skill/report phase commit은 git log와 대조할 것
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 진행 중: Commit Defender report와 분석 Skill
+
+현재 goal은 `.documents/skill-based-review-report.md`의 R1–R10 전체 구현·검증이다. 사용자에게 phase별 commit·push 승인을 받았으며 재배포는 요청받지 않았다. 참조 repo는 `/tmp/gcr-commit-defender-reference.hs2COo/source`에 read-only로 clone했고 revision은 기존 compatibility baseline과 같은 `47dabfea718729b0ccc685ae173857476040d6ea`이다. 아직 이 임시 clone은 삭제하지 않았다.
+
+Phase B에서 `packages/analysis-engine/skills/*/SKILL.md` 9개, `skills.ts`, `review-windows.ts`, `report-forms.ts`와 tests, review-contract의 `skills.ts`를 추가했다. 기본 Skill은 6 perspective와 3 form이며 새 perspective 이름은 extensible하다. Frontmatter는 제한된 scalar key만 읽고 body는 실행하지 않는다. Bundle은 정규화한 전체 Markdown으로 hash를 계산하고 DB payload 재검증도 지원한다. Window는 모델 입력 크기 단위이며 comment가 지정한 실제 line 범위가 code segment다. Contract는 unit/segment/finding 일대일, 파일 summary 일대다 연결과 coverage 일치를 검증한다. 현재 이 함수들은 아직 Worker나 UI에 연결되지 않았으므로 기능 전체가 완성된 상태가 아니다.
+
+다음 단계는 Skill immutable version 저장/관리 UI, 분석 생성 시 bundle snapshot 고정, 두 model adapter의 동일 stage별 prompt/출력 contract, segment 분석→파일 summary→total summary orchestration, 새 report 화면과 JSON/Markdown/PR 게시다. 기존 전체 diff 단일 호출과 unverified P3 downgrade는 아직 기존 코드에 남아 있어 새 pipeline 연결 시 R1–R10과 대조하여 정리해야 한다. 과거 immutable report는 수정하지 않는다. Skill 기반 새 report는 P3를 낮추어 PASS로 만들지 않는다.
+
+Impeccable context script는 이전 session 작업에서 이미 실행했다. 다시 실행하지 않는다. 이번 goal의 UI 수정은 아직 시작하지 않았으며 `new-work.md`는 읽었다. UI 직전 craft-floor를 읽고 기존 gray/teal Workspace를 유지한다. 새 report 화면의 desktop/mobile 확인과 독립 finish reviewer는 아직 수행하지 않았다. 이전 Workspace 화면의 ship 판정을 이번 report 확장의 근거로 재사용하지 않는다.
 
 ### 1.0a 2026-09-07 Workspace와 등록 account 기반 batch 분석
 
