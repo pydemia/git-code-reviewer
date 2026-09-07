@@ -1,6 +1,6 @@
 # Local development
 
-로컬 개발은 application과 PostgreSQL을 분리한다. `compose.dev.yaml`은 PostgreSQL만 실행하며 Server와 Worker는 host process로 실행한다.
+로컬 개발은 전체 container stack, host process, VS Code debugger 중 하나를 선택할 수 있다. `compose.yaml`은 PostgreSQL, migration, Server와 Worker를 함께 실행한다. `compose.dev.yaml`은 기존처럼 PostgreSQL만 실행한다.
 
 ## Prerequisites
 
@@ -9,7 +9,40 @@
 - Docker Engine과 Compose
 - Git
 
-## Start PostgreSQL
+## Portable Docker Compose
+
+Node.js나 pnpm을 host에 설치하지 않고 fixture repository로 전체 흐름을 확인하려면 repository root에서 실행한다.
+
+```bash
+docker compose up --build --wait
+open http://127.0.0.1:4000
+```
+
+Server와 Worker는 같은 local image와 artifact volume을 사용한다. Compose는 현재 source에서 host와 같은 architecture의 image를 빌드한다. Migration service가 성공한 뒤 두 process가 시작된다. 기본 설정은 development authentication, local authorization, fixture GitHub와 비활성 model이다. Port와 개발용 PostgreSQL password는 필요할 때 바꿀 수 있다.
+
+```bash
+APP_PORT=4400 POSTGRES_PORT=55433 POSTGRES_PASSWORD=local-password \
+  docker compose up --build --wait
+```
+
+`POSTGRES_PASSWORD`를 바꾸면 VS Code의 기본 `DATABASE_URL`과 일치하지 않으므로 debugger에서는 기본값을 사용하거나 `.vscode/launch.json`의 local 값을 함께 조정한다. 실제 GHES credential이나 model API key를 compose 파일에 기록하지 않는다.
+
+TLS inspection 환경에서는 승인된 사내 CA를 `BUILD_CA_CERT`에 넣는다. Compose가 이 값을 BuildKit secret으로 전달하므로 최종 image에는 남지 않는다.
+
+```bash
+export BUILD_CA_CERT="$(cat /absolute/path/corporate-ca.crt)"
+docker compose up --build --wait
+```
+
+상태와 log는 다음 명령으로 확인한다.
+
+```bash
+docker compose ps
+docker compose logs -f server worker
+curl -fsS http://127.0.0.1:4000/health/ready
+```
+
+## Host process development
 
 ```bash
 export POSTGRES_PASSWORD='local-only-password'
@@ -47,6 +80,20 @@ pnpm --filter @gcr/runtime exec tsx src/index.ts worker
 ```
 
 Browser workspace는 `http://127.0.0.1:5173`에서 연다. `GITHUB_MODE=fixture`, `DEV_USER_ROLE=admin`이면 fixture repository와 PR이 자동 준비되고 `/admin`에서 tenant, user membership, 분석 Provider와 tenant별 prompt를 관리할 수 있다. 첫 PR에서 refresh를 실행하면 별도 Worker가 snapshot과 report를 생성한다.
+
+## VS Code debugger
+
+Repository folder를 VS Code에서 연 뒤 `Run and Debug`에서 `GCR: Full Development Stack`을 실행한다. 이 compound는 Server, Worker와 Vite client를 각각 debugger로 시작하고 `http://127.0.0.1:5173`을 연다.
+
+- Compound의 pre-launch task가 PostgreSQL 시작, package build와 migration을 순서대로 실행한다.
+- `GCR: Server`는 API와 browser application backend를 실행한다.
+- `GCR: Worker`는 snapshot과 분석 job을 별도 Node debugger에서 실행한다.
+- `GCR: Web`은 Vite client를 실행하고 API를 port 4000으로 proxy한다.
+- `GCR: Current Test File`은 현재 editor의 Vitest file만 debugger로 실행한다.
+
+처음 실행하기 전에 `corepack pnpm install --frozen-lockfile`을 한 번 수행한다. VS Code 설정은 fixture mode와 비활성 model을 기본값으로 사용하며 credential을 포함하지 않는다.
+
+개별 Server나 Worker 구성만 실행할 때는 먼저 `Tasks: Run Task`에서 `GCR: Prepare Runtime`을 실행한다.
 
 로컬 인가 정책을 실제 Cerbos로 확인할 때에는 정책 compile을 먼저 실행하고 PDP를 띄운다.
 

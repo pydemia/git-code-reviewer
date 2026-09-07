@@ -1,0 +1,99 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "GCR: Server",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gcr/runtime", "exec", "tsx"],
+      "program": "${workspaceFolder}/apps/runtime/src/index.ts",
+      "args": ["serve"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development",
+        "HOST": "0.0.0.0",
+        "PORT": "4000",
+        "DATABASE_URL": "postgresql://git_code_reviewer:local-only-password@127.0.0.1:55432/git_code_reviewer",
+        "ARTIFACT_ROOT": "${workspaceFolder}/artifacts",
+        "WORKSPACE_ROOT": "${workspaceFolder}/tmp/workspaces",
+        "AUTH_MODE": "development",
+        "AUTHORIZATION_MODE": "local",
+        "SESSION_SECRET": "local-development-session-secret-32",
+        "DEV_USER_SUBJECT": "local-reviewer",
+        "DEV_USER_NAME": "Local Reviewer",
+        "DEV_USER_ROLE": "admin",
+        "GITHUB_MODE": "fixture",
+        "MODEL_MODE": "disabled",
+        "CHAT_MODEL_MODE": "disabled"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "GCR: Worker",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gcr/runtime", "exec", "tsx"],
+      "program": "${workspaceFolder}/apps/runtime/src/index.ts",
+      "args": ["worker"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "NODE_ENV": "development",
+        "HOST": "0.0.0.0",
+        "WORKER_HEALTH_PORT": "4001",
+        "DATABASE_URL": "postgresql://git_code_reviewer:local-only-password@127.0.0.1:55432/git_code_reviewer",
+        "ARTIFACT_ROOT": "${workspaceFolder}/artifacts",
+        "WORKSPACE_ROOT": "${workspaceFolder}/tmp/workspaces",
+        "AUTH_MODE": "development",
+        "AUTHORIZATION_MODE": "local",
+        "GITHUB_MODE": "fixture",
+        "MODEL_MODE": "disabled",
+        "CHAT_MODEL_MODE": "disabled"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "autoAttachChildProcesses": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "GCR: Web",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/apps/web/node_modules/vite/bin/vite.js",
+      "args": ["--host", "0.0.0.0"],
+      "cwd": "${workspaceFolder}/apps/web",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      }
+    },
+    {
+      "name": "GCR: Current Test File",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "${relativeFile}"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "GCR: Full Development Stack",
+      "configurations": ["GCR: Server", "GCR: Worker", "GCR: Web"],
+      "preLaunchTask": "GCR: Prepare Runtime",
+      "stopAll": true
+    }
+  ]
+}

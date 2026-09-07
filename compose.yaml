@@ -1,0 +1,120 @@
+name: git-code-reviewer
+
+x-runtime-environment: &runtime-environment
+  NODE_ENV: development
+  HOST: 0.0.0.0
+  DATABASE_URL: postgresql://git_code_reviewer:${POSTGRES_PASSWORD:-local-only-password}@postgres:5432/git_code_reviewer
+  ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts
+  WORKSPACE_ROOT: /tmp/git-code-reviewer/workspaces
+  AUTH_MODE: development
+  AUTHORIZATION_MODE: local
+  SESSION_SECRET: ${SESSION_SECRET:-local-development-session-secret-32}
+  DEV_USER_SUBJECT: ${DEV_USER_SUBJECT:-local-reviewer}
+  DEV_USER_NAME: ${DEV_USER_NAME:-Local Reviewer}
+  DEV_USER_ROLE: ${DEV_USER_ROLE:-admin}
+  GITHUB_MODE: ${GITHUB_MODE:-fixture}
+  MODEL_MODE: ${MODEL_MODE:-disabled}
+  CHAT_MODEL_MODE: ${CHAT_MODEL_MODE:-disabled}
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+
+x-runtime-build: &runtime-build
+  context: .
+  args:
+    RUNTIME_BASE: ${RUNTIME_BASE:-node:22-alpine}
+    REUSE_RUNTIME_BASE: ${REUSE_RUNTIME_BASE:-false}
+    VERSION: local-compose
+    REVISION: local
+  secrets:
+    - build_ca
+
+x-runtime-service: &runtime-service
+  image: git-code-reviewer:local
+  pull_policy: never
+  environment: *runtime-environment
+  volumes:
+    - git-code-reviewer-artifacts:/var/lib/git-code-reviewer/artifacts
+  networks:
+    - git-code-reviewer
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: git_code_reviewer
+      POSTGRES_USER: git_code_reviewer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-only-password}
+    ports:
+      - '${POSTGRES_PORT:-55432}:5432'
+    volumes:
+      - git-code-reviewer-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U git_code_reviewer -d git_code_reviewer']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks:
+      - git-code-reviewer
+
+  migrate:
+    <<: *runtime-service
+    build: *runtime-build
+    command: ['migrate']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  server:
+    <<: *runtime-service
+    command: ['serve']
+    ports:
+      - '${APP_PORT:-4000}:4000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  worker:
+    <<: *runtime-service
+    command: ['worker']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - git-code-reviewer-artifacts:/var/lib/git-code-reviewer/artifacts
+      - git-code-reviewer-workspaces:/tmp/git-code-reviewer/workspaces
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+volumes:
+  git-code-reviewer-artifacts:
+  git-code-reviewer-postgres:
+  git-code-reviewer-workspaces:
+
+networks:
+  git-code-reviewer:
+
+secrets:
+  build_ca:
+    environment: BUILD_CA_CERT

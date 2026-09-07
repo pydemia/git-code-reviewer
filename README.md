@@ -46,6 +46,14 @@ pnpm migrate
 pnpm dev
 ```
 
+전체 stack을 container로 실행하려면 다음 명령을 사용한다.
+
+```bash
+docker compose up --build --wait
+```
+
+VS Code에서는 `GCR: Full Development Stack` launch compound로 Server, Worker와 Web debugger를 함께 시작할 수 있다. 자세한 내용은 [`docs/operations/development.md`](docs/operations/development.md)를 참고한다.
+
 별도 terminal에서 Worker를 실행한다.
 
 ```bash
