@@ -29,7 +29,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.6@sha256:1cc09f22a72df16538c02b348db2f58a775348bc4315967d2aef3fef630ad218`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.7@sha256:21a0ed8f5d2525c2fa7809d027bec6b832da594c816d7daef952de3f83dc0471`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -315,6 +315,27 @@ Connection 수정 후 health는 `unverified`가 되며 연결 테스트가 `read
 배포는 기존 connection의 URL·token·권한이나 사용자 비밀번호를 변경하지 않는다. GitHub.com 연결은 API base URL에 `https://api.github.com`, Web base URL에 `https://github.com`을 입력하고 연결 테스트 후 Repository URL `https://github.com/org-name/repo-name`으로 등록한다. 기존 repository에서 PR 게시를 시작하려면 먼저 PAT의 Metadata/Contents read와 Pull requests read/write 권한을 확인한다.
 
 실제 GHES repository 등록과 PR 댓글 create/update 검증은 실행하지 않았다. 이번 배포의 UI 확인은 HTTPRoute가 제공하는 정적 bundle과 route 검증이며, 로그인 후 URL 입력·오류 안내 동작은 앞선 local synthetic API 검증 결과를 사용한다.
+
+## 2026-09-07 Review 등록 삭제·사용자 선택 등록 오류 수정
+
+14:04 KST에 Helm revision 15로 application `0.8.0-alpha.7`, chart `0.10.5`를 배포했다. Source commit은 `a66523a5569d`이며 image index digest는 `sha256:21a0ed8f5d2525c2fa7809d027bec6b832da594c816d7daef952de3f83dc0471`, OCI chart digest는 `sha256:b738b65a600b1f08cb17dc7f0553fb0a6dc1f5a10d42f3a7f53f5847c723f0df`다. Image는 `linux/amd64`와 provenance/SBOM attestation을 포함한다.
+
+등록 시 사용자를 선택하면 `repository_grants.role` 누락으로 PostgreSQL `23502`와 HTTP 500이 발생하던 문제를 수정했다. 이제 `reviewer` role을 명시해 저장하며 기존 grant와 충돌하면 중복 생성하지 않는다. 격리된 local PostgreSQL/Fastify API에서 수정 전 실패와 수정 후 HTTP 201, 재등록 시 동일 ID·grant 1건을 확인했다.
+
+관리자는 repository 카드의 `등록 삭제`에서 정확한 Owner/Repository를 입력해 등록을 제거할 수 있다. Migration `0012`의 `deleted_at`으로 목록·접근·polling에서 제외하고 대기 작업·grant를 정리한다. Running job은 409로 보호한다. GitHub 원본, connection/token과 기존 PR 댓글은 유지하고 분석·Chat 기록은 retention 정책에 따라 보관한다.
+
+| 검증 항목      | 결과                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------ |
+| 사전 검증      | Vitest 22개 파일 135건(PostgreSQL integration 5개 포함), lint·typecheck·build·Helm lint·server dry-run 통과  |
+| Migration      | `0012_repository_deletion.sql` 적용, migration 총 12개                                                       |
+| Server/Worker  | 각각 `1/1 Ready`, restart 0회, 새 image digest 적용, Scheduler leadership 재획득                             |
+| Health/Route   | Helm test 성공, health 4개 endpoint HTTP 200, HTTPRoute Accepted/ResolvedRefs=True                           |
+| Web/API        | 실제 hostname에서 `0.8.0-alpha.7`, 삭제 UI가 포함된 JS와 `/guide` HTTP 200, 비로그인 repository API HTTP 401 |
+| 기존 데이터    | users 3명, Chat accounts 1개, GHES credential 1개, repository 1개, grant 1건 유지                            |
+| Storage/Secret | 기존 두 PVC의 PV ID와 auth/registry/PostgreSQL Secret UID·resourceVersion 유지                               |
+| Log            | 배포 후 Server/Worker warning/error 0건                                                                      |
+
+실제 GitHub repository를 대신 등록하거나 PR 댓글을 게시하지 않았다. 기존 연결 설정은 그대로 두었으므로 관리자 화면에서 URL과 사용자 권한을 선택해 등록을 다시 시도할 수 있다. 삭제 UI의 desktop/mobile 동작은 앞선 local Browser 검증과 독립 UI 검토(`ship`)로 확인했다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 

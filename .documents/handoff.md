@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: Review 등록 삭제와 사용자 선택 등록 오류 수정 검증 완료. PRISM-DEV revision 14에서 후속 배포 준비 중
+- 단계: Review 등록 삭제와 사용자 선택 등록 오류 수정을 PRISM-DEV revision 15에 배포·검증 완료
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -12,11 +12,11 @@
 
 ### 1.0 2026-09-07 후속 작업: 등록 삭제와 등록 실패 진단
 
-Worktree에 Review repository `등록 삭제` UI/API와 migration `0012_repository_deletion.sql`을 추가했다. 삭제는 `deleted_at` tombstone으로 구현하며 목록·deep link·polling에서 제외하고 queued job/operation/analysis와 grant를 정리한다. Running job이 있으면 409를 반환한다. Connection/token, GitHub 원본과 PR 댓글은 보존하며 기존 기록은 retention 정책을 따른다. 재등록은 같은 ID를 사용하지만 과거 grant는 복원하지 않는다. 삭제된 fixture의 bootstrap 재생성과 in-flight polling의 새 작업 생성을 차단했다. 이 변경은 아직 위 revision 14 배포에 포함되지 않았다.
+Source commit `a66523a`에 Review repository `등록 삭제` UI/API와 migration `0012_repository_deletion.sql`을 추가했다. 삭제는 `deleted_at` tombstone으로 구현하며 목록·deep link·polling에서 제외하고 queued job/operation/analysis와 grant를 정리한다. Running job이 있으면 409를 반환한다. Connection/token, GitHub 원본과 PR 댓글은 보존하며 기존 기록은 retention 정책을 따른다. 재등록은 같은 ID를 사용하지만 과거 grant는 복원하지 않는다. 삭제된 fixture의 bootstrap 재생성과 in-flight polling의 새 작업 생성을 차단했다. 등록 오류 수정과 함께 revision 15에 배포했다.
 
 검증: 전용 local PostgreSQL에서 migration 0001–0012와 lifecycle integration 4개를 포함한 전체 133 tests 통과. Lint, typecheck, production build와 변경 파일 format 검사도 통과했다. Desktop 1440×1100과 mobile 390×844에서 취소·Escape의 focus 복귀, 확인값 불일치, 실제 API의 409 안내, 삭제 성공·새로고침 후 목록 제외와 heading focus를 확인했다. 삭제 후 DB는 등록 비활성·polling/게시 중지, queued job 2개 `REPOSITORY_DELETED`, grant 0건이었다. 모든 삭제 검증은 synthetic fixture로 실행했으며 PRISM-DEV의 repository나 credential은 변경하지 않았다. Browser screenshot은 `.impeccable/review/`에 있다. 재배포할 때 migration 0012를 포함해야 한다.
 
-Impeccable finish review는 삭제 UI·가이드 범위에서 `ship`으로 완료했다. 삭제 UI 검증용 local Server·Browser·PostgreSQL은 종료·정리했다. 후속 사용자 요청은 등록 오류 수정, git push와 PRISM-DEV 재배포까지 포함한다.
+Impeccable finish review는 삭제 UI·가이드 범위에서 `ship`으로 완료했다. 삭제 UI 검증용 local Server·Browser·PostgreSQL과 등록 오류 회귀 테스트용 임시 PostgreSQL은 종료·정리했다. 사용자 요청에 따라 등록 오류 수정, git push와 PRISM-DEV 재배포를 수행했다.
 
 등록 실패 진단: 2026-09-07 13:21 KST의 Server 요청 `94f69b27-7f68-46e6-8ddb-125f1256a990`에서 PostgreSQL `23502`가 발생했다. `registerGitHubRepository`의 `repository_grants` INSERT가 필수 `role` 값을 누락했다. GitHub repository 조회 후 사용자 grant를 저장하는 단계에서 전체 transaction이 rollback되어 HTTP 500이 반환됐다. Live connection은 GitHub.com API/Web root와 `ready` 상태를 확인했으며 token 원문을 조회·출력하지 않았다. URL trailing slash나 connection 인증 오류가 이번 실패 원인은 아니다.
 
@@ -114,9 +114,9 @@ Migration `0011_github_review_publication.sql`과 `github.review.publish` durabl
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.6`
-- source revision: `be2f56fc007c`
-- manifest digest: `sha256:1cc09f22a72df16538c02b348db2f58a775348bc4315967d2aef3fef630ad218`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.7`
+- source revision: `a66523a5569d24a187e6e10cdee91bee3fb0ab41`
+- manifest digest: `sha256:21a0ed8f5d2525c2fa7809d027bec6b832da594c816d7daef952de3f83dc0471`
 - platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
@@ -125,9 +125,9 @@ Migration `0011_github_review_publication.sql`과 `github.review.publish` durabl
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.4`
-- app version: `0.8.0-alpha.6`
-- chart digest: `sha256:361373950c273f395162749daf92f868c5da362e147967d8d86daddc61b3b7ea`
+- version: `0.10.5`
+- app version: `0.8.0-alpha.7`
+- chart digest: `sha256:b738b65a600b1f08cb17dc7f0553fb0a6dc1f5a10d42f3a7f53f5847c723f0df`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -259,6 +259,12 @@ PRISM-DEV release revision 14 PR 게시·Repository URL 등록 배포 검증:
 - 배포 직후 Server/Worker log의 warning/error 0건. 상세 기록은 `deploy/environments/prism-dev/README.md` 참조
 
 ## 8. Commit 순서
+
+Review 등록 삭제와 사용자 선택 등록 오류 수정은 다음 commit에 있다.
+
+- `a66523a` `feat: delete review registrations and fix selected-user grants`
+
+PRISM-DEV revision 15는 2026-09-07 14:04 KST에 배포했다. Server/Worker 각각 `1/1 Ready`, restart 0회, migration 12개(`0012` 포함), Helm test와 health 4개 endpoint HTTP 200을 확인했다. 실제 hostname의 version은 `0.8.0-alpha.7`이며 삭제 UI가 포함된 최신 JS를 제공한다. 기존 users 3명, Chat accounts 1개, GHES credential 1개, repository 1개와 grant 1건, 두 PVC의 PV ID와 auth/registry/PostgreSQL Secret UID·resourceVersion을 유지했다. Scheduler leadership 재획득과 배포 후 warning/error 0건도 확인했다. 실제 GitHub repository 등록·댓글 게시와 사용자 데이터 삭제는 실행하지 않았다. 사용자 선택 등록 HTTP 201 검증은 격리된 local PostgreSQL/Fastify API의 회귀 테스트 결과다.
 
 PR review 댓글 게시·Repository URL 등록 구현은 다음 commit에 있다.
 
