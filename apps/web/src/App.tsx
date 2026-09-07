@@ -4,12 +4,10 @@ import {
   Braces,
   ChevronDown,
   ChevronRight,
-  Clipboard,
   CircleAlert,
   CircleCheck,
   Clock3,
   ExternalLink,
-  Download,
   FileCode2,
   Files,
   GitBranch,
@@ -25,9 +23,9 @@ import {
   ShieldCheck,
   Sparkles,
   TestTube2,
-  ThumbsUp,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
+import { reviewStatusLabels } from '@gcr/contracts';
 import {
   loadAnalysisWorkspace,
   loadChatAccounts,
@@ -51,8 +49,9 @@ import { GuidePage } from './GuidePage.tsx';
 import { LoginPage } from './LoginPage.tsx';
 import { ProfilePage } from './ProfilePage.tsx';
 import { FileTree } from './FileTree.tsx';
+import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
-import { firstChangedLine, priorityLabels } from './review-diff.ts';
+import { firstChangedLine } from './review-diff.ts';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
@@ -619,19 +618,29 @@ function ReviewWorkspace({
           <span className="context-title">{data?.pull.title ?? 'Pull request'}</span>
         </div>
         <div className="review-actions">
-          <span className="analysis-state">
-            {data?.report ? <CircleCheck size={14} /> : <Clock3 size={14} />}
+          <span
+            className={`analysis-state${data?.report?.analysis ? ` analysis-${data.report.analysis.status}` : ''}`}
+          >
+            {data?.report?.analysis && data.report.analysis.status !== 'pass' ? (
+              <CircleAlert size={14} />
+            ) : data?.report ? (
+              <CircleCheck size={14} />
+            ) : (
+              <Clock3 size={14} />
+            )}
             {refreshing
               ? 'Snapshot 준비 중'
               : data?.report
-                ? data.report.versions.model?.startsWith('fixture')
-                  ? '데모 분석'
-                  : data.report.versions.review === 'failed'
-                    ? 'AI review 실패'
-                    : data.report.versions.model === 'disabled' ||
-                        data.report.versions.review === 'unavailable'
-                      ? 'AI review 미수행'
-                      : `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
+                ? data.report.analysis
+                  ? reviewStatusLabels[data.report.analysis.status]
+                  : data.report.versions.model?.startsWith('fixture')
+                    ? '데모 분석'
+                    : data.report.versions.review === 'failed'
+                      ? 'AI review 실패'
+                      : data.report.versions.model === 'disabled' ||
+                          data.report.versions.review === 'unavailable'
+                        ? 'AI review 미수행'
+                        : `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
                 : data?.analysis
                   ? data.analysis.state === 'queued'
                     ? '분석 대기'
@@ -963,11 +972,8 @@ function ReviewSidebar({
 }) {
   const report = data?.report;
   const issueFindings = report?.findings.filter((finding) => finding.priority !== 'P0') ?? [];
-  const positiveFindings = report?.findings.filter((finding) => finding.priority === 'P0') ?? [];
   const selectedObjects =
     data?.objects.filter((object) => object.definition?.fileId === selectedFileId) ?? [];
-  const selfLink = report?.links.find((link) => link.rel === 'self')?.href;
-  const markdownLink = report?.links.find((link) => link.rel === 'markdown')?.href;
 
   return (
     <aside className="left-panel" aria-label="검토 탐색">
@@ -1028,121 +1034,14 @@ function ReviewSidebar({
 
       {mode === 'findings' ? (
         <div className="review-list">
-          <div className="panel-heading review-list-heading">
-            <span>전체 요약</span>
-            <span className="panel-actions">
-              <button
-                className="icon-button small"
-                type="button"
-                title="Report 링크 복사"
-                aria-label="Report 링크 복사"
-                disabled={!selfLink}
-                onClick={() => selfLink && void navigator.clipboard.writeText(selfLink)}
-              >
-                <Clipboard size={13} />
-              </button>
-              <a
-                className={`icon-button small${markdownLink ? '' : ' disabled'}`}
-                href={markdownLink}
-                title="Markdown 다운로드"
-                aria-label="Markdown 다운로드"
-              >
-                <Download size={13} />
-              </a>
-            </span>
-          </div>
-          {report ? (
-            <>
-              <div className="report-summary">
-                <strong>
-                  {report.versions.model?.startsWith('fixture')
-                    ? '데모 분석'
-                    : report.versions.review === 'failed'
-                      ? 'AI review 실패'
-                      : report.versions.model === 'disabled' ||
-                          report.versions.review === 'unavailable'
-                        ? 'AI review 미수행'
-                        : report.grade}
-                </strong>
-                {report.versions.model?.startsWith('fixture') ? (
-                  <p role="status">
-                    데모 분석 결과입니다. 실제 코드의 AI review가 아닙니다. 분석 Provider를 설정한
-                    뒤 새로고침하여 다시 분석하세요.
-                  </p>
-                ) : null}
-                {report.versions.review === 'failed' ||
-                report.versions.model === 'disabled' ||
-                report.versions.review === 'unavailable' ? (
-                  <p role="status">
-                    분석 Provider의 account·model·effort와 tenant 권한을 확인한 뒤 새로고침하세요.
-                    표시된 Coverage는 코드 수집 범위이며 AI 검토 완료율이 아닙니다.
-                  </p>
-                ) : null}
-                <p>{report.summary}</p>
-                <span className="review-source">
-                  {report.versions.model} · {report.versions.prompt}
-                </span>
-                <span>
-                  {report.coverage.filesExamined}/{report.coverage.filesChanged} files ·{' '}
-                  {report.durationMs}ms
-                </span>
-              </div>
-              <div className="panel-heading">
-                <span>파일별 요약</span>
-              </div>
-              <div className="per-file-list">
-                {report.perFileSummaries.map((summary) => {
-                  const file = data?.files.find((item) => item.id === summary.fileId);
-                  return (
-                    <button
-                      type="button"
-                      key={summary.fileId}
-                      onClick={() => {
-                        const finding = report.findings.find(
-                          (item) => item.anchor.fileId === summary.fileId,
-                        );
-                        if (finding) onFindingSelect(finding);
-                        else if (file) onFileSelect(file.path);
-                      }}
-                    >
-                      <b className={`priority-${summary.priority.toLowerCase()}`}>
-                        {summary.priority}
-                      </b>
-                      <span title={file?.path}>{file?.path.split('/').at(-1) ?? 'file'}</span>
-                      <small>{summary.summary}</small>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="panel-heading">
-                <span>Review comments</span>
-                <span>{issueFindings.length}</span>
-              </div>
-              {issueFindings.map((finding) => (
-                <FindingRow
-                  key={finding.id}
-                  finding={finding}
-                  path={data?.files.find((file) => file.id === finding.anchor.fileId)?.path}
-                  active={finding.id === selectedFindingId}
-                  onSelect={onFindingSelect}
-                />
-              ))}
-              {positiveFindings.length ? (
-                <div className="panel-heading positive-heading">
-                  <span>좋았던 점</span>
-                  <ThumbsUp size={12} />
-                </div>
-              ) : null}
-              {positiveFindings.map((finding) => (
-                <FindingRow
-                  key={finding.id}
-                  finding={finding}
-                  path={data?.files.find((file) => file.id === finding.anchor.fileId)?.path}
-                  active={finding.id === selectedFindingId}
-                  onSelect={onFindingSelect}
-                />
-              ))}
-            </>
+          {report && data ? (
+            <ReviewReportPanel
+              report={report}
+              files={data.files}
+              selectedFindingId={selectedFindingId}
+              onFindingSelect={onFindingSelect}
+              onFileSelect={onFileSelect}
+            />
           ) : (
             <div className="panel-empty">아직 publish된 report가 없습니다.</div>
           )}
@@ -1206,39 +1105,6 @@ function ReviewSidebar({
         </div>
       </div>
     </aside>
-  );
-}
-
-function FindingRow({
-  finding,
-  path,
-  active,
-  onSelect,
-}: {
-  finding: FindingView;
-  path: string | undefined;
-  active: boolean;
-  onSelect: (finding: FindingView) => void;
-}) {
-  return (
-    <button
-      className={`finding-row ${active ? 'active' : ''} ${finding.priority === 'P0' ? 'positive' : ''}`}
-      type="button"
-      onClick={() => onSelect(finding)}
-    >
-      <b
-        className={`priority-${finding.priority.toLowerCase()}`}
-        title={priorityLabels[finding.priority]}
-      >
-        {finding.priority}
-      </b>
-      <span>{finding.title}</span>
-      <small>
-        {finding.category} ·{' '}
-        {finding.anchor.startLine ? `line ${finding.anchor.startLine}` : '파일 전체'} ·{' '}
-        {path?.split('/').at(-1) ?? 'file'}
-      </small>
-    </button>
   );
 }
 

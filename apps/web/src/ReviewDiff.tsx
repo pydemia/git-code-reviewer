@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef } from 'react';
 import type { WorkspaceData } from './api.ts';
 import { parseReviewDiff, splitReviewDiff, type DiffLine } from './review-diff.ts';
 import { priorityLabels } from './review-diff.ts';
+import { ReviewText } from './ReviewReportPanel.tsx';
 
 type Finding = NonNullable<WorkspaceData['report']>['findings'][number];
 export type CodeTarget = {
@@ -132,16 +133,22 @@ function InlineReview({ finding }: { finding: Finding }) {
         <span>{finding.category}</span>
         <span>{finding.anchor.startLine ? `line ${finding.anchor.startLine}` : '파일 전체'}</span>
       </header>
-      <h3>{finding.title}</h3>
-      {finding.problem !== finding.title ? <p>{finding.problem}</p> : null}
+      <h3>
+        <ReviewText text={finding.title} />
+      </h3>
+      {finding.problem !== finding.title ? (
+        <p>
+          <ReviewText text={finding.problem} />
+        </p>
+      ) : null}
       {finding.impact ? (
         <p>
-          <b>영향</b> {finding.impact}
+          <b>영향</b> <ReviewText text={finding.impact} />
         </p>
       ) : null}
       {finding.recommendation ? (
         <p>
-          <b>수정 제안</b> {finding.recommendation}
+          <b>수정 제안</b> <ReviewText text={finding.recommendation} />
         </p>
       ) : null}
     </article>

@@ -66,8 +66,9 @@ import {
   type User,
 } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
+import { AnalysisSkillsPanel } from './AnalysisSkillsPanel.tsx';
 
-type AdminTab = 'tenants' | 'users' | 'provider' | 'prompt' | 'chat' | 'github';
+type AdminTab = 'tenants' | 'users' | 'provider' | 'prompt' | 'skills' | 'chat' | 'github';
 type TenantForm = {
   id?: string;
   slug: string;
@@ -468,6 +469,13 @@ export function AdminPage() {
             <FileText size={16} /> 분석 프롬프트
           </button>
           <button
+            className={tab === 'skills' ? 'active' : ''}
+            type="button"
+            onClick={() => selectTab('skills')}
+          >
+            <FileText size={16} /> 분석 Skills
+          </button>
+          <button
             className={tab === 'chat' ? 'active' : ''}
             type="button"
             onClick={() => selectTab('chat')}
@@ -609,6 +617,7 @@ export function AdminPage() {
             />
           ) : null}
 
+          <AnalysisSkillsPanel visible={tab === 'skills'} />
           {tab === 'prompt' ? (
             <PromptPanel
               tenants={tenants}
@@ -2774,6 +2783,7 @@ function readTab(): AdminTab {
   return value === 'users' ||
     value === 'provider' ||
     value === 'prompt' ||
+    value === 'skills' ||
     value === 'chat' ||
     value === 'github'
     ? value

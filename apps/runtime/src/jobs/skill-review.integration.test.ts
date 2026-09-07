@@ -6,6 +6,14 @@ import { createReviewSkillBundle, loadBuiltInReviewSkills } from '@gcr/analysis-
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { FixtureGitHubClient } from '@gcr/github';
+import type { GitHubReader, GitHubReviewPublisher } from '@gcr/github';
+import { reportViewSchema } from '@gcr/contracts';
+import Fastify from 'fastify';
+import type { AuthUser } from '../auth/index.js';
+import { EventHub } from '../events/index.js';
+import { registerAnalysisRoutes } from '../routes/analyses.js';
+import { AuthorizationService } from '../services/authorization.js';
+import { publishReviewToGitHub } from '../services/review-publication.js';
 import type { ReviewReport } from '@gcr/review-contract';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadConfig, type AppConfig } from '../config.js';
@@ -216,6 +224,78 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       analysisJob,
     );
     expect(calls.length).toBe(before); // Published report is immutable/idempotent.
+  });
+
+  it('serves the pinned report in API/JSON/Markdown and publishes the artifact hierarchy', async () => {
+    const app = Fastify();
+    app.addHook('onRequest', async (request) => {
+      request.user = {
+        id: userId,
+        subject: 'synthetic:worker',
+        displayName: '검증 관리자',
+        role: 'administrator',
+        enabled: true,
+        tenantIds: [],
+        tenants: [],
+        groups: [],
+      } as AuthUser;
+    });
+    await registerAnalysisRoutes(
+      app,
+      database,
+      new EventHub(database),
+      artifacts,
+      config,
+      new AuthorizationService(config),
+    );
+    try {
+      const response = await app.inject(`/api/v1/analyses/${analysisId}`);
+      expect(response.statusCode, response.body).toBe(200);
+      const view = reportViewSchema.parse(response.json());
+      expect(view.analysis?.skills.versionId).toBe(versionId);
+      const mergeBase = (
+        await database.query('select merge_base_sha from snapshots where id=$1', [snapshotId])
+      ).rows[0].merge_base_sha;
+      for (const finding of view.findings.filter((item) => item.anchor.side === 'mergeBase')) {
+        expect(finding.links.find((item) => item.rel === 'ghes')?.href).toContain(
+          `/blob/${mergeBase}/`,
+        );
+      }
+      const json = await app.inject(`/api/v1/analyses/${analysisId}/export?format=json`);
+      expect(reportViewSchema.parse(json.json()).analysis).toEqual(view.analysis);
+      const markdown = await app.inject(`/api/v1/analyses/${analysisId}/export?format=markdown`);
+      expect(markdown.body).toContain('## Overall Summary');
+      expect(markdown.body).toContain('## AI Comments');
+      expect(markdown.body).toContain('## Analyzed File List');
+      const upsertPullRequestComment = vi.fn(async () => ({
+        commentId: 42,
+        commentUrl: 'https://github.example/synthetic',
+        outcome: 'created' as const,
+      }));
+      await database.query('update repositories set review_publishing_enabled=true');
+      const pullRequestId = (await database.query('select id from pull_requests limit 1')).rows[0]
+        .id;
+      const publisher = { upsertPullRequestComment } as unknown as GitHubReader &
+        GitHubReviewPublisher;
+      await publishReviewToGitHub(
+        database,
+        publisher,
+        config,
+        { id: randomUUID(), payload: { analysisId, pullRequestId } },
+        artifacts,
+      );
+      const posted = JSON.stringify(upsertPullRequestComment.mock.calls);
+      for (const title of [
+        'Overall Summary',
+        'AI Comments',
+        'Analyzed File List',
+        original.hash,
+        'api\\\\-compatibility',
+      ])
+        expect(posted).toContain(title);
+    } finally {
+      await app.close();
+    }
   });
 
   it('does not reinterpret a pre-migration null Skill binding using the current administrator version', async () => {

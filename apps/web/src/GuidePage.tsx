@@ -50,6 +50,7 @@ export function GuidePage() {
           <a href="#ghes-credential">GHES credential</a>
           <a href="#register-repository">Repository 등록</a>
           <a href="#analysis-provider">자동 분석 모델 설정</a>
+          <a href="#analysis-skills">분석 Skills와 report</a>
           <a href="#review-flow">Review와 Chat</a>
           <a href="#code-navigation">파일 tree와 코드 이동</a>
           <a href="#troubleshooting">문제 해결</a>
@@ -380,6 +381,54 @@ export function GuidePage() {
               표시되면 분석 Provider 설정, account 인증 상태, model ID, tenant 권한을 확인하고 다시
               분석하세요. Coverage는 diff에서 확보한 코드 범위이며 테스트 통과율이나 AI 정확도가
               아닙니다.
+            </p>
+          </section>
+
+          <section className="guide-section" id="analysis-skills">
+            <h2>분석 Skills와 Commit Defender report</h2>
+            <p>
+              Administration → 분석 Skills에서 분석 관점과 report 형식을 SKILL.md로 편집합니다.
+              Built-in에는 correctness, security, maintenance, optimization, review-history, setting
+              관점과 unit-comment-block, overall-summary, total-summary 형식이 포함됩니다.
+            </p>
+            <p>
+              ‘Perspective 추가’로 새 관점을 만들고 name, title, version과 한국어 지침을 작성하세요.
+              이름은 영어 소문자·숫자·hyphen을 사용합니다. 관점을 끄려면 enabled를 false로 바꾸며 세
+              form은 활성 상태로 유지해야 합니다. ‘Version 저장 및 활성화’는 전역 설정으로, 이후
+              queue에 들어가는 모든 tenant의 분석에 적용됩니다. Tenant별 추가 지침은 분석
+              프롬프트에서 관리합니다.
+            </p>
+            <p>
+              Version history에서 이전 version을 활성화하거나 Built-in으로 복원할 수 있습니다.
+              저장된 본문과 기존 report는 변경되지 않습니다. Queue에 들어간 작업은 그때 고정한 Skill
+              bundle/hash를 사용합니다. 변경 사항을 기존 PR에 적용하려면 Workspace에서 새로고침하여
+              새 분석을 만드세요.
+            </p>
+            <p>
+              Worker는 line 번호가 있는 window별로 comment를 생성하고 검증된 code segment·unit을
+              파일별 Overall Summary와 전체 summary로 집계합니다. 모델 입력은 core 80줄과 경계
+              context 12줄로 나누며 호출 예산은 기본 32회입니다. 파일 요약과 전체 요약도 호출 예산에
+              포함됩니다. 일부 호출이 실패하거나 출력이 잘리면 성공한 comment를 보존하고 미완료
+              범위를 표시합니다.
+            </p>
+            <p>
+              Findings의 report는 전체 상태, Overall Summary, 파일로 묶인 AI Comments, Analyzed File
+              List 순서입니다. Comment를 클릭하면 해당 head/mergeBase line과 inline 설명으로
+              이동하며 오른쪽 Chat에서 이어서 질문할 수 있습니다. 파일 수준의 설명에는 line을 만들지
+              않습니다. Raw JSON과 Markdown에서도 같은 분석 revision을 확인할 수 있습니다.
+            </p>
+            <p>
+              P0 Praise, P1 Info, P2 Warning, P3 Critical 중 가장 높은 priority를 대표값으로
+              표시합니다. P3는 BLOCKED이며 실제 merge나 branch protection을 자동으로 변경하지
+              않습니다. PASS는 분석한 범위에서 P3가 없다는 뜻이지 결함이나 보안 문제가 없다는 보증이
+              아닙니다. 분석 미완료·미수행·실패·데모 상태와 파일별 검토 상태를 함께 확인하세요. 화면
+              아래 Coverage는 코드 수집 범위이고 report의 ‘files 검토 완료’와는 다릅니다.
+            </p>
+            <p>
+              Repository의 PR 게시 설정이 켜져 있으면 새 Skill 기반 분석의 PR timeline 댓글에도
+              Overall Summary, AI Comments, Analyzed File List를 게시합니다. 길이 제한으로 생략한
+              항목은 전체 report 링크에서 확인합니다. 대상 PR 안의 SKILL.md, TODO나 type-ignore
+              문자열을 관리자 지침으로 자동 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
             </p>
           </section>
 

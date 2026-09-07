@@ -171,7 +171,7 @@ async function executeJob(
     } else if (job.type === 'analysis.run') {
       await executeAnalysisJob(database, artifacts, config, job);
     } else {
-      await publishReviewToGitHub(database, github, config, job);
+      await publishReviewToGitHub(database, github, config, job, artifacts);
     }
     await completeJob(database, job);
     logger.info({ jobId: job.id, type: job.type }, 'job completed');

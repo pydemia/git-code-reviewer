@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { reviewAnalysisSchema } from './review-analysis.js';
+export * from './review-analysis.js';
+export * from './report-presentation.js';
 
 export {
   githubRepositoryExample,
@@ -434,6 +437,7 @@ export const findingViewSchema = z.object({
 });
 
 export const reportViewSchema = z.object({
+  analysis: reviewAnalysisSchema.optional(),
   schemaVersion: z.literal(schemaVersion),
   analysisRevisionId: z.string().uuid(),
   snapshotId: z.string().uuid(),

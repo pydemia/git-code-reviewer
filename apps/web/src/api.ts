@@ -1,4 +1,5 @@
 import {
+  analysisSkillSettingsSchema,
   adminChatAccountListSchema,
   adminRepositoryListSchema,
   adminUserListSchema,
@@ -26,6 +27,7 @@ import {
   tenantListSchema,
   userSchema,
   type AdminUser,
+  type AnalysisSkillSettings,
   type AnalysisProviderMode,
   type AnalysisProviderVersion,
   type AnalysisPromptVersion,
@@ -53,6 +55,7 @@ export type AdminChatAccount = ReturnType<typeof adminChatAccountListSchema.pars
 export type GitHubConnection = ReturnType<typeof githubConnectionListSchema.parse>['items'][number];
 export type AdminRepository = ReturnType<typeof adminRepositoryListSchema.parse>['items'][number];
 export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Profile, Tenant, User };
+export type { AnalysisSkillSettings };
 export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
 export type AnalysisProviderSettings = ReturnType<typeof analysisProviderSettingsSchema.parse>;
 export type AnalysisProviderInput = {
@@ -205,6 +208,24 @@ export async function loadAnalysisProvider(signal: AbortSignal): Promise<Analysi
   return analysisProviderSettingsSchema.parse(
     await fetchJson('/api/v1/admin/analysis-provider', signal),
   );
+}
+
+export async function loadAnalysisSkills(signal: AbortSignal): Promise<AnalysisSkillSettings> {
+  return analysisSkillSettingsSchema.parse(
+    await fetchJson('/api/v1/admin/analysis-skills', signal),
+  );
+}
+
+export async function saveAnalysisSkills(documents: string[]): Promise<void> {
+  await mutateJson('/api/v1/admin/analysis-skills/versions', 'POST', { documents });
+}
+
+export async function activateAnalysisSkills(versionId: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/analysis-skills/versions/${versionId}/activate`, 'POST');
+}
+
+export async function resetAnalysisSkills(): Promise<void> {
+  await mutateJson('/api/v1/admin/analysis-skills/reset', 'POST');
 }
 
 export async function saveAnalysisProvider(values: AnalysisProviderInput): Promise<void> {

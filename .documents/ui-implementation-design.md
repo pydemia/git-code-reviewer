@@ -1,5 +1,15 @@
 # Review Workspace - UI 구현 설계
 
+## Skill/report 확장 (2026-09-07)
+
+Findings LNB는 Commit Defender의 report 계층을 사용한다. 상단에 제목, 분석 상태, 최고 priority, grade, 실제 검토 완료 파일 수, comment 수, mode와 duration을 표시하고 Raw JSON/Markdown을 제공한다. Overall Summary는 파일별 경로·priority·검토 상태·설명을, AI Comments는 파일별 unit-comment-block과 category·head/mergeBase line range·문제·영향·수정 제안을 보여준다. 설명은 한 줄 말줄임으로 숨기지 않는다. Analyzed File List에는 comment가 없는 파일과 미검토 파일도 포함한다.
+
+파일 요약과 comment 선택은 기존 revision 고정 diff 이동을 사용한다. Comment는 해당 line range와 inline 설명을 보여주고 Chat scope를 함께 바꾼다. Base 삭제 line은 mergeBase에 연결한다. 파일 수준의 설명은 임의 line으로 이동시키지 않는다. 오른쪽 Chat, Files tree와 +/− 집계, panel resizing, FNB를 유지한다.
+
+Administration의 `분석 Skills`는 관점/form 목록, SKILL.md 편집기, bundle 저장/활성화와 version history 순서다. Desktop에서는 목록과 편집기를 나란히 두고 작은 화면에서는 위아래로 배치한다. 새 관점 추가, 초안 삭제, enabled 변경, 이전 version 재활성화와 Built-in 복원을 지원한다. 저장하지 않은 초안은 탭 이동 중 유지하고 page 이탈 때 경고한다. 모든 tenant의 새 작업에 적용된다는 범위를 저장 전에 안내한다. 지침은 browser local storage에 보관하지 않는다.
+
+실패·미수행·데모에는 성공 grade를 표시하지 않는다. PASS는 검토한 범위에 P3가 없다는 뜻이며 merge를 허가하거나 안전을 보증하지 않는다. Code Coverage와 AI 검토 완료율은 구분한다. 상세 상태와 API/Worker contract는 `skill-based-review-report.md`를 따른다.
+
 ## 1. 적용 범위
 
 이 문서는 사내 HTTPS web application의 사용자 흐름과 review workspace를 정의한다. 기준 visual artifact는 다음과 같다.

@@ -1,6 +1,6 @@
 import { expandRelationships } from '@gcr/analysis-engine';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
-import { schemaVersion } from '@gcr/contracts';
+import { formatReviewMarkdown, schemaVersion } from '@gcr/contracts';
 import type { Database } from '@gcr/db';
 import { buildPermanentFileUrl } from '@gcr/github';
 import {
@@ -36,6 +36,7 @@ type AnalysisContext = {
   webBaseUrl: string;
   headSha: string;
   baseSha: string;
+  mergeBaseSha: string;
   snapshotId: string;
   pullNumber: number;
   pullTitle: string;
@@ -216,7 +217,7 @@ export async function registerAnalysisRoutes(
         return reply
           .header('content-disposition', `attachment; filename="review-${analysisId}.md"`)
           .type('text/markdown; charset=utf-8')
-          .send(markdownReport(view));
+          .send(markdownReport(view, context.filePaths));
       }
       return reply
         .header('content-disposition', `attachment; filename="review-${analysisId}.json"`)
@@ -240,12 +241,13 @@ async function authorizedContext(
     web_base_url: string;
     head_sha: string;
     base_sha: string;
+    merge_base_sha: string | null;
     snapshot_id: string;
     pull_number: number;
     pull_title: string;
   }>(
     `select ar.id as analysis_id, pr.repository_id, r.owner, r.name,
-            i.web_base_url, sr.head_sha, sr.base_sha, s.id as snapshot_id,
+            i.web_base_url, sr.head_sha, sr.base_sha, s.merge_base_sha, s.id as snapshot_id,
             pr.number as pull_number, pr.title as pull_title
      from analysis_runs ar join snapshots s on s.id = ar.snapshot_id
      join snapshot_requests sr on sr.id = s.request_id
@@ -275,6 +277,7 @@ async function authorizedContext(
     webBaseUrl: row.web_base_url,
     headSha: row.head_sha,
     baseSha: row.base_sha,
+    mergeBaseSha: row.merge_base_sha ?? row.base_sha,
     snapshotId: row.snapshot_id,
     pullNumber: row.pull_number,
     pullTitle: row.pull_title,
@@ -385,7 +388,8 @@ function evidenceLink(context: AnalysisContext, locator: EvidenceLocator) {
           context.webBaseUrl,
           context.owner,
           context.name,
-          context.headSha,
+          locator.commitOid ??
+            (locator.side === 'mergeBase' ? context.mergeBaseSha : context.headSha),
           path,
           locator.startLine,
           locator.endLine,
@@ -401,31 +405,14 @@ function publicOrigin(request: FastifyRequest, config: AppConfig): string {
   return `${request.protocol}://${request.headers.host ?? 'localhost'}`;
 }
 
-function markdownReport(report: ReturnType<typeof reportView>): string {
-  const lines = [
-    `# Pull request review`,
-    '',
-    `**Grade:** ${report.grade}`,
-    '',
-    report.summary,
-    '',
-    '## Findings',
-    '',
-  ];
-  for (const finding of report.findings) {
-    lines.push(
-      `### ${finding.priority} ${finding.title}`,
-      '',
-      finding.problem,
-      '',
-      `- Category: ${finding.category}`,
-      `- Confidence: ${finding.confidence}`,
-      `- Recommendation: ${finding.recommendation}`,
-      `- Link: ${finding.links[0]?.href ?? ''}`,
-      '',
-    );
-  }
-  return lines.join('\n');
+function markdownReport(report: ReturnType<typeof reportView>, paths: Map<string, string>): string {
+  return formatReviewMarkdown(
+    report,
+    [...paths].map(([id, path]) => ({ id, path })),
+    {
+      reportUrl: report.links.find((link) => link.rel === 'self')!.href,
+    },
+  );
 }
 
 function hiddenNotFound(request: FastifyRequest, reply: FastifyReply) {

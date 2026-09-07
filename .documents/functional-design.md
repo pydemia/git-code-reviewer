@@ -221,6 +221,14 @@ snapshot materialization
 
 ### 5.6 Commit Defender report core 재사용
 
+#### Skill 기반 pipeline 확장 (2026-09-07)
+
+새 작업은 `.documents/skill-based-review-report.md`의 R1–R10을 적용한다. `analysis_runs`에 고정한 전역 Skill bundle과 tenant prompt, account/model/effort를 사용하여 window별 unit-comment-block → 파일별 overall-summary → total-summary 순서로 분석한다. 관리자 API와 `Administration → 분석 Skills`에서 6개 기본 perspective, 3개 form과 사용자 정의 perspective를 SKILL.md로 관리한다. 저장/활성화는 immutable bundle version을 만들고 이전 version 재활성화와 Built-in 복원을 지원한다. Queue에 들어간 작업에는 이후 관리 변경을 소급 적용하지 않는다.
+
+`analysis` 확장은 code segment·unit·파일 요약·Skill provenance·검토 완료 범위를 보존한다. Comment의 file/side/line range/category를 검증한 뒤 unit으로 확정하며 summary에는 확정한 unit만 전달한다. 새 Skill pipeline의 accepted P3는 유지한다. 아래의 legacy compatibility normalization은 Skill binding이 없는 migration 이전 작업에만 적용된다. 실패, 잘린 출력, 생략은 성공한 unit을 유지하면서 미완료 범위로 기록한다. Provider 미설정은 unavailable, 호출 전체 실패는 failed, fixture는 demo다.
+
+Browser와 Markdown export는 같은 순수 presentation 함수를 사용한다. PR publication은 pinned Skill hash가 일치하는 canonical report artifact를 읽어 Overall Summary, 파일별 AI Comments, Analyzed File List를 게시한다. Artifact가 없거나 분석/Skill이 다르면 축약 DB summary로 대체 게시하지 않는다. 댓글 길이 제한은 block 경계에서 생략하고 전체 report 링크와 생략 안내를 남긴다. Raw JSON은 동일한 analysis 확장을 제공하며 Skill 지침 원문은 관리자 API에만 노출한다.
+
 초기 compatibility baseline은 Commit Defender commit `47dabfea718729b0ccc685ae173857476040d6ea`의 다음 구현이다.
 
 | 원본 | 재사용할 계약 |

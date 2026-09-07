@@ -12,6 +12,10 @@
 
 ### 진행 중: Commit Defender report와 분석 Skill
 
+최신 상태: C-2는 `5f171f8`로 push했고 C-3/D를 구현했다. `AnalysisSkillsPanel.tsx`는 SKILL.md 전체 bundle 편집·저장·version history·복원을 제공한다. `ReviewReportPanel.tsx`와 순수 `contracts/report-presentation.ts`가 파일별 Overall Summary, AI Comments, Analyzed File List를 표시한다. API view/JSON은 optional analysis를 유지하고 Markdown·PR publication도 같은 계층을 사용한다. Skill/presentation schema는 browser에서 사용하도록 contracts로 이동했으며 review-contract는 이를 재export한다. 아래의 C-1/B 미연결 기록은 당시 상태이고 현재에는 적용되지 않는다.
+
+현재 전체 189 tests(33 files), lint/typecheck/build, Helm lint를 통과했다. Local Server·별도 Worker·PostgreSQL·loopback 모의 모델에서 새 report와 Chat을 확인했고 관리자 Skill 저장/복원/재활성화, exact mergeBase line 이동을 browser로 검증했다. 최종 screenshot은 `.impeccable/review/{skills,structured-report,structured-comments}-{desktop,mobile}.png`다. 첫 Impeccable reviewer가 요청한 mobile 버튼 글자/Report navigation offset을 수정했으며 최종 verdict와 packaging 기록을 마무리해야 한다. 실제 GHES/ChatGPT로 source를 전송하거나 클러스터를 배포하지 않았다.
+
 현재 goal은 `.documents/skill-based-review-report.md`의 R1–R10 전체 구현·검증이다. 사용자에게 phase별 commit·push 승인을 받았으며 재배포는 요청받지 않았다. 참조 repo는 `/tmp/gcr-commit-defender-reference.hs2COo/source`에 read-only로 clone했고 revision은 기존 compatibility baseline과 같은 `47dabfea718729b0ccc685ae173857476040d6ea`이다. 아직 이 임시 clone은 삭제하지 않았다.
 
 Phase B에서 `packages/analysis-engine/skills/*/SKILL.md` 9개, `skills.ts`, `review-windows.ts`, `report-forms.ts`와 tests, review-contract의 `skills.ts`를 추가했다. 기본 Skill은 6 perspective와 3 form이며 새 perspective 이름은 extensible하다. Frontmatter는 제한된 scalar key만 읽고 body는 실행하지 않는다. Bundle은 정규화한 전체 Markdown으로 hash를 계산하고 DB payload 재검증도 지원한다. Window는 모델 입력 크기 단위이며 comment가 지정한 실제 line 범위가 code segment다. Contract는 unit/segment/finding 일대일, 파일 summary 일대다 연결과 coverage 일치를 검증한다. 현재 이 함수들은 아직 Worker나 UI에 연결되지 않았으므로 기능 전체가 완성된 상태가 아니다.

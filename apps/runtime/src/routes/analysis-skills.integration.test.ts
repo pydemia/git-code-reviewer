@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createReviewSkillBundle, loadBuiltInReviewSkills } from '@gcr/analysis-engine';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
+import { analysisSkillSettingsSchema } from '@gcr/contracts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AuthUser } from '../auth/index.js';
@@ -75,6 +76,7 @@ describe.skipIf(!databaseUrl).sequential('immutable analysis Skills with Postgre
   it('returns packaged defaults and persists a canonical immutable version with idempotent save', async () => {
     const initial = await app.inject('/api/v1/admin/analysis-skills');
     expect(initial.statusCode).toBe(200);
+    expect(analysisSkillSettingsSchema.parse(initial.json()).builtin.hash).toBe(builtin.hash);
     expect(initial.json().effective).toMatchObject({
       versionId: null,
       source: 'builtin',
@@ -111,6 +113,7 @@ describe.skipIf(!databaseUrl).sequential('immutable analysis Skills with Postgre
       ).rows[0].count,
     ).toBe(1);
     const history = await app.inject('/api/v1/admin/analysis-skills');
+    expect(analysisSkillSettingsSchema.parse(history.json()).items).toHaveLength(3);
     expect(history.json().items.map((item: { version: number }) => item.version)).toEqual([
       3, 2, 1,
     ]);

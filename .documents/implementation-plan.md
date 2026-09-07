@@ -1,5 +1,20 @@
 # Git Code Reviewer - 구현 계획서
 
+## 후속 commit phase: Skill 기반 Commit Defender report
+
+2026-09-07 추가 범위의 완료 조건과 검증 표는 `skill-based-review-report.md`에 있다. 기존 milestone을 소급 변경하지 않고 다음 단위로 commit·push한다.
+
+| Phase | 변경과 검증 |
+| --- | --- |
+| A · `9e5ded5` | R1–R10, 참조 revision과 신뢰 경계 정의 |
+| B · `07c84d9` | 기본 SKILL.md, parser/hash, code segment·unit·파일 요약 contract와 tests |
+| C-1 · `359493e` | migration 0014, 관리자 immutable version API/인가/DB integration |
+| C-2 · `5f171f8` | migration 0015, queued Skill 고정, 세 stage 모델 호출, 실패·예산·legacy 회귀 검증 |
+| C-3/D | Skill 편집 UI, Overall Summary/AI Comments/Analyzed File List, API/JSON/Markdown/PR 계층, 가이드 |
+| E | 실제 local Server/Worker와 모의 모델, desktop/mobile browser, packaging/Helm 및 최종 회귀 검증 |
+
+현재 추가 요청에는 클러스터 배포가 포함되지 않는다. 배포는 별도 요청 시 Server/Worker와 migration을 함께 적용한다.
+
 ## 1. 목적과 방식
 
 이 계획은 browser 기반 중앙 review service를 빈 repository에서 구현하는 순서를 정의한다. 대상 repository CI와 결합하지 않으며, 각 milestone은 Kubernetes pilot 환경에서 검증 가능한 수직 기능으로 끝난다.

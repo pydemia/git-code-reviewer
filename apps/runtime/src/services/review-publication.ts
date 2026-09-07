@@ -1,7 +1,9 @@
 import { createHash, createHmac } from 'node:crypto';
+import { FilesystemArtifactStore } from '@gcr/artifact-store';
+import { formatReviewMarkdown } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { GitHubReader, GitHubReviewPublisher, RepositoryTarget } from '@gcr/github';
-import type { ReviewFinding, ReviewReport } from '@gcr/review-contract';
+import { reviewReportSchema, type ReviewFinding, type ReviewReport } from '@gcr/review-contract';
 import type { AppConfig } from '../config.js';
 import { appendEvent } from '../events/index.js';
 import { registeredGitHubPublisher } from './account-registry.js';
@@ -20,6 +22,8 @@ type PublicationContext = RepositoryTarget & {
   credentialId: string | null;
   headSha: string;
   reportId: string;
+  skillHash: string | null;
+  reportLocator: string | null;
   report: Pick<ReviewReport, 'grade' | 'summary' | 'hasCriticalFindings' | 'coverage'>;
 };
 
@@ -130,6 +134,9 @@ export async function publishReviewToGitHub(
   deploymentGitHub: GitHubReader | null,
   config: AppConfig,
   job: PublicationJob,
+  artifacts: Pick<FilesystemArtifactStore, 'readJson'> = new FilesystemArtifactStore(
+    config.ARTIFACT_ROOT,
+  ),
 ): Promise<void> {
   const analysisId = requiredPayload(job, 'analysisId');
   const pullRequestId = requiredPayload(job, 'pullRequestId');
@@ -156,11 +163,27 @@ export async function publishReviewToGitHub(
     }
 
     const findings = await loadFindings(connection, context.reportId);
+    let canonicalReport: ReviewReport | undefined;
+    if (context.skillHash) {
+      if (!context.reportLocator)
+        throw new ReviewPublicationError('Report artifact를 읽을 수 없습니다.', true);
+      canonicalReport = reviewReportSchema.parse(await artifacts.readJson(context.reportLocator));
+      if (
+        canonicalReport.analysisRevisionId !== analysisId ||
+        canonicalReport.analysis?.skills.bundleHash !== context.skillHash
+      ) {
+        throw new ReviewPublicationError(
+          'Report의 analysis/Skill snapshot이 일치하지 않습니다.',
+          false,
+        );
+      }
+    }
     const marker = managedCommentMarker(config, pullRequestId);
     const body = renderReviewComment({
       context,
       findings,
       marker,
+      ...(canonicalReport ? { canonicalReport } : {}),
       ...(config.PUBLIC_BASE_URL ? { publicBaseUrl: config.PUBLIC_BASE_URL } : {}),
     });
     const bodyHash = createHash('sha256').update(body).digest('hex');
@@ -243,6 +266,8 @@ async function loadPublicationContext(
     name: string;
     headSha: string;
     reportId: string;
+    skillHash: string | null;
+    reportLocator: string | null;
     grade: ReviewReport['grade'];
     summary: string;
     hasCriticalFindings: boolean;
@@ -254,9 +279,11 @@ async function loadPublicationContext(
             repository.installation_id as "installationId", instance.api_base_url as "apiBaseUrl",
             repository.owner, repository.name, request.head_sha as "headSha",
             report.id as "reportId", report.grade, report.summary,
-            report.has_critical_findings as "hasCriticalFindings", report.coverage
+            report.has_critical_findings as "hasCriticalFindings", report.coverage,
+            analysis.skill_hash as "skillHash", artifact.locator as "reportLocator"
      from analysis_runs analysis
      join reports report on report.analysis_run_id = analysis.id
+     left join artifacts artifact on artifact.id = report.artifact_id and artifact.state = 'available'
      join snapshots snapshot on snapshot.id = analysis.snapshot_id
      join snapshot_requests request on request.id = snapshot.request_id
      join pull_requests pull_request on pull_request.id = request.pull_request_id
@@ -310,8 +337,24 @@ export function renderReviewComment(input: {
   findings: Array<Pick<ReviewFinding, 'priority' | 'title' | 'problem' | 'recommendation'>>;
   marker: string;
   publicBaseUrl?: string;
+  canonicalReport?: ReviewReport;
 }): string {
   const { context, findings, marker } = input;
+  if (input.canonicalReport) {
+    const heading = `${marker}\n## Git Code Reviewer 결과\n\n`;
+    const tail = '\n\n_이 댓글은 새 분석이 완료되면 같은 위치에서 갱신됩니다._';
+    const reportUrl = input.publicBaseUrl
+      ? new URL(`/reviews/${context.analysisId}`, input.publicBaseUrl).toString()
+      : undefined;
+    return (
+      heading +
+      formatReviewMarkdown(input.canonicalReport, [], {
+        ...(reportUrl ? { reportUrl } : {}),
+        maxLength: 60000 - heading.length - tail.length,
+      }) +
+      tail
+    );
+  }
   const counts = Object.fromEntries(
     ['P3', 'P2', 'P1', 'P0'].map((priority) => [
       priority,

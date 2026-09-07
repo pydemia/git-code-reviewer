@@ -1,5 +1,9 @@
 # Git Code Reviewer - 요구사항 명세서
 
+## 후속 요구사항: Skill 기반 report
+
+2026-09-07에 추가된 Commit Defender report와 Skill 관리의 완료 조건은 [R1–R10](skill-based-review-report.md#완료-기준)으로 추적한다. 전체 상태와 파일별 Overall Summary, 파일로 묶인 unit-comment-block, Analyzed File List를 같은 분석 revision에서 제공한다. 관리자 Skill version과 queued snapshot은 불변이며 custom perspective 추가를 허용한다. 실패·미검토·데모를 PASS로 표시하지 않고, 파일/line 근거가 없는 주장을 정상 comment처럼 게시하지 않는다. JSON/Markdown과 PR timeline도 같은 계층을 유지한다.
+
 ## 1. 문서 정보
 
 | 항목 | 내용 |

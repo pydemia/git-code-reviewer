@@ -153,6 +153,9 @@ importers:
 
   packages/review-contract:
     dependencies:
+      '@gcr/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       zod:
         specifier: ^4.1.11
         version: 4.5.4
