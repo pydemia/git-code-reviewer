@@ -49,4 +49,6 @@ Built-in Skill은 application package에 포함한다. 관리자 version은 전�
 - Phase A: `9e5ded5`로 요구사항을 기록하고 원격 branch에 push했다.
 - Phase B: 9개 기본 SKILL.md, 제한된 frontmatter parser, bundle hash 검증, stage별 prompt 조립, base/head별 bounded window와 overlap, unit/segment/파일 요약의 일대일·일대다 contract 및 집계 함수를 추가했다. 기존 v1 report에는 optional `analysis` 확장으로 추가한다. 새 metadata는 아직 Worker/UI에 연결하지 않았다.
 - Phase B 검증: review-contract/analysis-engine의 24 tests와 두 package build, 전체 lint를 통과했다. Dockerfile에 기본 Skill directory COPY를 추가했다. 실제 image build와 Worker/browser 검증은 Phase E에 남아 있다.
-- 다음 작업: Phase C 관리자 version/API/DB 및 모델 orchestration, Phase D report 화면/export/게시, Phase E 통합 검증. R1–R10 전체 완료를 아직 주장하지 않는다.
+- Phase C-1: migration 0014, 관리자 `/api/v1/admin/analysis-skills` 조회·version 저장·activate·reset API와 `analysis_skill` Cerbos policy를 구현했다. Version 본문/hash/생성정보 변경과 삭제는 DB trigger로 막고 활성 상태만 변경한다. Concurrent save는 advisory lock으로 직렬화한다. 분석 run의 bundle/hash snapshot column과 검증 함수를 준비했으며 Worker INSERT/실행 경로는 아직 연결하지 않았다.
+- Phase C-1 검증: 전용 PostgreSQL에서 migration 0001–0014와 Skill integration 5개를 포함한 전체 169 tests(30 files)가 통과했다. Concurrent save, 같은 bundle 재사용, 기본값 복원, 이전 bundle 검증, 본문 불변성, reviewer 차단과 audit에 지침 원문을 남기지 않음을 검사했다. Cerbos compile/test 35개, 전체 lint/typecheck, PRISM-DEV Helm lint도 통과했다.
+- 다음 작업: Phase C-2 Worker Skill snapshot 고정과 모델 orchestration, C-3 관리자 Skill 편집 UI, Phase D report 화면/export/게시, Phase E 통합 검증. R1–R10 전체 완료를 아직 주장하지 않는다.

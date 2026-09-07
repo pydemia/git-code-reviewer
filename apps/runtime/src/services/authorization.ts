@@ -13,7 +13,8 @@ export type AuthorizationResource = {
     | 'pull_request'
     | 'analysis'
     | 'analysis_prompt'
-    | 'analysis_provider';
+    | 'analysis_provider'
+    | 'analysis_skill';
   id: string;
   tenantId?: string;
   granted?: boolean;

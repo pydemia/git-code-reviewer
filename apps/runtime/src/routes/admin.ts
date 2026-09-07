@@ -8,6 +8,7 @@ import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireAdministrator } from '../auth/index.js';
+import { registerAnalysisSkillRoutes } from './analysis-skills.js';
 import { providerAllowedOrigins, type AppConfig } from '../config.js';
 import {
   AnalysisProviderConfigurationError,
@@ -109,6 +110,7 @@ export async function registerAdminRoutes(
   authorization: AuthorizationService,
   config: AppConfig,
 ) {
+  await registerAnalysisSkillRoutes(app, database, authorization);
   app.get('/api/v1/admin/tenants', { preHandler: requireAdministrator }, async (request, reply) => {
     if (!(await allowed(authorization, request, 'view', { kind: 'tenant', id: 'all' }))) {
       return hiddenNotFound(request, reply);

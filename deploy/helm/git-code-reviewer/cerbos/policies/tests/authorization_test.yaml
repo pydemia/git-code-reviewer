@@ -22,6 +22,11 @@ principals:
       tenantIds: [tenant-a]
 
 resources:
+  analysis-skills:
+    id: global
+    kind: analysis_skill
+    attr:
+      enabled: true
   tenant-a:
     id: tenant-a
     kind: tenant
@@ -62,6 +67,27 @@ resources:
       enabled: true
 
 tests:
+  - name: Only enabled administrators manage review Skills
+    input:
+      principals: [administrator, disabled-administrator, tenant-reviewer]
+      resources: [analysis-skills]
+      actions: [view, manage]
+    expected:
+      - principal: administrator
+        resource: analysis-skills
+        actions:
+          view: EFFECT_ALLOW
+          manage: EFFECT_ALLOW
+      - principal: disabled-administrator
+        resource: analysis-skills
+        actions:
+          view: EFFECT_DENY
+          manage: EFFECT_DENY
+      - principal: tenant-reviewer
+        resource: analysis-skills
+        actions:
+          view: EFFECT_DENY
+          manage: EFFECT_DENY
   - name: Administrator manages and tests the analysis provider
     input:
       principals: [administrator, disabled-administrator, tenant-reviewer]
