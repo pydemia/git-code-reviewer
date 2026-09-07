@@ -14,6 +14,8 @@ import {
   diffIndexSchema,
   githubConnectionListSchema,
   operationSchema,
+  passwordChangeResultSchema,
+  profileSchema,
   pullRequestDetailSchema,
   pullRequestListSchema,
   refreshResponseSchema,
@@ -28,6 +30,7 @@ import {
   type AnalysisProviderVersion,
   type AnalysisPromptVersion,
   type PullRequestSummary,
+  type Profile,
   type Repository,
   type Tenant,
   type User,
@@ -49,7 +52,7 @@ export type ChatAccountCatalog = ReturnType<typeof chatAccountCatalogSchema.pars
 export type AdminChatAccount = ReturnType<typeof adminChatAccountListSchema.parse>['items'][number];
 export type GitHubConnection = ReturnType<typeof githubConnectionListSchema.parse>['items'][number];
 export type AdminRepository = ReturnType<typeof adminRepositoryListSchema.parse>['items'][number];
-export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Tenant, User };
+export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Profile, Tenant, User };
 export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
 export type AnalysisProviderSettings = ReturnType<typeof analysisProviderSettingsSchema.parse>;
 export type AnalysisProviderInput = {
@@ -62,6 +65,23 @@ export type AnalysisProviderInput = {
 
 export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
   return userSchema.parse(await fetchJson('/api/v1/me', signal));
+}
+
+export async function loadProfile(signal: AbortSignal): Promise<Profile> {
+  return profileSchema.parse(await fetchJson('/api/v1/profile', signal));
+}
+
+export async function updateProfile(displayName: string): Promise<Profile> {
+  return profileSchema.parse(await mutateJson('/api/v1/profile', 'PATCH', { displayName }));
+}
+
+export async function changeOwnPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  passwordChangeResultSchema.parse(
+    await mutateJson('/api/v1/profile/password', 'PUT', { currentPassword, newPassword }),
+  );
 }
 
 export async function loginLocalAccount(

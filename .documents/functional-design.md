@@ -664,7 +664,7 @@ artifacts/.staging/<attempt-id>/...
 
 ### 9.2 Application
 
-- 운영 환경은 Application OIDC Authorization Code flow와 secure server session을 기본으로 한다. PRISM-DEV의 Local account mode는 scrypt password hash, 로그인 실패 제한과 관리자 계정 수명주기를 적용한다. Session cookie는 `HttpOnly`, `SameSite=Lax`를 사용하고 HTTPS에서는 `Secure`를 설정한다. 상세 contract는 [Local account 인증·사용자 관리 설계](local-account-authentication.md)를 따른다.
+- 운영 환경은 Application OIDC Authorization Code flow와 secure server session을 기본으로 한다. PRISM-DEV의 Local account mode는 scrypt password hash, 8~128자 비밀번호, 로그인·현재 비밀번호 검증 실패 제한과 관리자 계정 수명주기를 적용한다. 사용자는 개인 프로필에서 표시 이름과 비밀번호를 변경할 수 있고, 비밀번호 변경 시 모든 session을 폐기하고 audit event를 기록한다. Session cookie는 `HttpOnly`, `SameSite=Lax`를 사용하고 HTTPS에서는 `Secure`를 설정한다. 상세 contract는 [Local account 인증·사용자 관리 설계](local-account-authentication.md)를 따른다.
 - Reverse proxy identity mode는 ingress에서 온 signed assertion을 검증하고 신뢰 경계 밖의 identity header를 제거한다. Pod 직접 접근과 forged header를 negative test한다.
 - state-changing API는 origin/CSRF protection과 idempotency를 적용한다.
 - Markdown renderer는 raw HTML과 unsafe scheme을 차단하고 external image를 자동 load하지 않는다. External link에는 `noopener noreferrer`를 적용한다.

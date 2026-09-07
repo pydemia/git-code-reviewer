@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
+import { localPasswordMinimumLength } from '@gcr/contracts';
 
 const booleanString = z
   .enum(['true', 'false'])
@@ -151,10 +152,11 @@ export function loadConfig(
     result.data.AUTH_MODE === 'local' &&
     (!result.data.LOCAL_BOOTSTRAP_ADMIN_USERNAME ||
       !result.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD ||
-      result.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD.length < 12 ||
+      result.data.LOCAL_BOOTSTRAP_ADMIN_PASSWORD.length < localPasswordMinimumLength ||
       Boolean(result.data.LOCAL_BOOTSTRAP_REVIEWER_USERNAME) !==
         Boolean(result.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD) ||
-      (result.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD?.length ?? 12) < 12)
+      (result.data.LOCAL_BOOTSTRAP_REVIEWER_PASSWORD?.length ?? localPasswordMinimumLength) <
+        localPasswordMinimumLength)
   ) {
     throw new Error('Invalid configuration: local auth requires valid bootstrap credentials');
   }

@@ -15,6 +15,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { localPasswordMaximumLength, localPasswordMinimumLength } from '@gcr/contracts';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   activateAnalysisProvider,
@@ -1065,13 +1066,13 @@ function UserDialog({
               <input
                 required
                 type="password"
-                minLength={12}
-                maxLength={128}
+                minLength={localPasswordMinimumLength}
+                maxLength={localPasswordMaximumLength}
                 autoComplete="new-password"
                 value={value.password}
                 onChange={(event) => onChange({ ...value, password: event.target.value })}
               />
-              <small>12~128자로 입력합니다. 비밀번호 원문은 저장하지 않습니다.</small>
+              <small>8~128자로 입력합니다. 비밀번호 원문은 저장하지 않습니다.</small>
             </label>
             <fieldset className="tenant-checkboxes">
               <legend>초기 tenant 멤버십</legend>
@@ -1158,14 +1159,14 @@ function PasswordDialog({
           <input
             required
             type="password"
-            minLength={12}
-            maxLength={128}
+            minLength={localPasswordMinimumLength}
+            maxLength={localPasswordMaximumLength}
             autoComplete="new-password"
             value={value.password}
             onChange={(event) => onChange({ ...value, password: event.target.value })}
             autoFocus
           />
-          <small>12~128자로 입력합니다.</small>
+          <small>8~128자로 입력합니다.</small>
         </label>
         <div className="dialog-actions">
           <button className="command-button" type="button" onClick={onClose}>

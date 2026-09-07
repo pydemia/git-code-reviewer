@@ -1,4 +1,5 @@
 import { KeyRound, ShieldCheck } from 'lucide-react';
+import { localPasswordMaximumLength, localPasswordMinimumLength } from '@gcr/contracts';
 import { useState, type FormEvent } from 'react';
 import { loginLocalAccount } from './api.ts';
 
@@ -6,17 +7,24 @@ export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(() =>
+    new URLSearchParams(window.location.search).get('passwordChanged') === '1'
+      ? { tone: 'success', text: '비밀번호를 변경했습니다. 새 비밀번호로 로그인해 주세요.' }
+      : null,
+  );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setPending(true);
-    setMessage('');
+    setNotice(null);
     try {
       const target = await loginLocalAccount(username, password, returnPath());
       window.location.replace(target);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '로그인하지 못했습니다.');
+      setNotice({
+        tone: 'error',
+        text: error instanceof Error ? error.message : '로그인하지 못했습니다.',
+      });
       setPending(false);
     }
   };
@@ -56,15 +64,18 @@ export function LoginPage() {
               type="password"
               autoComplete="current-password"
               required
-              minLength={12}
-              maxLength={128}
+              minLength={localPasswordMinimumLength}
+              maxLength={localPasswordMaximumLength}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          {message ? (
-            <div className="login-error" role="alert">
-              {message}
+          {notice ? (
+            <div
+              className={`login-${notice.tone}`}
+              role={notice.tone === 'error' ? 'alert' : 'status'}
+            >
+              {notice.text}
             </div>
           ) : null}
           <button className="command-button primary login-submit" type="submit" disabled={pending}>

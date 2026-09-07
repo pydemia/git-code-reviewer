@@ -44,6 +44,7 @@ export function GuidePage() {
             <strong>사용 가이드</strong>
           </div>
           <a href="#start">시작하기</a>
+          <a href="#profile">개인 프로필</a>
           <a href="#ghes-credential">GHES credential</a>
           <a href="#register-repository">Repository 등록</a>
           <a href="#review-flow">Review와 Chat</a>
@@ -71,6 +72,25 @@ export function GuidePage() {
               <p>허용된 PR의 finding, diff, Git graph, evidence와 Chat을 사용합니다.</p>
             </div>
           </header>
+
+          <section className="guide-section" id="profile">
+            <div className="guide-section-heading">
+              <KeyRound size={19} />
+              <div>
+                <h2>개인 프로필과 비밀번호</h2>
+              </div>
+            </div>
+            <p>
+              GNB의 <strong>내 프로필</strong>에서 표시 이름, 사용자 이름 또는 subject, role, 인증
+              방식과 tenant membership을 확인할 수 있습니다. Local account 사용자는 표시 이름을 직접
+              수정할 수 있습니다.
+            </p>
+            <p>
+              비밀번호는 현재 비밀번호를 확인한 뒤 8~128자로 변경합니다. 변경이 완료되면 기존
+              session이 모두 종료되므로 새 비밀번호로 다시 로그인해야 합니다. 외부 인증 계정은
+              연결된 IdP에서 프로필과 비밀번호를 변경하십시오.
+            </p>
+          </section>
 
           <section className="guide-section" id="ghes-credential">
             <div className="guide-section-heading">

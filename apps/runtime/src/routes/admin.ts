@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
-import { schemaVersion } from '@gcr/contracts';
+import {
+  localPasswordMaximumLength,
+  localPasswordMinimumLength,
+  schemaVersion,
+} from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -42,7 +46,7 @@ const userCreateBody = z.object({
   username: z.string().min(1).max(64),
   displayName: z.string().trim().min(1).max(120),
   role: z.enum(['reviewer', 'administrator']),
-  password: z.string().min(12).max(128),
+  password: z.string().min(localPasswordMinimumLength).max(localPasswordMaximumLength),
   tenantIds: z.array(z.string().uuid()).min(1).max(100),
 });
 const userPatchBody = z
@@ -55,7 +59,9 @@ const userPatchBody = z
     (value) =>
       value.displayName !== undefined || value.role !== undefined || value.enabled !== undefined,
   );
-const userPasswordBody = z.object({ password: z.string().min(12).max(128) });
+const userPasswordBody = z.object({
+  password: z.string().min(localPasswordMinimumLength).max(localPasswordMaximumLength),
+});
 const membershipBody = z.object({ enabled: z.boolean().default(true) });
 const promptBody = z.object({ instructions: z.string().trim().min(1).max(12_000) });
 const providerVersionBody = z.discriminatedUnion('mode', [

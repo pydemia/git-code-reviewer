@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const schemaVersion = 1 as const;
+export const localPasswordMinimumLength = 8;
+export const localPasswordMaximumLength = 128;
 
 export const roleSchema = z.enum(['reviewer', 'administrator']);
 export type Role = z.infer<typeof roleSchema>;
@@ -21,6 +23,20 @@ export const userSchema = z.object({
   ),
 });
 export type User = z.infer<typeof userSchema>;
+
+export const profileSchema = userSchema.extend({
+  identityType: z.enum(['local', 'external']),
+  username: z.string().nullable(),
+  profileEditable: z.boolean(),
+  passwordChangeAllowed: z.boolean(),
+  passwordChangedAt: z.string().nullable(),
+});
+export type Profile = z.infer<typeof profileSchema>;
+
+export const passwordChangeResultSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  reauthenticate: z.literal(true),
+});
 
 export const tenantSchema = z.object({
   id: z.string().uuid(),

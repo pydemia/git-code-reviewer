@@ -16,7 +16,8 @@ describe('local account credentials', () => {
   });
 
   it('enforces the password length policy', () => {
-    expect(() => assertLocalPassword('short')).toThrow('12~128자');
+    expect(() => assertLocalPassword('1234567')).toThrow('8~128자');
+    expect(() => assertLocalPassword('12345678')).not.toThrow();
     expect(() => assertLocalPassword('correct horse battery staple')).not.toThrow();
   });
 

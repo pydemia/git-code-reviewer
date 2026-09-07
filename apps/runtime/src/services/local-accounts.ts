@@ -1,9 +1,8 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import { localPasswordMaximumLength, localPasswordMinimumLength } from '@gcr/contracts';
 
 const scryptParameters = { cost: 32_768, blockSize: 8, parallelization: 1, keyLength: 64 } as const;
 const maximumMemory = 64 * 1024 * 1024;
-const passwordMinimumLength = 12;
-const passwordMaximumLength = 128;
 const usernamePattern = /^[a-z0-9][a-z0-9._-]{2,63}$/;
 
 export function normalizeLocalUsername(value: string): string {
@@ -21,8 +20,11 @@ export function assertLocalUsername(value: string): string {
 }
 
 export function assertLocalPassword(password: string): void {
-  if (password.length < passwordMinimumLength || password.length > passwordMaximumLength) {
-    throw new LocalAccountInputError('비밀번호는 12~128자로 입력해 주세요.');
+  if (
+    password.length < localPasswordMinimumLength ||
+    password.length > localPasswordMaximumLength
+  ) {
+    throw new LocalAccountInputError('비밀번호는 8~128자로 입력해 주세요.');
   }
 }
 

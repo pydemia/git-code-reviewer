@@ -77,8 +77,9 @@
 | REQ-AUTH-003 | 필수 | browser가 전달한 owner/name/path를 신뢰하지 않고 server-side ID로 scope를 결정한다. |
 | REQ-AUTH-004 | 필수 | administrator와 operator 기능은 일반 reviewer와 분리한다. |
 | REQ-AUTH-005 | 필수 | source, diff, Chat 원문을 audit log에 기록하지 않는다. |
-| REQ-AUTH-006 | 조건부 | Local account mode는 scrypt password hash, 12자 이상의 비밀번호, 계정 존재 여부를 숨기는 오류, 로그인 실패 제한, HttpOnly session cookie와 로그아웃을 제공한다. |
+| REQ-AUTH-006 | 조건부 | Local account mode는 scrypt password hash, 8~128자 비밀번호, 계정 존재 여부를 숨기는 오류, 로그인 실패 제한, HttpOnly session cookie와 로그아웃을 제공한다. |
 | REQ-AUTH-007 | 필수 | 시스템관리자는 일반사용자와 시스템관리자 Local account를 생성하고 role, 활성 상태, tenant membership, repository grant와 비밀번호를 관리할 수 있다. 자신의 관리자 role 또는 접근 권한은 낮출 수 없다. |
+| REQ-AUTH-008 | 필수 | 로그인 사용자는 개인 프로필에서 identity type, 사용자 이름, role과 tenant를 확인한다. Local account 사용자는 표시 이름과 비밀번호를 직접 변경할 수 있다. 비밀번호 변경은 현재 비밀번호를 검증하고 모든 session을 종료하며 audit event를 기록한다. 외부 identity는 Identity Provider에서 변경한다. |
 
 ## 5. GitHub 연결과 변경 감지
 

@@ -32,7 +32,7 @@
 - [Private GHES 연동 테스트 가이드](docs/operations/github-enterprise-test.md)
 - [Backup/restore 및 reconcile 가이드](docs/operations/backup-restore.md)
 
-배포된 Web UI에서는 로그인 후 GNB의 `사용 가이드`에서 GHES PAT 발급·입력, repository polling, Review workspace, Chat과 오류 진단 절차를 확인할 수 있다.
+배포된 Web UI에서는 로그인 후 GNB의 `내 프로필`에서 계정 정보와 Local account 비밀번호를 관리한다. `사용 가이드`에서는 GHES PAT 발급·입력, repository polling, Review workspace, Chat과 오류 진단 절차를 확인할 수 있다.
 
 ```bash
 export POSTGRES_PASSWORD='local-only-password'

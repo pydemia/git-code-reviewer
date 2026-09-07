@@ -13,6 +13,7 @@ import { registerSnapshotRoutes } from './routes/snapshots.js';
 import { registerAnalysisRoutes } from './routes/analyses.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerWorklistRoutes } from './routes/worklist.js';
+import { registerProfileRoutes } from './routes/profile.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAccountRegistryRoutes } from './routes/account-registry.js';
 import {
@@ -87,6 +88,7 @@ export async function buildServer(config: AppConfig) {
 
   await registerAuthentication(app, config, database);
   await registerWorklistRoutes(app, database, authorization);
+  await registerProfileRoutes(app, database, config);
   await registerAdminRoutes(app, database, authorization, config);
   await registerAccountRegistryRoutes(app, database, config);
   await registerSnapshotRoutes(app, database, eventHub, artifacts, authorization);

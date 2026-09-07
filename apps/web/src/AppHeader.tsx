@@ -1,4 +1,4 @@
-import { BookOpenText, LogOut, Settings, ShieldCheck } from 'lucide-react';
+import { BookOpenText, CircleUserRound, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { logout, type User } from './api.ts';
 
 type AppHeaderProps = {
@@ -58,6 +58,16 @@ export function AppHeader({
               >
                 <BookOpenText size={15} />
                 <span>사용 가이드</span>
+              </a>
+            ) : null}
+            {user ? (
+              <a
+                className="header-profile-link"
+                href="/profile"
+                aria-current={window.location.pathname === '/profile' ? 'page' : undefined}
+              >
+                <CircleUserRound size={15} />
+                <span>내 프로필</span>
               </a>
             ) : null}
             <span className="avatar" role="img" aria-label={user?.displayName ?? '사용자'}>

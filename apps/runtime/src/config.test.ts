@@ -91,6 +91,24 @@ describe('loadConfig', () => {
     expect(() =>
       loadConfig({ ...baseEnvironment, AUTH_MODE: 'local', SESSION_SECRET: 'x'.repeat(32) }),
     ).toThrow('local auth requires valid bootstrap credentials');
+    expect(() =>
+      loadConfig({
+        ...baseEnvironment,
+        AUTH_MODE: 'local',
+        SESSION_SECRET: 'x'.repeat(32),
+        LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'admin',
+        LOCAL_BOOTSTRAP_ADMIN_PASSWORD: '1234567',
+      }),
+    ).toThrow('local auth requires valid bootstrap credentials');
+    expect(
+      loadConfig({
+        ...baseEnvironment,
+        AUTH_MODE: 'local',
+        SESSION_SECRET: 'x'.repeat(32),
+        LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'admin',
+        LOCAL_BOOTSTRAP_ADMIN_PASSWORD: '12345678',
+      }).AUTH_MODE,
+    ).toBe('local');
     expect(
       loadConfig({
         ...baseEnvironment,

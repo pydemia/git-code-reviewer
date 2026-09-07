@@ -6,6 +6,8 @@ import {
   chatSendResponseSchema,
   dependencyHealthSchema,
   errorEnvelope,
+  localPasswordMinimumLength,
+  profileSchema,
   pullRequestListSchema,
   snapshotCommitListSchema,
 } from './index.js';
@@ -20,6 +22,25 @@ describe('API contracts', () => {
         retryable: true,
       },
     });
+  });
+
+  it('describes a local profile and the shared password policy', () => {
+    expect(localPasswordMinimumLength).toBe(8);
+    const profile = profileSchema.parse({
+      schemaVersion: 1,
+      id: '04eea6d9-104b-48c7-a893-1ea5e6931646',
+      subject: 'local:reviewer',
+      displayName: '리뷰 담당자',
+      role: 'reviewer',
+      enabled: true,
+      tenants: [],
+      identityType: 'local',
+      username: 'reviewer',
+      profileEditable: true,
+      passwordChangeAllowed: true,
+      passwordChangedAt: '2026-09-07T00:00:00.000Z',
+    });
+    expect(profile.passwordChangeAllowed).toBe(true);
   });
 
   it('accepts dependency health with disabled optional services', () => {
