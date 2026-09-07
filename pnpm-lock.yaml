@@ -118,6 +118,9 @@ importers:
 
   packages/analysis-engine:
     dependencies:
+      '@gcr/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@gcr/review-contract':
         specifier: workspace:*
         version: link:../review-contract

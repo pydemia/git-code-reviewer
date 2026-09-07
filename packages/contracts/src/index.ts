@@ -297,6 +297,15 @@ export const pullRequestDetailSchema = pullRequestSchema.extend({
   webBaseUrl: z.string().url(),
 });
 
+export const analysisProgressSchema = z.object({
+  filesProcessed: z.number().int().nonnegative(),
+  filesTotal: z.number().int().nonnegative(),
+  filesReviewed: z.number().int().nonnegative(),
+  filesSkipped: z.number().int().nonnegative(),
+  currentFile: z.string().nullable(),
+});
+export type AnalysisProgress = z.infer<typeof analysisProgressSchema>;
+
 export const analysisListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   items: z.array(
@@ -307,6 +316,7 @@ export const analysisListSchema = z.object({
       state: z.string().nullable(),
       stage: z.string().nullable(),
       progress: z.number().int().nullable(),
+      progressDetail: analysisProgressSchema.nullable().optional(),
       createdAt: z.string().nullable(),
       resolution: z.enum(['exact', 'unresolved']),
       mergeBaseSha: z.string().nullable(),
@@ -314,6 +324,13 @@ export const analysisListSchema = z.object({
       headSha: z.string(),
     }),
   ),
+});
+
+export const analysisStatusSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  repositoryId: z.string().uuid(),
+  pullNumber: z.number().int(),
+  analysis: analysisListSchema.shape.items.element,
 });
 
 export const snapshotFileListSchema = z.object({

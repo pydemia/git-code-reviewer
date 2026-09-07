@@ -4,7 +4,13 @@ import {
   loadBuiltInReviewSkills,
   modelReviewFromText,
 } from '@gcr/analysis-engine';
-import { formatReviewMarkdown, presentReviewReport, reportViewSchema } from '@gcr/contracts';
+import {
+  escapeReviewMarkdown,
+  formatReviewDuration,
+  formatReviewMarkdown,
+  presentReviewReport,
+  reportViewSchema,
+} from '@gcr/contracts';
 import type { ReviewReport } from '@gcr/review-contract';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { renderReviewComment } from './review-publication.js';
@@ -126,8 +132,52 @@ describe('shared Commit Defender report presentation', () => {
       marker: '<!-- synthetic -->',
       publicBaseUrl: 'https://review.example',
     });
-    expect(published).toContain(markdown);
+    expect(published).toContain(
+      formatReviewMarkdown(report, [], { reportUrl, includeTitle: false }),
+    );
+    expect(published.match(/Git Code Reviewer/g)).toHaveLength(1);
     expect(published.startsWith('<!-- synthetic -->')).toBe(true);
+    expect(markdown).toContain('<code>SESSION&#95;SECRET</code>');
+    expect(markdown).toContain('> 💬 **P3 Critical');
+    expect(markdown).toContain('<details>\n<summary><code>src/config.ts</code>');
+  });
+  it('shows a stored file-summary rollup once while preserving independent overall summaries', () => {
+    const changed = structuredClone(report);
+    changed.analysis!.files.forEach((file, i) => {
+      file.summary = `Unique file summary ${i}`;
+    });
+    changed.summary = changed
+      .analysis!.files.map((file) => `${file.path}: ${file.summary}`)
+      .join('\n\n');
+    expect(presentReviewReport(changed).overview).toBeNull();
+    const markdown = formatReviewMarkdown(changed);
+    for (const file of changed.analysis!.files)
+      expect(markdown.split(file.summary)).toHaveLength(2);
+    changed.summary = 'An independent cross-file conclusion';
+    expect(presentReviewReport(changed).overview).toBe(changed.summary);
+    expect(formatReviewMarkdown(changed)).toContain(escapeReviewMarkdown(changed.summary));
+  });
+  it('escapes HTML inside collapsed headers and code, preserves paragraphs, and rejects unsafe URLs', () => {
+    const changed = structuredClone(report);
+    changed.summary =
+      '`<img src=x onerror=alert(1)>`은 텍스트입니다.\n\n두 번째 문단입니다. `[link](https://example.com)` `*literal*`';
+    changed.analysis!.files[0]!.path = '</summary><script>@everyone</script>.ts';
+    const markdown = formatReviewMarkdown(changed, [], { reportUrl: 'javascript:alert(1)' });
+    expect(markdown).toContain('<code>&lt;img src=x onerror=alert&#40;1&#41;&gt;</code>은');
+    expect(markdown).toContain('<code>&#91;link&#93;&#40;https://example&#46;com&#41;</code>');
+    expect(markdown).toContain('<code>&#42;literal&#42;</code>');
+    expect(markdown).toContain('\n\n두 번째 문단입니다');
+    expect(markdown).not.toContain('<script>');
+    expect(markdown).not.toContain('@everyone');
+    expect(markdown).not.toContain('](javascript:');
+    expect(markdown.match(/<summary>/g)?.length).toBe(markdown.match(/<\/summary>/g)?.length);
+  });
+  it.each([
+    [2025, '2초'],
+    [417238, '6분 57초'],
+    [3660000, '1시간 1분'],
+  ])('formats elapsed time %s for readers', (duration, label) => {
+    expect(formatReviewDuration(Number(duration))).toBe(label);
   });
   it('does not label unavailable/failed/demo/skipped work PASS or invent Praise for no comments', () => {
     for (const state of ['unavailable', 'failed', 'demo', 'incomplete'] as const) {
@@ -238,5 +288,7 @@ describe('shared Commit Defender report presentation', () => {
     expect(text.length).toBeLessThanOrEqual(59000);
     expect(text).toContain('길이 제한');
     expect(text).toContain('[전체 review와 evidence 보기](https://review.example/reviews/one)');
+    expect(text).toContain('> 💬 **P3 Critical');
+    expect(text.match(/<details>/g)?.length).toBe(text.match(/<\/details>/g)?.length);
   });
 });

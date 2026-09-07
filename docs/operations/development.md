@@ -157,6 +157,16 @@ Administrator로 `/admin?tab=provider`에서 Provider를 저장하고 `/admin?ta
 
 ### ChatGPT account for local Chat
 
+등록 계정을 Review Chat에서도 사용하려면 `CREDENTIAL_REGISTRY_ENABLED=true`와
+`CHAT_MODEL_MODE=registry`를 설정한다. 관리자는 활성 tenant에 할당된 계정을 사용할 수 있고,
+일반 사용자는 해당 tenant의 활성 membership 또는 명시적인 user/group/all 할당이 필요하다.
+
+분석 중인 `/reviews/:analysisId` 화면은 snapshot diff를 먼저 표시하고 2초 간격으로 진행 상태를
+확인한다. 코드 구조 확인, 코드 검토, 파일 요약, 전체 요약, 결과 저장 단계를 표시하며,
+파일 처리 수에는 미검토 파일도 포함되므로 검토 완료 수를 별도로 표시한다. 완료된 결과의
+unit-comment-block은 diff의 head/merge-base line에 자동으로 표시된다. 파일별 진행률을
+저장하려면 `0016_analysis_progress.sql` migration을 적용해야 한다.
+
 관리자 화면의 **ChatGPT accounts**에서는 `auth.json` 입력 후 **모델 목록 조회**로 계정의
 모델 카탈로그를 가져올 수 있다. 모델을 선택하면 Model ID와 지원 effort, 기본 effort를
 채운다. 현재 앱이 지원하는 `low`, `medium`, `high`, `xhigh` 범위만 표시하며, 조회만으로

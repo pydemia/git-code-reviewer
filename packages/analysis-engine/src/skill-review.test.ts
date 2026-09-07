@@ -63,6 +63,50 @@ function analyze(files: AnalysisFile[], model?: ReviewModel, maxModelCalls = 32,
 }
 
 describe('Skill-based review orchestration', () => {
+  it('reports file progress and summary stages without counting skipped files as reviewed', async () => {
+    const updates: Array<{ stage: string; detail: import('@gcr/contracts').AnalysisProgress }> = [];
+    const files = [file('one.ts'), file('two.ts'), file('image.png', 'Binary files differ')];
+    await analyzeSnapshot({
+      analysisId: randomUUID(),
+      snapshotId: randomUUID(),
+      baseSha: 'a'.repeat(40),
+      headSha: 'b'.repeat(40),
+      patch: '',
+      files,
+      fixtureMode: false,
+      skills: { bundle, versionId: null, version: null },
+      model: {
+        profile: 'synthetic',
+        async review() {
+          return output('검토 완료');
+        },
+      },
+      onProgress: async (stage, detail) => {
+        updates.push({ stage, detail });
+      },
+    });
+    expect(updates[0]?.detail).toMatchObject({
+      filesProcessed: 0,
+      filesTotal: 3,
+      currentFile: 'one.ts',
+    });
+    expect(
+      updates
+        .filter((update) => update.stage === 'file-review')
+        .map((update) => update.detail.filesProcessed),
+    ).toEqual([1, 2, 3]);
+    expect(updates.some((update) => update.stage === 'overall-summary')).toBe(true);
+    expect(updates.at(-1)).toMatchObject({
+      stage: 'total-summary',
+      detail: {
+        filesProcessed: 3,
+        filesTotal: 3,
+        filesReviewed: 2,
+        filesSkipped: 1,
+        currentFile: null,
+      },
+    });
+  });
   it('reviews a large hunk in bounded overlapping windows while retaining exact core line anchors', async () => {
     const large = file(
       'large.ts',

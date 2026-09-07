@@ -6,7 +6,12 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AuthUser } from '../auth/index.js';
 import { loadConfig } from '../config.js';
-import { createChatAccount, findAnalysisChatAccount } from '../services/account-registry.js';
+import {
+  createChatAccount,
+  findAnalysisChatAccount,
+  listAvailableChatAccounts,
+  resolveChatAccountSelection,
+} from '../services/account-registry.js';
 import { createReviewModel, resolveAnalysisProvider } from '../services/analysis-provider.js';
 import { AuthorizationService } from '../services/authorization.js';
 import { registerAdminRoutes } from './admin.js';
@@ -92,6 +97,59 @@ describe.skipIf(!databaseUrl).sequential('registered account batch review with P
       await root.query(`drop schema if exists ${schema} cascade`);
       await root.end();
     }
+  });
+
+  it('uses the same tenant access for account listing and selection, including administrators', async () => {
+    expect(
+      (await listAvailableChatAccounts(database, admin.id)).map((account) => account.id),
+    ).toContain(accountId);
+    expect(
+      await resolveChatAccountSelection(
+        database,
+        config,
+        admin.id,
+        accountId,
+        'synthetic-review-model',
+        'high',
+      ),
+    ).not.toBeNull();
+    const reviewerId = (
+      await database.query(
+        "insert into users(oidc_subject, display_name, role) values ('synthetic:isolated', 'Reviewer', 'reviewer') returning id",
+      )
+    ).rows[0].id;
+    expect(await listAvailableChatAccounts(database, reviewerId)).toEqual([]);
+    expect(
+      await resolveChatAccountSelection(
+        database,
+        config,
+        reviewerId,
+        accountId,
+        'synthetic-review-model',
+        'high',
+      ),
+    ).toBeNull();
+    await database.query('insert into tenant_memberships(tenant_id,user_id) values ($1,$2)', [
+      tenantId,
+      reviewerId,
+    ]);
+    expect(
+      (await listAvailableChatAccounts(database, reviewerId)).map((account) => account.id),
+    ).toContain(accountId);
+    expect(
+      await resolveChatAccountSelection(
+        database,
+        config,
+        reviewerId,
+        accountId,
+        'synthetic-review-model',
+        'high',
+      ),
+    ).not.toBeNull();
+    await database.query('update tenant_memberships set enabled=false where user_id=$1', [
+      reviewerId,
+    ]);
+    expect(await listAvailableChatAccounts(database, reviewerId)).toEqual([]);
   });
 
   it('stores an immutable account/model/effort version without copying credentials', async () => {

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { AnalysisProgress } from '@gcr/contracts';
 import {
   gradeSchema,
   legacyAnalysisReportSchema,
@@ -37,6 +38,7 @@ export async function runSkillReview(input: {
   model?: ReviewModel;
   instructions?: string;
   maxModelCalls: number;
+  onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 }): Promise<SkillReviewOutput> {
   const skills = validateReviewSkillBundle(input.skills);
   const active = new Set(
@@ -52,6 +54,15 @@ export async function runSkillReview(input: {
   const fileGrades = new Map<string, string>();
   const coverage = { windowsPlanned: windows.length, windowsReviewed: 0, modelCalls: 0 };
   let successfulCalls = 0;
+  const publishProgress = async (stage: string, currentFile: string | null) => {
+    await input.onProgress?.(stage, {
+      filesProcessed: fileResults.length,
+      filesTotal: input.allFiles.length,
+      filesReviewed: fileResults.filter((file) => file.status === 'reviewed').length,
+      filesSkipped: fileResults.filter((file) => file.status === 'not-reviewed').length,
+      currentFile,
+    });
+  };
 
   const call = async (
     stage: 'unit-comment-block' | 'overall-summary' | 'total-summary',
@@ -88,6 +99,7 @@ export async function runSkillReview(input: {
   };
 
   for (const file of input.allFiles) {
+    await publishProgress('unit-comment-block', file.path);
     const selected = input.files.some((candidate) => candidate.id === file.id);
     const planned = windows.filter((window) => window.fileId === file.id);
     let completed = 0;
@@ -174,6 +186,7 @@ export async function runSkillReview(input: {
             ? '처리된 window에서 추가 comment가 생성되지 않았습니다.'
             : '이 파일의 AI review를 완료하지 못했습니다.';
     if (attempted > 0) {
+      await publishProgress('overall-summary', file.path);
       const result = await call(
         'overall-summary',
         JSON.stringify({
@@ -198,9 +211,11 @@ export async function runSkillReview(input: {
       }
     }
     fileResults.push({ fileId: file.id, path: file.path, status, summary });
+    await publishProgress('file-review', file.path);
   }
   let summary = 'AI review를 완료하지 못했습니다. 파일별 분석 상태를 확인하세요.';
   if (successfulCalls > 0) {
+    await publishProgress('total-summary', null);
     const result = await call(
       'total-summary',
       JSON.stringify({

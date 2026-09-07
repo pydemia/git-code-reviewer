@@ -6,6 +6,7 @@ import {
   analysisProviderSettingsSchema,
   analysisProviderTestResultSchema,
   analysisListSchema,
+  analysisStatusSchema,
   analysisPromptListSchema,
   chatAccountCatalogSchema,
   chatAccountModelDiscoverySchema,
@@ -379,6 +380,7 @@ export async function loadWorkspace(
   repositoryId: string,
   pullNumber: number,
   signal: AbortSignal,
+  analysisId?: string,
 ): Promise<WorkspaceData> {
   const [pullValue, analysesValue] = await Promise.all([
     fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
@@ -386,7 +388,10 @@ export async function loadWorkspace(
   ]);
   const pull = pullRequestDetailSchema.parse(pullValue);
   const analyses = analysisListSchema.parse(analysesValue).items;
-  const analysis = analyses[0] ?? null;
+  const analysis = analysisId
+    ? (analyses.find((item) => item.id === analysisId) ?? null)
+    : (analyses[0] ?? null);
+  if (analysisId && !analysis) throw new Error('Analysis revision is unavailable');
   if (!analysis)
     return { pull, analysis: null, files: [], diff: null, commits: [], report: null, objects: [] };
   const reportReady =
@@ -415,29 +420,14 @@ export async function loadAnalysisWorkspace(
   analysisId: string,
   signal: AbortSignal,
 ): Promise<WorkspaceData> {
-  const report = reportViewSchema.parse(await fetchJson(`/api/v1/analyses/${analysisId}`, signal));
-  const { repositoryId, pullNumber, snapshotId } = report.context;
-  const [pullValue, analysesValue, filesValue, diffValue, commitsValue, objectsValue] =
-    await Promise.all([
-      fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
-      fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses`, signal),
-      fetchJson(`/api/v1/snapshots/${snapshotId}/files`, signal),
-      fetchJson(`/api/v1/snapshots/${snapshotId}/diff`, signal),
-      fetchJson(`/api/v1/snapshots/${snapshotId}/commits`, signal),
-      fetchJson(`/api/v1/analyses/${analysisId}/objects`, signal),
-    ]);
-  const analyses = analysisListSchema.parse(analysesValue).items;
-  const analysis = analyses.find((item) => item.id === analysisId);
-  if (!analysis) throw new Error('Analysis revision is unavailable');
-  return {
-    pull: pullRequestDetailSchema.parse(pullValue),
-    analysis,
-    files: snapshotFileListSchema.parse(filesValue).items,
-    diff: diffIndexSchema.parse(diffValue),
-    commits: snapshotCommitListSchema.parse(commitsValue).commits,
-    report,
-    objects: codeObjectListSchema.parse(objectsValue).items,
-  };
+  const context = await loadAnalysisStatus(analysisId, signal);
+  return loadWorkspace(context.repositoryId, context.pullNumber, signal, analysisId);
+}
+
+export async function loadAnalysisStatus(analysisId: string, signal: AbortSignal) {
+  return analysisStatusSchema.parse(
+    await fetchJson(`/api/v1/analyses/${analysisId}/status`, signal),
+  );
 }
 
 export async function openChatSession(

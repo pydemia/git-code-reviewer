@@ -1,6 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Clipboard, Download, FileJson } from 'lucide-react';
-import { presentReviewReport, reviewPriorityLabels, reviewFileStatusLabels } from '@gcr/contracts';
+import {
+  ArrowUpRight,
+  Clipboard,
+  Download,
+  FileCode2,
+  FileJson,
+  MessageSquare,
+} from 'lucide-react';
+import {
+  formatReviewDuration,
+  presentReviewReport,
+  reviewPriorityLabels,
+  reviewFileStatusLabels,
+} from '@gcr/contracts';
 import type { WorkspaceData } from './api.ts';
 
 type Report = NonNullable<WorkspaceData['report']>;
@@ -22,8 +34,70 @@ export function ReviewText({ text }: { text: string }) {
   );
 }
 
-// Read/Operate: summary → 파일별 설명 → unit-comment-block → 파일 목록. 설명은 생략하지 않는다.
-// Comment 선택이 exact revision의 diff/inline comment/Chat scope를 함께 이동시키는 기존 동작을 유지한다.
+function ReviewCommentBlock({
+  finding,
+  selected,
+  onSelect,
+}: {
+  finding: Finding;
+  selected: boolean;
+  onSelect: (finding: Finding) => void;
+}) {
+  return (
+    <article
+      className={`report-unit priority-border-${finding.priority.toLowerCase()}${selected ? ' active' : ''}`}
+      aria-label="검토 의견"
+    >
+      <header className="report-unit-meta">
+        <MessageSquare size={15} aria-hidden="true" />
+        <b className={`review-priority priority-${finding.priority.toLowerCase()}`}>
+          {reviewPriorityLabels[finding.priority]}
+        </b>
+        <span>{finding.category}</span>
+        <span>
+          {finding.anchor.side === 'mergeBase' ? '이전 코드' : '변경 코드'} ·{' '}
+          {finding.anchor.startLine
+            ? `line ${finding.anchor.startLine}${finding.anchor.endLine && finding.anchor.endLine !== finding.anchor.startLine ? `–${finding.anchor.endLine}` : ''}`
+            : '파일 전체'}
+        </span>
+      </header>
+      <h4>
+        <button type="button" className="report-unit-title" onClick={() => onSelect(finding)}>
+          <ReviewText text={finding.title} />
+        </button>
+      </h4>
+      {finding.problem && finding.problem !== finding.title ? (
+        <p className="report-narrative">
+          <ReviewText text={finding.problem} />
+        </p>
+      ) : null}
+      {finding.impact ? (
+        <div className="report-unit-detail">
+          <b>영향</b>
+          <p>
+            <ReviewText text={finding.impact} />
+          </p>
+        </div>
+      ) : null}
+      {finding.recommendation ? (
+        <div className="report-unit-detail report-recommendation">
+          <b>수정 제안</b>
+          <p>
+            <ReviewText text={finding.recommendation} />
+          </p>
+        </div>
+      ) : null}
+      <footer>
+        <button type="button" className="report-code-link" onClick={() => onSelect(finding)}>
+          코드에서 보기 <ArrowUpRight size={13} aria-hidden="true" />
+        </button>
+      </footer>
+    </article>
+  );
+}
+
+// Summary and Comments share the same cards; selecting a comment still opens
+// its exact revision, line and Chat scope.
 export function ReviewReportPanel({
   report,
   files,
@@ -52,37 +126,39 @@ export function ReviewReportPanel({
     else onFileSelect(path);
   }
   return (
-    <article className="structured-report" aria-label="Commit Defender 형식 Report">
+    <article className="structured-report" aria-label="코드 검토 보고서">
       {section === 'summary' ? (
         <header className="structured-report-heading">
-          <h2>Git Code Reviewer</h2>
-          <div className="report-export-actions">
-            {json ? (
-              <a href={json} target="_blank" rel="noreferrer">
-                <FileJson size={13} /> Raw JSON
-              </a>
-            ) : null}
-            {markdown ? (
-              <a href={markdown}>
-                <Download size={13} /> Markdown
-              </a>
-            ) : null}
-            <button
-              type="button"
-              className="icon-button small"
-              aria-label="Report 링크 복사"
-              disabled={!self}
-              onClick={() => {
-                if (self)
-                  void navigator.clipboard.writeText(self).then(
-                    () => setCopyState('Report 링크를 복사했습니다.'),
-                    () =>
-                      setCopyState('링크를 복사하지 못했습니다. 주소 표시줄의 URL을 복사하세요.'),
-                  );
-              }}
-            >
-              <Clipboard size={13} />
-            </button>
+          <div className="report-title-row">
+            <h2>분석 요약</h2>
+            <div className="report-export-actions">
+              {json ? (
+                <a href={json} target="_blank" rel="noreferrer">
+                  <FileJson size={13} /> Raw JSON
+                </a>
+              ) : null}
+              {markdown ? (
+                <a href={markdown}>
+                  <Download size={13} /> Markdown
+                </a>
+              ) : null}
+              <button
+                type="button"
+                className="icon-button small"
+                aria-label="Report 링크 복사"
+                disabled={!self}
+                onClick={() => {
+                  if (self)
+                    void navigator.clipboard.writeText(self).then(
+                      () => setCopyState('Report 링크를 복사했습니다.'),
+                      () =>
+                        setCopyState('링크를 복사하지 못했습니다. 주소 표시줄의 URL을 복사하세요.'),
+                    );
+                }}
+              >
+                <Clipboard size={13} />
+              </button>
+            </div>
           </div>
           {copyState ? <p role="status">{copyState}</p> : null}
           <div className="structured-report-verdict">
@@ -99,16 +175,34 @@ export function ReviewReportPanel({
               </span>
             ) : null}
           </div>
-          <p className="structured-report-meta">
-            {view.filesCompleted === null
-              ? `${report.coverage.filesExamined}/${report.coverage.filesChanged} files 수집`
-              : `${view.filesCompleted}/${report.coverage.filesChanged} files 검토 완료`}{' '}
-            · {report.findings.length} comments · {view.mode} ·{' '}
-            {report.durationMs.toLocaleString('ko-KR')} ms
-          </p>
-          <p className="report-narrative">
-            <ReviewText text={report.summary} />
-          </p>
+          <dl className="report-metrics">
+            <div>
+              <dt>{view.filesCompleted === null ? '수집 파일' : '검토 완료 파일'}</dt>
+              <dd>
+                {view.filesCompleted ?? report.coverage.filesExamined}
+                <span> / {report.coverage.filesChanged}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>검토 의견</dt>
+              <dd>
+                {report.findings.length}
+                <span>개</span>
+              </dd>
+            </div>
+            <div>
+              <dt>소요 시간</dt>
+              <dd>{formatReviewDuration(report.durationMs)}</dd>
+            </div>
+          </dl>
+          {view.overview ? (
+            <details className="report-overview" open={view.overview.length <= 600}>
+              <summary>전체 분석 요약</summary>
+              <p className="report-narrative">
+                <ReviewText text={view.overview} />
+              </p>
+            </details>
+          ) : null}
           {['demo', 'failed', 'unavailable'].includes(view.state) ? (
             <p className="report-state-explanation">
               {view.state === 'demo'
@@ -119,7 +213,7 @@ export function ReviewReportPanel({
             </p>
           ) : null}
           {report.coverage.limitations.length ? (
-            <details className="report-limitations" open={view.state === 'incomplete'}>
+            <details className="report-limitations">
               <summary>분석 제한 {report.coverage.limitations.length}건</summary>
               <ul>
                 {report.coverage.limitations.map((item, index) => (
@@ -132,28 +226,50 @@ export function ReviewReportPanel({
       ) : null}
       {section === 'summary' ? (
         <section className="report-section" aria-labelledby="overall-summary-title">
-          <h3 id="overall-summary-title">Overall Summary</h3>
+          <h3 id="overall-summary-title">
+            파일별 검토 <span>{view.groups.length}개 파일</span>
+          </h3>
           {view.groups.map((file) => (
-            <div className="report-file-summary" key={file.fileId}>
-              <button
-                className="report-file-path"
-                type="button"
-                onClick={() => selectFile(file.fileId, file.path)}
-              >
-                {file.path}
-              </button>
-              <div className="report-file-meta">
-                {file.priority ? (
-                  <b className={`priority-${file.priority.toLowerCase()}`}>
-                    {reviewPriorityLabels[file.priority]}
-                  </b>
-                ) : null}
-                <span>{reviewFileStatusLabels[file.status]}</span>
+            <article className="report-file-summary" key={file.fileId}>
+              <header className="report-file-heading">
+                <FileCode2 size={17} aria-hidden="true" />
+                <button
+                  className="report-file-path"
+                  type="button"
+                  onClick={() => selectFile(file.fileId, file.path)}
+                >
+                  {file.path}
+                </button>
+                <span className="report-comment-count">
+                  <MessageSquare size={13} aria-hidden="true" />
+                  {file.findings.length}
+                </span>
+              </header>
+              <div className="report-file-body">
+                <div className="report-file-meta">
+                  {file.priority ? (
+                    <b className={`priority-${file.priority.toLowerCase()}`}>
+                      {reviewPriorityLabels[file.priority]}
+                    </b>
+                  ) : null}
+                  <span>{reviewFileStatusLabels[file.status]}</span>
+                </div>
+                <details className="report-file-overview" open={!file.findings.length}>
+                  <summary>파일 검토 요약</summary>
+                  <p className="report-narrative">
+                    <ReviewText text={file.summary} />
+                  </p>
+                </details>
+                {file.findings.map((finding) => (
+                  <ReviewCommentBlock
+                    key={finding.id}
+                    finding={finding}
+                    selected={finding.id === selectedFindingId}
+                    onSelect={onFindingSelect}
+                  />
+                ))}
               </div>
-              <p className="report-narrative">
-                <ReviewText text={file.summary} />
-              </p>
-            </div>
+            </article>
           ))}
         </section>
       ) : null}
@@ -163,7 +279,7 @@ export function ReviewReportPanel({
           aria-labelledby="ai-comments-title"
         >
           <h3 id="ai-comments-title">
-            AI Comments <span>{report.findings.length}</span>
+            검토 의견 <span>{report.findings.length}개</span>
           </h3>
           {view.groups
             .filter((file) => file.findings.length)
@@ -177,39 +293,12 @@ export function ReviewReportPanel({
                   {file.path}
                 </button>
                 {file.findings.map((finding) => (
-                  <button
-                    className={`report-unit${finding.id === selectedFindingId ? ' active' : ''}`}
+                  <ReviewCommentBlock
                     key={finding.id}
-                    type="button"
-                    aria-pressed={finding.id === selectedFindingId}
-                    onClick={() => onFindingSelect(finding)}
-                  >
-                    <span className="report-unit-meta">
-                      <b className={`priority-${finding.priority.toLowerCase()}`}>
-                        {reviewPriorityLabels[finding.priority]}
-                      </b>
-                      <span>{finding.category}</span>
-                      <span>
-                        {finding.anchor.side} ·{' '}
-                        {finding.anchor.startLine
-                          ? `line ${finding.anchor.startLine}${finding.anchor.endLine && finding.anchor.endLine !== finding.anchor.startLine ? `–${finding.anchor.endLine}` : ''}`
-                          : '파일 전체'}
-                      </span>
-                    </span>
-                    <span className="report-narrative">
-                      <ReviewText text={finding.problem || finding.title} />
-                    </span>
-                    {finding.impact ? (
-                      <span className="report-unit-detail">
-                        <b>영향</b> <ReviewText text={finding.impact} />
-                      </span>
-                    ) : null}
-                    {finding.recommendation ? (
-                      <span className="report-unit-detail">
-                        <b>수정 제안</b> <ReviewText text={finding.recommendation} />
-                      </span>
-                    ) : null}
-                  </button>
+                    finding={finding}
+                    selected={finding.id === selectedFindingId}
+                    onSelect={onFindingSelect}
+                  />
                 ))}
               </div>
             ))}
@@ -221,8 +310,8 @@ export function ReviewReportPanel({
         </section>
       ) : null}
       {section === 'summary' ? (
-        <section className="report-section" aria-labelledby="analyzed-files-title">
-          <h3 id="analyzed-files-title">Analyzed File List</h3>
+        <details className="report-section report-file-list">
+          <summary>전체 파일 목록 · {view.groups.length}개</summary>
           <ul className="report-analyzed-files">
             {view.groups.map((file) => (
               <li key={file.fileId}>
@@ -239,13 +328,13 @@ export function ReviewReportPanel({
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       ) : null}
       {section === 'summary' ? (
         <details className="report-provenance">
           <summary>적용 Model·Skill</summary>
           <p>
-            Model: <code>{report.versions.model}</code>
+            Model: <code>{report.versions.model}</code> · {view.mode}
           </p>
           {report.analysis ? (
             <>

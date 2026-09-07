@@ -530,8 +530,15 @@ export async function executeAnalysisJob(
     const id = fileIds.get(file.path);
     return id ? [{ id, ...file }] : [];
   });
-  await updateAnalysisState(database, job, 'analyzing', 'review', 55);
+  await updateAnalysisState(database, job, 'analyzing', 'review', 25);
   const output = await analyzeSnapshot({
+    onProgress: async (stage, detail) => {
+      const progress =
+        stage === 'total-summary'
+          ? 85
+          : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
+      await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
+    },
     analysisId,
     snapshotId,
     baseSha: row.base_sha,
@@ -734,14 +741,16 @@ async function updateAnalysisState(
   state: 'analyzing',
   stage: string,
   progress: number,
+  detail?: import('@gcr/contracts').AnalysisProgress,
 ) {
   const analysisId = requiredPayload(job, 'analysisId');
   await database.query(
     `update analysis_runs set state = $2, stage = $3, progress = $4,
+     progress_detail = case when $3 = 'deterministic' then null else coalesce($5::jsonb, progress_detail) end,
      started_at = coalesce(started_at, clock_timestamp()) where id = $1`,
-    [analysisId, state, stage, progress],
+    [analysisId, state, stage, progress, detail ? JSON.stringify(detail) : null],
   );
-  const payload = { analysisId, revision: 1, state, stage, progress };
+  const payload = { analysisId, revision: 1, state, stage, progress, progressDetail: detail };
   await appendEvent(database, 'pull_request', job.payload.pullRequestId, 'analysis.state', payload);
   await appendEvent(database, 'analysis', analysisId, 'analysis.state', payload);
 }

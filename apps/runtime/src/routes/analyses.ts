@@ -51,6 +51,31 @@ export async function registerAnalysisRoutes(
   config: AppConfig,
   authorization: AuthorizationService,
 ) {
+  app.get(
+    '/api/v1/analyses/:analysisId/status',
+    { preHandler: requireUser },
+    async (request, reply) => {
+      const { analysisId } = analysisParams.parse(request.params);
+      const context = await authorizedContext(database, authorization, request, analysisId);
+      if (!context) return hiddenNotFound(request, reply);
+      const result = await database.query(
+        `select ar.id, ar.snapshot_id as "snapshotId", ar.revision, ar.state, ar.stage, ar.progress,
+              ar.progress_detail as "progressDetail", ar.created_at as "createdAt", s.resolution,
+              s.merge_base_sha as "mergeBaseSha", sr.base_sha as "baseSha", sr.head_sha as "headSha"
+       from analysis_runs ar join snapshots s on s.id = ar.snapshot_id
+       join snapshot_requests sr on sr.id = s.request_id where ar.id = $1`,
+        [analysisId],
+      );
+      if (!result.rows[0]) return hiddenNotFound(request, reply);
+      return {
+        schemaVersion,
+        repositoryId: context.repositoryId,
+        pullNumber: context.pullNumber,
+        analysis: result.rows[0],
+      };
+    },
+  );
+
   app.get('/api/v1/analyses/:analysisId', { preHandler: requireUser }, async (request, reply) => {
     const { analysisId } = analysisParams.parse(request.params);
     const context = await authorizedContext(database, authorization, request, analysisId);

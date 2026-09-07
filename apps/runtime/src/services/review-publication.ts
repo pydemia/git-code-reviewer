@@ -349,6 +349,7 @@ export function renderReviewComment(input: {
     return (
       heading +
       formatReviewMarkdown(input.canonicalReport, [], {
+        includeTitle: false,
         ...(reportUrl ? { reportUrl } : {}),
         maxLength: 60000 - heading.length - tail.length,
       }) +

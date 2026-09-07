@@ -65,7 +65,7 @@ export async function registerSnapshotRoutes(
         return hiddenNotFound(request, reply);
       const result = await database.query(
         `select ar.id, ar.snapshot_id as "snapshotId", ar.revision, ar.state, ar.stage, ar.progress,
-                ar.created_at as "createdAt", s.resolution, s.merge_base_sha as "mergeBaseSha",
+                ar.progress_detail as "progressDetail", ar.created_at as "createdAt", s.resolution, s.merge_base_sha as "mergeBaseSha",
                 sr.base_sha as "baseSha", sr.head_sha as "headSha"
          from pull_requests pr
          join snapshot_requests sr on sr.pull_request_id = pr.id

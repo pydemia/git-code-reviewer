@@ -28,7 +28,7 @@
         "CREDENTIAL_REGISTRY_ENABLED": "true",
         "MODEL_ADMIN_ENABLED": "true",
         "MODEL_MODE": "disabled",
-        "CHAT_MODEL_MODE": "disabled"
+        "CHAT_MODEL_MODE": "registry"
       },
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
@@ -58,7 +58,7 @@
         "CREDENTIAL_REGISTRY_ENABLED": "true",
         "MODEL_ADMIN_ENABLED": "true",
         "MODEL_MODE": "disabled",
-        "CHAT_MODEL_MODE": "disabled"
+        "CHAT_MODEL_MODE": "registry"
       },
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",

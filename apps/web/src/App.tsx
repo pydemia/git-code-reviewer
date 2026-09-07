@@ -30,6 +30,7 @@ import {
   loadChatAccounts,
   loadWorklist,
   loadWorkspace,
+  loadAnalysisStatus,
   openChatSession,
   refreshPull,
   sendChatMessage,
@@ -51,6 +52,7 @@ import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
+import { analysisIsPending, analysisProgressLabel } from './analysis-progress.ts';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
@@ -263,6 +265,11 @@ function ReviewWorkspace({
   const [bottomTool, setBottomTool] = useState<BottomTool>('evidence');
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
   const [chatAccounts, setChatAccounts] = useState<ChatAccountCatalog | null>(null);
+  const [chatAccountsStatus, setChatAccountsStatus] = useState<'loading' | 'ready' | 'error'>(
+    'loading',
+  );
+  const [chatAccountsRevision, setChatAccountsRevision] = useState(0);
+  const [progressError, setProgressError] = useState(false);
   const [chatAccountId, setChatAccountId] = useState('');
   const [chatModelName, setChatModelName] = useState('');
   const [chatEffort, setChatEffort] = useState('');
@@ -370,6 +377,7 @@ function ReviewWorkspace({
 
   useEffect(() => {
     const controller = new AbortController();
+    setStatus('loading');
     const workspaceRequest = analysisId
       ? loadAnalysisWorkspace(analysisId, controller.signal)
       : repositoryId && pullNumber
@@ -418,11 +426,72 @@ function ReviewWorkspace({
     return () => controller.abort();
   }, [analysisId, repositoryId, pullNumber]);
 
+  const currentAnalysisId = data?.analysis?.id;
+  const currentAnalysisState = data?.analysis?.state;
+  const currentRepositoryId = data?.pull.repositoryId;
+  const currentPullNumber = data?.pull.number;
+  useEffect(() => {
+    if (
+      !currentRepositoryId ||
+      !currentPullNumber ||
+      ['completed', 'partial', 'failed', 'cancelled'].includes(currentAnalysisState ?? '')
+    )
+      return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        if (currentAnalysisId) {
+          const next = await loadAnalysisStatus(currentAnalysisId, controller.signal);
+          if (next.analysis.state === 'completed' || next.analysis.state === 'partial') {
+            const workspace = await loadAnalysisWorkspace(currentAnalysisId, controller.signal);
+            if (!controller.signal.aborted) setData(workspace);
+          } else if (!controller.signal.aborted) {
+            setData((current) =>
+              current?.analysis?.id === currentAnalysisId
+                ? { ...current, analysis: next.analysis }
+                : current,
+            );
+          }
+        } else {
+          const workspace = await loadWorkspace(
+            currentRepositoryId,
+            currentPullNumber,
+            controller.signal,
+          );
+          if (!controller.signal.aborted) {
+            setData(workspace);
+            setSelectedPath((current) => current ?? initialSelectedPath(workspace));
+          }
+        }
+        if (!controller.signal.aborted) setProgressError(false);
+      } catch {
+        if (!controller.signal.aborted) setProgressError(true);
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(() => void poll(), 2000);
+      }
+    };
+    timer = setTimeout(() => void poll(), 2000);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [currentAnalysisId, currentAnalysisState, currentRepositoryId, currentPullNumber]);
+
+  useEffect(() => {
+    const refreshAccounts = () => setChatAccountsRevision((value) => value + 1);
+    window.addEventListener('focus', refreshAccounts);
+    return () => window.removeEventListener('focus', refreshAccounts);
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
+    setChatAccountsStatus('loading');
     void loadChatAccounts(controller.signal).then(
       (catalog) => {
+        if (controller.signal.aborted) return;
         setChatAccounts(catalog);
+        setChatAccountsStatus('ready');
         const account = catalog.items[0];
         const model = account?.models[0];
         setChatAccountId((current) => current || account?.id || '');
@@ -430,11 +499,14 @@ function ReviewWorkspace({
         setChatEffort((current) => current || model?.defaultEffort || '');
       },
       (error: unknown) => {
-        if (!controller.signal.aborted) console.error(error);
+        if (!controller.signal.aborted) {
+          console.error(error);
+          setChatAccountsStatus('error');
+        }
       },
     );
     return () => controller.abort();
-  }, []);
+  }, [chatAccountsRevision]);
 
   useEffect(() => {
     const currentAnalysisId = data?.analysis?.id;
@@ -529,6 +601,8 @@ function ReviewWorkspace({
   };
 
   const selectedFile = data?.files.find((file) => file.path === selectedPath) ?? data?.files[0];
+  const analysisPending = status !== 'error' && analysisIsPending(data?.analysis ?? null);
+  const progressDetail = data?.analysis?.progressDetail;
   const selectedDiff = data?.diff?.files.find((file) => file.path === selectedFile?.path)?.patch;
   const selectedFinding = data?.report?.findings.find(
     (finding) => finding.id === selectedFindingId && finding.anchor.fileId === selectedFile?.id,
@@ -653,7 +727,11 @@ function ReviewWorkspace({
                         : `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
                 : data?.analysis
                   ? formatAnalysisState(data.analysis.state)
-                  : '분석 없음'}
+                  : status === 'loading'
+                    ? '분석 상태 확인 중'
+                    : status === 'error'
+                      ? '분석 상태 확인 실패'
+                      : '코드 준비 중'}
           </span>
           <button className="revision-button" type="button">
             Revision {data?.analysis?.revision ?? '-'} <ChevronDown size={13} />
@@ -776,6 +854,36 @@ function ReviewWorkspace({
               </>
             ) : null}
           </div>
+          {analysisPending ? (
+            <div className="analysis-progress-banner" role="status" aria-live="polite">
+              <div className="analysis-progress-heading">
+                <RefreshCw size={16} className="spin" />
+                <strong>
+                  {status === 'loading'
+                    ? '분석 상태 확인 중'
+                    : analysisProgressLabel(data?.analysis ?? null)}
+                </strong>
+                {progressDetail ? (
+                  <span>
+                    {progressDetail.filesProcessed}/{progressDetail.filesTotal} 파일 처리
+                  </span>
+                ) : null}
+                <span>{data?.analysis?.progress ?? 0}%</span>
+              </div>
+              <progress aria-label="분석 진행률" max={100} value={data?.analysis?.progress ?? 0} />
+              {progressDetail ? (
+                <small>
+                  검토 완료 {progressDetail.filesReviewed} · 미검토 {progressDetail.filesSkipped}
+                  {progressDetail.currentFile ? ` · ${progressDetail.currentFile}` : ''}
+                </small>
+              ) : null}
+              <small>
+                {progressError
+                  ? '진행 상태를 다시 확인하고 있습니다.'
+                  : '코드 diff를 먼저 확인하세요. 분석이 끝나면 줄별 검토 의견이 자동으로 표시됩니다.'}
+              </small>
+            </div>
+          ) : null}
           {mainView === 'code' ? (
             <div className="review-diff-host">
               {data?.diff && selectedFile ? (
@@ -785,6 +893,7 @@ function ReviewWorkspace({
                   mode={diffMode}
                   target={codeTarget}
                   finding={selectedFinding}
+                  findings={data?.report?.findings ?? []}
                 />
               ) : (
                 <div className="diff-empty">
@@ -792,7 +901,7 @@ function ReviewWorkspace({
                   <span>
                     {status === 'error'
                       ? 'Snapshot을 불러오지 못했습니다.'
-                      : '아직 materialized snapshot이 없습니다.'}
+                      : '코드 diff를 준비하고 있습니다.'}
                   </span>
                 </div>
               )}
@@ -822,6 +931,10 @@ function ReviewWorkspace({
           selectedFile={selectedFile?.path}
           model={chatSession?.model ?? null}
           accountCatalog={chatAccounts}
+          accountStatus={chatAccountsStatus}
+          reportReady={Boolean(data?.report)}
+          analysisPending={analysisPending}
+          onRetryAccounts={() => setChatAccountsRevision((value) => value + 1)}
           accountId={chatAccountId}
           modelName={chatModelName}
           reasoningEffort={chatEffort}
@@ -1150,6 +1263,10 @@ function ChatPanel({
   selectedFile,
   model,
   accountCatalog,
+  accountStatus,
+  reportReady,
+  analysisPending,
+  onRetryAccounts,
   accountId,
   modelName,
   reasoningEffort,
@@ -1169,6 +1286,10 @@ function ChatPanel({
   selectedFile: string | undefined;
   model: ChatSession['model'] | null;
   accountCatalog: ChatAccountCatalog | null;
+  accountStatus: 'loading' | 'ready' | 'error';
+  reportReady: boolean;
+  analysisPending: boolean;
+  onRetryAccounts: () => void;
   accountId: string;
   modelName: string;
   reasoningEffort: string;
@@ -1238,10 +1359,33 @@ function ChatPanel({
         </div>
       ) : null}
       <div className="chat-messages" aria-live="polite">
-        {!model && !(accountCatalog?.enabled && accountCatalog.items.length === 0) ? (
+        {accountStatus === 'loading' ? (
+          <div className="chat-message-empty">사용 가능한 계정을 확인하고 있습니다.</div>
+        ) : null}
+        {accountStatus === 'error' ? (
+          <div className="chat-unavailable">
+            <strong>계정 목록을 불러오지 못했습니다.</strong>
+            <button type="button" onClick={onRetryAccounts}>
+              다시 시도
+            </button>
+          </div>
+        ) : null}
+        {accountStatus === 'ready' && !reportReady && accountCatalog?.items.length ? (
+          <div className="chat-message-empty">
+            {analysisPending
+              ? '분석 중입니다. 완료되면 이 계정으로 결과에 대해 질문할 수 있습니다.'
+              : '분석 결과가 준비되면 질문할 수 있습니다.'}
+          </div>
+        ) : null}
+        {accountStatus === 'ready' &&
+        reportReady &&
+        !model &&
+        !(accountCatalog?.enabled && accountCatalog.items.length === 0) ? (
           <div className="chat-message-empty">Chat 연결 상태를 확인하는 중입니다.</div>
         ) : null}
-        {accountCatalog?.enabled && accountCatalog.items.length === 0 ? (
+        {accountStatus === 'ready' &&
+        accountCatalog?.enabled &&
+        accountCatalog.items.length === 0 ? (
           <div className="chat-unavailable">
             <Bot size={22} />
             <strong>사용 가능한 ChatGPT account가 없습니다.</strong>
@@ -1304,7 +1448,9 @@ function ChatPanel({
           placeholder={
             model?.available
               ? '현재 리비전에 대해 질문'
-              : 'Chat 모델을 연결한 후 질문할 수 있습니다.'
+              : analysisPending
+                ? '분석이 완료되면 질문할 수 있습니다.'
+                : 'Chat 모델을 연결한 후 질문할 수 있습니다.'
           }
           aria-label="질문"
           aria-keyshortcuts="Enter"

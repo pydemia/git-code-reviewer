@@ -70,9 +70,12 @@ export async function listAvailableChatAccounts(database: Database, userId: stri
          (assignment.scope_type = 'all' and assignment.scope_id = '*') or
          (assignment.scope_type = 'user' and assignment.scope_id = ($1::uuid)::text) or
          (assignment.scope_type = 'tenant' and exists (
-           select 1 from tenant_memberships membership
-           where membership.user_id = $1::uuid and membership.tenant_id::text = assignment.scope_id
-             and membership.enabled
+           select 1 from tenants tenant where tenant.id::text = assignment.scope_id and tenant.enabled
+             and (exists (select 1 from users app_user where app_user.id = $1::uuid
+                          and app_user.enabled and app_user.role = 'administrator')
+               or exists (select 1 from tenant_memberships membership
+                          where membership.user_id = $1::uuid and membership.tenant_id = tenant.id
+                            and membership.enabled))
          )) or
          (assignment.scope_type = 'group' and exists (
            select 1 from users app_user
@@ -141,9 +144,12 @@ export async function resolveChatAccountSelection(
            (assignment.scope_type = 'all' and assignment.scope_id = '*') or
            (assignment.scope_type = 'user' and assignment.scope_id = ($1::uuid)::text) or
            (assignment.scope_type = 'tenant' and exists (
-             select 1 from tenant_memberships membership
-             where membership.user_id = $1::uuid and membership.tenant_id::text = assignment.scope_id
-               and membership.enabled
+             select 1 from tenants tenant where tenant.id::text = assignment.scope_id and tenant.enabled
+             and (exists (select 1 from users app_user where app_user.id = $1::uuid
+                          and app_user.enabled and app_user.role = 'administrator')
+               or exists (select 1 from tenant_memberships membership
+                          where membership.user_id = $1::uuid and membership.tenant_id = tenant.id
+                            and membership.enabled))
            )) or
            (assignment.scope_type = 'group' and exists (
              select 1 from users app_user

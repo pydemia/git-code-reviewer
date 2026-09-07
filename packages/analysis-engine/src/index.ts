@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { AnalysisProgress } from '@gcr/contracts';
 export * from './skills.js';
 export * from './review-windows.js';
 export * from './report-forms.js';
@@ -43,6 +44,7 @@ export type AnalysisInput = {
   prompt?: { instructions: string; version: number; hash: string };
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
   budgets?: Partial<AnalysisBudgets>;
+  onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 };
 
 export type AnalysisBudgets = {
@@ -118,6 +120,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       ...(input.model ? { model: input.model } : {}),
       ...(input.prompt ? { instructions: input.prompt.instructions } : {}),
       maxModelCalls: budgets.maxModelCalls,
+      ...(input.onProgress ? { onProgress: input.onProgress } : {}),
     });
     legacy = skillResult.legacy;
     reviewStatus = skillResult.reviewStatus;

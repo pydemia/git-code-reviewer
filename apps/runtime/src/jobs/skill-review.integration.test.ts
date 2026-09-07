@@ -7,7 +7,7 @@ import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { FixtureGitHubClient } from '@gcr/github';
 import type { GitHubReader, GitHubReviewPublisher } from '@gcr/github';
-import { reportViewSchema } from '@gcr/contracts';
+import { reportViewSchema, analysisStatusSchema } from '@gcr/contracts';
 import Fastify from 'fastify';
 import type { AuthUser } from '../auth/index.js';
 import { EventHub } from '../events/index.js';
@@ -173,6 +173,42 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     ).rejects.toThrow('immutable');
   });
 
+  it('serves queued analysis metadata before a report exists', async () => {
+    const app = Fastify();
+    app.addHook('onRequest', async (request) => {
+      request.user = {
+        id: userId,
+        subject: 'synthetic:worker',
+        displayName: 'Admin',
+        role: 'administrator',
+        enabled: true,
+        tenantIds: [],
+        tenants: [],
+        groups: [],
+      };
+    });
+    await registerAnalysisRoutes(
+      app,
+      database,
+      new EventHub(database),
+      artifacts,
+      config,
+      new AuthorizationService(config),
+    );
+    try {
+      const response = await app.inject(`/api/v1/analyses/${analysisId}/status`);
+      expect(response.statusCode).toBe(200);
+      expect(analysisStatusSchema.parse(response.json()).analysis).toMatchObject({
+        id: analysisId,
+        snapshotId,
+        state: 'queued',
+      });
+      expect((await app.inject(`/api/v1/analyses/${analysisId}`)).statusCode).toBe(503);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('uses the queued version after administrators activate another version, and persists custom categories', async () => {
     await database.query('update analysis_skill_versions set active=false where active');
     await database.query(
@@ -216,6 +252,14 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       (await database.query('select state from analysis_runs where id=$1', [analysisId])).rows[0]
         .state,
     ).toBe('completed');
+    const progress = (
+      await database.query('select progress, progress_detail from analysis_runs where id=$1', [
+        analysisId,
+      ])
+    ).rows[0];
+    expect(progress.progress).toBe(100);
+    expect(progress.progress_detail.filesProcessed).toBe(progress.progress_detail.filesTotal);
+    expect(progress.progress_detail.filesReviewed).toBeGreaterThan(0);
     const before = calls.length;
     await executeAnalysisJob(
       database,
