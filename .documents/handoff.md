@@ -4,8 +4,8 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: Workspace tree/line navigation, 등록 account 기반 batch 분석, Skill 관리와 Commit Defender report를 PRISM-DEV Helm revision 18에 배포하고 운영 상태를 검증함
-- remote: report 구현 `9930f90`, 통합 검증 `3fef942`, release `56baa54`, 삭제 fixture 시작 오류 수정 `bd017f2`, 고정 image release `af1d38a`
+- 단계: Commit Defender report를 메인 Code·Summary·Comments 탭으로 분리하고 Chat Enter/Shift+Enter 단축키를 PRISM-DEV Helm revision 19에 배포함
+- remote: report 구현 `9930f90`, 시작 오류 수정 `bd017f2`, main tabs `7bf85eb`, revision 19 release `fb1025d`
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
@@ -150,9 +150,9 @@ Migration `0011_github_review_publication.sql`과 `github.review.publish` durabl
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.8`
-- source revision: `bd017f211c58707`
-- manifest digest: `sha256:3d5d4307295805f215654daa8a94a9a449c78e3cf69bf94cb4389b7deb04f56a`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.9`
+- source revision: `7bf85eb5af12`
+- manifest digest: `sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc`
 - platform: `linux/amd64`
 - supply-chain metadata: 이번 build에는 provenance/SBOM attestation 미포함
 
@@ -161,9 +161,9 @@ Migration `0011_github_review_publication.sql`과 `github.review.publish` durabl
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.7`
-- app version: `0.8.0-alpha.8`
-- chart digest: `sha256:fae95f79c9e28c5971b74058161edac056a8407c1390abdf427f96e2b87425bd`
+- version: `0.10.8`
+- app version: `0.8.0-alpha.9`
+- chart digest: `sha256:0c3ae26bcb10c9fe8075e2d43a123cb03ba37e20adc37c5fb994697147b12ef2`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치

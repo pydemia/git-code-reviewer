@@ -355,6 +355,14 @@ Connection 수정 후 health는 `unverified`가 되며 연결 테스트가 `read
 
 이번 image는 PRISM-DEV node에 맞춘 `linux/amd64` 단일 platform이다. Build 환경에서 Dockerfile frontend와 SBOM scanner remote 조회가 완료되지 않아 provenance/SBOM attestation은 포함하지 않았다.
 
+## 2026-09-07 Main review tabs와 Chat 단축키 배포
+
+20:01 KST에 Helm revision 19로 application `0.8.0-alpha.9`, chart `0.10.8`을 배포했다. Source commit은 `7bf85eb5af12`이며 image manifest digest는 `sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc`, OCI chart digest는 `sha256:0c3ae26bcb10c9fe8075e2d43a123cb03ba37e20adc37c5fb994697147b12ef2`다.
+
+LNB는 Files·Outline·Impact 탐색만 유지하고 메인 toolbar에 Code·Summary·Comments 탭을 추가했다. Summary는 전체 상태와 Overall Summary·Analyzed File List·Model/Skill provenance를 표시한다. Comments는 Commit Defender의 unit-comment-block에 해당하는 AI comments만 표시하며 comment 선택 시 Code의 정확한 revision line으로 이동한다. Chat 입력은 Enter로 전송하고 Shift+Enter로 줄을 바꾼다.
+
+Vitest 169건 통과, PostgreSQL integration 20건 skip, web lint·typecheck·production build·Impeccable layout detector·Helm lint가 통과했다. 배포 후 Server/Worker는 각각 `1/1 Ready`, restart 0회이며 Helm test와 health endpoint가 정상이고 warning/error log는 0건이다. 실제 배포 화면에서 Summary·Comments 전환과 Shift+Enter 줄바꿈을 확인했다.
+
 ## 실제 GHES 및 ChatGPT account 등록
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.
