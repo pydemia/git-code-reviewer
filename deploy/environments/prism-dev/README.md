@@ -363,6 +363,14 @@ LNB는 Files·Outline·Impact 탐색만 유지하고 메인 toolbar에 Code·Sum
 
 Vitest 169건 통과, PostgreSQL integration 20건 skip, web lint·typecheck·production build·Impeccable layout detector·Helm lint가 통과했다. 배포 후 Server/Worker는 각각 `1/1 Ready`, restart 0회이며 Helm test와 health endpoint가 정상이고 warning/error log는 0건이다. 실제 배포 화면에서 Summary·Comments 전환과 Shift+Enter 줄바꿈을 확인했다.
 
+## 2026-09-07 분석 lifecycle 상태 표시 배포
+
+20:30 KST에 Helm revision 20으로 application `0.8.0-alpha.10`, chart `0.10.9`를 배포했다. Source commit은 `99d00395c066`이며 image manifest digest는 `sha256:6ba6774875548e5e9ca309dc68a44940957d54c797b2747ccaecd9a130b1edf7`, OCI chart digest는 `sha256:f19fcc54733aee31dc1581f404069bb4a8ba4dd96422d29a63630c950b25a3d3`다.
+
+분석 상태는 `분석 대기`, `분석 중`, `분석 완료 · PASS`, `분석 완료 · BLOCKED`, `분석 완료 · 제한 있음`, `분석 실패`, `분석 미수행`, `분석 취소`로 구분한다. 기존 `분석 미완료`는 파일 검토가 끝났지만 symbol adapter 등 제한이 있는 결과도 미완료처럼 보이게 하므로 `분석 완료 · 제한 있음`으로 바꿨다.
+
+관련 unit test 11건과 lint·web typecheck·production build·Helm lint가 통과했다. 배포 후 Server/Worker는 각각 `1/1 Ready`, restart 0회이고 Helm test와 live·ready·startup·dependencies endpoint가 정상이다. 실제 AI report 화면에서 `1/1 files 검토 완료`, `ai-powered`, `분석 완료 · 제한 있음` 표시를 확인했다.
+
 ## 실제 GHES 및 ChatGPT account 등록
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.
