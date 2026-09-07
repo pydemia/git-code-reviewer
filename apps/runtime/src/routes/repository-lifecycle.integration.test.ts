@@ -308,17 +308,18 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
   });
 
   it('does not recreate a deleted fixture on Server restart', async () => {
-    await ensureFixtureRepository(database);
+    const fixtureRepositoryId = await ensureFixtureRepository(database);
     const fixture = (
       await database.query("select id from repositories where installation_id = 'fixture'")
     ).rows[0];
+    expect(fixtureRepositoryId).toBe(fixture.id);
     const response = await app.inject({
       method: 'DELETE',
       url: `/api/v1/admin/repositories/${fixture.id}`,
       payload: { confirmName: 'platform/reviewer-api' },
     });
     expect(response.statusCode).toBe(200);
-    await ensureFixtureRepository(database);
+    expect(await ensureFixtureRepository(database)).toBeNull();
     expect(
       (await database.query('select deleted_at from repositories where id = $1', [fixture.id]))
         .rows[0].deleted_at,

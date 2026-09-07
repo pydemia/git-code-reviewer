@@ -28,7 +28,7 @@ export async function createGitHubReader(config: AppConfig): Promise<GitHubReade
   return new GitHubAppClient(config.GITHUB_APP_ID!, privateKey);
 }
 
-export async function ensureFixtureRepository(database: Database): Promise<void> {
+export async function ensureFixtureRepository(database: Database): Promise<string | null> {
   const instance = await database.query<{ id: string }>(
     `insert into github_instances(name, api_base_url, web_base_url, app_id)
      values ('Development GHES', 'https://github.example.internal/api/v3/', 'https://github.example.internal/', 'fixture')
@@ -47,12 +47,13 @@ export async function ensureFixtureRepository(database: Database): Promise<void>
      returning id`,
     [instance.rows[0]!.id],
   );
-  if (!repository.rows[0]) return;
+  if (!repository.rows[0]) return null;
   await database.query(
     `insert into poll_states(repository_id, next_poll_at)
      values ($1, clock_timestamp()) on conflict (repository_id) do nothing`,
     [repository.rows[0]!.id],
   );
+  return repository.rows[0].id;
 }
 
 export async function pollRepository(

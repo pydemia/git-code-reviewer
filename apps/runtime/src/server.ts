@@ -185,13 +185,8 @@ export async function buildServer(config: AppConfig) {
   }
 
   if (config.GITHUB_MODE === 'fixture' && github) {
-    await ensureFixtureRepository(database);
-    const fixtureRepository = await database.query<{ id: string }>(
-      `select r.id from repositories r join github_instances i on i.id = r.instance_id
-       where i.api_base_url = 'https://github.example.internal/api/v3/' and r.github_id = 101`,
-    );
-    if (fixtureRepository.rows[0])
-      await pollRepository(database, github, fixtureRepository.rows[0].id);
+    const fixtureRepositoryId = await ensureFixtureRepository(database);
+    if (fixtureRepositoryId) await pollRepository(database, github, fixtureRepositoryId);
   }
   const stopScheduler = await startPollScheduler(
     database,
