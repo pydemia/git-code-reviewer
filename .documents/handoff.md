@@ -4,8 +4,8 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: PRISM-DEV revision 15 이후 Workspace tree/line navigation, 등록 account 기반 batch 분석, Skill 관리와 Commit Defender report를 로컬 구현·검증함. 이번 변경은 클러스터에 배포하지 않음
-- remote: 선행 구현 `4ca28e3`, Skill/report `9e5ded5` → `07c84d9` → `359493e` → `5f171f8` → `9930f90`. 최종 검증·문서 commit은 `git log`와 대조할 것
+- 단계: Workspace tree/line navigation, 등록 account 기반 batch 분석, Skill 관리와 Commit Defender report를 PRISM-DEV Helm revision 18에 배포하고 운영 상태를 검증함
+- remote: report 구현 `9930f90`, 통합 검증 `3fef942`, release `56baa54`, 삭제 fixture 시작 오류 수정 `bd017f2`, 고정 image release `af1d38a`
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
@@ -26,7 +26,7 @@
 
 현재 소스에서 추출한 UI 기준은 root `DESIGN.md`와 `.impeccable/design.json`에 있다. 후속 UI는 기존 gray/teal·한국어·조절 가능한 panel을 유지한다. Local Container build와 non-root/read-only smoke도 통과했고 기본 Skill 9개와 migration 15개를 확인했다. 검증용 Browser/Server/Worker/DB와 임시 파일은 종료·삭제했으며 screenshot과 local 검증 image는 보존했다.
 
-이전 완료분의 0013부터 최신 0015까지 migration이 다음 배포에 필요하다. Server/Worker를 함께 갱신하고 관리자가 분석 Provider에서 등록 account/model/effort를 선택한 뒤 기존 PR을 새로 분석해야 한다. 기존 immutable report를 새 형식으로 덮어쓰지 않는다. 실제 GHES/ChatGPT로 source를 전송하거나 PR 댓글을 게시하는 live 검증, OCI push와 클러스터 배포는 이번 작업에서 수행하지 않았다.
+Migration 0013부터 0015까지 적용됐고 운영 DB에 migration 15개, analysis 31건, report 26건이 있다. 기존 immutable report를 새 형식으로 덮어쓰지 않는다. 실제 GHES/ChatGPT로 source를 전송하거나 PR 댓글을 게시하는 신규 live 검증은 수행하지 않았다.
 
 ### 1.0a 2026-09-07 Workspace와 등록 account 기반 batch 분석
 
@@ -150,20 +150,20 @@ Migration `0011_github_review_publication.sql`과 `github.review.publish` durabl
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.7`
-- source revision: `a66523a5569d24a187e6e10cdee91bee3fb0ab41`
-- manifest digest: `sha256:21a0ed8f5d2525c2fa7809d027bec6b832da594c816d7daef952de3f83dc0471`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.8`
+- source revision: `bd017f211c58707`
+- manifest digest: `sha256:3d5d4307295805f215654daa8a94a9a449c78e3cf69bf94cb4389b7deb04f56a`
 - platform: `linux/amd64`
-- supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
+- supply-chain metadata: 이번 build에는 provenance/SBOM attestation 미포함
 
 하나의 immutable image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
 
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.5`
-- app version: `0.8.0-alpha.7`
-- chart digest: `sha256:b738b65a600b1f08cb17dc7f0553fb0a6dc1f5a10d42f3a7f53f5847c723f0df`
+- version: `0.10.7`
+- app version: `0.8.0-alpha.8`
+- chart digest: `sha256:fae95f79c9e28c5971b74058161edac056a8407c1390abdf427f96e2b87425bd`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치

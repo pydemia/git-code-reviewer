@@ -337,6 +337,24 @@ Connection 수정 후 health는 `unverified`가 되며 연결 테스트가 `read
 
 실제 GitHub repository를 대신 등록하거나 PR 댓글을 게시하지 않았다. 기존 연결 설정은 그대로 두었으므로 관리자 화면에서 URL과 사용자 권한을 선택해 등록을 다시 시도할 수 있다. 삭제 UI의 desktop/mobile 동작은 앞선 local Browser 검증과 독립 UI 검토(`ship`)로 확인했다.
 
+## 2026-09-07 Commit Defender report UI 배포
+
+18:43 KST에 Helm revision 18로 application `0.8.0-alpha.8`, chart `0.10.7`을 배포했다. Source commit은 `bd017f211c58`이며 image manifest digest는 `sha256:3d5d4307295805f215654daa8a94a9a449c78e3cf69bf94cb4389b7deb04f56a`, OCI chart digest는 `sha256:fae95f79c9e28c5971b74058161edac056a8407c1390abdf427f96e2b87425bd`다.
+
+첫 upgrade에서 삭제된 fixture row를 Server bootstrap이 다시 polling해 새 Server가 시작되지 않았다. Upgrade를 취소해 revision 17에서 기존 release로 자동 rollback한 뒤, `ensureFixtureRepository`가 활성 fixture ID만 반환하도록 수정하고 PostgreSQL integration test를 추가했다. 고정 image와 chart를 다시 게시한 revision 18은 정상 완료됐다.
+
+| 검증 항목     | 결과                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| 사전 검증     | Vitest 169건 통과, DB integration 20건은 URL 미설정으로 skip; lint·typecheck·Helm lint 통과            |
+| 수정 검증     | 임시 PostgreSQL에서 관련 integration·unit 8건, runtime lint·typecheck 통과                             |
+| Migration     | `0013`–`0015` 적용, migration 총 15개                                                                  |
+| Server/Worker | 각각 `1/1 Ready`, restart 0회, 동일 image digest 적용                                                  |
+| Health/Route  | Helm test 성공, live·ready·startup·dependencies 정상, HTTPRoute Accepted/ResolvedRefs=True             |
+| 운영 데이터   | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 31건, report 26건 유지 |
+| Log           | 배포 후 Server/Worker warning/error 0건                                                                |
+
+이번 image는 PRISM-DEV node에 맞춘 `linux/amd64` 단일 platform이다. Build 환경에서 Dockerfile frontend와 SBOM scanner remote 조회가 완료되지 않아 provenance/SBOM attestation은 포함하지 않았다.
+
 ## 실제 GHES 및 ChatGPT account 등록
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.
