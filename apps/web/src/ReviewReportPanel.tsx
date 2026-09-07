@@ -50,6 +50,7 @@ function ReviewCommentBlock({
       className={`report-unit priority-border-${finding.priority.toLowerCase()}${selected ? ' active' : ''}`}
       aria-label="검토 의견"
       data-comment-id={finding.id}
+      aria-current={selected ? 'true' : undefined}
     >
       <header className="report-unit-meta">
         <MessageSquare size={15} aria-hidden="true" />

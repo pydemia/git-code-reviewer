@@ -4,11 +4,23 @@
 
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
-- 단계: 모델 목록 조회·분석 진행률·구조화된 Comments를 PRISM-DEV Helm revision 21에 배포함
+- 단계: Workspace 배치 변경·가이드·테스트를 commit·push함. 이번 UI 변경은 아직 클러스터에 배포하지 않음
 - 배포 source: `d9f9418a2056bf3fc436c5cb2449ba17ae5eaf52` (`feat/browser-review-service`의 원격 최신 commit을 조회해 fast-forward). Release 설정·기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-08 Workspace 배치 변경 — 미배포
+
+사용자는 Files 전체 펼침 기본값, LNB 숨김 toggle, Chat 약 1.8배 확대, FNB Comments 이동·높이 확대, PR 전체 요약 후 펼쳐진 파일 요약, 선택 전 inline comment, Diff의 반복 line 테두리 제거와 읽기 너비 제한을 요청했다. 구현은 `6224ee6`으로 먼저 push했고 모바일 control·Tab 순서·가이드·검증 기록은 후속 commit에 있다. 마지막 commit은 `git log`를 확인한다.
+
+- `FileTree.tsx`: 기본 전체 펼침, 접은 경로만 state에 저장. 선택 파일의 ancestor 자동 펼침과 green/red 합계·keyboard 지원 유지. LNB는 unmount하지 않아 숨김·복원 뒤 접힌 상태가 남는다.
+- `workspace-layout.ts`, `App.tsx`: LNB/Chat/FNB 기본값 244/569/280px, Chat 최대 800px, Main 최소 360px. 표시 크기를 viewport에 맞춰 계산하되 저장한 크기를 덮어쓰지 않는다. localStorage v2는 기존 v1의 기본 316/176px만 이전하며 직접 지정한 값은 보존한다. LNB toggle은 메인 toolbar에 있고 separator 더블클릭·Home은 해당 패널 초기화다.
+- `ReviewReportPanel.tsx`: Summary에는 PR 전체 요약 → 펼쳐진 파일 요약 → 파일 목록·provenance만 남긴다. 상세 unit block은 FNB Comments에 둔다. 과거 report에 total-summary가 없으면 누락을 안내하며 결과를 재작성하지 않는다. Comments에는 코드 이동·위치 확인·GHES 원문을 유지한다.
+- `ReviewDiff.tsx`: 현재 파일의 모든 inline comment는 선택 전에도 표시한다. 선택 시 시작 line만 강조하며 block 너비는 최대 880px다. File-level과 diff 밖 anchor를 구분한다. 기존 finding deep link는 Code와 Comments를 함께 열고 `tool=evidence`는 Comments로 해석한다.
+- 모바일에서도 FNB tab label과 Split/Unified control을 숨기지 않는다. DOM 순서는 LNB → Main → Comments → Chat이며 시각 순서와 Tab 이동 순서를 맞춘다.
+
+전체 218 tests(39 files, local PostgreSQL integration 포함), lint/typecheck/Web production build와 browser 검증을 통과했다. 상세 근거·합성 screenshot은 [Workspace 배치 검증](verification-workspace-layout-2026-09-08.md)에 있다. 실제 GHES·모델·PR 게시 검증은 실행하지 않았다. 이전 배포의 image/chart 값과 PRISM-DEV는 변경하지 않았으며 후속 배포 요청 시 새 image를 build해야 한다. 기존 immutable report·DB·Secret·PVC는 건드리지 않는다.
 
 ### 2026-09-08 최신 배포
 

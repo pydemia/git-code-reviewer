@@ -1,10 +1,10 @@
 # Review Workspace - UI 구현 설계
 
-## Skill/report 확장 (2026-09-07)
+## Workspace 배치·Skill/report 확장 (2026-09-08)
 
-Findings LNB는 Commit Defender의 report 계층을 사용한다. 상단에 제목, 분석 상태, 최고 priority, grade, 실제 검토 완료 파일 수, comment 수, mode와 duration을 표시하고 Raw JSON/Markdown을 제공한다. Overall Summary는 파일별 경로·priority·검토 상태·설명을, AI Comments는 파일별 unit-comment-block과 category·head/mergeBase line range·문제·영향·수정 제안을 보여준다. 설명은 한 줄 말줄임으로 숨기지 않는다. Analyzed File List에는 comment가 없는 파일과 미검토 파일도 포함한다.
+메인의 Summary는 Commit Defender의 report 계층을 사용한다. 상단에 제목, 분석 상태, 최고 priority, grade, 실제 검토 완료 파일 수, comment 수와 duration을 표시하고 Raw JSON/Markdown을 제공한다. 첫 section은 PR 전체 total-summary이며 그 아래에 파일별 경로·priority·검토 상태·overall-summary를 펼쳐서 표시한다. PR 전체 요약이 없는 과거 report는 누락을 안내한다. 상세 AI Comments는 FNB로 옮겨 Evidence를 대체하며 파일별 unit-comment-block과 category·head/mergeBase line range·문제·영향·수정 제안을 보여준다. Summary에 이 block을 중복 표시하지 않는다. Analyzed File List에는 comment가 없는 파일과 미검토 파일도 포함한다.
 
-파일 요약과 comment 선택은 기존 revision 고정 diff 이동을 사용한다. Comment는 해당 line range와 inline 설명을 보여주고 Chat scope를 함께 바꾼다. Base 삭제 line은 mergeBase에 연결한다. 파일 수준의 설명은 임의 line으로 이동시키지 않는다. 오른쪽 Chat, Files tree와 +/− 집계, panel resizing, FNB를 유지한다.
+파일 요약과 comment 선택은 기존 revision 고정 diff 이동을 사용한다. 현재 파일의 comment 아이콘과 inline 설명은 클릭 전에도 모두 표시한다. 선택은 시작 line만 강조하고 Chat scope를 함께 바꾼다. 범위의 모든 줄에 가로 테두리를 반복하지 않는다. Inline comment의 너비는 `min(880px, 100% - 48px)`로 제한한다. Base 삭제 line은 mergeBase에 연결한다. 파일 수준·diff 밖 설명은 임의 line으로 이동시키지 않는다. Files tree는 전부 펼쳐서 시작하며 +/− 집계, keyboard 탐색과 수동 접힘 상태를 유지한다. 메인 toolbar의 toggle로 LNB를 숨겨도 이 상태는 유지된다.
 
 Administration의 `분석 Skills`는 관점/form 목록, SKILL.md 편집기, bundle 저장/활성화와 version history 순서다. Desktop에서는 목록과 편집기를 나란히 두고 작은 화면에서는 위아래로 배치한다. 새 관점 추가, 초안 삭제, enabled 변경, 이전 version 재활성화와 Built-in 복원을 지원한다. 저장하지 않은 초안은 탭 이동 중 유지하고 page 이탈 때 경고한다. 모든 tenant의 새 작업에 적용된다는 범위를 저장 전에 안내한다. 지침은 browser local storage에 보관하지 않는다.
 
@@ -62,39 +62,40 @@ repository, author, review state, priority, draft, updated time filter를 제공
 │ PR: identity · refs · analysis · coverage · merge simulation · refresh    │
 ├───────────────┬────────────────────────────────────────┬───────────────────┤
 │ LNB           │ Main workspace                         │ Chat dock         │
-│ Files         │ split / unified diff                   │ snapshot scope    │
-│ Findings      │ file / symbol / commit                 │ conversation      │
-│ Outline       │ maximized tool                         │ evidence links    │
-│ Impact        │                                        │ composer          │
-├───────────────┴────────────────────────────────────────┴───────────────────┤
-│ FNB: Evidence · Git graph · Impact · Tests                                │
+│ Files         │ Code / Summary                         │ snapshot scope    │
+│ Outline       │ split / unified diff                   │ conversation      │
+│ Impact        │ PR 전체 요약 → 파일별 검토               │ evidence links    │
+│               ├────────────────────────────────────────┤ composer          │
+│ 숨김 toggle    │ Comments · Git graph · Impact · Tests   │                   │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - **Header:** PR identity와 전체 상태를 빠르게 확인하고 refresh/revision 전환을 수행한다.
-- **LNB:** 파일, finding과 code structure를 탐색한다.
-- **Main:** 읽기 너비를 우선하는 diff/code 도구 영역이다.
+- **LNB:** 파일과 code structure를 탐색한다. 기본으로 모든 파일을 펼친다.
+- **Main:** Code와 Summary를 전환한다. PR 전체 요약과 펼쳐진 파일별 검토가 이어진다.
 - **Chat dock:** Review Workspace가 mount된 동안 유지되는 오른쪽 대화 영역이다.
-- **FNB:** evidence와 graph 도구를 compact하게 유지하는 하단 dock이다.
+- **FNB:** 상세 Comments와 graph 도구를 제공하는 중앙 하단 dock이다.
 
 ## 4. Layout contract
 
 | 영역 | 기본값 | 조절 범위 | compact 상태 |
 |---|---:|---:|---:|
-| Global header | 54px | 고정 | 없음 |
-| PR context header | 72px | 고정 | 두 줄 wrap 허용 |
-| LNB | 280px | 220-420px | 1020-1279px에서 220px |
-| Main | remaining | 최소 560px | 폭 880px 미만이면 unified |
-| Chat | 380px | 320-560px | desktop에서 접지 않음 |
-| FNB | 132px | 48px-45vh | 48px tab rail |
+| Global header | 44px | 고정 | 없음 |
+| PR context header | 42px | 고정 | 좁은 화면에서 metadata 축소 |
+| LNB | 244px | 180-420px | toggle로 숨김·표시 |
+| Main | remaining | 최소 360px | viewport 760px 이하 진입 시 unified |
+| Chat | 569px | 240-800px | desktop에서 접지 않음 |
+| FNB | 280px | 120px부터, Main 높이 220px 보존 | 34px tab rail과 scroll 가능한 본문 |
 
 separator는 pointer와 keyboard로 조절 가능하며 `role="separator"`, 방향, 현재 값과 min/max를 제공한다. drag 중 text selection을 막되 mouse release/cancel 후 반드시 복원한다.
 
 layout preference key:
 
 ```text
-gcr:workspace-layout:v2:<user-id>
+git-code-reviewer.workspace-layout.v2
 ```
+
+이 key는 패널 크기만 저장한다. v1의 Chat 316px·FNB 176px 기본값은 최초 이전 시 새 기본값으로 교체하고 직접 지정한 값은 유지한다. 화면에 적용하는 크기만 viewport에 맞춰 제한하므로 창을 다시 넓히면 저장된 크기가 복원된다. 820px 이하에서는 LNB → Main → FNB → Chat 순서로 쌓는다. LNB를 숨기면 해당 영역은 차지하지 않는다. 모바일 FNB tab도 텍스트 label을 유지한다.
 
 값은 user 기본 layout과 최근 사용 repository override 최대 10개를 가진 하나의 versioned JSON document다. 오래된 override는 last-used 순서로 제거한다. 저장 대상은 panel size, selected tab, theme, locale뿐이다. source, diff, finding, report, Chat 내용과 credential은 localStorage/IndexedDB/service worker cache에 저장하지 않는다.
 
@@ -181,7 +182,7 @@ Git graph, Impact와 Tests를 maximize하면 Main을 사용한다. 닫을 때 �
 
 Impact maximize view는 안정된 세 column 또는 동등한 방향 graph를 사용한다. 바깥 column label은 Structure mode에서 `Parent | Selected object | Children`, Dependency mode에서 `Uses | Selected object | Used by`로 바뀌며 두 체계의 label을 동시에 섞지 않는다. Node에는 kind, qualified name, changed 상태와 직접 relation 수를, edge에는 calls/imports/extends/tests 같은 relation과 confidence를 표시한다. Cycle은 끊어서 숨기지 않고 cycle marker로 표시하며 truncated branch에는 `더 보기`와 limitation을 둔다.
 
-Node를 선택하면 definition과 incoming/outgoing reference가 갱신되고, edge를 선택하면 FNB Evidence에 해당 relation을 증명하는 file/line을 표시한다. Changed node/edge는 mergeBase/head 상태를 비교할 수 있으며, 변경되지 않은 downstream object는 finding이 아니라 impact로 표시한다.
+Node를 선택하면 definition과 incoming/outgoing reference가 갱신되고, edge를 선택하면 FNB Impact에 해당 relation을 증명하는 file/line을 표시한다. Changed node/edge는 mergeBase/head 상태를 비교할 수 있으며, 변경되지 않은 downstream object는 finding이 아니라 impact로 표시한다.
 
 ### 7.3 URL selection
 
@@ -233,11 +234,11 @@ assistant response의 citation은 keyboard focus가 가능한 button이다. tool
 
 ## 9. FNB
 
-기본 높이 132px의 compact dock이며 tab rail과 작은 preview를 우선한다.
+기본 높이 280px의 dock이며 tab rail 아래 본문은 독립적으로 scroll한다.
 
 | Tab | compact view | expanded/maximized view |
 |---|---|---|
-| Evidence | selected claim과 locator | claim-evidence chain, omission |
+| Comments | 파일별 unit-comment-block, 코드 이동·위치 확인·GHES 원문 | 코드와 함께 상세 문제·영향·수정 제안 검토 |
 | Git graph | nearby commit lanes | branch/merge graph, commit diff |
 | Impact | direct dependency와 selected edge summary | parent/children 또는 uses/used-by graph, evidence와 coverage |
 | Tests | 추가된 test file/case 요약과 assertion 수 | case 설명, evidence, gap와 confidence |

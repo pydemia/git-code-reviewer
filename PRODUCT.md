@@ -18,9 +18,9 @@ Git Code Reviewer는 사내 GitHub Enterprise Server의 PR을 중앙에서 분�
 Review workspace는 제공된 visual artifact의 구조를 따른다.
 
 - LNB: Files, Outline, Impact 탐색
-- Main: Code, Overall Summary, Commit Defender unit-comment-block 기반 Comments 탭과 maximized analysis tool
+- Main: Code, PR 전체 요약·파일별 검토를 보여주는 Summary와 maximized analysis tool
 - Right dock: analysis revision/materialization-bound Chat
-- FNB: Evidence, Git graph, History, Ownership, object relationships, Impact, Tests
+- FNB: 파일별 unit-comment-block 기반 Comments, Git graph, Impact, Tests. History·Ownership·object relationships는 확장 설계다.
 
 ## 동작
 

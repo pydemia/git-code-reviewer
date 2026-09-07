@@ -27,6 +27,8 @@
 
 ## 데이터와 신뢰 경계
 
+2026-09-08 UI 배치는 메인 Summary와 하단 Comments를 분리한다. Summary의 첫 내용은 total-summary이며 파일별 overall-summary는 펼쳐서 이어진다. 상세 unit-comment-block은 FNB의 Comments와 코드의 inline comment로 제공한다. Inline comment는 선택하지 않아도 표시한다. 전체 요약이 없는 기존 report는 누락을 안내하며 immutable report나 API·Markdown·PR 게시 형식을 덮어쓰지 않는다.
+
 `code-segment → unit-comment-block → 파일별 overall-summary → total-summary`를 정본 관계로 사용한다. Segment는 한 파일의 한쪽 revision에 속하며 실제 diff line과 context 범위를 가진다. 하나의 unit에서 무관한 파일이나 segment를 함께 지적하지 않는다. 파일 수준의 설명은 line을 만들어내지 않고 file-level로 표시한다. Window overlap에서 같은 지적은 중복 제거한다.
 
 P0 Praise, P1 Info, P2 Warning, P3 Critical을 유지한다. 대표 priority는 unit들의 최고 값이며 P3가 있으면 BLOCKED다. 같은 파일에 문제 지적이 있으면 P0 Praise로 안전을 혼동시키지 않는다. 위치 확인은 분석 주장의 참·거짓 검증을 뜻하지 않는다. 실제 commit/merge를 막는 hook, Check Run, branch protection 변경은 이 report 기능의 동작이 아니다. 외부 PR 게시 여부는 기존 repository toggle을 따른다.

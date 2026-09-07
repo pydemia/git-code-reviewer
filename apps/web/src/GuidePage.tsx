@@ -412,10 +412,11 @@ export function GuidePage() {
               범위를 표시합니다.
             </p>
             <p>
-              Summary 탭은 전체 상태, Overall Summary와 Analyzed File List를 표시합니다. Comments
-              탭은 Commit Defender의 unit-comment-block에 해당하는 AI review comment를 파일별로
-              표시합니다. Comment를 클릭하면 Code 탭의 해당 head/mergeBase line과 inline 설명으로
-              이동하며 오른쪽 Chat에서 이어서 질문할 수 있습니다. 파일 수준의 설명에는 line을 만들지
+              Summary 탭은 PR 전체 요약, 펼쳐진 파일별 검토 요약과 Analyzed File List를 표시합니다.
+              전체 요약이 없는 과거 report에는 별도 안내가 표시됩니다. 하단 FNB의 Comments는 Commit
+              Defender의 unit-comment-block에 해당하는 AI review comment를 파일별로 표시합니다.
+              Comment를 클릭하면 Code 탭의 해당 head/mergeBase line과 inline 설명으로 이동하며
+              오른쪽 Chat에서 이어서 질문할 수 있습니다. 파일 수준의 설명에는 line을 만들지
               않습니다. Raw JSON과 Markdown에서도 같은 분석 revision을 확인할 수 있습니다.
             </p>
             <p>
@@ -449,7 +450,9 @@ export function GuidePage() {
               <ArrowRight size={17} />
               <div>
                 <strong>2. Summary와 Comments</strong>
-                <span>메인 탭에서 전체 요약과 unit comment를 구분해 확인합니다.</span>
+                <span>
+                  메인 Summary에서 PR·파일 요약을, 하단 Comments에서 상세 의견을 읽습니다.
+                </span>
               </div>
               <ArrowRight size={17} />
               <div>
@@ -460,26 +463,36 @@ export function GuidePage() {
               </div>
             </div>
             <p>
-              하단 FNB에서 Evidence, Git graph, Impact, Tests를 전환할 수 있습니다. Comment를
+              하단 FNB에서 Comments, Git graph, Impact, Tests를 전환할 수 있습니다. Comment를
               선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에 맞춰집니다.
               Chat account가 보이지 않으면 시스템 관리자에게 account assignment와 model policy를
               확인해 달라고 요청하십시오.
+            </p>
+            <p>
+              Code·Summary 왼쪽의 패널 toggle로 Files 탐색 영역을 숨기거나 다시 표시할 수 있습니다.
+              Chat의 기본 너비는 569px, 하단 Comments의 기본 높이는 280px이며 화면 크기에 맞춰
+              조정됩니다. Desktop에서는 경계선을 drag하거나, 경계선에 Tab으로 이동한 뒤 방향키로
+              크기를 조절하세요. 더블클릭 또는 Home으로 해당 패널의 기본 크기를 복원합니다. 이전에
+              직접 조정한 크기는 유지됩니다.
             </p>
           </section>
 
           <section className="guide-section" id="code-navigation">
             <h2>파일 tree와 코드 위치로 이동하기</h2>
             <p>
-              Files에서 폴더를 눌러 접거나 펼칩니다. 각 줄 오른쪽의 초록색 +와 빨간색 −는 추가·삭제
-              line 수입니다. 폴더에는 하위 파일의 합계를 표시하며 알 수 없는 수치는 —로 표시합니다.
-              방향키로 이동·접기·펼치기, Enter로 파일 선택이 가능합니다.
+              Files는 모든 폴더를 펼친 상태로 시작하며 폴더를 눌러 접거나 펼칠 수 있습니다. 각 줄
+              오른쪽의 초록색 +와 빨간색 −는 추가·삭제 line 수입니다. 폴더에는 하위 파일의 합계를
+              표시하며 알 수 없는 수치는 —로 표시합니다. 방향키로 이동·접기·펼치기, Enter로 파일
+              선택이 가능합니다.
             </p>
             <p>
-              Summary의 파일 요약이나 Comments의 Review comment를 선택하면 Code 탭의 해당 파일과
-              line으로 이동하고 코드 아래에 전체 설명을 펼칩니다. P0 Praise는 좋은 변경, P1 Info는
-              선택적 개선, P2 Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드
-              위치 확인’은 diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일
-              전체에 대한 comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
+              Code에는 현재 파일의 comment 아이콘과 설명이 처음부터 표시됩니다. Summary의 파일
+              경로나 Comments의 ‘코드에서 보기’를 선택하면 해당 파일과 line으로 이동합니다. 선택한
+              범위의 시작 line만 강조하며 모든 줄에 테두리를 반복하지 않습니다. 긴 inline comment는
+              읽기 좋은 최대 너비로 표시합니다. P0 Praise는 좋은 변경, P1 Info는 선택적 개선, P2
+              Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드 위치 확인’은
+              diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일 전체에 대한
+              comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
             </p>
           </section>
 

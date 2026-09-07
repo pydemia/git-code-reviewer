@@ -427,7 +427,13 @@ function ReviewWorkspace({
         );
         const requestedTool = search.get('tool');
         setBottomTool(
-          isBottomTool(requestedTool) ? requestedTool : requestedObject ? 'impact' : 'comments',
+          requestedTool === 'evidence'
+            ? 'comments'
+            : isBottomTool(requestedTool)
+              ? requestedTool
+              : requestedObject
+                ? 'impact'
+                : 'comments',
         );
         setSelectedPath(
           requestedFinding
@@ -947,34 +953,6 @@ function ReviewWorkspace({
           )}
         </section>
 
-        <ChatPanel
-          revision={data?.analysis?.revision}
-          headSha={data?.pull.headSha}
-          selectedFinding={selectedFinding}
-          selectedFile={selectedFile?.path}
-          model={chatSession?.model ?? null}
-          accountCatalog={chatAccounts}
-          accountStatus={chatAccountsStatus}
-          reportReady={Boolean(data?.report)}
-          analysisPending={analysisPending}
-          onRetryAccounts={() => setChatAccountsRevision((value) => value + 1)}
-          accountId={chatAccountId}
-          modelName={chatModelName}
-          reasoningEffort={chatEffort}
-          messages={chatMessages}
-          draft={chatDraft}
-          sending={chatSending}
-          onDraftChange={setChatDraft}
-          onAccountChange={selectChatAccount}
-          onModelChange={selectChatModel}
-          onEffortChange={selectChatEffort}
-          onSend={() => void handleChatSubmit()}
-          onCitationSelect={(findingId) => {
-            const finding = data?.report?.findings.find((item) => item.id === findingId);
-            if (finding) selectFinding(finding);
-          }}
-        />
-
         <section className="bottom-panel" aria-label="검토 의견과 분석 도구">
           <nav className="bottom-tabs" role="tablist" aria-label="Review tools">
             <button
@@ -1046,6 +1024,33 @@ function ReviewWorkspace({
             <TestsPanel files={addedTestFiles} onFileSelect={selectFile} />
           ) : null}
         </section>
+        <ChatPanel
+          revision={data?.analysis?.revision}
+          headSha={data?.pull.headSha}
+          selectedFinding={selectedFinding}
+          selectedFile={selectedFile?.path}
+          model={chatSession?.model ?? null}
+          accountCatalog={chatAccounts}
+          accountStatus={chatAccountsStatus}
+          reportReady={Boolean(data?.report)}
+          analysisPending={analysisPending}
+          onRetryAccounts={() => setChatAccountsRevision((value) => value + 1)}
+          accountId={chatAccountId}
+          modelName={chatModelName}
+          reasoningEffort={chatEffort}
+          messages={chatMessages}
+          draft={chatDraft}
+          sending={chatSending}
+          onDraftChange={setChatDraft}
+          onAccountChange={selectChatAccount}
+          onModelChange={selectChatModel}
+          onEffortChange={selectChatEffort}
+          onSend={() => void handleChatSubmit()}
+          onCitationSelect={(findingId) => {
+            const finding = data?.report?.findings.find((item) => item.id === findingId);
+            if (finding) selectFinding(finding);
+          }}
+        />
         {!leftHidden ? (
           <WorkspaceResizeHandle
             name="left"
