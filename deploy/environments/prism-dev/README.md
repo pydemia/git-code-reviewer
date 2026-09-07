@@ -261,6 +261,21 @@ Helm release revision 11에서 `PUBLIC_BASE_URL`을 `http://pr-review.prism.ai`�
 | Helm            | revision 11, Server/Worker `Ready`, Helm test 성공                               |
 | 외부 이름 해석  | 사내 DNS record가 없어 개발 PC hosts 파일에 `10.250.107.189` mapping이 현재 필요 |
 
+### 개인 프로필·비밀번호 변경 배포 검증
+
+Helm release revision 12에서 application `0.8.0-alpha.4`, chart `0.10.2`를 배포했다. OCI chart digest는 `sha256:0aec61dc15a0edc568ceb143660a650f96646b7773cfdfaf1ee72dfaa492eb91`, image manifest digest는 `sha256:b1aedc672c9fda8eaffcea907a459307398c5c9e3940e911964ccce41fb2bf40`이다.
+
+| 검증 항목      | 결과                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------- |
+| Server/Worker  | 각 1개 `Ready`, restart 0회                                                            |
+| Helm/Health    | Helm test 성공, live/ready/dependencies HTTP 200                                       |
+| 프로필         | 임시 Local account의 조회·표시 이름 변경 HTTP 200, 성공 audit 확인                     |
+| 8자 경계값     | 7자 새 비밀번호 HTTP 400, 정확히 8자 새 비밀번호 HTTP 200                              |
+| Session 폐기   | 변경 전 session HTTP 401, 기존 비밀번호 로그인 401, 새 비밀번호 로그인 200             |
+| Audit          | 프로필 변경 성공, 7자 validation 실패, 비밀번호 변경 성공 event 확인                   |
+| Responsive UI  | desktop 1440x1000, mobile 500x1200에서 프로필 layout과 form overflow 없음              |
+| 검증 자료 정리 | 임시 사용자, credential, session, login limit와 관련 audit event 삭제 후 잔여 0건 확인 |
+
 ## 실제 GHES 및 ChatGPT account 등록
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.

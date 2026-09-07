@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: Credential registry outbound polling 수정과 전용 Gateway API HTTPRoute의 PRISM-DEV revision 11 배포·검증 완료
+- 단계: 개인 프로필·비밀번호 변경과 8~128자 정책의 PRISM-DEV revision 12 배포·검증 완료
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -20,6 +20,7 @@
 - GHES token이 부여하는 외부 read 권한과 application repository grant는 별도로 검사한다.
 - 외부 OIDC endpoint를 browser에서 사용할 수 없는 PRISM-DEV에서는 Local account mode로 시스템관리자와 일반사용자를 구분한다.
 - 시스템관리자는 Local account의 role, 활성 상태, tenant membership, repository grant와 비밀번호를 관리한다. 일반사용자는 grant를 받은 repository만 조회한다.
+- 로그인 사용자는 GNB의 `/profile`에서 계정 정보와 tenant를 확인한다. Local account는 표시 이름과 비밀번호를 직접 변경하며, 비밀번호 변경 시 현재 비밀번호를 확인하고 모든 session을 폐기한다. 비밀번호 길이는 8~128자다. 외부 identity는 IdP에서 관리한다.
 - 로그인 사용자는 모든 주요 화면의 GNB에서 `/guide`로 이동해 role별 사용 절차, GHES PAT 최소 권한·입력·회전, repository polling, Review Chat과 오류 진단을 확인한다.
 
 Credential registry는 migration `0009`, Local account는 migration `0010`으로 구현됐다. PRISM-DEV에는 `admin` 시스템관리자와 `reviewer` 일반사용자가 있고 fixture repository grant는 `reviewer`에게 부여되어 있다. Bootstrap 비밀번호는 Kubernetes Secret에만 있으며 Git에는 없다. 실제 ChatGPT account는 등록되어 `gpt-5.6-sol` Chat까지 검증했지만 실제 GHES token과 private repository E2E는 남아 있다. `/admin?tab=github`에서 실제 credential을 등록·검증해야 한다. Local user의 repository grant는 `/admin?tab=users`에서 사후 부여·회수할 수 있다. Group grant 편집 UI는 후속 범위다.
@@ -57,6 +58,8 @@ Keycloak은 선택형 Bitnami chart dependency로 포함했고 enterprise values
 - 전역 분석 Provider immutable version 생성, 연결 테스트, 과거 version 재활성화, deployment 설정 복원
 - tenant별 분석 prompt immutable version 생성, 과거 version 재활성화, built-in prompt 복원
 
+일반사용자와 시스템관리자는 GNB의 `/profile`에서 identity type, 사용자 이름 또는 subject, role과 tenant membership을 확인한다. Local account는 표시 이름과 8~128자 비밀번호를 직접 변경할 수 있다. 비밀번호 변경 성공 시 모든 session을 삭제하고 다시 로그인하도록 하며, schema validation과 현재 비밀번호 오류를 포함한 성공·실패 요청을 audit event로 기록한다. 표시 이름 변경과 audit insert는 같은 database transaction에서 처리한다.
+
 ## 4. 분석 Provider와 prompt 관리
 
 분석 Provider는 모든 tenant가 공유하는 전역 설정이다. `/admin?tab=provider`에서 `disabled` 또는 `openai-compatible` mode, endpoint, 정확한 model ID, timeout과 API key를 설정한다. Endpoint는 deployment가 정한 exact-origin allowlist를 통과해야 하며, 연결 테스트에는 repository source, diff와 tenant prompt를 보내지 않고 `Reply with OK.` 최소 요청만 보낸다.
@@ -92,10 +95,10 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.3`
-- source revision: `e8623d1`
-- manifest digest: `sha256:bb8ec547ccb09e1d9dee9e193bffb714cd66befdd48e25faa6486fba6124d9e6`
-- platform: `linux/amd64`, `linux/arm64`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.4`
+- source revision: `8c9d246`
+- manifest digest: `sha256:b1aedc672c9fda8eaffcea907a459307398c5c9e3940e911964ccce41fb2bf40`
+- platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
 하나의 immutable image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
@@ -103,9 +106,9 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.1`
-- app version: `0.8.0-alpha.3`
-- chart digest: `sha256:73745604f956b420bb5e1b88a43b6bfdb5a886c42daa79b7bf50b2f174db1516`
+- version: `0.10.2`
+- app version: `0.8.0-alpha.4`
+- chart digest: `sha256:0aec61dc15a0edc568ceb143660a650f96646b7773cfdfaf1ee72dfaa492eb91`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -121,7 +124,7 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 16개 파일, 66개 test
+- Vitest 17개 파일, 73개 test
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - ARM64 Docker Desktop의 kind Kubernetes 1.34.8에서 PostgreSQL/Server/Worker/PVC Ready
 - `GITHUB_MODE=registry`, credential registry API 활성화와 dependencies health HTTP 200
@@ -192,6 +195,16 @@ PRISM-DEV release revision 11 전용 HTTPRoute 검증:
 - Helm `PUBLIC_BASE_URL`을 `http://pr-review.prism.ai`로 변경하고 revision 11 rollout 및 Helm test 완료
 - Gateway Service의 LoadBalancer 주소와 사내 DNS record는 없다. 현재 개발 PC에서는 `10.250.107.189 pr-review.prism.ai` hosts 항목이 필요하다.
 
+PRISM-DEV release revision 12 개인 프로필·비밀번호 변경 검증:
+
+- Helm chart `0.10.2`, application `0.8.0-alpha.4`, image digest `sha256:b1aedc67...bf40` 적용
+- Server/Worker 각 1개 `Ready`, restart 0회, Helm test와 live/ready/dependencies HTTP 200
+- 임시 Local account의 프로필 조회·표시 이름 변경과 성공 audit 확인
+- 7자 새 비밀번호 HTTP 400과 실패 audit, 정확히 8자 새 비밀번호 HTTP 200과 성공 audit 확인
+- 변경 전 session과 기존 비밀번호 HTTP 401, 변경한 비밀번호 재로그인 HTTP 200 확인
+- desktop 1440x1000과 mobile 500x1200에서 GNB, 프로필 요약, form 단일 열과 overflow를 확인
+- 검증용 사용자, credential, session, login limit와 audit event 삭제 확인
+
 Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 
 사용자의 enterprise 환경에서 남은 검증:
@@ -227,6 +240,11 @@ PRISM-DEV 전용 HTTPRoute 배포는 다음 commit에 있다.
 - `b466ec8` `feat: add local user authentication and administration`
 - `8f75b5c` `feat: manage user repository grants`
 - `6d567fd` `release: verify local accounts on PRISM-DEV`
+
+개인 프로필과 본인 비밀번호 변경 확장은 다음 commit에 있다.
+
+- `8c9d246` `feat: add personal profile password management`
+- `bb688b8` `release: prepare personal profile deployment`
 
 이번 Provider 관리 확장의 phase commit은 다음과 같다.
 
