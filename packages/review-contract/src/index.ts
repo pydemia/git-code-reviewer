@@ -63,8 +63,8 @@ export const reviewFindingSchema = z.object({
   }),
   title: z.string().min(1),
   problem: z.string().min(1),
-  impact: z.string().min(1),
-  recommendation: z.string().min(1),
+  impact: z.string(),
+  recommendation: z.string(),
   priority: prioritySchema,
   category: findingCategorySchema,
   confidence: confidenceSchema,
@@ -200,6 +200,9 @@ export const legacyAnalysisReportSchema = z.object({
         file: z.string(),
         line: z.number().int().nonnegative(),
         comment: z.string(),
+        title: z.string().optional(),
+        impact: z.string().optional(),
+        recommendation: z.string().optional(),
         category: z.string(),
         priority: z.string(),
       }),
@@ -241,6 +244,9 @@ export function normalizeLegacyReport(
       priority: severityToPriority(finding.severity),
       category: lintRuleCategory(finding.rule),
       comment: finding.message,
+      title: undefined,
+      impact: undefined,
+      recommendation: undefined,
       producer: 'commit-defender-lint',
       rule: finding.rule,
       kind: 'analyzer' as const,
@@ -251,6 +257,9 @@ export function normalizeLegacyReport(
       priority: normalizePriority(finding.priority),
       category: normalizeCategory(finding.category),
       comment: finding.comment,
+      title: finding.title,
+      impact: finding.impact,
+      recommendation: finding.recommendation,
       producer: 'commit-defender-model',
       rule: undefined,
       kind: 'model' as const,
@@ -263,7 +272,7 @@ export function normalizeLegacyReport(
   )) {
     const file = files.get(item.file);
     if (!file) continue;
-    const line = Math.max(1, item.line);
+    const line = item.line;
     const verified = item.line > 0 && file.headLines.has(line);
     const priority = item.priority === 'P3' && !verified ? 'P2' : item.priority;
     const fingerprint = createHash('sha256')
@@ -275,8 +284,7 @@ export function normalizeLegacyReport(
       id: randomUUID(),
       fileId: file.id,
       side: 'head',
-      startLine: line,
-      endLine: line,
+      ...(line > 0 ? { startLine: line, endLine: line } : {}),
       artifactType: 'snapshot-diff',
     };
     findings.push({
@@ -292,10 +300,10 @@ export function normalizeLegacyReport(
           comment: item.comment,
         },
       },
-      title: firstSentence(item.comment),
+      title: item.title?.trim() || firstSentence(item.comment),
       problem: item.comment,
-      impact: '변경된 코드의 안정성 또는 유지보수성에 영향을 줄 수 있습니다.',
-      recommendation: '표시된 근거를 확인하고 변경 의도에 맞게 보완하세요.',
+      impact: item.impact ?? '',
+      recommendation: item.recommendation ?? '',
       priority,
       category: item.category,
       confidence: verified ? 'high' : 'medium',

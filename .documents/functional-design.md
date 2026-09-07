@@ -17,12 +17,14 @@
 - 가변 PR metadata는 snapshot request로만 사용하고 clone 결과를 append-only snapshot materialization으로 고정한다.
 - server가 identity, repository와 snapshot scope를 결정한다.
 - deterministic artifact와 model inference를 분리해 재사용하고 검증한다.
-- retry와 사용자 refresh가 겹쳐도 같은 snapshot/run은 하나만 생성한다.
+- 진행 중 retry와 사용자 refresh는 중복 제거한다. 완료 후의 수동 refresh는 같은 SHA에도 새 immutable snapshot/analysis를 생성한다.
 - 부분 실패를 숨기지 않고 `partial`, coverage와 omission으로 표현한다.
 - source repository의 instruction, command, hook과 executable을 실행하지 않는다.
 - logical architecture와 Kubernetes 배포 topology를 같은 component contract로 유지한다.
 
 ## 2. Architecture
+
+2026-09-07 추가한 account 기반 batch Provider, fixture 격리, tree·line navigation과 report 출처 표시는 [Workspace와 account 분석 설계](review-workspace-and-analysis-account.md)를 따른다. Migration 0013과 새 Server/Worker를 함께 적용해야 한다.
 
 ### 2.1 논리 구조
 

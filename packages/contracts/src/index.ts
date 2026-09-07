@@ -128,10 +128,16 @@ export const analysisPromptListSchema = z.object({
   items: z.array(analysisPromptVersionSchema),
 });
 
-export const analysisProviderModeSchema = z.enum(['disabled', 'openai-compatible']);
+export const analysisProviderModeSchema = z.enum([
+  'disabled',
+  'openai-compatible',
+  'chatgpt-account',
+]);
 export type AnalysisProviderMode = z.infer<typeof analysisProviderModeSchema>;
 
 export const analysisProviderVersionSchema = z.object({
+  chatAccountId: z.string().uuid().nullable().default(null),
+  reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).nullable().default(null),
   id: z.string().uuid(),
   version: z.number().int().positive(),
   mode: analysisProviderModeSchema,
@@ -157,6 +163,8 @@ export const analysisProviderVersionSchema = z.object({
 export type AnalysisProviderVersion = z.infer<typeof analysisProviderVersionSchema>;
 
 export const analysisProviderEffectiveSchema = z.object({
+  chatAccountId: z.string().uuid().nullable().default(null),
+  reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).nullable().default(null),
   source: z.enum(['administration', 'deployment']),
   versionId: z.string().uuid().nullable(),
   version: z.number().int().positive().nullable(),

@@ -22,6 +22,7 @@ import {
 } from '../services/analysis-provider.js';
 import { createGitHubReader, getRepository } from '../services/repositories.js';
 import { registeredGitHubReader } from '../services/account-registry.js';
+import { isFixtureRepository } from '../services/fixture-repository.js';
 import {
   enqueueReviewPublication,
   publishReviewToGitHub,
@@ -227,7 +228,7 @@ async function createMaterialization(
   if (!row) throw new Error('Snapshot request is unavailable');
   const repository = await getRepository(database, row.repository_id);
   if (!repository) throw new Error('GitHub repository is unavailable');
-  if (config.GITHUB_MODE === 'fixture' && !repository.credentialId)
+  if (isFixtureRepository(config.GITHUB_MODE, repository))
     return materializeFixtureSnapshot(row.base_sha, row.head_sha);
   const reader = repository.credentialId
     ? await registeredGitHubReader(
@@ -373,9 +374,11 @@ async function persistMaterialization(
       const providerHash =
         activeProvider?.configurationHash ?? deploymentProvider.configurationHash;
       const modelProfile = activeProvider
-        ? activeProvider.mode === 'openai-compatible' && activeProvider.modelName
-          ? `openai-compatible:${activeProvider.modelName}`
-          : 'disabled'
+        ? activeProvider.mode === 'chatgpt-account'
+          ? `chatgpt-account:${activeProvider.modelName}:${activeProvider.reasoningEffort}`
+          : activeProvider.mode === 'openai-compatible' && activeProvider.modelName
+            ? `openai-compatible:${activeProvider.modelName}`
+            : 'disabled'
         : deploymentProvider.profile;
       const analysis = await connection.query<{ id: string }>(
         `insert into analysis_runs(
@@ -385,7 +388,7 @@ async function persistMaterialization(
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v3:${promptHash}:${providerHash}`,
+          `analysis:${snapshotId}:default:v4:${promptHash}:${providerHash}`,
           modelProfile,
           promptVersionId,
           promptHash,
@@ -469,12 +472,18 @@ async function executeAnalysisJob(
     prompt_version: number | null;
     prompt_hash: string;
     provider_version_id: string | null;
+    tenantId: string;
+    credentialId: string | null;
+    installationId: string;
   }>(
     `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
             prompt.version as prompt_version, analysis.prompt_hash,
-            analysis.provider_version_id
+            analysis.provider_version_id, repository.tenant_id as "tenantId",
+            repository.credential_id as "credentialId", repository.installation_id as "installationId"
      from snapshots snapshot
      join snapshot_requests sr on sr.id = snapshot.request_id
+     join pull_requests pr on pr.id = sr.pull_request_id
+     join repositories repository on repository.id = pr.repository_id
      join analysis_runs analysis on analysis.snapshot_id = snapshot.id and analysis.id = $2
      left join analysis_prompt_versions prompt on prompt.id = analysis.prompt_version_id
      where snapshot.id = $1`,
@@ -483,7 +492,7 @@ async function executeAnalysisJob(
   const row = identity.rows[0];
   if (!row) throw new Error('Analysis snapshot is unavailable');
   const provider = await resolveAnalysisProvider(database, config, row.provider_version_id);
-  const model = createReviewModel(provider);
+  const model = createReviewModel(provider, { database, config, tenantId: row.tenantId });
   const locator = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'snapshot' and scope_id = $1
      and artifact_type = 'diff-index' and version = 1 and state = 'available'`,
@@ -512,7 +521,7 @@ async function executeAnalysisJob(
     headSha: row.head_sha,
     patch: diff.patch,
     files,
-    fixtureMode: config.GITHUB_MODE === 'fixture',
+    fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
     ...(model ? { model } : {}),
     ...(row.prompt_instructions && row.prompt_version
       ? {

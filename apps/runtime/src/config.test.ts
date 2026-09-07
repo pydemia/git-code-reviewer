@@ -192,4 +192,17 @@ describe('loadConfig', () => {
       loadConfig({ ...baseEnvironment, AUTHORIZATION_MODE: 'cerbos' }, 'worker').AUTHORIZATION_MODE,
     ).toBe('cerbos');
   });
+
+  it('allows registry-only analysis administration without relaxing OpenAI credentials', () => {
+    const environment = {
+      ...baseEnvironment,
+      MODEL_ADMIN_ENABLED: 'true',
+      CREDENTIAL_REGISTRY_ENABLED: 'true',
+      CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+    };
+    expect(loadConfig(environment, 'worker').MODEL_ADMIN_ENABLED).toBe(true);
+    expect(() => loadConfig({ ...environment, MODEL_MODE: 'openai-compatible' }, 'worker')).toThrow(
+      'model endpoint',
+    );
+  });
 });

@@ -214,11 +214,15 @@ export function loadConfig(
   if (
     ['serve', 'worker'].includes(command) &&
     result.data.MODEL_ADMIN_ENABLED &&
+    !(
+      result.data.CREDENTIAL_REGISTRY_ENABLED &&
+      validEncryptionKey(result.data.CREDENTIAL_ENCRYPTION_KEY)
+    ) &&
     (!validEncryptionKey(result.data.MODEL_CREDENTIAL_ENCRYPTION_KEY) ||
       providerAllowedOrigins(result.data.MODEL_PROVIDER_ALLOWED_ORIGINS).length === 0)
   ) {
     throw new Error(
-      'Invalid configuration: model administration requires a 32-byte base64 encryption key and allowed origins',
+      'Invalid configuration: model administration requires an encrypted credential registry or a provider encryption key and allowed origins',
     );
   }
   if (

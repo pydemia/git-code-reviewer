@@ -101,7 +101,7 @@ spec:
                   name: {{ .Values.secrets.modelProvider }}
                   key: {{ .Values.model.analysis.apiKeyKey }}
             {{- end }}
-            {{- if .Values.model.analysis.admin.enabled }}
+            {{- if and .Values.model.analysis.admin.enabled .Values.secrets.modelProvider }}
             - name: MODEL_CREDENTIAL_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:

@@ -6,9 +6,103 @@ import {
   expandRelationships,
   OpenAICompatibleReviewModel,
   parseModelReviewJson,
+  modelReviewFromText,
 } from './index.js';
 
 describe('analysis engine', () => {
+  it('preserves Korean file summaries, specific recommendations, and file-level anchors', async () => {
+    const result = modelReviewFromText(
+      JSON.stringify({
+        summary: 'Column을 varchar로 변경합니다.',
+        grade: 'adequate',
+        file_comments: [
+          {
+            file: 'migration.py',
+            line: 0,
+            title: 'Downgrade 데이터 변환 확인',
+            comment: '숫자 외 문자열이 있으면 integer cast가 실패합니다.',
+            category: 'compatibility',
+            priority: 'P2',
+            recommendation: 'Downgrade 전에 변환 불가능한 값을 검사하세요.',
+          },
+        ],
+        per_file_summaries: [
+          {
+            file: 'migration.py',
+            summary: '정수 column을 문자열로 확장합니다.',
+            priority: 'P2',
+            blocking: false,
+            grade: 'adequate',
+          },
+        ],
+      }),
+      ['migration.py'],
+    );
+    const output = await analyzeSnapshot({
+      analysisId: randomUUID(),
+      snapshotId: randomUUID(),
+      baseSha: 'a'.repeat(40),
+      headSha: 'b'.repeat(40),
+      patch: '',
+      fixtureMode: false,
+      files: [
+        {
+          id: randomUUID(),
+          path: 'migration.py',
+          previousPath: null,
+          status: 'added',
+          additions: 1,
+          deletions: 0,
+          patch: '@@ -0,0 +1 @@\n+def upgrade(): pass\n',
+        },
+      ],
+      model: { profile: 'test-model', review: async () => result },
+    });
+    expect(output.report.perFileSummaries[0]?.summary).toBe('정수 column을 문자열로 확장합니다.');
+    expect(output.report.findings[0]?.anchor.startLine).toBeUndefined();
+    expect(output.report.findings[0]?.impact).toBe('');
+    expect(output.report.findings[0]?.recommendation).toContain('변환 불가능');
+    expect(output.report.versions.review).toBe('model');
+  });
+
+  it('never attaches the session demo to an arbitrary file, and distinguishes failed from disabled review', async () => {
+    const input = {
+      analysisId: randomUUID(),
+      snapshotId: randomUUID(),
+      baseSha: 'a'.repeat(40),
+      headSha: 'b'.repeat(40),
+      patch: '',
+      files: [
+        {
+          id: randomUUID(),
+          path: 'migration.py',
+          previousPath: null,
+          status: 'added',
+          additions: 1,
+          deletions: 0,
+          patch: '@@ -0,0 +1 @@\n+def upgrade(): pass\n',
+        },
+      ],
+    };
+    const fixture = await analyzeSnapshot({ ...input, fixtureMode: true });
+    expect(fixture.report.findings).toEqual([]);
+    expect(fixture.report.summary).not.toContain('rotation');
+    const disabled = await analyzeSnapshot({ ...input, fixtureMode: false });
+    expect(disabled.report.versions.review).toBe('unavailable');
+    const failed = await analyzeSnapshot({
+      ...input,
+      fixtureMode: false,
+      model: {
+        profile: 'test',
+        review: async () => {
+          throw Error('sensitive upstream detail');
+        },
+      },
+    });
+    expect(failed.report.versions.review).toBe('failed');
+    expect(failed.state).toBe('partial');
+    expect(JSON.stringify(failed)).not.toContain('sensitive');
+  });
   it('produces verified Commit Defender compatible findings and relationship evidence', async () => {
     const output = await analyzeSnapshot({
       analysisId: randomUUID(),

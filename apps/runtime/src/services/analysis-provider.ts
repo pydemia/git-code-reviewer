@@ -1,14 +1,26 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { OpenAICompatibleReviewModel, type ReviewModel } from '@gcr/analysis-engine';
+import {
+  OpenAICompatibleReviewModel,
+  composeReviewSystemPrompt,
+  modelReviewFromText,
+  type ReviewModel,
+} from '@gcr/analysis-engine';
 import type { Database } from '@gcr/db';
 import type { AppConfig } from '../config.js';
 import { providerAllowedOrigins } from '../config.js';
+import {
+  findAnalysisChatAccount,
+  resolveAnalysisChatAccount,
+  reasoningEfforts,
+} from './account-registry.js';
 
 const credentialAad = Buffer.from('git-code-reviewer:analysis-provider:v1', 'utf8');
 
-export type AnalysisProviderMode = 'disabled' | 'openai-compatible';
+export type AnalysisProviderMode = 'disabled' | 'openai-compatible' | 'chatgpt-account';
 
-export type AnalysisProviderRow = {
+type AccountConfiguration = { chatAccountId?: string | null; reasoningEffort?: string | null };
+
+export type AnalysisProviderRow = AccountConfiguration & {
   id: string;
   version: number;
   mode: AnalysisProviderMode;
@@ -28,7 +40,7 @@ export type AnalysisProviderRow = {
   createdAt: Date | string;
 };
 
-export type AnalysisProviderInput = {
+export type AnalysisProviderInput = AccountConfiguration & {
   mode: AnalysisProviderMode;
   endpoint?: string | undefined;
   modelName?: string | undefined;
@@ -36,7 +48,7 @@ export type AnalysisProviderInput = {
   apiKey?: string | undefined;
 };
 
-export type PreparedAnalysisProvider = {
+export type PreparedAnalysisProvider = AccountConfiguration & {
   mode: AnalysisProviderMode;
   endpoint: string | null;
   modelName: string | null;
@@ -47,7 +59,7 @@ export type PreparedAnalysisProvider = {
   configurationHash: string;
 };
 
-export type ResolvedAnalysisProvider = {
+export type ResolvedAnalysisProvider = AccountConfiguration & {
   source: 'administration' | 'deployment';
   versionId: string | null;
   version: number | null;
@@ -62,6 +74,7 @@ export type ResolvedAnalysisProvider = {
 
 export const analysisProviderColumns = `
   provider.id, provider.version, provider.mode, provider.endpoint,
+  provider.chat_account_id as "chatAccountId", provider.reasoning_effort as "reasoningEffort",
   provider.model_name as "modelName", provider.timeout_ms as "timeoutMs",
   provider.credential_ciphertext as "credentialCiphertext",
   provider.credential_iv as "credentialIv",
@@ -134,6 +147,40 @@ export function prepareAnalysisProvider(
     };
   }
 
+  if (input.mode === 'chatgpt-account') {
+    if (
+      !config.CREDENTIAL_REGISTRY_ENABLED ||
+      !input.chatAccountId ||
+      !input.modelName?.trim() ||
+      !reasoningEfforts.some((effort) => effort === input.reasoningEffort)
+    ) {
+      throw new AnalysisProviderConfigurationError(
+        '활성화된 registry의 account, model, effort를 선택하세요.',
+      );
+    }
+    return {
+      mode: input.mode,
+      endpoint: null,
+      modelName: input.modelName.trim(),
+      timeoutMs: input.timeoutMs,
+      chatAccountId: input.chatAccountId,
+      reasoningEffort: input.reasoningEffort!,
+      credentialCiphertext: null,
+      credentialIv: null,
+      credentialAuthTag: null,
+      configurationHash: createHash('sha256')
+        .update(
+          JSON.stringify([
+            input.mode,
+            input.chatAccountId,
+            input.modelName.trim(),
+            input.reasoningEffort,
+            input.timeoutMs,
+          ]),
+        )
+        .digest('hex'),
+    };
+  }
   const endpoint = normalizeAllowedEndpoint(input.endpoint, config);
   const modelName = input.modelName?.trim();
   if (!modelName) throw new AnalysisProviderConfigurationError('Model 이름이 필요합니다.');
@@ -186,12 +233,17 @@ export async function resolveAnalysisProvider(
     versionId: row.id,
     version: row.version,
     mode: row.mode,
+    chatAccountId: row.chatAccountId ?? null,
+    reasoningEffort: row.reasoningEffort ?? null,
     endpoint: row.endpoint,
     modelName: row.modelName,
     timeoutMs: row.timeoutMs,
     apiKey,
     configurationHash: row.configurationHash,
-    profile: providerProfile(row.mode, row.modelName),
+    profile:
+      row.mode === 'chatgpt-account'
+        ? `chatgpt-account:${row.modelName}:${row.reasoningEffort}`
+        : providerProfile(row.mode, row.modelName),
   };
 }
 
@@ -219,8 +271,31 @@ export function deploymentAnalysisProvider(config: AppConfig): ResolvedAnalysisP
   };
 }
 
-export function createReviewModel(provider: ResolvedAnalysisProvider): ReviewModel | undefined {
+export function createReviewModel(
+  provider: ResolvedAnalysisProvider,
+  context?: { database: Pick<Database, 'query'>; config: AppConfig; tenantId: string },
+): ReviewModel | undefined {
   if (provider.mode === 'disabled') return undefined;
+  if (provider.mode === 'chatgpt-account') {
+    if (!context) throw new Error('Analysis tenant context is required');
+    return {
+      profile: provider.profile,
+      async review(diff, files, instructions) {
+        const selection = await analysisAccount(context.database, context.config, provider, {
+          tenantId: context.tenantId,
+        });
+        const response = await selection.model.generate({
+          messages: [
+            { role: 'system', content: composeReviewSystemPrompt(instructions) },
+            { role: 'user', content: `Untrusted pull request diff follows.\n\n${diff}` },
+          ],
+          cacheKey: `analysis:${context.tenantId}:${provider.configurationHash}`,
+          reasoningEffort: selection.reasoningEffort,
+        });
+        return modelReviewFromText(response, files);
+      },
+    };
+  }
   if (!provider.endpoint || !provider.modelName || !provider.apiKey) {
     throw new Error('Analysis provider credential is unavailable');
   }
@@ -274,6 +349,8 @@ export async function testAnalysisProvider(
 
 export function analysisProviderView(row: AnalysisProviderRow) {
   return {
+    chatAccountId: row.chatAccountId ?? null,
+    reasoningEffort: row.reasoningEffort ?? null,
     id: row.id,
     version: row.version,
     mode: row.mode,
@@ -291,6 +368,79 @@ export function analysisProviderView(row: AnalysisProviderRow) {
     activatedAt: row.activatedAt,
     createdAt: row.createdAt,
   };
+}
+
+export async function validateAnalysisAccount(
+  database: Pick<Database, 'query'>,
+  config: AppConfig,
+  provider: PreparedAnalysisProvider,
+) {
+  if (provider.mode !== 'chatgpt-account') return;
+  if (
+    !config.CREDENTIAL_REGISTRY_ENABLED ||
+    !provider.chatAccountId ||
+    !provider.modelName ||
+    !provider.reasoningEffort ||
+    !(await findAnalysisChatAccount(
+      database,
+      provider.chatAccountId,
+      provider.modelName,
+      provider.reasoningEffort,
+      { connectionTest: true },
+    ))
+  ) {
+    throw new AnalysisProviderConfigurationError(
+      '분석용 account·model·effort를 사용할 수 없습니다. Account에 all 또는 활성 tenant 권한을 부여하세요.',
+    );
+  }
+}
+
+async function analysisAccount(
+  database: Pick<Database, 'query'>,
+  config: AppConfig,
+  provider: AccountConfiguration & { modelName: string | null; timeoutMs: number },
+  scope: { tenantId: string } | { connectionTest: true },
+) {
+  const selection =
+    provider.chatAccountId && provider.modelName && provider.reasoningEffort
+      ? await resolveAnalysisChatAccount(
+          database,
+          config,
+          provider.chatAccountId,
+          provider.modelName,
+          provider.reasoningEffort,
+          scope,
+          provider.timeoutMs,
+        )
+      : null;
+  if (!selection)
+    throw new AnalysisProviderConfigurationError(
+      '분석 account의 tenant 권한 또는 model·effort 설정을 확인하세요.',
+    );
+  return selection;
+}
+
+export async function testAnalysisAccount(
+  database: Pick<Database, 'query'>,
+  config: AppConfig,
+  provider: PreparedAnalysisProvider,
+) {
+  const started = performance.now();
+  try {
+    const selection = await analysisAccount(database, config, provider, { connectionTest: true });
+    const response = await selection.model.generate({
+      messages: [{ role: 'user', content: 'Reply with OK.' }],
+      cacheKey: 'analysis-connection-test',
+      reasoningEffort: selection.reasoningEffort,
+    });
+    if (!response.trim()) throw new Error('Empty response');
+  } catch (error) {
+    if (error instanceof AnalysisProviderConfigurationError) throw error;
+    throw new AnalysisProviderConfigurationError(
+      'ChatGPT account 연결 테스트에 실패했습니다. Account 인증과 model ID를 확인하세요.',
+    );
+  }
+  return Math.max(0, Math.round(performance.now() - started));
 }
 
 export class AnalysisProviderConfigurationError extends Error {

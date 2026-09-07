@@ -56,6 +56,8 @@ export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Profile
 export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
 export type AnalysisProviderSettings = ReturnType<typeof analysisProviderSettingsSchema.parse>;
 export type AnalysisProviderInput = {
+  chatAccountId?: string;
+  reasoningEffort?: string;
   mode: AnalysisProviderMode;
   endpoint?: string;
   modelName?: string;

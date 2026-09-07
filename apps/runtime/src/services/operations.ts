@@ -104,7 +104,9 @@ export async function enqueueSnapshot(
     [
       JSON.stringify({ operationId, snapshotRequestId: requestId, pullRequestId }),
       source === 'manual' ? 10 : 100,
-      `snapshot.materialize:${requestId}`,
+      source === 'manual'
+        ? `snapshot.materialize:${requestId}:${operationId}`
+        : `snapshot.materialize:${requestId}`,
     ],
   );
   await appendEvent(connection, 'pull_request', pullRequestId, 'snapshot.requested', {

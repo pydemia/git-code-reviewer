@@ -166,6 +166,34 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
     ).toBe(1);
   });
 
+  it('creates a new manual job after a completed same-SHA analysis while deduplicating active requests', async () => {
+    const target = await seed();
+    await database.query("update operations set state = 'completed' where scope_id = $1", [
+      target.pullId,
+    ]);
+    await database.query(
+      "update jobs set state = 'completed' where payload->>'pullRequestId' = $1",
+      [target.pullId],
+    );
+    const first = await requestPullRefresh(database, target.repositoryId, 1, admin.id);
+    expect(first?.deduplicated).toBe(false);
+    const duplicate = await requestPullRefresh(database, target.repositoryId, 1, admin.id);
+    expect(duplicate).toMatchObject({ id: first?.id, deduplicated: true });
+    await database.query("update operations set state = 'completed' where id = $1", [first!.id]);
+    await database.query("update jobs set state = 'completed' where payload->>'operationId' = $1", [
+      first!.id,
+    ]);
+    const next = await requestPullRefresh(database, target.repositoryId, 1, admin.id);
+    expect(next?.id).not.toBe(first?.id);
+    expect(
+      (
+        await database.query("select dedupe_key from jobs where payload->>'pullRequestId' = $1", [
+          target.pullId,
+        ])
+      ).rowCount,
+    ).toBe(3);
+  });
+
   it('deletes registration without erasing history or credentials; re-registration restores it without old grants', async () => {
     const target = await seed();
     expect((await remove(target)).statusCode).toBe(200);

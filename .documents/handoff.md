@@ -4,11 +4,29 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: Review 등록 삭제와 사용자 선택 등록 오류 수정을 PRISM-DEV revision 15에 배포·검증 완료
-- remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
+- 단계: PRISM-DEV revision 15 이후 Workspace tree/line navigation과 등록 account 기반 batch 분석을 로컬 구현·검증함. 사용자 요청에 따라 phase commit·push를 진행하며 클러스터에는 아직 배포하지 않음
+- remote: 직전 release `64a4ebd`까지 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 1.0a 2026-09-07 Workspace와 등록 account 기반 batch 분석
+
+사용자는 접이식 Files tree, 각 행의 green additions/red deletions, Findings 클릭 시 관련 코드 line과 inline 설명, Commit Defender처럼 구체적인 한국어 review를 요청했다. 후속 질문에서 batch 분석에도 **등록된 ChatGPT account와 model·effort를 선택**하도록 확정했다. 상세 구현은 [Workspace와 account 분석 설계](review-workspace-and-analysis-account.md)를 따른다.
+
+실제 PAT repository가 전역 `GITHUB_MODE=fixture` 때문에 데모 token rotation report를 받은 것이 잘못된 분석의 원인이었다. Materialization/analysis 양쪽에 명시적 fixture repository 판정을 적용했고 arbitrary 첫 파일에 데모 comment를 붙이는 fallback을 제거했다. 기존 report는 덮어쓰지 않는다. `versions.model`/`versions.review`로 데모·미수행·실패를 표시하고 Provider 설정 후 새로고침을 안내한다. 진행 중 작업은 중복 제거하되 완료 후 수동 refresh는 operation별 새 job을 생성한다. Workspace는 refresh 완료 후 최신 analysis ID로 이동한다.
+
+Migration `0013_analysis_chat_account.sql`과 `chatgpt-account` 분석 Provider mode를 추가했다. Admin은 account·enabled model·allowed effort·Timeout을 선택하고 version으로 저장한다. Worker는 repository tenant 또는 all assignment를 호출 직전에 검사하며 user/group 전용 권한을 빌리지 않는다. Provider version은 credential 사본을 보관하지 않고 기존 registry의 인증·refresh 경로를 공유한다. OpenAI-compatible mode의 별도 key/allowlist 검사는 유지했다. PRISM-DEV values는 `model.analysis.admin.enabled=true`, `secrets.modelProvider=''`로 다음 배포를 준비했다. 실제 account 선택은 DB Admin 설정으로 해야 하며 아직 live 설정을 바꾸지 않았다.
+
+Files tree는 폴더별 합계, keyboard navigation, 모두 접기/펼치기를 제공한다. Findings/파일 요약/Outline 선택 시 정확한 파일과 line으로 이동한다. Inline comment는 문제·영향·수정 제안을 표시하고 Evidence에는 위치 정보를 간결히 남긴다. P0는 Praise이며 Critical은 P3이다. Split은 row 정렬, Unified는 삭제 line도 보존하며 mobile은 Unified로 전환한다. 모델 출력의 per-file summary를 보존하고 없는 영향·수정 설명은 일반론으로 생성하지 않는다. File-level line 0을 가짜 line 1로 바꾸지 않는다. `verified`의 UI 표기는 ‘코드 위치 확인’이며 의미적 검증을 주장하지 않는다.
+
+검증: 26 files의 149 tests 전체 통과(전용 PostgreSQL integration 10개 포함), migration 0001–0013, lint, typecheck, production build, PRISM-DEV Helm lint/template 통과. 실제 Server/Worker + 임시 DB + loopback 모의 모델로 account/model/high effort 호출과 report 저장을 확인했다. 동일 SHA manual refresh가 새 snapshot/analysis를 만들고 completed로 종료됨을 확인했다. 모의 모델 장애 시 partial/AI review 실패도 확인했다. 실제 GitHub/ChatGPT에 source를 보내는 검증과 클러스터 재배포는 수행하지 않았다.
+
+최종 화면은 `.impeccable/review/workspace-{desktop,mobile}.png`, `workspace-findings-{desktop,mobile}.png`, `provider-{desktop,mobile}.png`에 저장했다. Desktop 1440×1000, mobile 390×844에서 tree 접기/펼치기, line 3 이동, inline 설명, Unified의 삭제 line 5개 유지와 horizontal overflow 없음을 확인했다. 기존 삭제 기능 검증 screenshot은 보존했다. 다음 배포 시 Server/Worker를 함께 갱신하고 migration 0013을 적용한 뒤 관리자가 분석 account를 선택하고 기존 실제 PR을 재분석해야 한다.
+
+독립 Impeccable finish review는 해당 UI 확장 범위에서 `ship`으로 완료했다. 판정과 screenshot 목록은 `.impeccable/review/workspace-review.md`에 있다. 기존 history active 카드 경고 2건은 범위 밖 기존 스타일로 남겼으며 신규 시각 세계나 DESIGN 문서를 만들지 않았다.
+
+검증용 Server·Worker·모의 모델 서버·Browser session과 임시 PostgreSQL container를 종료했다. 이 작업에서 생성한 임시 모의 데이터도 삭제했으며 source, screenshot과 검증 기록은 repository에 남겼다. 실제 클러스터와 등록된 account·repository는 변경하지 않았다. 후속 요청은 Commit Defender의 Overall Summary report와 영역별 Skill 관리이며 기존 검증 완료분과 별도 phase로 구현한다.
 
 ### 1.0 2026-09-07 후속 작업: 등록 삭제와 등록 실패 진단
 
@@ -75,7 +93,7 @@ Keycloak은 선택형 Bitnami chart dependency로 포함했고 enterprise values
 
 ## 4. 분석 Provider와 prompt 관리
 
-분석 Provider는 모든 tenant가 공유하는 전역 설정이다. `/admin?tab=provider`에서 `disabled` 또는 `openai-compatible` mode, endpoint, 정확한 model ID, timeout과 API key를 설정한다. Endpoint는 deployment가 정한 exact-origin allowlist를 통과해야 하며, 연결 테스트에는 repository source, diff와 tenant prompt를 보내지 않고 `Reply with OK.` 최소 요청만 보낸다.
+분석 Provider는 모든 tenant가 공유하는 전역 설정이다. `/admin?tab=provider`에서 `disabled`, `openai-compatible`, `chatgpt-account` mode를 선택한다. OpenAI-compatible은 endpoint, 정확한 model ID, Timeout과 API key를 설정하고 deployment exact-origin allowlist를 통과해야 한다. ChatGPT account mode는 registry의 account·model·effort를 선택하며 실제 실행 시 repository tenant/all assignment를 검사한다. 연결 테스트에는 repository source, diff와 tenant prompt를 보내지 않고 `Reply with OK.` 최소 요청만 보낸다.
 
 Provider version은 수정하거나 삭제하지 않는다. API key는 deployment Secret의 32-byte master key로 AES-256-GCM 암호화하며 API와 browser에는 설정 여부만 반환한다. Active 관리자 version이 없으면 deployment 환경 설정으로 fallback한다. 같은 key를 유지한 새 version을 만들 수 있지만, deployment fallback 또는 credential이 없는 version에서 OpenAI-compatible mode를 저장할 때는 새 key가 필요하다.
 

@@ -27,6 +27,17 @@
 
 ## 2. 목표 repository 구조
 
+### 2026-09-07 후속 commit phase
+
+| Phase | 변경 범위 | 완료 조건 |
+|---|---|---|
+| Review provenance | 명시적 fixture 판정, 실제 diff 기반 한국어 prompt, 파일 요약 보존, 모델 수행 상태, 수동 재분석 job | 실제 PAT 대상에 데모가 적용되지 않음, 같은 SHA 재분석, 실패·미수행 회귀 test |
+| Registered analysis account | Migration 0013, account/model/effort Provider version, tenant grant 검증, Admin UI, registry-only Helm 설정 | Credential 복사 없음, 선택값 호출 확인, tenant 경계와 비활성 account 차단, 기존 mode 호환 |
+| Review navigation | 접이식 tree, additions/deletions, Findings→line 이동, inline 설명, split/unified | Tree·diff unit test, desktop/mobile 및 keyboard browser 검증 |
+| Release | 관련 설계·가이드·handoff, source commit, image/chart build, PRISM-DEV 배포 | 사용자 배포 요청 후 수행. Migration 적용, rollout·health 확인, 실제 모델 선택 후 재분석 smoke test |
+
+상세 구현은 [Workspace와 account 분석 설계](review-workspace-and-analysis-account.md)에 기록한다. Commit phase 정의는 계획이며 실제 commit·push·배포 완료 여부는 handoff의 현재 상태를 따른다.
+
 ```text
 apps/
   web/                    # React browser application

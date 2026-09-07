@@ -69,6 +69,7 @@ secrets:
   auth: git-code-reviewer-auth
   githubApp: ''
   credentialRegistry: git-code-reviewer-credential-registry
+  modelProvider: '' # Batch 분석은 등록된 account registry의 암호화 key를 사용한다.
 
 credentialRegistry:
   enabled: true
@@ -94,7 +95,7 @@ model:
   analysis:
     mode: disabled
     admin:
-      enabled: false
+      enabled: true
   chat:
     mode: registry
 

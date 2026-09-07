@@ -65,6 +65,8 @@
 
 ## 4. 사용자와 권한
 
+2026-09-07 Workspace 보완: Files는 접을 수 있는 directory tree와 각 행의 초록색 additions/빨간색 deletions를 제공한다. 파일 요약·finding·praise를 선택하면 해당 snapshot의 코드 line으로 이동하고 inline 설명을 표시한다. 실제 repository에 fixture report를 적용하지 않으며 데모·모델 미수행·실패를 구분한다. 관리자는 등록 ChatGPT account·model·effort를 자동 분석 Provider에도 선택할 수 있고 Worker는 repository tenant/all assignment를 검사한다. 상세 동작과 수용 조건은 [Workspace와 account 분석 설계](review-workspace-and-analysis-account.md)를 따른다.
+
 | 사용자 | 허용 작업 |
 |---|---|
 | Reviewer/PR author | 허용된 repository/PR 조회, report 탐색, refresh 요청, 개인 Chat |

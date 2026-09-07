@@ -155,11 +155,66 @@ export async function resolveChatAccountSelection(
   );
   const row = result.rows[0];
   if (!row || !row.allowedEfforts.includes(effort)) return null;
+  return hydrateChatAccount(database, config, row, effort, config.CHAT_MODEL_TIMEOUT_MS);
+}
+
+/** Worker는 user/group 권한을 빌리지 않고 repository의 tenant grant를 확인한다. */
+export async function findAnalysisChatAccount(
+  database: Pick<Database, 'query'>,
+  accountId: string,
+  modelName: string,
+  effort: string,
+  scope: { tenantId: string } | { connectionTest: true },
+) {
+  const result = await database.query<ChatAccountSelectionRow>(
+    `select account.id, account.display_name as "displayName", account.endpoint,
+            account.installation_id as "installationId", account.credential_version as "credentialVersion",
+            account.credential_ciphertext as "credentialCiphertext", account.credential_iv as "credentialIv",
+            account.credential_auth_tag as "credentialAuthTag", model.model_id as "modelName",
+            model.display_name as "modelDisplayName", model.allowed_efforts as "allowedEfforts",
+            model.default_effort as "defaultEffort"
+     from chat_accounts account join chat_account_models model on model.account_id = account.id
+     where account.id = $1 and model.model_id = $2 and account.enabled and model.enabled
+       and exists (select 1 from chat_account_assignments assignment
+         where assignment.account_id = account.id and assignment.enabled and (
+           (assignment.scope_type = 'all' and assignment.scope_id = '*') or
+           (assignment.scope_type = 'tenant' and exists (
+             select 1 from tenants tenant where tenant.id::text = assignment.scope_id and tenant.enabled
+               and ($3::text is null or tenant.id::text = $3)
+           ))
+         ))`,
+    [accountId, modelName, 'tenantId' in scope ? scope.tenantId : null],
+  );
+  const row = result.rows[0];
+  return row?.allowedEfforts.includes(effort) ? row : null;
+}
+
+export async function resolveAnalysisChatAccount(
+  database: Pick<Database, 'query'>,
+  config: AppConfig,
+  accountId: string,
+  modelName: string,
+  effort: string,
+  scope: { tenantId: string } | { connectionTest: true },
+  timeoutMs: number,
+) {
+  if (!config.CREDENTIAL_REGISTRY_ENABLED) return null;
+  const row = await findAnalysisChatAccount(database, accountId, modelName, effort, scope);
+  return row ? hydrateChatAccount(database, config, row, effort, timeoutMs) : null;
+}
+
+function hydrateChatAccount(
+  database: Pick<Database, 'query'>,
+  config: AppConfig,
+  row: ChatAccountSelectionRow,
+  effort: string,
+  timeoutMs: number,
+): ChatAccountSelection {
   const authJson = decryptCredential(row, config.CREDENTIAL_ENCRYPTION_KEY, 'chat-account');
   const model = new RegisteredChatGptAccountModel({
     name: row.modelName,
     endpoint: row.endpoint,
-    timeoutMs: config.CHAT_MODEL_TIMEOUT_MS,
+    timeoutMs,
     authJson,
     installationId: row.installationId,
     refreshUrl: config.CHATGPT_ACCOUNT_REFRESH_ENDPOINT,

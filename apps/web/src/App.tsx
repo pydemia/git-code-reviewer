@@ -50,6 +50,9 @@ import { AppHeader } from './AppHeader.tsx';
 import { GuidePage } from './GuidePage.tsx';
 import { LoginPage } from './LoginPage.tsx';
 import { ProfilePage } from './ProfilePage.tsx';
+import { FileTree } from './FileTree.tsx';
+import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
+import { firstChangedLine, priorityLabels } from './review-diff.ts';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
@@ -251,6 +254,7 @@ function ReviewWorkspace({
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
+  const [codeTarget, setCodeTarget] = useState<CodeTarget | null>(null);
   const [reviewMode, setReviewMode] = useState<ReviewMode>('files');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [bottomTool, setBottomTool] = useState<BottomTool>('evidence');
@@ -263,7 +267,17 @@ function ReviewWorkspace({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatSending, setChatSending] = useState(false);
-  const [diffMode, setDiffMode] = useState<'split' | 'unified'>('split');
+  const [diffMode, setDiffMode] = useState<'split' | 'unified'>(() =>
+    window.innerWidth <= 760 ? 'unified' : 'split',
+  );
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 760px)');
+    const useUnified = () => {
+      if (narrow.matches) setDiffMode('unified');
+    };
+    narrow.addEventListener('change', useUnified);
+    return () => narrow.removeEventListener('change', useUnified);
+  }, []);
   const [workspaceLayout, setWorkspaceLayout] = useState(() => {
     try {
       return parseWorkspaceLayout(window.localStorage.getItem(WORKSPACE_LAYOUT_STORAGE_KEY));
@@ -368,6 +382,7 @@ function ReviewWorkspace({
           (finding) => finding.id === requestedFindingId,
         );
         setSelectedFindingId(requestedFinding?.id ?? null);
+        setCodeTarget(requestedFinding ? { ...requestedFinding.anchor, request: 0 } : null);
         setReviewMode(requestedFinding ? 'findings' : 'files');
         const requestedObjectId = search.get('symbol');
         const requestedObject = workspace.objects.find((object) => object.id === requestedObjectId);
@@ -488,12 +503,17 @@ function ReviewWorkspace({
       const refresh = await refreshPull(data.pull.repositoryId, data.pull.number);
       const operation = await waitForSnapshot(refresh.operationId, controller.signal);
       if (operation.state === 'failed') throw new Error('Snapshot failed');
-      const workspace = analysisId
-        ? await loadAnalysisWorkspace(analysisId, controller.signal)
-        : await loadWorkspace(data.pull.repositoryId, data.pull.number, controller.signal);
+      const workspace = await loadWorkspace(
+        data.pull.repositoryId,
+        data.pull.number,
+        controller.signal,
+      );
+      if (workspace.analysis)
+        window.history.replaceState(null, '', `/reviews/${workspace.analysis.id}`);
       setData(workspace);
       setSelectedPath(initialSelectedPath(workspace));
       setSelectedFindingId(null);
+      setCodeTarget(null);
       setStatus('ready');
     } catch (error) {
       console.error(error);
@@ -505,10 +525,9 @@ function ReviewWorkspace({
 
   const selectedFile = data?.files.find((file) => file.path === selectedPath) ?? data?.files[0];
   const selectedDiff = data?.diff?.files.find((file) => file.path === selectedFile?.path)?.patch;
-  const selectedFinding =
-    data?.report?.findings.find((finding) => finding.id === selectedFindingId) ??
-    data?.report?.findings.find((finding) => finding.priority !== 'P0') ??
-    data?.report?.findings[0];
+  const selectedFinding = data?.report?.findings.find(
+    (finding) => finding.id === selectedFindingId && finding.anchor.fileId === selectedFile?.id,
+  );
   const coveragePercent = data?.report?.coverage.filesChanged
     ? Math.round((data.report.coverage.filesExamined / data.report.coverage.filesChanged) * 100)
     : 0;
@@ -517,6 +536,18 @@ function ReviewWorkspace({
   const selectFile = (path: string) => {
     setSelectedPath(path);
     setSelectedFindingId(null);
+    const file = data?.files.find((item) => item.path === path);
+    const patch = data?.diff?.files.find((item) => item.path === path)?.patch ?? '';
+    setCodeTarget((current) =>
+      file
+        ? {
+            fileId: file.id,
+            side: 'head',
+            ...firstChangedLine(patch),
+            request: (current?.request ?? 0) + 1,
+          }
+        : null,
+    );
     const url = new URL(window.location.href);
     url.search = '';
     window.history.replaceState(null, '', url);
@@ -525,6 +556,8 @@ function ReviewWorkspace({
   const selectFinding = (finding: FindingView) => {
     setSelectedFindingId(finding.id);
     setReviewMode('findings');
+    setBottomTool('evidence');
+    setCodeTarget((current) => ({ ...finding.anchor, request: (current?.request ?? 0) + 1 }));
     const file = data?.files.find((item) => item.id === finding.anchor.fileId);
     if (file) setSelectedPath(file.path);
     const link = finding.links.find((item) => item.rel === 'finding');
@@ -532,6 +565,13 @@ function ReviewWorkspace({
   };
 
   const selectObject = (objectId: string) => {
+    const anchor = data?.objects.find((item) => item.id === objectId)?.definition;
+    const file = data?.files.find((item) => item.id === anchor?.fileId);
+    if (file && anchor) {
+      setSelectedPath(file.path);
+      setSelectedFindingId(null);
+      setCodeTarget((current) => ({ ...anchor, request: (current?.request ?? 0) + 1 }));
+    }
     setSelectedObjectId(objectId);
     setBottomTool('impact');
     const currentAnalysisId = data?.analysis?.id;
@@ -584,7 +624,14 @@ function ReviewWorkspace({
             {refreshing
               ? 'Snapshot 준비 중'
               : data?.report
-                ? `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
+                ? data.report.versions.model?.startsWith('fixture')
+                  ? '데모 분석'
+                  : data.report.versions.review === 'failed'
+                    ? 'AI review 실패'
+                    : data.report.versions.model === 'disabled' ||
+                        data.report.versions.review === 'unavailable'
+                      ? 'AI review 미수행'
+                      : `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
                 : data?.analysis
                   ? data.analysis.state === 'queued'
                     ? '분석 대기'
@@ -674,12 +721,15 @@ function ReviewWorkspace({
               <Maximize2 size={14} />
             </button>
           </div>
-          <div className={`diff-columns ${diffMode}`}>
-            {selectedDiff ? (
-              <>
-                <CodePane side="base" patch={selectedDiff} />
-                <CodePane side="head" patch={selectedDiff} />
-              </>
+          <div className="review-diff-host">
+            {data?.diff && selectedFile ? (
+              <ReviewDiff
+                patch={selectedDiff ?? ''}
+                fileId={selectedFile!.id}
+                mode={diffMode}
+                target={codeTarget}
+                finding={selectedFinding}
+              />
             ) : (
               <div className="diff-empty">
                 <GitPullRequest size={20} />
@@ -959,20 +1009,13 @@ function ReviewSidebar({
             <span>{data?.files.length ?? 0}</span>
           </div>
           <div className="file-tree">
-            {data?.files.map((file) => (
-              <button
-                className={`tree-row file top-file ${file.id === selectedFileId ? 'active' : ''}`}
-                type="button"
-                key={file.id}
-                onClick={() => onFileSelect(file.path)}
-              >
-                {file.path.includes('test') ? <TestTube2 size={14} /> : <FileCode2 size={14} />}
-                {file.path}
-                <span>
-                  +{file.additions ?? '-'} −{file.deletions ?? '-'}
-                </span>
-              </button>
-            ))}
+            {data?.files.length ? (
+              <FileTree
+                files={data.files}
+                selectedPath={data.files.find((file) => file.id === selectedFileId)?.path ?? ''}
+                onSelect={onFileSelect}
+              />
+            ) : null}
             {status === 'loading' ? (
               <div className="panel-empty">Snapshot을 확인하는 중...</div>
             ) : null}
@@ -986,7 +1029,7 @@ function ReviewSidebar({
       {mode === 'findings' ? (
         <div className="review-list">
           <div className="panel-heading review-list-heading">
-            <span>REPORT</span>
+            <span>전체 요약</span>
             <span className="panel-actions">
               <button
                 className="icon-button small"
@@ -1011,12 +1054,41 @@ function ReviewSidebar({
           {report ? (
             <>
               <div className="report-summary">
-                <strong>{report.grade}</strong>
+                <strong>
+                  {report.versions.model?.startsWith('fixture')
+                    ? '데모 분석'
+                    : report.versions.review === 'failed'
+                      ? 'AI review 실패'
+                      : report.versions.model === 'disabled' ||
+                          report.versions.review === 'unavailable'
+                        ? 'AI review 미수행'
+                        : report.grade}
+                </strong>
+                {report.versions.model?.startsWith('fixture') ? (
+                  <p role="status">
+                    데모 분석 결과입니다. 실제 코드의 AI review가 아닙니다. 분석 Provider를 설정한
+                    뒤 새로고침하여 다시 분석하세요.
+                  </p>
+                ) : null}
+                {report.versions.review === 'failed' ||
+                report.versions.model === 'disabled' ||
+                report.versions.review === 'unavailable' ? (
+                  <p role="status">
+                    분석 Provider의 account·model·effort와 tenant 권한을 확인한 뒤 새로고침하세요.
+                    표시된 Coverage는 코드 수집 범위이며 AI 검토 완료율이 아닙니다.
+                  </p>
+                ) : null}
                 <p>{report.summary}</p>
+                <span className="review-source">
+                  {report.versions.model} · {report.versions.prompt}
+                </span>
                 <span>
                   {report.coverage.filesExamined}/{report.coverage.filesChanged} files ·{' '}
                   {report.durationMs}ms
                 </span>
+              </div>
+              <div className="panel-heading">
+                <span>파일별 요약</span>
               </div>
               <div className="per-file-list">
                 {report.perFileSummaries.map((summary) => {
@@ -1025,17 +1097,25 @@ function ReviewSidebar({
                     <button
                       type="button"
                       key={summary.fileId}
-                      onClick={() => file && onFileSelect(file.path)}
+                      onClick={() => {
+                        const finding = report.findings.find(
+                          (item) => item.anchor.fileId === summary.fileId,
+                        );
+                        if (finding) onFindingSelect(finding);
+                        else if (file) onFileSelect(file.path);
+                      }}
                     >
-                      <b>{summary.priority}</b>
-                      <span>{file?.path ?? 'file'}</span>
+                      <b className={`priority-${summary.priority.toLowerCase()}`}>
+                        {summary.priority}
+                      </b>
+                      <span title={file?.path}>{file?.path.split('/').at(-1) ?? 'file'}</span>
                       <small>{summary.summary}</small>
                     </button>
                   );
                 })}
               </div>
               <div className="panel-heading">
-                <span>ACTIONABLE</span>
+                <span>Review comments</span>
                 <span>{issueFindings.length}</span>
               </div>
               {issueFindings.map((finding) => (
@@ -1146,10 +1226,17 @@ function FindingRow({
       type="button"
       onClick={() => onSelect(finding)}
     >
-      <b>{finding.priority}</b>
+      <b
+        className={`priority-${finding.priority.toLowerCase()}`}
+        title={priorityLabels[finding.priority]}
+      >
+        {finding.priority}
+      </b>
       <span>{finding.title}</span>
       <small>
-        {path ?? 'file'}:{finding.anchor.startLine ?? 1} · {finding.category}
+        {finding.category} ·{' '}
+        {finding.anchor.startLine ? `line ${finding.anchor.startLine}` : '파일 전체'} ·{' '}
+        {path?.split('/').at(-1) ?? 'file'}
       </small>
     </button>
   );
@@ -1532,7 +1619,11 @@ function EvidenceContent({
   headSha: string | undefined;
 }) {
   if (!finding) {
-    return <div className="panel-empty evidence-empty">표시할 verified evidence가 없습니다.</div>;
+    return (
+      <div className="panel-empty evidence-empty">
+        Findings에서 항목을 선택하면 관련 코드와 설명이 표시됩니다.
+      </div>
+    );
   }
   const ghesLink = finding.links.find((link) => link.rel === 'ghes' && link.available);
   return (
@@ -1542,8 +1633,10 @@ function EvidenceContent({
       </div>
       <div>
         <strong>{finding.title}</strong>
-        <p>{finding.problem}</p>
-        <p className="recommendation">{finding.recommendation}</p>
+        <p>
+          {finding.category} ·{' '}
+          {finding.anchor.startLine ? `line ${finding.anchor.startLine}` : '파일 전체'}
+        </p>
       </div>
       <div className="evidence-facts">
         <span>
@@ -1551,9 +1644,8 @@ function EvidenceContent({
         </span>
         <span>
           <CircleCheck size={13} />
-          {finding.verification.status === 'verified' ? '직접 근거' : '제한된 근거'}
+          {finding.verification.status === 'verified' ? '코드 위치 확인' : '코드 위치 확인 제한'}
         </span>
-        <span>신뢰도 {finding.confidence}</span>
         {ghesLink ? (
           <a href={ghesLink.href} target="_blank" rel="noreferrer">
             <ExternalLink size={12} /> GHES
@@ -1562,95 +1654,6 @@ function EvidenceContent({
       </div>
     </div>
   );
-}
-
-type DiffLine = {
-  content: string;
-  kind: 'context' | 'added' | 'removed' | 'placeholder' | 'hunk';
-  number: number | null;
-};
-
-function CodePane({ side, patch }: { side: 'base' | 'head'; patch: string }) {
-  const lines = splitPatch(patch)[side];
-  return (
-    <div className={`code-pane ${side}`}>
-      <div className="pane-label">{side === 'base' ? 'MERGE BASE' : 'HEAD'}</div>
-      <pre>
-        {lines.map((line, index) => (
-          <span className={line.kind} key={`${side}-${index}`}>
-            <i>{line.number ?? ''}</i>
-            <code>{line.content || ' '}</code>
-          </span>
-        ))}
-      </pre>
-    </div>
-  );
-}
-
-function splitPatch(patch: string): { base: DiffLine[]; head: DiffLine[] } {
-  const base: DiffLine[] = [];
-  const head: DiffLine[] = [];
-  const source = patch.split('\n');
-  let baseLine = 0;
-  let headLine = 0;
-
-  for (let index = 0; index < source.length; index += 1) {
-    const line = source[index] ?? '';
-    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
-    if (hunk) {
-      baseLine = Number(hunk[1]);
-      headLine = Number(hunk[2]);
-      const entry = { content: line, kind: 'hunk' as const, number: null };
-      base.push(entry);
-      head.push(entry);
-      continue;
-    }
-    if (baseLine === 0 && headLine === 0) continue;
-
-    if (line.startsWith('-')) {
-      const removed: string[] = [];
-      while ((source[index] ?? '').startsWith('-')) {
-        removed.push((source[index] ?? '').slice(1));
-        index += 1;
-      }
-      const added: string[] = [];
-      while ((source[index] ?? '').startsWith('+')) {
-        added.push((source[index] ?? '').slice(1));
-        index += 1;
-      }
-      index -= 1;
-      const rowCount = Math.max(removed.length, added.length);
-      for (let row = 0; row < rowCount; row += 1) {
-        base.push(
-          removed[row] === undefined
-            ? { content: '', kind: 'placeholder', number: null }
-            : { content: removed[row]!, kind: 'removed', number: baseLine++ },
-        );
-        head.push(
-          added[row] === undefined
-            ? { content: '', kind: 'placeholder', number: null }
-            : { content: added[row]!, kind: 'added', number: headLine++ },
-        );
-      }
-      continue;
-    }
-    if (line.startsWith('+')) {
-      base.push({ content: '', kind: 'placeholder', number: null });
-      head.push({ content: line.slice(1), kind: 'added', number: headLine++ });
-      continue;
-    }
-    if (line.startsWith(' ') || line === '') {
-      const content = line.startsWith(' ') ? line.slice(1) : '';
-      base.push({ content, kind: 'context', number: baseLine++ });
-      head.push({ content, kind: 'context', number: headLine++ });
-    }
-  }
-  if (base.length === 0) {
-    const empty = { content: 'No textual diff available', kind: 'hunk' as const, number: null };
-    base.push(empty);
-    head.push(empty);
-  }
-  return { base, head };
 }
 
 function initialSelectedPath(workspace: WorkspaceData): string | null {

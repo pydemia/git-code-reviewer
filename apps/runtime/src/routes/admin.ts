@@ -19,6 +19,8 @@ import {
   prepareAnalysisProvider,
   reusableProviderCredential,
   testAnalysisProvider,
+  testAnalysisAccount,
+  validateAnalysisAccount,
 } from '../services/analysis-provider.js';
 import type { AuthorizationResource, AuthorizationService } from '../services/authorization.js';
 import {
@@ -76,8 +78,15 @@ const providerVersionBody = z.discriminatedUnion('mode', [
     timeoutMs: z.number().int().min(1_000).max(600_000),
     apiKey: z.string().trim().min(1).max(16_384).optional(),
   }),
+  z.object({
+    mode: z.literal('chatgpt-account'),
+    chatAccountId: z.string().uuid(),
+    modelName: z.string().trim().min(1).max(200),
+    reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']),
+    timeoutMs: z.number().int().min(1_000).max(600_000),
+  }),
 ]);
-const providerTestBody = providerVersionBody.options[1];
+const providerTestBody = z.union([providerVersionBody.options[1], providerVersionBody.options[2]]);
 
 type PromptRow = {
   id: string;
@@ -451,6 +460,8 @@ export async function registerAdminRoutes(
             mode: active.mode,
             endpoint: active.endpoint,
             modelName: active.modelName,
+            chatAccountId: active.chatAccountId,
+            reasoningEffort: active.reasoningEffort,
             timeoutMs: active.timeoutMs,
             apiKeyConfigured: active.apiKeyConfigured,
             configurationHash: active.configurationHash,
@@ -495,6 +506,7 @@ export async function registerAdminRoutes(
             ? reusableProviderCredential(current, config)
             : undefined;
         const prepared = prepareAnalysisProvider(body, config, reusableCredential);
+        await validateAnalysisAccount(connection, config, prepared);
         hash = prepared.configurationHash;
         await connection.query('update analysis_provider_versions set active = false where active');
         const existing = await connection.query<{ id: string }>(
@@ -509,10 +521,11 @@ export async function registerAdminRoutes(
             `insert into analysis_provider_versions(
                version, mode, endpoint, model_name, timeout_ms,
                credential_ciphertext, credential_iv, credential_auth_tag,
-               configuration_hash, active, created_by, activated_by, activated_at
+               configuration_hash, active, created_by, activated_by, activated_at,
+               chat_account_id, reasoning_effort
              ) values (
                (select coalesce(max(version), 0) + 1 from analysis_provider_versions),
-               $1, $2, $3, $4, $5, $6, $7, $8, true, $9, $9, clock_timestamp()
+               $1, $2, $3, $4, $5, $6, $7, $8, true, $9, $9, clock_timestamp(), $10, $11
              ) returning id`,
             [
               prepared.mode,
@@ -524,6 +537,8 @@ export async function registerAdminRoutes(
               prepared.credentialAuthTag,
               prepared.configurationHash,
               request.user!.id,
+              prepared.chatAccountId ?? null,
+              prepared.reasoningEffort ?? null,
             ],
           );
           providerId = created.rows[0]!.id;
@@ -537,6 +552,8 @@ export async function registerAdminRoutes(
           {
             mode: prepared.mode,
             modelName: prepared.modelName,
+            chatAccountId: prepared.chatAccountId ?? null,
+            reasoningEffort: prepared.reasoningEffort ?? null,
             configurationHash: prepared.configurationHash,
           },
         );
@@ -577,6 +594,7 @@ export async function registerAdminRoutes(
         if (provider.mode === 'openai-compatible') {
           reusableProviderCredential(provider, config);
         }
+        await validateAnalysisAccount(connection, config, provider);
         await connection.query('update analysis_provider_versions set active = false where active');
         const result = await activateProvider(connection, providerId, request.user!.id);
         if (!result.rowCount) {
@@ -594,6 +612,9 @@ export async function registerAdminRoutes(
         await connection.query('commit');
       } catch (error) {
         await connection.query('rollback');
+        if (error instanceof AnalysisProviderConfigurationError) {
+          return providerBadRequest(request, reply, error.message);
+        }
         throw error;
       } finally {
         connection.release();
@@ -643,20 +664,27 @@ export async function registerAdminRoutes(
       const body = providerTestBody.parse(request.body);
       try {
         const current = await getActiveAnalysisProviderRow(database);
-        const apiKey = body.apiKey?.trim() || reusableProviderCredential(current, config);
+        const apiKey =
+          body.mode === 'openai-compatible'
+            ? body.apiKey?.trim() || reusableProviderCredential(current, config)
+            : undefined;
         const prepared = prepareAnalysisProvider(body, config, apiKey);
-        const latencyMs = await testAnalysisProvider({
-          source: 'administration',
-          versionId: null,
-          version: null,
-          mode: prepared.mode,
-          endpoint: prepared.endpoint,
-          modelName: prepared.modelName,
-          timeoutMs: prepared.timeoutMs,
-          apiKey: apiKey ?? null,
-          configurationHash: prepared.configurationHash,
-          profile: `openai-compatible:${prepared.modelName}`,
-        });
+        await validateAnalysisAccount(database, config, prepared);
+        const latencyMs =
+          prepared.mode === 'chatgpt-account'
+            ? await testAnalysisAccount(database, config, prepared)
+            : await testAnalysisProvider({
+                source: 'administration',
+                versionId: null,
+                version: null,
+                mode: prepared.mode,
+                endpoint: prepared.endpoint,
+                modelName: prepared.modelName,
+                timeoutMs: prepared.timeoutMs,
+                apiKey: apiKey ?? null,
+                configurationHash: prepared.configurationHash,
+                profile: `openai-compatible:${prepared.modelName}`,
+              });
         await writeAudit(
           database,
           request,
@@ -928,6 +956,8 @@ async function canManageProvider(
 
 function providerEffectiveView(provider: ReturnType<typeof deploymentAnalysisProvider>) {
   return {
+    chatAccountId: provider.chatAccountId ?? null,
+    reasoningEffort: provider.reasoningEffort ?? null,
     source: provider.source,
     versionId: provider.versionId,
     version: provider.version,

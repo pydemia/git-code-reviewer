@@ -75,7 +75,9 @@ type TenantForm = {
   enabled: boolean;
 };
 type ProviderDraft = {
-  mode: 'disabled' | 'openai-compatible';
+  mode: 'disabled' | 'openai-compatible' | 'chatgpt-account';
+  chatAccountId: string;
+  reasoningEffort: string;
   endpoint: string;
   modelName: string;
   timeoutMs: number;
@@ -125,6 +127,8 @@ export function AdminPage() {
   const [githubConnections, setGithubConnections] = useState<GitHubConnection[]>([]);
   const [adminRepositories, setAdminRepositories] = useState<AdminRepository[]>([]);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>({
+    chatAccountId: '',
+    reasoningEffort: '',
     mode: 'disabled',
     endpoint: '',
     modelName: '',
@@ -388,13 +392,21 @@ export function AdminPage() {
   const providerInput = (): AnalysisProviderInput =>
     providerDraft.mode === 'disabled'
       ? { mode: 'disabled', timeoutMs: providerDraft.timeoutMs }
-      : {
-          mode: 'openai-compatible',
-          endpoint: providerDraft.endpoint,
-          modelName: providerDraft.modelName,
-          timeoutMs: providerDraft.timeoutMs,
-          ...(providerDraft.apiKey.trim() ? { apiKey: providerDraft.apiKey.trim() } : {}),
-        };
+      : providerDraft.mode === 'chatgpt-account'
+        ? {
+            mode: 'chatgpt-account',
+            chatAccountId: providerDraft.chatAccountId,
+            modelName: providerDraft.modelName,
+            reasoningEffort: providerDraft.reasoningEffort,
+            timeoutMs: providerDraft.timeoutMs,
+          }
+        : {
+            mode: 'openai-compatible',
+            endpoint: providerDraft.endpoint,
+            modelName: providerDraft.modelName,
+            timeoutMs: providerDraft.timeoutMs,
+            ...(providerDraft.apiKey.trim() ? { apiKey: providerDraft.apiKey.trim() } : {}),
+          };
 
   const submitProvider = async () => {
     const succeeded = await runMutation(
@@ -572,6 +584,7 @@ export function AdminPage() {
 
           {tab === 'provider' ? (
             <ProviderPanel
+              accounts={chatAccounts}
               data={providerData}
               draft={providerDraft}
               busyKey={busyKey}
@@ -1446,6 +1459,7 @@ function PromptPanel({
 }
 
 function ProviderPanel({
+  accounts,
   data,
   draft,
   busyKey,
@@ -1455,6 +1469,7 @@ function ProviderPanel({
   onActivate,
   onReset,
 }: {
+  accounts: AdminChatAccount[];
   data: AnalysisProviderSettings | null;
   draft: ProviderDraft;
   busyKey: string | null;
@@ -1465,6 +1480,19 @@ function ProviderPanel({
   onReset: () => void;
 }) {
   const editable = data?.editable ?? false;
+  const availableAccounts = accounts.filter(
+    (account) =>
+      account.enabled &&
+      account.assignments.some(
+        (assignment) =>
+          assignment.enabled &&
+          (assignment.scopeType === 'tenant' ||
+            (assignment.scopeType === 'all' && assignment.scopeId === '*')),
+      ),
+  );
+  const account = availableAccounts.find((item) => item.id === draft.chatAccountId);
+  const model = account?.models.find((item) => item.id === draft.modelName && item.enabled);
+  const accountComplete = Boolean(model?.allowedEfforts.includes(draft.reasoningEffort));
   const activeCredentialReusable = Boolean(
     data?.active?.mode === 'openai-compatible' && data.active.apiKeyConfigured,
   );
@@ -1476,7 +1504,8 @@ function ProviderPanel({
   const canSave =
     editable &&
     busyKey === null &&
-    (draft.mode === 'disabled' || openAiComplete) &&
+    (draft.mode === 'disabled' ||
+      (draft.mode === 'chatgpt-account' ? accountComplete : openAiComplete)) &&
     draft.timeoutMs >= 1_000 &&
     draft.timeoutMs <= 600_000;
 
@@ -1484,7 +1513,6 @@ function ProviderPanel({
     <section className="admin-section provider-section">
       <div className="admin-title-row">
         <div>
-          <p className="eyebrow">Analysis runtime</p>
           <h1>분석 Provider</h1>
         </div>
       </div>
@@ -1501,11 +1529,39 @@ function ProviderPanel({
         <span className={data?.effective.mode === 'disabled' ? 'model-off' : 'model-on'}>
           {data?.effective.mode === 'disabled' ? 'Model disabled' : data?.effective.modelName}
         </span>
-        <span>{data?.effective.apiKeyConfigured ? 'Credential configured' : 'No credential'}</span>
+        <span>
+          {data?.effective.mode === 'chatgpt-account'
+            ? `${accounts.find((item) => item.id === data.effective.chatAccountId)?.displayName ?? '등록된 account'} · ${data.effective.reasoningEffort}`
+            : data?.effective.apiKeyConfigured
+              ? 'Credential 설정됨'
+              : '별도 credential 없음'}
+        </span>
       </div>
 
       <div className="provider-editor">
+        <p className="provider-help">
+          Review Chat과 별도로 새 분석에 사용할 account·model·effort를 선택합니다. Worker는
+          repository의 tenant 또는 all 권한이 부여된 account만 사용합니다. 저장한 설정은 새 분석부터
+          적용됩니다. 기존 report를 다시 분석하려면 Workspace에서 새로고침하세요.
+        </p>
         <div className="provider-mode-control" role="group" aria-label="Provider mode">
+          <button
+            type="button"
+            aria-pressed={draft.mode === 'chatgpt-account'}
+            className={draft.mode === 'chatgpt-account' ? 'active' : ''}
+            disabled={!editable || busyKey !== null}
+            onClick={() =>
+              onDraftChange({
+                ...draft,
+                mode: 'chatgpt-account',
+                modelName: '',
+                reasoningEffort: '',
+                chatAccountId: '',
+              })
+            }
+          >
+            등록된 ChatGPT account
+          </button>
           <button
             type="button"
             aria-pressed={draft.mode === 'disabled'}
@@ -1527,26 +1583,101 @@ function ProviderPanel({
         </div>
 
         <div className="provider-form-grid">
-          <label className="field-label provider-endpoint-field">
-            Endpoint
-            <input
-              type="url"
-              value={draft.endpoint}
-              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
-              placeholder="https://models.example.internal/v1/"
-              onChange={(event) => onDraftChange({ ...draft, endpoint: event.target.value })}
-            />
-          </label>
-          <label className="field-label">
-            Model
-            <input
-              value={draft.modelName}
-              maxLength={200}
-              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
-              placeholder="정확한 model ID"
-              onChange={(event) => onDraftChange({ ...draft, modelName: event.target.value })}
-            />
-          </label>
+          {draft.mode === 'chatgpt-account' ? (
+            <>
+              <label className="field-label">
+                ChatGPT account
+                <select
+                  value={draft.chatAccountId}
+                  disabled={!editable || busyKey !== null}
+                  onChange={(event) => {
+                    const selected = availableAccounts.find(
+                      (item) => item.id === event.target.value,
+                    );
+                    const firstModel = selected?.models.find((item) => item.enabled);
+                    onDraftChange({
+                      ...draft,
+                      chatAccountId: event.target.value,
+                      modelName: firstModel?.id ?? '',
+                      reasoningEffort: firstModel?.defaultEffort ?? '',
+                    });
+                  }}
+                >
+                  <option value="">분석에 사용할 account 선택</option>
+                  {availableAccounts.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field-label">
+                Model
+                <select
+                  value={draft.modelName}
+                  disabled={!editable || !account || busyKey !== null}
+                  onChange={(event) =>
+                    onDraftChange({
+                      ...draft,
+                      modelName: event.target.value,
+                      reasoningEffort:
+                        account?.models.find((item) => item.id === event.target.value)
+                          ?.defaultEffort ?? '',
+                    })
+                  }
+                >
+                  <option value="">Model 선택</option>
+                  {account?.models
+                    .filter((item) => item.enabled)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.displayName} · {item.id}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="field-label">
+                Effort
+                <select
+                  value={draft.reasoningEffort}
+                  disabled={!editable || !model || busyKey !== null}
+                  onChange={(event) =>
+                    onDraftChange({ ...draft, reasoningEffort: event.target.value })
+                  }
+                >
+                  <option value="">Effort 선택</option>
+                  {model?.allowedEfforts.map((effort) => (
+                    <option key={effort} value={effort}>
+                      {effort}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="field-label provider-endpoint-field">
+                Endpoint
+                <input
+                  type="url"
+                  value={draft.endpoint}
+                  disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+                  placeholder="https://models.example.internal/v1/"
+                  onChange={(event) => onDraftChange({ ...draft, endpoint: event.target.value })}
+                />
+              </label>
+              <label className="field-label">
+                Model
+                <input
+                  value={draft.modelName}
+                  maxLength={200}
+                  disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+                  placeholder="정확한 model ID"
+                  onChange={(event) => onDraftChange({ ...draft, modelName: event.target.value })}
+                />
+              </label>
+            </>
+          )}
           <label className="field-label">
             Timeout (ms)
             <input
@@ -1561,28 +1692,37 @@ function ProviderPanel({
               }
             />
           </label>
-          <label className="field-label provider-key-field">
-            API key
-            <input
-              type="password"
-              value={draft.apiKey}
-              maxLength={16_384}
-              autoComplete="new-password"
-              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
-              placeholder={activeCredentialReusable ? '설정됨 · 비워 두면 유지' : 'API key'}
-              onChange={(event) => onDraftChange({ ...draft, apiKey: event.target.value })}
-            />
-          </label>
+          {draft.mode !== 'chatgpt-account' ? (
+            <label className="field-label provider-key-field">
+              API key
+              <input
+                type="password"
+                value={draft.apiKey}
+                maxLength={16_384}
+                autoComplete="new-password"
+                disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+                placeholder={activeCredentialReusable ? '설정됨 · 비워 두면 유지' : 'API key'}
+                onChange={(event) => onDraftChange({ ...draft, apiKey: event.target.value })}
+              />
+            </label>
+          ) : null}
         </div>
 
-        <div className="provider-origin-row">
-          <strong>허용 origin</strong>
-          {data?.allowedOrigins.length ? (
-            data.allowedOrigins.map((origin) => <code key={origin}>{origin}</code>)
-          ) : (
-            <span>설정되지 않음</span>
-          )}
-        </div>
+        {draft.mode !== 'chatgpt-account' ? (
+          <div className="provider-origin-row">
+            <strong>허용 origin</strong>
+            {data?.allowedOrigins.length ? (
+              data.allowedOrigins.map((origin) => <code key={origin}>{origin}</code>)
+            ) : (
+              <span>설정되지 않음</span>
+            )}
+          </div>
+        ) : availableAccounts.length === 0 ? (
+          <p role="status">
+            분석용 account가 없습니다. ChatGPT accounts에서 account를 등록하고 all 또는 tenant
+            권한을 부여하세요.
+          </p>
+        ) : null}
 
         <div className="provider-actions">
           <button
@@ -1636,6 +1776,13 @@ function ProviderPanel({
               </span>
               <span>{provider.mode}</span>
               <code>{provider.modelName ?? 'disabled'}</code>
+              {provider.mode === 'chatgpt-account' ? (
+                <span>
+                  {accounts.find((item) => item.id === provider.chatAccountId)?.displayName ??
+                    '등록된 account'}{' '}
+                  · {provider.reasoningEffort}
+                </span>
+              ) : null}
               <code>{provider.configurationHash.slice(0, 12)}</code>
             </div>
             <div className="provider-version-action">
@@ -2635,6 +2782,8 @@ function readTab(): AdminTab {
 
 function providerDraftFrom(settings: AnalysisProviderSettings): ProviderDraft {
   return {
+    chatAccountId: settings.effective.chatAccountId ?? '',
+    reasoningEffort: settings.effective.reasoningEffort ?? '',
     mode: settings.effective.mode,
     endpoint: settings.effective.endpoint ?? '',
     modelName: settings.effective.modelName ?? '',

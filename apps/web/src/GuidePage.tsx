@@ -49,7 +49,9 @@ export function GuidePage() {
           <a href="#profile">개인 프로필</a>
           <a href="#ghes-credential">GHES credential</a>
           <a href="#register-repository">Repository 등록</a>
+          <a href="#analysis-provider">자동 분석 모델 설정</a>
           <a href="#review-flow">Review와 Chat</a>
+          <a href="#code-navigation">파일 tree와 코드 이동</a>
           <a href="#troubleshooting">문제 해결</a>
           <a href="#security">보안 점검</a>
         </aside>
@@ -354,6 +356,33 @@ export function GuidePage() {
             </p>
           </section>
 
+          <section className="guide-section" id="analysis-provider">
+            <h2>등록된 ChatGPT account로 자동 분석하기</h2>
+            <p>
+              시스템 관리자는 Administration → ChatGPT accounts에서 account와 사용할 model ID, 허용
+              effort를 등록하고 분석 대상 repository의 tenant 또는 all 권한을 부여합니다. user·group
+              전용 권한은 대화에만 사용하며 자동 분석에는 사용할 수 없습니다.
+            </p>
+            <p>
+              Administration → 분석 Provider에서 ‘등록된 ChatGPT account’를 선택하고
+              account·model·effort와 Timeout을 지정합니다. ‘연결 테스트’는 코드 없이 짧은 응답만
+              확인합니다. ‘새 버전 저장 및 활성화’를 누르면 이후 생성되는 분석에 적용됩니다. 분석
+              프롬프트는 repository의 tenant 설정을 따릅니다.
+            </p>
+            <p>
+              Review Chat에서 선택한 모델은 자동 분석 설정을 바꾸지 않습니다. 기존 PR을 다시
+              분석하려면 Workspace에서 새로고침하세요. 같은 commit도 새 revision으로 분석하며 이전
+              report는 이력으로 남습니다. Account 인증 갱신은 registry를 공유하지만
+              account·model·effort 설정은 분석 버전에 고정됩니다.
+            </p>
+            <p>
+              ‘데모 분석’은 실제 AI review가 아닙니다. ‘AI review 미수행’ 또는 ‘AI review 실패’가
+              표시되면 분석 Provider 설정, account 인증 상태, model ID, tenant 권한을 확인하고 다시
+              분석하세요. Coverage는 diff에서 확보한 코드 범위이며 테스트 통과율이나 AI 정확도가
+              아닙니다.
+            </p>
+          </section>
+
           <section className="guide-section" id="review-flow">
             <div className="guide-section-heading">
               <MessageSquareText size={19} />
@@ -385,6 +414,22 @@ export function GuidePage() {
               선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에 맞춰집니다.
               Chat account가 보이지 않으면 시스템 관리자에게 account assignment와 model policy를
               확인해 달라고 요청하십시오.
+            </p>
+          </section>
+
+          <section className="guide-section" id="code-navigation">
+            <h2>파일 tree와 코드 위치로 이동하기</h2>
+            <p>
+              Files에서 폴더를 눌러 접거나 펼칩니다. 각 줄 오른쪽의 초록색 +와 빨간색 −는 추가·삭제
+              line 수입니다. 폴더에는 하위 파일의 합계를 표시하며 알 수 없는 수치는 —로 표시합니다.
+              방향키로 이동·접기·펼치기, Enter로 파일 선택이 가능합니다.
+            </p>
+            <p>
+              Findings의 파일 요약이나 Review comment를 선택하면 해당 파일과 line으로 이동하고 코드
+              아래에 전체 설명을 펼칩니다. P0 Praise는 좋은 변경, P1 Info는 선택적 개선, P2
+              Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드 위치 확인’은
+              diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일 전체에 대한
+              comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
             </p>
           </section>
 
