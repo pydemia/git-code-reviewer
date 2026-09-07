@@ -9,11 +9,11 @@ export const reviewPriorityLabels = {
   P3: 'P3 Critical',
 } as const;
 export const reviewStatusLabels = {
-  pass: 'PASS',
-  blocked: 'BLOCKED',
-  incomplete: '분석 미완료',
-  unavailable: 'AI review 미수행',
-  failed: 'AI review 실패',
+  pass: '분석 완료 · PASS',
+  blocked: '분석 완료 · BLOCKED',
+  incomplete: '분석 완료 · 제한 있음',
+  unavailable: '분석 미수행',
+  failed: '분석 실패',
   demo: '데모 분석',
 } as const;
 export const reviewFileStatusLabels = {

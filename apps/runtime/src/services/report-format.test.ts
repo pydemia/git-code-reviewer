@@ -66,7 +66,7 @@ describe('shared Commit Defender report presentation', () => {
     const view = presentReviewReport(report);
     expect(view).toMatchObject({
       state: 'blocked',
-      label: 'BLOCKED',
+      label: '분석 완료 · BLOCKED',
       priority: 'P3',
       filesCompleted: 2,
       mode: 'ai-powered',
@@ -138,8 +138,9 @@ describe('shared Commit Defender report presentation', () => {
       };
       const view = presentReviewReport(changed);
       const markdown = formatReviewMarkdown(changed);
-      expect(view.label).not.toBe('PASS');
+      expect(view.label).not.toContain('PASS');
       expect(markdown).not.toContain('P0 Praise');
+      if (state === 'incomplete') expect(view.label).toBe('분석 완료 · 제한 있음');
       if (state !== 'incomplete') expect(view.showGrade).toBe(false);
     }
     const complete = {
@@ -147,6 +148,7 @@ describe('shared Commit Defender report presentation', () => {
       analysis: { ...report.analysis!, status: 'pass' as const, priority: null },
       findings: [],
     };
+    expect(presentReviewReport(complete).label).toBe('분석 완료 · PASS');
     expect(presentReviewReport(complete).priority).toBeNull();
   });
   it('preserves legacy readability without claiming Skill coverage or synthetic line anchors', () => {

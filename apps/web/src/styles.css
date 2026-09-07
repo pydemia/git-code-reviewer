@@ -2822,12 +2822,22 @@ body.workspace-resizing:has(.resize-bottom) {
   background: #fff0d9;
 }
 .analysis-state.analysis-blocked,
-.analysis-state.analysis-failed {
+.analysis-state.analysis-failed,
+.analysis-state.analysis-cancelled {
   color: #9c241b;
 }
-.analysis-state.analysis-incomplete {
+.analysis-state.analysis-incomplete,
+.analysis-state.analysis-partial {
   color: #8a3c09;
 }
+.analysis-state.analysis-pass,
+.analysis-state.analysis-completed {
+  color: #155e52;
+}
+.analysis-state.analysis-analyzing {
+  color: var(--accent-strong);
+}
+.analysis-state.analysis-queued,
 .analysis-state.analysis-demo,
 .analysis-state.analysis-unavailable {
   color: #59636e;

@@ -232,9 +232,12 @@ function formatRelativeTime(value: string): string {
 }
 
 function formatAnalysisState(state: string | null): string {
+  if (state === 'queued') return '분석 대기';
   if (state === 'analyzing') return '분석 중';
+  if (state === 'completed') return '분석 완료';
   if (state === 'failed') return '분석 실패';
-  if (state === 'partial') return '부분 완료';
+  if (state === 'partial') return '분석 완료 · 제한 있음';
+  if (state === 'cancelled') return '분석 취소';
   return '분석 대기';
 }
 
@@ -624,12 +627,14 @@ function ReviewWorkspace({
         </div>
         <div className="review-actions">
           <span
-            className={`analysis-state${data?.report?.analysis ? ` analysis-${data.report.analysis.status}` : ''}`}
+            className={`analysis-state${data?.report?.analysis ? ` analysis-${data.report.analysis.status}` : data?.analysis?.state ? ` analysis-${data.analysis.state}` : ''}`}
           >
             {data?.report?.analysis && data.report.analysis.status !== 'pass' ? (
               <CircleAlert size={14} />
-            ) : data?.report ? (
+            ) : data?.report || data?.analysis?.state === 'completed' ? (
               <CircleCheck size={14} />
+            ) : data?.analysis?.state === 'failed' || data?.analysis?.state === 'cancelled' ? (
+              <CircleAlert size={14} />
             ) : (
               <Clock3 size={14} />
             )}
@@ -647,9 +652,7 @@ function ReviewWorkspace({
                         ? 'AI review 미수행'
                         : `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
                 : data?.analysis
-                  ? data.analysis.state === 'queued'
-                    ? '분석 대기'
-                    : data.analysis.state
+                  ? formatAnalysisState(data.analysis.state)
                   : '분석 없음'}
           </span>
           <button className="revision-button" type="button">
