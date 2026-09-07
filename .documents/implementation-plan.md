@@ -10,8 +10,8 @@
 | B · `07c84d9` | 기본 SKILL.md, parser/hash, code segment·unit·파일 요약 contract와 tests |
 | C-1 · `359493e` | migration 0014, 관리자 immutable version API/인가/DB integration |
 | C-2 · `5f171f8` | migration 0015, queued Skill 고정, 세 stage 모델 호출, 실패·예산·legacy 회귀 검증 |
-| C-3/D | Skill 편집 UI, Overall Summary/AI Comments/Analyzed File List, API/JSON/Markdown/PR 계층, 가이드 |
-| E | 실제 local Server/Worker와 모의 모델, desktop/mobile browser, packaging/Helm 및 최종 회귀 검증 |
+| C-3/D · `9930f90` | Skill 편집 UI, Overall Summary/AI Comments/Analyzed File List, API/JSON/Markdown/PR 계층, 가이드 |
+| E · 완료 | Local Server/Worker와 모의 모델, desktop/mobile browser, Container/Helm, 189 tests 통과. 최종 근거는 `verification-skill-report-2026-09-07.md` |
 
 현재 추가 요청에는 클러스터 배포가 포함되지 않는다. 배포는 별도 요청 시 Server/Worker와 migration을 함께 적용한다.
 

@@ -4,31 +4,29 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: PRISM-DEV revision 15 이후 Workspace tree/line navigation과 등록 account 기반 batch 분석을 로컬 구현·검증함. 사용자 요청에 따라 phase commit·push를 진행하며 클러스터에는 아직 배포하지 않음
-- remote: 선행 구현 `4ca28e3`, Skill/report 요구사항 `9e5ded5`까지 `origin/feat/browser-review-service`에 push함. 이후 Skill/report phase commit은 git log와 대조할 것
+- 단계: PRISM-DEV revision 15 이후 Workspace tree/line navigation, 등록 account 기반 batch 분석, Skill 관리와 Commit Defender report를 로컬 구현·검증함. 이번 변경은 클러스터에 배포하지 않음
+- remote: 선행 구현 `4ca28e3`, Skill/report `9e5ded5` → `07c84d9` → `359493e` → `5f171f8` → `9930f90`. 최종 검증·문서 commit은 `git log`와 대조할 것
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 진행 중: Commit Defender report와 분석 Skill
+### 1.0b 2026-09-07 Commit Defender report와 분석 Skill
 
-최신 상태: C-2는 `5f171f8`로 push했고 C-3/D를 구현했다. `AnalysisSkillsPanel.tsx`는 SKILL.md 전체 bundle 편집·저장·version history·복원을 제공한다. `ReviewReportPanel.tsx`와 순수 `contracts/report-presentation.ts`가 파일별 Overall Summary, AI Comments, Analyzed File List를 표시한다. API view/JSON은 optional analysis를 유지하고 Markdown·PR publication도 같은 계층을 사용한다. Skill/presentation schema는 browser에서 사용하도록 contracts로 이동했으며 review-contract는 이를 재export한다. 아래의 C-1/B 미연결 기록은 당시 상태이고 현재에는 적용되지 않는다.
+구현 정본은 [Skill/report 설계](skill-based-review-report.md), 최종 근거는 [검증 기록](verification-skill-report-2026-09-07.md)이다. 사용자에게 phase별 commit·push 승인을 받았으며 재배포는 요청받지 않았다. 참조 revision은 `pydemia/commit-defender@47dabfea718729b0ccc685ae173857476040d6ea`이다. VS Code/local Git 결합 때문에 dependency로 도입하지 않고 데이터 관계와 분석 형식을 현재 Server/Worker에 맞게 re-engineering했다.
 
-현재 전체 189 tests(33 files), lint/typecheck/build, Helm lint를 통과했다. Local Server·별도 Worker·PostgreSQL·loopback 모의 모델에서 새 report와 Chat을 확인했고 관리자 Skill 저장/복원/재활성화, exact mergeBase line 이동을 browser로 검증했다. 최종 screenshot은 `.impeccable/review/{skills,structured-report,structured-comments}-{desktop,mobile}.png`다. 첫 Impeccable reviewer가 요청한 mobile 버튼 글자/Report navigation offset을 수정했으며 최종 verdict와 packaging 기록을 마무리해야 한다. 실제 GHES/ChatGPT로 source를 전송하거나 클러스터를 배포하지 않았다.
+- `packages/analysis-engine/skills/*/SKILL.md`: 6 perspective와 3 form. 제한된 scalar frontmatter를 파싱하며 body를 실행하지 않는다. 새 perspective는 enum 수정 없이 추가한다.
+- `routes/analysis-skills.ts`, `services/analysis-skills.ts`, migration 0014: 전역 immutable bundle version 저장·재활성화·Built-in 복원. Admin role/PDP, advisory lock, DB 불변성 trigger, 본문을 제외한 audit을 적용한다.
+- Worker와 migration 0015: queued run에 bundle/hash를 고정하고 실행 시 재검증한다. 활성 설정 변경으로 기존 run을 재해석하지 않는다. Migration 이전 null bundle run만 legacy 경로를 유지한다.
+- `skill-review.ts`, `review-windows.ts`: line 번호가 있는 window(core 80줄, overlap 12줄) → unit-comment-block → 파일별 overall-summary → total-summary. Window는 입력 크기 단위이고 segment는 comment가 지정한 실제 한쪽 revision의 line 범위다. File/category/side/range 검증 후 accepted unit만 집계한다. 기본 32 calls, stage 입력 128,000 bytes를 넘으면 생략을 기록한다.
+- 등록 account/model/effort와 OpenAI-compatible adapter 모두 같은 stage별 contract를 사용한다. P3를 낮추지 않으며 incomplete/failed/unavailable/demo를 PASS와 구분한다. 대상 PR의 SKILL.md나 TODO는 신뢰된 지침이 아니다.
+- `AnalysisSkillsPanel.tsx`: 전체 bundle 편집, perspective 추가·초안 삭제·비활성화, 저장, history 불러오기·재활성화·복원. Tenant prompt와 전역 Skill을 별도로 관리한다.
+- `ReviewReportPanel.tsx`, `contracts/report-presentation.ts`: 전체 상태, 파일별 Overall Summary, AI Comments, Analyzed File List와 Model/Skill provenance. Browser-safe schema를 contracts에 두고 API view/JSON/Markdown/PR publication에 같은 계층을 유지한다. MergeBase comment의 GHES link도 해당 snapshot SHA를 사용한다.
 
-현재 goal은 `.documents/skill-based-review-report.md`의 R1–R10 전체 구현·검증이다. 사용자에게 phase별 commit·push 승인을 받았으며 재배포는 요청받지 않았다. 참조 repo는 `/tmp/gcr-commit-defender-reference.hs2COo/source`에 read-only로 clone했고 revision은 기존 compatibility baseline과 같은 `47dabfea718729b0ccc685ae173857476040d6ea`이다. 아직 이 임시 clone은 삭제하지 않았다.
+전체 189 tests(33 files), lint/typecheck/build, PRISM-DEV Helm lint를 통과했다. 실제 local Server·별도 Worker·PostgreSQL·loopback 모의 모델에서 report 2개와 Chat을 확인했다. Desktop/mobile에서 Skill 저장·복원·재활성화, mergeBase line 이동·inline 설명을 검증했다. Screenshot은 `.impeccable/review/{skills,structured-report,structured-comments}-{desktop,mobile}.png`다. 독립 Impeccable reviewer가 요청한 mobile 버튼 문구와 sticky navigation offset을 수정했으며 verdict pass에서 두 항목 모두 resolved, 해당 수정 범위의 disposition은 ship이다.
 
-Phase B에서 `packages/analysis-engine/skills/*/SKILL.md` 9개, `skills.ts`, `review-windows.ts`, `report-forms.ts`와 tests, review-contract의 `skills.ts`를 추가했다. 기본 Skill은 6 perspective와 3 form이며 새 perspective 이름은 extensible하다. Frontmatter는 제한된 scalar key만 읽고 body는 실행하지 않는다. Bundle은 정규화한 전체 Markdown으로 hash를 계산하고 DB payload 재검증도 지원한다. Window는 모델 입력 크기 단위이며 comment가 지정한 실제 line 범위가 code segment다. Contract는 unit/segment/finding 일대일, 파일 summary 일대다 연결과 coverage 일치를 검증한다. 현재 이 함수들은 아직 Worker나 UI에 연결되지 않았으므로 기능 전체가 완성된 상태가 아니다.
+현재 소스에서 추출한 UI 기준은 root `DESIGN.md`와 `.impeccable/design.json`에 있다. 후속 UI는 기존 gray/teal·한국어·조절 가능한 panel을 유지한다. Local Container build와 non-root/read-only smoke도 통과했고 기본 Skill 9개와 migration 15개를 확인했다. 검증용 Browser/Server/Worker/DB와 임시 파일은 종료·삭제했으며 screenshot과 local 검증 image는 보존했다.
 
-Phase B는 `07c84d9`으로 push했다. Phase C-1은 `routes/analysis-skills.ts`, `services/analysis-skills.ts`, integration test, migration `0014_analysis_skills.sql`, Cerbos `analysis_skill` policy를 추가했다. API는 전역 bundle version 저장/재활성화/기본값 복원을 지원하며 admin role과 PDP를 모두 검사한다. DB trigger가 version 본문 수정/삭제를 금지한다. `analysis_runs.skill_version_id/skill_bundle/skill_hash`는 준비됐지만 아직 Worker에서 저장하거나 소비하지 않는다. 다음 작업은 Worker materialization 완료 시 현재 bundle을 JSONB로 고정하고, 분석 실행 시 `resolvePinnedReviewSkills`로 검증해 pipeline에 전달하는 것이다. Migration 이전 null run은 legacy 경로로 남겨야 하며 현재 active 설정으로 조용히 재해석하지 않는다.
-
-Phase C-1 검증은 local 임시 PostgreSQL에서 전체 169 tests(30 files; Skill integration 5개 포함), Cerbos 35 tests, lint/typecheck와 Helm lint를 통과했다. 관리 UI와 report UI는 아직 기존 상태다. 다음 단계의 실제 모델 테스트에는 기존 두 adapter 모두에 stage별 `unit-comment-block`/`overall-summary`/`total-summary` system prompt를 연결해야 한다. 모델 출력의 summary만 바꾸어 완료라고 하지 않는다. Per-file/window 실패·예산 생략을 별도로 집계하고 unit이 가리키는 head/base line 및 활성 perspective를 검증해야 한다.
-
-Phase C-2에서 위의 Worker 미연결 상태를 해결했다. 작업 생성 시 bundle/hash를 고정하고 DB trigger로 변경을 막는다. 두 adapter의 stage별 prompt와 segment 분석→파일 summary→total summary를 연결했다. 파일·side·range·활성 perspective를 검증한 unit만 summary에 사용하며 accepted P3는 낮추지 않는다. 실패/잘린 출력/예산 생략은 partial로 남기고 unavailable/failed/demo를 PASS와 구분한다. Migration 0015는 custom finding category와 queued bundle 불변성을 적용한다. Null bundle의 migration 이전 작업만 legacy 단일 호출과 normalization을 유지한다. 기본 model call budget은 모든 stage를 합쳐 32회, stage 입력은 128,000 bytes다.
-
-Phase C-2 검증: 전용 PostgreSQL에서 전체 183 tests(32 files), lint/typecheck/production build 통과. Worker 실제 SQL/artifact 경로에서 queue 후 Skill 활성 version 변경에도 원래 snapshot으로 세 stage를 실행했고 custom perspective 저장과 idempotency, legacy run 호환을 확인했다. 등록 account/model/effort adapter의 세 stage 호출도 검사했다. 모두 모의 모델이며 외부 source 전송이나 클러스터 변경은 없다. 다음 단계는 관리자 Skill 편집 UI, report 화면과 JSON/Markdown/PR 게시, browser 및 packaging 최종 검증이다. C-1은 `359493e`까지 push했다. 현재 API report view는 아직 새 analysis metadata를 전달하지 않으므로 UI 연결 시 함께 수정해야 한다.
-
-Impeccable context script는 이전 session 작업에서 이미 실행했다. 다시 실행하지 않는다. 이번 goal의 UI 수정은 아직 시작하지 않았으며 `new-work.md`는 읽었다. UI 직전 craft-floor를 읽고 기존 gray/teal Workspace를 유지한다. 새 report 화면의 desktop/mobile 확인과 독립 finish reviewer는 아직 수행하지 않았다. 이전 Workspace 화면의 ship 판정을 이번 report 확장의 근거로 재사용하지 않는다.
+이전 완료분의 0013부터 최신 0015까지 migration이 다음 배포에 필요하다. Server/Worker를 함께 갱신하고 관리자가 분석 Provider에서 등록 account/model/effort를 선택한 뒤 기존 PR을 새로 분석해야 한다. 기존 immutable report를 새 형식으로 덮어쓰지 않는다. 실제 GHES/ChatGPT로 source를 전송하거나 PR 댓글을 게시하는 live 검증, OCI push와 클러스터 배포는 이번 작업에서 수행하지 않았다.
 
 ### 1.0a 2026-09-07 Workspace와 등록 account 기반 batch 분석
 

@@ -34,6 +34,8 @@
 
 배포된 Web UI에서는 로그인 후 GNB의 `내 프로필`에서 계정 정보와 Local account 비밀번호를 관리한다. `사용 가이드`에서는 GHES PAT 발급·입력, repository polling, Review workspace, Chat과 오류 진단 절차를 확인할 수 있다.
 
+`Administration → 분석 Skills`에서 분석 관점과 report 형식의 SKILL.md를 version으로 관리한다. 새 분석은 고정된 Skill bundle으로 code segment를 검토하고 Overall Summary·AI Comments·Analyzed File List를 제공한다. 상세 범위와 검증 기준은 [Skill 기반 report 설계](.documents/skill-based-review-report.md)를 참조한다.
+
 ```bash
 export POSTGRES_PASSWORD='local-only-password'
 docker compose -f compose.dev.yaml up -d postgres
@@ -53,3 +55,10 @@ pnpm --filter @gcr/runtime exec tsx src/index.ts worker
 ```
 
 OCI image 기본 repository는 `docker.io/pydemia/git-code-reviewer`이며, Helm chart는 [`deploy/helm/git-code-reviewer`](deploy/helm/git-code-reviewer)에 있다. 배포본 chart는 같은 Docker Hub repository에서 `oci://registry-1.docker.io/pydemia/git-code-reviewer`로 받을 수 있다.
+
+TLS inspection 환경에서 image를 빌드할 때는 승인된 사내 CA를 BuildKit secret으로 전달한다. 인증서 검증을 끄지 않으며 CA 파일은 Git이나 최종 image에 복사하지 않는다. 이 설정은 build에만 적용된다. 실행 중 outbound TLS에는 Helm의 `trustedCa` 설정이 별도로 필요하다.
+
+```bash
+docker build --secret id=build_ca,src=/absolute/path/corporate-ca.crt \
+  --tag git-code-reviewer:local .
+```
