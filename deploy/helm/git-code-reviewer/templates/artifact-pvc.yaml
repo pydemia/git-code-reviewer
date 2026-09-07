@@ -1,0 +1,17 @@
+{{- if and (eq .Values.storage.backend "pvc") (not .Values.storage.artifacts.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-artifacts
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+spec:
+  accessModes: {{ toYaml .Values.storage.artifacts.accessModes | nindent 4 }}
+  {{- with .Values.storage.artifacts.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.artifacts.size }}
+{{- end }}
+

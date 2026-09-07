@@ -13,20 +13,20 @@ Git Code Reviewer는 사내 GitHub Enterprise Server의 PR을 중앙에서 분�
 
 ## 사용자 접점
 
-사용자는 사내 HTTPS URL을 일반 browser로 연다. VS Code extension, browser extension과 native client는 제공하지 않는다. 첫 화면은 등록 repository의 PR worklist이며 각 PR에서 dense review workspace로 이동한다.
+사용자는 사내 HTTPS URL을 일반 browser로 연다. VS Code extension, browser extension과 native client는 제공하지 않는다. 첫 화면은 등록 repository의 PR worklist이며 각 PR에서 dense review workspace로 이동한다. GNB의 `내 프로필`에서는 계정 정보를 확인하고 Local account의 표시 이름과 비밀번호를 관리한다. `사용 가이드`는 role별 시작 절차, GHES credential 최소 권한과 입력값, repository polling, Review Chat과 오류 진단을 설명한다.
 
 Review workspace는 제공된 visual artifact의 구조를 따른다.
 
-- LNB: Files, Commit Defender 호환 Findings/Report, Outline, Impact
-- Main: split/unified diff와 maximized analysis tool
+- LNB: Files, Outline, Impact 탐색
+- Main: Code, Overall Summary, Commit Defender unit-comment-block 기반 Comments 탭과 maximized analysis tool
 - Right dock: analysis revision/materialization-bound Chat
 - FNB: Evidence, Git graph, History, Ownership, object relationships, Impact, Tests
 
 ## 동작
 
-Server가 등록 repository를 outbound polling하고 authoritative base/head SHA 변화를 감지한다. Worker는 run별 isolated clone에서 append-only snapshot materialization과 canonical diff를 만든 뒤 Git/AST evidence, model review와 verifier를 거쳐 immutable report를 저장한다. Report는 Commit Defender의 summary, grade, per-file summary, P0-P3/category와 finding normalization을 계승하고 PR coverage, verified evidence와 impact graph를 확장한다. Browser는 clone하거나 source를 local storage에 보관하지 않는다.
+Server가 등록 repository를 outbound polling하고 authoritative base/head SHA 변화를 감지한다. Worker는 run별 isolated clone에서 append-only snapshot materialization과 canonical diff를 만든 뒤 Git/AST evidence, model review와 verifier를 거쳐 immutable report를 저장한다. Report는 Commit Defender의 summary, grade, per-file summary, P0-P3/category와 finding normalization을 계승하고 PR coverage, verified evidence와 impact graph를 확장한다. Repository의 PR 게시 설정이 켜져 있으면 별도 publication job이 결과 요약을 GHES PR timeline의 관리 댓글 하나에 생성하거나 갱신한다. Browser는 clone하거나 source를 local storage에 보관하지 않는다.
 
-MVP는 read-only다. 대상 repository에 GitHub Actions workflow를 설치하지 않고 webhook, Check, status와 review comment write-back을 요구하지 않는다. 일부 분석이 실패하면 성공 결과, coverage와 omission을 포함한 partial report를 제공한다.
+대상 repository에 GitHub Actions workflow나 webhook을 설치하지 않는다. GHES credential은 Metadata/Contents read와 Pull requests read/write만 사용하며 Check, commit status, inline review, 자동 approve/request-changes는 만들지 않는다. 일부 분석이 실패하면 성공 결과, coverage와 omission을 포함한 partial report를 제공한다.
 
 ## 운영 환경
 

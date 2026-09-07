@@ -1,0 +1,138 @@
+name: GitCodeReviewerAuthorization
+description: Tenant RBAC and repository grant boundaries
+
+principals:
+  administrator:
+    id: admin@example.internal
+    roles: [administrator]
+    attr:
+      enabled: true
+      tenantIds: []
+  disabled-administrator:
+    id: disabled-admin@example.internal
+    roles: [administrator]
+    attr:
+      enabled: false
+      tenantIds: []
+  tenant-reviewer:
+    id: reviewer@example.internal
+    roles: [reviewer]
+    attr:
+      enabled: true
+      tenantIds: [tenant-a]
+
+resources:
+  analysis-skills:
+    id: global
+    kind: analysis_skill
+    attr:
+      enabled: true
+  tenant-a:
+    id: tenant-a
+    kind: tenant
+    attr:
+      tenantId: tenant-a
+      enabled: true
+  granted-repository:
+    id: repository-a
+    kind: repository
+    attr:
+      tenantId: tenant-a
+      enabled: true
+      granted: true
+  ungranted-repository:
+    id: repository-b
+    kind: repository
+    attr:
+      tenantId: tenant-a
+      enabled: true
+      granted: false
+  other-tenant-repository:
+    id: repository-c
+    kind: repository
+    attr:
+      tenantId: tenant-b
+      enabled: true
+      granted: true
+  tenant-prompt:
+    id: tenant-a
+    kind: analysis_prompt
+    attr:
+      tenantId: tenant-a
+      enabled: true
+  analysis-provider:
+    id: global
+    kind: analysis_provider
+    attr:
+      enabled: true
+
+tests:
+  - name: Only enabled administrators manage review Skills
+    input:
+      principals: [administrator, disabled-administrator, tenant-reviewer]
+      resources: [analysis-skills]
+      actions: [view, manage]
+    expected:
+      - principal: administrator
+        resource: analysis-skills
+        actions:
+          view: EFFECT_ALLOW
+          manage: EFFECT_ALLOW
+      - principal: disabled-administrator
+        resource: analysis-skills
+        actions:
+          view: EFFECT_DENY
+          manage: EFFECT_DENY
+      - principal: tenant-reviewer
+        resource: analysis-skills
+        actions:
+          view: EFFECT_DENY
+          manage: EFFECT_DENY
+  - name: Administrator manages and tests the analysis provider
+    input:
+      principals: [administrator, disabled-administrator, tenant-reviewer]
+      resources: [analysis-provider]
+      actions: [view, manage, test]
+    expected:
+      - principal: administrator
+        resource: analysis-provider
+        actions:
+          view: EFFECT_ALLOW
+          manage: EFFECT_ALLOW
+          test: EFFECT_ALLOW
+
+  - name: Administrator manages tenant prompts
+    input:
+      principals: [administrator, disabled-administrator, tenant-reviewer]
+      resources: [tenant-prompt]
+      actions: [view, manage]
+    expected:
+      - principal: administrator
+        resource: tenant-prompt
+        actions:
+          view: EFFECT_ALLOW
+          manage: EFFECT_ALLOW
+
+  - name: Reviewer sees only granted repositories in own tenant
+    input:
+      principals: [tenant-reviewer]
+      resources: [granted-repository, ungranted-repository, other-tenant-repository]
+      actions: [view, refresh, chat, update]
+    expected:
+      - principal: tenant-reviewer
+        resource: granted-repository
+        actions:
+          view: EFFECT_ALLOW
+          refresh: EFFECT_ALLOW
+          chat: EFFECT_ALLOW
+
+  - name: Reviewer sees own enabled tenant
+    input:
+      principals: [tenant-reviewer]
+      resources: [tenant-a]
+      actions: [view, update]
+    expected:
+      - principal: tenant-reviewer
+        resource: tenant-a
+        actions:
+          view: EFFECT_ALLOW

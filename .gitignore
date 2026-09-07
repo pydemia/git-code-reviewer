@@ -141,3 +141,9 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Local development and generated artifacts
+artifacts/
+tmp/
+test-results/
+playwright-report/

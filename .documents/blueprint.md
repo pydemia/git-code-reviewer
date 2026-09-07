@@ -8,7 +8,7 @@
 
 기준 제품은 다음 한 문장으로 요약한다.
 
-> 사내 웹서버가 등록된 GHES repository의 PR 변경을 outbound polling으로 감지하고, 격리된 workspace에서 분석한 결과를 브라우저 review workspace로 제공한다.
+> 사내 웹서버가 등록된 GHES repository의 PR 변경을 outbound polling으로 감지하고, 격리된 workspace에서 분석한 결과를 브라우저 review workspace와 GHES PR timeline의 관리 댓글로 제공한다.
 
 ## 2. 핵심 결정
 
@@ -28,9 +28,10 @@
 
 ### 2.3 GitHub write-back
 
-- MVP는 GitHub에 Check, status, review comment를 게시하지 않는 read-only service다.
-- 분석 결과와 진행 상태는 web application에서 확인한다.
-- PR comment나 Check Run은 조직이 필요성을 확인한 뒤 별도 permission과 publish worker를 추가하는 후속 기능이다.
+- Repository별 설정이 활성화되면 completed/partial report의 요약을 GHES PR timeline 댓글로 게시한다.
+- 첫 분석은 관리 댓글을 생성하고 후속 분석은 같은 댓글을 갱신한다.
+- 게시 작업은 분석 job과 분리하며 게시 실패가 저장된 report 상태를 바꾸지 않는다.
+- Check Run, commit status, inline review와 자동 `APPROVE`/`REQUEST_CHANGES`는 게시하지 않는다.
 
 ### 2.4 중앙화 범위
 
@@ -64,6 +65,7 @@ Git Code Reviewer는 PR diff를 요약하는 도구가 아니라, finding에서 
 - browser에서 Files, Findings, Outline, Impact, split diff, Chat, Git graph와 History를 한 작업공간에서 탐색한다.
 - Chat을 analysis revision에 고정하고 모든 기술적 주장에 evidence locator를 연결한다.
 - 일부 analyzer나 model이 실패해도 coverage와 limitation이 있는 partial report를 제공한다.
+- completed/partial report를 repository별 설정에 따라 GHES PR timeline의 단일 관리 댓글로 게시한다.
 - private source, token, prompt가 log나 browser storage로 유출되지 않게 한다.
 
 ### 4.2 MVP 비목표
@@ -72,7 +74,7 @@ Git Code Reviewer는 PR diff를 요약하는 도구가 아니라, finding에서 
 - repository마다 workflow file을 설치하지 않는다.
 - PR branch의 build, test, package script 또는 임의 command를 실행하지 않는다.
 - LLM 결과만으로 merge를 승인하거나 차단하지 않는다.
-- GitHub comment와 inline review를 자동 게시하지 않는다.
+- GitHub Check, commit status, inline review와 자동 merge decision을 게시하지 않는다.
 - 여러 조직을 위한 billing, public signup과 완전한 SaaS multi-tenancy를 구현하지 않는다.
 - VS Code extension, Chrome extension과 native host를 제공하지 않는다.
 - GitLab과 Bitbucket을 동시에 지원하지 않는다.
@@ -83,7 +85,7 @@ Git Code Reviewer는 PR diff를 요약하는 도구가 아니라, finding에서 
 
 - **Reviewer:** PR 위험, 근거, 영향 범위와 누락 test를 조사한다.
 - **PR author:** finding을 확인하고 수정 후 새 snapshot 분석을 요청한다.
-- **Service administrator:** GHES App, repository 등록, model, 보존 기간과 사용자를 관리한다.
+- **Service administrator:** Chat account/model/effort 정책, GHES access-token connection, repository/grant/polling, 보존 기간과 사용자를 관리한다.
 - **Operator:** Kubernetes release, storage, backup, 보존과 audit metadata를 관리한다.
 
 ### 5.2 Browser 사용 흐름
@@ -126,7 +128,7 @@ Reviewer가 `분석 새로고침`을 누르면 해당 PR poll을 background scan
 │ Pull Request API · GraphQL · Git HTTPS              │
 └──────────────────────────▲───────────────────────────┘
                            │ outbound HTTPS only
-                           │ installation access token
+                           │ administrator-registered access token
 ┌──────────────────────────┴───────────────────────────┐
 │ Git Code Reviewer Server                             │
 │                                                      │
@@ -177,24 +179,27 @@ MVP는 하나의 source repository와 하나의 release artifact로 관리한다
 | Git | system Git CLI, argument vector | exact SHA, merge-base, diff, blame와 history 재사용 |
 | Parser | Tree-sitter adapter | 언어별 symbol을 공통 contract로 정규화 |
 | Model | approved provider-neutral adapter | 조직 model 정책과 provider 교체 경계 유지 |
-| Auth | application OIDC 기본, 조건부 reverse proxy identity | 별도 password system 구축을 피하고 사내 identity 재사용 |
+| Auth | 운영은 application OIDC 기본, 조건부 reverse proxy identity, endpoint가 없는 private pilot은 Local account | 사내 identity를 우선 재사용하되 port-forward 검증 환경에도 실제 다중 사용자와 role을 제공 |
 | Streaming | SSE | analysis progress와 Chat token stream에 충분함 |
 
 ## 7. GitHub 연결과 polling
 
-### 7.1 GitHub App
+### 7.1 GHES access-token connection
 
-MVP permission은 read-only로 시작한다.
+Fine-grained PAT은 대상 repository만 선택하고 다음 최소 permission을 사용한다.
 
 - Metadata: Read
 - Contents: Read
-- Pull requests: Read
+- Pull requests: Read and write
+- Issues: No access
 
-server는 App JWT로 installation access token을 발급하고 API, GraphQL과 Git HTTPS에 사용한다. token은 짧게 cache하되 DB, job payload, Git remote URL과 log에 저장하지 않는다.
+시스템 관리자는 GHES instance와 승인된 service identity의 access token을 connection으로 등록한다. `Pull requests: Read and write`는 open PR polling과 PR timeline 댓글 생성·갱신에 사용한다. `POST/PATCH issues/.../comments`는 Pull requests write permission으로 호출하므로 Issues permission은 별도로 부여하지 않는다. Token은 deployment master key로 암호화한 DB row로 보존하고 API header와 ephemeral Git credential helper에서만 복호화한다. DB 평문, job payload, Git remote URL과 log에는 저장하지 않는다. 시스템 관리자는 token으로 실제 조회 가능한 repository만 tenant에 등록하고 repository별 poll interval, PR 게시 활성 상태와 Poll now trigger를 관리한다.
 
 ### 7.2 Repository 등록
 
-관리자는 App installation에서 허용된 repository를 분석 대상으로 등록한다. scheduler는 등록된 repository만 조회한다. 임의 clone URL, owner 또는 repository name을 browser request에서 받지 않고 server-side registry의 numeric ID로 해석한다.
+관리자는 repository 전체 URL을 붙여 넣고 자동 추출된 Owner/Repository를 확인해 분석 대상으로 등록한다. 등록할 때 `reviewPublishingEnabled`를 지정하며 이후 관리 화면에서 게시를 중지하거나 다시 시작할 수 있다. Server는 URL의 origin을 선택한 연결의 Web base URL과 비교하고 등록된 API base URL에서 numeric ID와 canonical owner/name을 조회한다. 입력 URL을 직접 fetch하거나 clone하지 않는다. Scheduler는 등록된 repository만 조회하며 GHES token 권한과 application user/group grant는 별도로 관리한다.
+
+GitHub.com 연결 예시는 API `https://api.github.com`, Web `https://github.com`이다. Organization 경로는 base URL에 넣지 않는다. Repository URL `https://github.com/org-name/repo-name`는 Owner `org-name`, Repository `repo-name`로 추출한다. 사내 GHES는 별도 host와 API `/api/v3`를 사용한다.
 
 ### 7.3 Poll state
 
@@ -229,6 +234,17 @@ snapshot_materialization_id/analysis_profile/analyzer_version/model_profile/poli
 ```
 
 snapshot request는 관측값의 중복을 합치고, worker는 merge-base resolution을 포함한 append-only materialization을 만든다. `unresolved` 뒤 `exact`가 확인되면 새 materialization을 만들며 기존 report/Chat의 의미를 바꾸지 않는다. 같은 request와 정책에서 서로 다른 exact merge-base가 나오면 publish하지 않고 integrity failure로 처리한다. 같은 analysis key의 완료 report는 재사용하며 새 base 또는 head를 감지하면 이전 queued/running run을 superseded 처리하고 전체 재분석을 우선한다.
+
+### 7.5 PR review 결과 게시
+
+분석 transaction이 report를 저장하면 `github.review.publish:<analysis-id>` durable job을 함께 생성한다. Worker는 PR 단위 advisory lock을 얻고 repository가 참조하는 credential을 실행 시점에 복호화한 뒤 다음 순서로 처리한다.
+
+1. 첫 게시에서는 `GET /repos/{owner}/{repo}/issues/{pull}/comments`로 관리 marker가 있는 기존 댓글을 확인한다.
+2. 댓글이 없으면 `POST /repos/{owner}/{repo}/issues/{pull}/comments`로 생성한다.
+3. 저장된 comment ID 또는 복구한 marker 댓글이 있으면 `PATCH /repos/{owner}/{repo}/issues/comments/{comment-id}`로 갱신한다.
+4. `github_review_publications`에 target/published analysis, head SHA, comment ID/URL, body hash와 상태를 저장한다.
+
+댓글은 head SHA, grade, P3-P0 count, 상위 finding 5개, coverage limitation과 전체 report link를 포함한다. Model이 만든 문구는 Markdown control character와 `@mention`을 escape하고 source/evidence 원문, credential과 arbitrary URL은 넣지 않는다. 401/403은 권한 오류로 terminal 처리하고 429/5xx는 `Retry-After`와 bounded exponential backoff로 재시도한다. 게시 job의 실패는 이미 완료된 analysis operation/report를 실패로 되돌리지 않는다.
 
 ## 8. Snapshot과 isolated clone
 
@@ -362,7 +378,7 @@ conversation은 `analysis_revision_id`에 고정한다. 새 head 분석이 완�
 
 답변에는 file, line, symbol, commit 또는 analyzer artifact citation이 있어야 한다. 사용자 질문과 repository text는 모두 untrusted input으로 처리한다.
 
-자동 분석과 remote Chat은 browser가 닫혀도 동작해야 하므로 조직이 승인한 server-side model credential을 사용한다. Worker는 batch 분석을, Server는 interactive Chat을 직접 호출하며 각 workload에 필요한 credential만 주입한다. Commit Defender의 local CLI login은 이 서비스 credential로 재사용하지 않는다.
+자동 분석과 remote Chat은 browser가 닫혀도 동작해야 하므로 조직이 승인한 server-side credential을 사용한다. Worker는 batch 분석을, Server는 interactive Chat을 호출한다. 시스템 관리자는 여러 Chat account와 account별 model/reasoning effort capability, assignment와 quota를 등록한다. 일반 사용자는 자신에게 허용된 account, model과 effort를 고르고 이 선택은 analysis revision과 함께 Chat session에 고정된다. Credential과 refresh 결과는 deployment master key로 암호화한 PostgreSQL row에 보존하며 host home 자동 mount와 사용자 local CLI credential 암묵 재사용은 금지한다. 상세 설계는 [Chat account registry와 GHES repository 관리 설계](account-and-ghes-administration-design.md)를 따른다.
 
 ## 12. 데이터와 API
 
@@ -370,7 +386,7 @@ conversation은 `analysis_revision_id`에 고정한다. 새 head 분석이 완�
 
 | Entity | 목적 |
 |---|---|
-| `users` | OIDC subject와 profile |
+| `users` | OIDC/proxy/Local identity와 profile |
 | `repositories` | 등록 GHES repository와 installation scope |
 | `pull_requests` | 현재 PR state와 observed refs |
 | `poll_states` | checkpoint, interval, quota, backoff |
@@ -393,8 +409,8 @@ Browser API는 repository/PR worklist, refresh operation, immutable analysis, sn
 
 ## 13. 보안과 privacy
 
-- browser 사용자는 application OIDC를 기본으로 인증하고 repository grant를 확인한다. Reverse proxy identity는 signed assertion 검증, client header 제거와 ingress network 제한을 모두 만족할 때만 사용한다.
-- GitHub App private key와 model credential은 secret file 또는 vault reference로 주입한다.
+- 운영 browser 사용자는 application OIDC를 기본으로 인증하고 repository grant를 확인한다. Reverse proxy identity는 signed assertion 검증, client header 제거와 ingress network 제한을 모두 만족할 때만 사용한다. PRISM-DEV처럼 browser에서 접근할 OIDC endpoint가 없고 port-forward만 사용하는 private pilot은 [Local account 인증·사용자 관리 설계](local-account-authentication.md)를 적용한다.
+- GHES·Chat credential은 deployment master key로 암호화한 DB row로 보존하고 master key, OIDC와 DB secret만 Secret 또는 vault reference로 주입한다.
 - source, diff, prompt와 model response를 application log와 trace attribute에 넣지 않는다.
 - artifact volume과 database는 암호화하고 report/chat retention을 설정한다.
 - worker filesystem path는 server-generated run ID만 사용한다.
@@ -413,10 +429,11 @@ Browser API는 repository/PR worklist, refresh operation, immutable analysis, sn
 | UI metadata API | p95 500ms 이내 |
 | 중복 run | 동일 analysis key당 하나 |
 | worker recovery | lease 만료 후 재실행, 완료 stage/artifact 재사용 |
+| PR comment recovery | comment ID 또는 관리 marker로 기존 댓글 갱신, 중복 생성 없음 |
 | workspace cleanup | run 종료 직후 또는 같은 worker의 startup/periodic cleanup |
 | persistent cleanup | retention CronJob의 bounded batch와 deletion grace |
 
-운영 metric은 poll lag, queue age, clone bytes/time, analyzer coverage, model latency/token/error, SSE disconnect, authorization denial과 cleanup failure를 포함한다. label에는 repository name, path와 source를 넣지 않는다.
+운영 metric은 poll lag, queue age, clone bytes/time, analyzer coverage, model latency/token/error, PR comment 게시 성공/실패/지연, SSE disconnect, authorization denial과 cleanup failure를 포함한다. label에는 repository name, path와 source를 넣지 않는다.
 
 ## 15. Container image와 Helm 배포
 
@@ -509,19 +526,20 @@ Milestone task와 완료 조건의 정본은 [구현 계획서](implementation-p
 | M0 Foundation | application/image/chart skeleton과 migration/retention command |
 | M1 Worklist | application OIDC, repository registry, poll tier와 authorization |
 | M2 Snapshot | operation/event/job, request/materialization, isolated clone과 diff |
-| M3 Review | bounded analyzer/model/verifier와 immutable partial report |
+| M3 Review | bounded analyzer/model/verifier, immutable partial report와 GHES PR comment publication |
 | M4 Workspace | revision-bound UI, durable progress SSE와 Server-side Chat |
 | M5 Pilot | retention, backup/reconcile, upgrade/rollback과 security hardening |
 
 ## 17. 구현 전 결정 gate
 
-결정 ID와 상태의 정본은 [요구사항 명세서](requirements-specification.md#15-구현-전-확정-항목)의 `DEC-001`부터 `DEC-016`이다. M0-00에서 GHES version/token/API/Git, fork/pull-ref, partial clone/deepen, rate-limit, model data policy, OIDC와 storage viability를 실제 환경으로 확인한다. 확인되지 않은 값은 조직 정책처럼 hard-code하지 않고 typed config와 명시적 validation error로 남긴다.
+결정 ID와 상태의 정본은 [요구사항 명세서](requirements-specification.md#15-구현-전-확정-항목)의 `DEC-001`부터 `DEC-019`다. M0-00에서 GHES version/access-token/API/Git, fork/pull-ref, partial clone/deepen, rate-limit, Chat account/model/effort, model data policy, OIDC와 storage viability를 실제 환경으로 확인한다. 확인되지 않은 값은 조직 정책처럼 hard-code하지 않고 typed config와 명시적 validation error로 남긴다.
 
 ## 18. 참고 자료
 
 - Commit Defender의 `github-enterprise-pr-analysis-server-design.md` 초안(별도 repository)
-- [GitHub App installation 인증](https://docs.github.com/en/enterprise-server@3.20/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation)
+- [Fine-grained PAT 권한](https://docs.github.com/en/enterprise-server@3.20/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens)
 - [GHES Pull Request REST API](https://docs.github.com/en/enterprise-server@3.20/rest/pulls/pulls)
+- [GHES Issue Comments REST API](https://docs.github.com/en/enterprise-server@3.20/rest/issues/comments#create-an-issue-comment)
 - [GHES REST API best practices](https://docs.github.com/en/enterprise-server@3.20/rest/using-the-rest-api/best-practices-for-using-the-rest-api)
 - [Git clone options](https://git-scm.com/docs/git-clone)
 - [GitHub code navigation](https://docs.github.com/en/repositories/working-with-files/using-files/navigating-code-on-github)

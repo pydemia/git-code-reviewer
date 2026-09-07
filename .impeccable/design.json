@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-07T08:13:41Z",
+  "title": "Design System: Git Code Reviewer",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "login-card",
+        "value": "0 16px 45px rgb(24 32 40 / 12%)",
+        "purpose": "로그인 카드의 깊이. Workspace와 Admin panel에는 적용하지 않는다."
+      },
+      {
+        "name": "admin-dialog",
+        "value": "0 18px 50px rgb(18 24 30 / 24%)",
+        "purpose": "Dimmed backdrop 위 modal dialog의 깊이."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-state",
+        "value": "120ms ease",
+        "purpose": "Resize handle의 background-color와 switch의 background·thumb transform 전환."
+      }
+    ],
+    "breakpoints": [
+      { "name": "compact-context", "value": "1100px" },
+      { "name": "stacked-workspace-admin", "value": "820px" },
+      { "name": "skills-select", "value": "760px" },
+      { "name": "compact-actions", "value": "540px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary command button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Version 저장·활성화에 사용하는 공통 primary button. 최소 높이와 hover·keyboard focus를 유지한다.",
+      "html": "<button type=\"button\" class=\"ds-primary\">Version 저장 및 활성화</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:32px;padding:0 11px;border:1px solid #12584d;border-radius:5px;background:var(--accent,#176b5d);color:#fff;font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:650;letter-spacing:0;cursor:pointer}.ds-primary:hover{background:#125c50;border-color:#0d4e44}.ds-primary:focus-visible{outline:2px solid #268b7a;outline-offset:2px}.ds-primary:disabled{opacity:.55;cursor:not-allowed}"
+    },
+    {
+      "name": "Secondary command button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "초안 불러오기와 보조 action에 사용하는 기본 command button.",
+      "html": "<button type=\"button\" class=\"ds-secondary\">초안으로 불러오기</button>",
+      "css": ".ds-secondary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:32px;padding:0 11px;border:1px solid var(--border-strong,#c7cdd6);border-radius:5px;background:var(--surface,#fff);color:#333b45;font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:650;letter-spacing:0;cursor:pointer}.ds-secondary:hover{background:#fafbfc;border-color:#929ba7}.ds-secondary:focus-visible{outline:2px solid #268b7a;outline-offset:2px}.ds-secondary:disabled{opacity:.55;cursor:not-allowed}"
+    },
+    {
+      "name": "Labeled input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Admin form에서 재사용하는 label·text input 조합.",
+      "html": "<label class=\"ds-field\">표시 이름<input type=\"text\" value=\"\" /></label>",
+      "css": ".ds-field{display:grid;gap:6px;margin-bottom:13px;color:#505a65;font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10px;font-weight:700}.ds-field input{width:100%;height:34px;padding:0 9px;color:#27313a;background:var(--surface,#fff);border:1px solid var(--border-strong,#c7cdd6);border-radius:5px;font-family:inherit;font-size:11px;font-weight:inherit;letter-spacing:0}.ds-field input:focus-visible{outline:2px solid #268b7a;outline-offset:2px}.ds-field input:disabled{color:#7b848e;background:#f1f3f5}"
+    },
+    {
+      "name": "Admin navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "현재 Admin 탭을 나타내는 teal 선택 상태. 실제 앱에서는 820px 이하에 가로 scroll로 전환한다.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Administration\"><button type=\"button\">분석 프롬프트</button><button type=\"button\" class=\"ds-current\" aria-current=\"page\">분석 Skills</button></nav>",
+      "css": ".ds-nav{padding:20px 12px;background:#f8f9fa;border-right:1px solid var(--border,#d9dee5);font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.ds-nav>button{display:flex;align-items:center;gap:9px;width:100%;min-height:35px;margin-bottom:3px;padding:0 10px;color:#56606c;background:transparent;border:1px solid transparent;border-radius:5px;font-family:inherit;font-size:12px;font-weight:650;text-align:left;cursor:pointer}.ds-nav>button:hover{color:#242c35;background:#edf0f2}.ds-nav>.ds-current{color:#155e52;background:var(--accent-soft,#e3f2ee);border-color:#bddbd4}.ds-nav>button:focus-visible{outline:2px solid #268b7a;outline-offset:2px}"
+    },
+    {
+      "name": "Report state badge",
+      "kind": "chip",
+      "refersTo": "report-state-pass",
+      "description": "Report 상태 label. Pass·blocked/failed·incomplete에 실제 구현의 의미색을 사용한다.",
+      "html": "<div class=\"ds-states\"><strong class=\"ds-state ds-pass\">PASS</strong><strong class=\"ds-state ds-blocked\">BLOCKED</strong><strong class=\"ds-state ds-incomplete\">INCOMPLETE</strong></div>",
+      "css": ".ds-states{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;line-height:1.65}.ds-state{padding:3px 7px;background:#edf0f2;color:#495461;border-radius:3px}.ds-pass{color:#155e52;background:var(--accent-soft,#e3f2ee)}.ds-blocked{color:#9c241b;background:#fce9e7}.ds-incomplete{color:#8a3c09;background:#fff0d9}"
+    },
+    {
+      "name": "Registry card",
+      "kind": "card",
+      "refersTo": "registry-card",
+      "description": "Admin의 등록 항목을 metadata와 action 열로 정리하는 container. Label만 넣은 구조 preview다.",
+      "html": "<div class=\"ds-registry\"><div><strong>Repository</strong><span>등록 정보</span></div><div><strong>GHES 연결</strong></div><div><strong>Polling 상태</strong></div><div class=\"ds-card-actions\">관리</div></div>",
+      "css": ".ds-registry{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) minmax(220px,1.5fr) auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--border,#d9dee5);border-radius:7px;background:var(--surface,#fff);color:var(--text,#20252d);font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px}.ds-registry>div{display:grid;gap:3px}.ds-registry span{overflow:hidden;color:var(--muted,#69717d);text-overflow:ellipsis;white-space:nowrap}.ds-registry>.ds-card-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:7px}@media(max-width:820px){.ds-registry{grid-template-columns:minmax(0,1fr)}.ds-registry>.ds-card-actions{justify-content:flex-start}}"
+    },
+    {
+      "name": "Report comment",
+      "kind": "custom",
+      "refersTo": "report-comment",
+      "description": "파일별 AI comment의 읽기·선택 패턴. 미리보기 본문은 필드명이며 실제 분석 결과가 아니다.",
+      "html": "<button type=\"button\" class=\"ds-comment\" aria-pressed=\"false\"><span class=\"ds-comment-meta\">category · line range</span><span class=\"ds-comment-body\">문제 설명</span><span class=\"ds-comment-detail\"><b>영향</b> 영향 설명</span><span class=\"ds-comment-detail\"><b>수정 제안</b> 수정 설명</span></button>",
+      "css": ".ds-comment{display:block;width:100%;margin-top:10px;padding:12px;background:var(--surface-subtle,#f7f8fa);border:1px solid var(--border,#d9dee5);border-radius:4px;color:var(--text,#20252d);font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;line-height:1.65;text-align:left;cursor:pointer}.ds-comment:hover{background:#edf4f1}.ds-comment[aria-pressed=true]{background:var(--accent-soft,#e3f2ee);border-color:#268b7a}.ds-comment:focus-visible{outline:2px solid #268b7a;outline-offset:2px}.ds-comment-meta{display:flex;gap:6px 12px;flex-wrap:wrap;font-size:11px;color:#59636e}.ds-comment-body{display:block;margin:9px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75}.ds-comment-detail{display:block;margin-top:8px;font-size:11px;overflow-wrap:anywhere}.ds-comment-detail b{color:#3b5350}"
+    },
+    {
+      "name": "SKILL.md editor",
+      "kind": "input",
+      "refersTo": "skill-editor",
+      "description": "Skills textarea의 실제 높이·서체·selection·caret. Preview에는 실제 지침을 복제하지 않는다.",
+      "html": "<label class=\"ds-editor\">SKILL.md<textarea spellcheck=\"false\" aria-label=\"SKILL.md\"></textarea></label>",
+      "css": ".ds-editor{display:grid;gap:8px;color:var(--text,#20252d);font-family:'Noto Sans KR Variable',Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:650}.ds-editor textarea{width:100%;min-height:430px;padding:12px;resize:vertical;border:1px solid var(--border-strong,#c7cdd6);border-radius:4px;background:#fbfcfd;color:#27313b;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;font-weight:400;line-height:1.7;caret-color:var(--accent,#176b5d);tab-size:2;scrollbar-color:#9caeb0 #edf2f3}.ds-editor textarea:focus-visible{outline:2px solid #268b7a;outline-offset:2px}.ds-editor textarea::selection{background:#c9e8df;color:#124c42}@media(max-width:760px){.ds-editor textarea{min-height:360px}}"
+    }
+  ],
+  "narrative": {
+    "overview": "회색 바탕과 흰색 panel 위에 teal action·선택 상태를 표시한다. 짙은 global header와 code surface가 작업 영역의 경계를 만들며 한글 설명, English 개발 용어와 코드가 함께 읽히도록 Noto Sans KR와 monospace를 구분한다. 반복 작업에 맞춘 조밀한 control과 분할 panel을 유지한다.",
+    "dos": [
+      "Do: 기존 색상 token과 control을 재사용하고 상태·선택·action의 역할을 유지한다.",
+      "Do: 한글 안내와 원래 English 개발 용어를 함께 유지한다.",
+      "Do: Report 설명과 파일 경로는 줄바꿈하고 Skills 모바일 action의 label을 표시한다."
+    ],
+    "donts": [
+      "Don't: Report의 실패·미수행·데모 상태에 성공 grade를 표시하지 않는다.",
+      "Don't: 기존 Admin·Workspace 확장에 별도 서체·palette·panel 형태를 도입하지 않는다."
+    ]
+  }
+}

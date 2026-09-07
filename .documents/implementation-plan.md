@@ -1,5 +1,20 @@
 # Git Code Reviewer - 구현 계획서
 
+## 후속 commit phase: Skill 기반 Commit Defender report
+
+2026-09-07 추가 범위의 완료 조건과 검증 표는 `skill-based-review-report.md`에 있다. 기존 milestone을 소급 변경하지 않고 다음 단위로 commit·push한다.
+
+| Phase | 변경과 검증 |
+| --- | --- |
+| A · `9e5ded5` | R1–R10, 참조 revision과 신뢰 경계 정의 |
+| B · `07c84d9` | 기본 SKILL.md, parser/hash, code segment·unit·파일 요약 contract와 tests |
+| C-1 · `359493e` | migration 0014, 관리자 immutable version API/인가/DB integration |
+| C-2 · `5f171f8` | migration 0015, queued Skill 고정, 세 stage 모델 호출, 실패·예산·legacy 회귀 검증 |
+| C-3/D · `9930f90` | Skill 편집 UI, Overall Summary/AI Comments/Analyzed File List, API/JSON/Markdown/PR 계층, 가이드 |
+| E · 완료 | Local Server/Worker와 모의 모델, desktop/mobile browser, Container/Helm, 189 tests 통과. 최종 근거는 `verification-skill-report-2026-09-07.md` |
+
+현재 추가 요청에는 클러스터 배포가 포함되지 않는다. 배포는 별도 요청 시 Server/Worker와 migration을 함께 적용한다.
+
 ## 1. 목적과 방식
 
 이 계획은 browser 기반 중앙 review service를 빈 repository에서 구현하는 순서를 정의한다. 대상 repository CI와 결합하지 않으며, 각 milestone은 Kubernetes pilot 환경에서 검증 가능한 수직 기능으로 끝난다.
@@ -27,6 +42,17 @@
 
 ## 2. 목표 repository 구조
 
+### 2026-09-07 후속 commit phase
+
+| Phase | 변경 범위 | 완료 조건 |
+|---|---|---|
+| Review provenance | 명시적 fixture 판정, 실제 diff 기반 한국어 prompt, 파일 요약 보존, 모델 수행 상태, 수동 재분석 job | 실제 PAT 대상에 데모가 적용되지 않음, 같은 SHA 재분석, 실패·미수행 회귀 test |
+| Registered analysis account | Migration 0013, account/model/effort Provider version, tenant grant 검증, Admin UI, registry-only Helm 설정 | Credential 복사 없음, 선택값 호출 확인, tenant 경계와 비활성 account 차단, 기존 mode 호환 |
+| Review navigation | 접이식 tree, additions/deletions, Findings→line 이동, inline 설명, split/unified | Tree·diff unit test, desktop/mobile 및 keyboard browser 검증 |
+| Release | 관련 설계·가이드·handoff, source commit, image/chart build, PRISM-DEV 배포 | 사용자 배포 요청 후 수행. Migration 적용, rollout·health 확인, 실제 모델 선택 후 재분석 smoke test |
+
+상세 구현은 [Workspace와 account 분석 설계](review-workspace-and-analysis-account.md)에 기록한다. Commit phase 정의는 계획이며 실제 commit·push·배포 완료 여부는 handoff의 현재 상태를 따른다.
+
 ```text
 apps/
   web/                    # React browser application
@@ -36,7 +62,7 @@ packages/
   review-contract/        # Commit Defender compatibility + canonical report
   domain/                 # snapshot, operation, run, finding, authorization
   db/                     # schema, migration, repositories, job lease/event log
-  github/                 # GitHub App and GHES adapters
+  github/                 # GHES access-token connection, REST/Git adapters
   git-engine/             # isolated clone, diff, history
   analyzers/              # file, symbol, impact, test adapters
   relationships/          # code object graph and relation queries
@@ -60,7 +86,7 @@ docs/
 | M0 Foundation | visual workspace shell 접근 | image/chart skeleton과 lifecycle command 설치 |
 | M1 Worklist | 로그인 후 등록 PR과 상태 조회 | scheduler leader와 GHES adapter 동작 |
 | M2 Snapshot | refresh 후 정확한 diff와 진행 상태 확인 | operation/event/job, isolated clone, artifact commit |
-| M3 Review | finding, evidence와 coverage 탐색 | analyzer/model/verifier, partial recovery |
+| M3 Review | finding, evidence, coverage와 GHES PR 요약 댓글 | analyzer/model/verifier, partial recovery와 durable publication |
 | M4 Workspace | 완성된 LNB/Main/Chat/FNB 흐름 | replica-safe SSE와 revision-bound Chat |
 | M5 Pilot | 사내 reviewer pilot | retention, upgrade/rollback/backup/security hardening |
 
@@ -68,14 +94,14 @@ docs/
 
 ### 목표
 
-구현 가정을 실제 사내 GHES와 Kubernetes 환경에서 검증하고 `DEC-001`부터 `DEC-016`의 입력을 수집한다. 이 단계는 production source를 만들기보다 재현 가능한 spike와 결정 기록을 남긴다.
+구현 가정을 실제 사내 GHES와 Kubernetes 환경에서 검증하고 `DEC-001`부터 `DEC-019`의 입력을 수집한다. 이 단계는 production source를 만들기보다 재현 가능한 spike와 결정 기록을 남긴다.
 
 ### 작업
 
 | ID | 작업 |
 |---|---|
-| M0-00-01 | 대상 GHES exact version, API base URL과 GitHub App read permission 확인 |
-| M0-00-02 | Installation token으로 REST, GraphQL과 credential-safe Git HTTPS round trip 검증 |
+| M0-00-01 | 대상 GHES exact version, API base URL, 지원 access-token 종류와 Metadata/Contents read 및 Pull requests read/write 확인 |
+| M0-00-02 | 승인된 service identity access token으로 REST와 credential-safe Git HTTPS round trip 검증 |
 | M0-00-03 | Authoritative base tip, PR head/pull ref, exact-SHA source permalink와 code-navigation 지원 범위 기록 |
 | M0-00-04 | Partial/shallow clone, exact SHA fetch, merge-base와 bounded deepen을 대표 repository로 검증 |
 | M0-00-05 | Pagination, conditional request, rate-limit header/reset과 repository/PR 규모 측정 |
@@ -84,6 +110,7 @@ docs/
 | M0-00-08 | External PostgreSQL, RWX PVC/object backend, `emptyDir`/generic ephemeral RWO와 quota 확인 |
 | M0-00-09 | Spike 결과, 실패 로그의 redaction 결과와 DEC 입력을 decision record로 남김 |
 | M0-00-10 | Commit Defender baseline revision의 report type/schema/normalizer/prompt fixture와 재사용 경계 확정 |
+| M0-00-11 | ChatGPT account registry/token refresh의 OpenAI·조직 정책 적합성과 account별 model/effort capability 확인 |
 
 ### 완료 조건
 
@@ -136,13 +163,14 @@ docs/
 | M1-01 | OIDC Authorization Code flow, secure session과 group/role mapping |
 | M1-02 | 조건부 proxy identity assertion 검증과 spoofed identity header negative test |
 | M1-03 | users, github_instances, repositories, grants, pull_requests, poll_states schema |
-| M1-04 | GitHub App JWT/installation token memory cache와 redacted HTTP client |
-| M1-05 | Administrator repository registration API/UI |
+| M1-04 | 암호화 GHES access-token connection, validation/rotation과 redacted REST/Git client |
+| M1-05 | Administrator tenant/user/membership와 tenant-scoped repository registration/grant API/UI |
 | M1-06 | Paginated/conditional open PR poll과 authoritative base/head 관측 |
 | M1-07 | PostgreSQL advisory-lock scheduler leader, hot/active/idle/draft tier와 request budget |
-| M1-08 | Repository/PR authorization middleware와 existence-hiding negative test |
+| M1-08 | Keycloak OIDC role mapping, Cerbos RBAC+ABAC middleware와 tenant-aware existence-hiding negative test |
 | M1-09 | Compact PR worklist, filters, loading/empty/rate-limit/degraded states |
 | M1-10 | Audit catalogue, redaction policy와 login/config/poll lifecycle event |
+| M1-11 | Repository별 polling profile, disabled 상태, last poll/health와 Poll now Admin UI/API |
 
 ### 완료 조건
 
@@ -201,24 +229,30 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M3-02 | Tree-sitter language adapter 두 개와 mergeBase/head symbol diff |
 | M3-03 | History/blame/direct reference/related-test artifact |
 | M3-04 | File/byte/model-call/time budget을 가진 change-pack planner |
-| M3-05 | Provider-neutral model adapter와 Worker 전용 batch model credential |
-| M3-06 | Correctness/security/compatibility/testing specialist prompts |
+| M3-05 | Provider-neutral model adapter, 암호화된 immutable provider version과 관리자 Provider UI |
+| M3-06 | Immutable base guard와 administrator가 version 관리하는 tenant-scoped analysis prompt |
 | M3-07 | Line/symbol/reference verifier, fingerprint와 deduplication |
 | M3-08 | P3-P0 priority/category/confidence contract와 P3 direct-evidence gate |
 | M3-09 | Analysis-scope selected context artifact와 immutable report composer |
-| M3-10 | Findings/Outline LNB, Evidence/History FNB와 coverage/limitation UI |
+| M3-10 | Findings/Outline LNB, Evidence FNB와 coverage/limitation UI |
 | M3-11 | Commit Defender v1 compatibility adapter, canonical normalizer와 fixture parity test |
 | M3-12 | Code object/relationship artifact, structure parent/children과 dependency uses/used-by analyzer |
+| M3-13 | Repository별 GHES PR timeline 게시 설정, `github_review_publications` 상태와 Admin UI |
+| M3-14 | `github.review.publish` durable job, 관리 marker/comment ID 기반 create-or-update와 401/403/429/5xx 처리 |
 
 ### 완료 조건
 
 - 모든 P3는 현재 materialization의 직접 evidence와 high confidence를 가진다.
 - Model timeout, analyzer 실패와 budget 초과는 가능한 결과를 보존한 partial report가 된다.
 - Report가 materialization/analyzer/model/policy version, coverage와 omission을 표시한다.
+- Analysis run 생성 시 provider/prompt version과 hash가 함께 고정되고 API key는 browser, report, audit와 log에 노출되지 않는다.
+- 관리자 provider endpoint는 application allowlist와 cluster NetworkPolicy를 모두 통과해야 한다.
 - 같은 stage input은 checksum이 유효하면 retry에서 재사용한다.
 - Fixture PR의 rename, deletion, old/new line, pre-existing issue와 category를 검증한다.
 - Commit Defender fixture의 summary, grade, per-file summary, P0-P3/category와 source/rule 의미가 canonical report에 보존된다.
 - Relationship fixture가 direct/transitive, cycle, edge evidence와 mergeBase/head의 added/removed/unchanged를 검증한다.
+- Completed/partial report가 GHES PR의 관리 댓글 하나를 생성하고 후속 분석과 crash retry는 같은 댓글을 갱신한다.
+- PR 게시 401/403 terminal failure와 429/5xx retry가 report/analysis state를 바꾸지 않는다.
 
 ## 9. M4 - Complete review workspace와 Chat
 
@@ -233,9 +267,9 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M4-01 | Two-row Header, resizable LNB/Main/Chat/FNB와 breakpoint contract |
 | M4-02 | Main 880px 미만 auto-unified, pinned split scroll과 mergeBase/head label |
 | M4-03 | Analysis deep link, URL selection, revision selector와 user-level preference document |
-| M4-04 | Git graph/Ownership/Impact/Tests compact와 maximized view |
+| M4-04 | Snapshot commit 기반 Git graph, Impact, added test summary/case compact와 maximized view |
 | M4-05 | Atomic ReviewSelection store와 panel scroll 복원 |
-| M4-06 | User + analysis revision 고정 Chat session과 Server-side model 호출 |
+| M4-06 | User + analysis revision + account + model + reasoning effort 고정 Chat session과 Server-side model 호출 |
 | M4-07 | Bounded report/file/symbol/history/impact Chat tools와 per-user limit |
 | M4-08 | Chat delta stream, stop/retry와 final message persist/reconcile |
 | M4-09 | Citation navigation, report/merge state 분리와 stale revision banner |
@@ -245,6 +279,8 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M4-13 | Revision 고정 report/finding/evidence/object deep link, Markdown/JSON export와 Copy Link |
 | M4-14 | Registered GHES exact-SHA permalink builder와 origin/path/line negative test |
 | M4-15 | Structure/Dependencies object graph, relation evidence와 coverage/limitation interaction |
+| M4-16 | Administrator Chat account registry, credential rotation/test, model/effort capability와 tenant/user/group assignment |
+| M4-17 | Persistent Chat의 Account/Model/Effort selector, 새 session 분기와 capability/authorization negative test |
 
 ### 완료 조건
 
@@ -288,7 +324,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 - Missing artifact는 unavailable과 재분석 경로를, unreferenced artifact는 retention candidate를 제공한다.
 - GHES/model/artifact 장애가 liveness restart loop를 만들지 않으며 영향 기능만 degraded가 된다.
 - Image history, rendered manifest, log/metric/trace에 secret, source와 prompt 원문이 없다.
-- Operator와 pilot reviewer가 runbook과 `AC-01`부터 `AC-24`를 확인한다.
+- Operator와 pilot reviewer가 runbook과 `AC-01`부터 `AC-30`을 확인한다.
 
 ## 11. Test 전략
 
@@ -297,13 +333,13 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | Unit | key/state transition, diff mapping, verifier, redaction, backoff, retention relation |
 | Contract | REST/SSE, Commit Defender adapter, link target, relationship/artifact version, provider/GHES error |
 | Integration | DB-clock lease, migration lock, event fan-out, artifact race, Git/relationship fixture |
-| Security | authorization, proxy spoof, path/symlink, Git option, prompt/tool scope, secret leak |
+| Security | authorization, proxy spoof, path/symlink, Git option, provider SSRF, prompt/tool scope, secret leak |
 | Browser E2E | login, worklist, report/export, deep link, GHES permalink, object graph, Chat, responsive/degraded state |
 | Image | four commands, non-root, read-only rootfs, health, SBOM, no build secret |
 | Helm | lint/schema/template, hook, CronJob, clean install, upgrade, rollback, PVC/Secret refs |
 | Resilience | Worker kill, DB/GHES/model/artifact fault, SSE reconnect, cleanup/reconcile |
 
-GHES와 model test double은 recorded private payload 대신 synthetic fixture를 사용한다. 실제 GHES smoke test는 protected environment의 read-only repository에서 수행한다.
+GHES와 model test double은 recorded private payload 대신 synthetic fixture를 사용한다. 실제 GHES smoke test는 전용 service account와 protected test repository에서 수행하며 Metadata/Contents read와 Pull requests read/write 외 권한을 부여하지 않는다. 테스트 PR에서 첫 comment 생성, 후속 분석 update, 권한 제거 시 403 격리를 확인하고 생성한 comment와 token은 테스트 종료 후 정리한다.
 
 ## 12. Requirement 추적
 
@@ -321,7 +357,29 @@ GHES와 model test double은 recorded private payload 대신 synthetic fixture�
 | `REQ-OPS-*` | M0, M5 | Image, Helm, retention, backup/reconcile |
 | `REQ-NFR-*` | M0-00, M1-M5 | Scale measurement, load와 failure recovery |
 
-## 13. Release 흐름
+## 13. 확정 요구사항 보완 commit phase
+
+| Phase | Commit 목적 | 완료 기준 |
+|---|---|---|
+| CP-01 | Account/GHES contract와 schema | Chat account/model/effort, GHES connection, poll policy, grant contract test |
+| CP-02 | Credential envelope와 migration | AEAD encryption, master-key validation, credential version/rotation/lock test |
+| CP-03 | GHES access-token connection API | 등록·검증·회전·비활성, 401/403/429와 redaction test |
+| CP-04 | Repository/grant/polling Admin | discovery, tenant 등록, grant, interval/disabled/Poll now API와 UI |
+| CP-05 | Chat account registry API | account lifecycle, model/effort capability, assignment, quota와 audit |
+| CP-06 | 사용자 Chat 선택과 session 고정 | Account/Model/Effort selector, 새 session 분기, authorization negative test |
+| CP-07 | Multi-account refresh와 adapter | account별 refresh lock, effort 전달, revoke/rate-limit/failure 격리 |
+| CP-08 | Identity/Admin navigation | OIDC 다중 사용자, 전역 tenant/admin/user menu와 compact workspace 접근 |
+| CP-08A | Private pilot Local account | scrypt credential, 8~128자 비밀번호, login/session/logout, bootstrap Secret, 사용자 생성·role·membership·repository grant 관리, 개인 프로필·본인 비밀번호 변경과 권한 negative test |
+| CP-09 | Helm/operation 전환 | master-key Secret, NetworkPolicy, backup/rotation과 single credential migration |
+| CP-10 | PRISM-DEV acceptance/release | 실제 GHES/token, 승인 Chat account, 두 사용자 격리, image/chart 검증 |
+| CP-11 | GHES PR publication contract | Pull requests read/write 안내, 기존 repository opt-in 게시 설정, publication 상태 migration과 API contract |
+| CP-12 | GHES comment create-or-update | 관리 marker/comment ID recovery, Markdown renderer, REST adapter와 403/429/5xx unit test |
+| CP-13 | Durable publication Worker | 분석 transaction enqueue, PR advisory lock, retry/terminal 격리와 event/audit metadata |
+| CP-14 | Publication UI·가이드·acceptance | 게시 toggle/상태/comment link, fine-grained PAT 가이드, 실제 GHES 중복 방지 smoke test |
+
+각 phase는 migration, contract, test와 consumer를 함께 포함하는 독립 commit으로 만든다. 실제 credential과 PRISM-DEV 전용 값은 commit하지 않는다.
+
+## 14. Release 흐름
 
 제품 기능은 대상 repository CI에 의존하지 않는다. Git Code Reviewer 자체 release만 아래 흐름을 가진다.
 
@@ -338,20 +396,20 @@ lint/typecheck/test
 
 환경 promotion은 같은 image digest와 chart version을 사용하고 values/Secret reference만 바꾼다. Migration은 expand/contract를 따르며 rollback 불가능한 destructive change를 같은 release에 넣지 않는다.
 
-## 14. 결정 gate
+## 15. 결정 gate
 
-결정 ID, 질문과 상태의 정본은 요구사항 명세서의 `DEC-001`부터 `DEC-016`이다. M0-00은 이 결정을 위한 증거를 만들며, 각 milestone은 자신이 의존하는 DEC가 확정되지 않았으면 typed config와 명시적 startup/template validation으로 경계를 유지한다.
+결정 ID, 질문과 상태의 정본은 요구사항 명세서의 `DEC-001`부터 `DEC-019`다. M0-00은 이 결정을 위한 증거를 만들며, 각 milestone은 자신이 의존하는 DEC가 확정되지 않았으면 typed config와 명시적 startup/template validation으로 경계를 유지한다.
 
-- M0/M1 진입: `DEC-001`, `DEC-002`, `DEC-004`, `DEC-006`, `DEC-011`, `DEC-012`
+- M0/M1 진입: `DEC-001`, `DEC-002`, `DEC-004`, `DEC-006`, `DEC-011`, `DEC-012`, `DEC-019`
 - M2 진입: `DEC-007`, `DEC-008`, `DEC-013`, `DEC-014`, `DEC-015`
-- M3/M4 진입: `DEC-003`, `DEC-005`, `DEC-010`, `DEC-015`
+- M3/M4 진입: `DEC-003`, `DEC-005`, `DEC-010`, `DEC-015`, `DEC-017`, `DEC-018`
 - M5 진입: `DEC-006`, `DEC-007`, `DEC-009`, `DEC-011`, `DEC-016`
 
-## 15. MVP 완료 정의
+## 16. MVP 완료 정의
 
-- 요구사항 명세의 `AC-01`부터 `AC-24`까지 pilot 환경에서 통과한다.
+- 요구사항 명세의 `AC-01`부터 `AC-30`까지 pilot 환경에서 통과한다.
 - Browser만으로 PR 발견, refresh operation, report review와 Chat 흐름을 완료한다.
-- 대상 repository에 workflow, webhook과 write permission을 추가하지 않는다.
+- 대상 repository에 workflow와 webhook을 추가하지 않고, write permission은 Pull requests의 관리 댓글 생성·갱신 범위로 제한한다.
 - Snapshot request/materialization, isolated clone, evidence verification과 partial report가 검증된다.
 - 제공된 visual artifact의 workspace topology와 responsive contract가 유지된다.
 - 하나의 signed image와 versioned Helm chart로 install/upgrade/rollback할 수 있다.

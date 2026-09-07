@@ -1,0 +1,17 @@
+{{- if and (eq .Values.model.chat.mode "chatgpt-account") (not .Values.model.chat.account.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "git-code-reviewer.chatgptAccount.claimName" . }}
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: chatgpt-account
+spec:
+  accessModes: {{ toYaml .Values.model.chat.account.persistence.accessModes | nindent 4 }}
+  {{- with .Values.model.chat.account.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.model.chat.account.persistence.size }}
+{{- end }}

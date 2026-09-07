@@ -1,0 +1,216 @@
+image:
+  repository: docker.io/pydemia/git-code-reviewer
+  tag: '0.8.0-alpha.10'
+  digest: 'sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc'
+  pullPolicy: IfNotPresent
+
+# Required when the Docker Hub repository is private. Create this Secret in
+# the release namespace with a Docker Hub access token.
+imagePullSecrets:
+  - name: dockerhub-registry
+
+publicBaseUrl: https://git-code-reviewer.example.internal
+
+server:
+  replicas: 2
+  ingress:
+    enabled: true
+    className: nginx
+    host: git-code-reviewer.example.internal
+    path: /
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+      nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    tlsSecretName: git-code-reviewer-tls
+
+worker:
+  replicas: 2
+  concurrency: 2
+  workspace:
+    mode: emptyDir
+    size: 10Gi
+    storageClass: ''
+
+storage:
+  backend: pvc
+  artifacts:
+    existingClaim: ''
+    storageClass: rwx-storage
+    accessModes: [ReadWriteMany]
+    size: 100Gi
+
+database:
+  existingSecret: git-code-reviewer-db
+  urlKey: DATABASE_URL
+
+# Keep disabled for an externally operated production database. For a
+# self-contained pilot, enable this block and omit the external DB Secret.
+postgresql:
+  enabled: false
+  auth:
+    username: git_code_reviewer
+    database: git_code_reviewer
+    existingSecret: ''
+  primary:
+    persistence:
+      enabled: true
+      storageClass: block-storage
+      size: 20Gi
+
+# Bundled identity provider. The application OIDC Secret and the two Keycloak
+# credential Secrets must exist before Helm install; no password is stored here.
+keycloak:
+  enabled: true
+  replicaCount: 2
+  auth:
+    adminUser: admin
+    existingSecret: git-code-reviewer-keycloak
+    passwordSecretKey: admin-password
+  production: true
+  proxyHeaders: xforwarded
+  httpEnabled: true
+  hostnameStrict: true
+  ingress:
+    enabled: true
+    hostname: git-code-reviewer-id.example.internal
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+    tls: true
+    extraTls:
+      - hosts:
+          - git-code-reviewer-id.example.internal
+        secretName: git-code-reviewer-keycloak-tls
+  networkPolicy:
+    enabled: true
+    allowExternal: true
+    allowExternalEgress: true
+  postgresql:
+    enabled: true
+    auth:
+      username: bn_keycloak
+      database: bitnami_keycloak
+      existingSecret: git-code-reviewer-keycloak-postgresql
+      secretKeys:
+        userPasswordKey: password
+    primary:
+      persistence:
+        enabled: true
+        storageClass: block-storage
+        size: 20Gi
+  keycloakConfigCli:
+    enabled: true
+  gitCodeReviewer:
+    realm: git-code-reviewer
+    issuer: https://git-code-reviewer-id.example.internal/realms/git-code-reviewer
+    clientId: git-code-reviewer
+    adminRole: git-code-reviewer-admin
+    authSecret: git-code-reviewer-auth
+    clientSecretKey: OIDC_CLIENT_SECRET
+    redirectUri: https://git-code-reviewer.example.internal/auth/callback
+    webOrigin: https://git-code-reviewer.example.internal
+
+secrets:
+  auth: git-code-reviewer-auth
+  modelProvider: git-code-reviewer-model
+  chatModelProvider: git-code-reviewer-chat-model
+  chatgptAccount: git-code-reviewer-chatgpt-account
+  credentialRegistry: git-code-reviewer-credential-registry
+
+credentialRegistry:
+  enabled: true
+  encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
+
+github:
+  mode: registry
+
+auth:
+  mode: oidc
+  # Keycloak client role. Include it in the ID token or UserInfo response.
+  adminRole: git-code-reviewer-admin
+  adminGroup: git-code-reviewer-admins
+  defaultTenantSlug: default
+  # Keep false when administrators explicitly assign tenant memberships.
+  autoJoinDefaultTenant: false
+
+authorization:
+  mode: cerbos
+  # Leave empty when using the bundled Cerbos deployment below.
+  cerbosUrl: ''
+  timeoutMs: 2000
+
+cerbos:
+  enabled: true
+  replicas: 2
+  port: 3592
+  image:
+    repository: ghcr.io/cerbos/cerbos
+    tag: 0.55.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+model:
+  analysis:
+    mode: disabled
+    endpoint: ''
+    name: ''
+    apiKeyKey: API_KEY
+    timeoutMs: 120000
+    admin:
+      enabled: true
+      encryptionKeyKey: SETTINGS_ENCRYPTION_KEY
+      allowedOrigins:
+        - https://models.example.internal
+  chat:
+    mode: disabled
+    endpoint: ''
+    name: ''
+    apiKeyKey: API_KEY
+    timeoutMs: 60000
+    concurrencyLimit: 2
+    hourlyLimit: 30
+    sessionMessageLimit: 200
+    account:
+      authFileKey: auth.json
+      bootstrapRevision: initial
+      home: /var/lib/git-code-reviewer/chatgpt-account
+      refreshEndpoint: https://auth.openai.com/oauth/token
+      proactiveRefreshMinutes: 5
+      persistence:
+        existingClaim: ''
+        storageClass: rwx-storage
+        accessModes: [ReadWriteMany]
+        size: 1Gi
+
+trustedCa:
+  existingConfigMap: corporate-ca
+  key: ca.crt
+
+retention:
+  enabled: true
+  schedule: '*/10 * * * *'
+  reportDays: 90
+  chatDays: 30
+  eventLogHours: 24
+  orphanGraceHours: 24
+  deleteGraceHours: 1
+  batchSize: 500
+
+# Enable only after adding cluster-specific DB, GHES, OIDC, and model CIDRs.
+networkPolicy:
+  enabled: false
+  serverIngressFrom: []
+  # Each entry is a Kubernetes NetworkPolicyPeer/port rule. Replace these
+  # documentation ranges with the cluster's PostgreSQL and HTTPS CIDRs.
+  # additionalEgress:
+  #   - to:
+  #       - ipBlock: { cidr: 192.0.2.10/32 }
+  #     ports:
+  #       - { protocol: TCP, port: 5432 }
+  #   - to:
+  #       - ipBlock: { cidr: 198.51.100.0/24 }
+  #     ports:
+  #       - { protocol: TCP, port: 443 }
+  additionalEgress: []

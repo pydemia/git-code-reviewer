@@ -1,0 +1,539 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "image",
+    "publicBaseUrl",
+    "trustedCa",
+    "server",
+    "worker",
+    "storage",
+    "database",
+    "postgresql",
+    "keycloak",
+    "secrets",
+    "credentialRegistry",
+    "github",
+    "auth",
+    "authorization",
+    "cerbos",
+    "model",
+    "retention"
+  ],
+  "properties": {
+    "image": {
+      "type": "object",
+      "required": ["repository", "tag", "digest", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "digest": { "type": "string" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "imagePullSecrets": { "type": "array" },
+    "publicBaseUrl": { "type": "string", "format": "uri" },
+    "trustedCa": {
+      "type": "object",
+      "required": ["existingConfigMap", "key"],
+      "properties": {
+        "existingConfigMap": { "type": "string" },
+        "key": { "type": "string", "minLength": 1 }
+      }
+    },
+    "server": {
+      "type": "object",
+      "required": ["replicas", "port", "databasePoolMax", "ingress", "resources"],
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "databasePoolMax": { "type": "integer", "minimum": 1 },
+        "ingress": {
+          "type": "object",
+          "required": ["enabled", "host", "path"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "className": { "type": "string" },
+            "host": { "type": "string", "minLength": 1 },
+            "path": { "type": "string", "pattern": "^/" },
+            "annotations": { "type": "object" },
+            "tlsSecretName": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "required": [
+        "replicas",
+        "concurrency",
+        "healthPort",
+        "terminationGracePeriodSeconds",
+        "workspace",
+        "resources"
+      ],
+      "properties": {
+        "replicas": { "type": "integer", "minimum": 1 },
+        "concurrency": { "type": "integer", "minimum": 1 },
+        "healthPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "terminationGracePeriodSeconds": { "type": "integer", "minimum": 30 },
+        "workspace": {
+          "type": "object",
+          "required": ["mode", "size", "storageClass"],
+          "properties": {
+            "mode": { "enum": ["emptyDir", "genericEphemeral"] },
+            "size": { "type": "string", "minLength": 1 },
+            "storageClass": { "type": "string" }
+          }
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "required": ["backend", "artifacts"],
+      "properties": {
+        "backend": { "enum": ["pvc"] },
+        "artifacts": {
+          "type": "object",
+          "required": ["existingClaim", "storageClass", "accessModes", "size"],
+          "properties": {
+            "existingClaim": { "type": "string" },
+            "storageClass": { "type": "string" },
+            "accessModes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"] }
+            },
+            "size": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "required": ["existingSecret", "urlKey"],
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "urlKey": { "type": "string", "minLength": 1 }
+      }
+    },
+    "postgresql": {
+      "type": "object",
+      "required": ["enabled", "architecture", "auth", "primary"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "architecture": { "enum": ["standalone"] },
+        "fullnameOverride": { "type": "string" },
+        "auth": {
+          "type": "object",
+          "required": ["username", "database", "password", "existingSecret", "secretKeys"],
+          "properties": {
+            "username": { "type": "string" },
+            "database": { "type": "string" },
+            "password": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "secretKeys": {
+              "type": "object",
+              "required": ["userPasswordKey", "adminPasswordKey"],
+              "properties": {
+                "userPasswordKey": { "type": "string", "minLength": 1 },
+                "adminPasswordKey": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "primary": {
+          "type": "object",
+          "required": ["service", "persistence", "networkPolicy"],
+          "properties": {
+            "service": {
+              "type": "object",
+              "required": ["ports"],
+              "properties": {
+                "ports": {
+                  "type": "object",
+                  "required": ["postgresql"],
+                  "properties": {
+                    "postgresql": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                  }
+                }
+              }
+            },
+            "persistence": {
+              "type": "object",
+              "required": ["enabled", "storageClass", "size"],
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "storageClass": { "type": "string" },
+                "size": { "type": "string", "minLength": 1 }
+              }
+            },
+            "networkPolicy": { "type": "object" }
+          }
+        },
+        "metrics": { "type": "object" }
+      }
+    },
+    "keycloak": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "replicaCount",
+        "auth",
+        "production",
+        "proxyHeaders",
+        "httpEnabled",
+        "hostnameStrict",
+        "containerPorts",
+        "service",
+        "ingress",
+        "networkPolicy",
+        "postgresql",
+        "keycloakConfigCli",
+        "gitCodeReviewer"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "fullnameOverride": { "type": "string" },
+        "global": { "type": "object" },
+        "image": { "type": "object" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "auth": {
+          "type": "object",
+          "required": ["adminUser", "adminPassword", "existingSecret", "passwordSecretKey"],
+          "properties": {
+            "adminUser": { "type": "string", "minLength": 1 },
+            "adminPassword": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "passwordSecretKey": { "type": "string" }
+          }
+        },
+        "production": { "type": "boolean" },
+        "proxyHeaders": { "type": "string" },
+        "httpEnabled": { "type": "boolean" },
+        "hostnameStrict": { "type": "boolean" },
+        "containerPorts": {
+          "type": "object",
+          "required": ["http"],
+          "properties": {
+            "http": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "service": {
+          "type": "object",
+          "required": ["ports"],
+          "properties": {
+            "ports": {
+              "type": "object",
+              "required": ["http"],
+              "properties": {
+                "http": { "type": "integer", "minimum": 1, "maximum": 65535 }
+              }
+            }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "required": ["enabled", "hostname", "tls", "extraTls"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "hostname": { "type": "string", "minLength": 1 },
+            "ingressClassName": { "type": "string" },
+            "annotations": { "type": "object" },
+            "tls": { "type": "boolean" },
+            "extraTls": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "networkPolicy": { "type": "object" },
+        "resources": { "type": "object" },
+        "postgresql": {
+          "type": "object",
+          "required": ["enabled", "architecture", "auth", "primary"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "architecture": { "enum": ["standalone"] },
+            "auth": {
+              "type": "object",
+              "required": ["username", "database", "existingSecret", "secretKeys"],
+              "properties": {
+                "username": { "type": "string", "minLength": 1 },
+                "database": { "type": "string", "minLength": 1 },
+                "existingSecret": { "type": "string" },
+                "secretKeys": {
+                  "type": "object",
+                  "required": ["userPasswordKey"],
+                  "properties": {
+                    "userPasswordKey": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
+            },
+            "primary": { "type": "object" }
+          }
+        },
+        "keycloakConfigCli": {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "extraEnvVars": { "type": "array" },
+            "configuration": { "type": "object" }
+          }
+        },
+        "gitCodeReviewer": {
+          "type": "object",
+          "required": [
+            "realm",
+            "issuer",
+            "clientId",
+            "adminRole",
+            "authSecret",
+            "clientSecretKey",
+            "redirectUri",
+            "webOrigin"
+          ],
+          "properties": {
+            "realm": { "type": "string", "minLength": 1 },
+            "issuer": { "type": "string", "format": "uri" },
+            "clientId": { "type": "string", "minLength": 1 },
+            "adminRole": { "type": "string", "minLength": 1 },
+            "authSecret": { "type": "string", "minLength": 1 },
+            "clientSecretKey": { "type": "string", "minLength": 1 },
+            "redirectUri": { "type": "string", "format": "uri" },
+            "webOrigin": { "type": "string", "format": "uri" }
+          }
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "required": [
+        "githubApp",
+        "auth",
+        "modelProvider",
+        "chatModelProvider",
+        "chatgptAccount",
+        "credentialRegistry"
+      ],
+      "properties": {
+        "githubApp": { "type": "string" },
+        "auth": { "type": "string" },
+        "modelProvider": { "type": "string" },
+        "chatModelProvider": { "type": "string" },
+        "chatgptAccount": { "type": "string" },
+        "credentialRegistry": { "type": "string" }
+      }
+    },
+    "credentialRegistry": {
+      "type": "object",
+      "required": ["enabled", "encryptionKeyKey"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "encryptionKeyKey": { "type": "string", "minLength": 1 }
+      }
+    },
+    "github": {
+      "type": "object",
+      "required": ["mode", "appIdKey", "privateKeyKey"],
+      "properties": {
+        "mode": { "enum": ["disabled", "fixture", "app", "registry"] },
+        "appIdKey": { "type": "string", "minLength": 1 },
+        "privateKeyKey": { "type": "string", "minLength": 1 }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "required": [
+        "mode",
+        "development",
+        "local",
+        "proxyPublicKeyKey",
+        "adminRole",
+        "adminGroup",
+        "defaultTenantSlug",
+        "autoJoinDefaultTenant"
+      ],
+      "properties": {
+        "mode": { "enum": ["development", "local", "oidc", "proxy"] },
+        "development": {
+          "type": "object",
+          "required": ["subject", "displayName", "role"],
+          "properties": {
+            "subject": { "type": "string", "minLength": 1 },
+            "displayName": { "type": "string", "minLength": 1 },
+            "role": { "enum": ["reviewer", "administrator"] }
+          }
+        },
+        "local": {
+          "type": "object",
+          "required": ["adminDisplayName", "reviewerDisplayName"],
+          "properties": {
+            "adminDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "reviewerDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 }
+          }
+        },
+        "proxyPublicKeyKey": { "type": "string", "minLength": 1 },
+        "adminRole": { "type": "string", "minLength": 1 },
+        "adminGroup": { "type": "string", "minLength": 1 },
+        "defaultTenantSlug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+        },
+        "autoJoinDefaultTenant": { "type": "boolean" }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["mode", "cerbosUrl", "timeoutMs"],
+      "properties": {
+        "mode": { "enum": ["local", "cerbos"] },
+        "cerbosUrl": { "type": "string" },
+        "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "cerbos": {
+      "type": "object",
+      "required": ["enabled", "replicas", "port", "image", "resources"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicas": { "type": "integer", "minimum": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "image": {
+          "type": "object",
+          "required": ["repository", "tag", "pullPolicy"],
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string", "minLength": 1 },
+            "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+          }
+        },
+        "resources": { "type": "object" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["analysis", "chat"],
+      "properties": {
+        "analysis": { "$ref": "#/$defs/model" },
+        "chat": { "$ref": "#/$defs/chatModel" }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "schedule",
+        "reportDays",
+        "chatDays",
+        "eventLogHours",
+        "orphanGraceHours",
+        "deleteGraceHours",
+        "batchSize"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "schedule": { "type": "string", "minLength": 1 },
+        "reportDays": { "type": "integer", "minimum": 1 },
+        "chatDays": { "type": "integer", "minimum": 1 },
+        "eventLogHours": { "type": "integer", "minimum": 1 },
+        "orphanGraceHours": { "type": "integer", "minimum": 1 },
+        "deleteGraceHours": { "type": "integer", "minimum": 0 },
+        "batchSize": { "type": "integer", "minimum": 1, "maximum": 10000 }
+      }
+    },
+    "serviceAccount": { "type": "object" },
+    "networkPolicy": {
+      "type": "object",
+      "required": ["enabled", "serverIngressFrom", "additionalEgress"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "serverIngressFrom": { "type": "array", "items": { "type": "object" } },
+        "additionalEgress": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "podDisruptionBudget": { "type": "object" }
+  },
+  "$defs": {
+    "model": {
+      "type": "object",
+      "required": ["mode", "endpoint", "name", "apiKeyKey", "timeoutMs", "admin"],
+      "properties": {
+        "mode": { "enum": ["disabled", "openai-compatible"] },
+        "endpoint": { "type": "string" },
+        "name": { "type": "string" },
+        "apiKeyKey": { "type": "string", "minLength": 1 },
+        "timeoutMs": { "type": "integer", "minimum": 1 },
+        "admin": {
+          "type": "object",
+          "required": ["enabled", "encryptionKeyKey", "allowedOrigins"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "encryptionKeyKey": { "type": "string", "minLength": 1 },
+            "allowedOrigins": {
+              "type": "array",
+              "items": { "type": "string", "format": "uri" }
+            }
+          }
+        }
+      }
+    },
+    "chatModel": {
+      "type": "object",
+      "required": [
+        "mode",
+        "endpoint",
+        "name",
+        "apiKeyKey",
+        "timeoutMs",
+        "concurrencyLimit",
+        "hourlyLimit",
+        "sessionMessageLimit",
+        "account"
+      ],
+      "properties": {
+        "mode": { "enum": ["disabled", "openai-compatible", "chatgpt-account", "registry"] },
+        "endpoint": { "type": "string" },
+        "name": { "type": "string" },
+        "apiKeyKey": { "type": "string", "minLength": 1 },
+        "timeoutMs": { "type": "integer", "minimum": 1 },
+        "concurrencyLimit": { "type": "integer", "minimum": 1 },
+        "hourlyLimit": { "type": "integer", "minimum": 1 },
+        "sessionMessageLimit": { "type": "integer", "minimum": 1 },
+        "account": {
+          "type": "object",
+          "required": [
+            "authFileKey",
+            "bootstrapRevision",
+            "home",
+            "refreshEndpoint",
+            "proactiveRefreshMinutes",
+            "persistence"
+          ],
+          "properties": {
+            "authFileKey": { "type": "string", "minLength": 1 },
+            "bootstrapRevision": { "type": "string", "minLength": 1 },
+            "home": { "const": "/var/lib/git-code-reviewer/chatgpt-account" },
+            "refreshEndpoint": { "const": "https://auth.openai.com/oauth/token" },
+            "proactiveRefreshMinutes": { "type": "integer", "minimum": 1, "maximum": 60 },
+            "persistence": {
+              "type": "object",
+              "required": ["existingClaim", "storageClass", "accessModes", "size"],
+              "properties": {
+                "existingClaim": { "type": "string" },
+                "storageClass": { "type": "string" },
+                "accessModes": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "enum": ["ReadWriteOnce", "ReadWriteMany"] }
+                },
+                "size": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

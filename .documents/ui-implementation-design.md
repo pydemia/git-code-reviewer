@@ -1,5 +1,15 @@
 # Review Workspace - UI 구현 설계
 
+## Skill/report 확장 (2026-09-07)
+
+Findings LNB는 Commit Defender의 report 계층을 사용한다. 상단에 제목, 분석 상태, 최고 priority, grade, 실제 검토 완료 파일 수, comment 수, mode와 duration을 표시하고 Raw JSON/Markdown을 제공한다. Overall Summary는 파일별 경로·priority·검토 상태·설명을, AI Comments는 파일별 unit-comment-block과 category·head/mergeBase line range·문제·영향·수정 제안을 보여준다. 설명은 한 줄 말줄임으로 숨기지 않는다. Analyzed File List에는 comment가 없는 파일과 미검토 파일도 포함한다.
+
+파일 요약과 comment 선택은 기존 revision 고정 diff 이동을 사용한다. Comment는 해당 line range와 inline 설명을 보여주고 Chat scope를 함께 바꾼다. Base 삭제 line은 mergeBase에 연결한다. 파일 수준의 설명은 임의 line으로 이동시키지 않는다. 오른쪽 Chat, Files tree와 +/− 집계, panel resizing, FNB를 유지한다.
+
+Administration의 `분석 Skills`는 관점/form 목록, SKILL.md 편집기, bundle 저장/활성화와 version history 순서다. Desktop에서는 목록과 편집기를 나란히 두고 작은 화면에서는 위아래로 배치한다. 새 관점 추가, 초안 삭제, enabled 변경, 이전 version 재활성화와 Built-in 복원을 지원한다. 저장하지 않은 초안은 탭 이동 중 유지하고 page 이탈 때 경고한다. 모든 tenant의 새 작업에 적용된다는 범위를 저장 전에 안내한다. 지침은 browser local storage에 보관하지 않는다.
+
+실패·미수행·데모에는 성공 grade를 표시하지 않는다. PASS는 검토한 범위에 P3가 없다는 뜻이며 merge를 허가하거나 안전을 보증하지 않는다. Code Coverage와 AI 검토 완료율은 구분한다. 상세 상태와 API/Worker contract는 `skill-based-review-report.md`를 따른다.
+
 ## 1. 적용 범위
 
 이 문서는 사내 HTTPS web application의 사용자 흐름과 review workspace를 정의한다. 기준 visual artifact는 다음과 같다.
@@ -20,7 +30,9 @@ HTML/PNG의 Header, LNB, Main diff, right Chat, FNB 구조와 정보 밀도는 �
                           -> 최신 analysis로 이동하는 canonical route
 /reviews/:analysisId      -> revision에 고정된 review workspace
 /settings                 -> 사용자 preference
-/admin/repositories       -> 관리자 전용 repository 등록/상태
+/admin/chat-accounts      -> Chat account, model/effort, assignment 관리
+/admin/github-connections -> GHES access token connection 관리
+/admin/repositories       -> repository/grant/polling 등록·상태
 ```
 
 로그인 전에는 OIDC redirect에 필요한 최소 화면만 표시한다. 로그인 후 첫 화면은 marketing page가 아니라 worklist다.
@@ -55,7 +67,7 @@ repository, author, review state, priority, draft, updated time filter를 제공
 │ Outline       │ maximized tool                         │ evidence links    │
 │ Impact        │                                        │ composer          │
 ├───────────────┴────────────────────────────────────────┴───────────────────┤
-│ FNB: Evidence · Git graph · History · Ownership · Impact · Tests          │
+│ FNB: Evidence · Git graph · Impact · Tests                                │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -165,7 +177,7 @@ Main의 실제 가용 폭이 880px 미만이면 기본 split mode를 unified로 
 
 ### 7.2 Tool view
 
-Git graph, History, Ownership, Impact와 Tests를 maximize하면 Main을 사용한다. 닫을 때 이전 file/diff scroll과 selection을 복원한다. tool은 동일 snapshot query만 사용하며 별도 revision을 암묵적으로 읽지 않는다.
+Git graph, Impact와 Tests를 maximize하면 Main을 사용한다. 닫을 때 이전 file/diff scroll과 selection을 복원한다. tool은 동일 snapshot query만 사용하며 별도 revision을 암묵적으로 읽지 않는다. History, Ownership과 Relationships는 FNB top-level tab으로 제공하지 않는다.
 
 Impact maximize view는 안정된 세 column 또는 동등한 방향 graph를 사용한다. 바깥 column label은 Structure mode에서 `Parent | Selected object | Children`, Dependency mode에서 `Uses | Selected object | Used by`로 바뀌며 두 체계의 label을 동시에 섞지 않는다. Node에는 kind, qualified name, changed 상태와 직접 relation 수를, edge에는 calls/imports/extends/tests 같은 relation과 confidence를 표시한다. Cycle은 끊어서 숨기지 않고 cycle marker로 표시하며 truncated branch에는 `더 보기`와 limitation을 둔다.
 
@@ -197,12 +209,25 @@ Internal opaque ID나 external URL 자체는 권한을 부여하지 않는다. �
 
 ## 8. Persistent Chat
 
+- 상단에 사용자가 접근 가능한 Account | Model | Effort selector와 새 대화 시작 command를 둔다.
+- Model과 Effort option은 선택한 account에서 관리자가 허용한 capability만 표시한다.
+- 첫 message 전까지 선택을 조정할 수 있다. Message가 있는 session에서 account/model/effort를 바꾸면 기존 대화를 수정하지 않고 새 session 생성 확인을 표시한다.
+- Session header에는 실제 account email이나 credential 대신 account display label, model과 effort를 표시한다.
 - 상단에 analysis revision, selected finding/file/symbol scope를 표시한다.
 - scope chip은 제거/추가할 수 있지만 다른 revision의 evidence는 섞을 수 없다.
 - finding 선택 시 기본 scope를 바꾸되 작성 중 draft는 유지한다.
 - citation을 선택하면 Main/FNB가 이동하고 Chat scroll/draft는 유지한다.
 - streaming 중 stop, 재연결, 실패 후 retry와 완성 message 재조회 command를 제공한다.
 - 새 analysis 전환은 기존 conversation을 바꾸지 않고 새 session을 시작한다.
+- Server가 반환하는 model availability가 false이면 이전 합성 답변을 conversation처럼 표시하지 않고 composer를 비활성화한다.
+- 비활성 model에 대한 전송은 message persist 전에 `CHAT_MODEL_DISABLED`로 종료한다. GHES fixture 여부와 interactive model 사용 여부는 독립적이다.
+
+### 8.1 Admin 화면
+
+- Chat accounts: account 등록·검증·비활성화, credential 회전, model별 허용/default/max effort, tenant/user/group assignment와 quota를 관리한다.
+- GHES connections: GHES API/Web URL, write-only access token, CA profile, token health/expiry/rate-limit과 연결 test를 관리한다. 등록된 연결의 `연결 수정` dialog에서는 이름, API/Web URL, credential label, token 만료일을 변경하고 필요할 때만 access token을 교체한다. API 또는 Web origin 변경 시 새 token을 필수로 요구하고, 같은 instance를 여러 credential이 공유하면 이름과 URL 입력을 잠근다. 저장 실패는 dialog 안에 표시하며 modal focus, Escape 닫기와 호출 버튼 focus 복원을 지원한다.
+- Repositories: connection에서 조회 가능한 repository를 선택하고 tenant, user/group grant, automatic polling, hot/active/idle/draft interval, 마지막 poll 상태와 Poll now를 관리한다.
+- Credential input은 저장 성공 직후 비우며 browser storage, URL과 화면 재조회 response에 원문을 남기지 않는다.
 
 assistant response의 citation은 keyboard focus가 가능한 button이다. tooltip에는 file, line/symbol, artifact type을 표시하며 source 전체를 hover card에 복제하지 않는다.
 
@@ -214,10 +239,10 @@ assistant response의 citation은 keyboard focus가 가능한 button이다. tool
 |---|---|---|
 | Evidence | selected claim과 locator | claim-evidence chain, omission |
 | Git graph | nearby commit lanes | branch/merge graph, commit diff |
-| History | selected line/symbol commits | rename-aware file/symbol history |
-| Ownership | top contributors | path/code ownership evidence |
 | Impact | direct dependency와 selected edge summary | parent/children 또는 uses/used-by graph, evidence와 coverage |
-| Tests | related test candidates | evidence, gap와 confidence |
+| Tests | 추가된 test file/case 요약과 assertion 수 | case 설명, evidence, gap와 confidence |
+
+Git graph는 snapshot commit artifact, merge-base와 관측된 base/head ref만 표시하고 존재하지 않는 commit을 합성하지 않는다. Tests는 added diff에서 지원되는 test declaration과 assertion을 추출한다. Snapshot에 test patch 본문이 없으면 case를 추측하지 않고 file additions와 limitation을 표시한다.
 
 commit을 선택하면 Main은 commit diff로 바뀌고 LNB/Chat에 commit scope를 반영한다. canonical PR diff로 돌아가는 command를 항상 제공한다.
 
@@ -237,7 +262,7 @@ type ReviewSelection = {
   relationDirection?: "parents" | "children" | "uses" | "usedBy";
   findingId?: string;
   commitId?: string;
-  tool?: "evidence" | "graph" | "history" | "ownership" | "impact" | "tests";
+  tool?: "evidence" | "graph" | "impact" | "tests";
 };
 ```
 
@@ -290,7 +315,7 @@ src/
   workspace/    # resizable shell and header
   files/        # tree and diff
   findings/     # finding list/detail
-  tools/        # evidence/graph/history/ownership/impact/tests
+  tools/        # evidence/graph/impact/tests
   chat/         # session, stream, composer, citations
   state/        # selection, URL sync, preferences
   api/          # generated types and REST/SSE clients

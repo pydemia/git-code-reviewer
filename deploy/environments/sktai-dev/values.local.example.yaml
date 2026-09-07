@@ -1,0 +1,15 @@
+# Copy this file to values.local.yaml. The destination is gitignored.
+# Replace both StorageClass values with names returned by `kubectl get sc`.
+storage:
+  artifacts:
+    storageClass: REPLACE_WITH_RWX_STORAGE_CLASS
+
+postgresql:
+  primary:
+    persistence:
+      storageClass: REPLACE_WITH_RWO_STORAGE_CLASS
+
+# Enable this after creating the corporate-ca ConfigMap when GHES uses an
+# internal certificate authority. Leave it empty for a publicly trusted CA.
+trustedCa:
+  existingConfigMap: ''

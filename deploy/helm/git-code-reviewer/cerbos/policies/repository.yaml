@@ -1,0 +1,17 @@
+apiVersion: api.cerbos.dev/v1
+resourcePolicy:
+  resource: repository
+  version: default
+  rules:
+    - actions: ['*']
+      effect: EFFECT_ALLOW
+      roles: ['administrator']
+      condition:
+        match:
+          expr: request.principal.attr.enabled == true
+    - actions: ['view', 'refresh', 'chat']
+      effect: EFFECT_ALLOW
+      roles: ['reviewer']
+      condition:
+        match:
+          expr: request.principal.attr.enabled == true && request.resource.attr.enabled == true && request.resource.attr.granted == true && request.resource.attr.tenantId in request.principal.attr.tenantIds

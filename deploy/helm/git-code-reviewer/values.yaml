@@ -1,0 +1,343 @@
+image:
+  repository: docker.io/pydemia/git-code-reviewer
+  tag: '0.8.0-alpha.10'
+  digest: 'sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc'
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+publicBaseUrl: https://git-code-reviewer.example.internal
+trustedCa:
+  existingConfigMap: ''
+  key: ca.crt
+
+server:
+  replicas: 2
+  port: 4000
+  databasePoolMax: 10
+  ingress:
+    enabled: false
+    className: ''
+    host: git-code-reviewer.example.internal
+    path: /
+    annotations: {}
+    tlsSecretName: ''
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: '1', memory: 1Gi }
+
+worker:
+  replicas: 2
+  concurrency: 2
+  healthPort: 4001
+  terminationGracePeriodSeconds: 900
+  workspace:
+    mode: emptyDir
+    size: 10Gi
+    storageClass: ''
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: '2', memory: 4Gi }
+
+storage:
+  backend: pvc
+  artifacts:
+    existingClaim: ''
+    storageClass: ''
+    accessModes: [ReadWriteMany]
+    size: 100Gi
+
+database:
+  existingSecret: git-code-reviewer-db
+  urlKey: DATABASE_URL
+
+# Disabled by default for production installations that use a managed database.
+# When enabled, this dependency replaces database.existingSecret.
+postgresql:
+  enabled: false
+  architecture: standalone
+  fullnameOverride: ''
+  auth:
+    username: git_code_reviewer
+    database: git_code_reviewer
+    password: ''
+    existingSecret: ''
+    secretKeys:
+      userPasswordKey: password
+      adminPasswordKey: postgres-password
+  primary:
+    service:
+      ports:
+        postgresql: 5432
+    persistence:
+      enabled: true
+      storageClass: ''
+      size: 20Gi
+    networkPolicy:
+      enabled: true
+      allowExternal: true
+  metrics:
+    enabled: false
+
+# Bundled identity is disabled in the reusable defaults so an existing OIDC
+# provider can still be used. The enterprise example enables this dependency.
+keycloak:
+  enabled: false
+  fullnameOverride: ''
+  # Bitnami moved these pinned community images out of bitnami/* in 2025.
+  # Replace the legacy repositories with an approved maintained registry for production.
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/keycloak
+    tag: 26.3.3-debian-12-r0
+    digest: ''
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  auth:
+    adminUser: admin
+    adminPassword: ''
+    existingSecret: git-code-reviewer-keycloak
+    passwordSecretKey: admin-password
+  production: true
+  proxyHeaders: xforwarded
+  httpEnabled: true
+  hostnameStrict: true
+  containerPorts:
+    http: 8080
+  service:
+    ports:
+      http: 80
+  ingress:
+    enabled: false
+    hostname: keycloak.example.internal
+    ingressClassName: ''
+    annotations: {}
+    tls: true
+    extraTls: []
+  networkPolicy:
+    enabled: true
+    allowExternal: true
+    allowExternalEgress: true
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: '1', memory: 1Gi }
+  postgresql:
+    enabled: true
+    architecture: standalone
+    nameOverride: keycloak-postgresql
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/postgresql
+      tag: 17.6.0-debian-12-r0
+      digest: ''
+    volumePermissions:
+      image:
+        registry: docker.io
+        repository: bitnamilegacy/os-shell
+        tag: 12-debian-12-r50
+        digest: ''
+    metrics:
+      image:
+        registry: docker.io
+        repository: bitnamilegacy/postgres-exporter
+        tag: 0.17.1-debian-12-r15
+        digest: ''
+    auth:
+      username: bn_keycloak
+      database: bitnami_keycloak
+      existingSecret: git-code-reviewer-keycloak-postgresql
+      secretKeys:
+        userPasswordKey: password
+    primary:
+      persistence:
+        enabled: true
+        storageClass: ''
+        size: 20Gi
+  keycloakConfigCli:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/keycloak-config-cli
+      tag: 6.4.0-debian-12-r11
+      digest: ''
+      pullPolicy: IfNotPresent
+    extraEnvVars:
+      - name: IMPORT_VARSUBSTITUTION_ENABLED
+        value: 'true'
+      - name: GCR_OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: '{{ .Values.gitCodeReviewer.authSecret }}'
+            key: '{{ .Values.gitCodeReviewer.clientSecretKey }}'
+    configuration:
+      git-code-reviewer-realm.json: |-
+        {
+          "realm": {{ .Values.gitCodeReviewer.realm | quote }},
+          "displayName": "Git Code Reviewer",
+          "enabled": true,
+          "registrationAllowed": false,
+          "resetPasswordAllowed": true,
+          "loginWithEmailAllowed": true,
+          "roles": {
+            "client": {
+              {{ .Values.gitCodeReviewer.clientId | quote }}: [
+                {
+                  "name": {{ .Values.gitCodeReviewer.adminRole | quote }},
+                  "description": "Git Code Reviewer administrator"
+                }
+              ]
+            }
+          },
+          "clients": [
+            {
+              "clientId": {{ .Values.gitCodeReviewer.clientId | quote }},
+              "name": "Git Code Reviewer",
+              "enabled": true,
+              "protocol": "openid-connect",
+              "publicClient": false,
+              "secret": "${GCR_OIDC_CLIENT_SECRET}",
+              "standardFlowEnabled": true,
+              "implicitFlowEnabled": false,
+              "directAccessGrantsEnabled": false,
+              "serviceAccountsEnabled": false,
+              "redirectUris": [{{ .Values.gitCodeReviewer.redirectUri | quote }}],
+              "webOrigins": [{{ .Values.gitCodeReviewer.webOrigin | quote }}],
+              "attributes": {
+                "pkce.code.challenge.method": "S256",
+                "post.logout.redirect.uris": {{ printf "%s/*" .Values.gitCodeReviewer.webOrigin | quote }}
+              },
+              "protocolMappers": [
+                {
+                  "name": "groups",
+                  "protocol": "openid-connect",
+                  "protocolMapper": "oidc-group-membership-mapper",
+                  "consentRequired": false,
+                  "config": {
+                    "claim.name": "groups",
+                    "full.path": "true",
+                    "id.token.claim": "true",
+                    "access.token.claim": "true",
+                    "userinfo.token.claim": "true"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+  gitCodeReviewer:
+    realm: git-code-reviewer
+    issuer: https://keycloak.example.internal/realms/git-code-reviewer
+    clientId: git-code-reviewer
+    adminRole: git-code-reviewer-admin
+    authSecret: git-code-reviewer-auth
+    clientSecretKey: OIDC_CLIENT_SECRET
+    redirectUri: https://git-code-reviewer.example.internal/auth/callback
+    webOrigin: https://git-code-reviewer.example.internal
+
+secrets:
+  githubApp: git-code-reviewer-github-app
+  auth: git-code-reviewer-auth
+  modelProvider: git-code-reviewer-model
+  chatModelProvider: git-code-reviewer-chat-model
+  chatgptAccount: git-code-reviewer-chatgpt-account
+  credentialRegistry: git-code-reviewer-credential-registry
+
+credentialRegistry:
+  enabled: true
+  encryptionKeyKey: CREDENTIAL_ENCRYPTION_KEY
+
+github:
+  mode: registry
+  appIdKey: APP_ID
+  privateKeyKey: PRIVATE_KEY
+
+auth:
+  mode: oidc
+  # Development auth bypasses login and must only be used for an isolated pilot.
+  development:
+    subject: pilot-administrator
+    displayName: Pilot Administrator
+    role: administrator
+  # Local account mode is intended for private deployments that do not expose
+  # an OIDC endpoint. The referenced auth Secret must contain SESSION_SECRET,
+  # LOCAL_BOOTSTRAP_ADMIN_USERNAME/PASSWORD and optional reviewer counterparts.
+  local:
+    adminDisplayName: 시스템 관리자
+    reviewerDisplayName: 일반 사용자
+  proxyPublicKeyKey: PROXY_IDENTITY_PUBLIC_KEY
+  adminRole: git-code-reviewer-admin
+  adminGroup: git-code-reviewer-admins
+  defaultTenantSlug: default
+  autoJoinDefaultTenant: false
+
+authorization:
+  mode: local
+  cerbosUrl: ''
+  timeoutMs: 2000
+
+cerbos:
+  enabled: false
+  replicas: 2
+  port: 3592
+  image:
+    repository: ghcr.io/cerbos/cerbos
+    tag: 0.55.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+model:
+  analysis:
+    mode: disabled
+    endpoint: ''
+    name: ''
+    apiKeyKey: API_KEY
+    timeoutMs: 120000
+    admin:
+      enabled: false
+      encryptionKeyKey: SETTINGS_ENCRYPTION_KEY
+      allowedOrigins: []
+  chat:
+    mode: disabled
+    endpoint: ''
+    name: ''
+    apiKeyKey: API_KEY
+    timeoutMs: 60000
+    concurrencyLimit: 2
+    hourlyLimit: 30
+    sessionMessageLimit: 200
+    account:
+      authFileKey: auth.json
+      bootstrapRevision: initial
+      home: /var/lib/git-code-reviewer/chatgpt-account
+      refreshEndpoint: https://auth.openai.com/oauth/token
+      proactiveRefreshMinutes: 5
+      persistence:
+        existingClaim: ''
+        storageClass: ''
+        accessModes: [ReadWriteMany]
+        size: 1Gi
+
+retention:
+  enabled: true
+  schedule: '*/10 * * * *'
+  reportDays: 90
+  chatDays: 30
+  eventLogHours: 24
+  orphanGraceHours: 24
+  deleteGraceHours: 1
+  batchSize: 500
+
+serviceAccount:
+  create: true
+  name: ''
+
+networkPolicy:
+  enabled: false
+  serverIngressFrom: []
+  additionalEgress: []
+
+podDisruptionBudget:
+  enabled: true

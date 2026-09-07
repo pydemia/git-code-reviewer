@@ -1,0 +1,63 @@
+{{ include "git-code-reviewer.validate" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+data:
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: {{ .Values.server.port | quote }}
+  WORKER_HEALTH_PORT: {{ .Values.worker.healthPort | quote }}
+  WORKER_CONCURRENCY: {{ .Values.worker.concurrency | quote }}
+  DATABASE_POOL_MAX: {{ .Values.server.databasePoolMax | quote }}
+  PUBLIC_BASE_URL: {{ .Values.publicBaseUrl | quote }}
+  AUTH_MODE: {{ .Values.auth.mode | quote }}
+  {{- if eq .Values.auth.mode "development" }}
+  DEV_USER_SUBJECT: {{ .Values.auth.development.subject | quote }}
+  DEV_USER_NAME: {{ .Values.auth.development.displayName | quote }}
+  DEV_USER_ROLE: {{ .Values.auth.development.role | quote }}
+  {{- end }}
+  {{- if eq .Values.auth.mode "local" }}
+  LOCAL_BOOTSTRAP_ADMIN_NAME: {{ .Values.auth.local.adminDisplayName | quote }}
+  LOCAL_BOOTSTRAP_REVIEWER_NAME: {{ .Values.auth.local.reviewerDisplayName | quote }}
+  {{- end }}
+  {{- if .Values.keycloak.enabled }}
+  OIDC_ISSUER: {{ .Values.keycloak.gitCodeReviewer.issuer | quote }}
+  OIDC_CLIENT_ID: {{ .Values.keycloak.gitCodeReviewer.clientId | quote }}
+  OIDC_REDIRECT_URI: {{ .Values.keycloak.gitCodeReviewer.redirectUri | quote }}
+  {{- end }}
+  AUTHORIZATION_MODE: {{ .Values.authorization.mode | quote }}
+  CERBOS_URL: {{ include "git-code-reviewer.cerbos.url" . | quote }}
+  CERBOS_TIMEOUT_MS: {{ .Values.authorization.timeoutMs | quote }}
+  OIDC_ADMIN_ROLE: {{ .Values.auth.adminRole | quote }}
+  OIDC_ADMIN_GROUP: {{ .Values.auth.adminGroup | quote }}
+  DEFAULT_TENANT_SLUG: {{ .Values.auth.defaultTenantSlug | quote }}
+  AUTO_JOIN_DEFAULT_TENANT: {{ .Values.auth.autoJoinDefaultTenant | quote }}
+  GITHUB_MODE: {{ .Values.github.mode | quote }}
+  CREDENTIAL_REGISTRY_ENABLED: {{ .Values.credentialRegistry.enabled | quote }}
+  MODEL_MODE: {{ .Values.model.analysis.mode | quote }}
+  MODEL_ENDPOINT: {{ .Values.model.analysis.endpoint | quote }}
+  MODEL_NAME: {{ .Values.model.analysis.name | quote }}
+  MODEL_TIMEOUT_MS: {{ .Values.model.analysis.timeoutMs | quote }}
+  MODEL_ADMIN_ENABLED: {{ .Values.model.analysis.admin.enabled | quote }}
+  MODEL_PROVIDER_ALLOWED_ORIGINS: {{ join "," .Values.model.analysis.admin.allowedOrigins | quote }}
+  CHAT_MODEL_MODE: {{ .Values.model.chat.mode | quote }}
+  CHAT_MODEL_ENDPOINT: {{ .Values.model.chat.endpoint | quote }}
+  CHAT_MODEL_NAME: {{ .Values.model.chat.name | quote }}
+  CHAT_MODEL_TIMEOUT_MS: {{ .Values.model.chat.timeoutMs | quote }}
+  CHATGPT_ACCOUNT_HOME: {{ .Values.model.chat.account.home | quote }}
+  CHATGPT_ACCOUNT_REFRESH_ENDPOINT: {{ .Values.model.chat.account.refreshEndpoint | quote }}
+  CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES: {{ .Values.model.chat.account.proactiveRefreshMinutes | quote }}
+  CHAT_CONCURRENCY_LIMIT: {{ .Values.model.chat.concurrencyLimit | quote }}
+  CHAT_HOURLY_LIMIT: {{ .Values.model.chat.hourlyLimit | quote }}
+  CHAT_SESSION_MESSAGE_LIMIT: {{ .Values.model.chat.sessionMessageLimit | quote }}
+  ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts
+  WORKSPACE_ROOT: /tmp/git-code-reviewer/workspaces
+  RETENTION_REPORT_DAYS: {{ .Values.retention.reportDays | quote }}
+  RETENTION_CHAT_DAYS: {{ .Values.retention.chatDays | quote }}
+  RETENTION_EVENT_LOG_HOURS: {{ .Values.retention.eventLogHours | quote }}
+  RETENTION_ORPHAN_GRACE_HOURS: {{ .Values.retention.orphanGraceHours | quote }}
+  RETENTION_DELETE_GRACE_HOURS: {{ .Values.retention.deleteGraceHours | quote }}
+  RETENTION_BATCH_SIZE: {{ .Values.retention.batchSize | quote }}

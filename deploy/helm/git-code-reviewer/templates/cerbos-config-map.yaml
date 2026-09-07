@@ -1,0 +1,22 @@
+{{- if .Values.cerbos.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-cerbos
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cerbos
+data:
+  .cerbos.yaml: |-
+    server:
+      httpListenAddr: ":{{ .Values.cerbos.port }}"
+    storage:
+      driver: disk
+      disk:
+        directory: /policies
+        watchForChanges: false
+  {{- range $path, $_ := .Files.Glob "cerbos/policies/*.yaml" }}
+  {{ base $path }}: |-
+    {{- $.Files.Get $path | nindent 4 }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "GCR: Start PostgreSQL",
+      "type": "shell",
+      "command": "docker compose up -d --wait postgres",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "GCR: Build Packages",
+      "type": "shell",
+      "command": "pnpm build:packages",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "GCR: Migrate",
+      "type": "shell",
+      "command": "pnpm --filter @gcr/runtime migrate",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "DATABASE_URL": "postgresql://git_code_reviewer:local-only-password@127.0.0.1:25432/git_code_reviewer",
+          "ARTIFACT_ROOT": "${workspaceFolder}/artifacts",
+          "WORKSPACE_ROOT": "${workspaceFolder}/tmp/workspaces"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "GCR: Prepare Runtime",
+      "dependsOrder": "sequence",
+      "dependsOn": ["GCR: Start PostgreSQL", "GCR: Build Packages", "GCR: Migrate"],
+      "problemMatcher": []
+    }
+  ]
+}
