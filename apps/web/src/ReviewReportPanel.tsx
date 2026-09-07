@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Clipboard,
+  CircleCheck,
   Download,
   FileCode2,
   FileJson,
@@ -43,10 +44,12 @@ function ReviewCommentBlock({
   selected: boolean;
   onSelect: (finding: Finding) => void;
 }) {
+  const ghesLink = finding.links.find((link) => link.rel === 'ghes' && link.available);
   return (
     <article
       className={`report-unit priority-border-${finding.priority.toLowerCase()}${selected ? ' active' : ''}`}
       aria-label="검토 의견"
+      data-comment-id={finding.id}
     >
       <header className="report-unit-meta">
         <MessageSquare size={15} aria-hidden="true" />
@@ -91,13 +94,21 @@ function ReviewCommentBlock({
         <button type="button" className="report-code-link" onClick={() => onSelect(finding)}>
           코드에서 보기 <ArrowUpRight size={13} aria-hidden="true" />
         </button>
+        <span className="comment-verification">
+          <CircleCheck size={13} aria-hidden="true" />
+          {finding.verification.status === 'verified' ? '코드 위치 확인' : '코드 위치 확인 제한'}
+        </span>
+        {ghesLink ? (
+          <a className="report-code-link" href={ghesLink.href} target="_blank" rel="noreferrer">
+            GHES 원문 <ArrowUpRight size={13} aria-hidden="true" />
+          </a>
+        ) : null}
       </footer>
     </article>
   );
 }
 
-// Summary and Comments share the same cards; selecting a comment still opens
-// its exact revision, line and Chat scope.
+// Summary는 PR·파일 요약, FNB Comments는 상세 의견을 담당합니다.
 export function ReviewReportPanel({
   report,
   files,
@@ -115,6 +126,17 @@ export function ReviewReportPanel({
 }) {
   const view = useMemo(() => presentReviewReport(report, files), [report, files]);
   const [copyState, setCopyState] = useState('');
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (section !== 'comments' || !selectedFindingId) return;
+    const host = panel.current?.closest<HTMLElement>('.bottom-comments-host');
+    const selected = [
+      ...(panel.current?.querySelectorAll<HTMLElement>('[data-comment-id]') ?? []),
+    ].find((item) => item.dataset.commentId === selectedFindingId);
+    if (host && selected)
+      host.scrollTop +=
+        selected.getBoundingClientRect().top - host.getBoundingClientRect().top - 12;
+  }, [section, selectedFindingId]);
   const link = (rel: string) =>
     report.links.find((item) => item.rel === rel && item.available)?.href;
   const self = link('self');
@@ -126,7 +148,11 @@ export function ReviewReportPanel({
     else onFileSelect(path);
   }
   return (
-    <article className="structured-report" aria-label="코드 검토 보고서">
+    <article
+      className="structured-report"
+      aria-label={section === 'summary' ? 'PR 검토 요약' : '검토 의견 목록'}
+      ref={panel}
+    >
       {section === 'summary' ? (
         <header className="structured-report-heading">
           <div className="report-title-row">
@@ -195,14 +221,6 @@ export function ReviewReportPanel({
               <dd>{formatReviewDuration(report.durationMs)}</dd>
             </div>
           </dl>
-          {view.overview ? (
-            <details className="report-overview" open={view.overview.length <= 600}>
-              <summary>전체 분석 요약</summary>
-              <p className="report-narrative">
-                <ReviewText text={view.overview} />
-              </p>
-            </details>
-          ) : null}
           {['demo', 'failed', 'unavailable'].includes(view.state) ? (
             <p className="report-state-explanation">
               {view.state === 'demo'
@@ -223,6 +241,24 @@ export function ReviewReportPanel({
             </details>
           ) : null}
         </header>
+      ) : null}
+      {section === 'summary' ? (
+        <section className="report-section report-overview" aria-labelledby="pr-summary-title">
+          <h3 id="pr-summary-title">PR 전체 요약</h3>
+          <p className="report-pr-title">
+            #{report.context.pullNumber} {report.context.pullTitle}
+          </p>
+          {view.overview ? (
+            <p className="report-narrative">
+              <ReviewText text={view.overview} />
+            </p>
+          ) : (
+            <p className="report-state-explanation">
+              이 report에는 별도의 PR 전체 요약이 없습니다. 아래 파일별 검토와 분석 제한을
+              확인하세요. 전체 요약이 필요하면 분석 설정을 확인한 뒤 다시 분석하세요.
+            </p>
+          )}
+        </section>
       ) : null}
       {section === 'summary' ? (
         <section className="report-section" aria-labelledby="overall-summary-title">
@@ -254,20 +290,12 @@ export function ReviewReportPanel({
                   ) : null}
                   <span>{reviewFileStatusLabels[file.status]}</span>
                 </div>
-                <details className="report-file-overview" open={!file.findings.length}>
+                <details className="report-file-overview" open>
                   <summary>파일 검토 요약</summary>
                   <p className="report-narrative">
                     <ReviewText text={file.summary} />
                   </p>
                 </details>
-                {file.findings.map((finding) => (
-                  <ReviewCommentBlock
-                    key={finding.id}
-                    finding={finding}
-                    selected={finding.id === selectedFindingId}
-                    onSelect={onFindingSelect}
-                  />
-                ))}
               </div>
             </article>
           ))}

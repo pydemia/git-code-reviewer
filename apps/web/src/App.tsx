@@ -11,13 +11,14 @@ import {
   FileCode2,
   Files,
   GitBranch,
-  GitCommitHorizontal,
   GitPullRequest,
   Link2,
   ListFilter,
   Maximize2,
   Network,
-  PanelBottom,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   RefreshCw,
   Send,
   Sparkles,
@@ -59,14 +60,15 @@ import {
   WORKSPACE_LAYOUT_LIMITS,
   constrainWorkspaceLayout,
   parseWorkspaceLayout,
+  migrateWorkspaceLayout,
   resizeWorkspaceLayout,
   type WorkspaceLayout,
   type WorkspaceResizeHandle,
 } from './workspace-layout.ts';
 
 type ReviewMode = 'files' | 'outline' | 'impact';
-type MainView = 'code' | 'summary' | 'comments';
-type BottomTool = 'evidence' | 'graph' | 'impact' | 'tests';
+type MainView = 'code' | 'summary';
+type BottomTool = 'comments' | 'graph' | 'impact' | 'tests';
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 type ResizeOperation = {
   handle: WorkspaceResizeHandle;
@@ -76,12 +78,12 @@ type ResizeOperation = {
   layout: WorkspaceLayout;
 };
 
-const WORKSPACE_LAYOUT_STORAGE_KEY = 'git-code-reviewer.workspace-layout.v1';
+const WORKSPACE_LAYOUT_STORAGE_KEY = 'git-code-reviewer.workspace-layout.v2';
 const WORKLIST_TENANT_STORAGE_KEY = 'git-code-reviewer.worklist-tenant.v1';
 const RESPONSIVE_LAYOUT_BREAKPOINT = 820;
 
 function isBottomTool(value: string | null): value is BottomTool {
-  return value === 'evidence' || value === 'graph' || value === 'impact' || value === 'tests';
+  return value === 'comments' || value === 'graph' || value === 'impact' || value === 'tests';
 }
 
 export function App() {
@@ -262,7 +264,7 @@ function ReviewWorkspace({
   const [reviewMode, setReviewMode] = useState<ReviewMode>('files');
   const [mainView, setMainView] = useState<MainView>('code');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-  const [bottomTool, setBottomTool] = useState<BottomTool>('evidence');
+  const [bottomTool, setBottomTool] = useState<BottomTool>('comments');
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
   const [chatAccounts, setChatAccounts] = useState<ChatAccountCatalog | null>(null);
   const [chatAccountsStatus, setChatAccountsStatus] = useState<'loading' | 'ready' | 'error'>(
@@ -290,11 +292,22 @@ function ReviewWorkspace({
   }, []);
   const [workspaceLayout, setWorkspaceLayout] = useState(() => {
     try {
-      return parseWorkspaceLayout(window.localStorage.getItem(WORKSPACE_LAYOUT_STORAGE_KEY));
+      const stored = window.localStorage.getItem(WORKSPACE_LAYOUT_STORAGE_KEY);
+      return stored !== null
+        ? parseWorkspaceLayout(stored)
+        : migrateWorkspaceLayout(
+            window.localStorage.getItem('git-code-reviewer.workspace-layout.v1'),
+          );
     } catch {
       return DEFAULT_WORKSPACE_LAYOUT;
     }
   });
+  const [leftHidden, setLeftHidden] = useState(false);
+  const [layoutBounds, setLayoutBounds] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight - 86,
+  });
+  const visibleLayout = constrainWorkspaceLayout(workspaceLayout, layoutBounds, leftHidden);
   const [resizing, setResizing] = useState<WorkspaceResizeHandle | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const resizeOperationRef = useRef<ResizeOperation | null>(null);
@@ -313,7 +326,7 @@ function ReviewWorkspace({
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      layout: workspaceLayout,
+      layout: visibleLayout,
     };
     setResizing(handle);
   };
@@ -326,7 +339,13 @@ function ReviewWorkspace({
         ? event.clientY - operation.startY
         : event.clientX - operation.startX;
     setWorkspaceLayout(
-      resizeWorkspaceLayout(operation.layout, operation.handle, delta, workspaceBounds()),
+      resizeWorkspaceLayout(
+        operation.layout,
+        operation.handle,
+        delta,
+        workspaceBounds(),
+        leftHidden,
+      ),
     );
   };
 
@@ -342,7 +361,13 @@ function ReviewWorkspace({
 
   const resizeWithKeyboard = (handle: WorkspaceResizeHandle, delta: number) => {
     setWorkspaceLayout((current) =>
-      resizeWorkspaceLayout(current, handle, delta, workspaceBounds()),
+      resizeWorkspaceLayout(
+        constrainWorkspaceLayout(current, workspaceBounds(), leftHidden),
+        handle,
+        delta,
+        workspaceBounds(),
+        leftHidden,
+      ),
     );
   };
 
@@ -359,12 +384,8 @@ function ReviewWorkspace({
     if (!workspace) return;
     const observer = new ResizeObserver(([entry]) => {
       if (!entry || entry.contentRect.width <= RESPONSIVE_LAYOUT_BREAKPOINT) return;
-      setWorkspaceLayout((current) =>
-        constrainWorkspaceLayout(current, {
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        }),
-      );
+      // 화면 축소 때문에 사용자의 저장된 크기를 덮어쓰지 않습니다.
+      setLayoutBounds({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
     observer.observe(workspace);
     return () => observer.disconnect();
@@ -395,7 +416,7 @@ function ReviewWorkspace({
         setSelectedFindingId(requestedFinding?.id ?? null);
         setCodeTarget(requestedFinding ? { ...requestedFinding.anchor, request: 0 } : null);
         setReviewMode('files');
-        setMainView(requestedFinding ? 'comments' : 'code');
+        setMainView('code');
         const requestedObjectId = search.get('symbol');
         const requestedObject = workspace.objects.find((object) => object.id === requestedObjectId);
         setSelectedObjectId(
@@ -406,7 +427,7 @@ function ReviewWorkspace({
         );
         const requestedTool = search.get('tool');
         setBottomTool(
-          isBottomTool(requestedTool) ? requestedTool : requestedObject ? 'impact' : 'evidence',
+          isBottomTool(requestedTool) ? requestedTool : requestedObject ? 'impact' : 'comments',
         );
         setSelectedPath(
           requestedFinding
@@ -636,7 +657,7 @@ function ReviewWorkspace({
   const selectFinding = (finding: FindingView) => {
     setSelectedFindingId(finding.id);
     setMainView('code');
-    setBottomTool('evidence');
+    setBottomTool('comments');
     setCodeTarget((current) => ({ ...finding.anchor, request: (current?.request ?? 0) + 1 }));
     const file = data?.files.find((item) => item.id === finding.anchor.fileId);
     if (file) setSelectedPath(file.path);
@@ -763,13 +784,14 @@ function ReviewWorkspace({
         ref={workspaceRef}
         style={
           {
-            '--left-panel-width': `${workspaceLayout.leftWidth}px`,
-            '--chat-panel-width': `${workspaceLayout.chatWidth}px`,
-            '--bottom-panel-height': `${workspaceLayout.bottomHeight}px`,
+            '--left-panel-width': `${leftHidden ? 0 : visibleLayout.leftWidth}px`,
+            '--chat-panel-width': `${visibleLayout.chatWidth}px`,
+            '--bottom-panel-height': `${visibleLayout.bottomHeight}px`,
           } as CSSProperties
         }
       >
         <ReviewSidebar
+          hidden={leftHidden}
           data={data}
           status={status}
           mode={reviewMode}
@@ -783,6 +805,17 @@ function ReviewWorkspace({
 
         <section className="diff-panel" aria-label="Review content">
           <div className="diff-toolbar">
+            <button
+              type="button"
+              className="icon-button sidebar-toggle"
+              aria-label={leftHidden ? '왼쪽 탐색 패널 표시' : '왼쪽 탐색 패널 숨기기'}
+              title={leftHidden ? '왼쪽 탐색 패널 표시' : '왼쪽 탐색 패널 숨기기'}
+              aria-expanded={!leftHidden}
+              aria-controls="review-sidebar"
+              onClick={() => setLeftHidden((current) => !current)}
+            >
+              {leftHidden ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            </button>
             <div className="main-view-tabs" role="tablist" aria-label="Review content">
               <button
                 className={mainView === 'code' ? 'active' : ''}
@@ -802,16 +835,6 @@ function ReviewWorkspace({
                 onClick={() => setMainView('summary')}
               >
                 Summary
-              </button>
-              <button
-                className={mainView === 'comments' ? 'active' : ''}
-                type="button"
-                role="tab"
-                aria-selected={mainView === 'comments'}
-                disabled={!data?.report}
-                onClick={() => setMainView('comments')}
-              >
-                Comments <span>{data?.report?.findings.length ?? 0}</span>
               </button>
             </div>
             {mainView === 'code' ? (
@@ -952,16 +975,16 @@ function ReviewWorkspace({
           }}
         />
 
-        <section className="bottom-panel" aria-label="분석 근거">
+        <section className="bottom-panel" aria-label="검토 의견과 분석 도구">
           <nav className="bottom-tabs" role="tablist" aria-label="Review tools">
             <button
-              className={bottomTool === 'evidence' ? 'active' : ''}
+              className={bottomTool === 'comments' ? 'active' : ''}
               type="button"
               role="tab"
-              aria-selected={bottomTool === 'evidence'}
-              onClick={() => selectBottomTool('evidence')}
+              aria-selected={bottomTool === 'comments'}
+              onClick={() => selectBottomTool('comments')}
             >
-              <PanelBottom size={14} /> Evidence
+              <MessageSquare size={14} /> Comments <span>{data?.report?.findings.length ?? 0}</span>
             </button>
             <button
               className={bottomTool === 'graph' ? 'active' : ''}
@@ -991,8 +1014,25 @@ function ReviewWorkspace({
               <TestTube2 size={14} /> Tests
             </button>
           </nav>
-          {bottomTool === 'evidence' ? (
-            <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
+          {bottomTool === 'comments' ? (
+            <div className="bottom-comments-host">
+              {data?.report ? (
+                <ReviewReportPanel
+                  report={data.report}
+                  files={data.files}
+                  section="comments"
+                  selectedFindingId={selectedFindingId}
+                  onFindingSelect={selectFinding}
+                  onFileSelect={selectFile}
+                />
+              ) : (
+                <div className="panel-empty">
+                  {status === 'error'
+                    ? 'Report를 불러오지 못했습니다. 새로고침하여 다시 확인하세요.'
+                    : '분석이 완료되면 검토 의견이 여기에 표시됩니다.'}
+                </div>
+              )}
+            </div>
           ) : null}
           {bottomTool === 'graph' ? <GitGraphPanel data={data} /> : null}
           {bottomTool === 'impact' ? (
@@ -1006,27 +1046,29 @@ function ReviewWorkspace({
             <TestsPanel files={addedTestFiles} onFileSelect={selectFile} />
           ) : null}
         </section>
-        <WorkspaceResizeHandle
-          name="left"
-          label="탐색 패널 크기 조절"
-          value={workspaceLayout.leftWidth}
-          minimum={WORKSPACE_LAYOUT_LIMITS.leftMin}
-          maximum={WORKSPACE_LAYOUT_LIMITS.leftMax}
-          onPointerDown={startResize}
-          onPointerMove={continueResize}
-          onPointerEnd={finishResize}
-          onKeyboardResize={resizeWithKeyboard}
-          onReset={() =>
-            setWorkspaceLayout((current) => ({
-              ...current,
-              leftWidth: DEFAULT_WORKSPACE_LAYOUT.leftWidth,
-            }))
-          }
-        />
+        {!leftHidden ? (
+          <WorkspaceResizeHandle
+            name="left"
+            label="탐색 패널 크기 조절"
+            value={visibleLayout.leftWidth}
+            minimum={WORKSPACE_LAYOUT_LIMITS.leftMin}
+            maximum={WORKSPACE_LAYOUT_LIMITS.leftMax}
+            onPointerDown={startResize}
+            onPointerMove={continueResize}
+            onPointerEnd={finishResize}
+            onKeyboardResize={resizeWithKeyboard}
+            onReset={() =>
+              setWorkspaceLayout((current) => ({
+                ...current,
+                leftWidth: DEFAULT_WORKSPACE_LAYOUT.leftWidth,
+              }))
+            }
+          />
+        ) : null}
         <WorkspaceResizeHandle
           name="chat"
           label="채팅 패널 크기 조절"
-          value={workspaceLayout.chatWidth}
+          value={visibleLayout.chatWidth}
           minimum={WORKSPACE_LAYOUT_LIMITS.chatMin}
           maximum={WORKSPACE_LAYOUT_LIMITS.chatMax}
           onPointerDown={startResize}
@@ -1043,7 +1085,7 @@ function ReviewWorkspace({
         <WorkspaceResizeHandle
           name="bottom"
           label="하단 패널 크기 조절"
-          value={workspaceLayout.bottomHeight}
+          value={visibleLayout.bottomHeight}
           minimum={WORKSPACE_LAYOUT_LIMITS.bottomMin}
           maximum={Math.max(
             WORKSPACE_LAYOUT_LIMITS.bottomMin,
@@ -1122,6 +1164,7 @@ function WorkspaceResizeHandle({
 }
 
 function ReviewSidebar({
+  hidden,
   data,
   status,
   mode,
@@ -1132,6 +1175,7 @@ function ReviewSidebar({
   onFileSelect,
   onObjectSelect,
 }: {
+  hidden: boolean;
   data: WorkspaceData | null;
   status: 'loading' | 'ready' | 'error';
   mode: ReviewMode;
@@ -1147,7 +1191,7 @@ function ReviewSidebar({
     data?.objects.filter((object) => object.definition?.fileId === selectedFileId) ?? [];
 
   return (
-    <aside className="left-panel" aria-label="검토 탐색">
+    <aside id="review-sidebar" className="left-panel" aria-label="검토 탐색" hidden={hidden}>
       <nav className="side-tabs" aria-label="검토 보기">
         <button
           className={`side-tab ${mode === 'files' ? 'active' : ''}`}
@@ -1659,51 +1703,6 @@ function TestsPanel({
             ) : null}
           </section>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function EvidenceContent({
-  finding,
-  headSha,
-}: {
-  finding: FindingView | undefined;
-  headSha: string | undefined;
-}) {
-  if (!finding) {
-    return (
-      <div className="panel-empty evidence-empty">
-        Comments에서 항목을 선택하면 관련 코드와 설명이 표시됩니다.
-      </div>
-    );
-  }
-  const ghesLink = finding.links.find((link) => link.rel === 'ghes' && link.available);
-  return (
-    <div className="evidence-content">
-      <div className={`severity-mark priority-${finding.priority.toLowerCase()}`}>
-        {finding.priority}
-      </div>
-      <div>
-        <strong>{finding.title}</strong>
-        <p>
-          {finding.category} ·{' '}
-          {finding.anchor.startLine ? `line ${finding.anchor.startLine}` : '파일 전체'}
-        </p>
-      </div>
-      <div className="evidence-facts">
-        <span>
-          <GitCommitHorizontal size={13} /> {headSha?.slice(0, 7) ?? '-------'}
-        </span>
-        <span>
-          <CircleCheck size={13} />
-          {finding.verification.status === 'verified' ? '코드 위치 확인' : '코드 위치 확인 제한'}
-        </span>
-        {ghesLink ? (
-          <a href={ghesLink.href} target="_blank" rel="noreferrer">
-            <ExternalLink size={12} /> GHES
-          </a>
-        ) : null}
       </div>
     </div>
   );

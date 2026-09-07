@@ -134,16 +134,10 @@ export function ReviewDiff({
         const comments = rowFindings.byRow.get(index) ?? [];
         const line = row[side];
         const anchored = Boolean(found && line?.[side] === active?.startLine);
-        const highlighted = Boolean(
-          found &&
-          line?.[side] != null &&
-          line[side]! >= active!.startLine! &&
-          line[side]! <= (active!.endLine ?? active!.startLine!),
-        );
         return (
           <Fragment key={index}>
             <div
-              className={`review-code-row${highlighted ? ' selected-line' : ''}`}
+              className={`review-code-row${anchored ? ' selected-line' : ''}`}
               ref={anchored ? selected : undefined}
               data-selected-line={anchored ? active?.startLine : undefined}
             >
@@ -211,6 +205,11 @@ function InlineReview({ finding, anchored = true }: { finding: Finding; anchored
       <h3>
         <ReviewText text={finding.title} />
       </h3>
+      {!anchored && finding.anchor.startLine !== undefined ? (
+        <p className="inline-review-location-note">
+          이 line은 현재 diff에 포함되지 않습니다. Comments의 GHES 원문에서 확인하세요.
+        </p>
+      ) : null}
       {finding.problem !== finding.title ? (
         <p>
           <ReviewText text={finding.problem} />

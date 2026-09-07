@@ -12,17 +12,30 @@ export function FileTree({
   onSelect: (path: string) => void;
 }) {
   const nodes = useMemo(() => buildFileTree(files), [files]);
-  const [expanded, setExpanded] = useState(() => new Set(ancestorPaths(selectedPath)));
+  // 접은 경로만 기억하므로 새로 수집된 파일·폴더도 기본으로 펼쳐집니다.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const directories = useMemo(
+    () => new Set(files.flatMap((file) => ancestorPaths(file.path))),
+    [files],
+  );
+  const expanded = useMemo(
+    () => new Set([...directories].filter((path) => !collapsed.has(path))),
+    [directories, collapsed],
+  );
   const [focused, setFocused] = useState(selectedPath);
   const tree = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    setExpanded((current) => new Set([...current, ...ancestorPaths(selectedPath)]));
+    setCollapsed((current) => {
+      const next = new Set(current);
+      for (const path of ancestorPaths(selectedPath)) next.delete(path);
+      return next;
+    });
     setFocused(selectedPath);
   }, [selectedPath]);
   const rows = useMemo(() => visibleFileTree(nodes, expanded), [nodes, expanded]);
   const tabStop = rows.some(({ node }) => node.path === focused) ? focused : rows[0]?.node.path;
   const toggle = (path: string) =>
-    setExpanded((current) => {
+    setCollapsed((current) => {
       const next = new Set(current);
       if (next.has(path)) next.delete(path);
       else next.add(path);
@@ -65,13 +78,10 @@ export function FileTree({
   return (
     <div className="repository-tree">
       <div className="tree-controls">
-        <button
-          type="button"
-          onClick={() => setExpanded(new Set(files.flatMap((file) => ancestorPaths(file.path))))}
-        >
+        <button type="button" onClick={() => setCollapsed(new Set())}>
           모두 펼치기
         </button>
-        <button type="button" onClick={() => setExpanded(new Set())}>
+        <button type="button" onClick={() => setCollapsed(new Set(directories))}>
           모두 접기
         </button>
       </div>

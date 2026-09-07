@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import type { WorkspaceData } from './api.ts';
 
-it('shows summary comment cards immediately and keeps duplicate rollups out of the overview', () => {
+it('separates PR and expanded file summaries from detailed FNB comments', () => {
   const coverage = {
     filesExamined: 1,
     filesChanged: 1,
@@ -66,16 +66,48 @@ it('shows summary comment cards immediately and keeps duplicate rollups out of t
       onFindingSelect={() => {}}
     />,
   );
-  expect(html).not.toContain('class="report-overview"');
+  expect(html).toContain('PR 전체 요약');
+  expect(html).toContain('별도의 PR 전체 요약이 없습니다');
+  expect(html.indexOf('PR 전체 요약')).toBeLessThan(html.indexOf('파일별 검토'));
   expect(html.split('Unique file summary')).toHaveLength(2);
-  expect(html).toContain('aria-label="검토 의견"');
-  expect(html).toContain('Validate input');
-  expect(html).toContain('Unexpected access');
-  expect(html).toContain('Validate before use');
-  expect(html).toContain('변경 코드 · line 10');
+  expect(html).not.toContain('aria-label="검토 의견"');
+  expect(html).not.toContain('Validate input');
   expect(html).toContain('6분 57초');
   expect(html).toContain('<details class="report-limitations">');
-  expect(html).toContain('<details class="report-file-overview">');
-  expect(html).not.toContain('<script>');
-  expect(html).toContain('<code>&lt;script&gt;</code>');
+  expect(html).toContain('<details class="report-file-overview" open="">');
+
+  const comments = renderToStaticMarkup(
+    <ReviewReportPanel
+      report={report}
+      files={[]}
+      section="comments"
+      selectedFindingId="finding"
+      onFileSelect={() => {}}
+      onFindingSelect={() => {}}
+    />,
+  );
+  expect(comments).toContain('aria-label="검토 의견"');
+  expect(comments).toContain('Validate input');
+  expect(comments).toContain('Unexpected access');
+  expect(comments).toContain('Validate before use');
+  expect(comments).toContain('변경 코드 · line 10');
+  expect(comments).toContain('코드 위치 확인');
+  expect(comments).not.toContain('Unique file summary');
+  expect(comments).not.toContain('<script>');
+  expect(comments).toContain('<code>&lt;script&gt;</code>');
+
+  const overview = 'PR 전체의 변경 의도와 영향입니다. '.repeat(50);
+  const full = renderToStaticMarkup(
+    <ReviewReportPanel
+      report={{ ...report, summary: overview }}
+      files={[]}
+      section="summary"
+      selectedFindingId={null}
+      onFileSelect={() => {}}
+      onFindingSelect={() => {}}
+    />,
+  );
+  expect(full).toContain(overview.trim());
+  expect(full).not.toContain('<details class="report-overview"');
+  expect(full.indexOf(overview.trim())).toBeLessThan(full.indexOf('파일별 검토'));
 });
