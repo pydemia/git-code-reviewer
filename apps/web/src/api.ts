@@ -8,6 +8,7 @@ import {
   analysisListSchema,
   analysisPromptListSchema,
   chatAccountCatalogSchema,
+  chatAccountModelDiscoverySchema,
   chatMessageListSchema,
   chatSendResponseSchema,
   chatSessionSchema,
@@ -274,6 +275,12 @@ export async function updateChatAccount(
   values: { enabled?: boolean; authJson?: string },
 ): Promise<void> {
   await mutateJson(`/api/v1/admin/chat-accounts/${accountId}`, 'PATCH', values);
+}
+
+export async function discoverChatAccountModels(authJson: string) {
+  return chatAccountModelDiscoverySchema.parse(
+    await mutateJson('/api/v1/admin/chat-accounts/discover-models', 'POST', { authJson }),
+  ).items;
 }
 
 export async function loadGitHubConnections(signal: AbortSignal): Promise<GitHubConnection[]> {

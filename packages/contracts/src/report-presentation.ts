@@ -137,13 +137,22 @@ export function formatReviewMarkdown(
     return url.toString();
   };
   const footer = reportUrl ? `\n\n[전체 review와 evidence 보기](${reportUrl})` : '';
+  if (view.state === 'unavailable' || view.state === 'failed') {
+    const message =
+      view.state === 'failed'
+        ? '분석 중 오류가 발생했습니다. 상세 보고서에서 원인을 확인한 뒤 재분석하세요.'
+        : view.mode === 'disabled' || report.versions.model === 'disabled'
+          ? '분석 모델이 비활성화되어 있습니다. 모델을 설정한 뒤 재분석하세요.'
+          : '분석을 수행하지 못했습니다. 분석 설정과 상세 보고서를 확인한 뒤 재분석하세요.';
+    return `**${view.label}**\n\n${message}${footer}`;
+  }
   const blocks = [
     '# Git Code Reviewer',
     `**${view.label}**${view.priority ? ` · ${reviewPriorityLabels[view.priority]}` : ''}${view.showGrade ? ` · Grade: ${report.grade}${view.state === 'incomplete' ? ' (검토 범위 내)' : ''}` : ''}`,
     `${view.filesCompleted === null ? 'Legacy file coverage' : `${view.filesCompleted}/${report.coverage.filesChanged} files 검토 완료`} · ${report.findings.length} comments · ${view.mode} · ${report.durationMs} ms`,
     text(report.summary),
   ];
-  if (view.state === 'demo' || view.state === 'unavailable' || view.state === 'failed')
+  if (view.state === 'demo')
     blocks.push(
       '> 실제 AI 검토 완료를 의미하지 않습니다. 분석 Provider 설정과 오류를 확인한 뒤 재분석하세요.',
     );

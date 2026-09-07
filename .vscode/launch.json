@@ -26,6 +26,7 @@
         "DEV_USER_ROLE": "admin",
         "GITHUB_MODE": "registry",
         "CREDENTIAL_REGISTRY_ENABLED": "true",
+        "MODEL_ADMIN_ENABLED": "true",
         "MODEL_MODE": "disabled",
         "CHAT_MODEL_MODE": "disabled"
       },
@@ -55,6 +56,7 @@
         "AUTHORIZATION_MODE": "local",
         "GITHUB_MODE": "registry",
         "CREDENTIAL_REGISTRY_ENABLED": "true",
+        "MODEL_ADMIN_ENABLED": "true",
         "MODEL_MODE": "disabled",
         "CHAT_MODEL_MODE": "disabled"
       },

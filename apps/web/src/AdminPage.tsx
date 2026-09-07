@@ -29,6 +29,7 @@ import {
   createLocalUser,
   createTenant,
   createChatAccount,
+  discoverChatAccountModels,
   createGitHubConnection,
   deleteAdminRepository,
   registerGitHubRepository,
@@ -1848,6 +1849,30 @@ function ChatAccountPanel({
   const [efforts, setEfforts] = useState('medium,high');
   const [defaultEffort, setDefaultEffort] = useState('medium');
   const [tenantId, setTenantId] = useState(tenants[0]?.id ?? '');
+  const [catalog, setCatalog] = useState<Awaited<ReturnType<typeof discoverChatAccountModels>>>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogMessage, setCatalogMessage] = useState('');
+
+  const discoverModels = async () => {
+    setCatalogLoading(true);
+    setCatalogMessage('');
+    setCatalog([]);
+    try {
+      const models = await discoverChatAccountModels(authJson);
+      setCatalog(models);
+      setCatalogMessage(
+        models.length
+          ? `${models.length}개 모델을 조회했습니다. 모델을 선택하세요.`
+          : '사용 가능한 모델이 없습니다. Model ID를 직접 입력할 수 있습니다.',
+      );
+    } catch (error) {
+      setCatalogMessage(
+        error instanceof Error ? error.message : '모델 목록을 조회하지 못했습니다.',
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!tenantId && tenants[0]) setTenantId(tenants[0].id);
@@ -1867,12 +1892,21 @@ function ChatAccountPanel({
       displayName,
       ...(endpoint.trim() ? { endpoint: endpoint.trim() } : {}),
       authJson,
-      models: [{ id: modelName, displayName: modelName, allowedEfforts, defaultEffort }],
+      models: [
+        {
+          id: modelName,
+          displayName: catalog.find((model) => model.id === modelName)?.displayName ?? modelName,
+          allowedEfforts,
+          defaultEffort,
+        },
+      ],
       assignments: tenantId
         ? [{ scopeType: 'tenant', scopeId: tenantId }]
         : [{ scopeType: 'all', scopeId: '*' }],
     });
     setAuthJson('');
+    setCatalog([]);
+    setCatalogMessage('');
   };
 
   return (
@@ -1908,16 +1942,37 @@ function ChatAccountPanel({
             ))}
           </select>
         </label>
-        <label className="field-label">
-          Model ID
+        <div className="field-label">
+          <label htmlFor="chat-account-model-id">Model ID</label>
+          {catalog.length > 0 ? (
+            <select
+              aria-label="조회된 모델 선택"
+              value={catalog.some((model) => model.id === modelName) ? modelName : ''}
+              onChange={(event) => {
+                const model = catalog.find((item) => item.id === event.target.value);
+                if (!model) return;
+                setModelName(model.id);
+                setEfforts(model.allowedEfforts.join(','));
+                setDefaultEffort(model.defaultEffort);
+              }}
+            >
+              <option value="">모델을 선택하세요</option>
+              {catalog.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.displayName} · {model.id}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <input
+            id="chat-account-model-id"
             required
             maxLength={200}
             value={modelName}
             placeholder="Codex에서 사용할 model ID"
             onChange={(event) => setModelName(event.target.value)}
           />
-        </label>
+        </div>
         <label className="field-label">
           허용 effort
           <input required value={efforts} onChange={(event) => setEfforts(event.target.value)} />
@@ -1953,10 +2008,31 @@ function ChatAccountPanel({
             required
             autoComplete="new-password"
             value={authJson}
-            onChange={(event) => setAuthJson(event.target.value)}
+            disabled={catalogLoading}
+            onChange={(event) => {
+              setAuthJson(event.target.value);
+              setCatalog([]);
+              setCatalogMessage('');
+            }}
           />
         </label>
-        <button className="command-button primary" type="submit" disabled={busyKey !== null}>
+        <div className="field-label">
+          <button
+            className="command-button"
+            type="button"
+            disabled={!authJson.trim() || catalogLoading || busyKey !== null}
+            onClick={() => void discoverModels()}
+          >
+            <Search size={15} /> {catalogLoading ? '모델 조회 중…' : '모델 목록 조회'}
+          </button>
+          <small>auth.json을 입력한 뒤 조회하세요. 모델을 선택하면 지원 effort도 채워집니다.</small>
+          {catalogMessage ? <small role="status">{catalogMessage}</small> : null}
+        </div>
+        <button
+          className="command-button primary"
+          type="submit"
+          disabled={busyKey !== null || catalogLoading}
+        >
           <Plus size={15} /> Account 등록
         </button>
       </form>

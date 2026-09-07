@@ -62,6 +62,10 @@ const configSchema = z.object({
   CHATGPT_ACCOUNT_HOME: z.string().optional(),
   CHATGPT_ACCOUNT_REFRESH_ENDPOINT: z.string().url().default('https://auth.openai.com/oauth/token'),
   CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
+  CHATGPT_ACCOUNT_CLIENT_VERSION: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .default('0.153.0'),
   CHAT_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(2),
   CHAT_HOURLY_LIMIT: z.coerce.number().int().positive().default(30),
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),

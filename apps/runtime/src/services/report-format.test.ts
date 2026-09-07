@@ -163,6 +163,72 @@ describe('shared Commit Defender report presentation', () => {
     expect(formatReviewMarkdown(legacy, paths)).toContain('파일 전체');
     expect(formatReviewMarkdown(legacy, paths)).not.toContain('Skill bundle:');
   });
+  it.each(['unavailable', 'failed'] as const)(
+    'keeps %s publication short even when hundreds of files have limitations',
+    (status) => {
+      const changed = structuredClone(report);
+      changed.analysis!.status = status;
+      changed.analysis!.mode = status === 'unavailable' ? 'disabled' : 'ai-powered';
+      changed.analysis!.priority = null;
+      changed.findings = [];
+      changed.summary = '長いエラー @everyone <script>'.repeat(1000);
+      changed.coverage.filesChanged = 238;
+      changed.coverage.limitations = Array.from(
+        { length: 238 },
+        (_, i) => `assets/image-${i}.png: binary file`,
+      );
+      changed.analysis!.files = Array.from({ length: 238 }, (_, i) => ({
+        fileId: randomUUID(),
+        path: `assets/image-${i}.png`,
+        status: 'not-reviewed',
+        summary: '이 파일의 AI review를 완료하지 못했습니다.',
+        priority: null,
+        unitIds: [],
+      }));
+      changed.analysis!.coverage = {
+        filesCompleted: 0,
+        windowsPlanned: 0,
+        windowsReviewed: 0,
+        modelCalls: 0,
+      };
+      const body = renderReviewComment({
+        context: {
+          analysisId: changed.analysisRevisionId,
+          owner: 'org-name',
+          name: 'repo-name',
+          pullNumber: 1,
+          headSha: 'b'.repeat(40),
+          report: changed,
+        },
+        findings: [],
+        canonicalReport: changed,
+        marker: '<!-- synthetic -->',
+        publicBaseUrl: 'https://review.example',
+      });
+      expect(body.length).toBeLessThan(500);
+      expect(body).toContain(status === 'unavailable' ? '모델을 설정' : '오류가 발생');
+      expect(body).toContain('재분석하세요');
+      expect(body).toContain(`https://review.example/reviews/${changed.analysisRevisionId}`);
+      expect(body).toContain('<!-- synthetic -->');
+      for (const omitted of [
+        'image-',
+        'binary file',
+        'Overall Summary',
+        'AI Comments',
+        'Skill bundle',
+        'Grade:',
+        '@everyone',
+        '<script>',
+      ])
+        expect(body).not.toContain(omitted);
+      delete changed.analysis;
+      changed.versions.review = status;
+      changed.versions.model = status === 'unavailable' ? 'disabled' : 'synthetic-only';
+      const legacy = formatReviewMarkdown(changed);
+      expect(legacy.length).toBeLessThan(200);
+      expect(legacy).not.toContain('image-');
+    },
+  );
   it('bounds publication length at block boundaries and retains the full report link', () => {
     const huge = { ...report, summary: '긴 요약'.repeat(20000) };
     const text = formatReviewMarkdown(huge, [], {

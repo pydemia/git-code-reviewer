@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireAdministrator, requireUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
+import { ChatModelCatalogError, discoverChatAccountModels } from '../services/chat-model.js';
 import {
   createChatAccount,
   createGitHubConnection,
@@ -128,6 +129,35 @@ export async function registerAccountRegistryRoutes(
     enabled: config.CREDENTIAL_REGISTRY_ENABLED,
     items: config.CREDENTIAL_REGISTRY_ENABLED ? await listAdminChatAccounts(database) : [],
   }));
+
+  app.post(
+    '/api/v1/admin/chat-accounts/discover-models',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      ensureRegistryEnabled(config);
+      const { authJson } = accountBody.pick({ authJson: true }).parse(request.body);
+      reply.header('cache-control', 'no-store');
+      try {
+        const items = await discoverChatAccountModels(authJson, {
+          clientVersion: config.CHATGPT_ACCOUNT_CLIENT_VERSION,
+          allowedEfforts: reasoningEfforts,
+        });
+        return { schemaVersion, items };
+      } catch (error) {
+        if (!(error instanceof ChatModelCatalogError)) throw error;
+        return reply
+          .code(error.statusCode)
+          .send(
+            errorEnvelope(
+              'MODEL_CATALOG_UNAVAILABLE',
+              error.message,
+              request.id,
+              error.statusCode === 502,
+            ),
+          );
+      }
+    },
+  );
 
   app.post(
     '/api/v1/admin/chat-accounts',

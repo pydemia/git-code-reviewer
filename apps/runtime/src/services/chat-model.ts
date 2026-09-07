@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 
 // Keep account auth and Codex Responses wire behavior compatible with Demian's provider.
@@ -278,6 +279,98 @@ class RegisteredCodexAccountAuthStore {
 
 export function validateChatGptAuthJson(value: string): void {
   normalizeCredential(parseCodexAuthJson(value));
+}
+
+export class ChatModelCatalogError extends Error {
+  constructor(
+    readonly statusCode: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ChatModelCatalogError';
+  }
+}
+
+// Preview uses the supplied access token without rotating an unregistered refresh token.
+export async function discoverChatAccountModels(
+  authJson: string,
+  options: { clientVersion: string; allowedEfforts: readonly string[]; fetch?: typeof fetch },
+) {
+  let credential: CodexCredential;
+  try {
+    credential = normalizeCredential(parseCodexAuthJson(authJson));
+  } catch {
+    throw new ChatModelCatalogError(400, 'ChatGPT 로그인으로 생성한 auth.json을 입력하세요.');
+  }
+  const url = new URL('models', defaultCodexBaseUrl);
+  url.searchParams.set('client_version', options.clientVersion);
+  let response: Response;
+  try {
+    response = await (options.fetch ?? fetch)(url, {
+      headers: {
+        authorization: `Bearer ${credential.accessToken}`,
+        ...(credential.accountId ? { 'ChatGPT-Account-ID': credential.accountId } : {}),
+        ...(credential.fedramp ? { 'X-OpenAI-Fedramp': 'true' } : {}),
+        accept: 'application/json',
+        originator: 'git-code-reviewer',
+        'x-codex-installation-id': randomUUID(),
+      },
+      redirect: 'error',
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new ChatModelCatalogError(
+      502,
+      '모델 목록을 조회하지 못했습니다. 잠시 후 다시 시도하세요.',
+    );
+  }
+  if (!response.ok) {
+    throw new ChatModelCatalogError(
+      502,
+      response.status === 401 || response.status === 403
+        ? '계정 인증을 확인하지 못했습니다. 다시 로그인한 auth.json으로 조회하세요.'
+        : '모델 목록을 조회하지 못했습니다. 잠시 후 다시 시도하세요.',
+    );
+  }
+  const catalog = z
+    .object({
+      models: z.array(
+        z.object({
+          slug: z.string().trim().min(1).max(200),
+          display_name: z.string().trim().min(1).max(200).optional(),
+          visibility: z.string().optional(),
+          supported_reasoning_levels: z.array(z.object({ effort: z.string() })),
+          default_reasoning_level: z.string().optional(),
+        }),
+      ),
+    })
+    .safeParse(await response.json().catch(() => null));
+  if (!catalog.success) {
+    throw new ChatModelCatalogError(
+      502,
+      '모델 목록 응답을 읽지 못했습니다. Model ID를 직접 입력하세요.',
+    );
+  }
+  const seen = new Set<string>();
+  return catalog.data.models.flatMap((model) => {
+    if ((model.visibility && model.visibility !== 'list') || seen.has(model.slug)) return [];
+    const allowedEfforts = [
+      ...new Set(model.supported_reasoning_levels.map((item) => item.effort)),
+    ].filter((effort) => options.allowedEfforts.includes(effort));
+    if (!allowedEfforts.length) return [];
+    seen.add(model.slug);
+    return [
+      {
+        id: model.slug,
+        displayName: model.display_name ?? model.slug,
+        allowedEfforts,
+        defaultEffort:
+          model.default_reasoning_level && allowedEfforts.includes(model.default_reasoning_level)
+            ? model.default_reasoning_level
+            : allowedEfforts[0]!,
+      },
+    ];
+  });
 }
 
 export class CodexAccountAuthStore {

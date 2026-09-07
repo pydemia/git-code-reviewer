@@ -563,6 +563,11 @@ export const chatAccountCatalogSchema = z.object({
   ),
 });
 
+export const chatAccountModelDiscoverySchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  items: z.array(chatAccountModelSchema),
+});
+
 export const adminChatAccountListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   enabled: z.boolean(),

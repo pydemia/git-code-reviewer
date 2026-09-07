@@ -157,6 +157,14 @@ Administrator로 `/admin?tab=provider`에서 Provider를 저장하고 `/admin?ta
 
 ### ChatGPT account for local Chat
 
+관리자 화면의 **ChatGPT accounts**에서는 `auth.json` 입력 후 **모델 목록 조회**로 계정의
+모델 카탈로그를 가져올 수 있다. 모델을 선택하면 Model ID와 지원 effort, 기본 effort를
+채운다. 현재 앱이 지원하는 `low`, `medium`, `high`, `xhigh` 범위만 표시하며, 조회만으로
+계정을 저장하거나 분석 모델을 활성화하지 않는다. 조회 실패 시 Model ID를 직접 입력할 수
+있다. 등록 전 조회는 access token만 사용하고 refresh token을 회전하지 않으므로 인증 만료 시
+다시 로그인한 `auth.json`으로 조회한다. 모델 조회 호환 버전은
+`CHATGPT_ACCOUNT_CLIENT_VERSION`으로 설정한다(기본값 `0.153.0`).
+
 오른쪽 Review Chat만 ChatGPT/Codex 구독 계정으로 실행하려면 먼저 Codex CLI에서 로그인한다. 이 mode는 batch 분석 Worker에는 적용되지 않는다. OpenAI 공식 문서의 ChatGPT login과 API key login은 서로 다른 인증 방식이다. [OpenAI Codex authentication](https://learn.chatgpt.com/docs/auth)
 
 ```bash
