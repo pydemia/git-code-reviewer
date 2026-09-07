@@ -204,6 +204,14 @@ export function GuidePage() {
                 </dd>
               </div>
             </dl>
+            <p className="guide-note">
+              등록된 연결은 GHES 연결 목록의 <strong>연결 수정</strong>에서 이름, API/Web URL,
+              credential label과 만료일을 변경할 수 있습니다. 새 access token은 선택 입력이며 비워
+              두면 기존 암호문과 credential version을 유지합니다. 단, API/Web origin을 변경할 때는
+              새 token을 입력해야 합니다. 저장 후에는 연결 테스트를 다시 실행해야 polling과 Git
+              작업에 credential을 사용할 수 있습니다. 같은 GHES instance를 credential 여러 개가
+              공유하면 이름과 API/Web URL은 수정할 수 없습니다.
+            </p>
 
             <div className="guide-warning">
               <CircleAlert size={18} />

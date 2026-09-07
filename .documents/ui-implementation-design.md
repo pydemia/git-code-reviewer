@@ -215,7 +215,7 @@ Internal opaque ID나 external URL 자체는 권한을 부여하지 않는다. �
 ### 8.1 Admin 화면
 
 - Chat accounts: account 등록·검증·비활성화, credential 회전, model별 허용/default/max effort, tenant/user/group assignment와 quota를 관리한다.
-- GHES connections: GHES API/Web URL, write-only access token, CA profile, token health/expiry/rate-limit과 연결 test를 관리한다.
+- GHES connections: GHES API/Web URL, write-only access token, CA profile, token health/expiry/rate-limit과 연결 test를 관리한다. 등록된 연결의 `연결 수정` dialog에서는 이름, API/Web URL, credential label, token 만료일을 변경하고 필요할 때만 access token을 교체한다. API 또는 Web origin 변경 시 새 token을 필수로 요구하고, 같은 instance를 여러 credential이 공유하면 이름과 URL 입력을 잠근다. 저장 실패는 dialog 안에 표시하며 modal focus, Escape 닫기와 호출 버튼 focus 복원을 지원한다.
 - Repositories: connection에서 조회 가능한 repository를 선택하고 tenant, user/group grant, automatic polling, hot/active/idle/draft interval, 마지막 poll 상태와 Poll now를 관리한다.
 - Credential input은 저장 성공 직후 비우며 browser storage, URL과 화면 재조회 response에 원문을 남기지 않는다.
 

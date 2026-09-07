@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { localPasswordMaximumLength, localPasswordMinimumLength } from '@gcr/contracts';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   activateAnalysisProvider,
   activateAnalysisPrompt,
@@ -43,6 +43,7 @@ import {
   testGitHubConnection,
   updateAdminRepository,
   updateChatAccount,
+  updateGitHubConnection,
   updateRepositoryGrant,
   updateTenant,
   updateTenantMembership,
@@ -89,6 +90,14 @@ type RepositoryGrantForm = {
   tenantId: string;
   initialRepositoryIds: string[];
   repositoryIds: string[];
+};
+type GitHubConnectionUpdateValues = {
+  name: string;
+  apiBaseUrl: string;
+  webBaseUrl: string;
+  credentialLabel: string;
+  accessToken?: string;
+  expiresAt: string | null;
 };
 
 const ADMIN_TENANT_STORAGE_KEY = 'git-code-reviewer.admin-tenant.v1';
@@ -232,6 +241,27 @@ export function AdminPage() {
     } catch (error) {
       setMessage({ tone: 'error', text: errorMessage(error) });
       return false;
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const submitGitHubConnectionUpdate = async (
+    connectionId: string,
+    values: GitHubConnectionUpdateValues,
+  ): Promise<string | null> => {
+    setBusyKey(`github:update:${connectionId}`);
+    setMessage(null);
+    try {
+      await updateGitHubConnection(connectionId, values);
+      setMessage({
+        tone: 'success',
+        text: 'GHES 연결 설정을 저장했습니다. 연결 테스트를 다시 실행해 주세요.',
+      });
+      setReloadToken((value) => value + 1);
+      return null;
+    } catch (error) {
+      return errorMessage(error);
     } finally {
       setBusyKey(null);
     }
@@ -614,6 +644,7 @@ export function AdminPage() {
                   'GHES 연결을 확인했습니다.',
                 )
               }
+              onUpdate={submitGitHubConnectionUpdate}
               onRegisterRepository={(connectionId, values) =>
                 runMutation(
                   'github:repository',
@@ -1786,6 +1817,7 @@ function GitHubConnectionPanel({
   users,
   busyKey,
   onCreate,
+  onUpdate,
   onTest,
   onRegisterRepository,
   onRepositoryPollingChange,
@@ -1804,6 +1836,7 @@ function GitHubConnectionPanel({
     accessToken: string;
     expiresAt?: string;
   }) => Promise<unknown>;
+  onUpdate: (connectionId: string, values: GitHubConnectionUpdateValues) => Promise<string | null>;
   onTest: (connectionId: string) => Promise<unknown>;
   onRegisterRepository: (
     connectionId: string,
@@ -1830,6 +1863,7 @@ function GitHubConnectionPanel({
   const [repositoryName, setRepositoryName] = useState('');
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(120);
   const [grantSubject, setGrantSubject] = useState('');
+  const [editingConnection, setEditingConnection] = useState<GitHubConnection | null>(null);
 
   useEffect(() => {
     if (!connectionId && connections[0]) setConnectionId(connections[0].id);
@@ -1906,7 +1940,8 @@ function GitHubConnectionPanel({
             onChange={(event) => setCredentialLabel(event.target.value)}
           />
           <small>
-            이 서비스 안에서 token을 구분하는 이름입니다. 같은 label로 등록하면 token이 회전됩니다.
+            이 서비스 안에서 token을 구분하는 이름입니다. 등록 후에는 아래 연결 수정에서 바꿀 수
+            있습니다.
           </small>
         </label>
         <label className="field-label registry-secret-field">
@@ -1947,14 +1982,24 @@ function GitHubConnectionPanel({
             </div>
             <code>{connection.apiBaseUrl}</code>
             <code>…{connection.tokenFingerprint}</code>
-            <button
-              className="command-button"
-              type="button"
-              disabled={busyKey !== null}
-              onClick={() => void onTest(connection.id)}
-            >
-              <Play size={14} /> 연결 테스트
-            </button>
+            <div className="registry-card-actions">
+              <button
+                className="command-button"
+                type="button"
+                disabled={busyKey !== null}
+                onClick={() => setEditingConnection(connection)}
+              >
+                <Pencil size={14} /> 연결 수정
+              </button>
+              <button
+                className="command-button"
+                type="button"
+                disabled={busyKey !== null}
+                onClick={() => void onTest(connection.id)}
+              >
+                <Play size={14} /> 연결 테스트
+              </button>
+            </div>
           </article>
         ))}
       </div>
@@ -2069,8 +2114,242 @@ function GitHubConnectionPanel({
           </article>
         ))}
       </div>
+      {editingConnection ? (
+        <GitHubConnectionDialog
+          connection={editingConnection}
+          sharedCredentialCount={
+            connections.filter((item) => item.instanceId === editingConnection.instanceId).length
+          }
+          busy={busyKey !== null}
+          onClose={() => setEditingConnection(null)}
+          onSubmit={(values) => onUpdate(editingConnection.id, values)}
+        />
+      ) : null}
     </section>
   );
+}
+
+function GitHubConnectionDialog({
+  connection,
+  sharedCredentialCount,
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  connection: GitHubConnection;
+  sharedCredentialCount: number;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (values: GitHubConnectionUpdateValues) => Promise<string | null>;
+}) {
+  const [name, setName] = useState(connection.name);
+  const [apiBaseUrl, setApiBaseUrl] = useState(connection.apiBaseUrl);
+  const [webBaseUrl, setWebBaseUrl] = useState(connection.webBaseUrl);
+  const [credentialLabel, setCredentialLabel] = useState(connection.credentialLabel);
+  const [accessToken, setAccessToken] = useState('');
+  const [expiresAt, setExpiresAt] = useState(localDateInputValue(connection.expiresAt));
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLFormElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  const busyRef = useRef(busy);
+  closeRef.current = onClose;
+  busyRef.current = busy;
+
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const initialFocus =
+      dialog?.querySelector<HTMLElement>('[autofocus]:not(:disabled)') ??
+      dialog?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)');
+    initialFocus?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const currentDialog = dialogRef.current;
+      if (!currentDialog) return;
+      if (event.key === 'Escape' && !busyRef.current) {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [
+        ...currentDialog.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled)',
+        ),
+      ];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || !currentDialog.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      opener?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (submitError) errorRef.current?.focus();
+  }, [submitError]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSubmitError(null);
+    const error = await onSubmit({
+      name,
+      apiBaseUrl,
+      webBaseUrl,
+      credentialLabel,
+      ...(accessToken.trim() ? { accessToken: accessToken.trim() } : {}),
+      expiresAt: expiresAt ? new Date(`${expiresAt}T23:59:59`).toISOString() : null,
+    });
+    if (error) setSubmitError(error);
+    else onClose();
+  };
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={() => {
+        if (!busy) onClose();
+      }}
+    >
+      <form
+        ref={dialogRef}
+        className="admin-dialog github-connection-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="github-connection-dialog-title"
+        onSubmit={(event) => void submit(event)}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-heading">
+          <h2 id="github-connection-dialog-title">GHES 연결 수정</h2>
+          <button
+            className="icon-button surface-icon"
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            disabled={busy}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <p className="dialog-description">
+          저장 후 연결 상태가 미검증으로 바뀝니다. 저장된 access token은 표시하지 않습니다.
+        </p>
+        {sharedCredentialCount > 1 ? (
+          <p className="connection-shared-note">
+            이 GHES instance를 credential {sharedCredentialCount}개가 함께 사용하므로 연결 이름과
+            API/Web URL은 잠겨 있습니다. Credential label, token과 만료일은 수정할 수 있습니다.
+          </p>
+        ) : null}
+        {submitError ? (
+          <div
+            ref={errorRef}
+            className="admin-message error dialog-message"
+            role="alert"
+            tabIndex={-1}
+          >
+            <X size={15} />
+            <span>{submitError}</span>
+          </div>
+        ) : null}
+        <div className="github-connection-dialog-grid">
+          <label className="field-label">
+            연결 이름
+            <input
+              required
+              autoFocus
+              disabled={sharedCredentialCount > 1}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          <label className="field-label">
+            Credential label
+            <input
+              required
+              value={credentialLabel}
+              onChange={(event) => setCredentialLabel(event.target.value)}
+            />
+          </label>
+          <label className="field-label">
+            API base URL
+            <input
+              required
+              type="url"
+              disabled={sharedCredentialCount > 1}
+              value={apiBaseUrl}
+              onChange={(event) => setApiBaseUrl(event.target.value)}
+            />
+          </label>
+          <label className="field-label">
+            Web base URL
+            <input
+              required
+              type="url"
+              disabled={sharedCredentialCount > 1}
+              value={webBaseUrl}
+              onChange={(event) => setWebBaseUrl(event.target.value)}
+            />
+          </label>
+          <label className="field-label registry-secret-field">
+            새 access token (선택)
+            <input
+              type="password"
+              autoComplete="new-password"
+              placeholder={`현재 token · …${connection.tokenFingerprint}`}
+              value={accessToken}
+              onChange={(event) => setAccessToken(event.target.value)}
+            />
+            <small>
+              비워 두면 현재 token과 credential version을 유지합니다. API/Web origin 변경 시에는 새
+              token이 필요합니다.
+            </small>
+          </label>
+          <label className="field-label">
+            Token 만료일
+            <input
+              type="date"
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+            />
+            <small>비워 두면 만료일을 제거합니다.</small>
+          </label>
+        </div>
+        <div className="dialog-actions">
+          <button className="command-button" type="button" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="command-button primary" type="submit" disabled={busy}>
+            <Save size={15} /> {busy ? '저장 중' : '연결 설정 저장'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function localDateInputValue(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function readTab(): AdminTab {

@@ -391,6 +391,87 @@ export async function listGitHubConnections(database: Database) {
   return result.rows;
 }
 
+export async function updateGitHubConnection(
+  database: Pick<Database, 'query'>,
+  config: AppConfig,
+  credentialId: string,
+  input: {
+    name: string;
+    apiBaseUrl: string;
+    webBaseUrl: string;
+    credentialLabel: string;
+    accessToken?: string | undefined;
+    expiresAt: string | null;
+  },
+): Promise<'updated' | 'not-found' | 'token-required' | 'shared-instance'> {
+  const apiBaseUrl = credentialFreeUrl(input.apiBaseUrl);
+  const webBaseUrl = credentialFreeUrl(input.webBaseUrl);
+  const existing = await database.query<{
+    credentialId: string;
+    instanceId: string;
+    name: string;
+    apiBaseUrl: string;
+    webBaseUrl: string;
+  }>(
+    `select credential.id as "credentialId", credential.instance_id as "instanceId", instance.name,
+            instance.api_base_url as "apiBaseUrl", instance.web_base_url as "webBaseUrl"
+     from github_credentials target
+     join github_instances instance on instance.id = target.instance_id
+     join github_credentials credential on credential.instance_id = instance.id
+     where target.id = $1 for update of credential, instance`,
+    [credentialId],
+  );
+  const row = existing.rows.find((item) => item.credentialId === credentialId);
+  if (!row) return 'not-found';
+  const instanceChanged =
+    row.name !== input.name || row.apiBaseUrl !== apiBaseUrl || row.webBaseUrl !== webBaseUrl;
+  if (instanceChanged && existing.rows.length > 1) return 'shared-instance';
+  const originChanged =
+    new URL(row.apiBaseUrl).origin !== new URL(apiBaseUrl).origin ||
+    new URL(row.webBaseUrl).origin !== new URL(webBaseUrl).origin;
+  if (originChanged && !input.accessToken) {
+    return 'token-required';
+  }
+
+  await database.query(
+    `update github_instances set name = $2, api_base_url = $3, web_base_url = $4,
+       updated_at = clock_timestamp() where id = $1`,
+    [row.instanceId, input.name, apiBaseUrl, webBaseUrl],
+  );
+
+  if (input.accessToken !== undefined) {
+    const encrypted = encryptCredential(
+      input.accessToken,
+      config.CREDENTIAL_ENCRYPTION_KEY,
+      'github-access-token',
+    );
+    await database.query(
+      `update github_credentials set label = $2, expires_at = $3,
+         credential_ciphertext = $4, credential_iv = $5, credential_auth_tag = $6,
+         token_fingerprint = $7, credential_version = credential_version + 1,
+         health = 'unverified', last_validated_at = null,
+         updated_at = clock_timestamp() where id = $1`,
+      [
+        credentialId,
+        input.credentialLabel,
+        input.expiresAt,
+        encrypted.credentialCiphertext,
+        encrypted.credentialIv,
+        encrypted.credentialAuthTag,
+        credentialFingerprint(input.accessToken),
+      ],
+    );
+  } else {
+    await database.query(
+      `update github_credentials set label = $2, expires_at = $3,
+         health = 'unverified', last_validated_at = null,
+         updated_at = clock_timestamp() where id = $1`,
+      [credentialId, input.credentialLabel, input.expiresAt],
+    );
+  }
+  return 'updated';
+}
+
 export async function registeredGitHubReader(
   database: Database,
   encryptionKey: string | undefined,
@@ -400,6 +481,7 @@ export async function registeredGitHubReader(
     `select credential_ciphertext as "credentialCiphertext",
             credential_iv as "credentialIv", credential_auth_tag as "credentialAuthTag"
      from github_credentials where id = $1 and enabled
+       and health = 'ready'
        and (expires_at is null or expires_at > clock_timestamp())`,
     [credentialId],
   );
@@ -486,6 +568,7 @@ export async function registerGitHubRepository(
          poll_interval_seconds, polling_enabled)
        select $1, credential.instance_id, credential.id, $3, 'access-token', $4, $5, $6, true
        from github_credentials credential where credential.id = $2 and credential.enabled
+         and credential.health = 'ready'
        on conflict (instance_id, github_id) do update set tenant_id = excluded.tenant_id,
          credential_id = excluded.credential_id, owner = excluded.owner, name = excluded.name,
          poll_interval_seconds = excluded.poll_interval_seconds, polling_enabled = true,
@@ -539,7 +622,7 @@ async function githubRepositoryDetails(
             credential.credential_auth_tag as "credentialAuthTag",
             instance.api_base_url as "apiBaseUrl"
      from github_credentials credential join github_instances instance on instance.id = credential.instance_id
-     where credential.id = $1 and credential.enabled`,
+     where credential.id = $1 and credential.enabled and credential.health = 'ready'`,
     [credentialId],
   );
   const row = result.rows[0];

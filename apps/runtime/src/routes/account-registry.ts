@@ -1,4 +1,4 @@
-import { schemaVersion } from '@gcr/contracts';
+import { errorEnvelope, schemaVersion } from '@gcr/contracts';
 import type { Database } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -14,6 +14,7 @@ import {
   registerGitHubRepository,
   rotateChatAccountCredential,
   testGitHubConnection,
+  updateGitHubConnection,
 } from '../services/account-registry.js';
 
 const uuidParams = z.object({ id: z.string().uuid() });
@@ -73,6 +74,14 @@ const githubConnectionBody = z.object({
   credentialLabel: z.string().trim().min(1).max(120),
   accessToken: z.string().trim().min(1).max(10_000),
   expiresAt: z.string().datetime().optional(),
+});
+const githubConnectionUpdateBody = z.object({
+  name: z.string().trim().min(1).max(120),
+  apiBaseUrl: z.string().url().max(2_048),
+  webBaseUrl: z.string().url().max(2_048),
+  credentialLabel: z.string().trim().min(1).max(120),
+  accessToken: z.string().trim().min(1).max(10_000).optional(),
+  expiresAt: z.string().datetime().nullable(),
 });
 const githubRepositoryBody = z.object({
   tenantId: z.string().uuid(),
@@ -159,6 +168,73 @@ export async function registerAccountRegistryRoutes(
     },
   );
 
+  app.patch(
+    '/api/v1/admin/github-connections/:id',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      ensureRegistryEnabled(config);
+      const { id } = uuidParams.parse(request.params);
+      const body = githubConnectionUpdateBody.parse(request.body);
+      const connection = await database.connect();
+      try {
+        await connection.query('begin');
+        const outcome = await updateGitHubConnection(connection, config, id, body);
+        if (outcome !== 'updated') {
+          await writeAudit(
+            connection,
+            request,
+            'github-connection.update',
+            'github_credential',
+            id,
+            'failure',
+          );
+          await connection.query('commit');
+          if (outcome === 'not-found') return reply.code(404).send(notFound(request));
+          if (outcome === 'token-required') {
+            return reply
+              .code(400)
+              .send(
+                errorEnvelope(
+                  'GITHUB_TOKEN_REQUIRED_FOR_ORIGIN_CHANGE',
+                  'GHES API/Web origin을 변경하려면 새 access token을 입력해야 합니다.',
+                  request.id,
+                ),
+              );
+          }
+          return reply
+            .code(409)
+            .send(
+              errorEnvelope(
+                'GITHUB_SHARED_INSTANCE_CONFLICT',
+                '여러 credential이 공유하는 GHES instance의 이름과 URL은 변경할 수 없습니다.',
+                request.id,
+              ),
+            );
+        }
+        await writeAudit(connection, request, 'github-connection.update', 'github_credential', id);
+        await connection.query('commit');
+        return { schemaVersion, id };
+      } catch (error) {
+        await connection.query('rollback');
+        if (isUniqueViolation(error)) {
+          await writeFailureAudit(connection, request, 'github-connection.update', id);
+          return reply
+            .code(409)
+            .send(
+              errorEnvelope(
+                'GITHUB_CONNECTION_CONFLICT',
+                '같은 API base URL 또는 credential label을 사용하는 GHES 연결이 있습니다.',
+                request.id,
+              ),
+            );
+        }
+        throw error;
+      } finally {
+        connection.release();
+      }
+    },
+  );
+
   app.post(
     '/api/v1/admin/github-connections/:id/test',
     { preHandler: requireAdministrator },
@@ -200,7 +276,7 @@ function ensureRegistryEnabled(config: AppConfig) {
 }
 
 async function writeAudit(
-  database: Database,
+  database: Pick<Database, 'query'>,
   request: FastifyRequest,
   action: string,
   resourceType: string,
@@ -212,6 +288,23 @@ async function writeAudit(
      values ($1, $2, $3, $4, $5, $6)`,
     [request.user!.subject, action, resourceType, resourceId, outcome, request.id],
   );
+}
+
+async function writeFailureAudit(
+  database: Pick<Database, 'query'>,
+  request: FastifyRequest,
+  action: string,
+  resourceId: string,
+): Promise<void> {
+  try {
+    await writeAudit(database, request, action, 'github_credential', resourceId, 'failure');
+  } catch (error) {
+    request.log.error({ err: error }, 'failure audit write failed');
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '23505');
 }
 
 function notFound(request: FastifyRequest) {

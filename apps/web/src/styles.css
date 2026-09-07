@@ -2450,6 +2450,13 @@ body.workspace-resizing:has(.resize-bottom) {
   gap: 3px;
 }
 
+.registry-card > .registry-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
 .registry-card span,
 .registry-card code {
   overflow: hidden;
@@ -3165,6 +3172,34 @@ body.workspace-resizing:has(.resize-bottom) {
   box-shadow: 0 18px 50px rgb(18 24 30 / 24%);
 }
 
+.github-connection-dialog {
+  width: min(620px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+
+.github-connection-dialog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 14px;
+}
+
+.connection-shared-note {
+  margin: 0 0 15px;
+  padding: 9px 10px;
+  color: #6c4a17;
+  background: #fff7e8;
+  border: 1px solid #ead8b7;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.dialog-message {
+  margin-bottom: 15px;
+  outline: none;
+}
+
 .dialog-heading {
   display: flex;
   align-items: center;
@@ -3478,6 +3513,20 @@ body.workspace-resizing:has(.resize-bottom) {
     min-width: 760px;
   }
 
+  .registry-form,
+  .registry-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .registry-secret-field {
+    grid-column: auto;
+  }
+
+  .registry-card > .registry-card-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .prompt-status-bar {
     grid-template-columns: 1fr auto;
   }
@@ -3580,6 +3629,22 @@ body.workspace-resizing:has(.resize-bottom) {
   .profile-actions .command-button {
     width: 100%;
     min-height: 42px;
+    padding: 0 10px;
+    font-size: 10px;
+  }
+
+  .github-connection-dialog-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .github-connection-dialog .registry-secret-field {
+    grid-column: auto;
+  }
+
+  .registry-card-actions .command-button,
+  .github-connection-dialog .dialog-actions .command-button {
+    width: auto;
+    min-height: 40px;
     padding: 0 10px;
     font-size: 10px;
   }

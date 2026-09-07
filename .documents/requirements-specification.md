@@ -99,9 +99,10 @@
 | REQ-GH-012 | 필수 | poll은 PR의 현재 base branch tip을 authoritative source에서 관측하고 base 또는 head가 바뀌면 새 snapshot request를 만든다. |
 | REQ-GH-013 | 필수 | draft PR도 polling과 자동 분석 대상에 포함하되 idle tier를 기본으로 하며 관리자가 자동 분석을 끌 수 있다. Manual refresh는 항상 허용한다. |
 | REQ-GH-014 | 필수 | 시스템 관리자는 GHES connection을 등록·검증·회전·비활성화하고 token expiry, 마지막 검증, rate-limit과 401/403 상태를 확인한다. |
-| REQ-GH-015 | 필수 | 시스템 관리자는 token으로 실제 조회 가능한 repository만 tenant에 등록하고 automatic polling, hot/active/idle/draft interval과 Poll now trigger를 관리한다. |
-| REQ-GH-016 | 필수 | GHES token의 외부 repository read 권한과 application의 tenant membership/repository grant를 별도 경계로 검사한다. |
-| REQ-GH-017 | 필수 | 시스템 관리자는 repository별 user/group grant를 browser UI와 API에서 조회·부여·회수할 수 있다. |
+| REQ-GH-015 | 필수 | 시스템 관리자는 등록된 GHES connection의 이름, API/Web URL, credential label과 token expiry를 수정할 수 있다. Access token은 write-only 선택 입력이며 새 token을 입력한 경우에만 암호문을 교체하고 credential version을 증가시킨다. API 또는 Web origin을 변경할 때는 새 token을 필수로 요구하고, 공유 instance의 공통 필드 변경은 거부하며, 재검증 전에는 credential을 polling과 Git 작업에 사용하지 않는다. 기존 repository의 credential 참조와 연결의 활성 상태는 유지한다. |
+| REQ-GH-016 | 필수 | 시스템 관리자는 token으로 실제 조회 가능한 repository만 tenant에 등록하고 automatic polling, hot/active/idle/draft interval과 Poll now trigger를 관리한다. |
+| REQ-GH-017 | 필수 | GHES token의 외부 repository read 권한과 application의 tenant membership/repository grant를 별도 경계로 검사한다. |
+| REQ-GH-018 | 필수 | 시스템 관리자는 repository별 user/group grant를 browser UI와 API에서 조회·부여·회수할 수 있다. |
 
 ## 6. Snapshot과 Git workspace
 

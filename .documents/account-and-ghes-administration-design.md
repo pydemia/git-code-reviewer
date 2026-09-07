@@ -113,6 +113,8 @@ Token은 GHES의 승인된 service/machine account에서 발급하고 대상 rep
 
 `credentialLabel`은 token 문자열이나 GHES username이 아니라 같은 instance 안에서 credential을 구분하는 application 관리용 이름이다. 같은 instance와 label로 다시 등록하면 암호화 token을 교체하고 credential version을 증가시키므로 token rotation에도 같은 label을 사용한다. Access token 입력에는 `Bearer` 접두어, 따옴표나 URL을 붙이지 않는다.
 
+등록된 connection은 credential ID와 활성 상태를 유지한 채 이름, API/Web URL, credential label과 expiry를 수정한다. 따라서 기존 repository의 `credential_id` 참조와 polling 설정은 유지된다. Access token은 수정 화면에서도 write-only이며 비워 두면 기존 암호문과 credential version을 유지하고, 새 token을 입력할 때만 암호문·fingerprint를 교체하고 version을 증가시킨다. 기존 API/Web URL과 새 URL의 origin이 하나라도 다르면 저장된 token을 새 host로 보내지 않도록 새 access token 입력을 필수로 요구한다. 수정 후 health는 `unverified`로 전환하고 관리자가 연결 테스트를 다시 수행하기 전까지 polling, Git materialization과 repository 등록에 credential을 사용하지 않는다. GHES instance를 credential 여러 개가 공유하면 선택한 credential만으로 instance 공통 필드를 바꿀 수 없으므로 이름과 API/Web URL을 수정 화면에서 잠그고 credential label, token과 expiry만 수정할 수 있게 한다.
+
 ### 4.2 등록과 검증
 
 시스템 관리자는 다음 순서로 connection과 repository를 등록한다.

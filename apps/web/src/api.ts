@@ -296,6 +296,20 @@ export async function createGitHubConnection(values: {
   await mutateJson('/api/v1/admin/github-connections', 'POST', values);
 }
 
+export async function updateGitHubConnection(
+  connectionId: string,
+  values: {
+    name: string;
+    apiBaseUrl: string;
+    webBaseUrl: string;
+    credentialLabel: string;
+    accessToken?: string;
+    expiresAt: string | null;
+  },
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/github-connections/${connectionId}`, 'PATCH', values);
+}
+
 export async function testGitHubConnection(connectionId: string): Promise<{
   status: number;
   latencyMs: number;
