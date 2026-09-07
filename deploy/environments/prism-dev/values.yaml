@@ -4,13 +4,13 @@
 # - Kubernetes API: https://10.250.107.193:6443
 # - namespace: git-code-reviewer
 # - StorageClass: nfs-csi (RWX artifact, RWO PostgreSQL)
-# - 접근: kubectl port-forward only
-# - 인증: Local account, GitHub/model: fixture smoke test용
+# - 접근: pr-review.prism.ai HTTPRoute 또는 kubectl port-forward
+# - 인증: Local account, GitHub: fixture 및 등록된 credential, Chat: account registry
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.5'
-  digest: 'sha256:df64559a9de37af432e0c118ff617770e9597bc852eb2fee50ccedded751d0ed'
+  tag: '0.8.0-alpha.6'
+  digest: 'sha256:1cc09f22a72df16538c02b348db2f58a775348bc4315967d2aef3fef630ad218'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

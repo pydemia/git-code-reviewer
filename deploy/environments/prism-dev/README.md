@@ -29,7 +29,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.5@sha256:df64559a9de37af432e0c118ff617770e9597bc852eb2fee50ccedded751d0ed`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.6@sha256:1cc09f22a72df16538c02b348db2f58a775348bc4315967d2aef3fef630ad218`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -293,6 +293,28 @@ Helm release revision 13에서 application `0.8.0-alpha.5`, chart `0.10.3`을 �
 | 검증 자료 정리     | 임시 관리자, GHES instance/credential, repository, session과 audit event 삭제 후 잔여 0건 확인  |
 
 Connection 수정 후 health는 `unverified`가 되며 연결 테스트가 `ready`로 바꾸기 전에는 polling, Git materialization과 repository 등록에 해당 credential을 사용하지 않는다. 실제 GHES endpoint와 token을 사용한 연결 테스트는 별도로 수행해야 한다.
+
+### PR review 게시·Repository URL 등록 배포 검증
+
+2026-09-07 12:00 KST에 Helm release revision 14로 application `0.8.0-alpha.6`, chart `0.10.4`를 배포했다. Source commit은 `be2f56fc007c`이며 OCI chart digest는 `sha256:361373950c273f395162749daf92f868c5da362e147967d8d86daddc61b3b7ea`, image manifest digest는 `sha256:1cc09f22a72df16538c02b348db2f58a775348bc4315967d2aef3fef630ad218`이다. Image는 `linux/amd64`와 BuildKit provenance/SBOM attestation을 포함한다.
+
+| 검증 항목      | 결과                                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------- |
+| 사전 검증      | Vitest 20개 파일 118건, TypeScript typecheck, ESLint, Helm lint·server dry-run 통과                  |
+| Migration      | `0011_github_review_publication.sql` 적용, publication table 14개 column 확인                        |
+| Server/Worker  | 각각 `1/1 Ready`, restart 0회, 새 image digest 적용, 배포 직후 warning/error 0건                     |
+| Scheduler      | Rolling update 후 leadership 재획득                                                                  |
+| Helm/Health    | Helm test 성공, live/ready/startup/dependencies HTTP 200                                             |
+| HTTPRoute      | `Accepted=True`, `ResolvedRefs=True`, 실제 hostname에서 새 version 확인                              |
+| Web/API        | `/guide`, `/login`, `/admin?tab=github`, 최신 JavaScript HTTP 200, 비로그인 repository API HTTP 401  |
+| UI artifact    | GitHub.com API 예시, `https://github.com/org-name/repo-name`, Repository URL, PR 게시·권한 안내 확인 |
+| 기존 data      | 사용자 3명, ChatGPT account 1개, GHES credential 1개, repository 1개 유지                            |
+| Storage/Secret | 두 PVC의 기존 PV ID와 auth/credential registry/PostgreSQL Secret의 UID·resourceVersion 유지          |
+| 기존 PR 게시   | `review_publishing_enabled=false`, publication row와 job 0건 유지                                    |
+
+배포는 기존 connection의 URL·token·권한이나 사용자 비밀번호를 변경하지 않는다. GitHub.com 연결은 API base URL에 `https://api.github.com`, Web base URL에 `https://github.com`을 입력하고 연결 테스트 후 Repository URL `https://github.com/org-name/repo-name`으로 등록한다. 기존 repository에서 PR 게시를 시작하려면 먼저 PAT의 Metadata/Contents read와 Pull requests read/write 권한을 확인한다.
+
+실제 GHES repository 등록과 PR 댓글 create/update 검증은 실행하지 않았다. 이번 배포의 UI 확인은 HTTPRoute가 제공하는 정적 bundle과 route 검증이며, 로그인 후 URL 입력·오류 안내 동작은 앞선 local synthetic API 검증 결과를 사용한다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 

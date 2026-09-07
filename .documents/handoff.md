@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: 등록된 GHES connection 수정 기능의 PRISM-DEV revision 13 배포·검증 완료
+- 단계: PR review 댓글 게시·Repository URL 등록 기능의 PRISM-DEV revision 14 배포·검증 완료
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -17,7 +17,7 @@
 - 시스템 관리자는 여러 ChatGPT account를 등록하고 account별 model, 허용/default/max reasoning effort와 tenant/user/group assignment를 관리한다.
 - 일반 사용자는 허용된 Chat account, model과 effort를 선택해 대화를 시작한다. 선택은 session에 고정되고 변경하면 새 session을 만든다.
 - 시스템 관리자는 GHES access-token connection과 review repository를 등록하고 repository별 polling interval/disabled/Poll now trigger 및 user/group grant를 관리한다.
-- GHES token이 부여하는 외부 read 권한과 application repository grant는 별도로 검사한다.
+- GHES token이 부여하는 외부 read/write 권한과 application repository grant는 별도로 검사한다.
 - 외부 OIDC endpoint를 browser에서 사용할 수 없는 PRISM-DEV에서는 Local account mode로 시스템관리자와 일반사용자를 구분한다.
 - 시스템관리자는 Local account의 role, 활성 상태, tenant membership, repository grant와 비밀번호를 관리한다. 일반사용자는 grant를 받은 repository만 조회한다.
 - 로그인 사용자는 GNB의 `/profile`에서 계정 정보와 tenant를 확인한다. Local account는 표시 이름과 비밀번호를 직접 변경하며, 비밀번호 변경 시 현재 비밀번호를 확인하고 모든 session을 폐기한다. 비밀번호 길이는 8~128자다. 외부 identity는 IdP에서 관리한다.
@@ -92,19 +92,19 @@ Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account`, `registry` �
 
 GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone/PR publication 직전에만 token을 복호화한다. 기본 `registry` mode는 전역 GitHub reader를 만들지 않고 저장소별 token client만 사용한다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository만 선택하고 Metadata/Contents read와 Pull requests read/write를 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다. 등록된 connection 수정은 credential ID, repository 참조와 enabled 상태를 유지한다. 저장 직후 health를 `unverified`로 바꾸고 연결 테스트가 성공해 `ready`가 되기 전에는 polling, Git materialization, PR publication과 repository 등록에서 token을 복호화하지 않는다.
 
-Source worktree에는 migration `0011_github_review_publication.sql`과 `github.review.publish` durable job이 추가되어 있다. Repository별 게시 toggle을 켜면 completed/partial report의 한국어 요약을 GHES PR timeline 관리 댓글로 생성하고 후속 분석에서는 같은 comment ID를 갱신한다. 저장된 ID가 없으면 HMAC marker를 검색해 crash retry의 중복 생성을 막는다. 게시 403은 `GITHUB_REVIEW_PERMISSION_DENIED`로 격리하며 report 상태를 바꾸지 않는다. 이 변경은 아직 아래 배포 artifact `0.8.0-alpha.5`에는 포함되지 않았다.
+Migration `0011_github_review_publication.sql`과 `github.review.publish` durable job은 application `0.8.0-alpha.6`에 포함되어 PRISM-DEV에 배포됐다. Repository별 게시 toggle을 켜면 completed/partial report의 한국어 요약을 GHES PR timeline 관리 댓글로 생성하고 후속 분석에서는 같은 comment ID를 갱신한다. 저장된 ID가 없으면 HMAC marker를 검색해 crash retry의 중복 생성을 막는다. 게시 403은 `GITHUB_REVIEW_PERMISSION_DENIED`로 격리하며 report 상태를 바꾸지 않는다. 기존 repository의 `review_publishing_enabled`는 migration의 기본값 `false`를 유지한다.
 
-후속 worktree 변경은 GitHub.com 기준 textbox·guide 예시(API `https://api.github.com`, Web `https://github.com`)와 전체 Repository URL 등록이다. `https://github.com/org-name/repo-name`를 입력하면 shared parser가 Owner/Repository를 표시하고 Server가 선택한 연결 origin과 token 권한을 확인해 canonical 이름을 저장한다. 기존 owner/name API 입력은 유지한다. 연결 미검증, 잘못된 base URL, host mismatch, API 401/403/404와 network 오류는 한국어 조치 안내를 제공한다. 기존 live 연결 값은 자동으로 수정하지 않는다.
+같은 release에 GitHub.com 기준 textbox·guide 예시(API `https://api.github.com`, Web `https://github.com`)와 전체 Repository URL 등록을 포함했다. `https://github.com/org-name/repo-name`를 입력하면 shared parser가 Owner/Repository를 표시하고 Server가 선택한 연결 origin과 token 권한을 확인해 canonical 이름을 저장한다. 기존 owner/name API 입력은 유지한다. 연결 미검증, 잘못된 base URL, host mismatch, API 401/403/404와 network 오류는 한국어 조치 안내를 제공한다. 기존 live 연결 값은 자동으로 수정하지 않는다.
 
-사용자 요청으로 예시와 test fixture는 `org-name/repo-name`으로 익명화했다. URL 등록은 synthetic API를 연결한 local Chromium에서 1440px/390px UI, `.git` 정규화, POST payload, 404 안내, 다른 host 차단과 console page error 부재를 확인했다. 실제 GitHub repository 등록과 PRISM-DEV 재배포는 이번 변경에서 실행하지 않았다.
+사용자 요청으로 예시와 test fixture는 `org-name/repo-name`으로 익명화했다. URL 등록은 synthetic API를 연결한 local Chromium에서 1440px/390px UI, `.git` 정규화, POST payload, 404 안내, 다른 host 차단과 console page error 부재를 확인했다. PRISM-DEV 재배포 후 실제 HTTPRoute가 제공하는 bundle에서도 예시와 Repository URL·PR 게시 안내를 확인했다. 실제 GitHub repository 등록과 PR 댓글 작성은 실행하지 않았다.
 
 ## 6. 배포 artifact
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.5`
-- source revision: `ae1a287`
-- manifest digest: `sha256:df64559a9de37af432e0c118ff617770e9597bc852eb2fee50ccedded751d0ed`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.6`
+- source revision: `be2f56fc007c`
+- manifest digest: `sha256:1cc09f22a72df16538c02b348db2f58a775348bc4315967d2aef3fef630ad218`
 - platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
@@ -113,9 +113,9 @@ Source worktree에는 migration `0011_github_review_publication.sql`과 `github.
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.3`
-- app version: `0.8.0-alpha.5`
-- chart digest: `sha256:5be0cb4f298b97b70d72e7d9745338ad884ef30069470868038eed121eb75675`
+- version: `0.10.4`
+- app version: `0.8.0-alpha.6`
+- chart digest: `sha256:361373950c273f395162749daf92f868c5da362e147967d8d86daddc61b3b7ea`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -234,7 +234,23 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 5. `docs/operations/github-enterprise-test.md`의 end-to-end와 failure test를 수행한다.
 6. 공유 ChatGPT/Codex deployment account와 quota/data policy가 조직 정책에 부합하는지 확인한다.
 
+PRISM-DEV release revision 14 PR 게시·Repository URL 등록 배포 검증:
+
+- Application `0.8.0-alpha.6`, chart `0.10.4`를 OCI registry에서 받아 upgrade 완료
+- Migration `0011` 적용, publication table 14개 column과 기존 repository 게시 기본값 `false` 확인
+- Server/Worker 각각 `1/1 Ready`, restart 0회, 새 digest 적용, Scheduler leadership 재획득
+- Helm test 성공, HTTPRoute `Accepted=True`/`ResolvedRefs=True`, health 4개 endpoint HTTP 200
+- 실제 hostname의 `/api/v1/system`에서 새 version 확인, `/guide`와 최신 JS HTTP 200, 비로그인 repository API HTTP 401
+- 사용자 3명, ChatGPT account 1개, GHES credential 1개, repository 1개 유지
+- PostgreSQL RWO·artifact RWX PVC의 PV ID와 auth/registry/DB Secret resourceVersion 유지
+- 기존 repository의 PR 게시, publication row와 job은 모두 0건으로 유지. 실제 GHES write와 사용자 비밀번호 변경 없이 검증
+- 배포 직후 Server/Worker log의 warning/error 0건. 상세 기록은 `deploy/environments/prism-dev/README.md` 참조
+
 ## 8. Commit 순서
+
+PR review 댓글 게시·Repository URL 등록 구현은 다음 commit에 있다.
+
+- `be2f56f` `feat: publish PR reviews and register repositories by URL`
 
 PRISM-DEV 전용 HTTPRoute 배포는 다음 commit에 있다.
 
