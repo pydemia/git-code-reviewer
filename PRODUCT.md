@@ -24,9 +24,9 @@ Review workspace는 제공된 visual artifact의 구조를 따른다.
 
 ## 동작
 
-Server가 등록 repository를 outbound polling하고 authoritative base/head SHA 변화를 감지한다. Worker는 run별 isolated clone에서 append-only snapshot materialization과 canonical diff를 만든 뒤 Git/AST evidence, model review와 verifier를 거쳐 immutable report를 저장한다. Report는 Commit Defender의 summary, grade, per-file summary, P0-P3/category와 finding normalization을 계승하고 PR coverage, verified evidence와 impact graph를 확장한다. Browser는 clone하거나 source를 local storage에 보관하지 않는다.
+Server가 등록 repository를 outbound polling하고 authoritative base/head SHA 변화를 감지한다. Worker는 run별 isolated clone에서 append-only snapshot materialization과 canonical diff를 만든 뒤 Git/AST evidence, model review와 verifier를 거쳐 immutable report를 저장한다. Report는 Commit Defender의 summary, grade, per-file summary, P0-P3/category와 finding normalization을 계승하고 PR coverage, verified evidence와 impact graph를 확장한다. Repository의 PR 게시 설정이 켜져 있으면 별도 publication job이 결과 요약을 GHES PR timeline의 관리 댓글 하나에 생성하거나 갱신한다. Browser는 clone하거나 source를 local storage에 보관하지 않는다.
 
-MVP는 read-only다. 대상 repository에 GitHub Actions workflow를 설치하지 않고 webhook, Check, status와 review comment write-back을 요구하지 않는다. 일부 분석이 실패하면 성공 결과, coverage와 omission을 포함한 partial report를 제공한다.
+대상 repository에 GitHub Actions workflow나 webhook을 설치하지 않는다. GHES credential은 Metadata/Contents read와 Pull requests read/write만 사용하며 Check, commit status, inline review, 자동 approve/request-changes는 만들지 않는다. 일부 분석이 실패하면 성공 결과, coverage와 omission을 포함한 partial report를 제공한다.
 
 ## 운영 환경
 

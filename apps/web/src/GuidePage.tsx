@@ -19,6 +19,8 @@ const githubApiAuthDocs =
   'https://docs.github.com/en/enterprise-server@3.21/rest/authentication/authenticating-to-the-rest-api';
 const githubCredentialSecurityDocs =
   'https://docs.github.com/en/enterprise-server@3.21/rest/authentication/keeping-your-api-credentials-secure';
+const githubIssueCommentDocs =
+  'https://docs.github.com/en/enterprise-server@3.21/rest/issues/comments#create-an-issue-comment';
 
 export function GuidePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -102,8 +104,9 @@ export function GuidePage() {
             </div>
             <p>
               개인 관리자 계정보다는 회사가 관리하는 bot 또는 service account를 사용하고, 그
-              계정에는 review 대상 repository의 Read 권한만 부여하십시오. 현재 registry가 받는
-              credential은 GHES Personal Access Token(PAT)입니다.
+              계정에는 review 대상 repository만 부여하십시오. Source 조회 권한은 Read-only로
+              제한하고, PR timeline에 review 결과를 게시하기 위해 Pull requests만 Read and write로
+              설정합니다. 현재 registry가 받는 credential은 GHES Personal Access Token(PAT)입니다.
             </p>
 
             <h3>권장: fine-grained PAT</h3>
@@ -142,8 +145,18 @@ export function GuidePage() {
                     <td>
                       <code>Pull requests</code>
                     </td>
-                    <td>Read-only</td>
-                    <td>Open PR polling과 base/head SHA 확인</td>
+                    <td>Read and write</td>
+                    <td>Open PR polling, base/head SHA 확인, review 결과 댓글 생성·갱신</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <code>Issues</code>
+                    </td>
+                    <td>No access</td>
+                    <td>
+                      Pull requests write 권한으로 PR timeline 댓글 API를 호출하므로 별도 권한
+                      불필요
+                    </td>
                   </tr>
                   <tr>
                     <td>
@@ -159,7 +172,8 @@ export function GuidePage() {
               Fine-grained PAT 메뉴가 없거나 사내 GHES/organization 정책이 허용하지 않으면 classic
               PAT의 <code>repo</code> scope를 사용할 수 있습니다. <code>repo</code>는 계정이 접근할
               수 있는 private repository 전체로 범위가 넓으므로 별도 service account와 짧은
-              만료·회전 주기를 적용하십시오. Admin, write, workflow scope는 필요하지 않습니다.
+              만료·회전 주기를 적용하십시오. Administration, Contents write와 Workflows 권한은
+              필요하지 않습니다.
             </p>
 
             <h3>관리 화면 입력값</h3>
@@ -167,26 +181,28 @@ export function GuidePage() {
               <div>
                 <dt>연결 이름</dt>
                 <dd>
-                  사람이 GHES instance를 식별하는 이름입니다. 예: <code>사내 GHES 운영계</code>
+                  연결을 구분하는 관리용 이름입니다. 예: <code>GitHub.com · org-name</code>
                 </dd>
               </div>
               <div>
                 <dt>API base URL</dt>
                 <dd>
-                  <code>https://GHES_HOST/api/v3/</code> 형식입니다.
+                  GitHub.com은 <code>https://api.github.com</code>을 입력합니다. Organization이나
+                  repository 경로는 붙이지 않습니다.
                 </dd>
               </div>
               <div>
                 <dt>Web base URL</dt>
                 <dd>
-                  <code>https://GHES_HOST/</code> 형식입니다. Git fetch와 원본 link에 사용합니다.
+                  GitHub.com은 <code>https://github.com</code>을 입력합니다. Git fetch와 원본 link에
+                  사용하며 <code>/org-name</code> 같은 organization 경로는 넣지 않습니다.
                 </dd>
               </div>
               <div>
                 <dt>Credential label</dt>
                 <dd>
                   이 서비스 내부의 관리용 식별자입니다. secret이나 GHES username이 아닙니다. 예:{' '}
-                  <code>ghes-reviewer-readonly</code>. 같은 GHES와 같은 label로 다시 등록하면 기존
+                  <code>ghes-review-publisher</code>. 같은 GHES와 같은 label로 다시 등록하면 기존
                   credential의 token이 교체되고 version이 증가합니다.
                 </dd>
               </div>
@@ -204,6 +220,13 @@ export function GuidePage() {
                 </dd>
               </div>
             </dl>
+            <p className="guide-note">
+              사내 GHES는 회사에서 운영하는 GitHub 사이트 주소를 사용합니다. 예를 들어 사이트가
+              <code> https://github.company.internal</code>이면 API base URL은
+              <code> https://github.company.internal/api/v3</code>, Web base URL은
+              <code> https://github.company.internal</code>입니다. Github.com 주소와 혼용하지
+              않습니다.
+            </p>
             <p className="guide-note">
               등록된 연결은 GHES 연결 목록의 <strong>연결 수정</strong>에서 이름, API/Web URL,
               credential label과 만료일을 변경할 수 있습니다. 새 access token은 선택 입력이며 비워
@@ -228,6 +251,9 @@ export function GuidePage() {
               <a href={githubApiAuthDocs} target="_blank" rel="noreferrer">
                 REST API 인증 <ExternalLink size={13} />
               </a>
+              <a href={githubIssueCommentDocs} target="_blank" rel="noreferrer">
+                PR timeline 댓글 API <ExternalLink size={13} />
+              </a>
               <a href={githubCredentialSecurityDocs} target="_blank" rel="noreferrer">
                 Credential 보안 지침 <ExternalLink size={13} />
               </a>
@@ -250,20 +276,69 @@ export function GuidePage() {
               <li>
                 관리 → GHES &amp; Repository에서 connection을 등록하고 연결 테스트를 실행합니다.
               </li>
-              <li>GHES 연결, tenant, owner와 repository 이름, polling interval을 입력합니다.</li>
               <li>
-                일반 사용자가 필요하면 사용자 권한을 선택합니다. 미선택 시 관리자만 볼 수 있습니다.
+                GitHub 연결과 tenant를 선택하고 Repository URL에 repository 전체 주소를 붙여
+                넣습니다.
+              </li>
+              <li>자동 추출된 Owner와 Repository를 확인하고 polling interval을 설정합니다.</li>
+              <li>
+                일반 사용자가 필요하면 사용자 권한을 선택하고, 자동 게시할 repository는{' '}
+                <strong>분석 완료 후 PR timeline에 review 결과 게시</strong>를 켭니다.
               </li>
               <li>
                 Repository 등록 후 Poll now를 실행해 open PR과 마지막 polling 결과를 확인합니다.
               </li>
               <li>
-                PR에서 분석을 시작해 Worker가 commit을 fetch하고 report를 생성하는지 확인합니다.
+                PR에서 분석을 시작해 report 생성 후 GHES 댓글이 등록되는지 확인합니다. 후속 분석은
+                댓글을 새로 만들지 않고 기존 댓글을 갱신합니다.
               </li>
             </ol>
+            <h3>GitHub.com repository 입력 예시</h3>
+            <dl className="guide-fields">
+              <div>
+                <dt>GHES 연결</dt>
+                <dd>
+                  API가 <code>https://api.github.com</code>, Web이 <code>https://github.com</code>인
+                  연결을 선택합니다.
+                </dd>
+              </div>
+              <div>
+                <dt>Repository URL</dt>
+                <dd>
+                  <code>https://github.com/org-name/repo-name</code>
+                </dd>
+              </div>
+              <div>
+                <dt>자동 추출 결과</dt>
+                <dd>
+                  Owner: <code>org-name</code> · Repository: <code>repo-name</code>. 두 값을 따로
+                  입력할 필요가 없습니다.
+                </dd>
+              </div>
+              <div>
+                <dt>Tenant / Polling interval</dt>
+                <dd>
+                  이 repository를 관리할 tenant(예: Default tenant)를 선택하고 polling interval은{' '}
+                  <code>120</code>초처럼 입력합니다.
+                </dd>
+              </div>
+            </dl>
+            <p>
+              주소 끝의 <code>.git</code>과 trailing slash는 자동으로 정리합니다. PR, branch, file
+              페이지 주소는 repository 첫 화면 주소로 바꾸십시오. 선택한 연결과 repository의 host가
+              다르면 등록할 수 없습니다. 404는 주소 오타와 private repository 권한 부족 양쪽에서
+              발생할 수 있으므로 PAT의 Resource owner가 <code>org-name</code>인지, Repository
+              access에
+              <code> repo-name</code>가 포함됐는지 확인하십시오. Organization 승인이나 SSO가
+              필요하면 해당 절차도 완료해야 합니다.
+            </p>
             <p className="guide-note">
               이 연결은 inbound webhook을 열지 않습니다. Server가 지정한 interval에 GHES로 outbound
               요청을 보내고, 변경이 있을 때 Worker가 필요한 commit만 가져옵니다.
+            </p>
+            <p className="guide-note">
+              PR 게시 기능 도입 전에 등록된 repository는 게시가 꺼진 상태로 유지됩니다. Token 교체와
+              연결 테스트 후 repository 카드에서 <strong>PR 게시 시작</strong>을 눌러 활성화합니다.
             </p>
           </section>
 
@@ -325,7 +400,8 @@ export function GuidePage() {
                 </dt>
                 <dd>
                   Fine-grained PAT의 organization 승인 상태, repository 선택, PAT 정책과 계정의
-                  repository Read 권한을 확인합니다.
+                  repository 접근 권한을 확인합니다. Polling은 성공하지만 PR 게시만 실패하면{' '}
+                  <code>Pull requests: Read and write</code>인지 확인합니다.
                 </dd>
               </div>
               <div>
@@ -379,7 +455,11 @@ export function GuidePage() {
               <li>
                 공용 계정이나 개인 관리자 계정 대신 용도가 제한된 service account를 사용합니다.
               </li>
-              <li>대상 repository와 Read permission만 선택하고 만료일과 교체 담당자를 정합니다.</li>
+              <li>
+                대상 repository만 선택하고 <code>Metadata</code>와 <code>Contents</code>는
+                Read-only,
+                <code>Pull requests</code>만 Read and write로 설정합니다.
+              </li>
               <li>노출이 의심되면 GHES에서 즉시 revoke한 뒤 새 token을 같은 label로 등록합니다.</li>
               <li>
                 연결 목록에는 fingerprint 일부만 표시되는지 확인하고 access token 원문을 공유하지

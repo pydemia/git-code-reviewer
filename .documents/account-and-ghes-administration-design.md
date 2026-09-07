@@ -105,11 +105,12 @@ OpenAI 공식 Codex 인증은 ChatGPT 로그인과 API key 로그인을 구분�
 |---|---|
 | `github_instances` | 이름, API base URL, Web base URL, CA profile, enabled |
 | `github_credentials` | instance ID, label, auth type `access-token`, encrypted token, fingerprint, expiry, health |
-| `repositories` | tenant ID, instance ID, credential ID, GHES numeric ID, owner/name, enabled |
+| `repositories` | tenant ID, instance ID, credential ID, GHES numeric ID, owner/name, enabled, review publishing enabled |
 | `poll_policies` | repository ID, automatic enabled, hot/active/idle interval, draft mode, request budget |
 | `repository_grants` | repository ID, application subject/group, role |
+| `github_review_publications` | PR ID, target/published analysis ID, head SHA, comment ID/URL, body hash, state/error |
 
-Token은 GHES의 승인된 service/machine account에서 발급하고 대상 repository에 필요한 read 권한만 부여한다. GHES version이 fine-grained personal access token을 지원하고 조직 정책이 허용하면 repository를 명시하고 Metadata/Contents/Pull requests read 범위로 제한한다. Metadata는 repository 확인, Pull requests는 polling, Contents는 HTTPS Git fetch에 사용한다. Classic personal access token만 지원하면 `repo` scope가 넓다는 점을 security review와 rotation 주기에 반영한다. Admin, write와 workflow scope는 요구하지 않는다.
+Token은 GHES의 승인된 service/machine account에서 발급하고 대상 repository만 선택한다. GHES version이 fine-grained personal access token을 지원하고 조직 정책이 허용하면 Metadata와 Contents는 read, Pull requests는 read/write로 제한한다. Metadata는 repository 확인, Contents는 HTTPS Git fetch, Pull requests는 polling과 PR timeline 댓글 생성·갱신에 사용한다. PR 일반 댓글 endpoint는 Pull requests write permission으로 호출할 수 있으므로 Issues permission은 별도로 부여하지 않는다. Classic personal access token만 지원하면 `repo` scope가 넓다는 점을 security review와 rotation 주기에 반영한다. Administration, Contents write와 Workflows 권한은 요구하지 않는다.
 
 `credentialLabel`은 token 문자열이나 GHES username이 아니라 같은 instance 안에서 credential을 구분하는 application 관리용 이름이다. 같은 instance와 label로 다시 등록하면 암호화 token을 교체하고 credential version을 증가시키므로 token rotation에도 같은 label을 사용한다. Access token 입력에는 `Bearer` 접두어, 따옴표나 URL을 붙이지 않는다.
 
@@ -121,12 +122,14 @@ Token은 GHES의 승인된 service/machine account에서 발급하고 대상 rep
 
 1. GHES API/Web base URL, credential label, access token, 만료일과 optional CA profile을 입력한다.
 2. Server는 credential을 암호화해 저장하고 별도 연결 테스트에서 `GET /user`를 호출해 token identity를 검증한다.
-3. Repository 등록 시 Server가 `GET /repos/{owner}/{repo}`로 권한과 numeric ID를 검증한다.
+3. Repository URL을 입력하면 Browser가 Owner/Repository를 미리 표시한다. Server는 선택한 connection의 Web origin과 URL host를 비교하고 등록된 API base URL의 `GET /repos/{owner}/{repo}`로 권한, numeric ID와 canonical owner/name을 검증한다. 기존 API client의 `owner`/`name` 요청은 호환하되 `repositoryUrl`과 동시에 받을 수 없다.
 4. 선택한 repository의 numeric ID와 기본 branch를 authoritative API에서 읽어 등록한다.
-5. Tenant, application user/group grant와 polling policy를 지정한다.
-6. `Poll now`로 open PR 조회를 실행하고 마지막 성공 시각과 오류를 확인한다.
+5. Tenant, application user/group grant, polling policy와 PR review 결과 게시 여부를 지정한다.
+6. `Poll now`로 open PR 조회와 분석을 실행하고 마지막 polling 및 PR comment 게시 상태를 확인한다.
 
-GNB의 `/guide#ghes-credential`은 위 발급 절차와 입력 형식, classic PAT fallback, 401/403/404, Poll 성공 후 Git fetch 실패의 구분 방법을 시스템 관리자에게 제공한다. 연결 테스트 성공은 repository API와 Git fetch 권한까지 보장하지 않으므로 최초 repository는 등록, Poll now, snapshot 분석까지 검증한다.
+GNB의 `/guide#ghes-credential`은 위 발급 절차와 입력 형식, classic PAT fallback, 401/403/404, Poll 성공 후 Git fetch 또는 PR 게시 실패의 구분 방법을 시스템 관리자에게 제공한다. 연결 테스트 성공은 repository API, Git fetch와 Pull requests write 권한까지 보장하지 않으므로 최초 repository는 등록, Poll now, snapshot 분석과 GHES 댓글 생성까지 검증한다.
+
+GitHub.com은 API base URL `https://api.github.com`, Web base URL `https://github.com`으로 입력한다. Organization 경로를 붙이지 않는다. Repository URL 예시는 `https://github.com/org-name/repo-name`이며 Owner `org-name`과 Repository `repo-name`는 자동 추출한다. 사내 GHES는 API `https://github.company.internal/api/v3`, Web `https://github.company.internal`을 사용한다. 등록 오류는 연결 미검증·만료, URL/host 오류, API 인증·권한·404, network/TLS 오류로 구분하며 upstream 원문이나 token은 응답에 포함하지 않는다.
 
 Token은 `Authorization` header와 ephemeral Git credential helper에서만 사용한다. Browser response, clone URL, Git config, job payload, audit, log와 metric label에는 원문이나 ciphertext를 넣지 않는다. Job은 `credentialId`만 보관하고 실행 시점에 Server/Worker가 암호화 저장소에서 읽는다.
 
@@ -142,6 +145,12 @@ Repository별 관리 항목은 다음과 같다.
 - 관리자 전용 `Poll now`
 
 MVP는 임의 cron expression보다 bounded interval profile을 사용한다. Scheduler는 DB clock과 lease로 due repository를 claim하며 같은 repository poll을 중복 실행하지 않는다. Token의 401/403은 권한 또는 만료 상태로 표시하고 무한 retry하지 않는다. 429와 5xx는 다른 repository를 막지 않고 해당 connection/repository에 backoff를 적용한다.
+
+### 4.4 PR review 결과 게시
+
+Repository별 `review_publishing_enabled`가 켜져 있으면 completed/partial report 저장 transaction이 `github.review.publish` job을 만든다. Worker는 별도 job에서 HMAC 관리 marker가 포함된 PR timeline 댓글을 생성하고 comment ID를 저장한다. 후속 분석은 저장된 ID를 사용해 같은 댓글을 갱신한다. API 성공과 DB 반영 사이에 Worker가 중단되면 PR comment 목록에서 marker를 찾아 복구한다.
+
+관리 화면은 게시 활성 상태, 최근 `pending|publishing|published|failed` 상태, 실패 code와 GHES comment link를 표시한다. 게시를 다시 활성화하면 open PR의 최신 completed/partial report를 queue에 넣는다. 게시 401/403은 permission failure로 종료하고 429/5xx만 bounded retry한다. 게시 실패는 분석 report를 실패로 바꾸지 않으며 자동 `APPROVE`, `REQUEST_CHANGES`, inline review, Check Run과 commit status는 생성하지 않는다.
 
 ## 5. API contract
 

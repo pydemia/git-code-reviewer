@@ -10,7 +10,7 @@
 | runtime | Kubernetes의 server/worker Deployment |
 | persistence | PostgreSQL + artifact PVC 또는 object storage |
 
-이 설계는 browser가 clone과 분석을 담당하지 않는 중앙 웹서비스를 구현 대상으로 한다. 대상 repository의 CI, GitHub webhook과 GitHub write-back은 MVP request path에 없다.
+이 설계는 browser가 clone과 분석을 담당하지 않는 중앙 웹서비스를 구현 대상으로 한다. 대상 repository의 CI와 GitHub webhook은 request path에 없다. 분석 완료 후의 GHES PR timeline 댓글은 별도 durable publication job이 outbound REST API로 처리한다.
 
 ### 1.1 원칙
 
@@ -32,8 +32,8 @@ Browser
        -> PostgreSQL: registry, operations, event log, jobs, reports, Chat
        -> Artifact store: source, diff, graph, analyzer artifact, report
        -> approved model endpoint: interactive Chat inference
-       -> Worker: clone, snapshot materialization, analyzer, model, verifier
-            -> GHES API/Git
+       -> Worker: clone, snapshot materialization, analyzer, model, verifier, PR comment publication
+            -> GHES API/Git/Issue Comments
             -> approved model endpoint
 ```
 
@@ -73,7 +73,7 @@ Helm release
 | Poll scheduler | due target, PR delta, quota/backoff, snapshot request | report 분석, GitHub write-back |
 | Job repository | enqueue, lease, heartbeat, retry, dedupe | 별도 message broker 운영 |
 | Event log/fan-out | transactional event append, replica notification, replay | source/prompt/token 전달 |
-| Analysis worker | isolated clone, artifact pipeline, report persist | arbitrary repo command, public ingress |
+| Analysis worker | isolated clone, artifact pipeline, report persist, 별도 job의 GHES PR summary comment 게시 | arbitrary repo command, public ingress, merge decision |
 | Artifact store | immutable large object와 checksum | authorization 결정 |
 | PostgreSQL | metadata, state, leases, audit metadata | source tree 보관 |
 | Chat account registry | 관리자 등록 account, assignment, model/effort capability, encrypted credential와 refresh 상태 | 사용자 local credential 암묵 재사용, browser credential 반환 |
@@ -146,6 +146,7 @@ Priority 숫자는 작을수록 먼저 실행한다. 수치와 backoff는 typed 
 | `pr.poll.manual` | scheduler leader | 10 | 3 | 즉시, 5초, 20초 | operation failed |
 | `snapshot.materialize` | worker | 20 | 3 | exponential+jitter, 최대 10분 | terminal failure |
 | `analysis.run` | worker | 30 | 3 | exponential+jitter, 최대 10분 | terminal failure |
+| `github.review.publish` | worker | 120 | 5 | `Retry-After` 또는 15~300초 exponential | publication failed, report 유지 |
 
 Terminal failure는 `last_error_code`를 보존하며 administrator가 동일 domain key로 새 attempt를 요청할 수 있다. 기본 heartbeat/lease 값은 DEC-015에서 확정한다.
 
@@ -405,7 +406,20 @@ https://<registered-ghes>/<owner>/<repo>/blob/<exact-commit>/<encoded-path>#L42-
 
 Markdown/JSON export는 같은 typed target에서 link를 렌더링한다. Internal link는 같은 tab, GHES link는 `noopener noreferrer`를 적용한 새 tab으로 열며, source가 삭제되었거나 권한이 없으면 revision 고정 내부 evidence view를 fallback으로 유지한다.
 
-### 5.9 Chat
+### 5.9 GHES PR review 결과 게시
+
+Repository 등록 UI는 `repositoryUrl`을 받는다. Server는 선택한 connection의 Web origin과 비교한 뒤 Owner/Repository를 추출하고 등록된 API base URL에서 numeric ID와 canonical 이름을 검증한다. URL 원문을 network target으로 사용하지 않는다. GitHub.com 예시는 API `https://api.github.com`, Web `https://github.com`, repository `https://github.com/org-name/repo-name`다. 기존 `owner`/`name` API 입력은 호환하며 두 형식의 동시 입력은 거부한다.
+
+1. Analysis transaction이 completed/partial report, `github_review_publications` target과 `github.review.publish:<analysisId>` job을 함께 저장한다.
+2. Worker는 PR ID 기반 PostgreSQL advisory lock을 얻어 같은 PR의 comment 생성·갱신을 직렬화한다.
+3. 저장된 comment ID가 있으면 `PATCH /repos/{owner}/{repo}/issues/comments/{commentId}`를 호출한다.
+4. Comment ID가 없거나 저장된 ID가 404이면 PR comment 목록에서 HMAC을 포함한 관리 marker를 찾는다. 찾으면 갱신하고 없으면 `POST /repos/{owner}/{repo}/issues/{pullNumber}/comments`로 생성한다.
+5. 게시 결과의 analysis ID, head SHA, comment ID/URL, body hash와 시간을 저장하고 `github.review.published` event를 기록한다.
+6. 후속 분석은 같은 comment를 갱신한다. 최신 분석이 먼저 게시된 경우 뒤늦게 claim된 과거 job은 comment를 되돌리지 않는다.
+
+Comment body는 한국어 설명, 영어 grade/priority, head SHA, P3-P0 count, 상위 actionable finding 5개, coverage limitation과 configured `PUBLIC_BASE_URL`의 전체 report link로 제한한다. Model/report 문구의 Markdown control character와 `@mention`을 escape하며 source/evidence 원문과 credential은 넣지 않는다. 자동 `APPROVE`, `REQUEST_CHANGES`, inline review, Check Run과 commit status는 생성하지 않는다.
+
+### 5.10 Chat
 
 1. session 생성 시 `user_id + analysis_revision_id`를 고정한다.
 2. server가 concurrency/rate/tool-turn/timeout limit을 확인하고 초과하면 typed `429` 또는 limit error를 반환한다.
@@ -415,7 +429,7 @@ Markdown/JSON export는 같은 typed target에서 link를 렌더링한다. Inter
 6. 최종 message/citation만 transaction으로 저장한다. 중단된 stream은 REST 상태 확인 후 사용자가 재시도한다.
 7. 새 analysis가 있으면 UI가 별도 banner를 표시하고 사용자 동의로 새 session을 시작한다.
 
-### 5.10 Cleanup
+### 5.11 Cleanup
 
 worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제한다. Container restart로 같은 pod의 `emptyDir`이 남은 경우 worker startup/periodic cleanup이 active lease가 없는 자기 volume의 run directory만 지운다. Pod가 삭제되면 `emptyDir`과 generic ephemeral PVC는 pod lifecycle에 따라 정리된다.
 
@@ -428,7 +442,7 @@ worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제�
 | `users` | oidc_subject, display_name, role | subject unique |
 | `github_instances` | api_base_url, web_base_url, ca_profile, enabled | host unique |
 | `github_credentials` | instance_id, label, encrypted_token, version, expiry, health | credential write-only |
-| `repositories` | tenant_id, instance_id, credential_id, github_id, owner, name, enabled | instance/github_id unique |
+| `repositories` | tenant_id, instance_id, credential_id, github_id, owner, name, enabled, review_publishing_enabled | instance/github_id unique, 기존 repository는 migration 시 게시 disabled |
 | `repository_grants` | repository_id, subject_or_group, role | scope unique |
 | `pull_requests` | repository_id, number, state, base_sha, head_sha | repository/number unique |
 | `poll_policies` | repository_id, enabled, hot/active/idle/draft interval, manual_refresh | repository unique |
@@ -443,6 +457,7 @@ worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제�
 | `artifacts` | scope/id, type, version, checksum, locator, committed_at, producer_attempt | scope/id/type/version unique |
 | `reports` | run_id, revision, summary, grade, has_critical, coverage | run unique, immutable |
 | `findings` | report_id, source/rule, title/body, priority, category, confidence, anchor, fingerprint | report/fingerprint unique |
+| `github_review_publications` | pr_id, target/published analysis_id, head_sha, comment_id/url, body_hash, state/error | PR당 한 row |
 | `chat_accounts` | label, provider_type, encrypted credential, version, health, enabled | credential write-only |
 | `chat_account_assignments` | account_id, tenant/user/group scope | scope unique |
 | `chat_model_capabilities` | account_id, model_id, allowed/default/max effort, limits | account/model unique |
@@ -669,12 +684,13 @@ artifacts/.staging/<attempt-id>/...
 - state-changing API는 origin/CSRF protection과 idempotency를 적용한다.
 - Markdown renderer는 raw HTML과 unsafe scheme을 차단하고 external image를 자동 load하지 않는다. External link에는 `noopener noreferrer`를 적용한다.
 - GHES permalink builder는 browser 입력 URL을 받지 않고 registry의 origin/repository와 materialization의 exact commit만 조합한다. Origin allowlist, encoded path, line range와 object ID를 검증한다.
+- GHES PR comment publisher는 repository registry의 API origin과 owner/name만 사용한다. Comment body는 길이를 제한하고 Markdown 및 mention을 escape하며 관리 marker에는 deployment key 기반 HMAC을 사용한다.
 - 기본 CSP는 script/style/font/connect를 self로 제한하고 `frame-ancestors 'none'`, `base-uri 'none'`, `object-src 'none'`을 포함한다. Referrer, content-type와 permissions header를 적용하며 HSTS는 ingress/platform owner가 관리한다.
 - authorization은 API와 artifact resolver 양쪽에서 수행한다.
 - Chat/model request에는 필요한 code fragment만 넣고 provider retention policy를 적용한다.
 - Model credential은 Chat을 호출하는 server와 batch 분석을 호출하는 worker에만 mount하고 component별 concurrency를 제한한다.
 
-Audit catalogue는 login/session, grant/role, repository/config/retention 변경, snapshot/analysis lifecycle, report/source 조회, Chat session/tool/provider call, job requeue, migration과 secret rotation을 포함한다. Event에는 actor, action, opaque resource ID, outcome, request ID와 time만 기록한다.
+Audit catalogue는 login/session, grant/role, repository/config/retention 변경, snapshot/analysis lifecycle, GHES PR comment 게시 상태, report/source 조회, Chat session/tool/provider call, job requeue, migration과 secret rotation을 포함한다. Event에는 actor, action, opaque resource ID, outcome, request ID와 time만 기록한다.
 
 ### 9.3 Kubernetes
 
@@ -692,6 +708,8 @@ Audit catalogue는 login/session, grant/role, repository/config/retention 변경
 | GHES 401/403 | token 한 번 갱신 후 connection error, 반복 retry 금지 |
 | GHES 404 | repository/PR visibility 재검증, user에게 일반화된 오류 |
 | GHES 429/5xx | reset/retry-after 기반 backoff, 다른 repository poll 지속 |
+| PR comment 401/403 | publication terminal failure와 권한 code 기록, completed/partial report 유지 |
+| PR comment 429/5xx | 별도 publication job만 bounded retry, 분석 operation과 다른 repository 작업 유지 |
 | clone timeout/disk full | run partial 또는 failed, workspace cleanup, quota metric |
 | analyzer 실패 | 해당 omission을 기록하고 다음 독립 stage 진행 |
 | model timeout/quota | bounded retry 후 deterministic-only partial report |
@@ -874,6 +892,7 @@ PDB는 replica가 2개 이상인 workload에만 기본 생성한다. HPA를 queu
 metric:
 
 - `poll_lag_seconds`, `poll_requests_total`, `poll_budget_remaining`, `github_rate_limit_remaining`
+- `github_review_publications_total`, `github_review_publication_duration_seconds`, `github_review_publication_failures_total`
 - `job_queue_age_seconds`, `job_attempts_total`, `worker_lease_expired_total`
 - `clone_duration_seconds`, `clone_bytes`, `workspace_cleanup_failures_total`
 - `analysis_stage_duration_seconds`, `analysis_partial_total`, `analyzer_coverage_ratio`
@@ -888,7 +907,7 @@ trace와 structured log에는 `request_id`, opaque `repository_id`, `snapshot_id
 
 - API contract test가 authorization, operation dedupe, event replay와 stale revision을 검증한다.
 - Git fixture test가 rename, binary, shallow deepen, unresolved/exact materialization, base 이동과 cleanup을 검증한다.
-- worker integration test가 crash/DB-clock lease recovery, artifact race와 partial report를 검증한다.
+- worker integration test가 crash/DB-clock lease recovery, artifact race, partial report와 PR comment idempotency를 검증한다.
 - Commit Defender v1 fixture contract test가 summary/grade/per-file/finding normalization과 P3 파생값을 검증한다.
 - Relationship fixture가 parent/children, uses/used-by, cycle, mergeBase/head edge 변화와 truncation을 검증한다.
 - Browser E2E가 worklist부터 finding/citation/Chat, 내부 deep link와 GHES permalink까지 검증한다.

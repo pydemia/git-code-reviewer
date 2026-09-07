@@ -33,7 +33,7 @@ Credential registry는 migration `0009`, Local account는 migration `0010`으로
 3. Worker는 Git fetch, immutable snapshot materialization, deterministic analysis와 선택형 batch model 분석을 담당한다.
 4. PostgreSQL이 tenant, application user, membership, repository grant, provider/prompt version, durable job, operation/event, report와 Chat record의 정본이다. 별도 queue는 두지 않는다.
 5. Artifact는 shared RWX PVC를 사용한다. Worker workspace는 `emptyDir` 또는 pod 단위 generic ephemeral PVC를 사용한다.
-6. GitHub Enterprise 접근은 repository 범위를 제한한 read-only fine-grained PAT과 outbound polling/manual refresh를 사용하며 repository workflow와 webhook은 요구하지 않는다. GHES 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다.
+6. GitHub Enterprise 접근은 repository 범위를 제한한 fine-grained PAT과 outbound polling/manual refresh를 사용하며 repository workflow와 webhook은 요구하지 않는다. Metadata/Contents는 read, Pull requests는 PR timeline review 댓글 생성·갱신 때문에 read/write가 필요하다. GHES 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다.
 7. Report는 Commit Defender의 grade, summary, per-file summary, P0-P3 category, finding, evidence와 exact-revision link를 계승한다.
 8. Workspace는 크기를 조절할 수 있는 LNB/Main/Chat/FNB panel, 실제 Evidence/Git graph/Impact/Tests view와 responsive unified diff fallback을 제공한다.
 9. Object impact는 structure parent/children과 dependency uses/used-by를 구분한다. 중복된 FNB 최상위 tab 대신 Impact 내부에서 표현한다.
@@ -90,7 +90,13 @@ Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account`, `registry` �
 
 기존 `chatgpt-account` mode는 deployment-owned Codex `auth.json`을 전용 writable PVC에서 읽는다. 새 `registry` mode에서는 관리자가 auth.json을 등록하고 tenant/user/group에 account를 할당한다. AES-256-GCM 암호문만 PostgreSQL에 저장하며 API는 credential 원문을 반환하지 않는다. 사용자는 할당된 account, model, effort를 선택하고 이 조합과 credential version은 Chat session에 고정된다. Token refresh 결과도 같은 master key로 다시 암호화해 version을 올린다.
 
-GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone 직전에만 token을 복호화한다. 기본 `registry` mode는 전역 GitHub reader를 만들지 않고 저장소별 token reader만 사용한다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository와 Metadata/Contents/Pull requests read만 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다. 등록된 connection 수정은 credential ID, repository 참조와 enabled 상태를 유지한다. 저장 직후 health를 `unverified`로 바꾸고 연결 테스트가 성공해 `ready`가 되기 전에는 polling, Git materialization과 repository 등록에서 token을 복호화하지 않는다.
+GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone/PR publication 직전에만 token을 복호화한다. 기본 `registry` mode는 전역 GitHub reader를 만들지 않고 저장소별 token client만 사용한다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository만 선택하고 Metadata/Contents read와 Pull requests read/write를 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다. 등록된 connection 수정은 credential ID, repository 참조와 enabled 상태를 유지한다. 저장 직후 health를 `unverified`로 바꾸고 연결 테스트가 성공해 `ready`가 되기 전에는 polling, Git materialization, PR publication과 repository 등록에서 token을 복호화하지 않는다.
+
+Source worktree에는 migration `0011_github_review_publication.sql`과 `github.review.publish` durable job이 추가되어 있다. Repository별 게시 toggle을 켜면 completed/partial report의 한국어 요약을 GHES PR timeline 관리 댓글로 생성하고 후속 분석에서는 같은 comment ID를 갱신한다. 저장된 ID가 없으면 HMAC marker를 검색해 crash retry의 중복 생성을 막는다. 게시 403은 `GITHUB_REVIEW_PERMISSION_DENIED`로 격리하며 report 상태를 바꾸지 않는다. 이 변경은 아직 아래 배포 artifact `0.8.0-alpha.5`에는 포함되지 않았다.
+
+후속 worktree 변경은 GitHub.com 기준 textbox·guide 예시(API `https://api.github.com`, Web `https://github.com`)와 전체 Repository URL 등록이다. `https://github.com/org-name/repo-name`를 입력하면 shared parser가 Owner/Repository를 표시하고 Server가 선택한 연결 origin과 token 권한을 확인해 canonical 이름을 저장한다. 기존 owner/name API 입력은 유지한다. 연결 미검증, 잘못된 base URL, host mismatch, API 401/403/404와 network 오류는 한국어 조치 안내를 제공한다. 기존 live 연결 값은 자동으로 수정하지 않는다.
+
+사용자 요청으로 예시와 test fixture는 `org-name/repo-name`으로 익명화했다. URL 등록은 synthetic API를 연결한 local Chromium에서 1440px/390px UI, `.git` 정규화, POST payload, 404 안내, 다른 host 차단과 console page error 부재를 확인했다. 실제 GitHub repository 등록과 PRISM-DEV 재배포는 이번 변경에서 실행하지 않았다.
 
 ## 6. 배포 artifact
 
@@ -125,7 +131,8 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 18개 파일, 81개 test
+- Vitest 20개 파일, 118개 test (Repository URL parser와 등록 API의 성공·오류 경로 포함)
+- 임시 PostgreSQL 16에서 migration `0001`~`0011` 순차 적용과 publication table/column 확인
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - ARM64 Docker Desktop의 kind Kubernetes 1.34.8에서 PostgreSQL/Server/Worker/PVC Ready
 - `GITHUB_MODE=registry`, credential registry API 활성화와 dependencies health HTTP 200
@@ -220,8 +227,8 @@ Authorization test는 administrator 허용, reviewer admin 차단, repository gr
 
 사용자의 enterprise 환경에서 남은 검증:
 
-1. 전용 service account에서 대상 repository만 선택한 fine-grained PAT을 발급하고 `/admin?tab=github`에 등록한다. 조직 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다.
-2. GHES REST/GraphQL/Git fetch, exact SHA link, polling과 manual refresh를 검증한다.
+1. 전용 service account에서 대상 repository만 선택하고 Metadata/Contents read, Pull requests read/write를 가진 fine-grained PAT을 발급해 `/admin?tab=github`에 등록한다. 조직 정책상 fine-grained PAT을 사용할 수 없을 때만 classic PAT의 `repo` scope를 사용한다. `0011` migration 이전에 등록된 repository의 PR 게시는 기본적으로 꺼지므로 token 교체와 연결 테스트 후 repository 카드에서 직접 시작한다.
+2. GHES REST/GraphQL/Git fetch, exact SHA link, polling, manual refresh와 PR 관리 댓글의 create/update/idempotency를 검증한다.
 3. Bundled Keycloak 또는 승인된 외부 OIDC provider, StorageClass, TLS ingress, CA bundle과 network policy로 배포한다.
 4. 실제 사용자에게 Keycloak role, tenant membership과 repository grant를 할당해 격리를 확인한다.
 5. `docs/operations/github-enterprise-test.md`의 end-to-end와 failure test를 수행한다.
@@ -324,6 +331,7 @@ Bundled Keycloak Helm 확장은 다음 commit에 있다.
 - Browser local storage를 source, report, diff, Chat 또는 credential cache로 확장하지 않는다.
 - Report 또는 Chat evidence를 더 최신 base/head revision으로 자동 재해석하지 않는다.
 - External source link는 browser 입력 origin이 아니라 등록된 GHES origin과 exact SHA로 만든다.
+- PR comment write 권한을 Contents, Administration 또는 Workflows write로 확대하지 않는다. 자동 approve/request-changes, Check와 status는 생성하지 않는다.
 - Cerbos 장애 시 이전 allow decision을 재사용하거나 local mode로 fallback하지 않는다.
 - Keycloak account, password, MFA와 role assignment를 application 관리자 UI에서 직접 편집하지 않는다.
 - Local account mode는 private pilot 전용이다. Bootstrap password를 values나 문서에 기록하지 않고 최초 로그인 뒤 관리자 UI에서 변경한다.

@@ -266,7 +266,12 @@ export async function loadAdminRepositories(signal: AbortSignal): Promise<AdminR
 
 export async function updateAdminRepository(
   repositoryId: string,
-  values: { enabled?: boolean; pollingEnabled?: boolean; pollIntervalSeconds?: number },
+  values: {
+    enabled?: boolean;
+    pollingEnabled?: boolean;
+    reviewPublishingEnabled?: boolean;
+    pollIntervalSeconds?: number;
+  },
 ): Promise<void> {
   await mutateJson(`/api/v1/admin/repositories/${repositoryId}`, 'PATCH', values);
 }
@@ -324,9 +329,9 @@ export async function registerGitHubRepository(
   connectionId: string,
   values: {
     tenantId: string;
-    owner: string;
-    name: string;
+    repositoryUrl: string;
     pollIntervalSeconds: number;
+    reviewPublishingEnabled: boolean;
     grantSubjects: string[];
   },
 ): Promise<void> {

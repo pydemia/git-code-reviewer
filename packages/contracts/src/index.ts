@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+export {
+  githubRepositoryExample,
+  normalizeGitHubBaseUrl,
+  parseGitHubRepositoryUrl,
+} from './github-urls.js';
+
 export const schemaVersion = 1 as const;
 export const localPasswordMinimumLength = 8;
 export const localPasswordMaximumLength = 128;
@@ -212,6 +218,7 @@ export const adminRepositoryListSchema = z.object({
       name: z.string(),
       enabled: z.boolean(),
       pollingEnabled: z.boolean(),
+      reviewPublishingEnabled: z.boolean(),
       pollIntervalSeconds: z.number().int(),
       credentialId: z.string().uuid().nullable(),
       credentialLabel: z.string().nullable(),
@@ -222,6 +229,12 @@ export const adminRepositoryListSchema = z.object({
       nextPollAt: z.string().nullable(),
       pollOutcome: z.string().nullable(),
       pollError: z.string().nullable(),
+      reviewPublicationState: z
+        .enum(['pending', 'publishing', 'published', 'failed', 'disabled'])
+        .nullable(),
+      reviewCommentUrl: z.string().url().nullable(),
+      reviewPublicationError: z.string().nullable(),
+      reviewPublishedAt: z.string().nullable(),
     }),
   ),
   nextCursor: z.null(),

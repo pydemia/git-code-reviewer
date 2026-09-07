@@ -60,7 +60,7 @@ docs/
 | M0 Foundation | visual workspace shell 접근 | image/chart skeleton과 lifecycle command 설치 |
 | M1 Worklist | 로그인 후 등록 PR과 상태 조회 | scheduler leader와 GHES adapter 동작 |
 | M2 Snapshot | refresh 후 정확한 diff와 진행 상태 확인 | operation/event/job, isolated clone, artifact commit |
-| M3 Review | finding, evidence와 coverage 탐색 | analyzer/model/verifier, partial recovery |
+| M3 Review | finding, evidence, coverage와 GHES PR 요약 댓글 | analyzer/model/verifier, partial recovery와 durable publication |
 | M4 Workspace | 완성된 LNB/Main/Chat/FNB 흐름 | replica-safe SSE와 revision-bound Chat |
 | M5 Pilot | 사내 reviewer pilot | retention, upgrade/rollback/backup/security hardening |
 
@@ -74,7 +74,7 @@ docs/
 
 | ID | 작업 |
 |---|---|
-| M0-00-01 | 대상 GHES exact version, API base URL, 지원 access-token 종류와 최소 read scope 확인 |
+| M0-00-01 | 대상 GHES exact version, API base URL, 지원 access-token 종류와 Metadata/Contents read 및 Pull requests read/write 확인 |
 | M0-00-02 | 승인된 service identity access token으로 REST와 credential-safe Git HTTPS round trip 검증 |
 | M0-00-03 | Authoritative base tip, PR head/pull ref, exact-SHA source permalink와 code-navigation 지원 범위 기록 |
 | M0-00-04 | Partial/shallow clone, exact SHA fetch, merge-base와 bounded deepen을 대표 repository로 검증 |
@@ -211,6 +211,8 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | M3-10 | Findings/Outline LNB, Evidence FNB와 coverage/limitation UI |
 | M3-11 | Commit Defender v1 compatibility adapter, canonical normalizer와 fixture parity test |
 | M3-12 | Code object/relationship artifact, structure parent/children과 dependency uses/used-by analyzer |
+| M3-13 | Repository별 GHES PR timeline 게시 설정, `github_review_publications` 상태와 Admin UI |
+| M3-14 | `github.review.publish` durable job, 관리 marker/comment ID 기반 create-or-update와 401/403/429/5xx 처리 |
 
 ### 완료 조건
 
@@ -223,6 +225,8 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 - Fixture PR의 rename, deletion, old/new line, pre-existing issue와 category를 검증한다.
 - Commit Defender fixture의 summary, grade, per-file summary, P0-P3/category와 source/rule 의미가 canonical report에 보존된다.
 - Relationship fixture가 direct/transitive, cycle, edge evidence와 mergeBase/head의 added/removed/unchanged를 검증한다.
+- Completed/partial report가 GHES PR의 관리 댓글 하나를 생성하고 후속 분석과 crash retry는 같은 댓글을 갱신한다.
+- PR 게시 401/403 terminal failure와 429/5xx retry가 report/analysis state를 바꾸지 않는다.
 
 ## 9. M4 - Complete review workspace와 Chat
 
@@ -294,7 +298,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 - Missing artifact는 unavailable과 재분석 경로를, unreferenced artifact는 retention candidate를 제공한다.
 - GHES/model/artifact 장애가 liveness restart loop를 만들지 않으며 영향 기능만 degraded가 된다.
 - Image history, rendered manifest, log/metric/trace에 secret, source와 prompt 원문이 없다.
-- Operator와 pilot reviewer가 runbook과 `AC-01`부터 `AC-29`를 확인한다.
+- Operator와 pilot reviewer가 runbook과 `AC-01`부터 `AC-30`을 확인한다.
 
 ## 11. Test 전략
 
@@ -309,7 +313,7 @@ Reviewer가 검증 가능한 finding과 coverage를 보고 일부 실패나 budg
 | Helm | lint/schema/template, hook, CronJob, clean install, upgrade, rollback, PVC/Secret refs |
 | Resilience | Worker kill, DB/GHES/model/artifact fault, SSE reconnect, cleanup/reconcile |
 
-GHES와 model test double은 recorded private payload 대신 synthetic fixture를 사용한다. 실제 GHES smoke test는 protected environment의 read-only repository에서 수행한다.
+GHES와 model test double은 recorded private payload 대신 synthetic fixture를 사용한다. 실제 GHES smoke test는 전용 service account와 protected test repository에서 수행하며 Metadata/Contents read와 Pull requests read/write 외 권한을 부여하지 않는다. 테스트 PR에서 첫 comment 생성, 후속 분석 update, 권한 제거 시 403 격리를 확인하고 생성한 comment와 token은 테스트 종료 후 정리한다.
 
 ## 12. Requirement 추적
 
@@ -342,6 +346,10 @@ GHES와 model test double은 recorded private payload 대신 synthetic fixture�
 | CP-08A | Private pilot Local account | scrypt credential, 8~128자 비밀번호, login/session/logout, bootstrap Secret, 사용자 생성·role·membership·repository grant 관리, 개인 프로필·본인 비밀번호 변경과 권한 negative test |
 | CP-09 | Helm/operation 전환 | master-key Secret, NetworkPolicy, backup/rotation과 single credential migration |
 | CP-10 | PRISM-DEV acceptance/release | 실제 GHES/token, 승인 Chat account, 두 사용자 격리, image/chart 검증 |
+| CP-11 | GHES PR publication contract | Pull requests read/write 안내, 기존 repository opt-in 게시 설정, publication 상태 migration과 API contract |
+| CP-12 | GHES comment create-or-update | 관리 marker/comment ID recovery, Markdown renderer, REST adapter와 403/429/5xx unit test |
+| CP-13 | Durable publication Worker | 분석 transaction enqueue, PR advisory lock, retry/terminal 격리와 event/audit metadata |
+| CP-14 | Publication UI·가이드·acceptance | 게시 toggle/상태/comment link, fine-grained PAT 가이드, 실제 GHES 중복 방지 smoke test |
 
 각 phase는 migration, contract, test와 consumer를 함께 포함하는 독립 commit으로 만든다. 실제 credential과 PRISM-DEV 전용 값은 commit하지 않는다.
 
@@ -373,9 +381,9 @@ lint/typecheck/test
 
 ## 16. MVP 완료 정의
 
-- 요구사항 명세의 `AC-01`부터 `AC-29`까지 pilot 환경에서 통과한다.
+- 요구사항 명세의 `AC-01`부터 `AC-30`까지 pilot 환경에서 통과한다.
 - Browser만으로 PR 발견, refresh operation, report review와 Chat 흐름을 완료한다.
-- 대상 repository에 workflow, webhook과 write permission을 추가하지 않는다.
+- 대상 repository에 workflow와 webhook을 추가하지 않고, write permission은 Pull requests의 관리 댓글 생성·갱신 범위로 제한한다.
 - Snapshot request/materialization, isolated clone, evidence verification과 partial report가 검증된다.
 - 제공된 visual artifact의 workspace topology와 responsive contract가 유지된다.
 - 하나의 signed image와 versioned Helm chart로 install/upgrade/rollback할 수 있다.

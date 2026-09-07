@@ -1,5 +1,10 @@
 import type { Database } from '@gcr/db';
-import { GitHubAccessTokenClient, type GitHubReader } from '@gcr/github';
+import { normalizeGitHubBaseUrl, parseGitHubRepositoryUrl } from '@gcr/contracts';
+import {
+  GitHubAccessTokenClient,
+  type GitHubReader,
+  type GitHubReviewPublisher,
+} from '@gcr/github';
 import type { AppConfig } from '../config.js';
 import {
   RegisteredChatGptAccountModel,
@@ -311,6 +316,25 @@ export async function listAdminChatAccounts(database: Database) {
   return result.rows;
 }
 
+export class GitHubRegistryError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly statusCode = 400,
+    public readonly retryable = false,
+  ) {
+    super(message);
+  }
+}
+
+function connectionBaseUrl(value: string, kind: 'api' | 'web'): string {
+  try {
+    return normalizeGitHubBaseUrl(value, kind);
+  } catch (error) {
+    throw new GitHubRegistryError('GITHUB_BASE_URL_INVALID', (error as Error).message);
+  }
+}
+
 export async function createGitHubConnection(
   database: Database,
   config: AppConfig,
@@ -324,8 +348,8 @@ export async function createGitHubConnection(
     expiresAt?: string | undefined;
   },
 ) {
-  const apiBaseUrl = credentialFreeUrl(input.apiBaseUrl);
-  const webBaseUrl = credentialFreeUrl(input.webBaseUrl);
+  const apiBaseUrl = connectionBaseUrl(input.apiBaseUrl, 'api');
+  const webBaseUrl = connectionBaseUrl(input.webBaseUrl, 'web');
   const encrypted = encryptCredential(
     input.accessToken,
     config.CREDENTIAL_ENCRYPTION_KEY,
@@ -404,8 +428,8 @@ export async function updateGitHubConnection(
     expiresAt: string | null;
   },
 ): Promise<'updated' | 'not-found' | 'token-required' | 'shared-instance'> {
-  const apiBaseUrl = credentialFreeUrl(input.apiBaseUrl);
-  const webBaseUrl = credentialFreeUrl(input.webBaseUrl);
+  const apiBaseUrl = connectionBaseUrl(input.apiBaseUrl, 'api');
+  const webBaseUrl = connectionBaseUrl(input.webBaseUrl, 'web');
   const existing = await database.query<{
     credentialId: string;
     instanceId: string;
@@ -491,6 +515,15 @@ export async function registeredGitHubReader(
   return new GitHubAccessTokenClient(token);
 }
 
+export async function registeredGitHubPublisher(
+  database: Database,
+  encryptionKey: string | undefined,
+  credentialId: string,
+): Promise<GitHubReviewPublisher | null> {
+  const client = await registeredGitHubReader(database, encryptionKey, credentialId);
+  return client instanceof GitHubAccessTokenClient ? client : null;
+}
+
 export async function testGitHubConnection(
   database: Database,
   config: AppConfig,
@@ -510,7 +543,7 @@ export async function testGitHubConnection(
   if (!row) return null;
   const token = decryptCredential(row, config.CREDENTIAL_ENCRYPTION_KEY, 'github-access-token');
   const started = performance.now();
-  const response = await request(new URL('user', ensureTrailingSlash(row.apiBaseUrl)), {
+  const response = await request(new URL('user', connectionBaseUrl(row.apiBaseUrl, 'api')), {
     headers: {
       accept: 'application/vnd.github+json',
       authorization: `Bearer ${token}`,
@@ -546,45 +579,47 @@ export async function registerGitHubRepository(
   credentialId: string,
   input: {
     tenantId: string;
-    owner: string;
-    name: string;
+    repositoryUrl?: string | undefined;
+    owner?: string | undefined;
+    name?: string | undefined;
     pollIntervalSeconds: number;
+    reviewPublishingEnabled: boolean;
     grantSubjects: string[];
   },
 ) {
-  const details = await githubRepositoryDetails(
-    database,
-    config,
-    credentialId,
-    input.owner,
-    input.name,
-  );
+  const details = await githubRepositoryDetails(database, config, credentialId, input);
   const connection = await database.connect();
   try {
     await connection.query('begin');
     const repository = await connection.query<{ id: string }>(
       `insert into repositories(
          tenant_id, instance_id, credential_id, github_id, installation_id, owner, name,
-         poll_interval_seconds, polling_enabled)
-       select $1, credential.instance_id, credential.id, $3, 'access-token', $4, $5, $6, true
+         poll_interval_seconds, polling_enabled, review_publishing_enabled)
+       select $1, credential.instance_id, credential.id, $3, 'access-token', $4, $5, $6, true, $7
        from github_credentials credential where credential.id = $2 and credential.enabled
          and credential.health = 'ready'
        on conflict (instance_id, github_id) do update set tenant_id = excluded.tenant_id,
          credential_id = excluded.credential_id, owner = excluded.owner, name = excluded.name,
          poll_interval_seconds = excluded.poll_interval_seconds, polling_enabled = true,
+         review_publishing_enabled = excluded.review_publishing_enabled,
          enabled = true, updated_at = clock_timestamp()
        returning id`,
       [
         input.tenantId,
         credentialId,
         details.id,
-        input.owner,
-        input.name,
+        details.owner,
+        details.name,
         input.pollIntervalSeconds,
+        input.reviewPublishingEnabled,
       ],
     );
     if (!repository.rows[0])
-      throw Object.assign(new Error('GHES connection is unavailable'), { statusCode: 404 });
+      throw new GitHubRegistryError(
+        'GITHUB_CONNECTION_UNAVAILABLE',
+        '선택한 연결을 사용할 수 없습니다. 연결 테스트 후 다시 등록하십시오.',
+        409,
+      );
     const repositoryId = repository.rows[0].id;
     for (const subject of input.grantSubjects) {
       await connection.query(
@@ -613,60 +648,116 @@ async function githubRepositoryDetails(
   database: Database,
   config: AppConfig,
   credentialId: string,
-  owner: string,
-  name: string,
+  input: {
+    repositoryUrl?: string | undefined;
+    owner?: string | undefined;
+    name?: string | undefined;
+  },
 ) {
-  const result = await database.query<CredentialColumns & { apiBaseUrl: string }>(
+  const result = await database.query<
+    CredentialColumns & { apiBaseUrl: string; webBaseUrl: string }
+  >(
     `select credential.credential_ciphertext as "credentialCiphertext",
             credential.credential_iv as "credentialIv",
             credential.credential_auth_tag as "credentialAuthTag",
-            instance.api_base_url as "apiBaseUrl"
+            instance.api_base_url as "apiBaseUrl", instance.web_base_url as "webBaseUrl"
      from github_credentials credential join github_instances instance on instance.id = credential.instance_id
-     where credential.id = $1 and credential.enabled and credential.health = 'ready'`,
+     where credential.id = $1 and credential.enabled and credential.health = 'ready'
+       and instance.enabled and (credential.expires_at is null or credential.expires_at > clock_timestamp())`,
     [credentialId],
   );
   const row = result.rows[0];
-  if (!row) throw Object.assign(new Error('GHES connection is unavailable'), { statusCode: 404 });
+  if (!row)
+    throw new GitHubRegistryError(
+      'GITHUB_CONNECTION_UNAVAILABLE',
+      '선택한 연결이 미검증·비활성 상태이거나 token이 만료되었습니다. 연결을 확인하고 연결 테스트를 먼저 실행하십시오.',
+      409,
+    );
+  const apiBaseUrl = connectionBaseUrl(row.apiBaseUrl, 'api');
+  const webBaseUrl = connectionBaseUrl(row.webBaseUrl, 'web');
+  let target: ReturnType<typeof parseGitHubRepositoryUrl>;
+  try {
+    target = parseGitHubRepositoryUrl(
+      input.repositoryUrl ?? `${webBaseUrl}${input.owner ?? ''}/${input.name ?? ''}`,
+      webBaseUrl,
+    );
+  } catch (error) {
+    throw new GitHubRegistryError('GITHUB_REPOSITORY_URL_INVALID', (error as Error).message);
+  }
   const token = decryptCredential(row, config.CREDENTIAL_ENCRYPTION_KEY, 'github-access-token');
-  const response = await fetch(
-    new URL(
-      `repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
-      ensureTrailingSlash(row.apiBaseUrl),
-    ),
-    {
-      headers: {
-        accept: 'application/vnd.github+json',
-        authorization: `Bearer ${token}`,
-        'x-github-api-version': '2022-11-28',
+  let response: Response;
+  try {
+    response = await fetch(
+      new URL(
+        `repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}`,
+        apiBaseUrl,
+      ),
+      {
+        headers: {
+          accept: 'application/vnd.github+json',
+          authorization: `Bearer ${token}`,
+          'x-github-api-version': '2022-11-28',
+        },
+        signal: AbortSignal.timeout(15_000),
+        redirect: 'error',
       },
-      signal: AbortSignal.timeout(15_000),
-    },
-  );
+    );
+  } catch {
+    throw new GitHubRegistryError(
+      'GITHUB_CONNECTION_FAILED',
+      'GitHub API에 연결하지 못했습니다. API base URL, 서버의 network·TLS 설정을 확인하십시오. Repository가 이동했다면 새 주소로 등록하십시오.',
+      502,
+      true,
+    );
+  }
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
-    throw Object.assign(new Error(`GHES repository request failed with HTTP ${response.status}`), {
-      statusCode: response.status === 404 ? 404 : 502,
-    });
+    if (response.status === 401)
+      throw new GitHubRegistryError(
+        'GITHUB_TOKEN_UNAUTHORIZED',
+        'GitHub가 token 인증을 거부했습니다(401). Token 만료·회수 여부를 확인하고 새 token으로 연결 테스트를 실행하십시오.',
+        502,
+      );
+    if (response.status === 403)
+      throw new GitHubRegistryError(
+        'GITHUB_REPOSITORY_FORBIDDEN',
+        'GitHub가 repository 접근을 거부했습니다(403). PAT의 repository 선택, organization 승인·SSO와 rate limit을 확인하십시오.',
+        403,
+      );
+    if (response.status === 404)
+      throw new GitHubRegistryError(
+        'GITHUB_REPOSITORY_NOT_FOUND',
+        'Repository를 찾을 수 없거나 token에 접근 권한이 없습니다(404). 주소의 철자, PAT의 Resource owner·Repository access와 organization 승인 상태를 확인하십시오.',
+        404,
+      );
+    throw new GitHubRegistryError(
+      'GITHUB_REPOSITORY_REQUEST_FAILED',
+      `GitHub repository 조회에 실패했습니다(HTTP ${response.status}). 잠시 후 다시 시도하십시오.`,
+      502,
+      response.status === 429 || response.status >= 500,
+    );
   }
-  const value = (await response.json()) as { id?: number };
-  if (!Number.isSafeInteger(value.id)) throw new Error('GHES repository response has no id');
-  return { id: value.id! };
+  let value: { id?: number; name?: string; owner?: { login?: string } };
+  try {
+    value = await response.json();
+    if (!Number.isSafeInteger(value.id) || value.id! <= 0 || !value.name || !value.owner?.login)
+      throw new Error();
+    const canonical = parseGitHubRepositoryUrl(
+      `${webBaseUrl}${value.owner.login}/${value.name}`,
+      webBaseUrl,
+    );
+    return { id: value.id!, owner: canonical.owner, name: canonical.name };
+  } catch {
+    throw new GitHubRegistryError(
+      'GITHUB_RESPONSE_INVALID',
+      'GitHub API 응답이 올바르지 않습니다. API base URL이 GitHub.com이면 https://api.github.com인지 확인하십시오.',
+      502,
+    );
+  }
 }
 
 export function encryptedCredentialFromRow(row: CredentialColumns): EncryptedCredential {
   return row;
-}
-
-function ensureTrailingSlash(value: string): string {
-  return value.endsWith('/') ? value : `${value}/`;
-}
-
-function credentialFreeUrl(value: string): string {
-  const url = new URL(value);
-  if (url.username || url.password) {
-    throw Object.assign(new Error('URL must not contain credentials'), { statusCode: 400 });
-  }
-  return ensureTrailingSlash(url.toString());
 }
 
 function assertChatGptAuthJson(value: string): void {

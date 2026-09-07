@@ -76,7 +76,7 @@ OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart
 - TLS Ingress와 외부 OIDC provider 또는 chart의 선택형 Bitnami Keycloak dependency
 - 선택형 bundled Keycloak을 사용할 경우 Keycloak용 TLS 인증서와 RWO StorageClass
 - 외부 또는 bundled OIDC client와 선택형 Cerbos PDP
-- 대상 repository를 읽을 수 있는 GHES service account의 read-only access token
+- 대상 repository의 Metadata/Contents read와 Pull requests read/write를 가진 GHES service account access token
 - 선택 사항: 승인된 OpenAI-compatible batch/Chat model endpoint 또는 deployment-owned ChatGPT/Codex account
 
 외부 DB 모드의 pre-install migration은 일반 chart resource보다 먼저 실행되므로 DB Secret과 corporate CA ConfigMap은 설치 전에 존재해야 한다. 번들 DB 모드는 PostgreSQL resource 생성 후 Server/Worker init container가 advisory lock 아래 최초 migration을 수행하고, 이후 upgrade에서는 pre-upgrade hook도 실행한다. Helm hook lifecycle은 [Helm chart hooks](https://helm.sh/docs/topics/charts_hooks/)를 참고한다.
@@ -189,25 +189,26 @@ Browser에서는 `http://127.0.0.1:8080/admin`을 연다.
 
 ### 6. Register the GHES repository
 
-GHES service account에서 대상 repository에 한정된 read-only PAT를 발급한다. Metadata, Contents, Pull requests Read 권한만 필요하며 webhook, Admin, write 권한은 필요하지 않다. Browser의 `/admin?tab=github`에서 연결과 token을 등록하고 연결 테스트 후 repository를 등록하는 방법을 권장한다.
+GHES service account에서 대상 repository만 선택한 fine-grained PAT을 발급한다. Metadata와 Contents는 Read-only, Pull requests는 Read and write로 설정한다. Pull requests write는 분석 결과를 PR timeline 댓글로 생성·갱신하는 데 사용한다. Issues, Administration, Contents write, Workflows와 webhook은 필요하지 않다. Browser의 `/admin?tab=github`에서 연결과 token을 등록하고 연결 테스트 후 repository를 등록하는 방법을 권장한다.
 
-Development administrator에서는 다음 REST 호출로 같은 절차를 재현할 수 있다. `read -s`로 받은 token은 shell history, command output, URL과 Kubernetes Secret에 남기지 않는다. Server는 repository numeric ID를 GHES API에서 직접 조회한다.
+`0011_github_review_publication.sql` 적용 전에 등록되어 있던 repository는 PR 게시가 꺼진 상태로 migration된다. Token을 위 권한으로 교체하고 연결 테스트를 통과시킨 뒤 repository 카드에서 **PR 게시 시작**을 눌러야 한다. 새 repository는 등록 화면의 게시 checkbox 값에 따라 설정된다.
+
+Development administrator에서는 다음 REST 호출로 같은 절차를 재현할 수 있다. 예시는 GitHub.com 기준이며 API `https://api.github.com`, Web `https://github.com`에 organization 경로를 붙이지 않는다. 사내 GHES는 회사 host로 바꾸고 API에만 `/api/v3`를 붙인다. Repository URL은 Owner `org-name`, Repository `repo-name`로 자동 추출된다. Token은 로그나 URL에 남기지 않으며 Server는 repository numeric ID를 API에서 직접 조회한다.
 
 ```bash
 export TENANT_ID="$(curl -fsS http://127.0.0.1:8080/api/v1/admin/tenants \
   | jq -r '.items[] | select(.slug == "default") | .id')"
-export GHES_API_BASE_URL='https://10.20.30.40/api/v3/'
-export GHES_WEB_BASE_URL='https://10.20.30.40/'
-export REPOSITORY_OWNER='platform'
-export REPOSITORY_NAME='reviewer-api'
+export GHES_API_BASE_URL='https://api.github.com'
+export GHES_WEB_BASE_URL='https://github.com'
+export REPOSITORY_URL='https://github.com/org-name/repo-name'
 read -rsp 'GHES access token: ' GHES_ACCESS_TOKEN
 printf '\n'
 
 jq -n \
-  --arg name 'Internal GHES' \
+  --arg name 'GitHub.com · org-name' \
   --arg apiBaseUrl "$GHES_API_BASE_URL" \
   --arg webBaseUrl "$GHES_WEB_BASE_URL" \
-  --arg credentialLabel 'reviewer-readonly' \
+  --arg credentialLabel 'review-publisher' \
   --arg accessToken "$GHES_ACCESS_TOKEN" \
   '{name: $name, apiBaseUrl: $apiBaseUrl, webBaseUrl: $webBaseUrl,
     credentialLabel: $credentialLabel, accessToken: $accessToken}' \
@@ -223,10 +224,9 @@ curl -fsS -X POST \
 
 jq -n \
   --arg tenantId "$TENANT_ID" \
-  --arg owner "$REPOSITORY_OWNER" \
-  --arg name "$REPOSITORY_NAME" \
-  '{tenantId: $tenantId, owner: $owner, name: $name,
-    pollIntervalSeconds: 30, grantSubjects: []}' \
+  --arg repositoryUrl "$REPOSITORY_URL" \
+  '{tenantId: $tenantId, repositoryUrl: $repositoryUrl,
+    pollIntervalSeconds: 30, reviewPublishingEnabled: true, grantSubjects: []}' \
   | curl -fsS \
       "http://127.0.0.1:8080/api/v1/admin/github-connections/$CREDENTIAL_ID/repositories" \
       -H 'content-type: application/json' --data-binary @- | jq
@@ -249,7 +249,7 @@ kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/component=worker \
   --since=10m --all-containers=true -f
 ```
 
-Browser worklist에서 PR을 열어 snapshot, changed files, deterministic finding, graph와 report를 확인한다. 같은 head SHA에서 Refresh를 여러 번 눌러도 active operation은 하나로 deduplicate되어야 한다.
+Browser worklist에서 PR을 열어 snapshot, changed files, deterministic finding, graph와 report를 확인한다. GHES PR timeline에는 `Git Code Reviewer 결과` 관리 댓글이 하나 생성되어야 한다. 새 commit 분석 후에는 같은 comment ID의 head SHA와 결과가 갱신되어야 한다. 같은 head SHA에서 Refresh를 여러 번 눌러도 active operation과 publication은 하나로 deduplicate되어야 한다. Polling은 성공하지만 댓글이 `GITHUB_REVIEW_PERMISSION_DENIED`로 실패하면 fine-grained PAT의 Pull requests가 Read and write인지 확인하고 token을 교체·재검증한 뒤 repository의 PR 게시를 껐다가 다시 켜 최신 report를 재queue한다.
 
 ### 8. End the pilot
 

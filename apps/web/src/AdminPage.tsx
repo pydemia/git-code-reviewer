@@ -15,7 +15,12 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { localPasswordMaximumLength, localPasswordMinimumLength } from '@gcr/contracts';
+import {
+  githubRepositoryExample,
+  parseGitHubRepositoryUrl,
+  localPasswordMaximumLength,
+  localPasswordMinimumLength,
+} from '@gcr/contracts';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   activateAnalysisProvider,
@@ -657,6 +662,13 @@ export function AdminPage() {
                   `repository:${repositoryId}`,
                   () => updateAdminRepository(repositoryId, { pollingEnabled: enabled }),
                   `Repository polling을 ${enabled ? '활성화' : '중지'}했습니다.`,
+                )
+              }
+              onRepositoryPublishingChange={(repositoryId, enabled) =>
+                runMutation(
+                  `repository:publishing:${repositoryId}`,
+                  () => updateAdminRepository(repositoryId, { reviewPublishingEnabled: enabled }),
+                  `PR review 결과 게시를 ${enabled ? '활성화' : '중지'}했습니다.`,
                 )
               }
               onPollNow={(repositoryId) =>
@@ -1821,6 +1833,7 @@ function GitHubConnectionPanel({
   onTest,
   onRegisterRepository,
   onRepositoryPollingChange,
+  onRepositoryPublishingChange,
   onPollNow,
 }: {
   connections: GitHubConnection[];
@@ -1842,13 +1855,14 @@ function GitHubConnectionPanel({
     connectionId: string,
     values: {
       tenantId: string;
-      owner: string;
-      name: string;
+      repositoryUrl: string;
       pollIntervalSeconds: number;
+      reviewPublishingEnabled: boolean;
       grantSubjects: string[];
     },
   ) => Promise<unknown>;
   onRepositoryPollingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
+  onRepositoryPublishingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
   onPollNow: (repositoryId: string) => Promise<unknown>;
 }) {
   const [name, setName] = useState('');
@@ -1859,11 +1873,21 @@ function GitHubConnectionPanel({
   const [expiresAt, setExpiresAt] = useState('');
   const [connectionId, setConnectionId] = useState('');
   const [tenantId, setTenantId] = useState(tenants[0]?.id ?? '');
-  const [owner, setOwner] = useState('');
-  const [repositoryName, setRepositoryName] = useState('');
+  const [repositoryUrl, setRepositoryUrl] = useState('');
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(120);
+  const [reviewPublishingEnabled, setReviewPublishingEnabled] = useState(true);
   const [grantSubject, setGrantSubject] = useState('');
   const [editingConnection, setEditingConnection] = useState<GitHubConnection | null>(null);
+  const selectedConnection = connections.find((connection) => connection.id === connectionId);
+  let repositoryPreview: ReturnType<typeof parseGitHubRepositoryUrl> | null = null;
+  let repositoryUrlError = '';
+  if (repositoryUrl.trim()) {
+    try {
+      repositoryPreview = parseGitHubRepositoryUrl(repositoryUrl, selectedConnection?.webBaseUrl);
+    } catch (error) {
+      repositoryUrlError = errorMessage(error);
+    }
+  }
 
   useEffect(() => {
     if (!connectionId && connections[0]) setConnectionId(connections[0].id);
@@ -1884,11 +1908,12 @@ function GitHubConnectionPanel({
   };
   const submitRepository = async (event: FormEvent) => {
     event.preventDefault();
+    if (!repositoryPreview || !selectedConnection) return;
     await onRegisterRepository(connectionId, {
       tenantId,
-      owner,
-      name: repositoryName,
+      repositoryUrl: repositoryPreview.url,
       pollIntervalSeconds,
+      reviewPublishingEnabled,
       grantSubjects: grantSubject ? [grantSubject] : [],
     });
   };
@@ -1903,39 +1928,49 @@ function GitHubConnectionPanel({
       </div>
       <p className="admin-section-description">
         GHES가 이 서비스로 inbound 요청을 보내지 않습니다. Server가 access token으로 GHES API를
-        polling하고 Worker가 같은 token으로 필요한 commit만 clone합니다.{' '}
-        <a href="/guide#ghes-credential">Credential 발급·입력 방법</a>
+        polling하고 Worker가 같은 token으로 필요한 commit을 clone하며 분석 결과를 PR timeline에
+        게시합니다. Fine-grained PAT은 Metadata/Contents Read-only와 Pull requests Read and write가
+        필요합니다. <a href="/guide#ghes-credential">Credential 발급·입력 방법</a>
       </p>
       <form className="registry-form" onSubmit={(event) => void submitConnection(event)}>
         <label className="field-label">
           연결 이름
-          <input required value={name} onChange={(event) => setName(event.target.value)} />
+          <input
+            required
+            placeholder="GitHub.com · org-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </label>
         <label className="field-label">
           API base URL
           <input
             required
             type="url"
-            placeholder="https://ghes.example/api/v3/"
+            placeholder="https://api.github.com"
             value={apiBaseUrl}
             onChange={(event) => setApiBaseUrl(event.target.value)}
           />
+          <small>GitHub.com: https://api.github.com · 사내 GHES: https://사내-host/api/v3</small>
         </label>
         <label className="field-label">
           Web base URL
           <input
             required
             type="url"
-            placeholder="https://ghes.example/"
+            placeholder="https://github.com"
             value={webBaseUrl}
             onChange={(event) => setWebBaseUrl(event.target.value)}
           />
+          <small>
+            사이트 주소만 입력합니다. /org-name이나 /owner/repository는 붙이지 않습니다.
+          </small>
         </label>
         <label className="field-label">
           Credential label
           <input
             required
-            placeholder="ghes-reviewer-readonly"
+            placeholder="ghes-review-publisher"
             value={credentialLabel}
             onChange={(event) => setCredentialLabel(event.target.value)}
           />
@@ -1955,7 +1990,8 @@ function GitHubConnectionPanel({
             onChange={(event) => setAccessToken(event.target.value)}
           />
           <small>
-            <code>Bearer</code>나 따옴표 없이 token 문자열만 입력합니다.
+            <code>Bearer</code>나 따옴표 없이 token 문자열만 입력합니다. 대상 repository만 선택하고
+            Pull requests를 Read and write로 발급하십시오.
           </small>
         </label>
         <label className="field-label">
@@ -1979,6 +2015,7 @@ function GitHubConnectionPanel({
               <span>
                 {connection.health} · token v{connection.credentialVersion}
               </span>
+              <span>요구 권한 · Metadata/Contents Read · Pull requests Read/Write</span>
             </div>
             <code>{connection.apiBaseUrl}</code>
             <code>…{connection.tokenFingerprint}</code>
@@ -2016,10 +2053,15 @@ function GitHubConnectionPanel({
           >
             {connections.map((connection) => (
               <option key={connection.id} value={connection.id}>
-                {connection.name} / {connection.credentialLabel}
+                {connection.name} / {connection.credentialLabel} · {connection.webBaseUrl}
               </option>
             ))}
           </select>
+          <small>
+            {selectedConnection?.health === 'ready'
+              ? '연결 테스트 완료. Repository별 token 권한은 등록 시 확인합니다.'
+              : '연결 목록에서 연결 테스트를 먼저 완료하십시오.'}
+          </small>
         </label>
         <label className="field-label">
           Tenant
@@ -2031,17 +2073,23 @@ function GitHubConnectionPanel({
             ))}
           </select>
         </label>
-        <label className="field-label">
-          Owner
-          <input required value={owner} onChange={(event) => setOwner(event.target.value)} />
-        </label>
-        <label className="field-label">
-          Repository
+        <label className="field-label repository-url-field">
+          Repository URL
           <input
             required
-            value={repositoryName}
-            onChange={(event) => setRepositoryName(event.target.value)}
+            type="url"
+            placeholder={githubRepositoryExample}
+            value={repositoryUrl}
+            aria-describedby="repository-url-help"
+            aria-invalid={Boolean(repositoryUrlError)}
+            onChange={(event) => setRepositoryUrl(event.target.value)}
           />
+          <small id="repository-url-help" aria-live="polite">
+            {repositoryUrlError ||
+              (repositoryPreview
+                ? `Owner: ${repositoryPreview.owner} · Repository: ${repositoryPreview.name}`
+                : 'Repository 전체 주소를 붙여 넣으십시오. Owner와 Repository는 자동으로 채워집니다. HTTPS clone URL(.git)도 사용할 수 있습니다.')}
+          </small>
         </label>
         <label className="field-label">
           Polling interval (초)
@@ -2064,10 +2112,18 @@ function GitHubConnectionPanel({
             ))}
           </select>
         </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={reviewPublishingEnabled}
+            onChange={(event) => setReviewPublishingEnabled(event.target.checked)}
+          />
+          분석 완료 후 PR timeline에 review 결과 게시
+        </label>
         <button
           className="command-button primary"
           type="submit"
-          disabled={!connectionId || !tenantId || busyKey !== null}
+          disabled={!connectionId || !tenantId || !repositoryPreview || busyKey !== null}
         >
           <Plus size={15} /> Repository 등록
         </button>
@@ -2091,6 +2147,18 @@ function GitHubConnectionPanel({
                 ? `마지막 ${formatAdminDate(repository.lastPolledAt)}`
                 : 'polling 이력 없음'}
             </span>
+            <span>
+              PR 게시 ·{' '}
+              {repository.reviewPublishingEnabled
+                ? publicationStateLabel(repository.reviewPublicationState)
+                : '중지됨'}
+              {repository.reviewPublicationError ? ` (${repository.reviewPublicationError})` : ''}
+            </span>
+            {repository.reviewCommentUrl ? (
+              <a href={repository.reviewCommentUrl} target="_blank" rel="noreferrer">
+                GHES 댓글 열기
+              </a>
+            ) : null}
             <div className="registry-card-actions">
               <button
                 className="command-button"
@@ -2109,6 +2177,19 @@ function GitHubConnectionPanel({
                 }
               >
                 {repository.pollingEnabled ? 'Polling 중지' : 'Polling 시작'}
+              </button>
+              <button
+                className="command-button"
+                type="button"
+                disabled={busyKey !== null}
+                onClick={() =>
+                  void onRepositoryPublishingChange(
+                    repository.id,
+                    !repository.reviewPublishingEnabled,
+                  )
+                }
+              >
+                {repository.reviewPublishingEnabled ? 'PR 게시 중지' : 'PR 게시 시작'}
               </button>
             </div>
           </article>
@@ -2291,9 +2372,11 @@ function GitHubConnectionDialog({
               required
               type="url"
               disabled={sharedCredentialCount > 1}
+              placeholder="https://api.github.com"
               value={apiBaseUrl}
               onChange={(event) => setApiBaseUrl(event.target.value)}
             />
+            <small>GitHub.com: https://api.github.com · 사내 GHES: https://사내-host/api/v3</small>
           </label>
           <label className="field-label">
             Web base URL
@@ -2301,9 +2384,11 @@ function GitHubConnectionDialog({
               required
               type="url"
               disabled={sharedCredentialCount > 1}
+              placeholder="https://github.com"
               value={webBaseUrl}
               onChange={(event) => setWebBaseUrl(event.target.value)}
             />
+            <small>사이트 주소만 입력합니다. Organization이나 repository 경로는 제외합니다.</small>
           </label>
           <label className="field-label registry-secret-field">
             새 access token (선택)
@@ -2316,7 +2401,7 @@ function GitHubConnectionDialog({
             />
             <small>
               비워 두면 현재 token과 credential version을 유지합니다. API/Web origin 변경 시에는 새
-              token이 필요합니다.
+              token이 필요합니다. 새 token도 Pull requests Read and write 권한이 있어야 합니다.
             </small>
           </label>
           <label className="field-label">
@@ -2377,6 +2462,18 @@ function formatAdminDate(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(
     new Date(value),
   );
+}
+
+function publicationStateLabel(value: AdminRepository['reviewPublicationState']): string {
+  return value
+    ? {
+        pending: '대기',
+        publishing: '게시 중',
+        published: '게시 완료',
+        failed: '게시 실패',
+        disabled: '중지됨',
+      }[value]
+    : '게시 이력 없음';
 }
 
 function errorMessage(error: unknown): string {

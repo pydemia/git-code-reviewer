@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import type { Database } from '@gcr/db';
 import Fastify from 'fastify';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { errorEnvelope } from '@gcr/contracts';
 import type { AuthUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
-import { registeredGitHubReader } from '../services/account-registry.js';
-import { credentialFingerprint } from '../services/credential-crypto.js';
+import { GitHubRegistryError, registeredGitHubReader } from '../services/account-registry.js';
+import { credentialFingerprint, encryptCredential } from '../services/credential-crypto.js';
 import { registerAccountRegistryRoutes } from './account-registry.js';
 
 const credentialId = '04eea6d9-104b-48c7-a893-1ea5e6931646';
@@ -23,6 +24,156 @@ const config = {
   CREDENTIAL_REGISTRY_ENABLED: true,
   CREDENTIAL_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
 } as AppConfig;
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('repository URL registration', () => {
+  const repositoryUrl = 'https://github.com/org-name/repo-name';
+  const payload = { tenantId: administrator.id, repositoryUrl, pollIntervalSeconds: 120 };
+
+  it('verifies the parsed URL using the registered API and stores canonical names', async () => {
+    const { app, query, fetcher } = await repositoryTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/github-connections/${credentialId}/repositories`,
+      payload: {
+        ...payload,
+        repositoryUrl: `${repositoryUrl.replace('/repo-name', '/REPO-NAME')}.git/`,
+      },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(
+      'https://api.github.com/repos/org-name/REPO-NAME',
+    );
+    const options = fetcher.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(options.headers).get('authorization')).toBe('Bearer synthetic-test-token');
+    const insert = query.mock.calls.find(([sql]) => sql.includes('insert into repositories'));
+    expect(insert?.[1]).toEqual([
+      administrator.id,
+      credentialId,
+      42,
+      'org-name',
+      'repo-name',
+      120,
+      true,
+    ]);
+    expect(response.body).not.toContain('synthetic-test-token');
+    await app.close();
+  });
+
+  it('retains owner/name API compatibility', async () => {
+    const { app, fetcher } = await repositoryTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/github-connections/${credentialId}/repositories`,
+      payload: { tenantId: administrator.id, owner: 'org-name', name: 'repo-name' },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(fetcher).toHaveBeenCalledOnce();
+    await app.close();
+  });
+
+  it('rejects a different host before sending the credential anywhere', async () => {
+    const { app, fetcher } = await repositoryTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/github-connections/${credentialId}/repositories`,
+      payload: { ...payload, repositoryUrl: 'https://other.example/org-name/backend' },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('GITHUB_REPOSITORY_URL_INVALID');
+    expect(fetcher).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('requires a verified unexpired enabled connection', async () => {
+    const { app, fetcher } = await repositoryTestApp({ unavailable: true });
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/github-connections/${credentialId}/repositories`,
+      payload,
+    });
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('GITHUB_CONNECTION_UNAVAILABLE');
+    expect(fetcher).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it.each([
+    [401, 502, 'GITHUB_TOKEN_UNAUTHORIZED'],
+    [403, 403, 'GITHUB_REPOSITORY_FORBIDDEN'],
+    [404, 404, 'GITHUB_REPOSITORY_NOT_FOUND'],
+    [500, 502, 'GITHUB_REPOSITORY_REQUEST_FAILED'],
+  ])(
+    'explains GitHub HTTP %i errors without exposing the upstream body',
+    async (upstream, status, code) => {
+      const { app, query } = await repositoryTestApp({ upstream: Number(upstream) });
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/v1/admin/github-connections/${credentialId}/repositories`,
+        payload,
+      });
+      expect(response.statusCode).toBe(status);
+      expect(response.json().error.code).toBe(code);
+      expect(response.body).not.toContain('upstream-secret');
+      expect(query.mock.calls.some(([sql]) => sql.includes('insert into repositories'))).toBe(
+        false,
+      );
+      await app.close();
+    },
+  );
+});
+
+async function repositoryTestApp(options: { upstream?: number; unavailable?: boolean } = {}) {
+  const encrypted = encryptCredential(
+    'synthetic-test-token',
+    config.CREDENTIAL_ENCRYPTION_KEY,
+    'github-access-token',
+  );
+  const query = vi.fn<
+    (sql: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>
+  >(async (sql) => {
+    if (sql.includes('from github_credentials credential'))
+      return {
+        rows: options.unavailable
+          ? []
+          : [
+              {
+                ...encrypted,
+                apiBaseUrl: 'https://api.github.com/',
+                webBaseUrl: 'https://github.com/',
+              },
+            ],
+        rowCount: options.unavailable ? 0 : 1,
+      };
+    if (sql.includes('insert into repositories'))
+      return { rows: [{ id: instanceId }], rowCount: 1 };
+    return { rows: [], rowCount: 1 };
+  });
+  const database = {
+    query,
+    connect: async () => ({ query, release: vi.fn() }),
+  } as unknown as Database;
+  const fetcher = vi.fn<(url: URL, options: RequestInit) => Promise<Response>>(async () =>
+    options.upstream
+      ? Response.json({ message: 'upstream-secret' }, { status: options.upstream })
+      : Response.json({ id: 42, owner: { login: 'org-name' }, name: 'repo-name' }),
+  );
+  vi.stubGlobal('fetch', fetcher);
+  const app = Fastify();
+  app.addHook('onRequest', async (request) => {
+    request.user = administrator;
+  });
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof GitHubRegistryError)
+      return reply
+        .code(error.statusCode)
+        .send(errorEnvelope(error.code, error.message, request.id, error.retryable));
+    return reply.code(500).send({ error: 'Unexpected failure' });
+  });
+  await registerAccountRegistryRoutes(app, database, config);
+  return { app, query, fetcher };
+}
 
 describe('GHES connection update route', () => {
   it('updates metadata without replacing the encrypted token or incrementing its version', async () => {

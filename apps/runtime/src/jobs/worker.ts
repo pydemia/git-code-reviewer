@@ -9,7 +9,7 @@ import {
   materializeGitSnapshot,
   type SnapshotMaterialization,
 } from '@gcr/git-engine';
-import type { GitHubReader } from '@gcr/github';
+import { GitHubRequestError, type GitHubReader } from '@gcr/github';
 import type { RelationshipGraph, ReviewReport } from '@gcr/review-contract';
 import Fastify from 'fastify';
 import type { AppConfig } from '../config.js';
@@ -22,9 +22,14 @@ import {
 } from '../services/analysis-provider.js';
 import { createGitHubReader, getRepository } from '../services/repositories.js';
 import { registeredGitHubReader } from '../services/account-registry.js';
+import {
+  enqueueReviewPublication,
+  publishReviewToGitHub,
+  ReviewPublicationError,
+} from '../services/review-publication.js';
 
 type JobPayload = {
-  operationId: string;
+  operationId?: string;
   pullRequestId: string;
   snapshotRequestId?: string;
   analysisId?: string;
@@ -33,7 +38,7 @@ type JobPayload = {
 
 type ClaimedJob = {
   id: string;
-  type: 'snapshot.materialize' | 'analysis.run';
+  type: 'snapshot.materialize' | 'analysis.run' | 'github.review.publish';
   payload: JobPayload;
   attempt_count: number;
   max_attempts: number;
@@ -100,7 +105,7 @@ async function claimJob(database: Database, executor: string): Promise<ClaimedJo
     const result = await connection.query<Omit<ClaimedJob, 'attempt_id'>>(
       `with candidate as (
          select id from jobs
-         where type in ('snapshot.materialize', 'analysis.run')
+         where type in ('snapshot.materialize', 'analysis.run', 'github.review.publish')
            and ((state = 'queued' and available_at <= clock_timestamp())
              or (state = 'running' and lease_expires_at < clock_timestamp()))
            and attempt_count < max_attempts
@@ -158,8 +163,10 @@ async function executeJob(
   try {
     if (job.type === 'snapshot.materialize') {
       await executeSnapshotJob(database, github, artifacts, config, workspace, job);
-    } else {
+    } else if (job.type === 'analysis.run') {
       await executeAnalysisJob(database, artifacts, config, job);
+    } else {
+      await publishReviewToGitHub(database, github, config, job);
     }
     await completeJob(database, job);
     logger.info({ jobId: job.id, type: job.type }, 'job completed');
@@ -523,12 +530,21 @@ async function executeAnalysisJob(
     },
   });
   await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
-  await persistAnalysis(database, artifacts, job, output.report, output.graph, output.state);
+  await persistAnalysis(
+    database,
+    artifacts,
+    config,
+    job,
+    output.report,
+    output.graph,
+    output.state,
+  );
 }
 
 async function persistAnalysis(
   database: Database,
   artifacts: FilesystemArtifactStore,
+  config: AppConfig,
   job: ClaimedJob,
   report: ReviewReport,
   graph: RelationshipGraph,
@@ -662,6 +678,12 @@ async function persistAnalysis(
       eventPayload,
     );
     await appendEvent(connection, 'analysis', analysisId, 'analysis.available', eventPayload);
+    await enqueueReviewPublication(
+      connection,
+      analysisId,
+      requiredPayload(job, 'pullRequestId'),
+      config.GITHUB_MODE === 'app',
+    );
     await connection.query('commit');
   } catch (error) {
     await connection.query('rollback');
@@ -702,22 +724,67 @@ async function completeJob(database: Database, job: ClaimedJob) {
 }
 
 async function failJob(database: Database, job: ClaimedJob, error: unknown) {
-  const terminal = job.attempt_count >= job.max_attempts;
-  const code = job.type === 'snapshot.materialize' ? 'SNAPSHOT_FAILED' : 'ANALYSIS_FAILED';
+  const retryable =
+    error instanceof GitHubRequestError
+      ? error.retryable
+      : error instanceof ReviewPublicationError
+        ? error.retryable
+        : true;
+  const terminal = job.attempt_count >= job.max_attempts || !retryable;
+  const code =
+    job.type === 'snapshot.materialize'
+      ? 'SNAPSHOT_FAILED'
+      : job.type === 'analysis.run'
+        ? 'ANALYSIS_FAILED'
+        : error instanceof GitHubRequestError && error.status === 403
+          ? 'GITHUB_REVIEW_PERMISSION_DENIED'
+          : 'GITHUB_REVIEW_PUBLISH_FAILED';
+  const retryAfterSeconds =
+    error instanceof GitHubRequestError && error.retryAfterSeconds
+      ? error.retryAfterSeconds
+      : Math.min(300, 15 * 2 ** Math.max(0, job.attempt_count - 1));
   await database.query(
     `update job_attempts set ended_at = clock_timestamp(), outcome = $2, error_code = $3 where id = $1`,
     [job.attempt_id, terminal ? 'failed' : 'retry', code],
   );
   await database.query(
-    `update jobs set state = $2, available_at = clock_timestamp() + interval '30 seconds',
+    `update jobs set state = $2, available_at = clock_timestamp() + ($4 * interval '1 second'),
      lease_owner = null, lease_expires_at = null, last_error = $3::jsonb,
      updated_at = clock_timestamp() where id = $1`,
     [
       job.id,
       terminal ? 'failed' : 'queued',
       JSON.stringify({ code, retryable: !terminal, message: errorMessage(error) }),
+      retryAfterSeconds,
     ],
   );
+  if (job.type === 'github.review.publish') {
+    const analysisId = job.payload.analysisId ?? null;
+    const pullRequestId = job.payload.pullRequestId ?? null;
+    if (pullRequestId) {
+      await database.query(
+        `update github_review_publications publication set
+           state = case when exists (
+             select 1 from pull_requests pull_request
+             join repositories repository on repository.id = pull_request.repository_id
+             join github_instances instance on instance.id = repository.instance_id
+             where pull_request.id = publication.pull_request_id and repository.enabled
+               and repository.review_publishing_enabled and instance.enabled
+           ) then $2 else 'disabled' end,
+           last_error_code = $3,
+           last_error_message = $4, updated_at = clock_timestamp()
+         where pull_request_id = $1
+           and ($5::uuid is null or target_analysis_run_id = $5::uuid)`,
+        [pullRequestId, terminal ? 'failed' : 'pending', code, errorMessage(error), analysisId],
+      );
+      await appendEvent(database, 'pull_request', pullRequestId, 'github.review.failed', {
+        analysisId,
+        code,
+        retryable: !terminal,
+      });
+    }
+    return;
+  }
   if (!terminal) return;
   await database.query(
     `update operations set state = 'failed', finished_at = clock_timestamp(),

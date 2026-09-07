@@ -43,6 +43,7 @@
 - 단일 사내 GHES instance와 등록 repository
 - OIDC로 인증하는 사내 사용자
 - outbound polling과 사용자 manual refresh
+- 분석 완료 후 GHES PR timeline에 요약 review 댓글 생성·갱신
 - run별 isolated clone과 append-only snapshot materialization
 - deterministic analyzer, model review, evidence verification
 - browser review workspace와 snapshot-bound Chat
@@ -57,7 +58,7 @@
 - browser local storage에서 Git clone 또는 source 분석
 - 대상 repository의 GitHub Actions/workflow 설치
 - webhook을 전제로 한 inbound trigger
-- GitHub Check, status, review comment 자동 게시
+- GitHub Check, commit status, inline review, 자동 approve/request-changes
 - PR source의 build, test, hook, package script 실행
 - public signup, billing, 외부 고객용 SaaS multi-tenancy
 - LLM 단독 판단에 의한 merge 승인 또는 차단
@@ -85,7 +86,7 @@
 
 | ID | 수준 | 요구사항 |
 |---|---|---|
-| REQ-GH-001 | 필수 | 시스템 관리자는 승인된 service identity의 GHES access token을 connection으로 등록하며 token 권한은 대상 private repository의 Metadata, Contents와 Pull requests read에 필요한 최소 범위로 제한한다. |
+| REQ-GH-001 | 필수 | 시스템 관리자는 승인된 service identity의 GHES access token을 connection으로 등록한다. Fine-grained PAT은 대상 private repository만 선택하고 Metadata와 Contents는 read, Pull requests는 PR 조회와 timeline 댓글 생성·갱신을 위한 read/write로 제한한다. Issues, Administration, Contents write와 Workflows 권한은 요구하지 않는다. |
 | REQ-GH-002 | 필수 | GHES access token은 deployment master key로 암호화해 저장하고 API header와 ephemeral Git credential helper에서만 복호화해 사용한다. Browser response, clone URL, Git config, job payload와 log에 원문이나 ciphertext를 넣지 않는다. |
 | REQ-GH-003 | 필수 | scheduler는 registered repository만 polling한다. |
 | REQ-GH-004 | 필수 | open PR과 base/head SHA 변화를 browser가 닫혀 있어도 감지한다. |
@@ -95,7 +96,7 @@
 | REQ-GH-008 | 필수 | 같은 PR의 동시 refresh는 하나의 poll/snapshot 요청으로 합친다. |
 | REQ-GH-009 | 필수 | GHES 장애나 quota 부족을 분석 없음으로 표시하지 않고 지연 사유와 마지막 성공 시각을 제공한다. |
 | REQ-GH-010 | 후속 | webhook은 polling을 대체하지 않는 optional accelerator로만 추가할 수 있다. |
-| REQ-GH-011 | 제외 | MVP는 GitHub에 report, comment, Check 또는 status를 쓰지 않는다. |
+| REQ-GH-011 | 필수 | Repository의 review 게시 설정이 활성화되면 completed/partial report마다 GHES PR timeline의 관리 댓글 하나를 생성하거나 갱신한다. Check, commit status와 merge review decision은 생성하지 않는다. |
 | REQ-GH-012 | 필수 | poll은 PR의 현재 base branch tip을 authoritative source에서 관측하고 base 또는 head가 바뀌면 새 snapshot request를 만든다. |
 | REQ-GH-013 | 필수 | draft PR도 polling과 자동 분석 대상에 포함하되 idle tier를 기본으로 하며 관리자가 자동 분석을 끌 수 있다. Manual refresh는 항상 허용한다. |
 | REQ-GH-014 | 필수 | 시스템 관리자는 GHES connection을 등록·검증·회전·비활성화하고 token expiry, 마지막 검증, rate-limit과 401/403 상태를 확인한다. |
@@ -103,6 +104,10 @@
 | REQ-GH-016 | 필수 | 시스템 관리자는 token으로 실제 조회 가능한 repository만 tenant에 등록하고 automatic polling, hot/active/idle/draft interval과 Poll now trigger를 관리한다. |
 | REQ-GH-017 | 필수 | GHES token의 외부 repository read 권한과 application의 tenant membership/repository grant를 별도 경계로 검사한다. |
 | REQ-GH-018 | 필수 | 시스템 관리자는 repository별 user/group grant를 browser UI와 API에서 조회·부여·회수할 수 있다. |
+| REQ-GH-019 | 필수 | PR 댓글 게시 작업은 분석 operation과 분리한 durable job으로 실행한다. 게시 실패는 저장된 report를 실패 상태로 바꾸지 않으며 401/403과 retry 가능한 429/5xx를 구분한다. |
+| REQ-GH-020 | 필수 | 최초 게시에는 관리 marker를 포함하고 comment ID를 저장한다. 재분석과 retry는 기존 댓글을 갱신하며, API 성공 후 DB 반영 전에 중단되어도 marker 검색으로 댓글을 복구해 중복 생성을 막는다. |
+| REQ-GH-021 | 필수 | 시스템 관리자는 repository별 PR 게시를 활성화·중지하고 최근 게시 상태, 실패 code와 GHES 댓글 link를 확인할 수 있다. |
+| REQ-GH-022 | 필수 | Review repository는 전체 HTTP(S) URL 입력으로 등록한다. Browser는 Owner/Repository 추출 결과를 표시하고 Server는 선택한 연결의 Web origin을 검증한 뒤 등록된 API base URL로 numeric ID와 canonical owner/name을 조회한다. `.git`과 trailing slash를 정리하며 잘못된 경로·host·credential 포함 URL은 거부한다. 연결 미검증, API 401/403/404와 network 오류는 한국어 조치 안내로 구분한다. |
 
 ## 6. Snapshot과 Git workspace
 
@@ -250,7 +255,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | REQ-SEC-006 | 필수 | DB와 persistent artifact는 조직 정책에 따라 at-rest encryption과 backup을 적용한다. |
 | REQ-SEC-007 | 필수 | log/metric/trace label에 source, diff, prompt, token, repository path를 넣지 않는다. |
 | REQ-SEC-008 | 필수 | report/chat/source retention과 사용자 삭제 범위를 설정하며 Chat은 참조 report보다 오래 보존하지 않는다. |
-| REQ-SEC-009 | 필수 | Chat account credential은 Server만, GHES credential은 polling Server와 clone Worker만, batch model credential은 Worker만 복호화할 수 있다. |
+| REQ-SEC-009 | 필수 | Chat account credential은 Server만, GHES credential은 polling Server와 clone/review-publication Worker만, batch model credential은 Worker만 복호화할 수 있다. |
 | REQ-SEC-010 | 필수 | CSP, referrer/content-type/permissions 보안 header와 외부 resource 차단 정책을 적용한다. HSTS는 ingress/platform 정책을 따른다. |
 | REQ-SEC-011 | 조건부 | reverse proxy identity는 signed assertion 검증, client identity header 제거와 ingress network 제한이 함께 적용될 때만 신뢰한다. |
 | REQ-SEC-012 | 필수 | audit event catalogue를 정의하고 source/prompt 원문 없이 actor/action/resource/outcome/request/time metadata만 기록한다. |
@@ -328,12 +333,13 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | AC-27 | GHES token 등록 | 관리자가 access token을 등록·검증해 조회 가능한 repository만 tenant에 등록하며 credential 원문이 노출되지 않는다. |
 | AC-28 | Polling 관리 | repository별 interval/disabled 설정과 Poll now가 적용되고 401/403/429 상태가 독립적으로 표시된다. |
 | AC-29 | 이중 권한 경계 | GHES token 권한과 application repository grant 중 하나라도 없으면 해당 경계에서 접근이 차단된다. |
+| AC-30 | PR review 결과 게시 | Completed/partial 분석은 관리 댓글 하나를 생성하고 후속 분석은 같은 댓글을 갱신한다. Worker crash 재시도에서도 중복 댓글이 생기지 않으며 게시 실패가 report 상태를 바꾸지 않는다. |
 
 ## 15. 구현 전 확정 항목
 
 | ID | 항목 |
 |---|---|
-| DEC-001 | 대상 GHES exact version, access-token 종류와 최소 read scope |
+| DEC-001 | 대상 GHES exact version, access-token 종류와 Metadata/Contents read 및 Pull requests read/write 지원 범위 |
 | DEC-002 | OIDC integration 방식과 group/role mapping |
 | DEC-003 | 우선 지원 언어 두 개 |
 | DEC-004 | registered repository/open PR 규모와 허용 poll lag |

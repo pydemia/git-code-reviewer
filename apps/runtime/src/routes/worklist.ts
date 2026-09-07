@@ -3,7 +3,9 @@ import type { Database } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireAdministrator, requireUser } from '../auth/index.js';
+import type { AppConfig } from '../config.js';
 import type { AuthorizationAction, AuthorizationService } from '../services/authorization.js';
+import { enqueueLatestReviewPublication } from '../services/review-publication.js';
 
 const repositoryParams = z.object({ repoId: z.string().uuid() });
 const repositoryGrantParams = repositoryParams.extend({ userId: z.string().uuid() });
@@ -23,6 +25,7 @@ const repositoryListQuery = z.object({ tenantId: z.string().uuid().optional() })
 const repositoryPatch = z.object({
   enabled: z.boolean().optional(),
   pollingEnabled: z.boolean().optional(),
+  reviewPublishingEnabled: z.boolean().optional(),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).optional(),
 });
 const repositoryGrantBody = z.object({ enabled: z.boolean() });
@@ -31,6 +34,7 @@ export async function registerWorklistRoutes(
   app: FastifyInstance,
   database: Database,
   authorization: AuthorizationService,
+  config: AppConfig,
 ) {
   app.get('/api/v1/me', { preHandler: requireUser }, async (request) => ({
     schemaVersion,
@@ -247,6 +251,7 @@ export async function registerWorklistRoutes(
            enabled = coalesce($2, enabled),
            poll_interval_seconds = coalesce($3, poll_interval_seconds),
            polling_enabled = coalesce($4, polling_enabled),
+           review_publishing_enabled = coalesce($5, review_publishing_enabled),
            updated_at = clock_timestamp()
          where id = $1 returning id`,
         [
@@ -254,9 +259,22 @@ export async function registerWorklistRoutes(
           patch.enabled ?? null,
           patch.pollIntervalSeconds ?? null,
           patch.pollingEnabled ?? null,
+          patch.reviewPublishingEnabled ?? null,
         ],
       );
       if (!result.rowCount) return hiddenNotFound(request, reply);
+      if (patch.reviewPublishingEnabled === true) {
+        await enqueueLatestReviewPublication(database, repoId, config.GITHUB_MODE === 'app');
+      } else if (patch.reviewPublishingEnabled === false) {
+        await database.query(
+          `update github_review_publications publication set state = 'disabled',
+             updated_at = clock_timestamp()
+           from pull_requests pull_request
+           where publication.pull_request_id = pull_request.id
+             and pull_request.repository_id = $1`,
+          [repoId],
+        );
+      }
       await writeAudit(database, request, 'repository.update', repoId, 'success');
       return { schemaVersion, id: repoId };
     },
@@ -326,14 +344,27 @@ async function listRepositories(database: Database, tenantId?: string) {
             tenant.display_name as "tenantName",
             r.owner, r.name, r.enabled, r.poll_interval_seconds as "pollIntervalSeconds",
             r.polling_enabled as "pollingEnabled", r.credential_id as "credentialId",
+            r.review_publishing_enabled as "reviewPublishingEnabled",
             i.name as "instanceName", i.api_base_url as "apiBaseUrl", i.web_base_url as "webBaseUrl",
             credential.label as "credentialLabel",
             p.last_polled_at as "lastPolledAt", p.next_poll_at as "nextPollAt",
-            p.last_outcome as "pollOutcome", p.last_error_code as "pollError"
+            p.last_outcome as "pollOutcome", p.last_error_code as "pollError",
+            publication.state as "reviewPublicationState",
+            publication.comment_url as "reviewCommentUrl",
+            publication.last_error_code as "reviewPublicationError",
+            publication.published_at as "reviewPublishedAt"
      from repositories r join github_instances i on i.id = r.instance_id
      join tenants tenant on tenant.id = r.tenant_id
      left join github_credentials credential on credential.id = r.credential_id
      left join poll_states p on p.repository_id = r.id
+     left join lateral (
+       select published.state, published.comment_url, published.last_error_code,
+              published.published_at
+       from github_review_publications published
+       join pull_requests pull_request on pull_request.id = published.pull_request_id
+       where pull_request.repository_id = r.id
+       order by published.updated_at desc limit 1
+     ) publication on true
      where ($1::uuid is null or r.tenant_id = $1)
      order by tenant.display_name, r.owner, r.name`,
     [tenantId ?? null],

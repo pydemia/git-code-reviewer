@@ -2427,6 +2427,12 @@ body.workspace-resizing:has(.resize-bottom) {
   grid-column: span 2;
 }
 
+.repository-url-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .registry-list {
   display: grid;
   gap: 8px;

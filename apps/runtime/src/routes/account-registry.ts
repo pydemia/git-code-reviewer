@@ -83,13 +83,32 @@ const githubConnectionUpdateBody = z.object({
   accessToken: z.string().trim().min(1).max(10_000).optional(),
   expiresAt: z.string().datetime().nullable(),
 });
-const githubRepositoryBody = z.object({
-  tenantId: z.string().uuid(),
-  owner: z.string().regex(/^[A-Za-z0-9_.-]+$/),
-  name: z.string().regex(/^[A-Za-z0-9_.-]+$/),
-  pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).default(120),
-  grantSubjects: z.array(z.string().trim().min(1).max(300)).max(100).default([]),
-});
+const githubRepositoryBody = z
+  .object({
+    tenantId: z.string().uuid(),
+    repositoryUrl: z.string().trim().min(1).max(2_048).optional(),
+    owner: z
+      .string()
+      .regex(/^[A-Za-z0-9_.-]+$/)
+      .optional(),
+    name: z
+      .string()
+      .regex(/^[A-Za-z0-9_.-]+$/)
+      .optional(),
+    pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).default(120),
+    reviewPublishingEnabled: z.boolean().default(true),
+    grantSubjects: z.array(z.string().trim().min(1).max(300)).max(100).default([]),
+  })
+  .refine(
+    (value) =>
+      value.repositoryUrl
+        ? value.owner === undefined && value.name === undefined
+        : Boolean(value.owner && value.name),
+    {
+      message:
+        'Repository URL 또는 Owner와 Repository를 입력하십시오. 두 형식은 동시에 사용할 수 없습니다.',
+    },
+  );
 
 export async function registerAccountRegistryRoutes(
   app: FastifyInstance,
@@ -251,7 +270,22 @@ export async function registerAccountRegistryRoutes(
         id,
         result.ok ? 'success' : 'failure',
       );
-      return reply.code(result.ok ? 200 : 502).send({ schemaVersion, ...result });
+      return reply.code(result.ok ? 200 : 502).send({
+        schemaVersion,
+        ...result,
+        ...(result.ok
+          ? {}
+          : errorEnvelope(
+              'GITHUB_CONNECTION_TEST_FAILED',
+              result.status === 401
+                ? 'Token 인증에 실패했습니다(401). 만료·회수 여부를 확인하고 token을 교체하십시오.'
+                : result.status === 403
+                  ? 'GitHub 접근이 거부되었습니다(403). PAT 정책, organization 승인·SSO와 rate limit을 확인하십시오.'
+                  : `연결 테스트에 실패했습니다(HTTP ${result.status}). GitHub.com의 API base URL은 https://api.github.com입니다. 주소와 network 설정을 확인하십시오.`,
+              request.id,
+              result.status === 429 || result.status >= 500,
+            )),
+      });
     },
   );
 

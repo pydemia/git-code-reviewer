@@ -1,6 +1,6 @@
 # Git Code Reviewer
 
-사내 GitHub Enterprise Server의 PR을 중앙에서 분석하고 browser review workspace로 제공하는 Kubernetes 기반 웹서비스입니다. 대상 repository의 CI, webhook과 GitHub write-back 없이 polling, isolated clone, evidence 기반 report와 Chat을 제공합니다.
+사내 GitHub Enterprise Server의 PR을 중앙에서 분석하고 browser review workspace와 GHES PR timeline에 결과를 제공하는 Kubernetes 기반 웹서비스입니다. 대상 repository의 CI와 webhook 없이 polling, isolated clone, evidence 기반 report, 관리형 PR 요약 댓글과 Chat을 제공합니다.
 
 ## 기준 문서
 

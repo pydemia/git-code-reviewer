@@ -15,6 +15,12 @@ const pullSchema = z.object({
   head: z.object({ sha: z.string(), ref: z.string() }),
 });
 
+const issueCommentSchema = z.object({
+  id: z.number().int().positive(),
+  html_url: z.string().url(),
+  body: z.string().nullable(),
+});
+
 export type PullRequestObservation = {
   githubId: number;
   number: number;
@@ -46,6 +52,24 @@ export interface GitHubReader {
   getGitCredential?(target: RepositoryTarget): Promise<{ username: string; password: string }>;
 }
 
+export type PullRequestCommentPublication = {
+  commentId: number;
+  commentUrl: string;
+  outcome: 'created' | 'updated';
+};
+
+export interface GitHubReviewPublisher {
+  upsertPullRequestComment(
+    target: RepositoryTarget,
+    input: {
+      pullNumber: number;
+      marker: string;
+      body: string;
+      existingCommentId?: number | null;
+    },
+  ): Promise<PullRequestCommentPublication>;
+}
+
 export class GitHubRequestError extends Error {
   constructor(
     public readonly status: number,
@@ -58,7 +82,7 @@ export class GitHubRequestError extends Error {
 
 type CachedToken = { token: string; expiresAt: number };
 
-export class GitHubAppClient implements GitHubReader {
+export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
   private readonly tokens = new Map<string, CachedToken>();
   private keyPromise: Promise<CryptoKey> | undefined;
 
@@ -114,6 +138,20 @@ export class GitHubAppClient implements GitHubReader {
     };
   }
 
+  async upsertPullRequestComment(
+    target: RepositoryTarget,
+    input: {
+      pullNumber: number;
+      marker: string;
+      body: string;
+      existingCommentId?: number | null;
+    },
+  ): Promise<PullRequestCommentPublication> {
+    return upsertPullRequestComment(target, input, (url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    );
+  }
+
   private async installationRequest(
     installationId: string,
     apiBaseUrl: string,
@@ -130,10 +168,12 @@ export class GitHubAppClient implements GitHubReader {
     if (response.ok || response.status === 304) return response;
 
     if (response.status === 401 && allowTokenRefresh) {
+      await response.body?.cancel().catch(() => undefined);
       this.tokens.delete(`${apiBaseUrl}:${installationId}`);
       return this.installationRequest(installationId, apiBaseUrl, url, init, false);
     }
     const retryAfter = Number(response.headers.get('retry-after'));
+    await response.body?.cancel().catch(() => undefined);
     throw new GitHubRequestError(
       response.status,
       response.status === 429 || response.status >= 500,
@@ -184,7 +224,7 @@ export class GitHubAppClient implements GitHubReader {
   }
 }
 
-export class GitHubAccessTokenClient implements GitHubReader {
+export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublisher {
   constructor(
     private readonly token: string,
     private readonly request: typeof fetch = fetch,
@@ -236,6 +276,36 @@ export class GitHubAccessTokenClient implements GitHubReader {
   async getGitCredential(): Promise<{ username: string; password: string }> {
     return { username: 'git-code-reviewer', password: this.token };
   }
+
+  async upsertPullRequestComment(
+    target: RepositoryTarget,
+    input: {
+      pullNumber: number;
+      marker: string;
+      body: string;
+      existingCommentId?: number | null;
+    },
+  ): Promise<PullRequestCommentPublication> {
+    return upsertPullRequestComment(target, input, (url, init) =>
+      this.authenticatedRequest(url, init),
+    );
+  }
+
+  private async authenticatedRequest(url: URL, init: RequestInit): Promise<Response> {
+    const headers = new Headers(init.headers);
+    headers.set('accept', 'application/vnd.github+json');
+    headers.set('authorization', `Bearer ${this.token}`);
+    headers.set('x-github-api-version', '2022-11-28');
+    const response = await this.request(url, { ...init, headers });
+    if (response.ok) return response;
+    const retryAfter = Number(response.headers.get('retry-after'));
+    await response.body?.cancel().catch(() => undefined);
+    throw new GitHubRequestError(
+      response.status,
+      response.status === 429 || response.status >= 500,
+      Number.isFinite(retryAfter) ? retryAfter : null,
+    );
+  }
 }
 
 export class FixtureGitHubClient implements GitHubReader {
@@ -248,6 +318,95 @@ export class FixtureGitHubClient implements GitHubReader {
       pulls: fixturePulls(target),
     };
   }
+}
+
+type AuthenticatedRequest = (url: URL, init: RequestInit) => Promise<Response>;
+
+async function upsertPullRequestComment(
+  target: RepositoryTarget,
+  input: {
+    pullNumber: number;
+    marker: string;
+    body: string;
+    existingCommentId?: number | null;
+  },
+  request: AuthenticatedRequest,
+): Promise<PullRequestCommentPublication> {
+  if (!Number.isInteger(input.pullNumber) || input.pullNumber < 1) {
+    throw new Error('A positive pull request number is required');
+  }
+  if (!input.marker || !input.body.includes(input.marker)) {
+    throw new Error('The managed comment marker must be present in the body');
+  }
+
+  if (input.existingCommentId) {
+    try {
+      return await writePullRequestComment(target, input.body, input.existingCommentId, request);
+    } catch (error) {
+      if (!(error instanceof GitHubRequestError) || error.status !== 404) throw error;
+    }
+  }
+
+  const recoveredCommentId = await findManagedPullRequestComment(
+    target,
+    input.pullNumber,
+    input.marker,
+    request,
+  );
+  return writePullRequestComment(target, input.body, recoveredCommentId, request, input.pullNumber);
+}
+
+async function findManagedPullRequestComment(
+  target: RepositoryTarget,
+  pullNumber: number,
+  marker: string,
+  request: AuthenticatedRequest,
+): Promise<number | null> {
+  for (let page = 1; page <= 20; page += 1) {
+    const url = repositoryApiUrl(
+      target,
+      `issues/${encodeURIComponent(String(pullNumber))}/comments`,
+    );
+    url.searchParams.set('per_page', '100');
+    url.searchParams.set('page', String(page));
+    const response = await request(url, { method: 'GET' });
+    const comments = z.array(issueCommentSchema).parse(await response.json());
+    const match = comments.find((comment) => comment.body?.includes(marker));
+    if (match) return match.id;
+    if (comments.length < 100) return null;
+  }
+  return null;
+}
+
+async function writePullRequestComment(
+  target: RepositoryTarget,
+  body: string,
+  commentId: number | null,
+  request: AuthenticatedRequest,
+  pullNumber?: number,
+): Promise<PullRequestCommentPublication> {
+  const updating = commentId !== null;
+  const path = updating
+    ? `issues/comments/${encodeURIComponent(String(commentId))}`
+    : `issues/${encodeURIComponent(String(pullNumber))}/comments`;
+  const response = await request(repositoryApiUrl(target, path), {
+    method: updating ? 'PATCH' : 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ body }),
+  });
+  const comment = issueCommentSchema.parse(await response.json());
+  return {
+    commentId: comment.id,
+    commentUrl: comment.html_url,
+    outcome: updating ? 'updated' : 'created',
+  };
+}
+
+function repositoryApiUrl(target: RepositoryTarget, path: string): URL {
+  return new URL(
+    `repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/${path}`,
+    ensureTrailingSlash(target.apiBaseUrl),
+  );
 }
 
 export function buildPermanentFileUrl(
