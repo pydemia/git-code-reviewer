@@ -46,7 +46,7 @@ curl -fsS http://127.0.0.1:4000/health/ready
 
 ```bash
 export POSTGRES_PASSWORD='local-only-password'
-export POSTGRES_PORT=55432
+export POSTGRES_PORT=25432
 docker compose -f compose.dev.yaml up -d postgres
 docker compose -f compose.dev.yaml ps
 ```

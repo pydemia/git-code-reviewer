@@ -44,7 +44,7 @@ services:
       POSTGRES_USER: git_code_reviewer
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-only-password}
     ports:
-      - '${POSTGRES_PORT:-55432}:5432'
+      - '${POSTGRES_PORT:-25432}:5432'
     volumes:
       - git-code-reviewer-postgres:/var/lib/postgresql/data
     healthcheck:

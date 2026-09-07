@@ -26,7 +26,7 @@
       "options": {
         "cwd": "${workspaceFolder}",
         "env": {
-          "DATABASE_URL": "postgresql://git_code_reviewer:local-only-password@127.0.0.1:55432/git_code_reviewer",
+          "DATABASE_URL": "postgresql://git_code_reviewer:local-only-password@127.0.0.1:25432/git_code_reviewer",
           "ARTIFACT_ROOT": "${workspaceFolder}/artifacts",
           "WORKSPACE_ROOT": "${workspaceFolder}/tmp/workspaces"
         }
