@@ -4,7 +4,7 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: 개인 프로필·비밀번호 변경과 8~128자 정책의 PRISM-DEV revision 12 배포·검증 완료
+- 단계: 등록된 GHES connection 수정 기능의 PRISM-DEV revision 13 배포·검증 완료
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
@@ -22,6 +22,7 @@
 - 시스템관리자는 Local account의 role, 활성 상태, tenant membership, repository grant와 비밀번호를 관리한다. 일반사용자는 grant를 받은 repository만 조회한다.
 - 로그인 사용자는 GNB의 `/profile`에서 계정 정보와 tenant를 확인한다. Local account는 표시 이름과 비밀번호를 직접 변경하며, 비밀번호 변경 시 현재 비밀번호를 확인하고 모든 session을 폐기한다. 비밀번호 길이는 8~128자다. 외부 identity는 IdP에서 관리한다.
 - 로그인 사용자는 모든 주요 화면의 GNB에서 `/guide`로 이동해 role별 사용 절차, GHES PAT 최소 권한·입력·회전, repository polling, Review Chat과 오류 진단을 확인한다.
+- 시스템관리자는 등록된 GHES connection의 이름, API/Web URL, credential label, token 만료일과 선택형 새 token을 수정한다. Token을 비워 두면 암호문과 version을 유지하고, API 또는 Web origin을 바꿀 때는 새 token을 필수로 요구한다. 공유 instance의 공통 이름·URL은 수정할 수 없다.
 
 Credential registry는 migration `0009`, Local account는 migration `0010`으로 구현됐다. PRISM-DEV에는 `admin` 시스템관리자와 `reviewer` 일반사용자가 있고 fixture repository grant는 `reviewer`에게 부여되어 있다. Bootstrap 비밀번호는 Kubernetes Secret에만 있으며 Git에는 없다. 실제 ChatGPT account는 등록되어 `gpt-5.6-sol` Chat까지 검증했지만 실제 GHES token과 private repository E2E는 남아 있다. `/admin?tab=github`에서 실제 credential을 등록·검증해야 한다. Local user의 repository grant는 `/admin?tab=users`에서 사후 부여·회수할 수 있다. Group grant 편집 UI는 후속 범위다.
 
@@ -89,15 +90,15 @@ Review Chat은 `disabled`, `openai-compatible`, `chatgpt-account`, `registry` �
 
 기존 `chatgpt-account` mode는 deployment-owned Codex `auth.json`을 전용 writable PVC에서 읽는다. 새 `registry` mode에서는 관리자가 auth.json을 등록하고 tenant/user/group에 account를 할당한다. AES-256-GCM 암호문만 PostgreSQL에 저장하며 API는 credential 원문을 반환하지 않는다. 사용자는 할당된 account, model, effort를 선택하고 이 조합과 credential version은 Chat session에 고정된다. Token refresh 결과도 같은 master key로 다시 암호화해 version을 올린다.
 
-GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone 직전에만 token을 복호화한다. 기본 `registry` mode는 전역 GitHub reader를 만들지 않고 저장소별 token reader만 사용한다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository와 Metadata/Contents/Pull requests read만 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다.
+GHES access token도 같은 registry master key로 암호화한다. 저장소는 `credential_id`를 가지며 Server polling과 Worker clone 직전에만 token을 복호화한다. 기본 `registry` mode는 전역 GitHub reader를 만들지 않고 저장소별 token reader만 사용한다. Rolling update 중 새 Server가 advisory lock 획득에 실패하더라도 15초마다 재시도한다. Fine-grained PAT은 대상 repository와 Metadata/Contents/Pull requests read만 허용한다. Credential label은 application 내부 식별자이며 같은 instance/label 재등록은 token rotation으로 처리한다. 등록된 connection 수정은 credential ID, repository 참조와 enabled 상태를 유지한다. 저장 직후 health를 `unverified`로 바꾸고 연결 테스트가 성공해 `ready`가 되기 전에는 polling, Git materialization과 repository 등록에서 token을 복호화하지 않는다.
 
 ## 6. 배포 artifact
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.4`
-- source revision: `8c9d246`
-- manifest digest: `sha256:b1aedc672c9fda8eaffcea907a459307398c5c9e3940e911964ccce41fb2bf40`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.5`
+- source revision: `ae1a287`
+- manifest digest: `sha256:df64559a9de37af432e0c118ff617770e9597bc852eb2fee50ccedded751d0ed`
 - platform: `linux/amd64`
 - supply-chain metadata: BuildKit provenance와 SBOM attestation 포함
 
@@ -106,9 +107,9 @@ GHES access token도 같은 registry master key로 암호화한다. 저장소는
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.2`
-- app version: `0.8.0-alpha.4`
-- chart digest: `sha256:0aec61dc15a0edc568ceb143660a650f96646b7773cfdfaf1ee72dfaa492eb91`
+- version: `0.10.3`
+- app version: `0.8.0-alpha.5`
+- chart digest: `sha256:5be0cb4f298b97b70d72e7d9745338ad884ef30069470868038eed121eb75675`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치
@@ -124,7 +125,7 @@ Local에서 완료한 항목:
 
 - Prettier format check, ESLint, TypeScript typecheck
 - production application build
-- Vitest 17개 파일, 73개 test
+- Vitest 18개 파일, 81개 test
 - 실제 Cerbos 0.55.0 policy compile/decision test 29개
 - ARM64 Docker Desktop의 kind Kubernetes 1.34.8에서 PostgreSQL/Server/Worker/PVC Ready
 - `GITHUB_MODE=registry`, credential registry API 활성화와 dependencies health HTTP 200
@@ -205,6 +206,16 @@ PRISM-DEV release revision 12 개인 프로필·비밀번호 변경 검증:
 - desktop 1440x1000과 mobile 500x1200에서 GNB, 프로필 요약, form 단일 열과 overflow를 확인
 - 검증용 사용자, credential, session, login limit와 audit event 삭제 확인
 
+PRISM-DEV release revision 13 GHES connection 수정 검증:
+
+- Helm chart `0.10.3`, application `0.8.0-alpha.5`, image digest `sha256:df64559a...d0ed` 적용
+- Server/Worker 각 1개 `Ready`, restart 0회, Helm test와 live/ready/dependencies HTTP 200
+- 관리자 연결 목록에 `연결 수정` dialog를 추가하고 desktop 1440×1100, mobile 500×1100, 공유 instance 1200×950에서 layout과 overflow 확인
+- Token을 비운 metadata 수정은 credential version/fingerprint를 유지하고, token 교체는 version 1→2와 fingerprint 변경 확인
+- API/Web origin 변경에 새 token을 요구하며, 공유 instance 공통 필드 변경을 거부하고, disabled 상태와 repository `credential_id` 참조를 유지
+- 수정 후 `unverified` credential이 연결 테스트 전 polling, Git materialization과 repository 등록에 사용되지 않도록 차단
+- Synthetic token 원문이 ciphertext에 포함되지 않음을 확인하고 임시 관리자, instance, credential, repository, session과 audit event 삭제 후 잔여 0건 확인
+
 Authorization test는 administrator 허용, reviewer admin 차단, repository grant 없는 reviewer 차단과 PDP 장애 fail-closed를 확인한다. Provider test는 AES-256-GCM round trip, allowlist/credential 검증, immutable version 활성화, deployment fallback과 run별 provider hash 고정을 확인한다. Prompt test는 built-in guard/contract 보존, tenant 지침 합성, version/hash 고정을 확인한다. ChatGPT account provider test는 request header/payload/SSE parsing, proactive refresh 저장, 401 뒤 한 번의 refresh/retry와 안전한 missing-auth error를 검증한다.
 
 사용자의 enterprise 환경에서 남은 검증:
@@ -245,6 +256,11 @@ PRISM-DEV 전용 HTTPRoute 배포는 다음 commit에 있다.
 
 - `8c9d246` `feat: add personal profile password management`
 - `bb688b8` `release: prepare personal profile deployment`
+
+등록된 GHES connection 수정 확장은 다음 commit에 있다.
+
+- `ae1a287` `feat: edit registered GHES connections`
+- `388af58` `release: prepare GHES connection editing`
 
 이번 Provider 관리 확장의 phase commit은 다음과 같다.
 

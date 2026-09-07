@@ -276,6 +276,24 @@ Helm release revision 12에서 application `0.8.0-alpha.4`, chart `0.10.2`를 �
 | Responsive UI  | desktop 1440x1000, mobile 500x1200에서 프로필 layout과 form overflow 없음              |
 | 검증 자료 정리 | 임시 사용자, credential, session, login limit와 관련 audit event 삭제 후 잔여 0건 확인 |
 
+### GHES connection 수정 배포 검증
+
+Helm release revision 13에서 application `0.8.0-alpha.5`, chart `0.10.3`을 배포했다. OCI chart digest는 `sha256:5be0cb4f298b97b70d72e7d9745338ad884ef30069470868038eed121eb75675`, image manifest digest는 `sha256:df64559a9de37af432e0c118ff617770e9597bc852eb2fee50ccedded751d0ed`다.
+
+| 검증 항목          | 결과                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| Server/Worker      | 각 1개 `Ready`, restart 0회, 새 image digest 적용                                               |
+| Helm/Health        | Helm test 성공, live/ready/dependencies HTTP 200                                                |
+| Metadata 수정      | 새 token 없이 이름·label·만료일 수정 HTTP 200, credential version과 fingerprint 유지            |
+| Token 교체         | 새 token 입력 수정 HTTP 200, credential version 1→2, fingerprint 변경, ciphertext 평문 일치 0건 |
+| Origin 보호        | 기존 token으로 API origin 변경 시 HTTP 400 `GITHUB_TOKEN_REQUIRED_FOR_ORIGIN_CHANGE`            |
+| 공유 instance 보호 | credential 2개가 공유하는 instance 이름 변경 시 HTTP 409 `GITHUB_SHARED_INSTANCE_CONFLICT`      |
+| 참조 유지          | 수정 전후 synthetic repository의 동일 `credential_id` 참조 1건 유지                             |
+| Responsive UI      | desktop 1440×1100, mobile 500×1100과 공유 instance dialog 1200×950에서 overflow 없음            |
+| 검증 자료 정리     | 임시 관리자, GHES instance/credential, repository, session과 audit event 삭제 후 잔여 0건 확인  |
+
+Connection 수정 후 health는 `unverified`가 되며 연결 테스트가 `ready`로 바꾸기 전에는 polling, Git materialization과 repository 등록에 해당 credential을 사용하지 않는다. 실제 GHES endpoint와 token을 사용한 연결 테스트는 별도로 수행해야 한다.
+
 ## 실제 GHES 및 ChatGPT account 등록
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.
