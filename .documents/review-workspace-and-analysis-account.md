@@ -50,3 +50,7 @@ Split은 같은 row에 base/head를 정렬한다. Unified도 삭제 line과 base
 Migration 0013을 포함한 Server/Worker를 함께 배포한다. 관리자는 기존 account에 분석 대상 tenant 권한을 확인하고 분석 Provider에서 account·model·effort를 저장한다. 데모 report가 생성된 실제 PR은 새로고침으로 다시 분석한다. PR 게시가 켜져 있으면 새 분석의 게시 경로도 함께 실행된다. 과거 report 파일을 수동으로 덮어쓰지 않는다.
 
 검증은 전용 local PostgreSQL과 synthetic credential·모델 응답을 사용한다. 실제 GHES나 ChatGPT account로 분석을 실행한 것과 구분해서 기록한다.
+
+## 후속 backlog
+
+현재 Review Chat은 canonical report를 설명하는 범위이며 diff 밖의 base/head source를 다시 조회하지 않는다. 복합 질문에서 exact revision의 기존 코드, 변경 코드, symbol 관계와 test를 함께 분석하려면 [고급 Review Chat context backlog](./advanced-review-chat-backlog.md)의 source provider, bounded context planner와 turn별 provenance를 구현한다.
