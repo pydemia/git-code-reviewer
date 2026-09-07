@@ -10,6 +10,7 @@
       "program": "${workspaceFolder}/apps/runtime/src/index.ts",
       "args": ["serve"],
       "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env.gcr.local",
       "env": {
         "NODE_ENV": "development",
         "HOST": "0.0.0.0",
@@ -23,7 +24,8 @@
         "DEV_USER_SUBJECT": "local-reviewer",
         "DEV_USER_NAME": "Local Reviewer",
         "DEV_USER_ROLE": "admin",
-        "GITHUB_MODE": "fixture",
+        "GITHUB_MODE": "registry",
+        "CREDENTIAL_REGISTRY_ENABLED": "true",
         "MODEL_MODE": "disabled",
         "CHAT_MODEL_MODE": "disabled"
       },
@@ -41,6 +43,7 @@
       "program": "${workspaceFolder}/apps/runtime/src/index.ts",
       "args": ["worker"],
       "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env.gcr.local",
       "env": {
         "NODE_ENV": "development",
         "HOST": "0.0.0.0",
@@ -50,7 +53,8 @@
         "WORKSPACE_ROOT": "${workspaceFolder}/tmp/workspaces",
         "AUTH_MODE": "development",
         "AUTHORIZATION_MODE": "local",
-        "GITHUB_MODE": "fixture",
+        "GITHUB_MODE": "registry",
+        "CREDENTIAL_REGISTRY_ENABLED": "true",
         "MODEL_MODE": "disabled",
         "CHAT_MODEL_MODE": "disabled"
       },
