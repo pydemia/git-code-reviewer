@@ -412,8 +412,9 @@ export function GuidePage() {
               범위를 표시합니다.
             </p>
             <p>
-              Findings의 report는 전체 상태, Overall Summary, 파일로 묶인 AI Comments, Analyzed File
-              List 순서입니다. Comment를 클릭하면 해당 head/mergeBase line과 inline 설명으로
+              Summary 탭은 전체 상태, Overall Summary와 Analyzed File List를 표시합니다. Comments
+              탭은 Commit Defender의 unit-comment-block에 해당하는 AI review comment를 파일별로
+              표시합니다. Comment를 클릭하면 Code 탭의 해당 head/mergeBase line과 inline 설명으로
               이동하며 오른쪽 Chat에서 이어서 질문할 수 있습니다. 파일 수준의 설명에는 line을 만들지
               않습니다. Raw JSON과 Markdown에서도 같은 분석 revision을 확인할 수 있습니다.
             </p>
@@ -447,8 +448,8 @@ export function GuidePage() {
               </div>
               <ArrowRight size={17} />
               <div>
-                <strong>2. Findings</strong>
-                <span>LNB에서 finding을 고르고 diff와 evidence를 확인합니다.</span>
+                <strong>2. Summary와 Comments</strong>
+                <span>메인 탭에서 전체 요약과 unit comment를 구분해 확인합니다.</span>
               </div>
               <ArrowRight size={17} />
               <div>
@@ -459,7 +460,7 @@ export function GuidePage() {
               </div>
             </div>
             <p>
-              하단 FNB에서 Evidence, Git graph, Impact, Tests를 전환할 수 있습니다. Finding을
+              하단 FNB에서 Evidence, Git graph, Impact, Tests를 전환할 수 있습니다. Comment를
               선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에 맞춰집니다.
               Chat account가 보이지 않으면 시스템 관리자에게 account assignment와 model policy를
               확인해 달라고 요청하십시오.
@@ -474,11 +475,11 @@ export function GuidePage() {
               방향키로 이동·접기·펼치기, Enter로 파일 선택이 가능합니다.
             </p>
             <p>
-              Findings의 파일 요약이나 Review comment를 선택하면 해당 파일과 line으로 이동하고 코드
-              아래에 전체 설명을 펼칩니다. P0 Praise는 좋은 변경, P1 Info는 선택적 개선, P2
-              Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드 위치 확인’은
-              diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일 전체에 대한
-              comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
+              Summary의 파일 요약이나 Comments의 Review comment를 선택하면 Code 탭의 해당 파일과
+              line으로 이동하고 코드 아래에 전체 설명을 펼칩니다. P0 Praise는 좋은 변경, P1 Info는
+              선택적 개선, P2 Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드
+              위치 확인’은 diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일
+              전체에 대한 comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
             </p>
           </section>
 

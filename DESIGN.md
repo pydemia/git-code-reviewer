@@ -131,11 +131,11 @@ Body stack의 첫 서체인 Noto Sans KR Variable은 `main.tsx`에서 실제로 
 
 ## Layout
 
-Desktop review workspace는 global header (44px), PR context (42px), 나머지 높이를 사용하는 panel grid다. 초기 LNB·Chat 너비와 FNB 높이는 각각 (244px·316px·176px)이며 사용자가 separator로 조정한다. Admin은 navigation (210px)과 본문으로 나누고 본문은 최대 (1180px), worklist는 최대 (1120px)다.
+Desktop review workspace는 global header (44px), PR context (42px), 나머지 높이를 사용하는 panel grid다. 초기 LNB·Chat 너비와 FNB 높이는 각각 (244px·316px·176px)이며 사용자가 separator로 조정한다. LNB는 Files·Outline·Impact 탐색에 집중하고 메인은 Code·Summary·Comments를 탭으로 전환한다. Admin은 navigation (210px)과 본문으로 나누고 본문은 최대 (1180px), worklist는 최대 (1120px)다.
 
 좁은 화면에서는 실제 CSS breakpoint를 따른다. (1100px) 이하에서 context metadata를 줄이고 (820px) 이하에서 workspace를 LNB → diff → FNB → Chat 순서로 쌓는다. 같은 breakpoint에서 Admin navigation은 가로 scroll로 전환한다. Skills workbench는 (760px) 이하에서 목록을 select로 바꾸고 editor를 한 열로 표시한다. (540px) 이하에서도 Skills action은 텍스트 label을 유지하며 저장 버튼은 본문 너비를 사용한다.
 
-간격은 control 내부와 행, panel padding을 구분한다. Report section과 Skills editor는 panel spacing, comment는 row spacing을 사용한다. 파일 경로와 긴 Report 설명은 줄바꿈하고 metadata·action 묶음은 공간에 따라 wrap한다.
+간격은 control 내부와 행, panel padding을 구분한다. Report section과 Skills editor는 panel spacing, comment는 row spacing을 사용한다. Summary는 전체 상태·Overall Summary·Analyzed File List·provenance를 표시하고 Comments는 Commit Defender의 unit-comment-block을 파일별로 표시한다. 파일 경로와 긴 Report 설명은 줄바꿈하고 metadata·action 묶음은 공간에 따라 wrap한다.
 
 ## Elevation & Depth
 
@@ -157,7 +157,7 @@ Command button은 최소 높이 (32px), icon/text 간격 (7px)의 공통 control
 
 ### Navigation
 
-Admin navigation은 icon과 label을 나란히 표시하고 active 항목은 teal tint와 테두리로 구분한다. Skills 목록도 같은 선택색을 쓰며 현재 항목을 `aria-current`로 표시한다. Workspace의 Files·Findings·Outline·Impact와 하단 tool tab은 기존 panel 내부에 유지한다.
+Admin navigation은 icon과 label을 나란히 표시하고 active 항목은 teal tint와 테두리로 구분한다. Skills 목록도 같은 선택색을 쓰며 현재 항목을 `aria-current`로 표시한다. Workspace의 Files·Outline·Impact는 LNB에, Code·Summary·Comments는 메인 toolbar에, Evidence·Git graph·Impact·Tests는 하단 tool tab에 둔다.
 
 ### Cards / Containers
 

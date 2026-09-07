@@ -20,7 +20,6 @@ import {
   PanelBottom,
   RefreshCw,
   Send,
-  ShieldCheck,
   Sparkles,
   TestTube2,
 } from 'lucide-react';
@@ -63,7 +62,8 @@ import {
   type WorkspaceResizeHandle,
 } from './workspace-layout.ts';
 
-type ReviewMode = 'files' | 'findings' | 'outline' | 'impact';
+type ReviewMode = 'files' | 'outline' | 'impact';
+type MainView = 'code' | 'summary' | 'comments';
 type BottomTool = 'evidence' | 'graph' | 'impact' | 'tests';
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 type ResizeOperation = {
@@ -255,6 +255,7 @@ function ReviewWorkspace({
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [codeTarget, setCodeTarget] = useState<CodeTarget | null>(null);
   const [reviewMode, setReviewMode] = useState<ReviewMode>('files');
+  const [mainView, setMainView] = useState<MainView>('code');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [bottomTool, setBottomTool] = useState<BottomTool>('evidence');
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
@@ -382,7 +383,8 @@ function ReviewWorkspace({
         );
         setSelectedFindingId(requestedFinding?.id ?? null);
         setCodeTarget(requestedFinding ? { ...requestedFinding.anchor, request: 0 } : null);
-        setReviewMode(requestedFinding ? 'findings' : 'files');
+        setReviewMode('files');
+        setMainView(requestedFinding ? 'comments' : 'code');
         const requestedObjectId = search.get('symbol');
         const requestedObject = workspace.objects.find((object) => object.id === requestedObjectId);
         setSelectedObjectId(
@@ -513,6 +515,7 @@ function ReviewWorkspace({
       setSelectedPath(initialSelectedPath(workspace));
       setSelectedFindingId(null);
       setCodeTarget(null);
+      setMainView('code');
       setStatus('ready');
     } catch (error) {
       console.error(error);
@@ -533,6 +536,7 @@ function ReviewWorkspace({
   const addedTestFiles = useMemo(() => analyzeAddedTests(data?.diff?.files ?? []), [data?.diff]);
 
   const selectFile = (path: string) => {
+    setMainView('code');
     setSelectedPath(path);
     setSelectedFindingId(null);
     const file = data?.files.find((item) => item.path === path);
@@ -554,7 +558,7 @@ function ReviewWorkspace({
 
   const selectFinding = (finding: FindingView) => {
     setSelectedFindingId(finding.id);
-    setReviewMode('findings');
+    setMainView('code');
     setBottomTool('evidence');
     setCodeTarget((current) => ({ ...finding.anchor, request: (current?.request ?? 0) + 1 }));
     const file = data?.files.find((item) => item.id === finding.anchor.fileId);
@@ -564,6 +568,7 @@ function ReviewWorkspace({
   };
 
   const selectObject = (objectId: string) => {
+    setMainView('code');
     const anchor = data?.objects.find((item) => item.id === objectId)?.definition;
     const file = data?.files.find((item) => item.id === anchor?.fileId);
     if (file && anchor) {
@@ -688,68 +693,123 @@ function ReviewWorkspace({
           status={status}
           mode={reviewMode}
           selectedFileId={selectedFile?.id ?? null}
-          selectedFindingId={selectedFindingId}
           selectedObjectId={selectedObjectId}
           coveragePercent={coveragePercent}
           onModeChange={setReviewMode}
           onFileSelect={selectFile}
-          onFindingSelect={selectFinding}
           onObjectSelect={selectObject}
         />
 
-        <section className="diff-panel" aria-label="코드 차이">
+        <section className="diff-panel" aria-label="Review content">
           <div className="diff-toolbar">
-            <div className="file-path">
-              <FileCode2 size={15} /> {selectedFile?.path ?? 'Snapshot diff'}
-            </div>
-            <span className="sha-label">
-              merge-base {data?.analysis?.mergeBaseSha?.slice(0, 7) ?? '-------'}
-            </span>
-            <span className="sha-arrow">→</span>
-            <span className="sha-label head">
-              head {data?.analysis?.headSha.slice(0, 7) ?? '-------'}
-            </span>
-            <div className="toolbar-spacer" />
-            <div className="segmented" aria-label="Diff 형식">
+            <div className="main-view-tabs" role="tablist" aria-label="Review content">
               <button
-                className={diffMode === 'split' ? 'active' : ''}
+                className={mainView === 'code' ? 'active' : ''}
                 type="button"
-                onClick={() => setDiffMode('split')}
+                role="tab"
+                aria-selected={mainView === 'code'}
+                onClick={() => setMainView('code')}
               >
-                Split
+                Code
               </button>
               <button
-                className={diffMode === 'unified' ? 'active' : ''}
+                className={mainView === 'summary' ? 'active' : ''}
                 type="button"
-                onClick={() => setDiffMode('unified')}
+                role="tab"
+                aria-selected={mainView === 'summary'}
+                disabled={!data?.report}
+                onClick={() => setMainView('summary')}
               >
-                Unified
+                Summary
+              </button>
+              <button
+                className={mainView === 'comments' ? 'active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={mainView === 'comments'}
+                disabled={!data?.report}
+                onClick={() => setMainView('comments')}
+              >
+                Comments <span>{data?.report?.findings.length ?? 0}</span>
               </button>
             </div>
-            <button className="icon-button small" type="button" title="최대화" aria-label="최대화">
-              <Maximize2 size={14} />
-            </button>
-          </div>
-          <div className="review-diff-host">
-            {data?.diff && selectedFile ? (
-              <ReviewDiff
-                patch={selectedDiff ?? ''}
-                fileId={selectedFile!.id}
-                mode={diffMode}
-                target={codeTarget}
-                finding={selectedFinding}
-              />
-            ) : (
-              <div className="diff-empty">
-                <GitPullRequest size={20} />
-                <span>
-                  {status === 'error'
-                    ? 'Snapshot을 불러오지 못했습니다.'
-                    : '아직 materialized snapshot이 없습니다.'}
+            {mainView === 'code' ? (
+              <>
+                <div className="file-path">
+                  <FileCode2 size={15} /> {selectedFile?.path ?? 'Snapshot diff'}
+                </div>
+                <span className="sha-label">
+                  merge-base {data?.analysis?.mergeBaseSha?.slice(0, 7) ?? '-------'}
                 </span>
-              </div>
-            )}
+                <span className="sha-arrow">→</span>
+                <span className="sha-label head">
+                  head {data?.analysis?.headSha.slice(0, 7) ?? '-------'}
+                </span>
+                <div className="toolbar-spacer" />
+                <div className="segmented" aria-label="Diff 형식">
+                  <button
+                    className={diffMode === 'split' ? 'active' : ''}
+                    type="button"
+                    onClick={() => setDiffMode('split')}
+                  >
+                    Split
+                  </button>
+                  <button
+                    className={diffMode === 'unified' ? 'active' : ''}
+                    type="button"
+                    onClick={() => setDiffMode('unified')}
+                  >
+                    Unified
+                  </button>
+                </div>
+                <button
+                  className="icon-button small"
+                  type="button"
+                  title="최대화"
+                  aria-label="최대화"
+                >
+                  <Maximize2 size={14} />
+                </button>
+              </>
+            ) : null}
           </div>
+          {mainView === 'code' ? (
+            <div className="review-diff-host">
+              {data?.diff && selectedFile ? (
+                <ReviewDiff
+                  patch={selectedDiff ?? ''}
+                  fileId={selectedFile!.id}
+                  mode={diffMode}
+                  target={codeTarget}
+                  finding={selectedFinding}
+                />
+              ) : (
+                <div className="diff-empty">
+                  <GitPullRequest size={20} />
+                  <span>
+                    {status === 'error'
+                      ? 'Snapshot을 불러오지 못했습니다.'
+                      : '아직 materialized snapshot이 없습니다.'}
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="main-report-host">
+              {data?.report ? (
+                <ReviewReportPanel
+                  report={data.report}
+                  files={data.files}
+                  section={mainView}
+                  selectedFindingId={selectedFindingId}
+                  onFindingSelect={selectFinding}
+                  onFileSelect={selectFile}
+                />
+              ) : (
+                <div className="panel-empty">아직 publish된 report가 없습니다.</div>
+              )}
+            </div>
+          )}
         </section>
 
         <ChatPanel
@@ -950,28 +1010,23 @@ function ReviewSidebar({
   status,
   mode,
   selectedFileId,
-  selectedFindingId,
   selectedObjectId,
   coveragePercent,
   onModeChange,
   onFileSelect,
-  onFindingSelect,
   onObjectSelect,
 }: {
   data: WorkspaceData | null;
   status: 'loading' | 'ready' | 'error';
   mode: ReviewMode;
   selectedFileId: string | null;
-  selectedFindingId: string | null;
   selectedObjectId: string | null;
   coveragePercent: number;
   onModeChange: (mode: ReviewMode) => void;
   onFileSelect: (path: string) => void;
-  onFindingSelect: (finding: FindingView) => void;
   onObjectSelect: (objectId: string) => void;
 }) {
   const report = data?.report;
-  const issueFindings = report?.findings.filter((finding) => finding.priority !== 'P0') ?? [];
   const selectedObjects =
     data?.objects.filter((object) => object.definition?.fileId === selectedFileId) ?? [];
 
@@ -984,13 +1039,6 @@ function ReviewSidebar({
           onClick={() => onModeChange('files')}
         >
           <Files size={15} /> Files
-        </button>
-        <button
-          className={`side-tab ${mode === 'findings' ? 'active' : ''}`}
-          type="button"
-          onClick={() => onModeChange('findings')}
-        >
-          <ShieldCheck size={15} /> Findings <span>{issueFindings.length}</span>
         </button>
         <button
           className={`side-tab ${mode === 'outline' ? 'active' : ''}`}
@@ -1030,22 +1078,6 @@ function ReviewSidebar({
             ) : null}
           </div>
         </>
-      ) : null}
-
-      {mode === 'findings' ? (
-        <div className="review-list">
-          {report && data ? (
-            <ReviewReportPanel
-              report={report}
-              files={data.files}
-              selectedFindingId={selectedFindingId}
-              onFindingSelect={onFindingSelect}
-              onFileSelect={onFileSelect}
-            />
-          ) : (
-            <div className="panel-empty">아직 publish된 report가 없습니다.</div>
-          )}
-        </div>
       ) : null}
 
       {mode === 'outline' ? (
@@ -1272,11 +1304,17 @@ function ChatPanel({
               : 'Chat 모델을 연결한 후 질문할 수 있습니다.'
           }
           aria-label="질문"
+          aria-keyshortcuts="Enter"
           disabled={!model?.available}
           onChange={(event) => onDraftChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+          }}
         />
         <div className="composer-actions">
-          <span>{draft.length}/4000</span>
+          <span>Enter 전송 · Shift+Enter 줄바꿈 · {draft.length}/4000</span>
           <button
             className="send-button"
             type="submit"
@@ -1487,7 +1525,7 @@ function EvidenceContent({
   if (!finding) {
     return (
       <div className="panel-empty evidence-empty">
-        Findings에서 항목을 선택하면 관련 코드와 설명이 표시됩니다.
+        Comments에서 항목을 선택하면 관련 코드와 설명이 표시됩니다.
       </div>
     );
   }
