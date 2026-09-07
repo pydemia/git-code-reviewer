@@ -435,6 +435,20 @@ worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제�
 
 `retention` CronJob은 DB lease로 singleton 실행하고 persistent artifact staging/orphan, 만료 report/chat/source와 event log를 bounded batch로 정리한다. 참조 row를 먼저 unavailable로 표시하거나 삭제 대상으로 claim한 뒤 object를 지우며 active analysis와 Chat은 건드리지 않는다.
 
+### 5.12 Review repository 등록 삭제
+
+`DELETE /api/v1/admin/repositories/:repoId`는 시스템관리자와 repository `manage` 인가를 요구한다. Body의 `confirmName`은 표시된 `Owner/Repository`와 정확히 일치해야 한다. 비활성 등록도 삭제할 수 있지만 이미 삭제된 등록은 404를 반환한다.
+
+Migration `0012_repository_deletion.sql`의 `deleted_at`으로 등록 삭제와 일시 비활성화를 구분한다. 하나의 transaction에서 repository row와 관련 active job row를 잠근다. 실행 중 job이 있으면 아무 설정도 변경하지 않고 `409 REPOSITORY_BUSY`를 반환한다. 그렇지 않으면 등록을 삭제 상태로 바꾸고 polling·PR 게시를 끄며 queued job, operation과 analysis를 종료하고 repository grant를 제거한다. `repository.delete` audit도 같은 transaction에 저장한다.
+
+목록, repository 공통 인가와 polling은 삭제된 row를 제외한다. Poll 결과 저장, manual refresh, grant 변경과 최신 결과 게시 enqueue는 repository shared row lock 아래 삭제 여부를 다시 검사해 삭제와 경합할 때 새 작업·grant를 만들지 않는다. 삭제된 fixture는 Server bootstrap에서 자동으로 복원하지 않는다.
+
+GitHub 원본 repository, connection/token과 기존 PR 댓글은 건드리지 않는다. 분석·Chat·artifact는 즉시 영구 삭제하지 않고 기존 retention 정책을 적용한다. 같은 GitHub numeric repository ID를 다시 등록하면 `deleted_at`을 비우고 기존 ID와 남은 기록을 재사용한다. 삭제 시 회수한 grant는 재등록 form에서 다시 지정해야 한다. 이전에 종료된 대기 작업은 자동 재개하지 않는다.
+
+UI는 repository 카드에 `등록 삭제`를 제공한다. Native modal dialog에서 삭제 범위·보관 정책·실행 중 작업 제한을 설명하고 정확한 이름 입력 후 제출을 허용한다. 초기 focus는 취소, 실패는 dialog 내부 alert, 성공 후에는 목록 갱신과 focus 복귀를 처리한다.
+
+등록과 재등록 시 선택한 사용자 grant는 `role='reviewer'`를 명시해 저장한다. DB의 NOT NULL 제약은 유지하고 기존 grant와 충돌하면 중복 생성하거나 기존 role을 변경하지 않는다. `관리자만` 선택은 사용자 grant를 만들지 않는다.
+
 ## 6. Data model
 
 | Table | 핵심 필드 | 주요 제약 |
@@ -442,7 +456,7 @@ worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제�
 | `users` | oidc_subject, display_name, role | subject unique |
 | `github_instances` | api_base_url, web_base_url, ca_profile, enabled | host unique |
 | `github_credentials` | instance_id, label, encrypted_token, version, expiry, health | credential write-only |
-| `repositories` | tenant_id, instance_id, credential_id, github_id, owner, name, enabled, review_publishing_enabled | instance/github_id unique, 기존 repository는 migration 시 게시 disabled |
+| `repositories` | tenant_id, instance_id, credential_id, github_id, owner, name, enabled, review_publishing_enabled, deleted_at | instance/github_id unique, 삭제 시 enabled/polling/publishing 모두 false |
 | `repository_grants` | repository_id, subject_or_group, role | scope unique |
 | `pull_requests` | repository_id, number, state, base_sha, head_sha | repository/number unique |
 | `poll_policies` | repository_id, enabled, hot/active/idle/draft interval, manual_refresh | repository unique |

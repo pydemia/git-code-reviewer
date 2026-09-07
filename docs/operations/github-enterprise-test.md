@@ -87,7 +87,19 @@ kubectl -n git-code-reviewer logs -f job/retention-manual
 
 Cerbos mode에서는 PDP 일시 중단도 주입한다. 보호 API는 cache된 허용으로 우회하지 않고 `503 AUTHORIZATION_UNAVAILABLE`로 실패해야 하며 `/health/dependencies`가 `degraded`를 보고해야 한다.
 
-## 6. Browser matrix
+## 6. Review 등록 삭제 검증
+
+삭제 검증은 전용 test repository에서만 실행한다. GitHub 원본 삭제가 아닌 이 서비스의 등록 해제이며 connection/token과 이미 게시한 PR 댓글을 보존한다.
+
+- `등록 삭제` 확인창에서 취소하거나 다른 Owner/Repository를 입력하면 DELETE를 보내지 않는다.
+- 실행 중인 분석·게시 job이 있으면 HTTP 409 `REPOSITORY_BUSY`를 반환하고 등록 상태를 유지한다. Polling을 중지한 뒤 실행 중 작업이 끝나면 재시도한다.
+- 삭제 성공 후 관리자·일반사용자 목록과 기존 deep link에서 제외되고 grant는 0건, queued job은 `REPOSITORY_DELETED`로 종료되어야 한다.
+- 기존 report/Chat은 retention 만료 전까지 보존한다. 같은 repository 재등록은 기존 ID와 잔존 기록을 사용하되 사용자 grant와 취소된 대기 작업을 자동 복원하지 않는다.
+- fixture를 삭제한 경우 Server 재시작 후에도 복원하지 않는다.
+
+`GCR_TEST_DATABASE_URL`을 전용 local PostgreSQL로 지정하면 `apps/runtime/src/routes/repository-lifecycle.integration.test.ts`가 매 실행마다 별도 schema에서 migration `0001`~`0012`, 사용자 선택 등록·삭제·재등록, running job 보호와 in-flight polling을 검증하고 schema를 정리한다. 사용자 선택 등록은 HTTP 201, `repository_grants.role='reviewer'`, 재요청 시 grant 중복 방지를 확인한다. 지정하지 않으면 PostgreSQL integration test만 skip하고 mock 기반 route test는 실행한다. 운영 DB 주소를 지정하지 않는다.
+
+## 7. Browser matrix
 
 - Desktop 1440x900: LNB, split diff, persistent Chat, compact FNB 동시 표시
 - Compact desktop 1024px: Main과 Chat 최소 폭, incoherent overlap 없음

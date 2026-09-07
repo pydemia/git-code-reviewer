@@ -111,7 +111,7 @@ export async function registerAdminRoutes(
               tenant.created_at as "createdAt", tenant.updated_at as "updatedAt"
        from tenants tenant
        left join tenant_memberships membership on membership.tenant_id = tenant.id and membership.enabled
-       left join repositories repository on repository.tenant_id = tenant.id
+       left join repositories repository on repository.tenant_id = tenant.id and repository.deleted_at is null
        group by tenant.id order by tenant.display_name, tenant.id`,
     );
     return { schemaVersion, items: result.rows };

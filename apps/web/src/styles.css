@@ -2458,9 +2458,18 @@ body.workspace-resizing:has(.resize-bottom) {
 
 .registry-card > .registry-card-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 7px;
+}
+
+.review-repository-card > .registry-card-actions {
+  grid-column: 1 / -1;
+}
+
+.review-repository-card strong {
+  overflow-wrap: anywhere;
 }
 
 .registry-card span,
@@ -3184,6 +3193,33 @@ body.workspace-resizing:has(.resize-bottom) {
   overflow-y: auto;
 }
 
+.repository-delete-dialog {
+  width: min(540px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.repository-delete-dialog::backdrop {
+  background: rgb(21 27 33 / 48%);
+}
+
+.repository-delete-description {
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.command-button.danger {
+  color: #9f283b;
+  border-color: #be6875;
+  background: #fff;
+}
+
+.command-button.danger:hover:not(:disabled) {
+  background: #fff1f3;
+}
+
 .github-connection-dialog-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3648,7 +3684,8 @@ body.workspace-resizing:has(.resize-bottom) {
   }
 
   .registry-card-actions .command-button,
-  .github-connection-dialog .dialog-actions .command-button {
+  .github-connection-dialog .dialog-actions .command-button,
+  .repository-delete-dialog .dialog-actions .command-button {
     width: auto;
     min-height: 40px;
     padding: 0 10px;

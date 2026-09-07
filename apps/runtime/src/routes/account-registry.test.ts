@@ -73,6 +73,22 @@ describe('repository URL registration', () => {
     await app.close();
   });
 
+  it('stores the selected user with an explicit reviewer role', async () => {
+    const { app, query } = await repositoryTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/github-connections/${credentialId}/repositories`,
+      payload: { ...payload, grantSubjects: ['local:reviewer'] },
+    });
+    expect(response.statusCode).toBe(201);
+    const grant = query.mock.calls.find(([sql]) => sql.includes('insert into repository_grants'));
+    expect(grant?.[0]).toMatch(/repository_grants\(repository_id, subject_or_group, role\)/);
+    expect(grant?.[0]).toContain("values ($1, $2, 'reviewer')");
+    expect(grant?.[1]).toEqual([instanceId, 'local:reviewer']);
+    expect(query.mock.calls.some(([sql]) => sql === 'commit')).toBe(true);
+    await app.close();
+  });
+
   it('rejects a different host before sending the credential anywhere', async () => {
     const { app, fetcher } = await repositoryTestApp();
     const response = await app.inject({
@@ -133,6 +149,8 @@ async function repositoryTestApp(options: { upstream?: number; unavailable?: boo
   const query = vi.fn<
     (sql: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>
   >(async (sql) => {
+    if (sql.includes('insert into repositories'))
+      return { rows: [{ id: instanceId }], rowCount: 1 };
     if (sql.includes('from github_credentials credential'))
       return {
         rows: options.unavailable
@@ -146,8 +164,6 @@ async function repositoryTestApp(options: { upstream?: number; unavailable?: boo
             ],
         rowCount: options.unavailable ? 0 : 1,
       };
-    if (sql.includes('insert into repositories'))
-      return { rows: [{ id: instanceId }], rowCount: 1 };
     return { rows: [], rowCount: 1 };
   });
   const database = {

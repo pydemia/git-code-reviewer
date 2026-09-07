@@ -43,9 +43,11 @@ export async function ensureFixtureRepository(database: Database): Promise<void>
      from tenants tenant where tenant.slug = 'default'
      on conflict (instance_id, github_id) do update set
        tenant_id = excluded.tenant_id, enabled = true, updated_at = clock_timestamp()
+     where repositories.deleted_at is null
      returning id`,
     [instance.rows[0]!.id],
   );
+  if (!repository.rows[0]) return;
   await database.query(
     `insert into poll_states(repository_id, next_poll_at)
      values ($1, clock_timestamp()) on conflict (repository_id) do nothing`,
@@ -146,7 +148,7 @@ export async function startPollScheduler(
          from poll_states p
          join repositories r on r.id = p.repository_id
          join tenants tenant on tenant.id = r.tenant_id
-         where r.enabled and r.polling_enabled and tenant.enabled and p.next_poll_at <= clock_timestamp()
+         where r.enabled and r.deleted_at is null and r.polling_enabled and tenant.enabled and p.next_poll_at <= clock_timestamp()
            and (p.backoff_until is null or p.backoff_until <= clock_timestamp())
          order by p.next_poll_at limit 20`,
       );
@@ -195,7 +197,7 @@ export async function getRepository(
      from repositories r
      join tenants tenant on tenant.id = r.tenant_id
      join github_instances i on i.id = r.instance_id
-     where r.id = $1 and r.enabled and tenant.enabled and i.enabled`,
+     where r.id = $1 and r.enabled and r.deleted_at is null and tenant.enabled and i.enabled`,
     [repositoryId],
   );
   const row = result.rows[0];
@@ -222,6 +224,14 @@ async function persistPulls(
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    const active = await connection.query(
+      `select id from repositories where id = $1 and enabled and deleted_at is null for share`,
+      [repositoryId],
+    );
+    if (!active.rowCount) {
+      await connection.query('commit');
+      return;
+    }
     for (const pull of pulls) {
       const current = await connection.query<{ base_sha: string; head_sha: string }>(
         `select base_sha, head_sha from pull_requests where repository_id = $1 and number = $2`,

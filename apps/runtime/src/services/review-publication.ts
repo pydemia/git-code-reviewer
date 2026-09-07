@@ -83,8 +83,19 @@ export async function enqueueLatestReviewPublication(
   repositoryId: string,
   githubAppEnabled: boolean,
 ): Promise<boolean> {
-  const latest = await database.query<{ analysisId: string; pullRequestId: string }>(
-    `select latest_analysis.id as "analysisId", pull_request.id as "pullRequestId"
+  const connection = await database.connect();
+  try {
+    await connection.query('begin');
+    const active = await connection.query(
+      `select id from repositories where id = $1 and enabled and deleted_at is null for share`,
+      [repositoryId],
+    );
+    if (!active.rowCount) {
+      await connection.query('commit');
+      return false;
+    }
+    const latest = await connection.query<{ analysisId: string; pullRequestId: string }>(
+      `select latest_analysis.id as "analysisId", pull_request.id as "pullRequestId"
      from pull_requests pull_request
      join lateral (
        select analysis.id
@@ -97,14 +108,21 @@ export async function enqueueLatestReviewPublication(
        order by analysis.created_at desc limit 1
      ) latest_analysis on true
      where pull_request.repository_id = $1 and pull_request.state = 'open'`,
-    [repositoryId],
-  );
-  const results = await Promise.all(
-    latest.rows.map((row) =>
-      enqueueReviewPublication(database, row.analysisId, row.pullRequestId, githubAppEnabled),
-    ),
-  );
-  return results.some(Boolean);
+      [repositoryId],
+    );
+    const results = await Promise.all(
+      latest.rows.map((row) =>
+        enqueueReviewPublication(connection, row.analysisId, row.pullRequestId, githubAppEnabled),
+      ),
+    );
+    await connection.query('commit');
+    return results.some(Boolean);
+  } catch (error) {
+    await connection.query('rollback');
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function publishReviewToGitHub(

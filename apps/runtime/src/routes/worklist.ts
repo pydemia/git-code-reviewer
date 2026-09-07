@@ -1,4 +1,4 @@
-import { schemaVersion } from '@gcr/contracts';
+import { errorEnvelope, schemaVersion } from '@gcr/contracts';
 import type { Database } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -29,6 +29,7 @@ const repositoryPatch = z.object({
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).optional(),
 });
 const repositoryGrantBody = z.object({ enabled: z.boolean() });
+const repositoryDeleteBody = z.object({ confirmName: z.string().trim().min(1).max(300) });
 
 export async function registerWorklistRoutes(
   app: FastifyInstance,
@@ -164,7 +165,7 @@ export async function registerWorklistRoutes(
            on conflict (instance_id, github_id) do update set
              tenant_id = excluded.tenant_id, installation_id = excluded.installation_id,
              owner = excluded.owner, name = excluded.name,
-             poll_interval_seconds = excluded.poll_interval_seconds, enabled = true,
+             poll_interval_seconds = excluded.poll_interval_seconds, enabled = true, deleted_at = null,
              updated_at = clock_timestamp()
            returning id`,
           [
@@ -210,30 +211,51 @@ export async function registerWorklistRoutes(
         return hiddenNotFound(request, reply);
       }
       const body = repositoryGrantBody.parse(request.body);
-      const target = await database.query<{ subject: string }>(
-        `select app_user.oidc_subject as subject
+      const connection = await database.connect();
+      try {
+        await connection.query('begin');
+        const active = await connection.query(
+          `select id from repositories where id = $1 and enabled and deleted_at is null for share`,
+          [repoId],
+        );
+        if (!active.rowCount) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        const target = await connection.query<{ subject: string }>(
+          `select app_user.oidc_subject as subject
          from users app_user join tenant_memberships membership on membership.user_id = app_user.id
          join repositories repository on repository.tenant_id = membership.tenant_id
          where app_user.id = $1 and app_user.enabled and membership.enabled
            and repository.id = $2 and repository.enabled`,
-        [userId, repoId],
-      );
-      if (!target.rows[0]) return hiddenNotFound(request, reply);
-      if (body.enabled) {
-        await database.query(
-          `insert into repository_grants(repository_id, subject_or_group, role)
+          [userId, repoId],
+        );
+        if (!target.rows[0]) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        if (body.enabled) {
+          await connection.query(
+            `insert into repository_grants(repository_id, subject_or_group, role)
            values ($1, $2, 'reviewer')
            on conflict (repository_id, subject_or_group) do update set role = 'reviewer'`,
-          [repoId, target.rows[0].subject],
-        );
-      } else {
-        await database.query(
-          `delete from repository_grants where repository_id = $1 and subject_or_group = $2`,
-          [repoId, target.rows[0].subject],
-        );
+            [repoId, target.rows[0].subject],
+          );
+        } else {
+          await connection.query(
+            `delete from repository_grants where repository_id = $1 and subject_or_group = $2`,
+            [repoId, target.rows[0].subject],
+          );
+        }
+        await writeAudit(connection, request, 'repository.grant.update', repoId, 'success');
+        await connection.query('commit');
+        return { schemaVersion, repositoryId: repoId, userId, enabled: body.enabled };
+      } catch (error) {
+        await connection.query('rollback');
+        throw error;
+      } finally {
+        connection.release();
       }
-      await writeAudit(database, request, 'repository.grant.update', repoId, 'success');
-      return { schemaVersion, repositoryId: repoId, userId, enabled: body.enabled };
     },
   );
 
@@ -253,7 +275,7 @@ export async function registerWorklistRoutes(
            polling_enabled = coalesce($4, polling_enabled),
            review_publishing_enabled = coalesce($5, review_publishing_enabled),
            updated_at = clock_timestamp()
-         where id = $1 returning id`,
+         where id = $1 and deleted_at is null returning id`,
         [
           repoId,
           patch.enabled ?? null,
@@ -291,7 +313,7 @@ export async function registerWorklistRoutes(
       const result = await database.query(
         `insert into poll_states(repository_id, next_poll_at, backoff_until, updated_at)
          select id, clock_timestamp(), null, clock_timestamp()
-         from repositories where id = $1 and enabled and polling_enabled
+         from repositories where id = $1 and enabled and polling_enabled and deleted_at is null
          on conflict (repository_id) do update set next_poll_at = clock_timestamp(),
            backoff_until = null, updated_at = clock_timestamp()
          returning repository_id`,
@@ -300,6 +322,121 @@ export async function registerWorklistRoutes(
       if (!result.rowCount) return hiddenNotFound(request, reply);
       await writeAudit(database, request, 'repository.poll-now', repoId, 'success');
       return reply.code(202).send({ schemaVersion, id: repoId, state: 'queued' });
+    },
+  );
+
+  app.delete(
+    '/api/v1/admin/repositories/:repoId',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      const { repoId } = repositoryParams.parse(request.params);
+      const { confirmName } = repositoryDeleteBody.parse(request.body);
+      const connection = await database.connect();
+      const busy = () =>
+        reply
+          .code(409)
+          .send(
+            errorEnvelope(
+              'REPOSITORY_BUSY',
+              '분석 또는 PR 게시 작업이 실행 중입니다. Polling을 중지하고 작업이 완료된 뒤 다시 삭제하십시오.',
+              request.id,
+              true,
+            ),
+          );
+      try {
+        await connection.query('begin');
+        await connection.query("set local lock_timeout = '5s'");
+        const result = await connection.query<{ tenantId: string; owner: string; name: string }>(
+          `select tenant_id as "tenantId", owner, name from repositories
+           where id = $1 and deleted_at is null for update`,
+          [repoId],
+        );
+        const repository = result.rows[0];
+        if (
+          !repository ||
+          !(await authorization.isAllowed(
+            request.user!,
+            'manage',
+            {
+              kind: 'repository',
+              id: repoId,
+              tenantId: repository.tenantId,
+            },
+            request.id,
+          ))
+        ) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        if (confirmName !== `${repository.owner}/${repository.name}`) {
+          await connection.query('rollback');
+          return reply
+            .code(400)
+            .send(
+              errorEnvelope(
+                'REPOSITORY_NAME_MISMATCH',
+                '삭제할 repository의 Owner/Repository를 정확히 입력하십시오.',
+                request.id,
+              ),
+            );
+        }
+        // Worker의 claim과 같은 job row를 잠가 검사와 취소 사이의 실행을 막는다.
+        const jobs = await connection.query<{ id: string; state: string }>(
+          `select job.id, job.state from jobs job
+           join pull_requests pr on pr.id::text = job.payload->>'pullRequestId'
+           where pr.repository_id = $1 and job.state in ('queued', 'running')
+           order by job.id for update of job`,
+          [repoId],
+        );
+        if (jobs.rows.some((job) => job.state === 'running')) {
+          await connection.query('rollback');
+          return busy();
+        }
+        await connection.query(
+          `update repositories set deleted_at = clock_timestamp(), enabled = false,
+             polling_enabled = false, review_publishing_enabled = false, updated_at = clock_timestamp()
+           where id = $1`,
+          [repoId],
+        );
+        await connection.query(
+          `update jobs set state = 'failed',
+             last_error = '{"code":"REPOSITORY_DELETED","retryable":false}'::jsonb,
+             updated_at = clock_timestamp() where id = any($1::uuid[])`,
+          [jobs.rows.map((job) => job.id)],
+        );
+        await connection.query(
+          `update operations operation set state = 'failed',
+             error = '{"code":"REPOSITORY_DELETED","retryable":false}'::jsonb,
+             finished_at = clock_timestamp(), updated_at = clock_timestamp()
+           from pull_requests pr where operation.scope_type = 'pull_request'
+             and operation.scope_id = pr.id and pr.repository_id = $1
+             and operation.state in ('queued', 'polling', 'materializing', 'analyzing')`,
+          [repoId],
+        );
+        await connection.query(
+          `update analysis_runs analysis set state = 'cancelled', finished_at = clock_timestamp()
+           from snapshots snapshot, snapshot_requests sr, pull_requests pr
+           where analysis.snapshot_id = snapshot.id and snapshot.request_id = sr.id
+             and sr.pull_request_id = pr.id and pr.repository_id = $1 and analysis.state = 'queued'`,
+          [repoId],
+        );
+        await connection.query(
+          `update github_review_publications publication set state = 'disabled', updated_at = clock_timestamp()
+           from pull_requests pr where publication.pull_request_id = pr.id and pr.repository_id = $1`,
+          [repoId],
+        );
+        await connection.query('delete from repository_grants where repository_id = $1', [repoId]);
+        await writeAudit(connection, request, 'repository.delete', repoId, 'success');
+        await connection.query('commit');
+        return { schemaVersion, id: repoId, deleted: true };
+      } catch (error) {
+        await connection.query('rollback');
+        if (error && typeof error === 'object' && 'code' in error && error.code === '55P03')
+          return busy();
+        throw error;
+      } finally {
+        connection.release();
+      }
     },
   );
 }
@@ -327,7 +464,7 @@ async function listAuthorizedRepositories(
      from repositories r join github_instances i on i.id = r.instance_id
      join tenants tenant on tenant.id = r.tenant_id
      left join poll_states p on p.repository_id = r.id
-     where r.enabled and i.enabled and tenant.enabled and r.tenant_id = any($1::uuid[])
+     where r.enabled and r.deleted_at is null and i.enabled and tenant.enabled and r.tenant_id = any($1::uuid[])
        and ($3::uuid is null or r.tenant_id = $3) and exists (
        select 1 from repository_grants g
        where g.repository_id = r.id and g.subject_or_group = any($2::text[])
@@ -365,7 +502,7 @@ async function listRepositories(database: Database, tenantId?: string) {
        where pull_request.repository_id = r.id
        order by published.updated_at desc limit 1
      ) publication on true
-     where ($1::uuid is null or r.tenant_id = $1)
+     where r.deleted_at is null and ($1::uuid is null or r.tenant_id = $1)
      order by tenant.display_name, r.owner, r.name`,
     [tenantId ?? null],
   );
@@ -389,7 +526,7 @@ export async function canReadRepository(
             exists (select 1 from repository_grants grant_row
               where grant_row.repository_id = r.id and grant_row.subject_or_group = any($2::text[])) as granted
      from repositories r join tenants tenant on tenant.id = r.tenant_id
-     join github_instances instance on instance.id = r.instance_id where r.id = $1`,
+     join github_instances instance on instance.id = r.instance_id where r.id = $1 and r.deleted_at is null`,
     [repositoryId, principals],
   );
   const row = result.rows[0];

@@ -340,6 +340,18 @@ export function GuidePage() {
               PR 게시 기능 도입 전에 등록된 repository는 게시가 꺼진 상태로 유지됩니다. Token 교체와
               연결 테스트 후 repository 카드에서 <strong>PR 게시 시작</strong>을 눌러 활성화합니다.
             </p>
+            <h3>Review repository 등록 삭제</h3>
+            <p>
+              관리자 화면의 repository 카드에서 <strong>등록 삭제</strong>를 누르고 확인창에 표시된{' '}
+              <code>Owner/Repository</code>를 입력합니다. 등록 목록과 사용자 접근 권한을 제거하고
+              polling·대기 작업을 중지합니다. 실행 중인 분석이나 PR 게시가 있으면 삭제를 거부하므로
+              Polling을 중지하고 작업이 끝난 뒤 다시 시도하십시오.
+            </p>
+            <p>
+              GitHub 원본 repository, GHES connection·token, 기존 PR 댓글은 삭제하지 않습니다. 기존
+              분석·Chat 기록은 retention 정책에 따라 보관하며 같은 repository를 다시 등록하면 남아
+              있는 기록을 사용할 수 있습니다. 사용자 접근 권한은 다시 지정해야 합니다.
+            </p>
           </section>
 
           <section className="guide-section" id="review-flow">

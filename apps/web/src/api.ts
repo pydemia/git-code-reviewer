@@ -286,6 +286,13 @@ export async function updateRepositoryGrant(
   });
 }
 
+export async function deleteAdminRepository(
+  repositoryId: string,
+  confirmName: string,
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/repositories/${repositoryId}`, 'DELETE', { confirmName });
+}
+
 export async function pollAdminRepository(repositoryId: string): Promise<void> {
   await mutateJson(`/api/v1/admin/repositories/${repositoryId}/poll`, 'POST');
 }
@@ -484,7 +491,7 @@ async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
 
 async function mutateJson(
   url: string,
-  method: 'POST' | 'PUT' | 'PATCH',
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body?: Record<string, unknown>,
 ): Promise<unknown> {
   const response = await fetch(url, {

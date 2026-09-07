@@ -108,6 +108,7 @@
 | REQ-GH-020 | 필수 | 최초 게시에는 관리 marker를 포함하고 comment ID를 저장한다. 재분석과 retry는 기존 댓글을 갱신하며, API 성공 후 DB 반영 전에 중단되어도 marker 검색으로 댓글을 복구해 중복 생성을 막는다. |
 | REQ-GH-021 | 필수 | 시스템 관리자는 repository별 PR 게시를 활성화·중지하고 최근 게시 상태, 실패 code와 GHES 댓글 link를 확인할 수 있다. |
 | REQ-GH-022 | 필수 | Review repository는 전체 HTTP(S) URL 입력으로 등록한다. Browser는 Owner/Repository 추출 결과를 표시하고 Server는 선택한 연결의 Web origin을 검증한 뒤 등록된 API base URL로 numeric ID와 canonical owner/name을 조회한다. `.git`과 trailing slash를 정리하며 잘못된 경로·host·credential 포함 URL은 거부한다. 연결 미검증, API 401/403/404와 network 오류는 한국어 조치 안내로 구분한다. |
+| REQ-GH-023 | 필수 | 시스템 관리자는 정확한 Owner/Repository 확인 후 review 등록을 삭제할 수 있다. 삭제는 목록과 접근 권한·polling·대기 작업을 제거하며 GitHub 원본, connection/token, 기존 PR 댓글은 변경하지 않는다. 실행 중인 분석·게시 작업이 있으면 409로 거부한다. 분석·Chat 기록은 retention 정책까지 보관하고 재등록 시 잔존 기록을 재사용하되 과거 grant는 복원하지 않는다. |
 
 ## 6. Snapshot과 Git workspace
 
@@ -334,6 +335,7 @@ Finding category enum은 Commit Defender category를 포함한 `correctness | se
 | AC-28 | Polling 관리 | repository별 interval/disabled 설정과 Poll now가 적용되고 401/403/429 상태가 독립적으로 표시된다. |
 | AC-29 | 이중 권한 경계 | GHES token 권한과 application repository grant 중 하나라도 없으면 해당 경계에서 접근이 차단된다. |
 | AC-30 | PR review 결과 게시 | Completed/partial 분석은 관리 댓글 하나를 생성하고 후속 분석은 같은 댓글을 갱신한다. Worker crash 재시도에서도 중복 댓글이 생기지 않으며 게시 실패가 report 상태를 바꾸지 않는다. |
+| AC-31 | Review 등록 삭제 | 확인값 불일치와 권한 없는 요청은 변경 없이 거부한다. 삭제 후 목록·deep link·polling에서 제외하고 대기 job을 종료한다. 실행 중 job은 보호하고 재등록은 기존 ID·잔존 기록을 유지하며 과거 grant와 fixture 자동 복원은 차단한다. |
 
 ## 15. 구현 전 확정 항목
 

@@ -602,7 +602,7 @@ export async function registerGitHubRepository(
          credential_id = excluded.credential_id, owner = excluded.owner, name = excluded.name,
          poll_interval_seconds = excluded.poll_interval_seconds, polling_enabled = true,
          review_publishing_enabled = excluded.review_publishing_enabled,
-         enabled = true, updated_at = clock_timestamp()
+         enabled = true, deleted_at = null, updated_at = clock_timestamp()
        returning id`,
       [
         input.tenantId,
@@ -623,8 +623,8 @@ export async function registerGitHubRepository(
     const repositoryId = repository.rows[0].id;
     for (const subject of input.grantSubjects) {
       await connection.query(
-        `insert into repository_grants(repository_id, subject_or_group)
-         values ($1, $2) on conflict do nothing`,
+        `insert into repository_grants(repository_id, subject_or_group, role)
+         values ($1, $2, 'reviewer') on conflict do nothing`,
         [repositoryId, subject],
       );
     }

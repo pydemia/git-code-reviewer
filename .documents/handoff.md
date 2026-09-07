@@ -4,11 +4,23 @@
 
 - 최종 갱신: 2026-09-07
 - branch: `feat/browser-review-service`
-- 단계: PR review 댓글 게시·Repository URL 등록 기능의 PRISM-DEV revision 14 배포·검증 완료
+- 단계: Review 등록 삭제와 사용자 선택 등록 오류 수정 검증 완료. PRISM-DEV revision 14에서 후속 배포 준비 중
 - remote: phase별 구현과 release commit을 `origin/feat/browser-review-service`에 push함
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 1.0 2026-09-07 후속 작업: 등록 삭제와 등록 실패 진단
+
+Worktree에 Review repository `등록 삭제` UI/API와 migration `0012_repository_deletion.sql`을 추가했다. 삭제는 `deleted_at` tombstone으로 구현하며 목록·deep link·polling에서 제외하고 queued job/operation/analysis와 grant를 정리한다. Running job이 있으면 409를 반환한다. Connection/token, GitHub 원본과 PR 댓글은 보존하며 기존 기록은 retention 정책을 따른다. 재등록은 같은 ID를 사용하지만 과거 grant는 복원하지 않는다. 삭제된 fixture의 bootstrap 재생성과 in-flight polling의 새 작업 생성을 차단했다. 이 변경은 아직 위 revision 14 배포에 포함되지 않았다.
+
+검증: 전용 local PostgreSQL에서 migration 0001–0012와 lifecycle integration 4개를 포함한 전체 133 tests 통과. Lint, typecheck, production build와 변경 파일 format 검사도 통과했다. Desktop 1440×1100과 mobile 390×844에서 취소·Escape의 focus 복귀, 확인값 불일치, 실제 API의 409 안내, 삭제 성공·새로고침 후 목록 제외와 heading focus를 확인했다. 삭제 후 DB는 등록 비활성·polling/게시 중지, queued job 2개 `REPOSITORY_DELETED`, grant 0건이었다. 모든 삭제 검증은 synthetic fixture로 실행했으며 PRISM-DEV의 repository나 credential은 변경하지 않았다. Browser screenshot은 `.impeccable/review/`에 있다. 재배포할 때 migration 0012를 포함해야 한다.
+
+Impeccable finish review는 삭제 UI·가이드 범위에서 `ship`으로 완료했다. 삭제 UI 검증용 local Server·Browser·PostgreSQL은 종료·정리했다. 후속 사용자 요청은 등록 오류 수정, git push와 PRISM-DEV 재배포까지 포함한다.
+
+등록 실패 진단: 2026-09-07 13:21 KST의 Server 요청 `94f69b27-7f68-46e6-8ddb-125f1256a990`에서 PostgreSQL `23502`가 발생했다. `registerGitHubRepository`의 `repository_grants` INSERT가 필수 `role` 값을 누락했다. GitHub repository 조회 후 사용자 grant를 저장하는 단계에서 전체 transaction이 rollback되어 HTTP 500이 반환됐다. Live connection은 GitHub.com API/Web root와 `ready` 상태를 확인했으며 token 원문을 조회·출력하지 않았다. URL trailing slash나 connection 인증 오류가 이번 실패 원인은 아니다.
+
+사용자 승인 후 INSERT에 `role='reviewer'`를 명시했다. 실제 PostgreSQL과 Fastify API를 연결한 사용자 선택 등록 test에서 수정 전 HTTP 500을 재현하고 수정 후 HTTP 201, reviewer grant 저장, 재요청 시 같은 repository ID와 grant 1건 유지를 확인했다. Mock route 회귀 test도 추가했고 기존 mock이 INSERT SELECT를 credential 조회로 잘못 분류하던 조건 순서를 바로잡았다. 전체 135 tests(22 files, PostgreSQL integration 5개 포함)가 통과했다. 더 이상 `관리자만`으로 우회 등록할 필요가 없다.
 
 ### 1.1 2026-09-04 확정 요구사항과 구현 상태
 

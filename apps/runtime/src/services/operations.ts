@@ -17,6 +17,14 @@ export async function requestPullRefresh(
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    const active = await connection.query(
+      `select id from repositories where id = $1 and enabled and deleted_at is null for share`,
+      [repositoryId],
+    );
+    if (!active.rowCount) {
+      await connection.query('rollback');
+      return null;
+    }
     const pullLock = `${repositoryId}:${pullNumber}`;
     await connection.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [pullLock]);
     const pull = await connection.query<{

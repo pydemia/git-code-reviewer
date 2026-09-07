@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Save,
   Search,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ import {
   createTenant,
   createChatAccount,
   createGitHubConnection,
+  deleteAdminRepository,
   registerGitHubRepository,
   loadAdminChatAccounts,
   loadAdminRepositories,
@@ -262,6 +264,25 @@ export function AdminPage() {
       setMessage({
         tone: 'success',
         text: 'GHES 연결 설정을 저장했습니다. 연결 테스트를 다시 실행해 주세요.',
+      });
+      setReloadToken((value) => value + 1);
+      return null;
+    } catch (error) {
+      return errorMessage(error);
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const submitRepositoryDelete = async (repository: AdminRepository): Promise<string | null> => {
+    setBusyKey(`repository:delete:${repository.id}`);
+    setMessage(null);
+    try {
+      await deleteAdminRepository(repository.id, `${repository.owner}/${repository.name}`);
+      setAdminRepositories((current) => current.filter((item) => item.id !== repository.id));
+      setMessage({
+        tone: 'success',
+        text: `${repository.owner}/${repository.name}의 review 등록을 삭제했습니다.`,
       });
       setReloadToken((value) => value + 1);
       return null;
@@ -650,6 +671,7 @@ export function AdminPage() {
                 )
               }
               onUpdate={submitGitHubConnectionUpdate}
+              onDeleteRepository={submitRepositoryDelete}
               onRegisterRepository={(connectionId, values) =>
                 runMutation(
                   'github:repository',
@@ -1834,6 +1856,7 @@ function GitHubConnectionPanel({
   onRegisterRepository,
   onRepositoryPollingChange,
   onRepositoryPublishingChange,
+  onDeleteRepository,
   onPollNow,
 }: {
   connections: GitHubConnection[];
@@ -1863,6 +1886,7 @@ function GitHubConnectionPanel({
   ) => Promise<unknown>;
   onRepositoryPollingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
   onRepositoryPublishingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
+  onDeleteRepository: (repository: AdminRepository) => Promise<string | null>;
   onPollNow: (repositoryId: string) => Promise<unknown>;
 }) {
   const [name, setName] = useState('');
@@ -1878,6 +1902,7 @@ function GitHubConnectionPanel({
   const [reviewPublishingEnabled, setReviewPublishingEnabled] = useState(true);
   const [grantSubject, setGrantSubject] = useState('');
   const [editingConnection, setEditingConnection] = useState<GitHubConnection | null>(null);
+  const [deletingRepository, setDeletingRepository] = useState<AdminRepository | null>(null);
   const selectedConnection = connections.find((connection) => connection.id === connectionId);
   let repositoryPreview: ReturnType<typeof parseGitHubRepositoryUrl> | null = null;
   let repositoryUrlError = '';
@@ -2041,7 +2066,9 @@ function GitHubConnectionPanel({
         ))}
       </div>
       <div className="prompt-history-heading">
-        <strong>Review repository 등록</strong>
+        <strong id="review-repository-heading" tabIndex={-1}>
+          Review repository 등록
+        </strong>
       </div>
       <form className="registry-form" onSubmit={(event) => void submitRepository(event)}>
         <label className="field-label">
@@ -2130,7 +2157,7 @@ function GitHubConnectionPanel({
       </form>
       <div className="registry-list">
         {repositories.map((repository) => (
-          <article className="registry-card" key={repository.id}>
+          <article className="registry-card review-repository-card" key={repository.id}>
             <div>
               <strong>
                 {repository.owner}/{repository.name}
@@ -2191,10 +2218,30 @@ function GitHubConnectionPanel({
               >
                 {repository.reviewPublishingEnabled ? 'PR 게시 중지' : 'PR 게시 시작'}
               </button>
+              <button
+                className="command-button danger"
+                type="button"
+                disabled={busyKey !== null}
+                aria-label={`${repository.owner}/${repository.name} 등록 삭제`}
+                onClick={() => setDeletingRepository(repository)}
+              >
+                <Trash2 size={14} /> 등록 삭제
+              </button>
             </div>
           </article>
         ))}
+        {repositories.length === 0 ? (
+          <p className="admin-empty">등록된 review repository가 없습니다.</p>
+        ) : null}
       </div>
+      {deletingRepository ? (
+        <RepositoryDeleteDialog
+          repository={deletingRepository}
+          busy={busyKey !== null}
+          onClose={() => setDeletingRepository(null)}
+          onSubmit={() => onDeleteRepository(deletingRepository)}
+        />
+      ) : null}
       {editingConnection ? (
         <GitHubConnectionDialog
           connection={editingConnection}
@@ -2207,6 +2254,144 @@ function GitHubConnectionPanel({
         />
       ) : null}
     </section>
+  );
+}
+
+function RepositoryDeleteDialog({
+  repository,
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  repository: AdminRepository;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: () => Promise<string | null>;
+}) {
+  const fullName = `${repository.owner}/${repository.name}`;
+  const [confirmation, setConfirmation] = useState('');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const submitting = useRef(false);
+
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    cancelRef.current?.focus();
+    return () => {
+      dialog?.close();
+      if (opener?.isConnected) opener.focus();
+      else document.getElementById('review-repository-heading')?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (submitError) errorRef.current?.focus();
+  }, [submitError]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy || submitting.current || confirmation.trim() !== fullName) return;
+    submitting.current = true;
+    setSubmitError(null);
+    try {
+      const error = await onSubmit();
+      if (error) setSubmitError(error);
+      else onClose();
+    } catch (error) {
+      setSubmitError(errorMessage(error));
+    } finally {
+      submitting.current = false;
+    }
+  };
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="admin-dialog repository-delete-dialog"
+      aria-labelledby="repository-delete-title"
+      aria-describedby="repository-delete-description"
+      aria-busy={busy}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busy) onClose();
+      }}
+    >
+      <form onSubmit={(event) => void submit(event)}>
+        <div className="dialog-heading">
+          <h2 id="repository-delete-title">Review 등록 삭제</h2>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="삭제 취소"
+            disabled={busy}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div id="repository-delete-description" className="repository-delete-description">
+          <p>
+            <strong>{fullName}</strong>을 review 목록에서 제거하고 사용자 접근 권한·polling·대기
+            작업을 정리합니다.
+          </p>
+          <p>
+            GitHub 원본 repository, GHES connection과 token, 이미 게시한 PR 댓글은 삭제하지
+            않습니다.
+          </p>
+          <p>
+            기존 분석·Chat 기록은 retention 정책에 따라 보관합니다. 같은 repository를 다시 등록하면
+            남아 있는 기록을 사용할 수 있으며 사용자 권한은 다시 지정해야 합니다.
+          </p>
+          <p>
+            실행 중인 분석이나 PR 게시가 있으면 삭제하지 않습니다. Polling을 중지하고 작업 완료 후
+            다시 시도해 주세요.
+          </p>
+        </div>
+        {submitError ? (
+          <div
+            className="admin-message error dialog-message"
+            role="alert"
+            tabIndex={-1}
+            ref={errorRef}
+          >
+            {submitError}
+          </div>
+        ) : null}
+        <label className="field-label">
+          확인을 위해 {fullName} 입력
+          <input
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            required
+            disabled={busy}
+          />
+        </label>
+        <div className="dialog-actions">
+          <button
+            ref={cancelRef}
+            className="command-button"
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+          >
+            취소
+          </button>
+          <button
+            className="command-button danger"
+            type="submit"
+            disabled={busy || confirmation.trim() !== fullName}
+          >
+            <Trash2 size={14} /> {busy ? '삭제 중…' : '등록 삭제'}
+          </button>
+        </div>
+      </form>
+    </dialog>
   );
 }
 
