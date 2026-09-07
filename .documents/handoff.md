@@ -2,13 +2,21 @@
 
 ## 1. 현재 상태
 
-- 최종 갱신: 2026-09-07
+- 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
-- 단계: Commit Defender report를 메인 Code·Summary·Comments 탭으로 분리하고 Chat Enter/Shift+Enter 단축키를 PRISM-DEV Helm revision 19에 배포함
-- remote: report 구현 `9930f90`, 시작 오류 수정 `bd017f2`, main tabs `7bf85eb`, revision 19 release `fb1025d`
+- 단계: 모델 목록 조회·분석 진행률·구조화된 Comments를 PRISM-DEV Helm revision 21에 배포함
+- 배포 source: `d9f9418a2056bf3fc436c5cb2449ba17ae5eaf52` (`feat/browser-review-service`의 원격 최신 commit을 조회해 fast-forward). Release 설정·기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-08 최신 배포
+
+사용자의 10분 대기 요청 후 원격을 다시 조회했고, 후속 즉시 재배포 요청에서 새 `d9f9418`을 확인해 배포 대상을 갱신했다. `9e80b53`의 진행 중 image build는 취소하고 게시하지 않았다. Application `0.8.0-alpha.11`, chart `0.10.10`을 registry에 게시한 뒤 기존 values·Secret·PVC·HTTPRoute를 유지해 revision 21로 upgrade했다. 상세 digest와 검증 표는 `deploy/environments/prism-dev/README.md`에 있다.
+
+신규 `0016_analysis_progress.sql`이 nullable `analysis_runs.progress_detail` JSONB column을 추가했다. Local PostgreSQL integration을 포함한 212 tests(38 files, skip 없음), lint/typecheck/production build, image smoke, Helm lint/dry-run/test와 rollout을 통과했다. 운영 migration 16개, users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 36건, report 31건을 확인했다. Server/Worker는 각 1/1 Ready, restart 0회이며 실제 HTTPRoute에서 version과 새 bundle을 검증했다. Startup/readiness probe의 최초 connection refused 각 1건 외 지속 장애는 없고 application warning/error log는 0건이다.
+
+이번 배포는 기존 Provider/account 설정을 바꾸거나 실제 모델 호출·PR 댓글 게시를 실행하지 않았다. Model catalog와 analysis status API의 동작은 automated test로 확인했고 live 접근 경로·bundle·인증 차단을 검증했다. 과거 절의 날짜별 수치와 배포 상태는 당시 기록이다.
 
 ### 1.0b 2026-09-07 Commit Defender report와 분석 Skill
 
@@ -150,20 +158,20 @@ Migration `0011_github_review_publication.sql`과 `github.review.publish` durabl
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.9`
-- source revision: `7bf85eb5af12`
-- manifest digest: `sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.11`
+- source revision: `d9f9418a2056`
+- image index digest: `sha256:7ea9ee6363a0ffd7e221908b17b874f01df55a5a8a0d3cff4c73d58f2f3faf85`
 - platform: `linux/amd64`
-- supply-chain metadata: 이번 build에는 provenance/SBOM attestation 미포함
+- supply-chain metadata: SPDX SBOM과 SLSA provenance attestation 포함
 
 하나의 immutable image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
 
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.8`
-- app version: `0.8.0-alpha.9`
-- chart digest: `sha256:0c3ae26bcb10c9fe8075e2d43a123cb03ba37e20adc37c5fb994697147b12ef2`
+- version: `0.10.10`
+- app version: `0.8.0-alpha.11`
+- chart digest: `sha256:5ee8cf84b5a78bfaf74183f14cac04f3cbe3dc50b905151b8b1fdd7721faf7ad`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치

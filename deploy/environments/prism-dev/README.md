@@ -16,7 +16,7 @@
 | 사용 중인 access mode | `ReadWriteMany`, `ReadWriteOnce` |
 | IngressClass          | `nginx`                          |
 
-Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMany` PVC를 새로 만든다. Bundled PostgreSQL은 같은 StorageClass의 `ReadWriteOnce` PVC를 사용한다. 두 PVC 모두 release 전용 namespace에서 동적 provision하며 기존 application PVC를 재사용하지 않는다.
+최초 설치에서는 Server와 Worker가 함께 사용할 `nfs-csi`의 `ReadWriteMany` artifact PVC를 만든다. Bundled PostgreSQL은 같은 StorageClass의 `ReadWriteOnce` PVC를 사용한다. 두 PVC 모두 release 전용 namespace에서 동적 provision한다. 재배포에서는 이 release의 기존 PVC/PV를 유지하며 삭제·재생성하지 않는다.
 
 ## Pilot 범위
 
@@ -24,12 +24,12 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - release: `git-code-reviewer`
 - GitHub: `fixture`
 - auth: `local` (`administrator`, `reviewer` bootstrap account)
-- 분석 model: disabled
+- 분석 model: 배포 기본값은 disabled, 관리자가 분석 Provider에서 등록 account/model/effort 또는 OpenAI-compatible 연결을 선택
 - Chat: DB credential registry 사용. 실제 account는 관리자 화면에서 등록
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.9@sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.11@sha256:7ea9ee6363a0ffd7e221908b17b874f01df55a5a8a0d3cff4c73d58f2f3faf85`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -37,6 +37,8 @@ Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DE
 PRISM-DEV의 outbound HTTPS는 `SK holdings C&C` TLS inspection CA로 다시 서명된다. ChatGPT/Codex와 GHES HTTPS 요청을 검증하려면 해당 root CA를 `git-code-reviewer-corporate-ca` ConfigMap의 `ca.crt` key로 먼저 등록해야 한다. 인증서 파일은 Git에 넣지 않는다.
 
 ## 배포
+
+아래 namespace·Secret·CA 생성은 최초 설치 절차다. 재배포에서는 기존 Secret과 CA를 유지하고 `helm upgrade`와 검증만 수행한다. 특히 PostgreSQL password와 credential encryption key를 다시 생성하면 기존 데이터나 등록 credential을 사용할 수 없게 된다.
 
 ```bash
 kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
@@ -370,6 +372,32 @@ Vitest 169건 통과, PostgreSQL integration 20건 skip, web lint·typecheck·pr
 분석 상태는 `분석 대기`, `분석 중`, `분석 완료 · PASS`, `분석 완료 · BLOCKED`, `분석 완료 · 제한 있음`, `분석 실패`, `분석 미수행`, `분석 취소`로 구분한다. 기존 `분석 미완료`는 파일 검토가 끝났지만 symbol adapter 등 제한이 있는 결과도 미완료처럼 보이게 하므로 `분석 완료 · 제한 있음`으로 바꿨다.
 
 관련 unit test 11건과 lint·web typecheck·production build·Helm lint가 통과했다. 배포 후 Server/Worker는 각각 `1/1 Ready`, restart 0회이고 Helm test와 live·ready·startup·dependencies endpoint가 정상이다. 실제 AI report 화면에서 `1/1 files 검토 완료`, `ai-powered`, `분석 완료 · 제한 있음` 표시를 확인했다.
+
+## 2026-09-08 모델 목록·분석 진행률·구조화된 Comments 배포
+
+07:43 KST에 Helm revision 21 upgrade를 시작해 07:44 KST에 완료했다. Source는 새 요청 직후 원격에서 확인한 `d9f9418a2056bf3fc436c5cb2449ba17ae5eaf52`다. 앞서 빌드 중이던 `9e80b53` image는 취소했고 registry나 클러스터에 게시하지 않았다.
+
+- Application: `0.8.0-alpha.11`, chart: `0.10.10`
+- Image index digest: `sha256:7ea9ee6363a0ffd7e221908b17b874f01df55a5a8a0d3cff4c73d58f2f3faf85`
+- Linux/amd64 image manifest: `sha256:0d5f2416b8efd56a3c0bb88a81ac533a23c1b8d8419bccf128e77b87c0a90516`
+- OCI chart digest: `sha256:5ee8cf84b5a78bfaf74183f14cac04f3cbe3dc50b905151b8b1fdd7721faf7ad`
+
+ChatGPT model catalog 조회, 분석 미수행 Report 정리, 분석 진행률/status API, 구조화된 Summary·AI Comments와 inline 설명을 포함한다. Image에는 SPDX SBOM과 SLSA provenance attestation이 있으며 registry manifest에서도 두 predicate를 확인했다. Build CA는 BuildKit secret으로 전달했고 image에는 남기지 않았다.
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| Local 검증 | 38 files, 212 tests 통과. 전용 PostgreSQL integration 포함, skip 없음. Lint·typecheck·production build 통과 |
+| Container | Linux/amd64, UID 1000, read-only/network-none smoke 통과. Built-in Skill 9개·migration 16개·새 status API와 model catalog 함수 확인 |
+| Helm | Chart lint, server-side dry-run, upgrade와 Helm test 통과 |
+| Migration | `0016_analysis_progress.sql` 적용. `analysis_runs.progress_detail`은 nullable JSONB, 기존 데이터 수정 없음 |
+| Workload | Server·Worker 각각 1/1 Ready, restart 0회. Retention CronJob도 동일 digest로 갱신 |
+| Route/Health | 기존 HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200 |
+| Web/API | `/api/v1/system`의 version `0.8.0-alpha.11`. `/login`·`/guide`와 새 bundle HTTP 200. 비로그인 repository/status API HTTP 401 |
+| 운영 데이터 | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 36건, report 31건 유지 |
+| Storage/Secret | 기존 두 PVC의 PV ID와 auth/registry/PostgreSQL Secret UID·resourceVersion 유지 |
+| Log | 새 Server/Worker warning/error log 0건, Server의 scheduler leadership 재획득 확인 |
+
+Server startup probe와 Worker readiness probe가 listen 직전 각각 한 번 connection refused를 기록했지만 이후 정상화됐고 container restart는 없다. Health의 model 상태는 실제 ChatGPT inference 성공을 뜻하지 않는다. 운영 account로 모델 조회·분석·Chat을 실행하거나 PR 댓글을 새로 게시하는 검증은 하지 않았다. 새 UI는 실제 제공되는 bundle에 model catalog route·progressDetail·분석 단계 문구가 포함됐는지 확인했으며 이번 배포에서 별도 visual browser 검토는 수행하지 않았다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 
