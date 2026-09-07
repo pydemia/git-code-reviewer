@@ -73,7 +73,7 @@ const configSchema = z.object({
     .int()
     .positive()
     .default(10 * 1024 * 1024),
-  ANALYSIS_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().default(4),
+  ANALYSIS_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().max(1000).default(32),
   OIDC_ISSUER: optionalUrl,
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),

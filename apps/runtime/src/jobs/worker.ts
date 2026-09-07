@@ -24,6 +24,10 @@ import { createGitHubReader, getRepository } from '../services/repositories.js';
 import { registeredGitHubReader } from '../services/account-registry.js';
 import { isFixtureRepository } from '../services/fixture-repository.js';
 import {
+  getEffectiveReviewSkills,
+  resolvePinnedReviewSkills,
+} from '../services/analysis-skills.js';
+import {
   enqueueReviewPublication,
   publishReviewToGitHub,
   ReviewPublicationError,
@@ -188,7 +192,7 @@ async function executeJob(
   }
 }
 
-async function executeSnapshotJob(
+export async function executeSnapshotJob(
   database: Database,
   github: GitHubReader | null,
   artifacts: FilesystemArtifactStore,
@@ -373,6 +377,7 @@ async function persistMaterialization(
       const providerVersionId = activeProvider?.id ?? null;
       const providerHash =
         activeProvider?.configurationHash ?? deploymentProvider.configurationHash;
+      const skills = await getEffectiveReviewSkills(connection);
       const modelProfile = activeProvider
         ? activeProvider.mode === 'chatgpt-account'
           ? `chatgpt-account:${activeProvider.modelName}:${activeProvider.reasoningEffort}`
@@ -383,18 +388,22 @@ async function persistMaterialization(
       const analysis = await connection.query<{ id: string }>(
         `insert into analysis_runs(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
-           prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash
-         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8)
+           prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
+           skill_version_id, skill_bundle, skill_hash
+         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v4:${promptHash}:${providerHash}`,
+          `analysis:${snapshotId}:default:v5:${promptHash}:${providerHash}:${skills.bundle.hash}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v1:${promptHash}:${providerHash}`,
+          `default-v2:${promptHash}:${providerHash}:${skills.bundle.hash}`,
+          skills.versionId,
+          JSON.stringify(skills.bundle),
+          skills.bundle.hash,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -452,7 +461,7 @@ async function persistMaterialization(
   }
 }
 
-async function executeAnalysisJob(
+export async function executeAnalysisJob(
   database: Database,
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
@@ -472,6 +481,10 @@ async function executeAnalysisJob(
     prompt_version: number | null;
     prompt_hash: string;
     provider_version_id: string | null;
+    skill_version_id: string | null;
+    skill_version: number | null;
+    skill_bundle: unknown;
+    skill_hash: string | null;
     tenantId: string;
     credentialId: string | null;
     installationId: string;
@@ -479,6 +492,8 @@ async function executeAnalysisJob(
     `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
             prompt.version as prompt_version, analysis.prompt_hash,
             analysis.provider_version_id, repository.tenant_id as "tenantId",
+            analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
+            skills.version as skill_version,
             repository.credential_id as "credentialId", repository.installation_id as "installationId"
      from snapshots snapshot
      join snapshot_requests sr on sr.id = snapshot.request_id
@@ -486,11 +501,13 @@ async function executeAnalysisJob(
      join repositories repository on repository.id = pr.repository_id
      join analysis_runs analysis on analysis.snapshot_id = snapshot.id and analysis.id = $2
      left join analysis_prompt_versions prompt on prompt.id = analysis.prompt_version_id
+     left join analysis_skill_versions skills on skills.id = analysis.skill_version_id
      where snapshot.id = $1`,
     [snapshotId, analysisId],
   );
   const row = identity.rows[0];
   if (!row) throw new Error('Analysis snapshot is unavailable');
+  const skillBundle = resolvePinnedReviewSkills(row.skill_bundle, row.skill_hash);
   const provider = await resolveAnalysisProvider(database, config, row.provider_version_id);
   const model = createReviewModel(provider, { database, config, tenantId: row.tenantId });
   const locator = await database.query<{ locator: string }>(
@@ -523,6 +540,15 @@ async function executeAnalysisJob(
     files,
     fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
     ...(model ? { model } : {}),
+    ...(skillBundle
+      ? {
+          skills: {
+            bundle: skillBundle,
+            versionId: row.skill_version_id,
+            version: row.skill_version,
+          },
+        }
+      : {}),
     ...(row.prompt_instructions && row.prompt_version
       ? {
           prompt: {

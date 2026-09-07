@@ -280,16 +280,16 @@ export function createReviewModel(
     if (!context) throw new Error('Analysis tenant context is required');
     return {
       profile: provider.profile,
-      async review(diff, files, instructions) {
+      async review(diff, files, instructions, stage) {
         const selection = await analysisAccount(context.database, context.config, provider, {
           tenantId: context.tenantId,
         });
         const response = await selection.model.generate({
           messages: [
-            { role: 'system', content: composeReviewSystemPrompt(instructions) },
+            { role: 'system', content: composeReviewSystemPrompt(instructions, stage) },
             { role: 'user', content: `Untrusted pull request diff follows.\n\n${diff}` },
           ],
-          cacheKey: `analysis:${context.tenantId}:${provider.configurationHash}`,
+          cacheKey: `analysis:${context.tenantId}:${provider.configurationHash}:${stage?.skills.hash ?? 'legacy'}:${stage?.stage ?? 'diff'}`,
           reasoningEffort: selection.reasoningEffort,
         });
         return modelReviewFromText(response, files);

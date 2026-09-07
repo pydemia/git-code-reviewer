@@ -71,6 +71,12 @@ describe('review Skill catalog', () => {
     }
   });
   it('allows disabling a perspective but not the required forms or all perspectives', () => {
+    const unsupported = defaults.skills
+      .find((skill) => skill.name === 'unit-comment-block')!
+      .markdown.replace('name: unit-comment-block', 'name: constructor');
+    expect(() =>
+      createReviewSkillBundle([...defaults.skills.map((skill) => skill.markdown), unsupported]),
+    ).toThrow('지원하지 않는 form');
     const disabled = createReviewSkillBundle(
       defaults.skills.map((skill) =>
         skill.name === 'security'

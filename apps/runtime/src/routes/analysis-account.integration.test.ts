@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import path from 'node:path';
+import { composeReviewSystemPrompt, loadBuiltInReviewSkills } from '@gcr/analysis-engine';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -179,6 +180,33 @@ describe.skipIf(!databaseUrl).sequential('registered account batch review with P
       store: false,
     });
     expect(sent.instructions).toContain('호환성을 확인하세요.');
+  });
+
+  it('uses the shared Skill prompt contract for all stages with the pinned model and effort', async () => {
+    const skills = loadBuiltInReviewSkills();
+    const response = JSON.stringify({
+      summary: '검증용 요약입니다.',
+      grade: 'adequate',
+      file_comments: [],
+    });
+    fetcher.mockImplementation(
+      async () =>
+        new Response(
+          `data: ${JSON.stringify({ type: 'response.output_text.delta', delta: response })}\n\ndata: ${JSON.stringify({ type: 'response.completed', response: { status: 'completed' } })}\n\n`,
+          { headers: { 'content-type': 'text/event-stream' } },
+        ),
+    );
+    const provider = await resolveAnalysisProvider(database, config, providerId);
+    const model = createReviewModel(provider, { database, config, tenantId })!;
+    for (const stage of ['unit-comment-block', 'overall-summary', 'total-summary'] as const) {
+      const context = { stage, skills };
+      await model.review('Synthetic stage input', ['a.ts'], 'Tenant review guidance', context);
+      const sent = JSON.parse(fetcher.mock.calls.at(-1)![1].body);
+      expect(sent.instructions).toBe(composeReviewSystemPrompt('Tenant review guidance', context));
+      expect(sent.model).toBe('synthetic-review-model');
+      expect(sent.reasoning.effort).toBe('high');
+      expect(sent.store).toBe(false);
+    }
   });
 
   it('rejects cross-tenant use, user-only grants, disabled accounts, and unsupported efforts', async () => {

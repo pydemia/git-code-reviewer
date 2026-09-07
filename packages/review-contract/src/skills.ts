@@ -59,7 +59,7 @@ export const reviewSkillBundleSchema = z
           message: 'Perspective Skill의 분석 단위는 code-segment입니다.',
         });
       }
-      if (skill.kind === 'form' && !(skill.name in required)) {
+      if (skill.kind === 'form' && !Object.hasOwn(required, skill.name)) {
         context.addIssue({ code: 'custom', message: '지원하지 않는 form Skill입니다.' });
       }
     }

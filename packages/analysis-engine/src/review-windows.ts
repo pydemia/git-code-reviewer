@@ -9,6 +9,7 @@ export type ReviewWindow = {
   startLine: number;
   endLine: number;
   lines: ReviewWindowLine[];
+  comparison: { side: 'head' | 'mergeBase'; lines: Array<Omit<ReviewWindowLine, 'core'>> };
 };
 
 type DiffLine = Omit<ReviewWindowLine, 'core'>;
@@ -49,6 +50,13 @@ export function buildReviewWindows(
           side,
           startLine,
           endLine,
+          comparison: {
+            side: side === 'head' ? 'mergeBase' : 'head',
+            lines: hunk[side === 'head' ? 'mergeBase' : 'head'].slice(
+              Math.max(0, offset - overlap),
+              offset + coreLines + overlap,
+            ),
+          },
           lines: lines
             .slice(Math.max(0, offset - overlap), offset + coreLines + overlap)
             .map((line) => ({
@@ -75,6 +83,11 @@ export function formatReviewWindow(window: ReviewWindow): string {
     ...window.lines.map(
       (line) =>
         `${line.number} | ${line.core ? 'core' : 'context'} | ${line.changed ? (window.side === 'head' ? '+' : '-') : ' '} | ${line.text}`,
+    ),
+    `Comparison context only (${window.comparison.side}); bounded excerpt, not necessarily line-aligned. Do not anchor comments here:`,
+    ...window.comparison.lines.map(
+      (line) =>
+        `${line.number} | comparison | ${line.changed ? (window.comparison.side === 'head' ? '+' : '-') : ' '} | ${line.text}`,
     ),
   ].join('\n');
 }

@@ -12,7 +12,7 @@ export const gradeSchema = z.enum([
   'critical',
 ]);
 export const confidenceSchema = z.enum(['low', 'medium', 'high']);
-export const findingCategorySchema = z.enum([
+const legacyCategories = [
   'correctness',
   'security',
   'compatibility',
@@ -21,7 +21,11 @@ export const findingCategorySchema = z.enum([
   'optimization',
   'review-history',
   'setting',
-]);
+] as const;
+export const findingCategorySchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
+  .max(64);
 
 export const evidenceLocatorSchema = z.object({
   id: z.string().uuid(),
@@ -202,6 +206,8 @@ export const legacyAnalysisReportSchema = z.object({
       z.object({
         file: z.string(),
         line: z.number().int().nonnegative(),
+        end_line: z.number().int().nonnegative().optional(),
+        side: z.enum(['head', 'mergeBase']).optional(),
         comment: z.string(),
         title: z.string().optional(),
         impact: z.string().optional(),
@@ -229,7 +235,9 @@ export type LegacyAnalysisReport = z.infer<typeof legacyAnalysisReportSchema>;
 type LegacyContext = {
   analysisRevisionId: string;
   snapshotId: string;
-  files: Array<{ id: string; path: string; headLines: Set<number> }>;
+  files: Array<{ id: string; path: string; headLines: Set<number>; mergeBaseLines?: Set<number> }>;
+  preservePriority?: boolean;
+  allowedCategories?: string[];
   emptyImpact: ReviewReport['impact'];
   coverage: Coverage;
 };
@@ -244,6 +252,8 @@ export function normalizeLegacyReport(
     ...report.lint_findings.map((finding) => ({
       file: finding.file,
       line: finding.line,
+      endLine: finding.line,
+      side: 'head' as const,
       priority: severityToPriority(finding.severity),
       category: lintRuleCategory(finding.rule),
       comment: finding.message,
@@ -257,8 +267,10 @@ export function normalizeLegacyReport(
     ...report.review.file_comments.map((finding) => ({
       file: finding.file,
       line: finding.line,
+      endLine: finding.end_line ?? finding.line,
+      side: finding.side ?? 'head',
       priority: normalizePriority(finding.priority),
-      category: normalizeCategory(finding.category),
+      category: context.allowedCategories ? finding.category : normalizeCategory(finding.category),
       comment: finding.comment,
       title: finding.title,
       impact: finding.impact,
@@ -275,19 +287,31 @@ export function normalizeLegacyReport(
   )) {
     const file = files.get(item.file);
     if (!file) continue;
+    if (context.allowedCategories && !context.allowedCategories.includes(item.category)) continue;
     const line = item.line;
-    const verified = item.line > 0 && file.headLines.has(line);
-    const priority = item.priority === 'P3' && !verified ? 'P2' : item.priority;
+    const lineSet = item.side === 'head' ? file.headLines : file.mergeBaseLines;
+    const verified =
+      line > 0 &&
+      item.endLine >= line &&
+      Boolean(lineSet) &&
+      item.endLine - line < lineSet!.size &&
+      Array.from({ length: item.endLine - line + 1 }, (_, offset) => line + offset).every(
+        (number) => lineSet!.has(number),
+      );
+    const priority =
+      item.priority === 'P3' && !verified && !context.preservePriority ? 'P2' : item.priority;
     const fingerprint = createHash('sha256')
-      .update(`${item.file}:${line}:${item.rule ?? ''}:${item.comment}`)
+      .update(
+        `${item.file}:${item.side}:${line}:${item.endLine}:${item.category}:${item.rule ?? ''}:${item.comment}`,
+      )
       .digest('hex');
     if (fingerprints.has(fingerprint)) continue;
     fingerprints.add(fingerprint);
     const evidence: EvidenceLocator = {
       id: randomUUID(),
       fileId: file.id,
-      side: 'head',
-      ...(line > 0 ? { startLine: line, endLine: line } : {}),
+      side: item.side,
+      ...(line > 0 ? { startLine: line, endLine: item.endLine } : {}),
       artifactType: 'snapshot-diff',
     };
     findings.push({
@@ -312,7 +336,9 @@ export function normalizeLegacyReport(
       confidence: verified ? 'high' : 'medium',
       verification: {
         status: verified ? 'verified' : 'limited',
-        checks: verified ? ['file-present', 'head-line-present'] : ['file-present'],
+        checks: verified
+          ? ['file-present', item.side === 'head' ? 'head-line-present' : 'merge-base-line-present']
+          : ['file-present'],
         originalPriority: item.priority,
       },
       anchor: evidence,
@@ -383,8 +409,8 @@ function normalizePriority(priority: string): z.infer<typeof prioritySchema> {
 }
 
 function normalizeCategory(category: string): z.infer<typeof findingCategorySchema> {
-  const parsed = findingCategorySchema.safeParse(category.toLowerCase());
-  return parsed.success ? parsed.data : 'correctness';
+  const lower = category.toLowerCase();
+  return legacyCategories.some((value) => value === lower) ? lower : 'correctness';
 }
 
 function firstSentence(comment: string): string {

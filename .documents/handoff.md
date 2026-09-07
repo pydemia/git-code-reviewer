@@ -20,7 +20,9 @@ Phase B는 `07c84d9`으로 push했다. Phase C-1은 `routes/analysis-skills.ts`,
 
 Phase C-1 검증은 local 임시 PostgreSQL에서 전체 169 tests(30 files; Skill integration 5개 포함), Cerbos 35 tests, lint/typecheck와 Helm lint를 통과했다. 관리 UI와 report UI는 아직 기존 상태다. 다음 단계의 실제 모델 테스트에는 기존 두 adapter 모두에 stage별 `unit-comment-block`/`overall-summary`/`total-summary` system prompt를 연결해야 한다. 모델 출력의 summary만 바꾸어 완료라고 하지 않는다. Per-file/window 실패·예산 생략을 별도로 집계하고 unit이 가리키는 head/base line 및 활성 perspective를 검증해야 한다.
 
-다음 단계는 Skill immutable version 저장/관리 UI, 분석 생성 시 bundle snapshot 고정, 두 model adapter의 동일 stage별 prompt/출력 contract, segment 분석→파일 summary→total summary orchestration, 새 report 화면과 JSON/Markdown/PR 게시다. 기존 전체 diff 단일 호출과 unverified P3 downgrade는 아직 기존 코드에 남아 있어 새 pipeline 연결 시 R1–R10과 대조하여 정리해야 한다. 과거 immutable report는 수정하지 않는다. Skill 기반 새 report는 P3를 낮추어 PASS로 만들지 않는다.
+Phase C-2에서 위의 Worker 미연결 상태를 해결했다. 작업 생성 시 bundle/hash를 고정하고 DB trigger로 변경을 막는다. 두 adapter의 stage별 prompt와 segment 분석→파일 summary→total summary를 연결했다. 파일·side·range·활성 perspective를 검증한 unit만 summary에 사용하며 accepted P3는 낮추지 않는다. 실패/잘린 출력/예산 생략은 partial로 남기고 unavailable/failed/demo를 PASS와 구분한다. Migration 0015는 custom finding category와 queued bundle 불변성을 적용한다. Null bundle의 migration 이전 작업만 legacy 단일 호출과 normalization을 유지한다. 기본 model call budget은 모든 stage를 합쳐 32회, stage 입력은 128,000 bytes다.
+
+Phase C-2 검증: 전용 PostgreSQL에서 전체 183 tests(32 files), lint/typecheck/production build 통과. Worker 실제 SQL/artifact 경로에서 queue 후 Skill 활성 version 변경에도 원래 snapshot으로 세 stage를 실행했고 custom perspective 저장과 idempotency, legacy run 호환을 확인했다. 등록 account/model/effort adapter의 세 stage 호출도 검사했다. 모두 모의 모델이며 외부 source 전송이나 클러스터 변경은 없다. 다음 단계는 관리자 Skill 편집 UI, report 화면과 JSON/Markdown/PR 게시, browser 및 packaging 최종 검증이다. C-1은 `359493e`까지 push했다. 현재 API report view는 아직 새 analysis metadata를 전달하지 않으므로 UI 연결 시 함께 수정해야 한다.
 
 Impeccable context script는 이전 session 작업에서 이미 실행했다. 다시 실행하지 않는다. 이번 goal의 UI 수정은 아직 시작하지 않았으며 `new-work.md`는 읽었다. UI 직전 craft-floor를 읽고 기존 gray/teal Workspace를 유지한다. 새 report 화면의 desktop/mobile 확인과 독립 finish reviewer는 아직 수행하지 않았다. 이전 Workspace 화면의 ship 판정을 이번 report 확장의 근거로 재사용하지 않는다.
 
