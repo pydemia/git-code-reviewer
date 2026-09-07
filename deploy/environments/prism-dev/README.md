@@ -29,7 +29,7 @@ Artifact는 Server와 Worker가 함께 사용하므로 `nfs-csi`의 `ReadWriteMa
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.8@sha256:249e27e6ebdaa8d3bcd5dcb1891b2dda9e1a21a2cf7ed43ab6c4225c35d6d5db`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.8@sha256:3d5d4307295805f215654daa8a94a9a449c78e3cf69bf94cb4389b7deb04f56a`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
