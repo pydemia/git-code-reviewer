@@ -1,0 +1,1 @@
+create index model_request_ledger_account_window on model_request_ledger(quota_key,created_at);

@@ -1,4 +1,6 @@
 import type { Database } from '@gcr/db';
+import { createHash } from 'node:crypto';
+import { admittedFetch } from './model-admission.js';
 import { normalizeGitHubBaseUrl, parseGitHubRepositoryUrl } from '@gcr/contracts';
 import {
   GitHubAccessTokenClient,
@@ -9,6 +11,8 @@ import type { AppConfig } from '../config.js';
 import {
   RegisteredChatGptAccountModel,
   validateChatGptAuthJson,
+  chatGptQuotaIdentity,
+  refreshChatGptAuthJson,
   type ChatModel,
 } from './chat-model.js';
 import {
@@ -217,14 +221,70 @@ function hydrateChatAccount(
   timeoutMs: number,
 ): ChatAccountSelection {
   const authJson = decryptCredential(row, config.CREDENTIAL_ENCRYPTION_KEY, 'chat-account');
+  const quotaKey = createHash('sha256')
+    .update(`chatgpt:${chatGptQuotaIdentity(authJson)}`)
+    .digest('hex');
   const model = new RegisteredChatGptAccountModel({
     name: row.modelName,
     endpoint: row.endpoint,
     timeoutMs,
     authJson,
+    ...(config.MODEL_ADMISSION_ENABLED || config.CHAT_AGENT_ENABLED
+      ? { fetch: admittedFetch(database, quotaKey) }
+      : {}),
     installationId: row.installationId,
     refreshUrl: config.CHATGPT_ACCOUNT_REFRESH_ENDPOINT,
     proactiveRefreshMinutes: config.CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES,
+    refreshAuthJson: async (previous) => {
+      const client = await (database as Database).connect();
+      try {
+        await client.query('begin');
+        await client.query('select pg_advisory_xact_lock(hashtext($1))', [
+          `account-refresh:${quotaKey}`,
+        ]);
+        const selected = await client.query<CredentialColumns>(
+          'select credential_ciphertext as "credentialCiphertext",credential_iv as "credentialIv",credential_auth_tag as "credentialAuthTag" from chat_accounts where id=$1 and enabled for update',
+          [row.id],
+        );
+        if (!selected.rows[0]) throw Error('account_unavailable');
+        const current = decryptCredential(
+          selected.rows[0],
+          config.CREDENTIAL_ENCRYPTION_KEY,
+          'chat-account',
+        );
+        if (JSON.parse(current).tokens.access_token !== JSON.parse(previous).tokens.access_token) {
+          await client.query('commit');
+          return current;
+        }
+        const refreshed = await refreshChatGptAuthJson(
+          current,
+          config.CHATGPT_ACCOUNT_REFRESH_ENDPOINT,
+        );
+        const encrypted = encryptCredential(
+          refreshed,
+          config.CREDENTIAL_ENCRYPTION_KEY,
+          'chat-account',
+        );
+        await client.query(
+          "update chat_accounts set credential_ciphertext=$2,credential_iv=$3,credential_auth_tag=$4,credential_fingerprint=$5,credential_version=credential_version+1,health='ready',last_validated_at=clock_timestamp(),updated_at=clock_timestamp() where id=$1 or (enabled and credential_fingerprint=$6)",
+          [
+            row.id,
+            encrypted.credentialCiphertext,
+            encrypted.credentialIv,
+            encrypted.credentialAuthTag,
+            credentialFingerprint(refreshed),
+            credentialFingerprint(current),
+          ],
+        );
+        await client.query('commit');
+        return refreshed;
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
     persistAuthJson: async (updatedAuthJson) => {
       const encrypted = encryptCredential(
         updatedAuthJson,

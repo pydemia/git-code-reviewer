@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
 import type { AppConfig } from '../config.js';
+import { readAgentStream, type AgentTurnRequest, type AgentTurnResult } from './agent-model.js';
 
 // Keep account auth and Codex Responses wire behavior compatible with Demian's provider.
 const codexOauthClientId = 'app_EMoamEEZ73f0CkXaXp7hrann';
@@ -24,6 +25,7 @@ export type ChatModelRequest = {
 export interface ChatModel {
   readonly name: string;
   generate(request: ChatModelRequest): Promise<string>;
+  turn?(request: AgentTurnRequest): Promise<AgentTurnResult>;
 }
 
 type CodexAuthPayload = {
@@ -176,6 +178,7 @@ export class RegisteredChatGptAccountModel implements ChatModel {
     refreshUrl: string;
     proactiveRefreshMinutes: number;
     persistAuthJson: (authJson: string) => Promise<void>;
+    refreshAuthJson?: (previous: string) => Promise<string>;
     fetch?: typeof fetch;
   }) {
     this.name = options.name;
@@ -193,6 +196,7 @@ export class RegisteredChatGptAccountModel implements ChatModel {
     refreshUrl: string;
     proactiveRefreshMinutes: number;
     persistAuthJson: (authJson: string) => Promise<void>;
+    refreshAuthJson?: (previous: string) => Promise<string>;
     fetch?: typeof fetch;
   };
 
@@ -215,7 +219,29 @@ export class RegisteredChatGptAccountModel implements ChatModel {
     return readCodexResponse(response);
   }
 
-  private async send(body: string): Promise<Response> {
+  async turn(request: AgentTurnRequest): Promise<AgentTurnResult> {
+    const body = JSON.stringify({
+      model: this.name,
+      instructions: request.instructions,
+      input: request.input,
+      tools: request.tools,
+      stream: true,
+      store: false,
+      parallel_tool_calls: false,
+      reasoning: { effort: request.reasoningEffort, summary: 'auto' },
+      include: ['reasoning.encrypted_content'],
+      prompt_cache_key: request.cacheKey,
+    });
+    let response = await this.send(body, request.signal);
+    if (response.status === 401) {
+      await response.body?.cancel();
+      await this.auth.refresh();
+      response = await this.send(body, request.signal);
+    }
+    return readAgentStream(response, request.onDelta);
+  }
+
+  private async send(body: string, signal?: AbortSignal): Promise<Response> {
     return (this.options.fetch ?? fetch)(new URL('responses', this.baseUrl), {
       method: 'POST',
       headers: {
@@ -226,7 +252,9 @@ export class RegisteredChatGptAccountModel implements ChatModel {
         'user-agent': 'git-code-reviewer',
       },
       body,
-      signal: AbortSignal.timeout(this.options.timeoutMs),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(this.options.timeoutMs)])
+        : AbortSignal.timeout(this.options.timeoutMs),
     });
   }
 }
@@ -241,6 +269,7 @@ class RegisteredCodexAccountAuthStore {
       refreshUrl: string;
       proactiveRefreshMinutes: number;
       persistAuthJson: (authJson: string) => Promise<void>;
+      refreshAuthJson?: (previous: string) => Promise<string>;
       fetch?: typeof fetch;
     },
   ) {
@@ -267,6 +296,10 @@ class RegisteredCodexAccountAuthStore {
   }
 
   private async refreshOnce(): Promise<CodexCredential> {
+    if (this.options.refreshAuthJson) {
+      this.auth = parseCodexAuthJson(await this.options.refreshAuthJson(JSON.stringify(this.auth)));
+      return normalizeCredential(this.auth);
+    }
     this.auth = await refreshCodexAuth(
       this.auth,
       this.options.refreshUrl,
@@ -279,6 +312,16 @@ class RegisteredCodexAccountAuthStore {
 
 export function validateChatGptAuthJson(value: string): void {
   normalizeCredential(parseCodexAuthJson(value));
+}
+export function chatGptQuotaIdentity(value: string): string {
+  return normalizeCredential(parseCodexAuthJson(value)).accountId ?? 'unknown-upstream-account';
+}
+export async function refreshChatGptAuthJson(value: string, refreshUrl: string): Promise<string> {
+  return JSON.stringify(
+    await refreshCodexAuth(parseCodexAuthJson(value), refreshUrl, (input, init) =>
+      fetch(input, { ...init, signal: AbortSignal.timeout(15000) }),
+    ),
+  );
 }
 
 export class ChatModelCatalogError extends Error {

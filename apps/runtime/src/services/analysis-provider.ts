@@ -7,6 +7,7 @@ import {
 } from '@gcr/analysis-engine';
 import type { Database } from '@gcr/db';
 import type { AppConfig } from '../config.js';
+import { admittedFetch } from './model-admission.js';
 import { providerAllowedOrigins } from '../config.js';
 import {
   findAnalysisChatAccount,
@@ -304,6 +305,12 @@ export function createReviewModel(
     provider.apiKey,
     provider.modelName,
     provider.timeoutMs,
+    context?.config.MODEL_ADMISSION_ENABLED
+      ? admittedFetch(
+          context.database,
+          createHash('sha256').update(`${provider.endpoint}:${provider.apiKey}`).digest('hex'),
+        )
+      : fetch,
   );
 }
 
