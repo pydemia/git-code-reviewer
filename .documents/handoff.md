@@ -7,9 +7,17 @@
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
 - 단계: PRISM-DEV application `0.8.0-alpha.17`, Helm revision 27 배포 완료. 분석 저장 충돌·호출 예산 수정 포함
 - 배포 source: `192596f18b031180a075e222484c2e9eb5ec7564` (push 후 git archive build). Release 설정 commit `6b3ee2e`, 배포 기록 commit은 git log 참조
-- 사용자 소유 `.vscode/` 변경: 건드리지 않음
+- `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-08 후속 설계: 로컬 Git 기반 Interactive Review Chat
+
+사용자 요청에 따라 [설계](interactive-review-chat-design.md)와 [구현 계획](interactive-review-chat-implementation-plan.md)을 작성했다. Worker 로컬의 실제 Git 저장소·revision별 파일 트리, 반복적인 읽기 전용 탐색, 사용자 질문·재개, 영속 run/SSE와 모바일 복구, 자동 분석·Chat 공통 계정 호출 제한을 포함한다. 자동 분석도 같은 workspace/source provider를 사용한다. Demian은 run/event/cancel UI 구조의 참고이며 범용 shell이나 코드 수정 권한을 가져오지 않는다.
+
+P0 `272faac`, P1 `db78467`, P2 `c4562cf`, P3 `a20ceb3`, P4 `10bf5ae`를 구현·push했다. Local Git read 도구, Linux chroot/UID/seccomp broker, 공통 account admission과 실제 streaming, fenced run·질문 응답·재개·중단, 메인 source 탭과 새로고침 복구를 포함한다. Native PRISM-DEV에서 쓰기·경로 이탈·process·network 차단과 실제 Git blob 조회를 검증했고 macOS sandbox 조회도 통과했다. 62개 파일·383개 테스트를 UTF-8 local PostgreSQL과 함께 통과했다. 최초 전체 병렬 실행은 migration lock으로 기존 hook timeout이 나서 maxWorkers=2, hookTimeout=60000으로 재검증했다.
+
+현재 P5 배포 준비 중이며 아래 alpha.17/revision 27을 아직 대체하지 않았다. 새 운영 범위와 남긴 설계 항목은 [운영 문서](../docs/operations/interactive-chat.md)를 따른다. 새 flag는 기본 비활성이며 allowlist canary 검증 후 PRISM-DEV에 전체 활성화한다. Mac 잠금으로 live UI 확인은 대기 중이다. 배포 완료와 실제 모델 결과는 후속 기록으로 확정한다.
 
 ### 2026-09-08 20:03 배포 (revision 27, 현재)
 

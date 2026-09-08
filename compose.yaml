@@ -15,6 +15,12 @@ x-runtime-environment: &runtime-environment
   GITHUB_MODE: ${GITHUB_MODE:-fixture}
   MODEL_MODE: ${MODEL_MODE:-disabled}
   CHAT_MODEL_MODE: ${CHAT_MODEL_MODE:-disabled}
+  CREDENTIAL_REGISTRY_ENABLED: ${CREDENTIAL_REGISTRY_ENABLED:-false}
+  CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
+  MODEL_ADMIN_ENABLED: ${MODEL_ADMIN_ENABLED:-false}
+  CHAT_AGENT_ENABLED: ${CHAT_AGENT_ENABLED:-false}
+  MODEL_ADMISSION_ENABLED: ${MODEL_ADMISSION_ENABLED:-false}
+  GIT_SANDBOX_SOCKET: /tmp/git-code-reviewer/workspaces/sandbox.sock
   WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
 
 x-runtime-build: &runtime-build
@@ -106,6 +112,24 @@ services:
       timeout: 3s
       retries: 30
     restart: unless-stopped
+
+  source-sandbox:
+    image: git-code-reviewer:local
+    pull_policy: never
+    profiles: [agent]
+    user: '0:1000'
+    entrypoint: ['node', '/app/sandbox/broker.mjs']
+    cap_drop: [ALL]
+    cap_add: [SYS_CHROOT, SETUID, SETGID, CHOWN, DAC_OVERRIDE, KILL, MKNOD]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    network_mode: none
+    volumes:
+      - git-code-reviewer-workspaces:/tmp/git-code-reviewer/workspaces
+    tmpfs:
+      - /sandbox:size=4g
+    mem_limit: 768m
+    cpus: 1
 
 volumes:
   git-code-reviewer-artifacts:

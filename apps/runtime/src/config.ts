@@ -68,6 +68,7 @@ const configSchema = z.object({
     .default('0.153.0'),
   CHAT_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(2),
   CHAT_AGENT_ENABLED: booleanString,
+  CHAT_AGENT_ALLOWED_USER_IDS: z.string().default(''),
   CHAT_AGENT_MAX_MODEL_CALLS: z.coerce.number().int().min(2).max(32).default(8),
   CHAT_AGENT_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(100).default(24),
   CHAT_AGENT_CONTEXT_BYTES: z.coerce.number().int().min(8192).max(524288).default(131072),

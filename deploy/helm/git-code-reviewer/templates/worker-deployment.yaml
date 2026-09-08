@@ -105,7 +105,39 @@ spec:
             {{- if .Values.trustedCa.existingConfigMap }}
             - { name: trusted-ca, mountPath: /run/config/trust, readOnly: true }
             {{- end }}
+        {{- if .Values.chatAgent.enabled }}
+        - name: source-sandbox
+          image: {{ include "git-code-reviewer.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "/app/sandbox/broker.mjs"]
+          readinessProbe:
+            exec:
+              command: ["node", "-e", "if(!require('fs').statSync('/tmp/git-code-reviewer/workspaces/sandbox.sock').isSocket())process.exit(1)"]
+            periodSeconds: 5
+          env:
+            - { name: WORKSPACE_ROOT, value: /tmp/git-code-reviewer/workspaces }
+            - { name: GIT_WORKSPACE_MAX_BYTES, value: {{ .Values.chatAgent.workspaceMaxBytes | quote }} }
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["SYS_CHROOT", "SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE", "KILL", "MKNOD"]
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: '1', memory: 768Mi }
+          volumeMounts:
+            - { name: workspace, mountPath: /tmp/git-code-reviewer/workspaces }
+            - { name: source-sandbox, mountPath: /sandbox }
+        {{- end }}
       volumes:
+        {{- if .Values.chatAgent.enabled }}
+        - name: source-sandbox
+          emptyDir: { sizeLimit: {{ .Values.chatAgent.sandboxStorage }} }
+        {{- end }}
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
         {{- include "git-code-reviewer.databaseVolume" . | nindent 8 }}

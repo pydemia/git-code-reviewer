@@ -29,6 +29,8 @@
         "MODEL_ADMIN_ENABLED": "true",
         "MODEL_MODE": "disabled",
         "CHAT_MODEL_MODE": "registry"
+        ,"CHAT_AGENT_ENABLED": "true"
+        ,"MODEL_ADMISSION_ENABLED": "true"
       },
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
@@ -59,6 +61,8 @@
         "MODEL_ADMIN_ENABLED": "true",
         "MODEL_MODE": "disabled",
         "CHAT_MODEL_MODE": "registry"
+        ,"CHAT_AGENT_ENABLED": "true"
+        ,"MODEL_ADMISSION_ENABLED": "true"
       },
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",

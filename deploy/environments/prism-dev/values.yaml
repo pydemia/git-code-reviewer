@@ -9,11 +9,22 @@
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.17'
-  digest: 'sha256:ae84499070c0fe8181e5ea16754d673a158bca23ae4f47596b69af96eb9a3bb3'
+  tag: '0.8.0-alpha.18'
+  digest: ''
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
+
+chatAgent:
+  enabled: true
+  allowedUserIds: []
+  maxModelCalls: 8
+  maxToolCalls: 24
+  contextBytes: 131072
+  workspaceMaxBytes: 1073741824
+  sandboxStorage: 5Gi
+modelAdmission:
+  enabled: true
 
 publicBaseUrl: http://pr-review.prism.ai
 

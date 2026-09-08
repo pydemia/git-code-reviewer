@@ -1,6 +1,6 @@
 # 로컬 Git 기반 Interactive Review Chat 설계
 
-작성일: 2026-09-08. 상태: 설계 제안이며 아직 구현·배포하지 않았다. 구현 순서와 완료 조건은 [구현 계획](interactive-review-chat-implementation-plan.md)에 정의한다.
+작성일: 2026-09-08. 이 문서는 구현 착수 시점의 설계 기준이다. P0–P5 구현을 진행했으며 실제 제공 범위와 설계에서 조정한 내용은 [운영 문서](../docs/operations/interactive-chat.md), 배포 결과는 PRISM-DEV 기록을 따른다. 아래 현재 코드 표는 설계 이전 상태다.
 
 ## 1. 적용 범위와 현재 구현
 

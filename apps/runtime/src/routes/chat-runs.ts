@@ -81,14 +81,18 @@ export async function registerChatRunRoutes(
   config: AppConfig,
   authorization: AuthorizationService,
 ) {
-  app.get('/api/v1/chat-agent/config', { preHandler: requireUser }, async () => ({
-    enabled: config.CHAT_AGENT_ENABLED,
+  const enabledFor = (request: FastifyRequest) =>
+    config.CHAT_AGENT_ENABLED &&
+    (!config.CHAT_AGENT_ALLOWED_USER_IDS ||
+      config.CHAT_AGENT_ALLOWED_USER_IDS.split(',').includes(request.user!.id));
+  app.get('/api/v1/chat-agent/config', { preHandler: requireUser }, async (request) => ({
+    enabled: enabledFor(request),
   }));
   app.post(
     '/api/v1/chat-sessions/:sessionId/runs',
     { preHandler: requireUser },
     async (request, reply) => {
-      if (!config.CHAT_AGENT_ENABLED)
+      if (!enabledFor(request))
         return reply.code(503).send({
           error: { code: 'AGENT_DISABLED', message: 'Interactive Chat이 활성화되지 않았습니다.' },
         });
