@@ -3,6 +3,7 @@ import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { GitSnapshotInput } from './index.js';
+import { gitTrustEnvironment } from './git-trust.js';
 
 const execute = promisify(execFile);
 export const safeGitOptions = [
@@ -30,7 +31,6 @@ export function gitEnvironment(home: string): NodeJS.ProcessEnv {
     GIT_NO_LAZY_FETCH: '1',
     GIT_OPTIONAL_LOCKS: '0',
     GIT_LFS_SKIP_SMUDGE: '1',
-    ...(process.env.GIT_SSL_CAINFO ? { GIT_SSL_CAINFO: process.env.GIT_SSL_CAINFO } : {}),
   };
 }
 export type WorkspaceManifest = {
@@ -112,6 +112,7 @@ export async function prepareSourceWorkspace(
   );
   const environment = {
     ...gitEnvironment(input.workspace),
+    ...(await gitTrustEnvironment(input.workspace)),
     GIT_ASKPASS: askpass,
     GCR_GIT_USERNAME: input.credential.username,
     GCR_GIT_PASSWORD: input.credential.password,
@@ -181,9 +182,9 @@ export async function prepareSourceWorkspace(
     await run(['config', '--remove-section', 'remote.origin']);
     await writeFile(manifestPath, JSON.stringify(manifest), { mode: 0o444 });
     return manifest;
-  } catch {
+  } catch (error) {
     await rm(input.workspace, { recursive: true, force: true });
-    throw Error('source_workspace_unavailable');
+    throw Error('source_workspace_unavailable', { cause: error });
   } finally {
     await rm(askpass, { force: true });
   }
