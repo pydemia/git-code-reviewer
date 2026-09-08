@@ -4,13 +4,21 @@
 
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
-- 단계: Workspace 배치는 PRISM-DEV application `0.8.0-alpha.12`, Helm revision 22로 배포됨. 후속 Markdown·block 이동·Chat·GNB 개선과 Skill 번역·Severity Level은 아직 미배포
-- 배포 source: `74cdc056833ae7b2866bc27a30a8635c9b94b5b2` (재배포 전 원격 최신 commit과 일치 확인). Release 설정·기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.13`, Helm revision 23 배포 완료. Markdown·block 이동·Chat·GNB 개선과 Skill 번역·Severity Level 포함
+- 배포 source: `cfeba4728c121e0f620d6d48cfb72770e56c1820` (재배포 전 원격 최신 commit과 일치 확인). Release 설정 commit `be15ef8`, 배포 기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 2026-09-08 Skill 원문 번역·Severity Level — 미배포
+### 2026-09-08 13:04 배포 (revision 23, 현재)
+
+사용자 요청에 따라 source `cfeba47`을 application `0.8.0-alpha.13`, chart `0.10.12`로 배포했다. Image digest는 `sha256:788efe54c4103fcd4c9962a743a5163c5e1597f398a0aaee2e249ae53acc0fcd`이며 SPDX SBOM·SLSA provenance가 포함됐다. 정확한 chart digest·asset hash와 검증 표는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
+
+Migration `0017` 적용 및 checksum 일치, Server·Worker rollout/각 1/1 Ready·restart 0회, Helm test, health 4종, `/login`·`/guide`·system version 확인을 통과했다. 기존 Pod는 종료됐다. Image 외 Helm values, 두 PVC/PV, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute는 유지했다. Users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 43건, report 35건을 보존했고 기존 analysis의 severity_level 43건은 NULL이다.
+
+배포 당시 활성 custom Skill/tenant Prompt는 없으므로 새 분석에는 번역 Built-in version 2와 moderate가 적용된다. 아래 개발 기록의 custom Skill 수동 활성화 안내는 custom bundle이 있는 환경에만 해당한다. 실제 운영 account로 모델·Chat·PR 게시를 별도 실행하지 않았다. 실제 HTTPRoute의 JS/CSS는 선행 합성 Browser 검증 bundle과 SHA-256이 일치한다.
+
+### 2026-09-08 Skill 원문 번역·Severity Level — revision 23 반영
 
 Commit Defender `14203044e4e0cf2ba5d44fcf521425a4113f7840`의 6개 perspective를 점검 항목·Tone 전체를 유지해 한국어로 번역했다. Correctness·Maintenance는 사용자 첨부 원문과 일치한다. 전문용어는 영어로 유지하고 기존 근거 검증·Secret 비노출 기준을 별도 절로 보존했다. Perspective version 2, form 3개는 내용/version 유지. 출처·Apache-2.0 license 포함. 번역 commit은 `2ff10b5`, backend commit은 `1c89187`이다.
 
@@ -18,15 +26,15 @@ Commit Defender `14203044e4e0cf2ba5d44fcf521425a4113f7840`의 6개 perspective�
 
 Migration `0017_analysis_severity.sql`이 필요하다. 지침이 비어도 수준만 저장할 수 있고 지침·level을 함께 hash/version으로 관리한다. 새 analysis는 materialization 때 Prompt ID/hash/level을 고정하고 후속 활성화 변경을 받지 않는다. Worker는 모든 stage에 수준 지침을 전달하며 여러 window의 중복 제거 후 파일별 필터를 적용해 요약과 comment를 일치시킨다. 같은 근거의 P1/P3 중복은 P3를 남긴다. Report `versions.severity`/`versions.prompt`로 추적한다. 이전 queue의 NULL level과 기존 hash·report는 재작성하지 않는다.
 
-현재 custom Skill을 저장해 활성화한 환경에서는 배포만으로 내용을 덮어쓰지 않는다. 새 번역본을 적용하려면 `분석 Skills → Built-in을 초안으로 불러오기 → 비교/편집 → Version 저장 및 활성화`가 필요하다. 이번 작업에서는 live bundle·Provider·GHES·클러스터를 변경하지 않았다. 배포 요청 시 Server/Worker와 migration 0017을 함께 반영한다.
+Custom Skill을 저장해 활성화한 환경에서는 배포만으로 내용을 덮어쓰지 않는다. 새 번역본을 적용하려면 `분석 Skills → Built-in을 초안으로 불러오기 → 비교/편집 → Version 저장 및 활성화`가 필요하다. 개발 단계에서는 live bundle·Provider·GHES·클러스터를 변경하지 않았으며 후속 요청으로 Server/Worker와 migration 0017을 revision 23에 배포했다.
 
 검증은 전체 256 tests/46 files(전용 local PostgreSQL integration 포함, skip 없음), typecheck·lint·Web build 통과. 실제 AdminPage를 합성 API와 연결해 빈 지침 저장, tenant별 복원, loading 잠금, keyboard, desktop/mobile을 확인했다. 상세 내용과 경고·검증 한계는 [설계](analysis-severity-level.md), [검증 기록](verification-analysis-severity-2026-09-08.md)을 참조한다. 임시 Browser·Vite·harness·test DB는 종료/정리하고 합성 screenshot만 문서에 보관한다.
 
-### 2026-09-08 Reviews GNB 설정 버튼 — 미배포
+### 2026-09-08 Reviews GNB 설정 버튼 — revision 23 반영
 
 `AppHeader.tsx`의 관리자 설정 링크에서 `!compact` 조건을 제거했다. Reviews는 compact header를 쓰므로 기존에는 설정 버튼이 사라졌다. 관리자에게는 설정 → 사용 가이드 → 내 프로필 → 사용자 → 로그아웃 구성을 동일하게 제공하고 reviewer·비로그인 사용자에게는 설정 링크를 노출하지 않는다. Compact의 tenant picker 숨김과 기존 CSS·링크·서버 권한 검사는 유지했다. Header 회귀 8건을 포함한 Web tests 35건, Web typecheck·변경 파일 ESLint와 detector를 통과했다. 이 조건 변경은 static render 비교로 검증했으며 live Browser·클러스터 재배포는 수행하지 않았다.
 
-### 2026-09-08 Markdown·block 이동·Chat 개선 — 미배포
+### 2026-09-08 Markdown·block 이동·Chat 개선 — revision 23 반영
 
 구현 commit은 `d8ea3c1`이다. Summary가 backtick inline code만 처리해 Markdown 제목·강조·목록이 그대로 노출되던 문제를 공통 `ReviewMarkdown.tsx`로 수정했다. `react-markdown`·`remark-gfm`으로 PR·파일 요약과 Comments 본문을 렌더링하며 raw HTML·위험 URL·외부 image 요청을 제한한다. 파일 요약·Comment article의 본문과 여백도 기존 Code 이동 handler를 사용한다. 내부 control, 링크, 텍스트 선택과 modifier 클릭은 보존한다.
 
@@ -46,7 +54,7 @@ Lint·전체 typecheck·Web build, 202 tests 통과. 별도 DB가 필요한 inte
 
 전체 218 tests(39 files, local PostgreSQL integration 포함), lint/typecheck/Web production build와 browser 검증을 통과했다. 상세 근거·합성 screenshot은 [Workspace 배치 검증](verification-workspace-layout-2026-09-08.md)에 있다. 실제 GHES·모델·PR 게시 검증은 실행하지 않았다. 후속 재배포 요청에 따라 새 image를 build하고 아래 revision 22로 배포했다. 기존 immutable report·Secret·PVC는 유지했으며 신규 DB migration은 없다.
 
-### 2026-09-08 10:03 배포 (revision 22, 현재)
+### 2026-09-08 10:03 배포 (revision 22)
 
 Source `74cdc05`의 application `0.8.0-alpha.12`, chart `0.10.11`을 registry에 게시하고 PRISM-DEV release를 revision 22로 upgrade했다. Linux/amd64 image에는 SPDX SBOM과 SLSA provenance가 있다. 전체 container build, non-root/read-only smoke, Helm lint·server-side dry-run·test와 Server/Worker rollout이 통과했다. 상세 digest와 검증 기록은 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
 

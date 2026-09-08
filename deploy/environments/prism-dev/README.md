@@ -29,7 +29,7 @@
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.12@sha256:9380c382eddf61f5871ba71042a8e8750a5ca0ad787ced77c87ea345f426d839`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.13@sha256:788efe54c4103fcd4c9962a743a5163c5e1597f398a0aaee2e249ae53acc0fcd`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -432,6 +432,42 @@ Files 기본 전체 펼침, LNB 숨김 toggle, Chat 기본 너비 569px, 하단 
 
 ## 실제 GHES 및 ChatGPT account 등록
 
+현재 배포는 아래 revision 23 기록을 따른다. 앞선 날짜별 검증 수치는 각 배포 당시의 상태다.
+
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.
 
 `/admin?tab=chat`에서는 Codex ChatGPT login의 `auth.json`, 허용 model·effort, tenant 할당을 등록한다. 사용자는 review 화면의 오른쪽 Chat panel에서 할당된 account, model, effort를 선택한다. Access token, auth.json, 암호화 key는 Git repository나 values 파일에 저장하지 않는다.
+
+## 2026-09-08 Skill 번역·Severity Level 및 후속 UI 배포
+
+13:03 KST에 source `cfeba4728c121e0f620d6d48cfb72770e56c1820`으로 Helm revision 23 upgrade를 시작했고, 13:04 KST에 완료했다. 배포 직전 원격 branch와 source가 일치함을 확인했다. Release 설정 commit은 `be15ef8`이다.
+
+- Application: `0.8.0-alpha.13`, chart: `0.10.12`
+- Image index digest: `sha256:788efe54c4103fcd4c9962a743a5163c5e1597f398a0aaee2e249ae53acc0fcd`
+- Linux/amd64 image manifest: `sha256:232527c1a5663223bd8649ea0d462bf09452185cdfbb5264296e605d3aa7488c`
+- OCI chart digest: `sha256:73585bd6fba916fbd47ac77e2f794b66ab3655bad94917d022cbdf1fcee4738f`
+
+6개 perspective의 한국어 원문 번역 version 2와 tenant별 Severity Level을 포함한다. 앞서 미배포였던 Summary Markdown, comment block 전체 클릭, Chat 입력창·글자 크기와 하단 Model 선택, Reviews GNB 설정 버튼 수정도 함께 반영했다. 기존 Helm values를 `--reuse-values`로 유지하고 image tag·digest만 override했다.
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| 선행 source 검증 | 46 files, 256 tests 통과. 전용 local PostgreSQL integration 포함. Typecheck·lint·Web build·합성 desktop/mobile 검증 완료 |
+| Container | `node:22-alpine` 전체 production build 성공. Linux/amd64, UID 1000, read-only/network-none smoke에서 Skill 9개·migration 17개·5개 level 확인 |
+| Supply chain | Registry의 SPDX SBOM·SLSA provenance predicate 확인. Build CA는 BuildKit secret으로 전달하며 runtime image에 없음 |
+| Helm | Lint·server-side dry-run·upgrade 성공. 13:04 KST Helm connection test Succeeded |
+| Migration | `0017_analysis_severity.sql` 적용. DB checksum `ff540ff7f17c8c2daa6584441840cb8a4b7d25f02a0e079cb895ad002d01aa79` 일치 |
+| Workload | Server·Worker 각 1/1 Ready, restart 0회. 기존 Pod 종료 확인. Retention CronJob template도 새 digest로 갱신 |
+| Route/Health | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200, 모두 ok |
+| Web/API | `/api/v1/system` version `0.8.0-alpha.13`. `/login`·`/guide` HTTP 200. 비로그인 repository API 401, 관리자 API는 기존 정보 은닉 정책대로 404 |
+| 데이터 보존 | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 43건, report 35건 유지. 기존 analysis 43건의 level은 NULL 유지 |
+| 설정·Storage | 기존 두 PVC/PV ID, auth/registry/PostgreSQL Secret UID·resourceVersion, Corporate CA와 HTTPRoute UID·resourceVersion 유지 |
+| Log | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인 |
+
+Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. 기존 `nfs-csi` artifact RWX, PostgreSQL RWO PVC는 모두 10Gi·Bound다.
+
+실제 HTTPRoute가 제공하는 asset의 SHA-256이 선행 UI 검증 bundle과 일치했다.
+
+- `/assets/index-CbB-AP4c.js`: `6ef4d209d9897a969debc33d9126dee63c0b9ee6ea75d6ecf7d3d681cf7f0bd6`
+- `/assets/index-CxGqHCXb.css`: `24a521cc5721a44beb917fc8b54ebe503a4b2068da22bb7dc018f00402003016`
+
+배포 시 활성 custom Skill과 tenant Prompt는 없었다. 새 분석은 Built-in bundle `22896b401cb61acda43d030ff1b135fa0bbc44b7b17d93efd5ffb36595147ce7`과 기본 moderate를 사용한다. 이후 관리자가 Prompt를 저장하면 해당 tenant의 새 queue에 선택한 level이 고정된다. 기존 report를 재작성하거나 실제 모델 분석·Chat·PR 게시를 별도로 실행하지 않았다. 로그인 후 live Browser 조작은 재검증하지 않았으며 선행 합성 Browser 검증과 live artifact 일치 검증을 구분한다.

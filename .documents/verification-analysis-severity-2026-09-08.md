@@ -1,5 +1,7 @@
 # Skill 번역·Severity Level 검증
 
+이 문서는 개발 단계의 검증 기록이다. 후속 요청으로 PRISM-DEV revision 23에 배포했으며 결과는 [배포 문서](../deploy/environments/prism-dev/README.md)에 기록했다.
+
 2026-09-08, branch `feat/browser-review-service`. 실제 GHES·모델 API 호출, account/tenant 운영 설정 변경과 PRISM-DEV 배포는 수행하지 않았다.
 
 ## 자동 검증

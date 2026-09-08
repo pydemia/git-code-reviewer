@@ -1,6 +1,6 @@
 # 분석 Skill 번역과 Severity Level
 
-2026-09-08 구현. 이번 변경은 아직 PRISM-DEV에 배포하지 않았다.
+2026-09-08 구현. 후속 배포 요청에 따라 PRISM-DEV application `0.8.0-alpha.13`, Helm revision 23에 반영했다. [배포 검증](../deploy/environments/prism-dev/README.md)에서 migration·image·데이터 보존 결과를 확인한다.
 
 ## 원문과 번역 범위
 
