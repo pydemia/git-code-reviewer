@@ -5,15 +5,17 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.24`, chart `0.10.23`, Helm revision 35 배포 완료. 07:44:01 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
-- 배포 source: `ca6d9c5742c5cd87115db21cd7cd808e0b142241` (push 후 git archive build). Release 설정 commit `90b10b4`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.25`, chart `0.10.24`, Helm revision 36 배포 완료. 08:37:15 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
+- 배포 source: `06104794cb2ed1e59c05bc1b57d9d119fc8dc4c5` (push 후 git archive build). Release 설정 commit `783e5db`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
 ### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
 
-2026-09-09 파일 요약 문구 후속 수정: 사용자는 지적할 내용이 없는 파일의 긴 완료 설명을 줄이도록 요청했다. 공통 `presentReviewReport`에서 실제 AI/hybrid 분석의 reviewed 파일이며 unit·finding이 없고 priority가 null일 때만 `검토한 변경 범위에서 문제가 발견되지 않았습니다.`로 표시한다. 기존 report도 재분석 없이 적용하며 원본·Raw JSON·PR 전체 요약·분석 제한은 유지한다. UI와 Markdown/향후 PR 게시가 같은 표시 규칙을 사용한다. 미완료·실패·미수행·demo·Legacy와 의견이 있는 파일은 기존 설명을 유지한다. 현재 테스트·배포 진행 중이며 아래 alpha.24는 직전 배포다.
+2026-09-09 파일 요약 문구 후속 수정: 사용자는 지적할 내용이 없는 파일의 긴 완료 설명을 줄이도록 요청했다. 공통 `presentReviewReport`에서 실제 AI/hybrid 분석의 reviewed 파일이며 unit·finding이 없고 priority가 null일 때만 `검토한 변경 범위에서 문제가 발견되지 않았습니다.`로 표시한다. 기존 report도 재분석 없이 적용하며 원본·Raw JSON·PR 전체 요약·분석 제한은 유지한다. UI와 Markdown/향후 PR 게시가 같은 표시 규칙을 사용한다. 미완료·실패·미수행·demo·Legacy와 의견이 있는 파일은 기존 설명을 유지한다.
+
+414개 테스트·typecheck·lint·build와 alpha.25 배포 검증을 완료했다. 로그인한 실제 #917 Revision 2 화면의 11개 파일 요약과 Markdown이 같은 짧은 문구를 표시하며 기존 report hash·제한 2건은 보존했다. Desktop screenshot과 mobile DOM(390×844, 가로 overflow 없음)을 확인했다. Mobile screenshot은 capture timeout/축소 오류로 판독하지 못했고 200% zoom은 미검증이다. 재분석·Chat·GitHub 게시를 실행하지 않았다. 상세 digest·검증·범위 밖 UI 관찰은 [문구 변경 기록](../docs/operations/concise-review-summaries-2026-09-09.md)에 있다. 이전 alpha.22 Terminating Pod는 이번 점검 전에 사라졌고 alpha.24 Worker는 종료 유예 중이며 강제 삭제하지 않았다.
 
 2026-09-09 후속 작업: PR #917의 미완료 Summary를 조사했다. 최근 두 분석은 alpha.23 checkpoint 도입 전 네 attempt에서 누적 모델 호출 128회를 소진했다. 영구 실패의 불필요한 재시도와 원인 없는 파일 요약을 수정하고 새 revision의 입력 pin·게시 억제·실제 revision event를 추가했다. 413개 테스트·typecheck·lint·build, 배포 health·Helm test·migration checksum 검증을 통과했다. 사용자 승인으로 기존 `c3dfc29c-b34e-4214-b3a1-e8375179d30f`를 report 보존·GitHub 댓글 미게시 조건으로 재분석했다.
 

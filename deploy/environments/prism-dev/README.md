@@ -2,6 +2,16 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 파일 요약 문구 배포
+
+08:37:15 KST에 application `0.8.0-alpha.25`, chart `0.10.24`를 Helm revision **36**으로 배포했다. Source `0610479`와 release pin `783e5db`를 push 후 적용했다. 의견이 없는 검토 완료 파일만 짧게 표시하며 기존 report·미완료 안내·분석 제한은 유지한다.
+
+- Image index: `sha256:1833e312e88887de81855b6cffc050171e0d303189bfbf3c2801efde7aeb87f7`
+- Linux/amd64 manifest: `sha256:0b3d8b122c093a42c8237344d030b3e2efe12746268d26dc73b85ffdee20fb09`
+- OCI chart: `sha256:6faf3ac47df0be4fee8acf9e62c57bfc604e2dccbf01a954de6b6f2001f3d437`
+
+414개 테스트·typecheck·lint·build, health 4종·version·Helm test와 migration 28개 checksum을 확인했다. Server 1/1·Worker 2/2 Ready, restart 0회다. Image 외 values와 기존 Secret·CA·HTTPRoute·PVC/PV 및 사용자 데이터를 보존했다. 실제 Browser에서 기존 PR의 새 문구를 확인했으며 재분석·GitHub 댓글 게시 없이 적용했다. 검증 범위와 종료 유예 중인 이전 Worker는 [문구 변경 기록](../../../docs/operations/concise-review-summaries-2026-09-09.md)을 따른다.
+
 ## 2026-09-09 Interactive Review Chat 2차 배포
 
 후속 미완료 Summary 수정은 **07:44:01 KST application `0.8.0-alpha.24`, chart `0.10.23`, Helm revision 35**로 배포했다. 구현 `ca6d9c5`, release pin `90b10b4`이며 자세한 digest·검증과 승인된 PR #917 Revision 2 재분석은 [미완료 분석 조사 기록](../../../docs/operations/incomplete-review-2026-09-09.md)을 따른다. 기존 설정·데이터와 128회 모델 예산을 유지했다. 아래 alpha.23은 선행 배포 기록이다.
