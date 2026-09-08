@@ -129,6 +129,7 @@ export async function resolveChatAccountSelection(
   accountId: string,
   modelName: string,
   effort: string,
+  timeoutMs = config.CHAT_MODEL_TIMEOUT_MS,
 ): Promise<ChatAccountSelection | null> {
   const result = await database.query<ChatAccountSelectionRow>(
     `select account.id, account.display_name as "displayName", account.endpoint,
@@ -165,7 +166,7 @@ export async function resolveChatAccountSelection(
   );
   const row = result.rows[0];
   if (!row || !row.allowedEfforts.includes(effort)) return null;
-  return hydrateChatAccount(database, config, row, effort, config.CHAT_MODEL_TIMEOUT_MS);
+  return hydrateChatAccount(database, config, row, effort, timeoutMs);
 }
 
 /** Worker는 user/group 권한을 빌리지 않고 repository의 tenant grant를 확인한다. */

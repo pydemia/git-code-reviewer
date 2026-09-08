@@ -33,6 +33,7 @@ export type AgentRun = {
     maxModelCalls: number;
     maxToolCalls: number;
     maxContextBytes: number;
+    modelTimeoutMs?: number;
   };
   checkpoint: Checkpoint;
   content: string;
@@ -447,6 +448,7 @@ export async function executeAgentRun(
         run.configuration.accountId,
         run.configuration.modelName,
         run.configuration.effort,
+        run.configuration.modelTimeoutMs ?? config.CHAT_AGENT_MODEL_TIMEOUT_MS,
       );
       if (!selection?.model.turn) throw Error('agent_model_unavailable');
       if (Buffer.byteLength(JSON.stringify(run.checkpoint.messages)) > 393216)
@@ -515,6 +517,13 @@ export async function executeAgentRun(
       return;
     }
   } catch (error) {
+    const requests = await database
+      .query<{ count: string }>(
+        'select count(*)::text from model_request_ledger where run_key=$1',
+        [`chat-run:${run.id}`],
+      )
+      .catch(() => null);
+    run.model_calls = Math.max(run.model_calls, Number(requests?.rows[0]?.count ?? 0));
     if (error instanceof ModelCapacityError) {
       run.status = 'waiting_capacity';
       run.phase = 'waiting_capacity';
@@ -533,9 +542,11 @@ export async function executeAgentRun(
       state.rows[0]?.status === 'cancelling' ? 'cancelled' : run.content ? 'partial' : 'failed';
     run.phase = run.status;
     run.error_code =
-      error instanceof Error && /^[a-z_]+$/.test(error.message)
-        ? error.message
-        : 'agent_run_failed';
+      error instanceof Error && error.name === 'TimeoutError'
+        ? 'model_request_timeout'
+        : error instanceof Error && /^[a-z_]+$/.test(error.message)
+          ? error.message
+          : 'agent_run_failed';
     await persistRun(database, run, `run.${run.status}`).catch(() => undefined);
   } finally {
     clearTimeout(deadline);

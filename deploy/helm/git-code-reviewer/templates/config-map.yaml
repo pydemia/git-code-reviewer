@@ -54,6 +54,7 @@ data:
   CHAT_AGENT_ENABLED: {{ .Values.chatAgent.enabled | quote }}
   CHAT_AGENT_ALLOWED_USER_IDS: {{ join "," .Values.chatAgent.allowedUserIds | quote }}
   CHAT_AGENT_MAX_MODEL_CALLS: {{ .Values.chatAgent.maxModelCalls | quote }}
+  CHAT_AGENT_MODEL_TIMEOUT_MS: {{ default 180000 .Values.chatAgent.modelTimeoutMs | quote }}
   CHAT_AGENT_MAX_TOOL_CALLS: {{ .Values.chatAgent.maxToolCalls | quote }}
   CHAT_AGENT_CONTEXT_BYTES: {{ .Values.chatAgent.contextBytes | quote }}
   GIT_WORKSPACE_MAX_BYTES: {{ .Values.chatAgent.workspaceMaxBytes | quote }}

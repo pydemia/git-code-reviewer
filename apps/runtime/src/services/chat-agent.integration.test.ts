@@ -201,6 +201,28 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
     await executeAgentRun(database, config, first);
     expect(mocks.turn).not.toHaveBeenCalled();
   });
+  it('preserves partial output and charges a timed-out transmitted model request', async () => {
+    const run = await createRun();
+    mocks.turn.mockImplementationOnce(async (request) => {
+      const fetcher = admittedFetch(database, randomUUID(), async () => {
+        await request.onDelta('확인한 중간 결과');
+        throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      });
+      return fetcher('https://example.invalid/responses', { method: 'POST', body: '{}' });
+    });
+    await executeAgentRun(database, config, (await claimAgentRun(database, 'timeout-worker'))!);
+    const result = (await database.query('select * from chat_runs where id=$1', [run.id])).rows[0];
+    expect(result.status).toBe('partial');
+    expect(result.content).toBe('확인한 중간 결과');
+    expect(result.error_code).toBe('model_request_timeout');
+    expect(result.model_calls).toBe(1);
+    const ledger = (
+      await database.query('select state from model_request_ledger where run_key=$1', [
+        `chat-run:${run.id}`,
+      ])
+    ).rows;
+    expect(ledger).toEqual([{ state: 'interrupted' }]);
+  });
   it('reads source, asks the user, releases its lease and resumes with source evidence', async () => {
     const run = await createRun();
     const evidence = {

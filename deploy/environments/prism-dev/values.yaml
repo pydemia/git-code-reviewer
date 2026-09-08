@@ -9,8 +9,8 @@
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.21'
-  digest: 'sha256:d44f3ef8ae84678b0f8f068273917290ebd1a3af72d6722ce7d643e949f5e7c3'
+  tag: '0.8.0-alpha.22'
+  digest: ''
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -19,6 +19,7 @@ chatAgent:
   enabled: true
   allowedUserIds: []
   maxModelCalls: 8
+  modelTimeoutMs: 180000
   maxToolCalls: 24
   contextBytes: 131072
   workspaceMaxBytes: 1073741824
@@ -40,6 +41,7 @@ server:
 worker:
   replicas: 1
   concurrency: 2
+  terminationGracePeriodSeconds: 3600
   workspace:
     mode: emptyDir
     size: 5Gi

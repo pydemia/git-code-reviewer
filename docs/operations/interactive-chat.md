@@ -11,6 +11,7 @@ Helm의 `chatAgent.enabled`와 `modelAdmission.enabled`를 설정한다. 기존 
 ## 한도와 복구
 
 - `CHAT_AGENT_MAX_MODEL_CALLS=8`, `CHAT_AGENT_MAX_TOOL_CALLS=24`, `CHAT_AGENT_CONTEXT_BYTES=131072`. 설정은 실행 시작 시 고정한다.
+- 새 Chat의 모델 요청 timeout은 `CHAT_AGENT_MODEL_TIMEOUT_MS=180000`이며 최대 300000까지 설정할 수 있다. run 생성 시 고정하며 기존 Chat의 60000ms 설정과 분리한다. timeout은 `model_request_timeout`과 partial/failed로 표시하고 이미 전송한 요청은 호출 횟수에 포함한다. 부분 출력이 있다는 이유로 완료로 바꾸지 않는다.
 - 계정별 inference 동시 1개, 분당 60개·serialized input 합계 1 MiB. 같은 ChatGPT upstream account ID로 묶는다. 정확한 token quota는 아니며 제공자가 보낸 usage는 가능한 경우 ledger에 기록한다.
 - 실제 요청마다 영속 ledger를 기록하고 전송 이후 실패·401 재시도도 예산에 포함한다. 429는 Retry-After를 3초–30분 안에서 적용한다. 헤더가 없으면 30초 대기한다. 새 Chat은 Worker slot을 반환하고 `waiting_capacity`로 재개한다. 기존 자동 분석·legacy Chat은 최대 2분 안에서 대기한다.
 - 대기 중인 Chat은 계정에 15초짜리 다음 호출 우선권을 등록하고 재시도할 때 갱신한다. 실행 중인 모델 요청은 중단하지 않으며 quota와 429 cooldown도 그대로 적용한다. 만료된 우선권은 다른 요청을 막지 않는다. Chat 활성화 시 Worker concurrency를 2 이상으로 설정하면 한 slot을 Chat용으로 남기고 나머지만 배치 작업에 사용한다. PRISM-DEV는 concurrency 2로 운영한다. 구버전 Worker가 종료되기 전까지는 이 우선순위가 완전히 적용되지 않는다.
@@ -26,6 +27,8 @@ Helm의 `chatAgent.enabled`와 `modelAdmission.enabled`를 설정한다. 기존 
 `chat_runs`의 status·fence·model_calls·tool_calls·error_code, `chat_run_steps`, `model_request_ledger`, `model_account_capacity`로 진단한다. SSE는 event ID 이후 DB event를 다시 읽고 UI가 3초 polling으로 보완한다. 사용자 입력과 source 본문, credential은 로그에 출력하지 않는다.
 
 문제 발생 시 새 실행 flag를 끄기 전에 활성 run을 중단하거나 완료시킨다. `CHAT_AGENT_ENABLED=false`이면 Worker가 새 queue를 claim하지 않으므로 기존 queued/awaiting 상태는 남아 있으며 재활성화하면 만료 정책에 따라 회수된다. UI는 legacy Chat으로 돌아간다. 기존 report·message와 additive migration은 유지하고 downgrade를 위해 테이블을 삭제하지 않는다.
+
+PRISM-DEV Worker의 종료 유예는 3600초다. 롤링 배포 전 활성 배치 job과 attempt 수를 확인하고 잦은 연속 교체를 피한다. 이 유예는 새 Pod부터 적용되며 이미 종료 중인 Pod의 시간을 늘리지 않는다. Legacy 배치 job이 최대 attempt에서 Worker를 잃으면 자동 claim이 되지 않으므로 운영자가 정확한 job·만료 lease를 확인한 뒤 감사 기록과 함께 한 번만 복구한다. 기존 model ledger와 run별 호출 예산을 초기화하지 않는다.
 
 ## 이번 릴리스에서 남긴 범위
 

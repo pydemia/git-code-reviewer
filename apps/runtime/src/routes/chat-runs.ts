@@ -211,6 +211,7 @@ export async function registerChatRunRoutes(
               effort: session.reasoning_effort,
               instructions: reviewAgentInstructions,
               maxModelCalls: config.CHAT_AGENT_MAX_MODEL_CALLS,
+              modelTimeoutMs: config.CHAT_AGENT_MODEL_TIMEOUT_MS,
               maxToolCalls: config.CHAT_AGENT_MAX_TOOL_CALLS,
               maxContextBytes: config.CHAT_AGENT_CONTEXT_BYTES,
             }),
