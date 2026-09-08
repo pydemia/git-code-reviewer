@@ -21,6 +21,7 @@ import {
   operationSchema,
   passwordChangeResultSchema,
   profileSchema,
+  personalPromptResultSchema,
   pullRequestDetailSchema,
   pullRequestListSchema,
   refreshResponseSchema,
@@ -82,6 +83,12 @@ export async function loadProfile(signal: AbortSignal): Promise<Profile> {
 
 export async function updateProfile(displayName: string): Promise<Profile> {
   return profileSchema.parse(await mutateJson('/api/v1/profile', 'PATCH', { displayName }));
+}
+
+export async function updatePersonalPrompt(personalPrompt: string): Promise<string> {
+  return personalPromptResultSchema.parse(
+    await mutateJson('/api/v1/profile/prompt', 'PUT', { personalPrompt }),
+  ).personalPrompt;
 }
 
 export async function changeOwnPassword(

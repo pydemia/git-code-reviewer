@@ -85,13 +85,26 @@ export function GuidePage() {
             <div className="guide-section-heading">
               <KeyRound size={19} />
               <div>
-                <h2>개인 프로필과 비밀번호</h2>
+                <h2>개인 프로필·Prompt·비밀번호</h2>
               </div>
             </div>
             <p>
               GNB의 <strong>내 프로필</strong>에서 표시 이름, 사용자 이름 또는 subject, role, 인증
               방식과 tenant membership을 확인할 수 있습니다. Local account 사용자는 표시 이름을 직접
               수정할 수 있습니다.
+            </p>
+            <p>
+              <strong>개인 Prompt</strong>에는 답변 길이, 설명 방식, 관심 영역 등 본인의 Review Chat
+              지침을 최대 4,000자까지 작성할 수 있습니다. 예를 들어 ‘결론부터 설명하고 보안과
+              backward compatibility를 중점적으로 검토해 주세요’라고 입력한 뒤 ‘개인 Prompt 저장’을
+              누르세요. 기존 대화에서도 다음 질문부터 적용되며 과거 메시지는 바뀌지 않습니다. ‘내용
+              비우기’ 후 저장하면 적용이 해제됩니다.
+            </p>
+            <p>
+              개인 Prompt는 서비스 로그인 사용자별로 저장됩니다. 같은 ChatGPT account를 사용하는
+              다른 사용자, 공동 PR 분석과 PR 댓글에는 적용되지 않습니다. Local account와 외부 인증
+              계정 모두 설정할 수 있습니다. 입력 내용은 선택한 모델로 전송되므로 비밀번호나 Access
+              token을 넣지 마세요. 개인 Prompt는 답변 형식과 근거 검증 규칙을 변경하지 않습니다.
             </p>
             <p>
               비밀번호는 현재 비밀번호를 확인한 뒤 8~128자로 변경합니다. 변경이 완료되면 기존

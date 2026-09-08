@@ -455,6 +455,17 @@ Citation은 기존 `findingId?`, `evidenceId`, `fileId`, `line?`, `label`에 opt
 
 Assistant 본문에는 공통 `ReviewMarkdown`을 사용한다. 한글 본문·English 전문용어, CommonMark/GFM, code·표 내부 scroll을 지원하며 raw HTML 실행과 외부 image 요청은 차단한다. 사용자 질문은 원문 그대로 표시한다. 이미 저장된 메시지나 report는 재작성하지 않으며 여러 근거를 모델이 선택하는 동작은 새 답변부터 적용된다.
 
+#### 개인 Prompt (2026-09-08)
+
+`내 프로필 → 개인 Prompt`에서 서비스 사용자별 Review Chat 지침을 저장한다. Local·OIDC 사용자와 시스템관리자 모두 본인 설정만 관리한다. Tenant 분석 Prompt·Skill·공동 PR report·PR publication에는 적용하지 않는다. 다른 사용자가 같은 ChatGPT account를 선택해도 이 설정을 공유하지 않는다.
+
+- Migration `0018_personal_chat_prompt.sql`: `users.personal_prompt text NOT NULL DEFAULT ''`, DB 최대 4,000자 제약. 기존 사용자는 빈 값으로 시작하고 새 사용자의 기본값도 같다.
+- `GET /api/v1/profile`에 본인의 `personalPrompt`를 추가한다. 사용자 목록·일반 User 응답에는 추가하지 않는다. `PUT /api/v1/profile/prompt`는 `{personalPrompt: string}`만 받으며 사용자 ID·role 등 추가 필드를 거부한다. 인증된 `request.user.id`만 갱신하고 비활성 사용자는 갱신하지 않는다. API는 4,000자 초과와 null 문자를 거부하고 앞뒤 공백을 제거한다. 빈 문자열을 저장하면 해제한다. 기존 표시 이름·비밀번호 변경 API의 외부 IdP 제한은 그대로 유지한다.
+- 갱신과 `user.prompt.update` audit을 같은 transaction에 기록하고 audit 저장 실패 시 rollback한다. Audit에는 actor·대상 user ID·성공 여부만 남기며 Prompt 원문은 넣지 않는다.
+- Chat은 session 소유권·repository 권한을 확인한 뒤 매 질문마다 현재 사용자의 저장된 Prompt를 읽는다. 진행 중인 응답은 읽은 값을 사용하고 저장 이후 시작하는 질문부터 새 값을 적용한다. 기존 session을 다시 만들거나 과거 대화·report를 재작성하지 않는다.
+- Prompt는 system 문자열에 이어 붙이지 않고 별도의 `user` message에 `personal-preferences` JSON으로 전달한다. System에는 답변 스타일·설명 깊이·관심 영역에만 반영하고 현재 질문과 충돌하면 질문을 우선하도록 지시한다. JSON 응답 형식·citation catalog 검증·기존 접근 권한은 유지한다. Prompt가 비어 있으면 이 message를 추가하지 않는다. Prompt 원문을 Chat message나 event에 별도 저장하지 않지만 생성 답변에 그 내용이 반영될 수 있다.
+- UI는 8줄 textarea, 글자 수, 저장·내용 비우기, 저장 중·성공·오류 상태를 제공한다. 비우기는 초안을 지우며 저장해야 서버에서 해제된다. 모델로 전송되는 지침임을 안내하고 Secret 입력을 경고한다. 원문을 Browser localStorage에 저장하지 않는다.
+
 ### 5.11 Cleanup
 
 worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제한다. Container restart로 같은 pod의 `emptyDir`이 남은 경우 worker startup/periodic cleanup이 active lease가 없는 자기 volume의 run directory만 지운다. Pod가 삭제되면 `emptyDir`과 generic ephemeral PVC는 pod lifecycle에 따라 정리된다.

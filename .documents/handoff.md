@@ -10,6 +10,22 @@
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
+### 2026-09-08 프로필 개인 Prompt — 개발 완료, 미배포
+
+사용자는 개인화된 Prompt를 프로필에서 작성하도록 요청했다. 적용 범위는 본인의 Review Chat이며 공동 PR 분석·Tenant Prompt·Skill·PR 게시 결과는 바꾸지 않는다. Backend commit `f06d329`를 먼저 push했고 UI·문서 commit은 후속 git log를 확인한다.
+
+Migration `0018_personal_chat_prompt.sql`이 `users.personal_prompt`를 빈 문자열 기본값·최대 4,000자로 추가한다. 본인 GET profile 응답과 `PUT /api/v1/profile/prompt`를 제공하며 Local/OIDC·일반사용자/관리자 모두 `request.user.id`로만 저장한다. 추가 userId 필드를 거부하고 저장+내용 없는 audit을 transaction으로 묶는다. 앞뒤 공백 제거·null 문자 거부·빈 값 저장 시 해제를 적용했다. 표시 이름·비밀번호의 IdP 제한과 기존 사용자 응답 contract는 유지한다.
+
+Chat은 소유권·repository 권한을 검사한 뒤 매 질문마다 현재 사용자의 Prompt를 읽는다. System 지침과 섞지 않고 별도의 `user` message에 `personal-preferences` JSON으로 넣는다. 스타일·설명 깊이·관심 영역에 반영하도록 지시하며 현재 질문·근거·JSON 응답 규칙을 우선한다. Prompt를 Chat message/event에 별도 저장하지 않고 기존 대화·report를 재작성하지 않는다. 모델 답변 자체에는 개인 지침 내용이 반영될 수 있다. 실제 모델의 지시 준수 정확도를 검증한 결과는 아니다.
+
+`ProfilePage`의 프로필 정보와 비밀번호 사이에 독립 `PersonalPromptForm`을 추가했다. 8줄 textarea·글자 수·저장·내용 비우기를 제공한다. 비우기는 초안만 변경하며 저장해야 해제된다. 저장 실패 시 입력값을 유지하고 alert로 focus를 옮긴다. 선택한 모델로 전송된다는 점과 Secret 입력 금지를 안내한다. 가이드·제품 정의·기능설계서 5.10에 반영했다.
+
+검증: 로컬 PostgreSQL 16의 격리 schema에서 migration 18개와 재실행을 확인하고 사용자 분리·재연결 후 영속성·본문 없는 audit·최대 길이·해제를 검증했다. 전체 312 tests / 52 files 통과, skip 없음. 신규 검증은 20건이며 기존 29 DB integration도 실행했다. ESLint·전체 TypeScript·Web production build 통과. 기존 Zod annotation·500kB bundle warning은 유지된다. 새 SSR test의 HTML attribute 대소문자 기대값만 실제 serializer에 맞춰 수정했다.
+
+Browser는 실제 ProfilePage에 합성 API를 연결했다. Desktop 1440×1000·mobile 390×844에서 저장·재조회·실패 시 초안/alert focus 유지·저장 전 비우기의 비영속성·저장 후 해제와 가로 overflow 없음을 확인했다. `profile-prompt-{desktop,mobile}.png`는 `.impeccable/review/`에 보존한다. 새 UI에 detector warning은 없으며 기존 unrelated 3px 측면 border 4건은 유지했다. 실제 GHES·LLM 호출·클러스터 배포는 하지 않았다. PRISM-DEV는 여전히 application 0.8.0-alpha.13/Helm revision 23이다. 재배포 시 migration 0018과 앞선 미배포 Grade·Chat Markdown·PR 접기 변경도 함께 포함한다.
+
+독립 Impeccable finish review는 이번 개인 Prompt UI 범위에서 `ship`이며 수정 요구가 없었다. 기존 DESIGN.md와 sidecar의 시각 체계를 유지했다. 검증용 Browser·Vite·PostgreSQL container와 임시 harness는 종료·삭제했으며 기존 사용자 데이터는 변경하지 않았다. 상세 근거와 검증 한계는 [개인 Prompt 검증 기록](verification-personal-prompt-2026-09-08.md)에 있다.
+
 ### 2026-09-08 PR AI Comments 접기 — 개발 완료, 미배포
 
 `formatReviewMarkdown`의 AI Comments 전체를 기본으로 닫힌 `<details>`에 넣었다. 접힌 제목에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 분석 상태·대표 priority, Overall Summary와 전체 report 링크는 이 영역 밖에 남는다. 펼친 본문은 기존 파일별 의견·코드 위치·영향·수정 제안·finding 링크를 유지한다. 의견이 없으면 빈 toggle을 만들지 않는다. Markdown export에도 같은 형식이 적용되지만 Browser workspace의 Comments와 저장된 report는 변경하지 않는다.

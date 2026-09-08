@@ -2436,6 +2436,45 @@ body.workspace-resizing:has(.resize-bottom) {
   cursor: progress;
 }
 
+.profile-prompt-input {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.75;
+  caret-color: var(--accent);
+}
+
+.profile-prompt-input::placeholder {
+  color: #69717d;
+}
+
+.profile-prompt-count,
+.profile-prompt-help {
+  margin: 8px 0 0;
+  color: #596570;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.profile-prompt-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-prompt-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .profile-managed-note,
 .profile-loading,
 .profile-load-error,
