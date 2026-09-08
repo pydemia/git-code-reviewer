@@ -55,7 +55,7 @@ export async function readAgentStream(
     if (event.type === 'response.output_item.done' && event.item) output.push(event.item);
     if (event.type === 'response.completed') {
       completed = true;
-      output = event.response?.output ?? output;
+      if (event.response?.output?.length) output = event.response.output;
       usage = event.response?.usage ?? null;
     }
     if (['response.failed', 'response.incomplete', 'error'].includes(event.type))

@@ -36,6 +36,30 @@ describe('agent provider stream', () => {
       ),
     ).rejects.toThrow('model_stream_interrupted');
   });
+  it('preserves streamed tool calls when the live provider completes with an empty output array', async () => {
+    const result = await readAgentStream(
+      new Response(
+        frame({
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: 'live-call',
+            name: 'read_file',
+            arguments: '{"path":"README.md","revision":"base"}',
+          },
+        }) + frame({ type: 'response.completed', response: { status: 'completed', output: [] } }),
+      ),
+      async () => undefined,
+    );
+    expect(result.calls).toEqual([
+      {
+        call_id: 'live-call',
+        name: 'read_file',
+        arguments: '{"path":"README.md","revision":"base"}',
+      },
+    ]);
+    expect(result.output).toHaveLength(1);
+  });
   it('does not expose reasoning as assistant text', async () => {
     const deltas: string[] = [];
     await readAgentStream(
