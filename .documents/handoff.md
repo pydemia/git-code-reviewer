@@ -4,6 +4,7 @@
 
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
+- 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
 - 단계: PRISM-DEV application `0.8.0-alpha.13`, Helm revision 23 배포 완료. Markdown·block 이동·Chat·GNB 개선과 Skill 번역·Severity Level 포함
 - 배포 source: `cfeba4728c121e0f620d6d48cfb72770e56c1820` (재배포 전 원격 최신 commit과 일치 확인). Release 설정 commit `be15ef8`, 배포 기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
