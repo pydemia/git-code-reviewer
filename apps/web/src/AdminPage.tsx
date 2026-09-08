@@ -21,7 +21,11 @@ import {
   parseGitHubRepositoryUrl,
   localPasswordMaximumLength,
   localPasswordMinimumLength,
+  defaultReviewSeverityLevel,
+  reviewSeverityLevels,
+  type ReviewSeverityLevel,
 } from '@gcr/contracts';
+import { SeverityLevelField } from './SeverityLevelField';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   activateAnalysisProvider,
@@ -124,6 +128,9 @@ export function AdminPage() {
   );
   const [promptData, setPromptData] = useState<AnalysisPromptList | null>(null);
   const [promptDraft, setPromptDraft] = useState('');
+  const [promptSeverity, setPromptSeverity] = useState<ReviewSeverityLevel>(
+    defaultReviewSeverityLevel,
+  );
   const [providerData, setProviderData] = useState<AnalysisProviderSettings | null>(null);
   const [chatAccounts, setChatAccounts] = useState<AdminChatAccount[]>([]);
   const [githubConnections, setGithubConnections] = useState<GitHubConnection[]>([]);
@@ -203,14 +210,17 @@ export function AdminPage() {
     if (!selectedTenantId) {
       setPromptData(null);
       setPromptDraft('');
+      setPromptSeverity(defaultReviewSeverityLevel);
       return;
     }
     const controller = new AbortController();
     setPromptData(null);
     void loadAnalysisPrompts(selectedTenantId, controller.signal).then(
       (value) => {
+        if (controller.signal.aborted) return;
         setPromptData(value);
         setPromptDraft(value.active?.instructions ?? '');
+        setPromptSeverity(value.active?.severityLevel ?? defaultReviewSeverityLevel);
       },
       (error: unknown) => {
         if (!controller.signal.aborted) setMessage({ tone: 'error', text: errorMessage(error) });
@@ -383,10 +393,10 @@ export function AdminPage() {
   };
 
   const submitPrompt = async () => {
-    if (!selectedTenantId || !promptDraft.trim()) return;
+    if (!selectedTenantId || promptData?.tenant.id !== selectedTenantId || busyKey) return;
     await runMutation(
       'prompt:save',
-      () => saveAnalysisPrompt(selectedTenantId, promptDraft),
+      () => saveAnalysisPrompt(selectedTenantId, promptDraft, promptSeverity),
       '새 프롬프트 버전을 활성화했습니다.',
     );
   };
@@ -626,6 +636,8 @@ export function AdminPage() {
               selectedTenantId={selectedTenantId}
               data={promptData}
               draft={promptDraft}
+              severityLevel={promptSeverity}
+              onSeverityChange={setPromptSeverity}
               busyKey={busyKey}
               onTenantChange={selectTenant}
               onDraftChange={setPromptDraft}
@@ -638,7 +650,8 @@ export function AdminPage() {
                 )
               }
               onReset={() => {
-                if (!window.confirm('테넌트 프롬프트를 기본 분석 프롬프트로 되돌릴까요?')) return;
+                if (!window.confirm('추가 지침을 비우고 분석 수준을 moderate로 되돌릴까요?'))
+                  return;
                 void runMutation(
                   'prompt:reset',
                   () => resetAnalysisPrompt(selectedTenantId),
@@ -1351,6 +1364,8 @@ function PromptPanel({
   selectedTenantId,
   data,
   draft,
+  severityLevel,
+  onSeverityChange,
   busyKey,
   onTenantChange,
   onDraftChange,
@@ -1363,6 +1378,8 @@ function PromptPanel({
   selectedTenantId: string;
   data: AnalysisPromptList | null;
   draft: string;
+  severityLevel: ReviewSeverityLevel;
+  onSeverityChange: (value: ReviewSeverityLevel) => void;
   busyKey: string | null;
   onTenantChange: (value: string) => void;
   onDraftChange: (value: string) => void;
@@ -1370,11 +1387,12 @@ function PromptPanel({
   onActivate: (promptId: string) => void;
   onReset: () => void;
 }) {
+  const loading = !data || data.tenant.id !== selectedTenantId;
+  const disabled = loading || busyKey !== null;
   return (
     <section className="admin-section prompt-section">
       <div className="admin-title-row">
         <div>
-          <p className="eyebrow">Analysis policy</p>
           <h1>분석 프롬프트</h1>
         </div>
         <label className="toolbar-select">
@@ -1399,12 +1417,17 @@ function PromptPanel({
         </span>
         <span>{data?.active ? `Active v${data.active.version}` : 'Built-in prompt'}</span>
       </div>
-      <div className="prompt-editor">
+      <div className="prompt-editor" aria-busy={loading}>
+        <SeverityLevelField value={severityLevel} disabled={disabled} onChange={onSeverityChange} />
         <div className="prompt-editor-heading">
-          <strong>추가 분석 지침</strong>
+          <label htmlFor="analysis-prompt-instructions">
+            <strong>추가 분석 지침 · 선택 사항</strong>
+          </label>
           <span>{draft.length.toLocaleString()} / 12,000</span>
         </div>
         <textarea
+          id="analysis-prompt-instructions"
+          disabled={disabled}
           value={draft}
           maxLength={12_000}
           onChange={(event) => onDraftChange(event.target.value)}
@@ -1415,7 +1438,7 @@ function PromptPanel({
             className="command-button"
             type="button"
             onClick={onReset}
-            disabled={!data?.active || busyKey !== null}
+            disabled={!data?.active || disabled}
           >
             <RotateCcw size={15} /> 기본값 복원
           </button>
@@ -1423,7 +1446,7 @@ function PromptPanel({
             className="command-button primary"
             type="button"
             onClick={onSave}
-            disabled={!draft.trim() || busyKey !== null}
+            disabled={disabled}
           >
             <Save size={15} /> 새 버전 저장 및 활성화
           </button>
@@ -1443,7 +1466,11 @@ function PromptPanel({
               </span>
               <time>{formatAdminDate(prompt.createdAt)}</time>
             </div>
-            <pre>{prompt.instructions}</pre>
+            <p className="prompt-version-severity">
+              <strong>{prompt.severityLevel}</strong> —{' '}
+              {reviewSeverityLevels[prompt.severityLevel].description}
+            </p>
+            <pre>{prompt.instructions || '추가 지침 없음'}</pre>
             <div className="prompt-version-footer">
               <span>{prompt.createdBy.displayName}</span>
               <code>{prompt.contentHash.slice(0, 12)}</code>
@@ -1451,7 +1478,7 @@ function PromptPanel({
                 <button
                   className="command-button"
                   type="button"
-                  disabled={busyKey !== null}
+                  disabled={disabled}
                   onClick={() => onActivate(prompt.id)}
                 >
                   <Check size={14} /> 활성화

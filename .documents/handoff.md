@@ -4,11 +4,23 @@
 
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
-- 단계: Workspace 배치는 PRISM-DEV application `0.8.0-alpha.12`, Helm revision 22로 배포됨. 후속 Markdown·block 이동·Chat 개선은 commit·push했으며 아직 미배포
+- 단계: Workspace 배치는 PRISM-DEV application `0.8.0-alpha.12`, Helm revision 22로 배포됨. 후속 Markdown·block 이동·Chat·GNB 개선과 Skill 번역·Severity Level은 아직 미배포
 - 배포 source: `74cdc056833ae7b2866bc27a30a8635c9b94b5b2` (재배포 전 원격 최신 commit과 일치 확인). Release 설정·기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-08 Skill 원문 번역·Severity Level — 미배포
+
+Commit Defender `14203044e4e0cf2ba5d44fcf521425a4113f7840`의 6개 perspective를 점검 항목·Tone 전체를 유지해 한국어로 번역했다. Correctness·Maintenance는 사용자 첨부 원문과 일치한다. 전문용어는 영어로 유지하고 기존 근거 검증·Secret 비노출 기준을 별도 절로 보존했다. Perspective version 2, form 3개는 내용/version 유지. 출처·Apache-2.0 license 포함. 번역 commit은 `2ff10b5`, backend commit은 `1c89187`이다.
+
+관리자 `분석 프롬프트`에 tenant별 Severity Level radio 5개와 한국어 설명·priority 범위를 추가했다. 기본 moderate. lean=P3, generous=P2/P3, moderate=P1 최대 2개/파일+P2/P3, rigorous=P1/P2/P3, severe=P0–P3이며 같은 파일의 concern/Praise 모순은 제거한다. 원본 package.json 설명과 filter가 다른 부분은 실제 Prompt/reviewer 코드를 기준으로 이식했다. Model·effort와는 별개다.
+
+Migration `0017_analysis_severity.sql`이 필요하다. 지침이 비어도 수준만 저장할 수 있고 지침·level을 함께 hash/version으로 관리한다. 새 analysis는 materialization 때 Prompt ID/hash/level을 고정하고 후속 활성화 변경을 받지 않는다. Worker는 모든 stage에 수준 지침을 전달하며 여러 window의 중복 제거 후 파일별 필터를 적용해 요약과 comment를 일치시킨다. 같은 근거의 P1/P3 중복은 P3를 남긴다. Report `versions.severity`/`versions.prompt`로 추적한다. 이전 queue의 NULL level과 기존 hash·report는 재작성하지 않는다.
+
+현재 custom Skill을 저장해 활성화한 환경에서는 배포만으로 내용을 덮어쓰지 않는다. 새 번역본을 적용하려면 `분석 Skills → Built-in을 초안으로 불러오기 → 비교/편집 → Version 저장 및 활성화`가 필요하다. 이번 작업에서는 live bundle·Provider·GHES·클러스터를 변경하지 않았다. 배포 요청 시 Server/Worker와 migration 0017을 함께 반영한다.
+
+검증은 전체 256 tests/46 files(전용 local PostgreSQL integration 포함, skip 없음), typecheck·lint·Web build 통과. 실제 AdminPage를 합성 API와 연결해 빈 지침 저장, tenant별 복원, loading 잠금, keyboard, desktop/mobile을 확인했다. 상세 내용과 경고·검증 한계는 [설계](analysis-severity-level.md), [검증 기록](verification-analysis-severity-2026-09-08.md)을 참조한다. 임시 Browser·Vite·harness·test DB는 종료/정리하고 합성 screenshot만 문서에 보관한다.
 
 ### 2026-09-08 Reviews GNB 설정 버튼 — 미배포
 

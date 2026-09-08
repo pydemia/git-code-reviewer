@@ -12,6 +12,7 @@ import {
 import { useEffect, useState } from 'react';
 import { loadCurrentUser, type User } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
+import { reviewSeverityLevelSchema, reviewSeverityLevels } from '@gcr/contracts';
 
 const githubPatDocs =
   'https://docs.github.com/en/enterprise-server@3.21/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens';
@@ -392,11 +393,46 @@ export function GuidePage() {
               관점과 unit-comment-block, overall-summary, total-summary 형식이 포함됩니다.
             </p>
             <p>
+              기본 관점 6개의 version 2는 Commit Defender 원문의 점검 항목과 Tone을 한국어로
+              옮겼으며 전문용어는 영어로 유지합니다. 이미 저장해 활성화한 custom bundle은 자동으로
+              덮어쓰지 않습니다. 새 기본 내용을 적용하려면 ‘Built-in을 초안으로 불러오기’로 내용을
+              비교·수정한 뒤 ‘Version 저장 및 활성화’를 선택하세요.
+            </p>
+            <p>
               ‘Perspective 추가’로 새 관점을 만들고 name, title, version과 한국어 지침을 작성하세요.
               이름은 영어 소문자·숫자·hyphen을 사용합니다. 관점을 끄려면 enabled를 false로 바꾸며 세
               form은 활성 상태로 유지해야 합니다. ‘Version 저장 및 활성화’는 전역 설정으로, 이후
               queue에 들어가는 모든 tenant의 분석에 적용됩니다. Tenant별 추가 지침은 분석
               프롬프트에서 관리합니다.
+            </p>
+            <h3>분석 수준 · Severity Level</h3>
+            <p>
+              Administration → 분석 프롬프트에서 tenant를 고르고 분석 수준을 선택한 뒤 ‘새 버전 저장
+              및 활성화’를 누르세요. 추가 지침은 비워도 됩니다. 기본값은 moderate입니다.
+              Model·effort는 분석 Provider에서 따로 설정하며, Severity Level은 검토 범위와 보고할
+              comment의 priority 기준을 조절합니다.
+            </p>
+            <dl>
+              {reviewSeverityLevelSchema.options.map((level) => (
+                <div key={level}>
+                  <dt>
+                    <strong>{level}</strong> · {reviewSeverityLevels[level].scope}
+                  </dt>
+                  <dd>{reviewSeverityLevels[level].description}</dd>
+                </div>
+              ))}
+            </dl>
+            <p>
+              P1은 화면에서 Info로 표시하는 선택적 개선 제안입니다. Moderate의 한도는 여러 window를
+              합친 파일 전체에 적용하고 P2·P3는 개수 제한 없이 유지합니다. Severe에서도 같은 파일에
+              문제가 있으면 P0 Praise를 함께 넣지 않습니다. Level 때문에 priority를 올리거나 확인된
+              P3를 낮추지 않습니다. 요약은 필터를 통과한 comment를 기준으로 작성합니다.
+            </p>
+            <p>
+              지침과 분석 수준은 하나의 immutable version으로 저장됩니다. 이전 version을 활성화하면
+              둘 다 복원되고 ‘기본값 복원’은 추가 지침 없음·moderate로 돌아갑니다. 변경 전 queue에
+              들어간 작업과 기존 report는 그대로 유지됩니다. 새 report의 Raw JSON에서
+              versions.severity와 versions.prompt로 적용 수준과 version을 확인할 수 있습니다.
             </p>
             <p>
               Version history에서 이전 version을 활성화하거나 Built-in으로 복원할 수 있습니다.

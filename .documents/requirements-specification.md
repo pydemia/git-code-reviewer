@@ -1,5 +1,9 @@
 # Git Code Reviewer - 요구사항 명세서
 
+## 후속 요구사항: Skill 원문 번역과 분석 수준
+
+2026-09-08 범위는 [분석 수준 설계](analysis-severity-level.md)로 추적한다. 6개 perspective의 원문 점검 항목·Tone을 누락 없이 한국어로 번역하며 전문용어와 Report form은 유지한다. 관리자는 tenant별 분석 프롬프트에서 lean·generous·moderate·rigorous·severe를 한국어 설명과 함께 선택한다. 기본값은 moderate이며 추가 지침 없이 수준만 저장할 수 있다. 지침과 수준은 동일한 immutable version에 포함하고 새 queue에 고정한다. 기존 report·queued 작업·활성 custom Skill은 소급 변경하지 않는다. Moderate의 P1 한도는 파일 전체에 2개이고 모든 수준에서 accepted P3를 보존한다. 파일·전체 요약은 필터를 통과한 unit만 사용한다. Model·effort와는 독립적인 설정이다.
+
 ## 후속 요구사항: Skill 기반 report
 
 2026-09-07에 추가된 Commit Defender report와 Skill 관리의 완료 조건은 [R1–R10](skill-based-review-report.md#완료-기준)으로 추적한다. 전체 상태와 파일별 Overall Summary, 파일로 묶인 unit-comment-block, Analyzed File List를 같은 분석 revision에서 제공한다. 관리자 Skill version과 queued snapshot은 불변이며 custom perspective 추가를 허용한다. 실패·미검토·데모를 PASS로 표시하지 않고, 파일/line 근거가 없는 주장을 정상 comment처럼 게시하지 않는다. JSON/Markdown과 PR timeline도 같은 계층을 유지한다.

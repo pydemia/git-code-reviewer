@@ -1,4 +1,6 @@
 import {
+  defaultReviewSeverityLevel,
+  type ReviewSeverityLevel,
   analysisSkillSettingsSchema,
   adminChatAccountListSchema,
   adminRepositoryListSchema,
@@ -189,9 +191,14 @@ export async function loadAnalysisPrompts(
   );
 }
 
-export async function saveAnalysisPrompt(tenantId: string, instructions: string): Promise<void> {
+export async function saveAnalysisPrompt(
+  tenantId: string,
+  instructions: string,
+  severityLevel: ReviewSeverityLevel = defaultReviewSeverityLevel,
+): Promise<void> {
   await mutateJson(`/api/v1/admin/tenants/${tenantId}/analysis-prompts`, 'POST', {
     instructions,
+    severityLevel,
   });
 }
 

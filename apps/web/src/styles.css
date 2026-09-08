@@ -4140,6 +4140,86 @@ body.workspace-resizing:has(.resize-bottom) {
   border-top: 0;
 }
 
+.severity-level-field {
+  min-width: 0;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+}
+
+.severity-level-field legend {
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.severity-level-field > p {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.severity-level-options {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.severity-level-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.severity-level-option + .severity-level-option {
+  border-top: 1px solid var(--border);
+}
+
+.severity-level-option.selected {
+  background: var(--accent-soft);
+}
+
+.severity-level-option:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.severity-level-option input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.severity-level-option > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.severity-level-option small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.severity-level-field:disabled .severity-level-option {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.prompt-version-severity {
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .prompt-editor-heading,
 .prompt-actions,
 .prompt-history-heading,

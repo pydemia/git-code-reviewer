@@ -8,6 +8,8 @@
 
 Administration의 `분석 Skills`는 관점/form 목록, SKILL.md 편집기, bundle 저장/활성화와 version history 순서다. Desktop에서는 목록과 편집기를 나란히 두고 작은 화면에서는 위아래로 배치한다. 새 관점 추가, 초안 삭제, enabled 변경, 이전 version 재활성화와 Built-in 복원을 지원한다. 저장하지 않은 초안은 탭 이동 중 유지하고 page 이탈 때 경고한다. 모든 tenant의 새 작업에 적용된다는 범위를 저장 전에 안내한다. 지침은 browser local storage에 보관하지 않는다.
 
+`분석 프롬프트`의 추가 지침 위에는 Severity Level 5개를 native radio로 표시한다. 각 항목은 영어 level 이름·짧은 한국어 설명·priority 범위를 보여주고 moderate에 기본값을 명시한다. Tenant 조회 중에는 fieldset과 저장·활성화 control을 비활성화해 이전 tenant의 값을 잘못 저장하지 않게 한다. Level만 저장할 수 있으며 history에 당시 수준과 지침을 함께 표시한다. 선택 강조는 기존 teal token을 사용하고 작은 화면에서도 설명을 숨기지 않고 줄바꿈한다. 동작 정본은 [분석 수준 설계](analysis-severity-level.md)다.
+
 실패·미수행·데모에는 성공 grade를 표시하지 않는다. PASS는 검토한 범위에 P3가 없다는 뜻이며 merge를 허가하거나 안전을 보증하지 않는다. Code Coverage와 AI 검토 완료율은 구분한다. 상세 상태와 API/Worker contract는 `skill-based-review-report.md`를 따른다.
 
 ## 1. 적용 범위

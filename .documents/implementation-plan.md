@@ -1,5 +1,13 @@
 # Git Code Reviewer - 구현 계획서
 
+## 후속 commit phase: Skill 번역과 Severity Level (2026-09-08)
+
+- Phase 1: 원문 6개 perspective 전체 번역, 출처·license, checklist 검증. Commit `2ff10b5`.
+- Phase 2: level contract, migration 0017, Prompt version API, immutable queue 바인딩, 세 stage 지침·필터. 수준별·여러 window·P3 중복·legacy/DB integration 검증. Commit `1c89187`.
+- Phase 3: 관리자 선택 UI와 한국어 설명, 사용 가이드·요건/기능/UI 설계·handoff. Desktop/mobile 합성 Browser, 전체 tests·typecheck·lint·Web build 확인 후 commit·push.
+
+상세 기준은 [분석 수준 설계](analysis-severity-level.md), 실제 결과는 [검증 기록](verification-analysis-severity-2026-09-08.md)에 있다. 이번 범위에는 PRISM-DEV 재배포와 활성 custom Skill 변경이 포함되지 않는다.
+
 ## 후속 commit phase: Skill 기반 Commit Defender report
 
 2026-09-07 추가 범위의 완료 조건과 검증 표는 `skill-based-review-report.md`에 있다. 기존 milestone을 소급 변경하지 않고 다음 단위로 commit·push한다.
