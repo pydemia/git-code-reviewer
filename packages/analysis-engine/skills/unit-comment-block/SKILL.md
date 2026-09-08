@@ -6,6 +6,7 @@ unit: code-segment
 version: 1
 enabled: true
 ---
+
 # 분석 단위와 출력
 
 Unit은 한 파일의 한 code segment에 관한 하나의 검토 의견이다. Window에는 경계 이해를 위한 overlap context가 있지만 comment의 위치는 실제 지적 대상의 시작 line과 끝 line이다. File-level 의견은 line 0으로 구분하고 존재하지 않는 line을 만들지 않는다.

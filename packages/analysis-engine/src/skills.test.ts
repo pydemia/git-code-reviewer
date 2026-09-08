@@ -31,6 +31,15 @@ describe('review Skill catalog', () => {
     ]);
     expect(validateReviewSkillBundle(defaults)).toEqual(defaults);
   });
+  it('keeps every translated checklist and Tone in the six version 2 perspectives', () => {
+    for (const skill of defaults.skills.filter((skill) => skill.kind === 'perspective')) {
+      expect(skill.version).toBe(2);
+      const checklist = skill.instructions.split('## 점검 항목')[1]!.split('## 판단 어조')[0]!;
+      expect(checklist.match(/^- \*\*/gm)).toHaveLength(skill.name === 'review-history' ? 6 : 8);
+      expect(skill.instructions).toContain('## git-code-reviewer 적용 기준');
+      expect(skill.instructions).toContain('Apache-2.0');
+    }
+  });
   it('allows a new perspective without an enum change and builds stage-specific prompts', () => {
     const source = defaults.skills
       .find((skill) => skill.name === 'correctness')!
@@ -62,7 +71,7 @@ describe('review Skill catalog', () => {
     ).toThrow();
     for (const changed of [
       source.replace('name: correctness', 'name: ../secret'),
-      source.replace('version: 1', 'version: 0'),
+      source.replace(/version: \d+/, 'version: 0'),
       source.replace('enabled: true', 'enabled: yes'),
       source.replace('---\n', '---\ncommand: curl\n'),
       source.replace('---\n', '---\nname: duplicate\n'),
