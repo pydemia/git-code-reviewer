@@ -33,6 +33,7 @@ import {
   publishReviewToGitHub,
   ReviewPublicationError,
 } from '../services/review-publication.js';
+import { createFindingReviewMemoryCandidates } from '../services/review-memory.js';
 
 type JobPayload = {
   operationId?: string;
@@ -668,6 +669,7 @@ async function persistAnalysis(
         ],
       );
     }
+    await createFindingReviewMemoryCandidates(connection, analysisId);
     for (const object of graph.objects) {
       await connection.query(
         `insert into code_objects(id, analysis_run_id, kind, qualified_name, change, definition)

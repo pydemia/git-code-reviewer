@@ -17,6 +17,7 @@ import { registerWorklistRoutes } from './routes/worklist.js';
 import { registerProfileRoutes } from './routes/profile.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAccountRegistryRoutes } from './routes/account-registry.js';
+import { registerReviewMemoryRoutes } from './routes/review-memory.js';
 import {
   createGitHubReader,
   ensureFixtureRepository,
@@ -95,6 +96,7 @@ export async function buildServer(config: AppConfig) {
   await registerSnapshotRoutes(app, database, eventHub, artifacts, authorization);
   await registerAnalysisRoutes(app, database, eventHub, artifacts, config, authorization);
   await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel, authorization);
+  await registerReviewMemoryRoutes(app, database, authorization);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));

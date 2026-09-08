@@ -9,6 +9,7 @@ Git Code Reviewer가 한 번 생성한 AI review와 사용자가 확인한 revie
 - 같은 repository에서 반복되는 결함과 설계 제약을 매번 처음부터 설명한다.
 - 과거 false positive가 새 분석에서 반복된다.
 - Chat에서 확인한 팀의 결정과 예외 조건이 해당 session이 끝나면 사라진다.
+- GitHub PR에서 사람이 코드와 repository 맥락을 보고 남긴 댓글, review와 답글이 다음 분석에 재사용되지 않는다.
 - 과거 판단을 재사용하더라도 어떤 PR, finding, 사용자 검토에서 왔는지 추적하기 어렵다.
 - 개인 검토 취향과 팀에서 합의된 지식을 구분하지 않으면 다른 사용자에게 개인 맥락이 노출되거나 공용 분석이 한 사용자의 판단에 치우친다.
 
@@ -70,7 +71,7 @@ Memory 본문은 `summary`, `detail`, `recommendation`으로 나눈다. 검색 s
 ## 5. 상태와 신뢰 경계
 
 ```text
-AI finding 또는 사용자 review
+AI finding, Chat 또는 GitHub PR 대화
   -> personal candidate
   -> personal active     본인의 다음 분석과 Chat에서 검색됨
   -> collective candidate 서로 다른 사용자 memory를 repository 단위로 집계
@@ -81,7 +82,7 @@ AI finding 또는 사용자 review
 ```
 
 - 사용자가 요청한 analysis의 AI finding은 해당 사용자의 `personal candidate`로 자동 저장한다.
-- 사용자는 자신의 finding과 Chat message를 personal memory 후보로 제출할 수 있다.
+- 사용자는 자신의 finding, Chat message 또는 접근 가능한 GitHub PR message를 personal memory 후보로 제출할 수 있다.
 - 사용자는 자신의 personal candidate를 수정해 활성화하거나 기각·폐기할 수 있다.
 - repository collective memory 활성화, 기각, 수정과 폐기는 administrator만 수행한다.
 - Collective candidate는 같은 repository의 active personal memory를 `aggregation_key`로 묶고 contributor 수와 충돌 상태를 계산해 만든다.
@@ -103,8 +104,9 @@ AI finding 또는 사용자 review
 - `categories text[]`, `file_paths text[]`, `symbols text[]`, `search_text`
 - `aggregation_key`, `contributor_count`, `conflict_count`
 - `confidence`, `importance`
-- `source_kind`: `finding|chat-message|manual`
+- `source_kind`: `finding|chat-message|github-pr-message|manual`
 - `source_analysis_run_id`, `source_finding_id`, `source_chat_message_id`
+- `source_github_pr_message_id`, `source_github_pr_message_content_hash`
 - `source_base_sha`, `source_head_sha`, `source_anchor jsonb`
 - `content_hash`
 - `created_by`, `reviewed_by`, `reviewed_at`, `review_note`
@@ -142,6 +144,14 @@ Collective projection에는 contributor 수와 conflict 수만 노출하고 개�
 
 `analysis_key`에 `memory_hash`와 `memory_owner_user_id`를 포함한다. 새 memory가 활성화되어도 완료된 analysis와 기존 Chat 답변의 context는 변하지 않는다. 새 memory를 반영하려면 새 analysis를 실행한다.
 
+### 6.5 GitHub PR message source
+
+`github_pr_messages`에는 PR 일반 댓글, review 본문과 inline review comment를 repository·PR 단위로 수집한다. 작성자 login과 유형, 본문, file/line/side, commit SHA, 답글 관계, 영구 URL과 GitHub 작성·수정 시각을 저장한다.
+
+GitHub에서 본문이 수정되면 현재 row를 갱신하되 `github_pr_message_versions`에 content hash별 원문 버전을 append-only로 보존한다. Personal memory는 제출 시점의 message ID와 content hash를 함께 고정한다. 따라서 이후 댓글이 수정되어도 어떤 원문을 근거로 판단했는지 확인할 수 있다.
+
+`github_pr_message_user_states`는 같은 원천에 대한 사용자별 `available|saved|ignored` 상태를 저장한다. 한 사용자의 숨김 상태가 다른 사용자에게 영향을 주지 않는다. GitHub login과 애플리케이션 사용자는 자동으로 같은 사람이라고 간주하지 않으며, 집단 memory contributor는 원문 작성자가 아니라 내용을 선별·승인한 애플리케이션 사용자로 계산한다.
+
 ## 7. 후보 생성
 
 ### 7.1 AI finding
@@ -160,7 +170,17 @@ Collective projection에는 contributor 수와 conflict 수만 노출하고 개�
 
 Chat의 assistant 응답만 단독으로 후보화하지 않는다. 사용자가 내용을 확인해 직접 제출한 경우에만 `candidate`가 된다.
 
-### 7.3 Collective aggregation
+### 7.3 GitHub PR 대화
+
+Repository polling이 open PR을 갱신할 때 다음 세 종류를 함께 수집한다.
+
+- issue timeline comment
+- review summary body
+- inline review comment와 reply 관계
+
+빈 본문은 제외한다. Bot message도 원문에는 보존하되 자동으로 memory를 활성화하지 않는다. 사용자는 PR별 source 목록에서 항목을 무시하거나 다시 표시할 수 있고, 주요 내용을 요약·범위 지정해 personal candidate로 저장한다. 서버는 해당 source와 analysis가 같은 PR인지 확인한다. 후보가 저장되면 사용자별 source 상태를 `saved`로 바꾼다.
+
+### 7.4 Collective aggregation
 
 Personal memory가 활성화될 때 같은 repository와 `aggregation_key`의 active personal memory를 다시 집계한다.
 
@@ -239,9 +259,13 @@ Chat 답변은 memory의 source를 citation으로 가장하지 않는다. 현재
 - `GET /api/v1/analyses/:analysisId/review-memories`
   - 현재 analysis의 pinned memory와 본인의 personal 후보를 조회한다.
 - `POST /api/v1/analyses/:analysisId/review-memory-candidates`
-  - finding 또는 본인 Chat message를 personal memory 후보로 제출한다.
+  - finding, 본인 Chat message 또는 같은 PR의 GitHub message를 personal memory 후보로 제출한다.
 - `POST /api/v1/review-memories/:memoryId/review`
   - 본인의 personal candidate를 활성화·기각하거나 active memory를 폐기한다.
+- `GET /api/v1/repositories/:repoId/pulls/:number/review-memory-sources`
+  - 수집한 GitHub PR 대화와 본인의 관리 상태를 시간순으로 조회한다.
+- `PATCH /api/v1/repositories/:repoId/pulls/:number/review-memory-sources/:sourceId`
+  - GitHub PR 원천을 사용자별로 표시하거나 무시한다.
 
 ### 11.2 Administrator API
 
@@ -253,6 +277,7 @@ Chat 답변은 memory의 source를 citation으로 가장하지 않는다. 현재
 
 - Review workspace의 `Memory` tab에서 `내 Memory`와 `Repository Memory`를 구분하고 현재 analysis에 pinned된 항목을 표시한다.
 - Finding 또는 Chat message에서 `Memory 후보로 제출`을 제공한다.
+- Memory tab의 `PR 대화` 영역에서 GitHub 원문, 작성자, code anchor와 thread 관계를 보여주고 저장·무시 상태를 관리한다.
 - Admin의 repository memory 화면에서 candidate 비교, 수정, 승인, 기각과 폐기를 수행한다.
 - Finding과 Chat에서 memory가 영향을 준 경우 source PR/SHA와 상태를 접을 수 있는 provenance로 표시한다.
 
@@ -260,6 +285,7 @@ Chat 답변은 memory의 source를 citation으로 가장하지 않는다. 현재
 
 - tenant/repository/owner 조건은 API 이후 필터가 아니라 SQL 조회에 포함한다.
 - source Chat message는 작성자와 관리 권한을 확인하며 다른 사용자의 개인 Chat 원문을 memory 본문으로 복사하지 않는다.
+- GitHub PR source는 repository 조회 권한이 있는 사용자에게만 노출한다. 사용자별 saved/ignored 상태는 소유자만 읽고 수정한다.
 - memory prompt projection은 source code 원문, credential, tool output 전체를 포함하지 않는다.
 - repository 삭제는 기존 review history 보존 정책에 따라 memory도 비활성 repository에 남기며 재등록 전에는 검색하지 않는다.
 - personal memory는 계정 삭제 시 비활성화하고 collective contribution에는 익명화된 contributor ID와 revision만 보존한다. Collective active decision/false-positive는 관리자가 retire할 때까지 보존한다.
@@ -294,7 +320,8 @@ Memory 사용 결과가 좋아졌다는 평가는 memory 수가 아니라 위 �
 예정 commit: `feat(memory): add review memory candidate workflow`
 
 - personalized report finding 자동 personal 후보 생성
-- finding/Chat 기반 사용자 후보 API
+- finding/Chat/GitHub PR message 기반 사용자 후보 API
+- GitHub PR 대화 수집, immutable source version과 사용자별 관리 상태
 - 사용자 personal 승인과 administrator collective 승인 API
 - personal activation 기반 collective candidate aggregation
 - 권한, source ownership, audit integration test
@@ -320,7 +347,8 @@ Memory 사용 결과가 좋아졌다는 평가는 memory 수가 아니라 위 �
 ## 15. 완료 조건
 
 - 사용자 refresh의 AI P2/P3 finding이 user/repository-scoped personal candidate로 생성된다.
-- 사용자가 finding 또는 자신의 Chat message를 후보로 제출할 수 있다.
+- 사용자가 finding, 자신의 Chat message 또는 같은 PR의 GitHub 대화를 후보로 제출할 수 있다.
+- GitHub PR 대화 원문 버전이 보존되고 사용자가 항목별로 저장·무시 상태를 관리할 수 있다.
 - 사용자는 personal candidate를 활성화·기각·폐기할 수 있다.
 - 여러 사용자의 active personal memory가 repository collective candidate로 집계되고 administrator가 활성화할 수 있다.
 - polling에는 collective, 사용자 분석에는 collective+본인 active memory만 포함되고 목록과 hash가 analysis에 고정된다.

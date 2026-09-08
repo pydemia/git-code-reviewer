@@ -448,6 +448,28 @@ export async function registerAdminRoutes(
           });
         }
         await connection.query(
+          `with changed as (
+             update review_memories set
+               state = case state when 'candidate' then 'rejected' else 'retired' end,
+               reviewed_by = $2, reviewed_at = clock_timestamp(), review_note = 'user-deleted',
+               updated_at = clock_timestamp()
+             where scope = 'personal' and owner_user_id = $1 and state in ('candidate', 'active')
+             returning id, state, revision
+           )
+           insert into review_memory_events(
+             memory_id, action, actor_user_id, before_state, after_state, revision, note)
+           select id, case state when 'rejected' then 'rejected' else 'retired' end,
+                  $2, case state when 'rejected' then 'candidate' else 'active' end,
+                  state, revision, 'user-deleted'
+             from changed`,
+          [userId, request.user!.id],
+        );
+        await connection.query(
+          `update review_memory_contributions set contributor_user_id = null
+           where contributor_user_id = $1`,
+          [userId],
+        );
+        await connection.query(
           `update users set deleted_at = clock_timestamp(), enabled = false, personal_prompt = '',
            groups_json = '[]'::jsonb, updated_at = clock_timestamp() where id = $1`,
           [userId],

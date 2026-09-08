@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import {
   FixtureGitHubClient,
   GitHubAppClient,
   type GitHubReader,
+  type PullRequestMessageObservation,
   type PullRequestObservation,
   type RepositoryTarget,
 } from '@gcr/github';
@@ -75,7 +77,15 @@ export async function pollRepository(
 
   try {
     const result = await reader.listOpenPulls(repository, pollState.rows[0]?.etag);
-    if (result.outcome === 'updated') await persistPulls(database, repositoryId, result.pulls);
+    if (result.outcome === 'updated') {
+      await persistPulls(database, repositoryId, result.pulls);
+      if (reader.listPullRequestMessages) {
+        for (const pull of result.pulls) {
+          const messages = await reader.listPullRequestMessages(repository, pull.number);
+          await persistPullRequestMessages(database, repositoryId, pull.number, messages);
+        }
+      }
+    }
     await database.query(
       `insert into poll_states(repository_id, next_poll_at, last_polled_at, etag, consecutive_failures, backoff_until, last_outcome, last_error_code, updated_at)
        values ($1, clock_timestamp() + ($2 * interval '1 second'), clock_timestamp(), $3, 0, null, $4, null, clock_timestamp())
@@ -284,6 +294,92 @@ async function persistPulls(
        where repository_id = $1 and state = 'open' and not (number = any($2::integer[]))`,
       [repositoryId, openNumbers],
     );
+    await connection.query('commit');
+  } catch (error) {
+    await connection.query('rollback');
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function persistPullRequestMessages(
+  database: Database,
+  repositoryId: string,
+  pullNumber: number,
+  messages: PullRequestMessageObservation[],
+): Promise<void> {
+  const connection = await database.connect();
+  try {
+    await connection.query('begin');
+    const pull = await connection.query<{ pullRequestId: string; tenantId: string }>(
+      `select pull_request.id as "pullRequestId", repository.tenant_id as "tenantId"
+         from pull_requests pull_request
+         join repositories repository on repository.id = pull_request.repository_id
+        where pull_request.repository_id = $1 and pull_request.number = $2
+          and repository.enabled and repository.deleted_at is null
+        for share of pull_request, repository`,
+      [repositoryId, pullNumber],
+    );
+    const context = pull.rows[0];
+    if (!context) {
+      await connection.query('commit');
+      return;
+    }
+    for (const message of messages) {
+      const contentHash = createHash('sha256').update(message.body).digest('hex');
+      const persisted = await connection.query<{ id: string }>(
+        `insert into github_pr_messages(
+           tenant_id, repository_id, pull_request_id, github_id, kind, author_login,
+           author_type, body, content_hash, path, line, side, commit_sha, in_reply_to_github_id,
+           html_url, github_created_at, github_updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         on conflict (repository_id, kind, github_id) do update set
+           pull_request_id = excluded.pull_request_id, author_login = excluded.author_login,
+           author_type = excluded.author_type, body = excluded.body,
+           content_hash = excluded.content_hash, path = excluded.path, line = excluded.line,
+           side = excluded.side, commit_sha = excluded.commit_sha,
+           in_reply_to_github_id = excluded.in_reply_to_github_id,
+           html_url = excluded.html_url, github_updated_at = excluded.github_updated_at,
+           last_observed_at = clock_timestamp()
+         returning id`,
+        [
+          context.tenantId,
+          repositoryId,
+          context.pullRequestId,
+          message.githubId,
+          message.kind,
+          message.author,
+          message.authorType,
+          message.body,
+          contentHash,
+          message.path,
+          message.line,
+          message.side,
+          message.commitSha,
+          message.inReplyToGithubId,
+          message.url,
+          message.createdAt,
+          message.updatedAt,
+        ],
+      );
+      await connection.query(
+        `insert into github_pr_message_versions(
+           message_id, content_hash, body, path, line, side, commit_sha, github_updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8)
+         on conflict (message_id, content_hash) do nothing`,
+        [
+          persisted.rows[0]!.id,
+          contentHash,
+          message.body,
+          message.path,
+          message.line,
+          message.side,
+          message.commitSha,
+          message.updatedAt,
+        ],
+      );
+    }
     await connection.query('commit');
   } catch (error) {
     await connection.query('rollback');

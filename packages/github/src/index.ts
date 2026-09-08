@@ -21,6 +21,31 @@ const issueCommentSchema = z.object({
   body: z.string().nullable(),
 });
 
+const conversationAuthorSchema = z
+  .object({ login: z.string(), type: z.string().default('User') })
+  .nullable();
+const pullIssueCommentSchema = issueCommentSchema.extend({
+  user: conversationAuthorSchema,
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+const pullReviewSchema = z.object({
+  id: z.number().int().positive(),
+  html_url: z.string().url(),
+  body: z.string().nullable(),
+  user: conversationAuthorSchema,
+  commit_id: z.string().nullable().optional(),
+  submitted_at: z.string().nullable(),
+});
+const pullReviewCommentSchema = pullIssueCommentSchema.extend({
+  path: z.string(),
+  line: z.number().int().positive().nullable().optional(),
+  original_line: z.number().int().positive().nullable().optional(),
+  side: z.enum(['LEFT', 'RIGHT']).nullable().optional(),
+  commit_id: z.string().nullable().optional(),
+  in_reply_to_id: z.number().int().positive().nullable().optional(),
+});
+
 export type PullRequestObservation = {
   githubId: number;
   number: number;
@@ -47,8 +72,28 @@ export type PullResult =
   | { outcome: 'not-modified'; etag: string | null; pulls: [] }
   | { outcome: 'updated'; etag: string | null; pulls: PullRequestObservation[] };
 
+export type PullRequestMessageObservation = {
+  githubId: number;
+  kind: 'issue-comment' | 'review' | 'review-comment';
+  author: string;
+  authorType: string;
+  body: string;
+  path: string | null;
+  line: number | null;
+  side: 'LEFT' | 'RIGHT' | null;
+  commitSha: string | null;
+  inReplyToGithubId: number | null;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export interface GitHubReader {
   listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult>;
+  listPullRequestMessages?(
+    target: RepositoryTarget,
+    pullNumber: number,
+  ): Promise<PullRequestMessageObservation[]>;
   getGitCredential?(target: RepositoryTarget): Promise<{ username: string; password: string }>;
 }
 
@@ -136,6 +181,15 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
       username: 'x-access-token',
       password: await this.installationToken(target.installationId, target.apiBaseUrl),
     };
+  }
+
+  async listPullRequestMessages(
+    target: RepositoryTarget,
+    pullNumber: number,
+  ): Promise<PullRequestMessageObservation[]> {
+    return listPullRequestMessages(target, pullNumber, (url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    );
   }
 
   async upsertPullRequestComment(
@@ -277,6 +331,15 @@ export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublis
     return { username: 'git-code-reviewer', password: this.token };
   }
 
+  async listPullRequestMessages(
+    target: RepositoryTarget,
+    pullNumber: number,
+  ): Promise<PullRequestMessageObservation[]> {
+    return listPullRequestMessages(target, pullNumber, (url, init) =>
+      this.authenticatedRequest(url, init),
+    );
+  }
+
   async upsertPullRequestComment(
     target: RepositoryTarget,
     input: {
@@ -318,9 +381,132 @@ export class FixtureGitHubClient implements GitHubReader {
       pulls: fixturePulls(target),
     };
   }
+
+  async listPullRequestMessages(
+    target: RepositoryTarget,
+    pullNumber: number,
+  ): Promise<PullRequestMessageObservation[]> {
+    const createdAt = new Date(Date.now() - 20 * 60_000).toISOString();
+    return [
+      {
+        githubId: pullNumber * 10_000 + 1,
+        kind: 'issue-comment',
+        author: 'reviewer',
+        authorType: 'User',
+        body: '이 저장소에서는 재시도 시 같은 요청 키를 유지해야 합니다.',
+        path: null,
+        line: null,
+        side: null,
+        commitSha: null,
+        inReplyToGithubId: null,
+        url: `https://github.example.internal/${target.owner}/${target.name}/pull/${pullNumber}#issuecomment-${pullNumber * 10_000 + 1}`,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ];
+  }
 }
 
 type AuthenticatedRequest = (url: URL, init: RequestInit) => Promise<Response>;
+
+async function listPullRequestMessages(
+  target: RepositoryTarget,
+  pullNumber: number,
+  request: AuthenticatedRequest,
+): Promise<PullRequestMessageObservation[]> {
+  const [issueComments, reviews, reviewComments] = await Promise.all([
+    paginatedRequest(target, `issues/${pullNumber}/comments`, pullIssueCommentSchema, request),
+    paginatedRequest(target, `pulls/${pullNumber}/reviews`, pullReviewSchema, request),
+    paginatedRequest(target, `pulls/${pullNumber}/comments`, pullReviewCommentSchema, request),
+  ]);
+  return [
+    ...issueComments.flatMap((comment) =>
+      comment.body?.trim()
+        ? [
+            {
+              githubId: comment.id,
+              kind: 'issue-comment' as const,
+              author: comment.user?.login ?? 'unknown',
+              authorType: comment.user?.type ?? 'Unknown',
+              body: comment.body.trim(),
+              path: null,
+              line: null,
+              side: null,
+              commitSha: null,
+              inReplyToGithubId: null,
+              url: comment.html_url,
+              createdAt: comment.created_at,
+              updatedAt: comment.updated_at,
+            },
+          ]
+        : [],
+    ),
+    ...reviews.flatMap((review) =>
+      review.body?.trim() && review.submitted_at
+        ? [
+            {
+              githubId: review.id,
+              kind: 'review' as const,
+              author: review.user?.login ?? 'unknown',
+              authorType: review.user?.type ?? 'Unknown',
+              body: review.body.trim(),
+              path: null,
+              line: null,
+              side: null,
+              commitSha: review.commit_id ?? null,
+              inReplyToGithubId: null,
+              url: review.html_url,
+              createdAt: review.submitted_at,
+              updatedAt: review.submitted_at,
+            },
+          ]
+        : [],
+    ),
+    ...reviewComments.flatMap((comment) =>
+      comment.body?.trim()
+        ? [
+            {
+              githubId: comment.id,
+              kind: 'review-comment' as const,
+              author: comment.user?.login ?? 'unknown',
+              authorType: comment.user?.type ?? 'Unknown',
+              body: comment.body.trim(),
+              path: comment.path,
+              line: comment.line ?? comment.original_line ?? null,
+              side: comment.side ?? null,
+              commitSha: comment.commit_id ?? null,
+              inReplyToGithubId: comment.in_reply_to_id ?? null,
+              url: comment.html_url,
+              createdAt: comment.created_at,
+              updatedAt: comment.updated_at,
+            },
+          ]
+        : [],
+    ),
+  ].sort(
+    (left, right) =>
+      left.createdAt.localeCompare(right.createdAt) || left.githubId - right.githubId,
+  );
+}
+
+async function paginatedRequest<T extends z.ZodTypeAny>(
+  target: RepositoryTarget,
+  path: string,
+  schema: T,
+  request: AuthenticatedRequest,
+): Promise<Array<z.infer<T>>> {
+  const items: Array<z.infer<T>> = [];
+  for (let page = 1; page <= 20; page += 1) {
+    const url = repositoryApiUrl(target, path);
+    url.searchParams.set('per_page', '100');
+    url.searchParams.set('page', String(page));
+    const response = await request(url, { method: 'GET' });
+    const body = z.array(schema).parse(await response.json());
+    items.push(...body);
+    if (body.length < 100) break;
+  }
+  return items;
+}
 
 async function upsertPullRequestComment(
   target: RepositoryTarget,

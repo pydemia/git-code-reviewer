@@ -66,6 +66,57 @@ describe('GitHub adapter', () => {
     });
   });
 
+  it('collects PR conversation, review summaries, and inline review comments', async () => {
+    const client = new GitHubAccessTokenClient('secret-token', async (input) => {
+      const url = String(input);
+      if (url.includes('/issues/7/comments')) {
+        return Response.json([
+          {
+            id: 11,
+            html_url: 'https://github.example/platform/reviewer-api/pull/7#issuecomment-11',
+            body: '재시도 키는 유지해 주세요.',
+            user: { login: 'minseo', type: 'User' },
+            created_at: '2026-09-08T01:00:00Z',
+            updated_at: '2026-09-08T01:00:00Z',
+          },
+        ]);
+      }
+      if (url.includes('/pulls/7/reviews')) {
+        return Response.json([
+          {
+            id: 12,
+            html_url: 'https://github.example/platform/reviewer-api/pull/7#pullrequestreview-12',
+            body: '이 설계로 진행해도 됩니다.',
+            user: { login: 'jaehyun', type: 'User' },
+            commit_id: 'd91b7a4f19af10fcb571cefb2d8a61495166c11a',
+            submitted_at: '2026-09-08T01:01:00Z',
+          },
+        ]);
+      }
+      return Response.json([
+        {
+          id: 13,
+          html_url: 'https://github.example/platform/reviewer-api/pull/7#discussion_r13',
+          body: '이 분기에서는 timeout을 다시 적용해야 합니다.',
+          user: { login: 'sora', type: 'User' },
+          path: 'src/retry.ts',
+          line: 42,
+          side: 'RIGHT',
+          commit_id: 'd91b7a4f19af10fcb571cefb2d8a61495166c11a',
+          in_reply_to_id: null,
+          created_at: '2026-09-08T01:02:00Z',
+          updated_at: '2026-09-08T01:03:00Z',
+        },
+      ]);
+    });
+
+    await expect(client.listPullRequestMessages(target, 7)).resolves.toMatchObject([
+      { githubId: 11, kind: 'issue-comment', author: 'minseo' },
+      { githubId: 12, kind: 'review', author: 'jaehyun' },
+      { githubId: 13, kind: 'review-comment', path: 'src/retry.ts', line: 42 },
+    ]);
+  });
+
   it('creates a managed PR timeline comment when none exists', async () => {
     const calls: Array<{ url: string; method: string; body: string | null }> = [];
     const client = new GitHubAccessTokenClient('secret-token', async (input, init) => {
