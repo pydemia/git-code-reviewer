@@ -5,13 +5,21 @@
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.14`, Helm revision 24 배포 완료. 개인 Prompt·Review Chat Markdown/다중 코드 근거·PR AI Comments 접기·Grade 문구/색상 개선 포함
-- 배포 source: `41febd29fcfb67f02a8cfa3654091dca03df6e46` (build 전 원격 최신 commit과 일치 확인). Release 설정 commit `dab42ad`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.15`, Helm revision 25 배포 완료. 사용자 삭제·로그인/개별 권한 회수와 기존 개인 Prompt·Chat·PR UI 개선 포함
+- 배포 source: `47770d4d946aa3a3d7c18dd1d5481e2487079938` (push 후 clean source build). Release 설정 commit `1704d23`, 배포 기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 2026-09-08 사용자 삭제 — 구현 완료, 배포 준비
+### 2026-09-08 16:01 배포 (revision 25, 현재)
+
+사용자 삭제 Backend `7a38da4`, UI·문서 `47770d4`를 push 후 application `0.8.0-alpha.15` / chart `0.10.14`로 build·게시했다. Release 설정 `1704d23` push 후 `--reuse-values`와 image tag/digest만 override했다. Image digest는 `sha256:9b966f7404d531cb4a32d6d83d393e34a9a3af1b6b4f4a6e61346e8dd67a7557`이며 SPDX SBOM·SLSA provenance를 포함한다.
+
+Migration 0019 적용·checksum 일치, 새 Server·Worker 각 1/1 Ready·restart 0회, Helm test, health 4종, system version, login·guide·admin 경로와 JS/CSS hash 일치를 확인했다. 비로그인 사용자 GET·DELETE는 404, profile GET은 401이다. Users 7명·삭제 0명, Chat account 4개, GHES credential 1개, 활성 repository 2개를 유지했다. 기존 polling 중 analysis 48→49건, report 39→40건으로 증가했다. Image 외 values hash, 기존 PVC/PV·Secret·CA·HTTPRoute는 보존했다.
+
+배포 시 실행 중 분석 1건이 있어 기존 Worker의 900초 종료 유예와 작업 완료 대기를 유지했다. 16:08 KST 확인 시 새 workload는 정상이며 이전 Worker `git-code-reviewer-worker-76779559d4-6ljqx`는 해당 분석 완료를 기다리는 Terminating 상태다. 기존 job은 15:58:51 시작, 마지막 heartbeat 16:07:51이며 outcome/error_code는 NULL이다. 45초 Pod 종료 대기 두 번은 timeout됐지만 새 release의 rollout·health 실패는 아니다. 기존 Worker를 강제 종료하지 않았으며 완료 후 Kubernetes가 회수한다. 운영 사용자 삭제·실제 모델/Chat/PR 게시를 검증용으로 실행하지 않았고 개인정보·credential 원문도 조회하지 않았다. 상세 검증과 digest는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
+
+### 2026-09-08 사용자 삭제 — revision 25 반영
 
 관리자 `설정 → 사용자`의 각 행에 삭제 버튼을 추가했다. 확인창에 Local username 또는 외부 Subject를 정확히 입력해야 삭제된다. 현재 로그인한 계정은 삭제할 수 없으며 마지막 활성 관리자 제거와 동시 관리자 변경도 Server에서 차단한다. 일시 차단은 기존 앱 접근 toggle을 사용한다.
 
@@ -23,7 +31,7 @@ Backend commit `7a38da4`는 migration `0019_user_deletion.sql`과 `DELETE /api/v
 
 Browser는 실제 UserPanel/UserDeleteDialog에 합성 API를 연결해 입력 확인·실패 시 초안/alert focus 유지·Escape 취소·성공 후 행 제거와 제목 focus를 검증했다. Desktop 1440×1000, mobile 390×844, 1024×900에서 확인했으며 사용자 표에 한정한 checkbox 위치 기준과 가로 scroll 수정으로 모바일 overflow·중간 너비 삭제 버튼 잘림을 해결했다. 독립 finish review의 후속 verdict는 `ship`이며 기존 지적 F1·F2 두 건을 resolved로 판정한 범위다. 기존 디자인은 유지했다. 임시 harness와 Browser·Vite·전용 test DB는 정리했고 실제 운영 사용자는 삭제하지 않았다. 상세 상태·보존 정책은 [Local 인증 설계](local-account-authentication.md#6-사용자-삭제-2026-09-08), 검증은 [사용자 삭제 검증 기록](verification-user-deletion-2026-09-08.md)에 있다.
 
-### 2026-09-08 15:12 배포 (revision 24, 현재)
+### 2026-09-08 15:12 배포 (revision 24)
 
 Source `41febd2`를 application `0.8.0-alpha.14`, chart `0.10.13`으로 build·게시하고 release 설정 `dab42ad`를 push한 뒤 PRISM-DEV를 upgrade했다. Image digest는 `sha256:150fd26eb5bca01ae9d2227e9c13b8b4e163fb5189bbf0c4de0d5ed857306ae5`이며 SPDX SBOM·SLSA provenance를 포함한다. 사용자 요청에 따라 앞으로 기능·설정 작업도 commit·push 후 배포와 검증까지 수행한다.
 

@@ -1,6 +1,6 @@
 # 사용자 삭제 검증 기록 — 2026-09-08
 
-관리자 사용자 목록에서 계정을 삭제하는 기능을 검증했다. 이 문서는 개발 검증 결과를 기록하며 PRISM-DEV 배포는 작성 시점에 예정 상태다. 배포 결과는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 별도로 기록한다.
+관리자 사용자 목록에서 계정을 삭제하는 기능을 검증했다. Backend `7a38da4`, UI·가이드 `47770d4`를 push했고 PRISM-DEV application `0.8.0-alpha.15` / Helm revision 25에 배포했다. 이 문서는 개발 검증 결과이며 배포 검증은 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 별도로 기록한다.
 
 ## 구현 범위
 
@@ -18,7 +18,7 @@ Operate 화면인 기존 Admin Users의 국소 확장으로 처리했다. 회색
 
 새 palette·서체·재사용 token·시각적 구성 규칙을 도입하지 않아 [DESIGN.md](../DESIGN.md)와 [design.json](../.impeccable/design.json)은 변경하지 않았다. Impeccable의 문서화 handoff에 따라 이번 기능의 상태·반응형 수정·검증 범위만 이 문서에 기록했다.
 
-독립 finish review에서 모바일 가로 overflow(F1)와 중간 너비에서 삭제 버튼이 잘리는 문제(F2)를 발견했다. 사용자 표에 가로 scroll을 허용하고 표 내부 switch의 위치 기준을 지정하는 CSS 두 규칙을 적용했다. 수정 후 확인은 두 finding의 해결 여부에 한정했으며 판정은 이번 사용자 삭제 UI 범위에서 `ship`이다. Detector는 한 번 실행했으며 기존 다른 영역의 3px 측면 border 경고 4건만 남았다.
+독립 finish review에서 모바일 가로 overflow(F1)와 중간 너비에서 삭제 버튼이 잘리는 문제(F2)를 발견했다. 사용자 표에 가로 scroll을 허용하고 표 내부 switch의 위치 기준을 지정하는 CSS 두 규칙을 적용했다. 후속 verdict는 `ship`이며 F1·F2 두 finding을 resolved로 판정한 범위다. Detector는 한 번 실행했으며 기존 다른 영역의 3px 측면 border 경고 4건만 남았다.
 
 ## 검증 결과와 화면 증거
 
@@ -46,4 +46,4 @@ Operate 화면인 기존 Admin Users의 국소 확장으로 처리했다. 회색
 
 Browser의 합성 API 검증과 실제 PostgreSQL integration은 별도로 수행했다. 실제 서버·DB를 연결한 Browser E2E 결과는 아니다. 개발 검증에서는 실제 운영 사용자를 삭제하거나 LLM을 호출하거나 GHES 데이터를 변경하지 않았다. 접근성 확인은 제공된 화면과 구현, 검증한 focus·입력·오류 동작 범위에 한정한다.
 
-기존 Zod annotation·500kB bundle warning은 남아 있다. PRISM-DEV migration 적용, workload·health와 배포 asset 확인은 배포 단계에서 수행할 예정이다.
+기존 Zod annotation·500kB bundle warning은 남아 있다. 후속 배포에서 PRISM-DEV migration 0019 적용·checksum, 신규 workload·health와 Web asset hash를 확인했다. 운영 사용자 7명은 유지됐으며 삭제된 계정은 0명이다. 운영 계정을 삭제하는 검증은 수행하지 않았다.

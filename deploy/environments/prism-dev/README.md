@@ -29,7 +29,7 @@
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.14@sha256:150fd26eb5bca01ae9d2227e9c13b8b4e163fb5189bbf0c4de0d5ed857306ae5`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.15@sha256:9b966f7404d531cb4a32d6d83d393e34a9a3af1b6b4f4a6e61346e8dd67a7557`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -434,7 +434,7 @@ Files 기본 전체 펼침, LNB 숨김 toggle, Chat 기본 너비 569px, 하단 
 
 ## 실제 GHES 및 ChatGPT account 등록
 
-현재 배포는 아래 revision 24 기록을 따른다. 앞선 날짜별 검증 수치는 각 배포 당시의 상태다.
+현재 배포는 아래 revision 25 기록을 따른다. 앞선 날짜별 검증 수치는 각 배포 당시의 상태다.
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.
 
@@ -509,3 +509,39 @@ Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb
 최초 HTTP 검증 script는 JSON 대신 HTML 응답을 받아 중단됐다. 명시적 Host header를 지정한 curl로 실제 경로를 재검증해 위 결과를 확인했다. Prompt PUT의 최초 예상값 401은 Origin 검사 순서를 반영하지 못했으므로 Origin 누락 403과 올바른 Origin의 비로그인 401을 나눠 확인했다. 서버 인증·Origin 정책은 변경하지 않았다.
 
 배포 전 실행 중인 analysis는 없었다. 실제 모델 분석·Chat·PR 게시를 별도로 요청하지 않았고 사용자 Prompt·credential 내용을 읽거나 변경하지 않았다. 로그인 후 live Browser E2E는 재실행하지 않았으며 선행 합성 Browser 검증과 이번 image/HTTPRoute 검증을 구분한다. 새 Prompt의 실제 모델 지시 준수 정확도는 이 배포 검증 범위 밖이다.
+
+## 2026-09-08 사용자 삭제 배포
+
+16:00 KST에 Helm revision 25 upgrade를 시작해 16:01 KST에 완료했다. Application source는 `47770d4d946aa3a3d7c18dd1d5481e2487079938`이며 Backend `7a38da4`와 UI·가이드·검증 기록 `47770d4`를 push한 후 build했다. Release 설정 `1704d23`도 push한 뒤 배포했다.
+
+- Application: `0.8.0-alpha.15`, chart: `0.10.14`
+- Image index digest: `sha256:9b966f7404d531cb4a32d6d83d393e34a9a3af1b6b4f4a6e61346e8dd67a7557`
+- Linux/amd64 image manifest: `sha256:44dbf2e082f7f599b6e142b9d8a32da172652c4a535c845d690aa693215cfa7e`
+- OCI chart digest: `sha256:cd34a6c3e8c7a92290d7b3a3df9348fbac17be66fc060c18fcc64e17ad425cfd`
+
+시스템관리자는 `설정 → 사용자` 행의 휴지통 버튼을 누르고 Local username 또는 외부 Subject를 입력해 삭제한다. 삭제 시 session·개별 권한·개인 Prompt·Local password hash를 정리하고 tombstone으로 재로그인·identity 재사용을 막는다. 개인 Chat은 기존 retention에 따라 보관하며 공동 PR report·설정·audit은 보존한다. 현재 로그인한 본인과 마지막 활성 관리자 제거를 차단한다. 외부 IdP 원본 계정은 삭제하지 않는다.
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| 선행 source 검증 | 323 tests / 54 files 통과, skip 0. 로컬 PostgreSQL 16 integration·전체 typecheck·lint·Web build·합성 Browser 검증 완료 |
+| Container | `node:22-alpine` 전체 production build. Linux/amd64, UID 1000, read-only/network-none smoke에서 migration 19개·Skill 9개·새 Web asset 확인 |
+| Supply chain | Registry의 SPDX SBOM·SLSA provenance 확인. Build CA는 BuildKit secret으로만 전달하며 runtime image에 없음 |
+| Helm | Lint·server-side dry-run·upgrade 통과. 16:01:47 KST connection test Succeeded |
+| Migration | `0019_user_deletion.sql` 적용, checksum `27dc261bde47817158cd6b8ed97fee071578870b47486725ee22901b7d9d4061` 일치. Nullable timestamptz `deleted_at`과 삭제 시 비활성·빈 Prompt CHECK 확인 |
+| Workload | 새 Server·Worker 각 1/1 Ready, restart 0회. Retention CronJob도 새 digest로 갱신. 기존 Server는 종료됐으며 기존 Worker는 진행 중인 분석을 마무리하는 동안 종료 대기 |
+| Route/Health | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies 모두 HTTP 200·ok |
+| Web/API | `/api/v1/system` version `0.8.0-alpha.15`. `/login`·`/guide`·`/admin?tab=users` HTTP 200. 비로그인 사용자 목록과 존재하지 않는 UUID에 대한 DELETE는 정보 은닉 정책대로 404, profile GET은 401 |
+| 운영 데이터 | users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개 유지. 삭제된 사용자는 0명. 기존 polling 중 analysis 48→49건, report 39→40건으로 증가 |
+| 설정·Storage | Image 외 Helm values hash, 두 PVC/PV ID·10Gi·Bound·access mode, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute UID/resourceVersion 유지 |
+| Log | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인 |
+
+Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. Artifact PVC의 resourceVersion은 Helm 갱신으로 달라졌지만 UID·PV·10Gi·RWX는 유지됐다. PostgreSQL PVC도 기존 RWO·PV를 유지한다.
+
+실제 HTTPRoute와 게시 image 안의 JS·CSS가 선행 UI 검증 bundle과 SHA-256이 일치한다.
+
+- `/assets/index-DR9xZITm.js`: `665fff1ac6aa57bacfa18204ecb1f6493fd39df6876082f759699553a0964f21`
+- `/assets/index-CkCpzNZS.css`: `e786a8d3c9c20328b32d1e1ec84481e02de45cde8ae8940da75a256fd140f673`
+
+배포 직전 분석 1건이 실행 중이었다. Worker의 기존 900초 종료 유예와 진행 중 작업 완료 대기를 유지했으며 강제 삭제하지 않았다. 운영 사용자를 삭제하거나 개인 Prompt·credential 내용을 읽지 않았다. 실제 모델·Chat·PR 게시를 검증용으로 별도 요청하지 않았고 기존 polling·queue 실행은 유지했다. 로그인 후 live Browser E2E는 수행하지 않았으며 [합성 Browser와 DB integration 검증](../../../.documents/verification-user-deletion-2026-09-08.md)과 배포 검증을 구분한다.
+
+16:08 KST 확인 시 기존 Worker `git-code-reviewer-worker-76779559d4-6ljqx`는 아직 Terminating 상태다. 해당 job은 15:58:51 시작했고 heartbeat는 16:07:51까지 갱신됐으며 outcome/error_code는 NULL이다. Pod 삭제 확인을 위한 45초 대기 두 번은 timeout됐지만 신규 deployment의 rollout·health는 통과했다. 새 Server·Worker는 1/1 Ready·restart 0회이며 기존 Worker만 분석을 마무리한 후 회수될 예정이다.
