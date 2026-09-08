@@ -2,6 +2,11 @@
 ARG RUNTIME_BASE=node:22-alpine
 FROM node:22-alpine AS build
 WORKDIR /app
+COPY deploy/sandbox/launcher.c /tmp/launcher.c
+RUN --mount=type=secret,id=build_ca \
+  if [ -s /run/secrets/build_ca ]; then export SSL_CERT_FILE=/run/secrets/build_ca; fi \
+  && apk add --no-cache build-base linux-headers \
+  && cc -Os -static -Wall -Wextra -Werror /tmp/launcher.c -o /tmp/gcr-source-sandbox
 RUN --mount=type=secret,id=build_ca \
   if [ -s /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi \
   && npm install --global pnpm@10.17.1
@@ -31,6 +36,8 @@ RUN --mount=type=secret,id=build_ca \
   && mkdir -p /app /var/lib/git-code-reviewer/artifacts /tmp/git-code-reviewer/workspaces \
   && chown -R node:node /app /var/lib/git-code-reviewer /tmp/git-code-reviewer
 WORKDIR /app
+COPY --from=build /tmp/gcr-source-sandbox /usr/local/bin/gcr-source-sandbox
+COPY deploy/sandbox/broker.mjs /app/sandbox/broker.mjs
 ENV NODE_ENV=production \
   APP_VERSION=${VERSION} \
   WEB_DIST=/app/apps/web/dist \

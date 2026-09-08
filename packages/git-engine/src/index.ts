@@ -2,6 +2,9 @@ import { execFile } from 'node:child_process';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+export { prepareSourceWorkspace, safeSourcePath, workspaceSize } from './workspace.js';
+export type { WorkspaceManifest } from './workspace.js';
+export type { SourceToolInput } from './local-tools.js';
 
 const execFileAsync = promisify(execFile);
 const fullSha = /^[a-f0-9]{40}$/i;
@@ -303,6 +306,7 @@ function createGitRunner(
             GIT_ASKPASS_REQUIRE: 'force',
             GIT_ASKPASS: askPassPath,
             GIT_LFS_SKIP_SMUDGE: '1',
+            ...(process.env.GIT_SSL_CAINFO ? { GIT_SSL_CAINFO: process.env.GIT_SSL_CAINFO } : {}),
             GCR_GIT_USERNAME: credential.username,
             GCR_GIT_PASSWORD: credential.password,
           },
