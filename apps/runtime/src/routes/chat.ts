@@ -390,7 +390,7 @@ async function insertChatTurn(
   }
 }
 
-async function recentConversation(
+export async function recentConversation(
   database: Database,
   sessionId: string,
 ): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
@@ -405,7 +405,7 @@ async function recentConversation(
   return result.rows;
 }
 
-async function ownedSession(
+export async function ownedSession(
   database: Database,
   authorization: AuthorizationService,
   request: FastifyRequest,
@@ -426,7 +426,7 @@ async function ownedSession(
     : null;
 }
 
-async function canReadAnalysis(
+export async function canReadAnalysis(
   database: Database,
   authorization: AuthorizationService,
   request: FastifyRequest,
@@ -454,7 +454,7 @@ async function canReadAnalysis(
   return canReadRepository(database, authorization, request, row.repository_id, 'chat');
 }
 
-async function readChatMemoryContext(
+export async function readChatMemoryContext(
   database: Database,
   analysisId: string,
   userId: string,
@@ -490,7 +490,7 @@ async function readChatMemoryContext(
   return { hash: merged.hash, pinnedHash: context.memoryHash, items: merged.items };
 }
 
-async function readReport(
+export async function readReport(
   database: Database,
   artifacts: FilesystemArtifactStore,
   analysisId: string,

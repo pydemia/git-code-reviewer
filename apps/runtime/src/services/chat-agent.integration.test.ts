@@ -1,0 +1,373 @@
+import { randomUUID } from 'node:crypto';
+import path from 'node:path';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import Fastify, { type FastifyInstance } from 'fastify';
+import { createDatabase, runMigrations, type Database } from '@gcr/db';
+import { FilesystemArtifactStore } from '@gcr/artifact-store';
+import { beforeAll, afterAll, beforeEach, describe, it, expect, vi } from 'vitest';
+import { loadConfig, type AppConfig } from '../config.js';
+import {
+  claimAgentRun,
+  executeAgentRun,
+  reviewAgentInstructions,
+  type AgentRun,
+} from './chat-agent.js';
+import { AuthorizationService } from './authorization.js';
+import { registerChatRunRoutes } from '../routes/chat-runs.js';
+import { admittedFetch, ModelCapacityError, withModelBudget } from './model-admission.js';
+import type { AuthUser } from '../auth/index.js';
+
+const mocks = vi.hoisted(() => ({ turn: vi.fn(), source: vi.fn() }));
+vi.mock('./account-registry.js', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveChatAccountSelection: async () => ({
+    accountId: 'test',
+    accountName: 'Test',
+    modelName: 'test',
+    modelDisplayName: 'Test',
+    reasoningEffort: 'medium',
+    credentialVersion: 1,
+    model: { name: 'test', generate: vi.fn(), turn: mocks.turn },
+  }),
+}));
+vi.mock('./source-workspace.js', () => ({
+  acquireSourceWorkspace: async () => ({ workspaceId: 'test', workspace: '/fixture' }),
+  executeSourceTool: mocks.source,
+}));
+
+const url = process.env.GCR_TEST_DATABASE_URL;
+describe.skipIf(!url).sequential('durable review agent and shared admission', () => {
+  const schema = `gcr_agent_${randomUUID().replaceAll('-', '')}`;
+  let root: Database;
+  let database: Database;
+  let config: AppConfig;
+  let app: FastifyInstance;
+  let user: AuthUser;
+  let analysisId: string;
+  let snapshotId: string;
+  let temporary: string;
+  beforeAll(async () => {
+    const target = new URL(url!);
+    if (!['127.0.0.1', 'localhost', '[::1]'].includes(target.hostname))
+      throw Error('Use an isolated local PostgreSQL');
+    root = createDatabase(target.href);
+    await root.query(`create schema ${schema}`);
+    target.searchParams.set('options', `-c search_path=${schema}`);
+    database = createDatabase(target.href);
+    await runMigrations(database, path.resolve('packages/db/migrations'));
+    const tenant = (
+      await database.query(
+        "insert into tenants(slug,display_name) values('agent','Agent') returning id",
+      )
+    ).rows[0].id;
+    const owner = (
+      await database.query(
+        "insert into users(oidc_subject,display_name,role) values('agent-user','Agent','administrator') returning id",
+      )
+    ).rows[0].id;
+    user = {
+      id: owner,
+      subject: 'agent-user',
+      displayName: 'Agent',
+      role: 'administrator',
+      enabled: true,
+      groups: [],
+      tenantIds: [tenant],
+      tenants: [],
+    };
+    const instance = (
+      await database.query(
+        "insert into github_instances(name,api_base_url,web_base_url) values('agent','https://example.invalid/api/v3/','https://example.invalid/') returning id",
+      )
+    ).rows[0].id;
+    const repo = (
+      await database.query(
+        "insert into repositories(tenant_id,instance_id,github_id,installation_id,owner,name) values($1,$2,1,'1','test','agent') returning id",
+        [tenant, instance],
+      )
+    ).rows[0].id;
+    const pull = (
+      await database.query(
+        "insert into pull_requests(repository_id,github_id,number,title,state,draft,author_login,html_url,base_ref,base_sha,head_ref,head_sha,github_updated_at) values($1,1,1,'Agent','open',false,'fixture','https://example.invalid/pull/1','main',$2,'feat',$3,clock_timestamp()) returning id",
+        [repo, 'a'.repeat(40), 'b'.repeat(40)],
+      )
+    ).rows[0].id;
+    const request = (
+      await database.query(
+        'insert into snapshot_requests(pull_request_id,base_sha,head_sha) values($1,$2,$3) returning id',
+        [pull, 'a'.repeat(40), 'b'.repeat(40)],
+      )
+    ).rows[0].id;
+    snapshotId = (
+      await database.query(
+        "insert into snapshots(request_id,version,resolution,policy_version,merge_base_sha) values($1,1,'exact','test',$2) returning id",
+        [request, 'a'.repeat(40)],
+      )
+    ).rows[0].id;
+    analysisId = (
+      await database.query(
+        "insert into analysis_runs(snapshot_id,analysis_key,state) values($1,'agent-test','completed') returning id",
+        [snapshotId],
+      )
+    ).rows[0].id;
+    config = loadConfig({
+      DATABASE_URL: target.href,
+      AUTH_MODE: 'development',
+      CHAT_AGENT_ENABLED: 'true',
+    });
+    temporary = await mkdtemp(path.join(os.tmpdir(), 'gcr-agent-api-'));
+    app = Fastify();
+    app.addHook('onRequest', async (request) => {
+      request.user = request.headers['x-other-user'] ? { ...user, id: randomUUID() } : user;
+    });
+    await registerChatRunRoutes(
+      app,
+      database,
+      new FilesystemArtifactStore(temporary),
+      config,
+      new AuthorizationService(config),
+    );
+  });
+  afterAll(async () => {
+    await app?.close();
+    await database?.end();
+    if (root) {
+      await root.query(`drop schema if exists ${schema} cascade`);
+      await root.end();
+    }
+    if (temporary) await rm(temporary, { recursive: true, force: true });
+  });
+  beforeEach(async () => {
+    await database.query('delete from chat_sessions');
+    mocks.turn.mockReset();
+    mocks.source.mockReset();
+  });
+  async function createRun() {
+    const session = (
+      await database.query(
+        'insert into chat_sessions(analysis_run_id,user_id) values($1,$2) returning id',
+        [analysisId, user.id],
+      )
+    ).rows[0].id;
+    const message = (
+      await database.query(
+        "insert into chat_messages(session_id,role,status,content) values($1,'assistant','pending','') returning id",
+        [session],
+      )
+    ).rows[0].id;
+    return (
+      await database.query<AgentRun>(
+        'insert into chat_runs(session_id,assistant_message_id,idempotency_key,configuration,checkpoint) values($1,$2,$3,$4::jsonb,$5::jsonb) returning *',
+        [
+          session,
+          message,
+          randomUUID(),
+          JSON.stringify({
+            snapshotId,
+            ownerId: user.id,
+            accountId: randomUUID(),
+            modelName: 'test',
+            effort: 'medium',
+            instructions: reviewAgentInstructions,
+            maxModelCalls: 8,
+            maxToolCalls: 24,
+            maxContextBytes: 131072,
+          }),
+          JSON.stringify({
+            messages: [{ role: 'user', content: '기존 retry와 재시작을 확인해 주세요.' }],
+            pendingTools: [],
+            evidence: [],
+            instructions: [],
+          }),
+        ],
+      )
+    ).rows[0]!;
+  }
+  it('only one worker acquires a run and fences expired attempts', async () => {
+    const run = await createRun();
+    const claims = await Promise.all([
+      claimAgentRun(database, 'one'),
+      claimAgentRun(database, 'two'),
+    ]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    const first = claims.find(Boolean)!;
+    await database.query(
+      "update chat_runs set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1",
+      [run.id],
+    );
+    const second = await claimAgentRun(database, 'three');
+    expect(Number(second!.fence)).toBe(Number(first.fence) + 1);
+    await executeAgentRun(database, config, first);
+    expect(mocks.turn).not.toHaveBeenCalled();
+  });
+  it('reads source, asks the user, releases its lease and resumes with source evidence', async () => {
+    const run = await createRun();
+    const evidence = {
+      id: 'e'.repeat(24),
+      revision: 'base',
+      sha: 'a'.repeat(40),
+      path: 'unchanged.ts',
+      startLine: 1,
+      endLine: 2,
+      blob: 'b'.repeat(40),
+      hash: 'c'.repeat(64),
+      content: 'return retryCount;',
+      truncated: false,
+    };
+    mocks.source.mockResolvedValue(evidence);
+    const sourceCall = {
+      call_id: 'source-1',
+      name: 'read_file',
+      arguments: '{"path":"unchanged.ts","revision":"base"}',
+    };
+    const questionCall = {
+      call_id: 'question-1',
+      name: 'ask_user',
+      arguments: '{"question":"재시작 후 횟수를 유지해야 하나요?","options":["유지","초기화"]}',
+    };
+    mocks.turn
+      .mockResolvedValueOnce({
+        content: '',
+        output: [{ type: 'function_call', ...sourceCall }],
+        calls: [sourceCall],
+      })
+      .mockResolvedValueOnce({
+        content: '',
+        output: [{ type: 'function_call', ...questionCall }],
+        calls: [questionCall],
+      })
+      .mockImplementationOnce(async (input) => {
+        expect(JSON.stringify(input.input)).toContain('유지');
+        expect(JSON.stringify(input.input)).toContain('retryCount');
+        await input.onDelta('분석 결과');
+        return {
+          content: `횟수를 유지해야 합니다. [source:${evidence.id}]`,
+          output: [],
+          calls: [],
+        };
+      });
+    await executeAgentRun(database, config, (await claimAgentRun(database, 'one'))!);
+    const waiting = (
+      await database.query('select status,lease_expires_at from chat_runs where id=$1', [run.id])
+    ).rows[0];
+    expect(waiting.status).toBe('awaiting_input');
+    expect(waiting.lease_expires_at).toBeNull();
+    const question = (
+      await database.query('select id from chat_questions where run_id=$1', [run.id])
+    ).rows[0].id;
+    const reply = await app.inject({
+      method: 'POST',
+      url: `/api/v1/chat-runs/${run.id}/questions/${question}/responses`,
+      payload: { answer: '유지' },
+    });
+    expect(reply.statusCode).toBe(202);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/v1/chat-runs/${run.id}/questions/${question}/responses`,
+          payload: { answer: '유지' },
+        })
+      ).statusCode,
+    ).toBe(200);
+    await executeAgentRun(database, config, (await claimAgentRun(database, 'replacement'))!);
+    const completed = await app.inject(`/api/v1/chat-runs/${run.id}`);
+    expect(completed.json().status).toBe('completed');
+    expect(completed.json().evidence).toHaveLength(1);
+    expect(
+      (await app.inject(`/api/v1/chat-runs/${run.id}/context/${evidence.id}`)).json().content,
+    ).toBe('return retryCount;');
+    expect(
+      (
+        await app.inject({
+          url: `/api/v1/chat-runs/${run.id}`,
+          headers: { 'x-other-user': 'true' },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(mocks.turn).toHaveBeenCalledTimes(3);
+  });
+  it('persists cancellation without calling a model', async () => {
+    const run = await createRun();
+    await app.inject({ method: 'POST', url: `/api/v1/chat-runs/${run.id}/cancel`, payload: {} });
+    await executeAgentRun(database, config, (await claimAgentRun(database, 'cancel'))!);
+    expect((await app.inject(`/api/v1/chat-runs/${run.id}`)).json().status).toBe('cancelled');
+    expect(mocks.turn).not.toHaveBeenCalled();
+  });
+  it('consumes instructions arriving while the final answer is streaming', async () => {
+    const run = await createRun();
+    mocks.turn
+      .mockImplementationOnce(async () => {
+        const response = await app.inject({
+          method: 'POST',
+          url: `/api/v1/chat-runs/${run.id}/instructions`,
+          payload: { idempotencyKey: randomUUID(), content: '기존 테스트도 설명해 주세요.' },
+        });
+        expect(response.statusCode).toBe(202);
+        return {
+          content: '첫 답변',
+          output: [{ role: 'assistant', content: '첫 답변' }],
+          calls: [],
+        };
+      })
+      .mockImplementationOnce(async (input) => {
+        expect(JSON.stringify(input.input)).toContain('기존 테스트도');
+        return { content: '추가 지시까지 반영했습니다.', output: [], calls: [] };
+      });
+    await executeAgentRun(database, config, (await claimAgentRun(database, 'instructions'))!);
+    expect(mocks.turn).toHaveBeenCalledTimes(2);
+    expect((await app.inject(`/api/v1/chat-runs/${run.id}`)).json().content).toContain('추가 지시');
+    expect(
+      (await database.query('select * from chat_run_steps where run_id=$1', [run.id])).rowCount,
+    ).toBeGreaterThan(0);
+  });
+  it('expires abandoned questions and releases pending message limits', async () => {
+    const run = await createRun();
+    await database.query(
+      "update chat_runs set status='awaiting_input',expires_at=clock_timestamp()-interval '1 second' where id=$1",
+      [run.id],
+    );
+    expect(await claimAgentRun(database, 'expiry')).toBeNull();
+    expect(
+      (
+        await database.query('select status from chat_messages where id=$1', [
+          run.assistant_message_id,
+        ])
+      ).rows[0].status,
+    ).toBe('failed');
+  });
+  it('shares upstream account capacity and charges retries to the same run', async () => {
+    const quota = randomUUID();
+    const transport = vi.fn(async () => new Response('ok'));
+    const fetcher = admittedFetch(database, quota, transport as typeof fetch);
+    const budget = { runKey: randomUUID(), maxCalls: 2 };
+    const first = await withModelBudget(budget, () => fetcher('https://example.invalid'));
+    await expect(
+      withModelBudget(budget, () => fetcher('https://example.invalid')),
+    ).rejects.toBeInstanceOf(ModelCapacityError);
+    expect(transport).toHaveBeenCalledTimes(1);
+    await first.text();
+    await (await withModelBudget(budget, () => fetcher('https://example.invalid'))).text();
+    await expect(withModelBudget(budget, () => fetcher('https://example.invalid'))).rejects.toThrow(
+      'model_call_budget_exhausted',
+    );
+  });
+  it('persists 429 cooldown and releases the account slot', async () => {
+    const quota = randomUUID();
+    const transport = vi.fn(
+      async () => new Response('', { status: 429, headers: { 'retry-after': '30' } }),
+    );
+    const fetcher = admittedFetch(database, quota, transport as typeof fetch);
+    await expect(
+      withModelBudget({ runKey: randomUUID(), maxCalls: 8 }, () =>
+        fetcher('https://example.invalid'),
+      ),
+    ).rejects.toBeInstanceOf(ModelCapacityError);
+    const capacity = (
+      await database.query('select * from model_account_capacity where quota_key=$1', [quota])
+    ).rows[0];
+    expect(capacity.reservation_id).toBeNull();
+    expect(capacity.cooldown_until.getTime()).toBeGreaterThan(Date.now());
+  });
+});

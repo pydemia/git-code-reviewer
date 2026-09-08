@@ -15,6 +15,9 @@ import type { RelationshipGraph, ReviewReport } from '@gcr/review-contract';
 import Fastify from 'fastify';
 import type { AppConfig } from '../config.js';
 import { appendEvent } from '../events/index.js';
+import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
+import { withModelBudget } from '../services/model-admission.js';
+import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
 import {
   createReviewModel,
   deploymentAnalysisProvider,
@@ -72,6 +75,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
+  let preferChat = true;
   const shutdown = stopSignal().then(() => {
     stopping = true;
   });
@@ -88,8 +92,23 @@ export async function runWorker(config: AppConfig): Promise<void> {
     lastLoopAt = Date.now();
     let claimed = false;
     while (!stopping && active.size < config.WORKER_CONCURRENCY) {
-      const job = await claimJob(database, executor);
+      const priorityJob = !preferChat ? await claimJob(database, executor) : null;
+      if (config.CHAT_AGENT_ENABLED && !priorityJob) {
+        const run = await claimAgentRun(database, executor);
+        if (run) {
+          preferChat = false;
+          claimed = true;
+          const task = executeAgentRun(database, config, run).catch(() =>
+            health.log.error({ runId: run.id }, 'chat run failed'),
+          );
+          active.add(task);
+          void task.finally(() => active.delete(task));
+          continue;
+        }
+      }
+      const job = priorityJob ?? (await claimJob(database, executor));
       if (!job) break;
+      preferChat = true;
       claimed = true;
       const task = executeJob(database, github, artifacts, config, executor, job, health.log).catch(
         (error: unknown) => {
@@ -175,7 +194,14 @@ async function executeJob(
     if (job.type === 'snapshot.materialize') {
       await executeSnapshotJob(database, github, artifacts, config, workspace, job);
     } else if (job.type === 'analysis.run') {
-      await executeAnalysisJob(database, artifacts, config, job);
+      await withModelBudget(
+        {
+          runKey: `analysis:${job.payload.analysisId}`,
+          maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+          wait: true,
+        },
+        () => executeAnalysisJob(database, artifacts, config, job),
+      );
     } else {
       await publishReviewToGitHub(database, github, config, job, artifacts);
     }
@@ -544,7 +570,12 @@ export async function executeAnalysisJob(
   if (!row) throw new Error('Analysis snapshot is unavailable');
   const skillBundle = resolvePinnedReviewSkills(row.skill_bundle, row.skill_hash);
   const provider = await resolveAnalysisProvider(database, config, row.provider_version_id);
-  const model = createReviewModel(provider, { database, config, tenantId: row.tenantId });
+  const baseModel = createReviewModel(provider, { database, config, tenantId: row.tenantId });
+  const sourceContext =
+    config.CHAT_AGENT_ENABLED && baseModel && !isFixtureRepository(config.GITHUB_MODE, row)
+      ? withAnalysisSourceContext(baseModel, database, artifacts, config, analysisId, snapshotId)
+      : null;
+  const model = sourceContext?.model ?? baseModel;
   const locator = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'snapshot' and scope_id = $1
      and artifact_type = 'diff-index' and version = 1 and state = 'available'`,
@@ -609,6 +640,7 @@ export async function executeAnalysisJob(
     },
   });
   await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
+  if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
   await persistAnalysis(
     database,
     artifacts,
