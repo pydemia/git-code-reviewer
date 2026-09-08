@@ -10,7 +10,7 @@
 image:
   repository: docker.io/pydemia/git-code-reviewer
   tag: '0.8.0-alpha.19'
-  digest: ''
+  digest: 'sha256:294982a56fa496a8db06bb5f8f4c027227125abe581ae0b9c7cf4aee2d9ebaab'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -39,7 +39,7 @@ server:
 
 worker:
   replicas: 1
-  concurrency: 1
+  concurrency: 2
   workspace:
     mode: emptyDir
     size: 5Gi
