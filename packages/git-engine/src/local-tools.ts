@@ -4,6 +4,7 @@ import { lstat, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { findCodeCandidates, type CodeCandidate } from './related-code.js';
 
 const execute = promisify(execFile);
 export type SourceToolInput = {
@@ -173,7 +174,52 @@ export async function runLocalSourceTool(root: string, input: SourceToolInput): 
       truncated: full.length > content.length || endLine < lines.length,
     };
   }
-  if (input.name === 'search_code' || input.name === 'find_related_code') {
+  if (input.name === 'find_related_code') {
+    const query = input.query?.trim();
+    if (!query || !/^[A-Za-z_$][\w$]*$/.test(query)) throw Error('symbol_identifier_required');
+    const matches: CodeCandidate[] = [];
+    let omitted = 0;
+    let scanned = 0;
+    let bytes = 0;
+    for (const entry of entries) {
+      if (filePath && !entry.path.startsWith(filePath)) continue;
+      if (
+        !/\.(?:[cm]?[jt]sx?|py)$/.test(entry.path) ||
+        scanned >= 512 ||
+        bytes + entry.size > 4194304
+      ) {
+        omitted++;
+        continue;
+      }
+      try {
+        const lines = await load(entry);
+        scanned++;
+        bytes += entry.size;
+        matches.push(...findCodeCandidates(entry.path, lines, query));
+      } catch {
+        omitted++;
+      }
+    }
+    return {
+      revision,
+      sha,
+      query,
+      matches: matches.slice(0, 60),
+      truncated: matches.length > 60,
+      omitted,
+      scanned,
+      coverage: {
+        method: 'typescript-syntax-python-lexical-v1',
+        verifiedCallGraph: false,
+        testsExecuted: false,
+        limitations: [
+          '정의·호출·테스트 후보입니다. read_file로 확인하세요.',
+          'JS/TS는 구문 AST, Python은 lexical 후보입니다. import alias, overload, 동적 method binding과 다른 언어는 의미적으로 해석하지 않습니다.',
+        ],
+      },
+    };
+  }
+  if (input.name === 'search_code') {
     const query = input.query?.trim();
     if (!query || query.length > 300) throw Error('invalid_search_query');
     const matches: Array<{ path: string; line: number; content: string }> = [];

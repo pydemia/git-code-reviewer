@@ -108,6 +108,8 @@ export async function runSkillReview(input: {
         successfulCalls += 1;
         return { review: parsed.review, truncated: result.truncated };
       } catch (error) {
+        if (error instanceof Error && ['worker_draining', 'job_lease_lost'].includes(error.message))
+          throw error;
         if (attempt === 0 && coverage.modelCalls < input.maxModelCalls - reservedCalls) continue;
         const code =
           error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name)

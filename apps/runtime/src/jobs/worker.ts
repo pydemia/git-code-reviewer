@@ -17,6 +17,8 @@ import type { AppConfig } from '../config.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
 import { withModelBudget } from '../services/model-admission.js';
+import { assertJobLease, checkpointReviewModel } from '../services/analysis-checkpoint.js';
+import { recoverExpiredJobs } from './recovery.js';
 import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
 import {
   createReviewModel,
@@ -77,13 +79,14 @@ export async function runWorker(config: AppConfig): Promise<void> {
   const active = new Set<Promise<void>>();
   let preferChat = true;
   let activeBatch = 0;
+  let lastRecoveryAt = 0;
   const shutdown = stopSignal().then(() => {
     stopping = true;
   });
 
   health.get('/health/live', async () => ({ status: 'ok' }));
   health.get('/health/ready', async (_request, reply) =>
-    Date.now() - lastLoopAt < 15_000
+    !stopping && Date.now() - lastLoopAt < 15_000
       ? { status: 'ok' }
       : reply.code(503).send({ status: 'degraded' }),
   );
@@ -91,6 +94,10 @@ export async function runWorker(config: AppConfig): Promise<void> {
 
   while (!stopping) {
     lastLoopAt = Date.now();
+    if (Date.now() - lastRecoveryAt > 10000) {
+      await recoverExpiredJobs(database);
+      lastRecoveryAt = Date.now();
+    }
     let claimed = false;
     while (!stopping && active.size < config.WORKER_CONCURRENCY) {
       const batchAvailable =
@@ -115,11 +122,18 @@ export async function runWorker(config: AppConfig): Promise<void> {
       if (!job) break;
       preferChat = true;
       claimed = true;
-      const task = executeJob(database, github, artifacts, config, executor, job, health.log).catch(
-        (error: unknown) => {
-          health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
-        },
-      );
+      const task = executeJob(
+        database,
+        github,
+        artifacts,
+        config,
+        executor,
+        job,
+        health.log,
+        () => stopping,
+      ).catch((error: unknown) => {
+        health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
+      });
       active.add(task);
       activeBatch++;
       void task.finally(() => {
@@ -137,7 +151,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
   await database.end();
 }
 
-async function claimJob(database: Database, executor: string): Promise<ClaimedJob | null> {
+export async function claimJob(database: Database, executor: string): Promise<ClaimedJob | null> {
   const connection = await database.connect();
   try {
     await connection.query('begin');
@@ -145,8 +159,7 @@ async function claimJob(database: Database, executor: string): Promise<ClaimedJo
       `with candidate as (
          select id from jobs
          where type in ('snapshot.materialize', 'analysis.run', 'github.review.publish')
-           and ((state = 'queued' and available_at <= clock_timestamp())
-             or (state = 'running' and lease_expires_at < clock_timestamp()))
+           and state = 'queued' and available_at <= clock_timestamp()
            and attempt_count < max_attempts
          order by priority, available_at, created_at
          for update skip locked limit 1
@@ -187,15 +200,19 @@ async function executeJob(
   executor: string,
   job: ClaimedJob,
   logger: Logger,
+  draining: () => boolean,
 ): Promise<void> {
   const heartbeat = setInterval(
     () =>
-      void database.query(
-        `update jobs set lease_expires_at = clock_timestamp() + interval '30 seconds',
+      void database
+        .query(
+          `update jobs set lease_expires_at = clock_timestamp() + interval '30 seconds',
          heartbeat_at = clock_timestamp(), updated_at = clock_timestamp()
-         where id = $1 and state = 'running' and lease_owner = $2`,
-        [job.id, executor],
-      ),
+         where id = $1 and state = 'running' and lease_owner = $2 and attempt_count=$3
+         and lease_expires_at>clock_timestamp()`,
+          [job.id, executor, job.attempt_count],
+        )
+        .catch(() => undefined),
     10_000,
   );
   const workspace = path.join(config.WORKSPACE_ROOT, `job-${job.id}-${job.attempt_count}`);
@@ -209,7 +226,7 @@ async function executeJob(
           maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
           wait: true,
         },
-        () => executeAnalysisJob(database, artifacts, config, job),
+        () => executeAnalysisJob(database, artifacts, config, job, draining),
       );
     } else {
       await publishReviewToGitHub(database, github, config, job, artifacts);
@@ -217,6 +234,14 @@ async function executeJob(
     await completeJob(database, job);
     logger.info({ jobId: job.id, type: job.type }, 'job completed');
   } catch (error) {
+    if (error instanceof Error && error.message === 'worker_draining') {
+      await database.query(
+        "update jobs set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1 and state='running' and lease_owner=$2 and attempt_count=$3",
+        [job.id, executor, job.attempt_count],
+      );
+      return;
+    }
+    if (error instanceof Error && error.message === 'job_lease_lost') return;
     await failJob(database, job, error);
     logger.error(
       {
@@ -340,6 +365,7 @@ async function persistMaterialization(
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    await assertJobLease(connection, job);
     const version = await connection.query<{ version: number }>(
       `select coalesce(max(version), 0) + 1 as version from snapshots where request_id = $1`,
       [snapshotRequestId],
@@ -533,7 +559,9 @@ export async function executeAnalysisJob(
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
   job: ClaimedJob,
+  draining: () => boolean = () => false,
 ): Promise<void> {
+  await assertJobLease(database, job);
   const analysisId = requiredPayload(job, 'analysisId');
   const snapshotId = requiredPayload(job, 'snapshotId');
   const existing = await database.query('select 1 from reports where analysis_run_id = $1', [
@@ -584,7 +612,17 @@ export async function executeAnalysisJob(
     config.CHAT_AGENT_ENABLED && baseModel && !isFixtureRepository(config.GITHUB_MODE, row)
       ? withAnalysisSourceContext(baseModel, database, artifacts, config, analysisId, snapshotId)
       : null;
-  const model = sourceContext?.model ?? baseModel;
+  const contextualModel = sourceContext?.model ?? baseModel;
+  const model = contextualModel
+    ? checkpointReviewModel(
+        contextualModel,
+        database,
+        analysisId,
+        job,
+        sourceContext?.limitations,
+        draining,
+      )
+    : undefined;
   const locator = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'snapshot' and scope_id = $1
      and artifact_type = 'diff-index' and version = 1 and state = 'available'`,
@@ -606,59 +644,65 @@ export async function executeAnalysisJob(
     return id ? [{ id, ...file }] : [];
   });
   await updateAnalysisState(database, job, 'analyzing', 'review', 25);
-  const output = await analyzeSnapshot({
-    onProgress: async (stage, detail) => {
-      const progress =
-        stage === 'total-summary'
-          ? 85
-          : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
-      await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
-    },
-    analysisId,
-    snapshotId,
-    baseSha: row.base_sha,
-    headSha: row.head_sha,
-    patch: diff.patch,
-    files,
-    memory: row.memory_context,
-    fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
-    ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
-    ...(model ? { model } : {}),
-    ...(skillBundle
-      ? {
-          skills: {
-            bundle: skillBundle,
-            versionId: row.skill_version_id,
-            version: row.skill_version,
-          },
-        }
-      : {}),
-    ...(row.prompt_instructions !== null && row.prompt_version
-      ? {
-          prompt: {
-            instructions: row.prompt_instructions,
-            version: row.prompt_version,
-            hash: row.prompt_hash,
-          },
-        }
-      : {}),
-    budgets: {
-      maxFiles: config.ANALYSIS_MAX_FILES,
-      maxBytes: config.ANALYSIS_MAX_BYTES,
-      maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
-    },
-  });
-  await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
-  if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
-  await persistAnalysis(
-    database,
-    artifacts,
-    config,
-    job,
-    output.report,
-    output.graph,
-    output.state,
-  );
+  try {
+    const output = await analyzeSnapshot({
+      onProgress: async (stage, detail) => {
+        if (draining()) throw Error('worker_draining');
+        await assertJobLease(database, job);
+        const progress =
+          stage === 'total-summary'
+            ? 85
+            : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
+        await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
+      },
+      analysisId,
+      snapshotId,
+      baseSha: row.base_sha,
+      headSha: row.head_sha,
+      patch: diff.patch,
+      files,
+      memory: row.memory_context,
+      fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
+      ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
+      ...(model ? { model } : {}),
+      ...(skillBundle
+        ? {
+            skills: {
+              bundle: skillBundle,
+              versionId: row.skill_version_id,
+              version: row.skill_version,
+            },
+          }
+        : {}),
+      ...(row.prompt_instructions !== null && row.prompt_version
+        ? {
+            prompt: {
+              instructions: row.prompt_instructions,
+              version: row.prompt_version,
+              hash: row.prompt_hash,
+            },
+          }
+        : {}),
+      budgets: {
+        maxFiles: config.ANALYSIS_MAX_FILES,
+        maxBytes: config.ANALYSIS_MAX_BYTES,
+        maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+      },
+    });
+    await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
+    if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
+    await persistAnalysis(
+      database,
+      artifacts,
+      config,
+      job,
+      output.report,
+      output.graph,
+      output.state,
+    );
+  } finally {
+    await sourceContext?.release();
+  }
 }
 
 export async function persistAnalysis(
@@ -685,6 +729,7 @@ export async function persistAnalysis(
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    await assertJobLease(connection, job);
     await connection.query('select id from analysis_runs where id = $1 for update', [analysisId]);
     const existing = await connection.query('select 1 from reports where analysis_run_id = $1', [
       analysisId,
@@ -829,46 +874,71 @@ export async function persistAnalysis(
 }
 
 async function updateAnalysisState(
-  database: Database,
+  pool: Database,
   job: ClaimedJob,
   state: 'analyzing',
   stage: string,
   progress: number,
   detail?: import('@gcr/contracts').AnalysisProgress,
 ) {
-  const analysisId = requiredPayload(job, 'analysisId');
-  const updated = await database.query(
-    `update analysis_runs set state = $2, stage = $3, progress = $4,
+  const database = await pool.connect();
+  try {
+    await database.query('begin');
+    await assertJobLease(database, job);
+    const analysisId = requiredPayload(job, 'analysisId');
+    const updated = await database.query(
+      `update analysis_runs set state = $2, stage = $3, progress = $4,
      progress_detail = case when $3 = 'deterministic' then null else coalesce($5::jsonb, progress_detail) end,
      started_at = coalesce(started_at, clock_timestamp()) where id = $1
      and state not in ('completed', 'partial')
      and not exists (select 1 from reports where analysis_run_id = $1)`,
-    [analysisId, state, stage, progress, detail ? JSON.stringify(detail) : null],
-  );
-  if (!updated.rowCount) return;
-  const payload = { analysisId, revision: 1, state, stage, progress, progressDetail: detail };
-  if (!job.payload.memoryOwnerUserId) {
-    await appendEvent(
-      database,
-      'pull_request',
-      job.payload.pullRequestId,
-      'analysis.state',
-      payload,
+      [analysisId, state, stage, progress, detail ? JSON.stringify(detail) : null],
     );
+    if (!updated.rowCount) {
+      await database.query('commit');
+      return;
+    }
+    const payload = { analysisId, revision: 1, state, stage, progress, progressDetail: detail };
+    if (!job.payload.memoryOwnerUserId) {
+      await appendEvent(
+        database,
+        'pull_request',
+        job.payload.pullRequestId,
+        'analysis.state',
+        payload,
+      );
+    }
+    await appendEvent(database, 'analysis', analysisId, 'analysis.state', payload);
+    await database.query('commit');
+  } catch (error) {
+    await database.query('rollback');
+    throw error;
+  } finally {
+    database.release();
   }
-  await appendEvent(database, 'analysis', analysisId, 'analysis.state', payload);
 }
 
 async function completeJob(database: Database, job: ClaimedJob) {
-  await database.query(
-    `update job_attempts set ended_at = clock_timestamp(), outcome = 'completed' where id = $1`,
-    [job.attempt_id],
-  );
-  await database.query(
-    `update jobs set state = 'completed', lease_owner = null, lease_expires_at = null,
+  const client = await database.connect();
+  try {
+    await client.query('begin');
+    await assertJobLease(client, job);
+    await client.query(
+      `update job_attempts set ended_at = clock_timestamp(), outcome = 'completed' where id = $1`,
+      [job.attempt_id],
+    );
+    await client.query(
+      `update jobs set state = 'completed', lease_owner = null, lease_expires_at = null,
      updated_at = clock_timestamp() where id = $1`,
-    [job.id],
-  );
+      [job.id],
+    );
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function failJob(database: Database, job: ClaimedJob, error: unknown) {
@@ -881,6 +951,21 @@ async function failJob(database: Database, job: ClaimedJob, error: unknown) {
       return;
     }
   }
+  const client = await database.connect();
+  try {
+    await client.query('begin');
+    await assertJobLease(client, job);
+    await recordJobFailure(client, job, error);
+    await client.query('commit');
+  } catch (failure) {
+    await client.query('rollback');
+    throw failure;
+  } finally {
+    client.release();
+  }
+}
+
+async function recordJobFailure(database: DatabaseClient, job: ClaimedJob, error: unknown) {
   const retryable =
     error instanceof GitHubRequestError
       ? error.retryable

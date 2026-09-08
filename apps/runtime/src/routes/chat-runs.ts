@@ -14,7 +14,8 @@ import {
   type AgentRun,
 } from '../services/chat-agent.js';
 import { appendEvent, type EventRow, formatServerSentEvent } from '../events/index.js';
-import { ownedSession, readChatMemoryContext, readReport, recentConversation } from './chat.js';
+import { ownedSession, readChatMemoryContext, readReport } from './chat.js';
+import { readConversationContext } from '../services/conversation-context.js';
 
 const runParams = z.object({ runId: z.string().uuid() });
 const sessionParams = z.object({ sessionId: z.string().uuid() });
@@ -39,7 +40,9 @@ export async function chatRunView(database: Database, run: AgentRun) {
     options: string[];
     answer: string | null;
     expires_at: Date;
-  }>('select * from chat_questions where run_id=$1 order by expires_at desc limit 1', [run.id]);
+  }>('select * from chat_questions where run_id=$1 order by expires_at desc,id desc limit 32', [
+    run.id,
+  ]);
   const events = await database.query<EventRow>(
     "select id::text,type,payload from event_log where scope='chat_run' and scope_id=$1 and type <> 'response.output_text.delta' order by id desc limit 60",
     [run.id],
@@ -65,6 +68,13 @@ export async function chatRunView(database: Database, run: AgentRun) {
           expiresAt: question.expires_at.toISOString(),
         }
       : null,
+    questions: questions.rows.map((item) => ({
+      id: item.id,
+      question: item.question,
+      options: item.options,
+      answer: item.answer,
+      expiresAt: item.expires_at.toISOString(),
+    })),
     resumeAfter: run.resume_after?.toISOString() ?? null,
     evidence: run.checkpoint.evidence,
     timeline: events.rows.reverse().map((event) => ({
@@ -127,7 +137,7 @@ export async function registerChatRunRoutes(
           files.rows.map((file) => file.path),
           body.content,
         ),
-        recentConversation(database, sessionId),
+        readConversationContext(database, sessionId),
         readPersonalPrompt(database, request.user!.id),
       ]);
       const checkpoint = {
@@ -136,14 +146,15 @@ export async function registerChatRunRoutes(
             role: 'user',
             content: JSON.stringify({
               kind: 'untrusted_review_context',
-              excerpt: JSON.stringify(context.context).slice(0, 80000),
+              excerpt: Buffer.from(JSON.stringify(context.context))
+                .subarray(0, 80000)
+                .toString('utf8'),
+              excerptTruncated: Buffer.byteLength(JSON.stringify(context.context)) > 80000,
               memory,
               personal,
             }),
           },
-          ...history
-            .slice(-10)
-            .map((message) => ({ role: message.role, content: message.content.slice(0, 4000) })),
+          { role: 'user', content: JSON.stringify(history) },
           { role: 'user', content: body.content },
         ],
         pendingTools: [],
@@ -232,6 +243,35 @@ export async function registerChatRunRoutes(
       } finally {
         client.release();
       }
+    },
+  );
+  app.get(
+    '/api/v1/chat-sessions/:sessionId/run-history',
+    { preHandler: requireUser },
+    async (request, reply) => {
+      const { sessionId } = sessionParams.parse(request.params);
+      if (!(await ownedSession(database, authorization, request, sessionId)))
+        return reply.code(404).send({ error: { code: 'NOT_FOUND' } });
+      const { before } = z.object({ before: z.string().uuid().optional() }).parse(request.query);
+      const result = await database.query<{
+        id: string;
+        status: string;
+        created_at: Date;
+        question: string;
+        snapshotId: string;
+      }>(
+        `select r.id,r.status,r.created_at,left(m.content,160) as question,r.configuration->>'snapshotId' as "snapshotId"
+         from chat_runs r join chat_messages m on m.id=r.user_message_id
+         where r.session_id=$1 and ($2::uuid is null or (r.created_at,r.id)<(select created_at,id from chat_runs where id=$2 and session_id=$1))
+         order by r.created_at desc,r.id desc limit 31`,
+        [sessionId, before ?? null],
+      );
+      return {
+        items: result.rows
+          .slice(0, 30)
+          .map(({ created_at, ...item }) => ({ ...item, createdAt: created_at.toISOString() })),
+        nextCursor: result.rows.length > 30 ? result.rows[29]!.id : null,
+      };
     },
   );
   app.get(

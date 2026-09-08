@@ -24,6 +24,17 @@ const file = (
   deletions: 0,
   patch,
 });
+it.each(['worker_draining', 'job_lease_lost'])(
+  'does not turn %s into a partial report',
+  async (message) => {
+    const review = vi.fn(async () => {
+      throw Error(message);
+    });
+    await expect(analyze([file('a.ts')], { profile: 'test', review })).rejects.toThrow(message);
+    expect(review).toHaveBeenCalledTimes(1);
+  },
+);
+
 function output(
   summary: string,
   comments: object[] = [],

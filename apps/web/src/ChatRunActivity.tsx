@@ -21,6 +21,7 @@ export function ChatRunActivity({
   onAnswer,
   onCancel,
   onEvidence,
+  readOnly = false,
 }: {
   run: ChatRunView | null;
   error: string;
@@ -28,6 +29,7 @@ export function ChatRunActivity({
   onAnswer: (answer: string) => Promise<void>;
   onCancel: () => Promise<void>;
   onEvidence: (unitId: string) => void;
+  readOnly?: boolean;
 }) {
   const [answer, setAnswer] = useState('');
   const [actionError, setActionError] = useState('');
@@ -50,7 +52,7 @@ export function ChatRunActivity({
     <section className="chat-run-activity" aria-label="추가 코드 분석">
       <div className="chat-run-status">
         <strong role="status">{statusLabels[run.status]}</strong>
-        {!isTerminalChatRun(run.status) ? (
+        {!readOnly && !isTerminalChatRun(run.status) ? (
           <button
             type="button"
             onClick={() => void onCancel().catch(() => setActionError('중단 요청에 실패했습니다.'))}
@@ -76,7 +78,16 @@ export function ChatRunActivity({
           <ReviewMarkdown text={run.content.replace(/\[source:[a-f0-9]+\]/g, '')} />
         </div>
       ) : null}
-      {run.status === 'awaiting_input' && run.question ? (
+      {readOnly ? <p>저장된 분석 이력입니다. 새 요청과 중단은 현재 대화에서 처리합니다.</p> : null}
+      {(run.questions ?? [])
+        .filter((question) => question.answer !== null || readOnly)
+        .map((question) => (
+          <div className="chat-question" key={question.id}>
+            <strong>{question.question}</strong>
+            <p>{question.answer ?? '응답 없음'}</p>
+          </div>
+        ))}
+      {!readOnly && run.status === 'awaiting_input' && run.question ? (
         <div className="chat-question" key={run.question.id}>
           <strong>{run.question.question}</strong>
           <div>

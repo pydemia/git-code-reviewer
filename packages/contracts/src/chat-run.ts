@@ -51,11 +51,25 @@ export const chatRunViewSchema = z.object({
   toolCalls: z.number(),
   contextBytes: z.number(),
   question: chatQuestionSchema.nullable(),
+  questions: z.array(chatQuestionSchema).optional(),
   resumeAfter: z.string().nullable(),
   evidence: z.array(sourceEvidenceSchema.omit({ content: true })),
   timeline: z.array(z.object({ id: z.string(), type: z.string(), label: z.string() })),
 });
 export type ChatRunView = z.infer<typeof chatRunViewSchema>;
+export const chatRunHistorySchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      status: chatRunStatusSchema,
+      createdAt: z.string(),
+      question: z.string(),
+      snapshotId: z.string().uuid(),
+    }),
+  ),
+  nextCursor: z.string().uuid().nullable(),
+});
+export type ChatRunHistory = z.infer<typeof chatRunHistorySchema>;
 export const createChatRunSchema = z.object({
   idempotencyKey: z.string().uuid(),
   content: z.string().trim().min(1).max(4000),

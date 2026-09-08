@@ -94,6 +94,10 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
         [job.id],
       )
     ).rows[0];
+    await database.query(
+      "update jobs set state='running',attempt_count=1,lease_owner='synthetic',lease_expires_at=clock_timestamp()+interval '1 hour' where id=$1",
+      [job.id],
+    );
     await executeSnapshotJob(database, null, artifacts, config, path.join(directory, 'workspace'), {
       ...job,
       attempt_count: 1,
@@ -115,6 +119,10 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       )
     ).rows[0];
     analysisJob = { ...queued, attempt_count: 1, attempt_id: analysisAttempt.id };
+    await database.query(
+      "update jobs set state='running',attempt_count=1,lease_owner='synthetic',lease_expires_at=clock_timestamp()+interval '1 hour' where id=$1",
+      [queued.id],
+    );
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_url, init) => {
@@ -255,11 +263,11 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     } finally {
       await database.query('drop trigger reject_analysis_object on code_objects');
       await database.query('drop function reject_analysis_object()');
-      calls.length = 0;
     }
   });
 
   it('uses the queued version after administrators activate another version, and persists custom categories', async () => {
+    const transmittedBeforeRecovery = calls.length;
     await database.query('update analysis_prompt_versions set active=false where active');
     await database.query(
       `insert into analysis_prompt_versions(tenant_id,version,instructions,severity_level,content_hash,active,created_by,activated_by,activated_at)
@@ -278,6 +286,15 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       analysisJob,
     );
     const instructions = calls.map((call) => call.messages[0]!.content);
+    expect(calls.length).toBe(transmittedBeforeRecovery);
+    expect(
+      (
+        await database.query(
+          'select count(*)::int as count from analysis_model_checkpoints where analysis_id=$1',
+          [analysisId],
+        )
+      ).rows[0].count,
+    ).toBeGreaterThan(0);
     expect(instructions.every((value) => value.includes('Severity Level): rigorous'))).toBe(true);
     expect(instructions.some((value) => value.includes('New tenant guidance'))).toBe(false);
     expect(instructions.some((value) => value.includes('Original Skill marker'))).toBe(true);

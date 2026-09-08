@@ -180,6 +180,10 @@ describe.skipIf(!databaseUrl).sequential('analysis review memory pinning', () =>
         [job.id],
       )
     ).rows[0].id;
+    await database.query(
+      "update jobs set state='running',attempt_count=1,lease_owner='memory-test',lease_expires_at=clock_timestamp()+interval '1 hour' where id=$1",
+      [job.id],
+    );
     await executeSnapshotJob(
       database,
       null,

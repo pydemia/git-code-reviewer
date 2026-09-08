@@ -6,6 +6,29 @@
   font-size: 13px;
   line-height: 1.6;
 }
+.chat-run-history {
+  padding-block: 12px;
+  overflow-wrap: anywhere;
+}
+.chat-run-history label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-block: 12px;
+}
+.chat-run-history select {
+  max-width: 100%;
+  min-width: 0;
+  padding: 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--panel, #101620);
+}
+@media (max-width: 760px) {
+  .chat-run-history select {
+    font-size: 16px;
+  }
+}
 .chat-run-status {
   display: flex;
   align-items: center;

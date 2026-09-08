@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { request } from 'node:http';
 import { readFile, realpath, readdir, rm, stat, utimes } from 'node:fs/promises';
@@ -55,7 +55,18 @@ export async function acquireSourceWorkspace(
   if (credentialVersion === undefined) throw Error('source_credential_unavailable');
   const workspaceId = createHash('sha256')
     .update(
-      `${ownerId}:${snapshotId}:${repository.credentialId ?? 'deployment'}:${credentialVersion}`,
+      JSON.stringify([
+        ownerId,
+        repository.id,
+        repository.webBaseUrl,
+        repository.owner,
+        repository.name,
+        snapshot.base_sha,
+        snapshot.head_sha,
+        snapshot.merge_base_sha,
+        repository.credentialId ?? 'deployment',
+        credentialVersion,
+      ]),
     )
     .digest('hex');
   const workspace = path.resolve(config.WORKSPACE_ROOT, workspaceId);
@@ -68,23 +79,7 @@ export async function acquireSourceWorkspace(
     : await createGitHubReader(config);
   if (!reader?.getGitCredential) throw Error('source_credential_unavailable');
   const getGitCredential = reader.getGitCredential.bind(reader);
-  await serializedPreparation(async () => {
-    let bytes = 0;
-    for (const entry of await readdir(config.WORKSPACE_ROOT, { withFileTypes: true }).catch(
-      () => [],
-    )) {
-      if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
-      const location = path.join(config.WORKSPACE_ROOT, entry.name);
-      const metadata = await stat(location);
-      if (Date.now() - metadata.mtimeMs > 1800000 && location !== workspace)
-        await rm(location, { recursive: true, force: true });
-      else bytes += await workspaceSize(location, config.GIT_WORKSPACE_MAX_BYTES);
-    }
-    const cached = await readFile(path.join(workspace, 'manifest.json'))
-      .then(() => true)
-      .catch(() => false);
-    if (!cached && bytes + config.GIT_WORKSPACE_MAX_BYTES > config.GIT_WORKSPACE_MAX_BYTES * 3)
-      throw Error('workspace_capacity_limit');
+  return prepareLeasedWorkspace(database, config, workspaceId, async () => {
     await prepareSourceWorkspace({
       workspace,
       webBaseUrl: repository.webBaseUrl,
@@ -97,17 +92,105 @@ export async function acquireSourceWorkspace(
       credential: await getGitCredential(repository),
       maxBytes: config.GIT_WORKSPACE_MAX_BYTES,
     });
-    await utimes(workspace, new Date(), new Date());
   });
-  return { workspaceId, workspace };
+}
+
+export async function prepareLeasedWorkspace(
+  database: Database,
+  config: AppConfig,
+  workspaceId: string,
+  prepare: () => Promise<void>,
+) {
+  if (!/^[a-f0-9]{64}$/.test(workspaceId)) throw Error('invalid_workspace_id');
+  const workspace = path.resolve(config.WORKSPACE_ROOT, workspaceId);
+  const nodeId = `${process.env.HOSTNAME ?? 'local'}:${path.resolve(config.WORKSPACE_ROOT)}`;
+  const leaseId = randomUUID();
+  let reused = false;
+  await serializedPreparation(async () => {
+    const client = await database.connect();
+    try {
+      await client.query('begin');
+      await client.query('select pg_advisory_xact_lock(hashtext($1))', [`workspace:${nodeId}`]);
+      await client.query('delete from source_workspace_leases where expires_at<clock_timestamp()');
+      const leases = await client.query<{ workspace_id: string }>(
+        'select distinct workspace_id from source_workspace_leases where node_id=$1 and expires_at>clock_timestamp()',
+        [nodeId],
+      );
+      const active = new Set(leases.rows.map((lease) => lease.workspace_id));
+      let bytes = 0;
+      for (const entry of await readdir(config.WORKSPACE_ROOT, { withFileTypes: true }).catch(
+        () => [],
+      )) {
+        if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
+        const location = path.join(config.WORKSPACE_ROOT, entry.name);
+        const metadata = await stat(location);
+        if (
+          Date.now() - metadata.mtimeMs > 1800000 &&
+          location !== workspace &&
+          !active.has(entry.name)
+        )
+          await rm(location, { recursive: true, force: true });
+        else bytes += await workspaceSize(location, config.GIT_WORKSPACE_MAX_BYTES);
+      }
+      const cached = await readFile(path.join(workspace, 'manifest.json'))
+        .then(() => true)
+        .catch(() => false);
+      reused = cached;
+      if (!cached && bytes + config.GIT_WORKSPACE_MAX_BYTES > config.GIT_WORKSPACE_MAX_BYTES * 3)
+        throw Error('workspace_capacity_limit');
+      await prepare();
+      await utimes(workspace, new Date(), new Date());
+      await client.query(
+        "insert into source_workspace_leases(node_id,workspace_id,lease_id,expires_at) values($1,$2,$3,clock_timestamp()+interval '90 seconds')",
+        [nodeId, workspaceId, leaseId],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+  let released = false;
+  let lost = false;
+  const renew = async () => {
+    if (released || lost) throw Error('workspace_lease_lost');
+    const updated = await database.query(
+      "update source_workspace_leases set expires_at=clock_timestamp()+interval '90 seconds' where lease_id=$1 and expires_at>clock_timestamp() returning lease_id",
+      [leaseId],
+    );
+    if (!updated.rowCount) {
+      lost = true;
+      throw Error('workspace_lease_lost');
+    }
+  };
+  const timer = setInterval(() => {
+    void renew().catch(() => {
+      lost = true;
+    });
+  }, 20000);
+  timer.unref();
+  return {
+    workspaceId,
+    workspace,
+    reused,
+    renew,
+    release: async () => {
+      released = true;
+      clearInterval(timer);
+      await database.query('delete from source_workspace_leases where lease_id=$1', [leaseId]);
+    },
+  };
 }
 
 export async function executeSourceTool(
   config: AppConfig,
-  workspace: { workspaceId: string; workspace: string },
+  workspace: { workspaceId: string; workspace: string; renew?: () => Promise<void> },
   tool: SourceToolInput,
   signal?: AbortSignal,
 ): Promise<unknown> {
+  await workspace.renew?.();
   await utimes(workspace.workspace, new Date(), new Date());
   if (config.GIT_SANDBOX_SOCKET) {
     return new Promise((resolve, reject) => {
@@ -149,8 +232,20 @@ export async function executeSourceTool(
   await readFile(modulePath);
   const root = await realpath(workspace.workspace);
   const binary = await realpath(process.execPath);
+  const parserRoot = path.dirname(
+    path.dirname(
+      await realpath(
+        fileURLToPath(
+          new URL(
+            '../../../../packages/git-engine/node_modules/typescript/lib/typescript.js',
+            import.meta.url,
+          ),
+        ),
+      ),
+    ),
+  );
   const quote = (value: string) => JSON.stringify(value);
-  const profile = `(version 1)(deny default)(allow process-fork)(allow process-exec)(allow sysctl-read)(allow mach-lookup)(allow file-read-metadata)(allow file-write-data (literal "/dev/null"))(allow file-read* (literal "/") (subpath "/usr") (subpath "/System") (subpath "/Library/Apple") (subpath "/Library/Developer") (subpath "/private/var/db/dyld") (subpath "/opt/homebrew") (literal "/dev/null") (literal "/dev/urandom") (subpath ${quote(root)}) (subpath ${quote(path.dirname(modulePath))}))`;
+  const profile = `(version 1)(deny default)(allow process-fork)(allow process-exec)(allow sysctl-read)(allow mach-lookup)(allow file-read-metadata)(allow file-write-data (literal "/dev/null"))(allow file-read* (literal "/") (subpath "/usr") (subpath "/System") (subpath "/Library/Apple") (subpath "/Library/Developer") (subpath "/private/var/db/dyld") (subpath "/opt/homebrew") (literal "/dev/null") (literal "/dev/urandom") (subpath ${quote(root)}) (subpath ${quote(parserRoot)}) (subpath ${quote(path.dirname(modulePath))}))`;
   return new Promise((resolve, reject) => {
     const child = spawn('/usr/bin/sandbox-exec', ['-p', profile, binary, modulePath, root], {
       signal,

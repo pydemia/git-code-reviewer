@@ -94,5 +94,11 @@ export function withAnalysisSourceContext(
       );
     },
   };
-  return { model: wrapped, limitations };
+  return {
+    model: wrapped,
+    limitations,
+    release: async () => {
+      await workspace?.release();
+    },
+  };
 }

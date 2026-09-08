@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { ChatRunView, SourceEvidence } from '@gcr/contracts';
 import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
+import { ChatRunHistory } from './ChatRunHistory.tsx';
 
 const source: SourceEvidence = {
   id: 'a'.repeat(24),
@@ -44,6 +45,44 @@ function render(value: ChatRunView) {
   );
 }
 describe('interactive review states', () => {
+  it('keeps historical questions read-only and offers a separate history selector', () => {
+    const html = renderToStaticMarkup(
+      <ChatRunActivity
+        run={{
+          ...run,
+          status: 'awaiting_input',
+          questions: [
+            {
+              id: run.id,
+              question: '과거 업무 기준',
+              answer: '재시도 금지',
+              options: [],
+              expiresAt: new Date().toISOString(),
+            },
+          ],
+        }}
+        readOnly
+        error=""
+        sending={false}
+        onAnswer={async () => {}}
+        onCancel={async () => {}}
+        onEvidence={() => {}}
+      />,
+    );
+    expect(html).toContain('재시도 금지');
+    expect(html).not.toContain('<textarea');
+    expect(html).not.toContain('>중단<');
+    const history = renderToStaticMarkup(
+      <ChatRunHistory
+        sessionId={run.sessionId}
+        latestRunId={run.id}
+        onEvidence={() => {}}
+        onSelect={() => {}}
+      />,
+    );
+    expect(history).toContain('이전 분석과 코드 근거');
+    expect(history).toContain('<select');
+  });
   it.each([
     ['queued', '분석 대기'],
     ['running', '분석 중'],

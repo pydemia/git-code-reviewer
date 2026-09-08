@@ -16,8 +16,8 @@ Helm의 `chatAgent.enabled`와 `modelAdmission.enabled`를 설정한다. 기존 
 - 실제 요청마다 영속 ledger를 기록하고 전송 이후 실패·401 재시도도 예산에 포함한다. 429는 Retry-After를 3초–30분 안에서 적용한다. 헤더가 없으면 30초 대기한다. 새 Chat은 Worker slot을 반환하고 `waiting_capacity`로 재개한다. 기존 자동 분석·legacy Chat은 최대 2분 안에서 대기한다.
 - 대기 중인 Chat은 계정에 15초짜리 다음 호출 우선권을 등록하고 재시도할 때 갱신한다. 실행 중인 모델 요청은 중단하지 않으며 quota와 429 cooldown도 그대로 적용한다. 만료된 우선권은 다른 요청을 막지 않는다. Chat 활성화 시 Worker concurrency를 2 이상으로 설정하면 한 slot을 Chat용으로 남기고 나머지만 배치 작업에 사용한다. PRISM-DEV는 concurrency 2로 운영한다. 구버전 Worker가 종료되기 전까지는 이 우선순위가 완전히 적용되지 않는다.
 - 실행 lease는 30초, heartbeat 5초와 fence로 오래된 Worker의 저장을 막는다. 실행 attempt의 active timeout은 10분, run 만료는 24시간, 사용자 질문은 30분이다. 중단은 최대 다음 heartbeat에 모델을 abort한다. clone 준비가 이미 시작되었다면 그 subprocess의 timeout까지 정리가 늦어질 수 있다.
-- workspace는 사용자·session·attempt·snapshot·credential version별로 분리한다. revision은 정확한 SHA로 fetch하며 shallow depth는 64다. worktree 파일은 Git blob에서 복원해 checkout filter를 실행하지 않는다. symlink·submodule·1 MiB 초과 파일은 materialize하지 않는다. LFS 대용량 객체는 다운로드하지 않는다.
-- workspace 상한 기본 2 GiB, file entry 최대 50,000. fetch 후와 파일 생성 중 quota를 검사한다. Kubernetes volume size limit과 eviction은 fetch 도중 초과를 즉시 차단하는 hard quota가 아니므로 임시 초과가 가능하다. 전체 캐시는 최대 3개 workspace 예산으로 admission하며 준비는 Worker process당 직렬이다. 30분 미사용 캐시를 다음 준비 때 정리하고 broker의 jail도 idle TTL로 정리한다. 명시적인 DB workspace lease나 공용 mirror는 아직 없다.
+- workspace key는 사용자·repository·등록 origin·base/head/merge-base SHA·credential version으로 결정한다. 동일 사용자의 질문·capacity 재개는 같은 Pod의 캐시를 재사용한다. 자동 분석은 analysis ID로 격리한다. revision은 정확한 SHA로 fetch하며 shallow depth는 64다. worktree 파일은 Git blob에서 복원해 checkout filter를 실행하지 않는다. symlink·submodule·1 MiB 초과 파일은 materialize하지 않는다. LFS 대용량 객체는 다운로드하지 않는다.
+- workspace 상한 기본 2 GiB, file entry 최대 50,000. fetch 도중 250ms 간격의 크기 검사에서 초과를 감지하면 subprocess를 abort하고 fetch 후·파일 생성 중에도 검사한다. filesystem hard quota가 아니므로 검사 사이 임시 초과는 가능하다. 전체 캐시는 3개 workspace 예산으로 admission한다. Pod별 DB advisory lock으로 준비·정리를 직렬화하고 90초 workspace lease를 20초마다 갱신한다. 활성 lease는 30분 TTL 정리에서 제외하며 질문·capacity 대기에서는 lease를 반납한다. workspace volume은 Pod 전용이어야 한다. Pod 간 RWX 캐시나 공용 mirror는 지원하지 않는다.
 - source 본문·메타데이터는 run checkpoint와 같은 트랜잭션으로 DB에 저장하고 session 삭제 시 cascade한다. 사용자/repo 권한 철회 시 다음 도구·모델 단계와 source API에서 다시 검사한다. 원본 캐시의 즉시 물리 삭제 대신 접근 차단과 TTL을 사용한다. 자동 분석의 추가 source는 기존 artifact retention을 따른다.
 
 ## 검증과 관찰
@@ -28,8 +28,18 @@ Helm의 `chatAgent.enabled`와 `modelAdmission.enabled`를 설정한다. 기존 
 
 문제 발생 시 새 실행 flag를 끄기 전에 활성 run을 중단하거나 완료시킨다. `CHAT_AGENT_ENABLED=false`이면 Worker가 새 queue를 claim하지 않으므로 기존 queued/awaiting 상태는 남아 있으며 재활성화하면 만료 정책에 따라 회수된다. UI는 legacy Chat으로 돌아간다. 기존 report·message와 additive migration은 유지하고 downgrade를 위해 테이블을 삭제하지 않는다.
 
-PRISM-DEV Worker의 종료 유예는 3600초다. 롤링 배포 전 활성 배치 job과 attempt 수를 확인하고 잦은 연속 교체를 피한다. 이 유예는 새 Pod부터 적용되며 이미 종료 중인 Pod의 시간을 늘리지 않는다. Legacy 배치 job이 최대 attempt에서 Worker를 잃으면 자동 claim이 되지 않으므로 운영자가 정확한 job·만료 lease를 확인한 뒤 감사 기록과 함께 한 번만 복구한다. 기존 model ledger와 run별 호출 예산을 초기화하지 않는다.
+PRISM-DEV Worker의 종료 유예는 3600초다. SIGTERM 이후 새 작업을 가져오지 않고 자동 분석은 다음 progress 경계에서 저장된 모델 결과를 남긴 채 lease를 반납한다. Sandbox broker는 650초 동안 기존 읽기 요청을 처리해 진행 중 Chat의 10분 active timeout을 보장한다. 종료 유예가 더 짧으면 drain이 중간에 끊길 수 있다.
+
+Worker는 10초마다 만료된 generic job lease를 회수한다. 이전 attempt를 interrupted로 기록하고 최대 3회 복구한다. 기존 max attempt에 도달했어도 이 복구 예산 안에서는 다시 claim할 수 있다. 소진하면 job과 관련 분석/operation을 실패 상태로 확정한다. 모델 ledger·전송 횟수는 초기화하지 않는다. 일반 provider 오류에 대한 재시도와 Worker 소실 복구는 별도다.
+
+`analysis_model_checkpoints`는 분석 ID와 모델 profile·원본 입력 hash별로 정상 model 결과를 저장한다. unit·파일 요약·전체 요약이 저장된 경우 새 attempt는 모델에 재전송하지 않는다. Lease를 잃은 attempt의 checkpoint·snapshot·report 확정은 거부한다. Provider 응답과 DB 저장 사이에 프로세스가 죽은 호출은 재사용을 보장하지 않으며 이미 전송한 예산을 환급하지 않는다. Report의 논리적 model stage 수와 실제 upstream 요청 수(`model_request_ledger`)를 구분한다.
+
+## 대화와 과거 근거
+
+새 run에는 같은 사용자 session의 메시지 ID·role·과거 run ID를 담은 extractive digest와 최근 8개 메시지 발췌를 넣는다. 의미를 새로 생성하는 모델 요약은 아니며 생략 문자 수를 기록한다. 이전 사용자 질문·판단은 `read_conversation(messageId, offset)`으로 8,000자씩 다시 조회한다. 질문·응답은 별도로 출처와 함께 남기고 과거 source는 `read_previous_source(runId, unitId)`로 재조회한다. 다른 session을 읽지 못하며 현행 코드에 관한 주장은 고정 revision 소스로 다시 확인해야 한다. 오래된 tool 본문은 입력이 256 KiB를 넘으면 위치 정보로 압축하고 전체 입력 384 KiB 한도는 유지한다. 집단 메모리 우선권이나 개인 메모리 승인 상태를 바꾸지 않는다.
+
+`run-history` API는 30건씩 cursor pagination한다. 오른쪽 Chat의 `이전 분석과 코드 근거`에서 저장된 답변·질문·응답을 읽고 메인 탭에서 당시 SHA·파일·line을 연다. 현재 run의 streaming/응답/중단은 별도로 유지한다. 선택한 run과 source ID만 sessionStorage에 저장하며 본문은 저장하지 않는다. 다른 기기에서는 서버 이력에서 다시 선택한다.
 
 ## 이번 릴리스에서 남긴 범위
 
-P0–P5의 사용자 경로를 우선 구현했다. 기존 snapshot diff materializer는 그대로 두었고 자동 분석의 추가 context와 Chat만 공통 source provider를 사용한다. `find_related_code`는 문자열 기반 후보 검색이며 완전한 symbol call graph가 아니다. UI는 최신 run과 입력 초안을 복구하지만 모든 과거 run의 source 탭과 장기 대화 압축은 제공하지 않는다. 호출·입력 byte 제한은 비용과 재시도를 제한하지만 모든 모델 실패를 방지하지 않는다.
+기존 snapshot diff materializer는 유지하고 자동 분석의 추가 context와 Chat이 source provider를 공유한다. `find_related_code`는 JS/TS 구문 AST와 Python lexical 분석으로 정의·호출자·피호출자·관련 테스트 후보를 구분한다. 최대 512개 파일·4 MiB를 탐색하고 60개 결과와 생략 범위를 반환한다. Import alias·타입별 method dispatch·overload·동적 호출을 해석하는 전체 semantic graph는 아니다. 코드나 테스트를 실행하지 않는다. 호출·입력 byte 제한은 비용과 재시도를 제한하지만 모든 모델 실패를 방지하지 않는다.

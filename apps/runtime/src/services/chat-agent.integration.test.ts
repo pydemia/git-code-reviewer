@@ -17,6 +17,10 @@ import { AuthorizationService } from './authorization.js';
 import { registerChatRunRoutes } from '../routes/chat-runs.js';
 import { admittedFetch, ModelCapacityError, withModelBudget } from './model-admission.js';
 import type { AuthUser } from '../auth/index.js';
+import { claimJob } from '../jobs/worker.js';
+import { recoverExpiredJobs } from '../jobs/recovery.js';
+import { assertJobLease, checkpointReviewModel } from './analysis-checkpoint.js';
+import { legacyAnalysisReportSchema } from '@gcr/review-contract';
 
 const mocks = vi.hoisted(() => ({ turn: vi.fn(), source: vi.fn() }));
 vi.mock('./account-registry.js', async (importOriginal) => ({
@@ -143,6 +147,109 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
     mocks.turn.mockReset();
     mocks.source.mockReset();
   });
+  it('recovers expired jobs with bounded attempts and fences stale model checkpoints', async () => {
+    const id = (
+      await database.query(
+        "insert into jobs(type,payload,max_attempts,dedupe_key) values('analysis.run',$1::jsonb,1,gen_random_uuid()::text) returning id",
+        [JSON.stringify({ analysisId, snapshotId })],
+      )
+    ).rows[0].id;
+    const first = (await claimJob(database, 'first-worker'))!;
+    expect(first.id).toBe(id);
+    const report = legacyAnalysisReportSchema.parse({
+      schema_version: 1,
+      staged_files: [],
+      duration_ms: 0,
+      exit_code: 0,
+      lint_findings: [],
+      review: {
+        summary: '합성 checkpoint 검증',
+        grade: 'adequate',
+        blocking: false,
+        is_error: false,
+        file_comments: [],
+      },
+    });
+    const review = vi.fn(async () => ({ report, truncated: false }));
+    const model = { profile: 'synthetic', review };
+    await checkpointReviewModel(model, database, analysisId, first).review('diff', []);
+    expect(review).toHaveBeenCalledTimes(1);
+    await database.query(
+      "update jobs set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1",
+      [id],
+    );
+    await Promise.all([recoverExpiredJobs(database), recoverExpiredJobs(database)]);
+    const second = (await claimJob(database, 'second-worker'))!;
+    expect(second.attempt_count).toBe(2);
+    await expect(assertJobLease(database, first)).rejects.toThrow('job_lease_lost');
+    await checkpointReviewModel(model, database, analysisId, second).review('diff', []);
+    expect(review).toHaveBeenCalledTimes(1);
+    for (let index = 0; index < 3; index++) {
+      await database.query(
+        "update jobs set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1",
+        [id],
+      );
+      await recoverExpiredJobs(database);
+      if (index < 2) expect(await claimJob(database, `recovery-${index}`)).not.toBeNull();
+    }
+    expect(
+      (await database.query('select state,recovery_count from jobs where id=$1', [id])).rows[0],
+    ).toEqual({ state: 'failed', recovery_count: 3 });
+    expect(
+      (
+        await database.query('select * from job_attempts where job_id=$1 and ended_at is null', [
+          id,
+        ])
+      ).rowCount,
+    ).toBe(0);
+    await database.query("update analysis_runs set state='completed' where id=$1", [analysisId]);
+  });
+  it('rejects a result arriving after its Worker lease expires', async () => {
+    const id = (
+      await database.query(
+        "insert into jobs(type,payload,dedupe_key) values('analysis.run',$1::jsonb,gen_random_uuid()::text) returning id",
+        [JSON.stringify({ analysisId, snapshotId })],
+      )
+    ).rows[0].id;
+    const job = (await claimJob(database, 'stale-result'))!;
+    const review = async () => {
+      await database.query(
+        "update jobs set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1",
+        [id],
+      );
+      return {
+        report: legacyAnalysisReportSchema.parse({
+          schema_version: 1,
+          staged_files: [],
+          duration_ms: 0,
+          exit_code: 0,
+          lint_findings: [],
+          review: {
+            summary: '늦은 합성 응답',
+            grade: 'adequate',
+            blocking: false,
+            is_error: false,
+            file_comments: [],
+          },
+        }),
+        truncated: false,
+      };
+    };
+    await expect(
+      checkpointReviewModel({ profile: 'late', review }, database, analysisId, job).review(
+        'late',
+        [],
+      ),
+    ).rejects.toThrow('job_lease_lost');
+    expect(
+      (
+        await database.query(
+          "select * from analysis_model_checkpoints where result->'report'->'review'->>'summary'='늦은 합성 응답'",
+        )
+      ).rowCount,
+    ).toBe(0);
+    await database.query("update jobs set state='failed' where id=$1", [id]);
+  });
   async function createRun() {
     const session = (
       await database.query(
@@ -184,6 +291,68 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
       )
     ).rows[0]!;
   }
+  it('paginates owned history and restores answered questions and immutable source', async () => {
+    const original = await createRun();
+    const message = (
+      await database.query(
+        "insert into chat_messages(session_id,role,status,content) values($1,'user','completed','과거 사용자 결정') returning id",
+        [original.session_id],
+      )
+    ).rows[0].id;
+    await database.query("update chat_runs set user_message_id=$2,status='completed' where id=$1", [
+      original.id,
+      message,
+    ]);
+    const metadata = {
+      id: 'a'.repeat(24),
+      revision: 'base',
+      sha: 'b'.repeat(40),
+      blob: 'c'.repeat(40),
+      hash: 'd'.repeat(64),
+      path: 'src/old.ts',
+      startLine: 1,
+      endLine: 1,
+      truncated: false,
+    };
+    await database.query(
+      'insert into chat_source_evidence(run_id,unit_id,metadata,content,model_step) values($1,$2,$3::jsonb,$4,1)',
+      [original.id, metadata.id, JSON.stringify(metadata), 'old revision content'],
+    );
+    await database.query(
+      "insert into chat_questions(run_id,call_id,question,options,answer) values($1,'old-question','업무 기준?', '[]','재시도 금지')",
+      [original.id],
+    );
+    for (let index = 0; index < 31; index++)
+      await database.query(
+        "insert into chat_runs(session_id,user_message_id,idempotency_key,status,configuration) values($1,$2,$3,'completed',$4::jsonb)",
+        [original.session_id, message, randomUUID(), JSON.stringify(original.configuration)],
+      );
+    const history = (
+      await app.inject({ url: `/api/v1/chat-sessions/${original.session_id}/run-history` })
+    ).json();
+    expect(history.items).toHaveLength(30);
+    const next = (
+      await app.inject({
+        url: `/api/v1/chat-sessions/${original.session_id}/run-history?before=${history.nextCursor}`,
+      })
+    ).json();
+    expect(next.items).toHaveLength(2);
+    expect(next.nextCursor).toBeNull();
+    expect(
+      (await app.inject({ url: `/api/v1/chat-runs/${original.id}` })).json().questions[0].answer,
+    ).toBe('재시도 금지');
+    expect(
+      (await app.inject({ url: `/api/v1/chat-runs/${original.id}/context/${metadata.id}` })).json(),
+    ).toMatchObject({ ...metadata, content: 'old revision content' });
+    expect(
+      (
+        await app.inject({
+          url: `/api/v1/chat-sessions/${original.session_id}/run-history`,
+          headers: { 'x-other-user': 'yes' },
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
   it('only one worker acquires a run and fences expired attempts', async () => {
     const run = await createRun();
     const claims = await Promise.all([

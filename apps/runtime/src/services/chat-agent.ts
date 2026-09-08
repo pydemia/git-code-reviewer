@@ -10,6 +10,7 @@ import { acquireSourceWorkspace, executeSourceTool } from './source-workspace.js
 import { AuthorizationService } from './authorization.js';
 import type { AuthUser } from '../auth/index.js';
 import type { AgentCall, AgentTool } from './agent-model.js';
+import { compactAgentMessages } from './conversation-context.js';
 
 type Checkpoint = {
   messages: Record<string, unknown>[];
@@ -94,6 +95,34 @@ export const agentTools: AgentTool[] = [
     additionalProperties: false,
   },
 }));
+agentTools.push(
+  {
+    type: 'function',
+    name: 'read_conversation',
+    strict: false,
+    description:
+      'Read an original message from this private session by messageId in the conversation digest. User decisions remain user statements, not shared memory.',
+    parameters: {
+      type: 'object',
+      properties: { messageId: { type: 'string' }, offset: { type: 'integer', minimum: 0 } },
+      required: ['messageId'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: 'read_previous_source',
+    strict: false,
+    description:
+      'Read saved source evidence for a previous answer in this same private session. Requires runId and unitId. Preserve its SHA; re-read current pinned code before making current-code claims.',
+    parameters: {
+      type: 'object',
+      properties: { runId: { type: 'string' }, unitId: { type: 'string' } },
+      required: ['runId', 'unitId'],
+      additionalProperties: false,
+    },
+  },
+);
 agentTools.push({
   type: 'function',
   name: 'ask_user',
@@ -290,7 +319,7 @@ export async function executeAgentRun(
   const heartbeat = setInterval(() => {
     void database
       .query(
-        "update chat_runs set lease_expires_at=clock_timestamp()+interval '30 seconds' where id=$1 and fence=$2 and status='running' returning id",
+        "update chat_runs set lease_expires_at=clock_timestamp()+interval '30 seconds' where id=$1 and fence=$2 and status='running' and lease_expires_at>clock_timestamp() returning id",
         [run.id, run.fence],
       )
       .then((result) => {
@@ -364,28 +393,60 @@ export async function executeAgentRun(
               callId: call.call_id,
             });
             try {
-              const input = sourceInput.parse({ ...JSON.parse(call.arguments), name: call.name });
-              if (!workspace) {
-                run.phase = 'preparing_workspace';
-                await persistRun(database, run, 'workspace.preparing', {
-                  label: '고정 revision의 로컬 Git 작업공간 준비',
-                });
-                workspace = await acquireSourceWorkspace(
-                  database,
-                  config,
-                  run.configuration.snapshotId,
-                  `${run.configuration.ownerId}:session:${run.session_id}:fence:${run.fence}`,
+              if (call.name === 'read_conversation') {
+                const input = z
+                  .object({
+                    messageId: z.string().uuid(),
+                    offset: z.number().int().min(0).max(100000).default(0),
+                  })
+                  .strict()
+                  .parse(JSON.parse(call.arguments));
+                const message = await database.query(
+                  "select id,role,substring(content from $3 for 8000) as content,length(content)>$3+7999 as truncated from chat_messages where id=$1 and session_id=$2 and status<>'pending'",
+                  [input.messageId, run.session_id, input.offset + 1],
                 );
-                await persistRun(database, run, 'workspace.ready', {
-                  label: '로컬 Git·파일 트리 준비 완료',
-                });
+                output = message.rows[0] ?? { error: 'conversation_message_unavailable' };
+              } else if (call.name === 'read_previous_source') {
+                const input = z
+                  .object({ runId: z.string().uuid(), unitId: z.string().regex(/^[a-f0-9]{24}$/) })
+                  .strict()
+                  .parse(JSON.parse(call.arguments));
+                const source = await database.query<{
+                  metadata: Record<string, unknown>;
+                  content: string;
+                }>(
+                  'select e.metadata,e.content from chat_source_evidence e join chat_runs r on r.id=e.run_id where e.run_id=$1 and e.unit_id=$2 and r.session_id=$3',
+                  [input.runId, input.unitId, run.session_id],
+                );
+                output = source.rows[0]
+                  ? { ...source.rows[0].metadata, content: source.rows[0].content }
+                  : { error: 'previous_source_unavailable' };
+              } else {
+                const input = sourceInput.parse({ ...JSON.parse(call.arguments), name: call.name });
+                if (!workspace) {
+                  run.phase = 'preparing_workspace';
+                  await persistRun(database, run, 'workspace.preparing', {
+                    label: '고정 revision의 로컬 Git 작업공간 준비',
+                  });
+                  workspace = await acquireSourceWorkspace(
+                    database,
+                    config,
+                    run.configuration.snapshotId,
+                    run.configuration.ownerId,
+                  );
+                  await persistRun(database, run, 'workspace.ready', {
+                    label: workspace.reused
+                      ? '고정 revision 작업공간 재사용'
+                      : '로컬 Git·파일 트리 준비 완료',
+                  });
+                }
+                output = await executeSourceTool(
+                  config,
+                  workspace,
+                  input as SourceToolInput,
+                  controller.signal,
+                );
               }
-              output = await executeSourceTool(
-                config,
-                workspace,
-                input as SourceToolInput,
-                controller.signal,
-              );
             } catch (error) {
               if (controller.signal.aborted) throw error;
               run.error_code = 'source_context_incomplete';
@@ -451,6 +512,11 @@ export async function executeAgentRun(
         run.configuration.modelTimeoutMs ?? config.CHAT_AGENT_MODEL_TIMEOUT_MS,
       );
       if (!selection?.model.turn) throw Error('agent_model_unavailable');
+      const compacted = compactAgentMessages(run.checkpoint.messages);
+      if (compacted)
+        await persistRun(database, run, 'context.compacted', {
+          label: `이전 도구 결과 ${compacted}건을 위치 정보로 압축했습니다.`,
+        });
       if (Buffer.byteLength(JSON.stringify(run.checkpoint.messages)) > 393216)
         throw Error('model_input_budget_exhausted');
       run.phase = 'generating';
@@ -551,5 +617,6 @@ export async function executeAgentRun(
   } finally {
     clearTimeout(deadline);
     clearInterval(heartbeat);
+    await workspace?.release?.().catch(() => undefined);
   }
 }

@@ -52,6 +52,7 @@ import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewGrade } from './ReviewGrade.tsx';
 import { ChatPanel } from './ChatPanel.tsx';
 import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
+import { ChatRunHistory } from './ChatRunHistory.tsx';
 import { useInteractiveChat } from './use-interactive-chat.ts';
 import { sourceEvidenceSchema, type SourceEvidence } from '@gcr/contracts';
 import { resolveChatCitation } from './chat-citations.ts';
@@ -1116,32 +1117,67 @@ function ReviewWorkspace({
         <ChatPanel
           activity={
             agentChat.enabled ? (
-              <ChatRunActivity
-                run={agentChat.run}
-                error={agentChat.error || sourceError}
-                sending={agentChat.sending}
-                onAnswer={(answer) => agentChat.submit(answer, {})}
-                onCancel={agentChat.cancel}
-                onEvidence={(unitId) => {
-                  sourceRequest.current?.abort();
-                  const controller = new AbortController();
-                  sourceRequest.current = controller;
-                  setSourceError('');
-                  if (agentChat.run)
-                    void fetch(`/api/v1/chat-runs/${agentChat.run.id}/context/${unitId}`, {
-                      signal: controller.signal,
-                    })
-                      .then(async (response) => {
-                        if (!response.ok) throw Error('source_unavailable');
-                        const source = sourceEvidenceSchema.parse(await response.json());
-                        if (!controller.signal.aborted) setSourceEvidence(source);
+              <>
+                {chatSession ? (
+                  <ChatRunHistory
+                    key={chatSession.id}
+                    sessionId={chatSession.id}
+                    latestRunId={agentChat.run?.id}
+                    onSelect={() => {
+                      sourceRequest.current?.abort();
+                      setSourceEvidence(null);
+                      setSourceError('');
+                    }}
+                    onEvidence={(runId, unitId) => {
+                      sourceRequest.current?.abort();
+                      const controller = new AbortController();
+                      sourceRequest.current = controller;
+                      setSourceError('');
+                      void fetch(`/api/v1/chat-runs/${runId}/context/${unitId}`, {
+                        signal: controller.signal,
                       })
-                      .catch(() => {
-                        if (!controller.signal.aborted)
-                          setSourceError('코드 근거를 불러오지 못했습니다. 다시 선택해 주세요.');
-                      });
-                }}
-              />
+                        .then(async (response) => {
+                          if (!response.ok) throw Error('source_unavailable');
+                          const source = sourceEvidenceSchema.parse(await response.json());
+                          if (!controller.signal.aborted) setSourceEvidence(source);
+                        })
+                        .catch(() => {
+                          if (!controller.signal.aborted)
+                            setSourceError(
+                              '이전 코드 근거에 접근할 수 없습니다. 권한 또는 보존 기간을 확인해 주세요.',
+                            );
+                        });
+                    }}
+                  />
+                ) : null}
+                <ChatRunActivity
+                  key={agentChat.run?.id}
+                  run={agentChat.run}
+                  error={agentChat.error || sourceError}
+                  sending={agentChat.sending}
+                  onAnswer={(answer) => agentChat.submit(answer, {})}
+                  onCancel={agentChat.cancel}
+                  onEvidence={(unitId) => {
+                    sourceRequest.current?.abort();
+                    const controller = new AbortController();
+                    sourceRequest.current = controller;
+                    setSourceError('');
+                    if (agentChat.run)
+                      void fetch(`/api/v1/chat-runs/${agentChat.run.id}/context/${unitId}`, {
+                        signal: controller.signal,
+                      })
+                        .then(async (response) => {
+                          if (!response.ok) throw Error('source_unavailable');
+                          const source = sourceEvidenceSchema.parse(await response.json());
+                          if (!controller.signal.aborted) setSourceEvidence(source);
+                        })
+                        .catch(() => {
+                          if (!controller.signal.aborted)
+                            setSourceError('코드 근거를 불러오지 못했습니다. 다시 선택해 주세요.');
+                        });
+                  }}
+                />
+              </>
             ) : undefined
           }
           revision={data?.analysis?.revision}

@@ -71,6 +71,17 @@ if (process.argv[3]) {
   await mkdir(path.join(jail, 'dev'), { recursive: true });
   await execute('/bin/mknod', ['-m', '666', path.join(jail, 'dev/null'), 'c', '1', '3']);
   await writeFile(path.join(jail, 'tool.mjs'), await readFile(process.argv[3]));
+  await cp(
+    path.join(path.dirname(process.argv[3]), 'related-code.js'),
+    path.join(jail, 'related-code.js'),
+  );
+  await writeFile(path.join(jail, 'package.json'), '{"type":"module"}');
+  await mkdir(path.join(jail, 'node_modules/typescript/lib'), { recursive: true });
+  for (const filename of ['package.json', 'lib/typescript.js'])
+    await cp(
+      path.join(path.dirname(process.argv[3]), '../node_modules/typescript', filename),
+      path.join(jail, 'node_modules/typescript', filename),
+    );
   const child = execFile(launcher, [jail], { env: {}, timeout: 30000 });
   child.stdin.end(JSON.stringify({ name: 'read_file', revision: 'base', path: 'unchanged.ts' }));
   const source = await new Promise((resolve, reject) => {
@@ -86,4 +97,21 @@ if (process.argv[3]) {
   if (source.sha !== sha || source.content !== 'export const retryCount = 3;\n')
     throw Error('Source mismatch');
   console.log(JSON.stringify({ sourceRead: true, revision: source.revision, blob: source.blob }));
+  const relatedChild = execFile(launcher, [jail], { env: {}, timeout: 30000 });
+  relatedChild.stdin.end(
+    JSON.stringify({ name: 'find_related_code', revision: 'base', query: 'retryCount' }),
+  );
+  const related = await new Promise((resolve, reject) => {
+    let output = '';
+    relatedChild.stdout.on('data', (chunk) => (output += chunk));
+    relatedChild.on('error', reject);
+    relatedChild.on('close', (code) =>
+      code === 0 ? resolve(JSON.parse(output)) : reject(Error(`related:${code}`)),
+    );
+  });
+  if (
+    !related.matches.some((item) => item.relation === 'definition' && item.symbol === 'retryCount')
+  )
+    throw Error('AST source match unavailable');
+  console.log(JSON.stringify({ syntaxRead: true, coverage: related.coverage }));
 }

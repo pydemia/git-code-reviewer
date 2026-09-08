@@ -60,6 +60,7 @@ COPY --from=build --chown=node:node /app/packages/github/package.json ./packages
 COPY --from=build --chown=node:node /app/packages/github/node_modules ./packages/github/node_modules
 COPY --from=build --chown=node:node /app/packages/github/dist ./packages/github/dist
 COPY --from=build --chown=node:node /app/packages/git-engine/package.json ./packages/git-engine/package.json
+COPY --from=build --chown=node:node /app/packages/git-engine/node_modules ./packages/git-engine/node_modules
 COPY --from=build --chown=node:node /app/packages/git-engine/dist ./packages/git-engine/dist
 COPY --from=build --chown=node:node /app/packages/artifact-store/package.json ./packages/artifact-store/package.json
 COPY --from=build --chown=node:node /app/packages/artifact-store/dist ./packages/artifact-store/dist

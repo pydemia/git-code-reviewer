@@ -1,7 +1,17 @@
 import { spawn, execFile } from 'node:child_process';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
-import { chmod, chown, lstat, mkdir, readdir, realpath, rm, stat } from 'node:fs/promises';
+import {
+  chmod,
+  chown,
+  lstat,
+  mkdir,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -71,6 +81,21 @@ async function prepare(id) {
     true,
     { bytes: 0, limit: 1048576 },
   );
+  await copyTree(
+    '/app/packages/git-engine/dist/related-code.js',
+    path.join(jail, 'related-code.js'),
+    true,
+    { bytes: 0, limit: 1048576 },
+  );
+  await writeFile(path.join(jail, 'package.json'), '{"type":"module"}');
+  const parserRoot = '/app/packages/git-engine/node_modules/typescript';
+  for (const filename of ['package.json', 'lib/typescript.js'])
+    await copyTree(
+      path.join(parserRoot, filename),
+      path.join(jail, 'node_modules/typescript', filename),
+      true,
+      { bytes: 0, limit: 16777216 },
+    );
   await copyTree(source, path.join(jail, 'source'), false, { bytes: size, limit: sourceLimit });
   await mkdir(path.join(jail, 'dev'), { recursive: true });
   await new Promise((resolve, reject) =>
@@ -163,6 +188,9 @@ const server = http.createServer(async (request, response) => {
 server.listen(socket, async () => {
   await chmod(socket, 0o600);
   await chown(socket, 1000, 1000);
+});
+process.once('SIGTERM', () => {
+  setTimeout(() => process.exit(0), 650000);
 });
 setInterval(async () => {
   for (const entry of await readdir(jailRoot)) {

@@ -156,7 +156,9 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       legacy = modelResult.report;
       reviewStatus = 'model';
       if (modelResult.truncated) limitations.push('model output이 잘려 복구된 범위만 포함');
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && ['worker_draining', 'job_lease_lost'].includes(error.message))
+        throw error;
       reviewStatus = 'failed';
       limitations.push('model review 실패로 deterministic context만 생성');
       legacy = emptyReview(parsedFiles.map((file) => file.path));

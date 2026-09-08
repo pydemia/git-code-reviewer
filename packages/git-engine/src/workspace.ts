@@ -129,14 +129,36 @@ export async function prepareSourceWorkspace(
   try {
     await execute('git', ['init', '--bare', '--quiet', gitDirectory], { env: environment });
     await run(['config', 'remote.origin.url', url.href]);
-    await run([
-      'fetch',
-      '--quiet',
-      '--no-tags',
-      '--depth=64',
-      'origin',
-      ...[...new Set([input.baseSha, input.headSha, input.mergeBaseSha])],
-    ]);
+    const controller = new AbortController();
+    let checking = false;
+    const monitor = setInterval(() => {
+      if (checking) return;
+      checking = true;
+      void workspaceSize(input.workspace, input.maxBytes)
+        .catch(() => controller.abort(Error('workspace_size_limit')))
+        .finally(() => {
+          checking = false;
+        });
+    }, 250);
+    try {
+      await execute(
+        'git',
+        [
+          ...safeGitOptions,
+          '--git-dir',
+          gitDirectory,
+          'fetch',
+          '--quiet',
+          '--no-tags',
+          '--depth=64',
+          'origin',
+          ...[...new Set([input.baseSha, input.headSha, input.mergeBaseSha])],
+        ],
+        { env: environment, signal: controller.signal, timeout: 180000, maxBuffer: 8388608 },
+      );
+    } finally {
+      clearInterval(monitor);
+    }
     let bytes = await workspaceSize(input.workspace, input.maxBytes);
     let files = 0;
     for (const [revision, sha] of Object.entries({
