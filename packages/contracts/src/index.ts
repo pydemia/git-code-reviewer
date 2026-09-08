@@ -14,6 +14,19 @@ export {
 export const schemaVersion = 1 as const;
 export const localPasswordMinimumLength = 8;
 export const localPasswordMaximumLength = 128;
+export const personalPromptMaximumLength = 4000;
+export const personalPromptSchema = z
+  .string()
+  .max(personalPromptMaximumLength)
+  .refine((value) => !value.includes('\0'), 'Prompt에 null 문자를 사용할 수 없습니다.')
+  .transform((value) => value.trim());
+export const personalPromptUpdateSchema = z
+  .object({ personalPrompt: personalPromptSchema })
+  .strict();
+export const personalPromptResultSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  personalPrompt: personalPromptSchema,
+});
 
 export const roleSchema = z.enum(['reviewer', 'administrator']);
 export type Role = z.infer<typeof roleSchema>;
@@ -41,6 +54,7 @@ export const profileSchema = userSchema.extend({
   profileEditable: z.boolean(),
   passwordChangeAllowed: z.boolean(),
   passwordChangedAt: z.string().nullable(),
+  personalPrompt: personalPromptSchema.default(''),
 });
 export type Profile = z.infer<typeof profileSchema>;
 

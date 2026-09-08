@@ -11,7 +11,7 @@ import type { AuthorizationService } from '../services/authorization.js';
 import type { ChatModel } from '../services/chat-model.js';
 import { registerChatRoutes } from './chat.js';
 
-async function chatApp({ owned = true, allowed = true } = {}) {
+async function chatApp({ owned = true, allowed = true, personalPrompt = '' } = {}) {
   const sessionId = randomUUID(),
     analysisId = randomUUID(),
     snapshotId = randomUUID(),
@@ -96,6 +96,10 @@ async function chatApp({ owned = true, allowed = true } = {}) {
     completed_at: now,
   };
   const query = vi.fn(async (sql: string, values: unknown[] = []) => {
+    if (sql.includes('select personal_prompt')) {
+      expect(values).toEqual([user.id]);
+      return { rows: [{ personalPrompt }] };
+    }
     if (sql.includes('from chat_sessions session left join')) {
       expect(values).toEqual([sessionId, user.id]);
       return {
@@ -167,10 +171,46 @@ async function chatApp({ owned = true, allowed = true } = {}) {
     { name: 'synthetic', generate },
     authorization,
   );
-  return { app, sessionId, generate, query, assistantRow, files, artifacts };
+  return {
+    app,
+    sessionId,
+    generate,
+    query,
+    assistantRow,
+    files,
+    artifacts,
+    setPersonalPrompt(value: string) {
+      personalPrompt = value;
+    },
+  };
 }
 
 describe('chat citation API persistence and authorization', () => {
+  it('loads current personal Prompt on every turn without storing it as a chat message', async () => {
+    const fixture = await chatApp({ personalPrompt: '첫 개인 지침' });
+    try {
+      for (const prompt of ['첫 개인 지침', '바꾼 개인 지침', '']) {
+        fixture.setPersonalPrompt(prompt);
+        const response = await fixture.app.inject({
+          method: 'POST',
+          url: `/api/v1/chat-sessions/${fixture.sessionId}/messages`,
+          payload: { content: 'PR 전체를 검토해 주세요.' },
+        });
+        expect(response.statusCode).toBe(201);
+        const messages = fixture.generate.mock.calls.at(-1)![0].messages;
+        const preferences = messages.filter((message) =>
+          message.content.includes('"kind":"personal-preferences"'),
+        );
+        expect(preferences).toHaveLength(prompt ? 1 : 0);
+        if (prompt) expect(JSON.parse(preferences[0]!.content).instructions).toBe(prompt);
+        for (const [sql, values] of fixture.query.mock.calls)
+          if (sql.includes('insert into') && prompt)
+            expect(JSON.stringify(values)).not.toContain(prompt);
+      }
+    } finally {
+      await fixture.app.close();
+    }
+  });
   it('persists and reloads multiple file ranges through the existing message contract', async () => {
     const fixture = await chatApp();
     try {
@@ -214,6 +254,9 @@ describe('chat citation API persistence and authorization', () => {
         expect(response.statusCode).toBe(404);
         expect(fixture.generate).not.toHaveBeenCalled();
         expect(fixture.artifacts.readJson).not.toHaveBeenCalled();
+        expect(
+          fixture.query.mock.calls.some(([sql]) => sql.includes('select personal_prompt')),
+        ).toBe(false);
         expect(fixture.query.mock.calls.some(([sql]) => sql.includes('with user_message as'))).toBe(
           false,
         );

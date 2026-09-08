@@ -103,6 +103,7 @@ describe('profile routes', () => {
       'begin',
       expect.stringContaining('update users'),
       expect.stringContaining('from local_credentials'),
+      expect.stringContaining('select personal_prompt'),
       expect.stringContaining('insert into audit_events'),
       'rollback',
     ]);
@@ -182,6 +183,123 @@ describe('profile routes', () => {
     expect(database.connect).not.toHaveBeenCalled();
     await app.close();
   });
+
+  it.each(['local', 'oidc'] as const)(
+    'saves and clears only the authenticated user Prompt in %s mode',
+    async (mode) => {
+      let stored = '';
+      const query = vi.fn(async (sql: string, values?: unknown[]) => {
+        if (sql.includes('update users set personal_prompt')) {
+          expect(values?.[0]).toBe(user.id);
+          stored = String(values?.[1]);
+          return { rows: [{ personalPrompt: stored }], rowCount: 1 };
+        }
+        if (sql.includes('select personal_prompt')) {
+          expect(values).toEqual([user.id]);
+          return { rows: [{ personalPrompt: stored }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 1 };
+      });
+      const database = {
+        query,
+        connect: async () => ({ query, release() {} }),
+      } as unknown as Database;
+      const app = await profileTestApp(database, { AUTH_MODE: mode } as AppConfig);
+      try {
+        for (const [input, expected] of [
+          ['  자세한 한국어 설명\n코드 예시 포함  ', '자세한 한국어 설명\n코드 예시 포함'],
+          ['  ', ''],
+        ]) {
+          const result = await app.inject({
+            method: 'PUT',
+            url: '/api/v1/profile/prompt',
+            payload: { personalPrompt: input },
+          });
+          expect(result.statusCode).toBe(200);
+          expect(result.json()).toEqual({ schemaVersion: 1, personalPrompt: expected });
+          expect((await app.inject('/api/v1/profile')).json().personalPrompt).toBe(expected);
+        }
+        for (const [, values] of query.mock.calls.filter(([sql]) => sql.includes('audit_events')))
+          expect(values).toEqual([
+            user.subject,
+            'user.prompt.update',
+            user.id,
+            'success',
+            expect.any(String),
+          ]);
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
+  it.each([
+    {},
+    { personalPrompt: null },
+    { personalPrompt: 'x'.repeat(4001) },
+    { personalPrompt: '\0' },
+    { personalPrompt: 'text', userId: 'someone-else' },
+  ])('rejects invalid Prompt input without updating a user (%#)', async (payload) => {
+    const database = { query: vi.fn(), connect: vi.fn() } as unknown as Database;
+    const app = await profileTestApp(database);
+    try {
+      expect(
+        (await app.inject({ method: 'PUT', url: '/api/v1/profile/prompt', payload })).statusCode,
+      ).toBe(400);
+      expect(database.connect).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rolls back a Prompt update if audit storage fails without putting Prompt content in audit', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('update users'))
+        return { rows: [{ personalPrompt: 'private preference' }], rowCount: 1 };
+      if (sql.includes('audit_events')) throw Error('audit unavailable');
+      return { rows: [], rowCount: 1 };
+    });
+    const connection = { query, release: vi.fn() };
+    const database = { connect: async () => connection } as unknown as Database;
+    const app = await profileTestApp(database);
+    try {
+      expect(
+        (
+          await app.inject({
+            method: 'PUT',
+            url: '/api/v1/profile/prompt',
+            payload: { personalPrompt: 'private preference' },
+          })
+        ).statusCode,
+      ).toBe(500);
+      expect(query).toHaveBeenCalledWith('rollback');
+      expect(query).not.toHaveBeenCalledWith('commit');
+      expect(connection.release).toHaveBeenCalledOnce();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects an unauthenticated Prompt read or write', async () => {
+    const database = { query: vi.fn(), connect: vi.fn() } as unknown as Database;
+    const app = await profileTestApp(database, config, null);
+    try {
+      expect((await app.inject('/api/v1/profile')).statusCode).toBe(401);
+      expect(
+        (
+          await app.inject({
+            method: 'PUT',
+            url: '/api/v1/profile/prompt',
+            payload: { personalPrompt: 'text' },
+          })
+        ).statusCode,
+      ).toBe(401);
+      expect(database.query).not.toHaveBeenCalled();
+      expect(database.connect).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
 });
 
 function passwordDatabase(currentHash: string) {
@@ -197,11 +315,15 @@ function passwordDatabase(currentHash: string) {
   return { database, query, connection };
 }
 
-async function profileTestApp(database: Database, appConfig = config) {
+async function profileTestApp(
+  database: Database,
+  appConfig = config,
+  actor: AuthUser | null = user,
+) {
   const app = Fastify();
   await app.register(cookie);
   app.addHook('onRequest', async (request) => {
-    request.user = user;
+    request.user = actor;
   });
   app.setErrorHandler((error, _request, reply) => {
     const status = error.name === 'ZodError' ? 400 : 500;

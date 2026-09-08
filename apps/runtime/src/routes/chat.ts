@@ -10,6 +10,7 @@ import { appendEvent, EventHub, formatServerSentEvent } from '../events/index.js
 import { resolveChatAccountSelection } from '../services/account-registry.js';
 import type { ChatModel } from '../services/chat-model.js';
 import { answerReviewQuestion } from '../services/chat-answer.js';
+import { readPersonalPrompt } from '../services/personal-prompt.js';
 import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from './worklist.js';
 
@@ -210,7 +211,10 @@ export async function registerChatRoutes(
           },
         });
       }
-      const history = await recentConversation(database, sessionId);
+      const [history, personalPrompt] = await Promise.all([
+        recentConversation(database, sessionId),
+        readPersonalPrompt(database, request.user!.id),
+      ]);
       const inserted = await insertChatTurn(database, request, sessionId, body.content, config);
       if (!inserted) {
         return reply.code(429).send({
@@ -237,6 +241,7 @@ export async function registerChatRoutes(
           question: body.content,
           scope: body.scope,
           history,
+          personalPrompt,
           sessionId,
           ...(session.reasoning_effort ? { reasoningEffort: session.reasoning_effort } : {}),
         });
