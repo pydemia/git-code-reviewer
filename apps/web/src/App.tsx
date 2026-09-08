@@ -44,6 +44,7 @@ import {
 import { AdminPage } from './AdminPage.tsx';
 import { AppHeader } from './AppHeader.tsx';
 import { GuidePage } from './GuidePage.tsx';
+import { ProductDocumentPage } from './ProductDocumentPage.tsx';
 import { LoginPage } from './LoginPage.tsx';
 import { ProfilePage } from './ProfilePage.tsx';
 import { FileTree } from './FileTree.tsx';
@@ -95,6 +96,10 @@ function isBottomTool(value: string | null): value is BottomTool {
 
 export function App() {
   if (window.location.pathname === '/login') return <LoginPage />;
+  if (window.location.pathname === '/introduction')
+    return <ProductDocumentPage documentId="introduction" />;
+  if (window.location.pathname === '/features')
+    return <ProductDocumentPage documentId="features" />;
   if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/profile') return <ProfilePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;

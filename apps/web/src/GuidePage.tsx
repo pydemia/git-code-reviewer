@@ -12,6 +12,7 @@ import {
 import { useEffect, useState } from 'react';
 import { loadCurrentUser, type User } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
+import { DocumentationNav } from './DocumentationNav.tsx';
 import { reviewGrades, reviewSeverityLevelSchema, reviewSeverityLevels } from '@gcr/contracts';
 import { ReviewGrade } from './ReviewGrade.tsx';
 
@@ -45,8 +46,10 @@ export function GuidePage() {
         <aside className="guide-nav" aria-label="사용 가이드 목차">
           <div className="guide-nav-title">
             <BookOpenText size={16} />
-            <strong>사용 가이드</strong>
+            <strong>문서</strong>
           </div>
+          <DocumentationNav currentPath="/guide" />
+          <p className="guide-nav-section-title">사용 가이드 목차</p>
           <a href="#start">시작하기</a>
           <a href="#profile">개인 프로필</a>
           <a href="#ghes-credential">GHES credential</a>
@@ -55,6 +58,7 @@ export function GuidePage() {
           <a href="#analysis-skills">분석 Skills와 report</a>
           <a href="#review-grades">코드 품질 등급</a>
           <a href="#review-flow">Review와 Chat</a>
+          <a href="#review-memory">Memory와 PR 대화</a>
           <a href="#code-navigation">파일 tree와 코드 이동</a>
           <a href="#troubleshooting">문제 해결</a>
           <a href="#security">보안 점검</a>
@@ -574,11 +578,8 @@ export function GuidePage() {
               policy를 확인해 달라고 요청하십시오.
             </p>
             <p>
-              Memory 탭의 Repository Memory는 여러 사용자가 확인하고 관리자가 승인한 공용 판단이며,
-              내 Memory보다 먼저 적용됩니다. 내 Memory에서는 AI finding, Review Chat과 GitHub PR
-              대화에서 저장한 후보를 적용·제외·폐기할 수 있습니다. PR 대화에는 일반 댓글, review
-              본문과 inline comment가 작성자·파일 위치와 함께 표시됩니다. 중요하지 않은 항목은
-              사용자별로 무시할 수 있고, 댓글이 수정되더라도 후보가 참조한 원문 버전은 유지됩니다.
+              Memory 탭에서 과거 판단과 PR 대화를 관리합니다. 후보 저장과 집단 메모리 승인은{' '}
+              <a href="#review-memory">Memory와 PR 대화</a> 절차를 참고하세요.
             </p>
             <p>
               Code·Summary 왼쪽의 패널 toggle로 Files 탐색 영역을 숨기거나 다시 표시할 수 있습니다.
@@ -606,6 +607,53 @@ export function GuidePage() {
               않습니다. 근거 위치가 현재 revision에 없으면 링크가 비활성화됩니다. 기존 메시지는
               저장된 근거만 표시하고, 여러 근거를 선택하는 동작은 새 답변부터 적용됩니다. 모델이
               근거를 반환하지 않으면 임의로 링크를 붙이지 않습니다.
+            </p>
+          </section>
+
+          <section className="guide-section" id="review-memory">
+            <h2>Memory와 GitHub PR 대화 관리</h2>
+            <p>
+              PR을 열고 하단 Memory 탭을 선택하세요. Repository Memory는 현재 분석에 고정된 집단
+              판단을, 내 Memory는 본인의 후보와 활성 항목을 보여줍니다. 현재 코드와 보고서의 근거를
+              먼저 확인하고 집단 메모리, 개인 메모리 순으로 과거 판단을 참고합니다.
+            </p>
+            <h3>PR 대화에서 메모리 저장하기</h3>
+            <ol className="guide-steps">
+              <li>
+                PR 대화에서 수집된 일반 댓글, review 본문과 inline comment를 확인합니다. 작성자,
+                본문과 제공된 코드 위치를 읽고 원본 링크에서 GitHub 대화의 맥락을 확인하세요.
+              </li>
+              <li>
+                이후 리뷰에 참고할 내용의 Memory 후보를 누릅니다. 해당 사용자의 원천 상태가 ‘후보로
+                저장됨’으로 바뀌고 내 Memory에 개인 후보가 추가됩니다.
+              </li>
+              <li>
+                내 Memory에서 후보 내용을 확인한 뒤 적용 또는 제외를 선택합니다. 활성 항목이 더 이상
+                유효하지 않으면 폐기합니다.
+              </li>
+              <li>
+                저장하지 않은 원천은 무시 또는 다시 표시로 관리합니다. 이 상태는 사용자별이며 다른
+                사람의 목록이나 GitHub 원문에는 영향을 주지 않습니다.
+              </li>
+            </ol>
+            <p>
+              대화는 open PR polling 시 수집됩니다. 봇 메시지도 원천에는 보존하지만 자동으로
+              메모리를 활성화하지 않습니다. GitHub에서 본문이 수정되어도 후보가 참조한 저장 당시
+              원문 버전은 유지됩니다. 현재 Review와 Chat 영역에서는 finding과 본인의 완료된 Chat
+              메시지를 같은 방식으로 후보로 저장할 수 있습니다.
+            </p>
+            <h3>집단 메모리 승인과 분석 반영</h3>
+            <p>
+              같은 repository와 검토 주제에서 서로 다른 사용자 두 명 이상이 개인 메모리를 승인하면
+              집단 후보를 만듭니다. 관리자는 관리 → Repository Memory에서 repository를 선택하고
+              내용·기여 수·충돌 수를 검토한 뒤 활성화 또는 기각합니다. 활성화된 공용 판단은 같은
+              화면에서 폐기할 수 있습니다.
+            </p>
+            <p>
+              새 메모리를 분석에 반영하려면 Review workspace를 새로고침하세요. Polling 분석은 집단
+              메모리를 사용하고 수동 분석은 요청자의 개인 메모리도 참고합니다. 완료된 보고서와 당시
+              고정된 메모리는 변경되지 않습니다. Chat의 새 답변에는 현재 관련 개인 메모리를 추가로
+              참고할 수 있습니다. 개인화 분석은 공용 PR 댓글로 게시하지 않습니다.
             </p>
           </section>
 

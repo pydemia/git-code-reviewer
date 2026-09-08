@@ -2,6 +2,14 @@
 
 사내 GitHub Enterprise Server의 PR을 중앙에서 분석하고 browser review workspace와 GHES PR timeline에 결과를 제공하는 Kubernetes 기반 웹서비스입니다. 대상 repository의 CI와 webhook 없이 polling, isolated clone, evidence 기반 report, 관리형 PR 요약 댓글과 Chat을 제공합니다.
 
+## 제품 안내
+
+- [Introduction](docs/product/introduction.md): 제품 목적, 검토 흐름과 개인·집단 메모리 소개
+- [기능 목록](docs/product/features.md): 실제 메뉴별 제공 기능과 현재 지원 범위
+- 앱 상단의 `문서`에서 `Introduction`, `기능 목록`, `사용 가이드`를 전환한다. 직접 경로는 `/introduction`, `/features`, `/guide`다.
+
+Introduction과 기능 목록은 Markdown 원문을 앱에서 함께 사용하므로 문서를 수정하면 다음 빌드에 반영된다.
+
 ## 기준 문서
 
 1. [제품 정의](PRODUCT.md)
@@ -32,7 +40,7 @@
 - [Private GHES 연동 테스트 가이드](docs/operations/github-enterprise-test.md)
 - [Backup/restore 및 reconcile 가이드](docs/operations/backup-restore.md)
 
-배포된 Web UI에서는 로그인 후 GNB의 `내 프로필`에서 계정 정보와 Local account 비밀번호를 관리한다. `사용 가이드`에서는 GHES PAT 발급·입력, repository polling, Review workspace, Chat과 오류 진단 절차를 확인할 수 있다.
+배포된 Web UI에서는 로그인 후 GNB의 `내 프로필`에서 계정 정보와 Local account 비밀번호를 관리한다. `문서 → 사용 가이드`에서는 GHES PAT 발급·입력, repository polling, Review workspace, Chat, Memory 관리와 오류 진단 절차를 확인할 수 있다.
 
 `Administration → 분석 Skills`에서 분석 관점과 report 형식의 SKILL.md를 version으로 관리한다. 새 분석은 고정된 Skill bundle으로 code segment를 검토하고 Overall Summary·AI Comments·Analyzed File List를 제공한다. 상세 범위와 검증 기준은 [Skill 기반 report 설계](.documents/skill-based-review-report.md)를 참조한다.
 

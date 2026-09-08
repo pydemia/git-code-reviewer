@@ -54,10 +54,14 @@ export function AppHeader({
               <a
                 className="header-guide-link"
                 href="/guide"
-                aria-current={window.location.pathname === '/guide' ? 'page' : undefined}
+                aria-current={
+                  ['/guide', '/introduction', '/features'].includes(window.location.pathname)
+                    ? 'page'
+                    : undefined
+                }
               >
                 <BookOpenText size={15} />
-                <span>사용 가이드</span>
+                <span>문서</span>
               </a>
             ) : null}
             {user ? (

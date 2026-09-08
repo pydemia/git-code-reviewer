@@ -2735,6 +2735,7 @@ body.workspace-resizing:has(.resize-bottom) {
   position: sticky;
   top: 0;
   height: calc(100dvh - 44px);
+  overflow-y: auto;
   display: grid;
   align-content: start;
   gap: 3px;
@@ -2768,6 +2769,87 @@ body.workspace-resizing:has(.resize-bottom) {
 .guide-nav > a:hover {
   color: #155e52;
   background: var(--accent-soft);
+}
+
+.documentation-menu {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.documentation-menu a {
+  padding: 9px 10px;
+  color: #46515c;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.documentation-menu a:hover,
+.documentation-menu a[aria-current='page'] {
+  color: #155e52;
+  background: var(--accent-soft);
+}
+
+.guide-nav-section-title {
+  margin: 18px 10px 6px;
+  color: #69737d;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.product-document-body {
+  color: #515d68;
+  font-size: 14px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+
+.product-document-body h2 {
+  margin: 40px 0 16px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  color: #222c35;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  scroll-margin-top: 22px;
+}
+
+.product-document-body h3 {
+  margin: 28px 0 12px;
+  color: #2c3741;
+  font-size: 16px;
+}
+
+.product-document-body > p {
+  margin: 18px 0;
+}
+
+.product-document-body li + li {
+  margin-top: 7px;
+}
+
+.product-document-body a {
+  color: #176a5a;
+  text-underline-offset: 3px;
+}
+
+.product-document-body code {
+  padding: 2px 4px;
+  background: #f2f4f5;
+  border-radius: 3px;
+  font-size: 0.92em;
+}
+
+.product-document-body .guide-table {
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.product-document-body .guide-table th {
+  font-size: 11px;
 }
 
 .guide-main {
@@ -5007,6 +5089,23 @@ body.workspace-resizing:has(.resize-bottom) {
   }
 
   .guide-nav-title {
+    display: none;
+  }
+
+  .documentation-menu {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0 10px 0 0;
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+  }
+
+  .documentation-menu a {
+    white-space: nowrap;
+  }
+
+  .guide-nav-section-title {
     display: none;
   }
 

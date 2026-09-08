@@ -8,6 +8,7 @@ RUN --mount=type=secret,id=build_ca \
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps ./apps
 COPY packages ./packages
+COPY docs/product ./docs/product
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store --mount=type=secret,id=build_ca \
   if [ -s /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi \
   && pnpm config set store-dir /pnpm/store \
