@@ -14,6 +14,8 @@ const execute = promisify(execFile);
 describe('real local Git source tools', () => {
   let root: string;
   let sha: string;
+  let headSha: string;
+  let mergeBaseSha: string;
   const body = 'export function unchangedRetry() {\n  return 3;\n}\n';
   beforeAll(async () => {
     root = await mkdtemp(path.join(os.tmpdir(), 'gcr-source-test-'));
@@ -26,16 +28,29 @@ describe('real local Git source tools', () => {
     ])
       await execute('git', args, { cwd: repo });
     await writeFile(path.join(repo, 'unchanged.ts'), body);
+    await writeFile(path.join(repo, 'revision.ts'), 'merge-base\n');
     await writeFile(path.join(repo, 'renamed file.ts'), 'fixture\n');
     await execute('git', ['add', '.'], { cwd: repo });
     await execute('git', ['commit', '-qm', 'initial'], { cwd: repo });
+    mergeBaseSha = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
+    await writeFile(path.join(repo, 'revision.ts'), 'base-tip\n');
+    await execute('git', ['commit', '-qam', 'base'], { cwd: repo });
     sha = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
+    await execute('git', ['checkout', '-qb', 'review', mergeBaseSha], { cwd: repo });
+    await writeFile(path.join(repo, 'revision.ts'), 'head\n');
+    await execute('git', ['commit', '-qam', 'head'], { cwd: repo });
+    headSha = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
     await execute('git', ['clone', '--bare', repo, path.join(root, 'repository.git')]);
-    for (const revision of ['head', 'base', 'mergeBase'])
+    for (const revision of ['head', 'base', 'mergeBase']) {
       await cp(repo, path.join(root, 'views', revision), { recursive: true });
+      await writeFile(
+        path.join(root, 'views', revision, 'revision.ts'),
+        revision === 'head' ? 'head\n' : revision === 'base' ? 'base-tip\n' : 'merge-base\n',
+      );
+    }
     await writeFile(
       path.join(root, 'manifest.json'),
-      JSON.stringify({ head: sha, base: sha, mergeBase: sha }),
+      JSON.stringify({ head: headSha, base: sha, mergeBase: mergeBaseSha }),
     );
   });
   afterAll(async () => {
@@ -75,6 +90,23 @@ describe('real local Git source tools', () => {
     expect(
       await runLocalSourceTool(root, { name: 'search_code', query: 'unchangedRetry' }),
     ).toMatchObject({ matches: [{ path: 'unchanged.ts', line: 1 }] });
+  });
+  it('distinguishes base tip, merge-base and head even after branch movement', async () => {
+    await execute('git', [
+      '--git-dir',
+      path.join(root, 'repository.git'),
+      'update-ref',
+      'refs/heads/review',
+      sha,
+    ]);
+    for (const [revision, content, expectedSha] of [
+      ['base', 'base-tip\n', sha],
+      ['mergeBase', 'merge-base\n', mergeBaseSha],
+      ['head', 'head\n', headSha],
+    ])
+      expect(
+        await runLocalSourceTool(root, { name: 'read_file', revision, path: 'revision.ts' }),
+      ).toMatchObject({ sha: expectedSha, content });
   });
   it('supports spaces without interpreting paths as options', async () => {
     expect(
