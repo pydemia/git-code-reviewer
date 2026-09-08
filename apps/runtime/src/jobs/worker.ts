@@ -50,6 +50,8 @@ type JobPayload = {
   analysisId?: string;
   snapshotId?: string;
   memoryOwnerUserId?: string;
+  // 승인된 운영 재분석은 공동 report를 저장하되 GitHub에는 게시하지 않는다.
+  skipPublication?: boolean;
 };
 
 type ClaimedJob = {
@@ -730,7 +732,10 @@ export async function persistAnalysis(
   try {
     await connection.query('begin');
     await assertJobLease(connection, job);
-    await connection.query('select id from analysis_runs where id = $1 for update', [analysisId]);
+    const locked = await connection.query<{ revision: number }>(
+      'select revision from analysis_runs where id = $1 for update',
+      [analysisId],
+    );
     const existing = await connection.query('select 1 from reports where analysis_run_id = $1', [
       analysisId,
     ]);
@@ -840,7 +845,7 @@ export async function persistAnalysis(
     );
     const eventPayload = {
       analysisId,
-      revision: 1,
+      revision: locked.rows[0]!.revision,
       state,
       stage: 'published',
       progress: 100,
@@ -856,7 +861,7 @@ export async function persistAnalysis(
       );
     }
     await appendEvent(connection, 'analysis', analysisId, 'analysis.available', eventPayload);
-    if (!job.payload.memoryOwnerUserId) {
+    if (!job.payload.memoryOwnerUserId && job.payload.skipPublication !== true) {
       await enqueueReviewPublication(
         connection,
         analysisId,
@@ -891,14 +896,21 @@ async function updateAnalysisState(
      progress_detail = case when $3 = 'deterministic' then null else coalesce($5::jsonb, progress_detail) end,
      started_at = coalesce(started_at, clock_timestamp()) where id = $1
      and state not in ('completed', 'partial')
-     and not exists (select 1 from reports where analysis_run_id = $1)`,
+     and not exists (select 1 from reports where analysis_run_id = $1) returning revision`,
       [analysisId, state, stage, progress, detail ? JSON.stringify(detail) : null],
     );
     if (!updated.rowCount) {
       await database.query('commit');
       return;
     }
-    const payload = { analysisId, revision: 1, state, stage, progress, progressDetail: detail };
+    const payload = {
+      analysisId,
+      revision: updated.rows[0]!.revision,
+      state,
+      stage,
+      progress,
+      progressDetail: detail,
+    };
     if (!job.payload.memoryOwnerUserId) {
       await appendEvent(
         database,
@@ -1073,7 +1085,10 @@ async function insertArtifact(
   return result.rows[0]!.id;
 }
 
-function requiredPayload(job: ClaimedJob, key: keyof JobPayload): string {
+function requiredPayload(
+  job: ClaimedJob,
+  key: Exclude<keyof JobPayload, 'skipPublication'>,
+): string {
   const value = job.payload[key];
   if (!value) throw new Error(`Job payload is missing ${key}`);
   return value;

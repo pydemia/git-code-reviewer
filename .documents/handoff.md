@@ -13,6 +13,8 @@
 
 ### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
 
+2026-09-09 후속 작업: PR #917의 미완료 Summary를 조사했다. 최근 두 분석은 alpha.23 checkpoint 도입 전 Worker 교체를 네 번 거치며 누적 모델 호출 128회를 소진했다. 영구 실패의 불필요한 재시도와 원인 없는 파일 요약을 수정하고 새 revision의 입력 pin·게시 억제·실제 revision event를 추가했다. 413개 테스트를 통과했다. 사용자는 `c3dfc29c-b34e-4214-b3a1-e8375179d30f`를 기존 report 보존·GitHub 댓글 미게시 조건으로 새 revision 재분석하도록 승인했다. 배포 및 실제 재분석은 진행 중이며 [조사 기록](../docs/operations/incomplete-review-2026-09-09.md)에 결과를 이어서 기록한다. 기존 ledger를 삭제하거나 예산을 늘리지 않는다.
+
 2차 P6–P10 코드를 alpha.23에 배포했다. Batch model checkpoint, 최대 3회 만료 lease 회수, stale attempt 차단·drain, 90초 DB workspace lease와 사용자/origin/credential/SHA별 캐시, 원문 ID를 보존하는 대화 발췌·원문/이전 source 도구, JS/TS 구문 AST·Python lexical 관계 후보, history pagination과 과거 질문·근거 복원을 포함한다. 전체 semantic call graph·공용 mirror·모델 기반 의미 요약·코드/테스트 실행은 제공하지 않는다. 상세 [2차 구현](interactive-review-chat-phase2.md), [검증](verification-interactive-chat-phase2-2026-09-09.md)을 따른다.
 
 405 tests/66 files, lint·typecheck·production build, native Linux security/Git/AST 검증을 통과했다. 실제 `gpt-5.6-sol:medium` 후속 run `68115d81-e856-4963-bfa9-7d22ad813348`은 기존 canary session에서 과거 질문/소스를 조회하고 ask_user 응답 후 workspace를 재사용해 163초 만에 completed가 됐다. 모델 8회, 도구 6회, source 2건, 4,687자 답변과 delta 211건이다. 기존 수동 복구 배치 2건은 이번 시작 시 모두 completed였다. Desktop/mobile 실제 UI 조작과 screenshot은 Mac 잠금으로 여전히 미완료다.

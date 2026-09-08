@@ -21,6 +21,11 @@ import { claimJob } from '../jobs/worker.js';
 import { recoverExpiredJobs } from '../jobs/recovery.js';
 import { assertJobLease, checkpointReviewModel } from './analysis-checkpoint.js';
 import { legacyAnalysisReportSchema } from '@gcr/review-contract';
+import {
+  analyzeSnapshot,
+  loadBuiltInReviewSkills,
+  modelReviewFromText,
+} from '@gcr/analysis-engine';
 
 const mocks = vi.hoisted(() => ({ turn: vi.fn(), source: vi.fn() }));
 vi.mock('./account-registry.js', async (importOriginal) => ({
@@ -249,6 +254,110 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
       ).rowCount,
     ).toBe(0);
     await database.query("update jobs set state='failed' where id=$1", [id]);
+  });
+
+  it('resumes a 25-file review twice without spending its cumulative 128-call budget again', async () => {
+    const jobId = (
+      await database.query(
+        "insert into jobs(type,payload,dedupe_key) values('analysis.run',$1::jsonb,gen_random_uuid()::text) returning id",
+        [JSON.stringify({ analysisId, snapshotId })],
+      )
+    ).rows[0].id;
+    const runKey = `analysis:${randomUUID()}`;
+    const quotaKey = randomUUID();
+    let sent = 0;
+    const fetcher = admittedFetch(database, quotaKey, async () => {
+      sent++;
+      return Response.json({ summary: '합성 검토 완료', grade: 'adequate', file_comments: [] });
+    });
+    const model = {
+      profile: 'resume-budget-regression',
+      review: async (_diff: string, files: string[]) => {
+        // 실제 원격 호출 없이 DB admission과 누적 사용량을 검증한다.
+        const response = await fetcher('https://synthetic.invalid/responses', {
+          method: 'POST',
+          body: '{}',
+        });
+        const output = modelReviewFromText(await response.text(), files);
+        // 90회 단위 테스트에서 60 RPM 대기만 제거한다. 누적 ledger 행은 삭제하지 않는다.
+        if (sent === 50)
+          await database.query(
+            "update model_request_ledger set created_at=clock_timestamp()-interval '2 minutes' where run_key=$1",
+            [runKey],
+          );
+        return output;
+      },
+    };
+    const files = Array.from({ length: 25 }, (_, n) => {
+      const lines = n < 14 ? 161 : 81;
+      return {
+        id: randomUUID(),
+        path: `resume-${n}.ts`,
+        previousPath: null,
+        status: 'added',
+        additions: lines,
+        deletions: 0,
+        patch:
+          `@@ -0,0 +1,${lines} @@\n` +
+          Array.from({ length: lines }, (_, line) => `+value${line}();`).join('\n') +
+          '\n',
+      };
+    });
+    const skills = { bundle: loadBuiltInReviewSkills(), versionId: null, version: null };
+    for (const stopAfter of [30, 60, Infinity]) {
+      const job = (await claimJob(database, `resume-worker-${stopAfter}`))!;
+      expect(job.id).toBe(jobId);
+      const execute = () =>
+        withModelBudget({ runKey, maxCalls: 128, wait: false }, () =>
+          analyzeSnapshot({
+            analysisId,
+            snapshotId,
+            baseSha: 'a'.repeat(40),
+            headSha: 'b'.repeat(40),
+            patch: '',
+            files,
+            fixtureMode: false,
+            skills,
+            budgets: { maxModelCalls: 128 },
+            model: checkpointReviewModel(
+              model,
+              database,
+              analysisId,
+              job,
+              undefined,
+              () => sent >= stopAfter,
+            ),
+          }),
+        );
+      if (Number.isFinite(stopAfter)) {
+        await expect(execute()).rejects.toThrow('worker_draining');
+        expect(sent).toBe(stopAfter);
+        await database.query(
+          "update jobs set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1",
+          [jobId],
+        );
+        await recoverExpiredJobs(database);
+      } else {
+        const result = await execute();
+        expect(result.state).toBe('completed');
+        expect(result.report.analysis?.coverage).toMatchObject({
+          filesCompleted: 25,
+          windowsPlanned: 64,
+          windowsReviewed: 64,
+          modelCalls: 90,
+        });
+        expect(sent).toBe(90);
+      }
+    }
+    expect(
+      (
+        await database.query(
+          'select count(*)::int as count from model_request_ledger where run_key=$1',
+          [runKey],
+        )
+      ).rows[0].count,
+    ).toBe(90);
+    await database.query("update jobs set state='completed' where id=$1", [jobId]);
   });
   async function createRun() {
     const session = (

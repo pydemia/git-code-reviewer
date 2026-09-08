@@ -170,6 +170,51 @@ describe('Skill-based review orchestration', () => {
     expect(JSON.stringify(result)).not.toContain('private upstream');
   });
 
+  it('does not retry an exhausted cumulative request budget and explains unreviewed files', async () => {
+    const review = vi
+      .fn<ReviewModel['review']>()
+      .mockRejectedValue(Error('model_call_budget_exhausted'));
+    const result = await analyze([file('first.ts'), file('second.ts')], {
+      profile: 'synthetic',
+      review,
+    });
+    expect(review).toHaveBeenCalledTimes(2); // 파일마다 한 번. upstream에서는 새 요청을 허용하지 않는다.
+    expect(result.report.analysis?.coverage.windowsReviewed).toBe(0);
+    expect(result.report.analysis?.files.every((entry) => entry.status === 'not-reviewed')).toBe(
+      true,
+    );
+    expect(result.report.analysis?.files[0]?.summary).toContain('모델 호출 예산');
+    expect(result.report.analysis?.files[0]?.summary).toContain('문제가 없다는 판정이 아닙니다');
+    expect(result.report.coverage.limitations.join('\n')).toContain(
+      '[MODEL_CALL_BUDGET_EXHAUSTED]',
+    );
+    expect(result.report.coverage.limitations.join('\n')).not.toContain('[MODEL_CALL_FAILED]');
+  });
+
+  it.each([
+    [new DOMException('private timeout detail', 'TimeoutError'), '제한 시간', 2],
+    [new SyntaxError('private response'), 'JSON 형식', 2],
+    [Error('model_input_budget_exhausted'), '입력', 1],
+    [Object.assign(Error('private auth'), { code: 'invalid_auth' }), '인증', 1],
+  ])(
+    'explains a failed file without exposing provider details: %s',
+    async (error, expected, calls) => {
+      const review = vi.fn<ReviewModel['review']>().mockRejectedValue(error);
+      const result = await analyze([file('failure.ts')], { profile: 'synthetic', review });
+      expect(review).toHaveBeenCalledTimes(calls);
+      expect(result.report.analysis?.files[0]?.summary).toContain(expected);
+      expect(JSON.stringify(result)).not.toContain('private');
+    },
+  );
+
+  it('distinguishes an empty diff from a provider failure', async () => {
+    const review = vi.fn<ReviewModel['review']>().mockResolvedValue(output('검토 완료'));
+    const result = await analyze([file('renamed.ts', '')], { profile: 'synthetic', review });
+    expect(review).not.toHaveBeenCalled();
+    expect(result.report.analysis?.files[0]?.summary).toContain('분석 가능한 변경 line');
+    expect(result.report.analysis?.files[0]?.status).toBe('not-reviewed');
+  });
+
   it('reports file progress and summary stages without counting skipped files as reviewed', async () => {
     const updates: Array<{ stage: string; detail: import('@gcr/contracts').AnalysisProgress }> = [];
     const files = [file('one.ts'), file('two.ts'), file('image.png', 'Binary files differ')];

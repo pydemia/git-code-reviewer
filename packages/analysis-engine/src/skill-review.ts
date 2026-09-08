@@ -17,6 +17,7 @@ import {
   type ReviewWindow,
 } from './review-windows.js';
 import { validateReviewSkillBundle } from './skills.js';
+import { incompleteFileSummary, reviewFailure } from './review-failures.js';
 
 type Comment = LegacyAnalysisReport['review']['file_comments'][number];
 type FileResult = ReviewAnalysis['files'][number];
@@ -110,13 +111,9 @@ export async function runSkillReview(input: {
       } catch (error) {
         if (error instanceof Error && ['worker_draining', 'job_lease_lost'].includes(error.message))
           throw error;
-        if (attempt === 0 && coverage.modelCalls < input.maxModelCalls - reservedCalls) continue;
-        const code =
-          error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name)
-            ? 'MODEL_TIMEOUT'
-            : error instanceof SyntaxError || (error instanceof Error && error.name === 'ZodError')
-              ? 'MODEL_OUTPUT_INVALID'
-              : 'MODEL_CALL_FAILED';
+        const { code, retryable } = reviewFailure(error);
+        if (retryable && attempt === 0 && coverage.modelCalls < input.maxModelCalls - reservedCalls)
+          continue;
         limitations.push(
           `${files.join(', ') || '전체 report'}: ${stage} 모델 호출 또는 응답 검증 실패 [${code}]`,
         );
@@ -127,6 +124,7 @@ export async function runSkillReview(input: {
   };
 
   for (const file of input.allFiles) {
+    const limitationStart = limitations.length;
     await publishProgress('unit-comment-block', file.path);
     const selected = input.files.some((candidate) => candidate.id === file.id);
     const planned = windows.filter((window) => window.fileId === file.id);
@@ -227,7 +225,7 @@ export async function runSkillReview(input: {
           ? units.map((unit) => unit.comment).join('\n\n')
           : attempted
             ? '처리된 window에서 추가 comment가 생성되지 않았습니다.'
-            : '이 파일의 AI review를 완료하지 못했습니다.';
+            : incompleteFileSummary(limitations.slice(limitationStart));
     if (attempted > 0) {
       await publishProgress('overall-summary', file.path);
       const result = await call(

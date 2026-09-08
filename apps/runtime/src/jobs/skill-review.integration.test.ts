@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadConfig, type AppConfig } from '../config.js';
 import { ensureFixtureRepository, pollRepository } from '../services/repositories.js';
 import { executeAnalysisJob, executeSnapshotJob, persistAnalysis } from './worker.js';
+import { queueIncompleteAnalysisReanalysis } from '../services/analysis-reanalysis.js';
 
 const databaseUrl = process.env.GCR_TEST_DATABASE_URL;
 describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and staged review', () => {
@@ -401,6 +402,87 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     expect(
       (await database.query('select 1 from artifacts where scope_id=$1', [nextId])).rowCount,
     ).toBe(2);
+  });
+
+  it('creates one new revision with pinned inputs and never auto-publishes a verification run', async () => {
+    await expect(
+      queueIncompleteAnalysisReanalysis(database, analysisId, randomUUID()),
+    ).rejects.toThrow('reanalysis_requires_incomplete_shared_analysis');
+    const originalReports = (
+      await database.query('select * from reports where analysis_run_id=$1', [analysisId])
+    ).rows;
+    await database.query("update analysis_runs set state='partial' where id=$1", [analysisId]);
+    const requestId = randomUUID();
+    try {
+      const [first, second] = await Promise.all([
+        queueIncompleteAnalysisReanalysis(database, analysisId, requestId),
+        queueIncompleteAnalysisReanalysis(database, analysisId, requestId),
+      ]);
+      expect(first).toEqual(second);
+      expect(first.revision).toBe(2);
+      const pins = `snapshot_id, profile, model_profile, prompt_version_id, prompt_hash,
+        provider_version_id, provider_hash, policy_hash, skill_version_id, skill_bundle,
+        skill_hash, severity_level, memory_hash, memory_context, memory_owner_user_id`;
+      expect(
+        (await database.query(`select ${pins} from analysis_runs where id=$1`, [first.analysisId]))
+          .rows,
+      ).toEqual(
+        (await database.query(`select ${pins} from analysis_runs where id=$1`, [analysisId])).rows,
+      );
+      const queued = (
+        await database.query("select * from jobs where payload->>'analysisId'=$1", [
+          first.analysisId,
+        ])
+      ).rows[0];
+      expect(queued.payload.skipPublication).toBe(true);
+      const attempt = (
+        await database.query(
+          "insert into job_attempts(job_id,attempt_number,executor) values($1,1,'synthetic-reanalysis') returning id",
+          [queued.id],
+        )
+      ).rows[0];
+      await database.query(
+        "update jobs set state='running',attempt_count=1,lease_owner='synthetic-reanalysis',lease_expires_at=clock_timestamp()+interval '1 hour' where id=$1",
+        [queued.id],
+      );
+      await database.query('update repositories set review_publishing_enabled=true');
+      await executeAnalysisJob(database, artifacts, config, {
+        ...queued,
+        attempt_count: 1,
+        attempt_id: attempt.id,
+      });
+      expect(
+        (
+          await database.query('select count(*)::int as n from reports where analysis_run_id=$1', [
+            first.analysisId,
+          ])
+        ).rows[0].n,
+      ).toBe(1);
+      expect(
+        (
+          await database.query(
+            "select 1 from jobs where type='github.review.publish' and payload->>'analysisId'=$1",
+            [first.analysisId],
+          )
+        ).rowCount,
+      ).toBe(0);
+      expect(
+        (
+          await database.query(
+            "select payload->>'revision' as revision from event_log where scope='analysis' and scope_id=$1 and type in ('analysis.state','analysis.available')",
+            [first.analysisId],
+          )
+        ).rows.every((row) => row.revision === '2'),
+      ).toBe(true);
+      expect(await queueIncompleteAnalysisReanalysis(database, analysisId, requestId)).toEqual(
+        first,
+      );
+      expect(
+        (await database.query('select * from reports where analysis_run_id=$1', [analysisId])).rows,
+      ).toEqual(originalReports);
+    } finally {
+      await database.query("update analysis_runs set state='completed' where id=$1", [analysisId]);
+    }
   });
 
   it('serves the pinned report in API/JSON/Markdown and publishes the artifact hierarchy', async () => {

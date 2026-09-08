@@ -73,7 +73,7 @@ export async function registerSnapshotRoutes(
          left join analysis_runs ar on ar.snapshot_id = s.id
            and (ar.memory_owner_user_id is null or ar.memory_owner_user_id = $3)
          where pr.repository_id = $1 and pr.number = $2
-         order by s.created_at desc limit 20`,
+         order by s.created_at desc, ar.revision desc, ar.created_at desc limit 20`,
         [repoId, number, request.user!.id],
       );
       return { schemaVersion, items: result.rows };
