@@ -15,6 +15,8 @@ import {
   reviewFileStatusLabels,
 } from '@gcr/contracts';
 import type { WorkspaceData } from './api.ts';
+import { ReviewMarkdown } from './ReviewMarkdown.tsx';
+import { navigateFromReviewBlock } from './review-block-navigation.ts';
 
 type Report = NonNullable<WorkspaceData['report']>;
 type Finding = Report['findings'][number];
@@ -51,6 +53,7 @@ function ReviewCommentBlock({
       aria-label="검토 의견"
       data-comment-id={finding.id}
       aria-current={selected ? 'true' : undefined}
+      onClick={(event) => navigateFromReviewBlock(event, () => onSelect(finding))}
     >
       <header className="report-unit-meta">
         <MessageSquare size={15} aria-hidden="true" />
@@ -71,24 +74,18 @@ function ReviewCommentBlock({
         </button>
       </h4>
       {finding.problem && finding.problem !== finding.title ? (
-        <p className="report-narrative">
-          <ReviewText text={finding.problem} />
-        </p>
+        <ReviewMarkdown text={finding.problem} />
       ) : null}
       {finding.impact ? (
         <div className="report-unit-detail">
           <b>영향</b>
-          <p>
-            <ReviewText text={finding.impact} />
-          </p>
+          <ReviewMarkdown text={finding.impact} />
         </div>
       ) : null}
       {finding.recommendation ? (
         <div className="report-unit-detail report-recommendation">
           <b>수정 제안</b>
-          <p>
-            <ReviewText text={finding.recommendation} />
-          </p>
+          <ReviewMarkdown text={finding.recommendation} />
         </div>
       ) : null}
       <footer>
@@ -250,9 +247,7 @@ export function ReviewReportPanel({
             #{report.context.pullNumber} {report.context.pullTitle}
           </p>
           {view.overview ? (
-            <p className="report-narrative">
-              <ReviewText text={view.overview} />
-            </p>
+            <ReviewMarkdown text={view.overview} />
           ) : (
             <p className="report-state-explanation">
               이 report에는 별도의 PR 전체 요약이 없습니다. 아래 파일별 검토와 분석 제한을
@@ -267,7 +262,13 @@ export function ReviewReportPanel({
             파일별 검토 <span>{view.groups.length}개 파일</span>
           </h3>
           {view.groups.map((file) => (
-            <article className="report-file-summary" key={file.fileId}>
+            <article
+              className="report-file-summary"
+              key={file.fileId}
+              onClick={(event) =>
+                navigateFromReviewBlock(event, () => selectFile(file.fileId, file.path))
+              }
+            >
               <header className="report-file-heading">
                 <FileCode2 size={17} aria-hidden="true" />
                 <button
@@ -293,9 +294,7 @@ export function ReviewReportPanel({
                 </div>
                 <details className="report-file-overview" open>
                   <summary>파일 검토 요약</summary>
-                  <p className="report-narrative">
-                    <ReviewText text={file.summary} />
-                  </p>
+                  <ReviewMarkdown text={file.summary} />
                 </details>
               </div>
             </article>
