@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import type { AnalysisProgress, ReviewSeverityLevel } from '@gcr/contracts';
+import type { AnalysisProgress, ReviewMemoryProjection, ReviewSeverityLevel } from '@gcr/contracts';
 import { filterSeverityComments, severityInstructions } from './review-severity.js';
 export * from './skills.js';
 export * from './review-windows.js';
 export * from './report-forms.js';
 export * from './review-prompt.js';
-import { composeSkillReviewPrompt, type ReviewStageContext } from './review-prompt.js';
+import {
+  composeReviewMemory,
+  composeSkillReviewPrompt,
+  type ReviewStageContext,
+} from './review-prompt.js';
 import { runSkillReview, type SkillReviewOutput } from './skill-review.js';
 import { assembleReviewAnalysis, filterContradictoryPraise } from './report-forms.js';
 import type { ReviewSkillBundle } from '@gcr/review-contract';
@@ -45,6 +49,7 @@ export type AnalysisInput = {
   prompt?: { instructions: string; version: number; hash: string };
   severityLevel?: ReviewSeverityLevel;
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
+  memory?: ReviewMemoryProjection[];
   budgets?: Partial<AnalysisBudgets>;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 };
@@ -122,6 +127,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       ...(input.model ? { model: input.model } : {}),
       ...(input.prompt ? { instructions: input.prompt.instructions } : {}),
       ...(input.severityLevel ? { severityLevel: input.severityLevel } : {}),
+      ...(input.memory ? { memory: input.memory } : {}),
       maxModelCalls: budgets.maxModelCalls,
       ...(input.onProgress ? { onProgress: input.onProgress } : {}),
     });
@@ -133,9 +139,14 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       const modelResult = await input.model.review(
         boundedFiles.map((file) => `File: ${file.path}\n${file.patch}`).join('\n'),
         boundedFiles.map((file) => file.path),
-        input.severityLevel
-          ? severityInstructions(input.severityLevel, input.prompt?.instructions)
-          : input.prompt?.instructions,
+        [
+          input.severityLevel
+            ? severityInstructions(input.severityLevel, input.prompt?.instructions)
+            : input.prompt?.instructions,
+          composeReviewMemory(input.memory),
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
       );
       legacy = modelResult.report;
       reviewStatus = 'model';

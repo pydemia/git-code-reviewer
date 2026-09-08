@@ -5,7 +5,7 @@ import type {
   ReviewMemorySourceKind,
   ReviewMemoryState,
 } from '@gcr/contracts';
-import type { Database, DatabaseClient } from '@gcr/db';
+import type { DatabaseClient } from '@gcr/db';
 
 export const emptyReviewMemoryHash =
   '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945';
@@ -319,7 +319,7 @@ export function rankReviewMemories(
 }
 
 export async function recallReviewMemories(
-  database: Pick<Database, 'query'>,
+  database: Pick<DatabaseClient, 'query'>,
   query: ReviewMemoryQuery,
 ): Promise<ReviewMemorySnapshot> {
   const result = await database.query<ReviewMemoryRecord>(
@@ -608,6 +608,34 @@ export function reviewMemorySnapshot(items: ReviewMemoryProjection[]): ReviewMem
     hash: identity.length ? sha256(JSON.stringify(identity)) : emptyReviewMemoryHash,
     items,
   };
+}
+
+export function mergeChatReviewMemories(
+  pinned: ReviewMemoryProjection[],
+  current: ReviewMemorySnapshot,
+): ReviewMemorySnapshot {
+  const collectiveKeys = new Set(
+    pinned
+      .filter(({ scope }) => scope === 'collective')
+      .map(({ aggregationKey }) => aggregationKey),
+  );
+  const selected: ReviewMemoryProjection[] = [];
+  const seenIds = new Set<string>();
+  let usedCharacters = 0;
+  for (const item of [
+    ...pinned,
+    ...current.items.filter(
+      ({ scope, aggregationKey }) => scope === 'personal' && !collectiveKeys.has(aggregationKey),
+    ),
+  ]) {
+    if (seenIds.has(item.id) || selected.length >= reviewMemoryMaximumItems) continue;
+    const size = JSON.stringify(item).length;
+    if (usedCharacters + size > reviewMemoryMaximumContextCharacters) continue;
+    seenIds.add(item.id);
+    usedCharacters += size;
+    selected.push(item);
+  }
+  return reviewMemorySnapshot(selected);
 }
 
 function projectReviewMemory(record: ReviewMemoryRecord, score: number): ReviewMemoryProjection {

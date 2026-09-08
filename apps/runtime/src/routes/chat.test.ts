@@ -11,11 +11,22 @@ import type { AuthorizationService } from '../services/authorization.js';
 import type { ChatModel } from '../services/chat-model.js';
 import { registerChatRoutes } from './chat.js';
 
-async function chatApp({ owned = true, allowed = true, personalPrompt = '' } = {}) {
+async function chatApp({
+  owned = true,
+  allowed = true,
+  personalPrompt = '',
+  memoryOwnerUserId = null,
+}: {
+  owned?: boolean;
+  allowed?: boolean;
+  personalPrompt?: string;
+  memoryOwnerUserId?: string | null;
+} = {}) {
   const sessionId = randomUUID(),
     analysisId = randomUUID(),
     snapshotId = randomUUID(),
-    repoId = randomUUID();
+    repoId = randomUUID(),
+    tenantId = randomUUID();
   const user = {
     id: randomUUID(),
     subject: 'local:test',
@@ -83,6 +94,7 @@ async function chatApp({ owned = true, allowed = true, personalPrompt = '' } = {
     status: 'completed',
     content: 'PR 전체를 검토해 주세요.',
     citations: [],
+    memory_hash: null,
     created_at: now,
     completed_at: now,
   };
@@ -92,6 +104,7 @@ async function chatApp({ owned = true, allowed = true, personalPrompt = '' } = {
     status: 'pending',
     content: '',
     citations: [] as unknown[],
+    memory_hash: null as string | null,
     created_at: now,
     completed_at: now,
   };
@@ -119,8 +132,8 @@ async function chatApp({ owned = true, allowed = true, personalPrompt = '' } = {
           : [],
       };
     }
-    if (sql.includes('select pr.repository_id from analysis_runs'))
-      return { rows: [{ repository_id: repoId }] };
+    if (sql.includes('select pr.repository_id, ar.memory_owner_user_id'))
+      return { rows: [{ repository_id: repoId, memory_owner_user_id: memoryOwnerUserId }] };
     if (sql.includes('from repositories r join tenants'))
       return { rows: [{ tenantId: randomUUID(), enabled: true, granted: true }] };
     if (sql.includes('from artifacts where scope_type'))
@@ -129,12 +142,26 @@ async function chatApp({ owned = true, allowed = true, personalPrompt = '' } = {
       expect(values).toEqual([snapshotId]);
       return { rows: files };
     }
+    if (sql.includes('analysis.memory_hash as "memoryHash"')) {
+      return {
+        rows: [
+          {
+            tenantId,
+            repositoryId: repoId,
+            memoryHash: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
+            memoryContext: [],
+          },
+        ],
+      };
+    }
+    if (sql.includes('from review_memories memory')) return { rows: [] };
     if (sql.includes('as hourly')) return { rows: [{ hourly: '0', session: '0', pending: '0' }] };
     if (sql.includes('with user_message as'))
       return { rows: [{ user_id: userRow.id, assistant_id: assistantRow.id }] };
     if (sql.includes("update chat_messages set status = 'completed'")) {
       assistantRow.content = String(values[1]);
       assistantRow.citations = JSON.parse(String(values[2]));
+      assistantRow.memory_hash = String(values[3]);
       assistantRow.status = 'completed';
       return { rows: [assistantRow] };
     }
@@ -221,6 +248,9 @@ describe('chat citation API persistence and authorization', () => {
       });
       expect(response.statusCode).toBe(201);
       const body = chatSendResponseSchema.parse(response.json());
+      expect(body.assistantMessage.memoryHash).toBe(
+        '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
+      );
       expect(body.assistantMessage.content).toContain('## PR 전체');
       expect(body.assistantMessage.content).not.toContain('citationIds');
       expect(body.assistantMessage.citations).toHaveLength(2);
@@ -241,7 +271,7 @@ describe('chat citation API persistence and authorization', () => {
       await fixture.app.close();
     }
   });
-  it.each([{ owned: false }, { allowed: false }])(
+  it.each([{ owned: false }, { allowed: false }, { memoryOwnerUserId: randomUUID() }])(
     'does not read report or call the model for inaccessible sessions %j',
     async (options) => {
       const fixture = await chatApp(options);

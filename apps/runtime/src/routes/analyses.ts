@@ -270,10 +270,11 @@ async function authorizedContext(
     snapshot_id: string;
     pull_number: number;
     pull_title: string;
+    memory_owner_user_id: string | null;
   }>(
     `select ar.id as analysis_id, pr.repository_id, r.owner, r.name,
             i.web_base_url, sr.head_sha, sr.base_sha, s.merge_base_sha, s.id as snapshot_id,
-            pr.number as pull_number, pr.title as pull_title
+            pr.number as pull_number, pr.title as pull_title, ar.memory_owner_user_id
      from analysis_runs ar join snapshots s on s.id = ar.snapshot_id
      join snapshot_requests sr on sr.id = s.request_id
      join pull_requests pr on pr.id = sr.pull_request_id
@@ -285,6 +286,9 @@ async function authorizedContext(
   const row = result.rows[0];
   if (
     !row ||
+    (row.memory_owner_user_id &&
+      row.memory_owner_user_id !== request.user!.id &&
+      request.user!.role !== 'administrator') ||
     !(await canReadRepository(database, authorization, request, row.repository_id, 'view'))
   ) {
     return null;

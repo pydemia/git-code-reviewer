@@ -98,6 +98,7 @@ export const reviewMemoryProjectionSchema = reviewMemorySchema
     conflictCount: true,
   })
   .extend({ score: z.number() });
+export type ReviewMemoryProjection = z.infer<typeof reviewMemoryProjectionSchema>;
 
 export const reviewMemoryListSchema = z.object({
   schemaVersion: z.literal(1),

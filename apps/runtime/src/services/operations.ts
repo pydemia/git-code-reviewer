@@ -67,7 +67,8 @@ export async function enqueueSnapshot(
   requestedBy: string | null,
   source: 'manual' | 'poll',
 ): Promise<RefreshResult> {
-  const dedupeKey = `pr_refresh:${pullRequestId}:${baseSha}:${headSha}`;
+  const memoryScope = requestedBy ? `personal:${requestedBy}` : 'collective';
+  const dedupeKey = `pr_refresh:${pullRequestId}:${baseSha}:${headSha}:${memoryScope}`;
   const existing = await connection.query<{ id: string; state: string }>(
     `select id, state from operations where dedupe_key = $1
      and state in ('queued', 'polling', 'materializing', 'analyzing')`,

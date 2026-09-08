@@ -680,6 +680,11 @@ export const chatMessageSchema = z.object({
   status: z.enum(['pending', 'completed', 'failed']),
   content: z.string(),
   citations: z.array(chatCitationSchema),
+  memoryHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable()
+    .default(null),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
 });

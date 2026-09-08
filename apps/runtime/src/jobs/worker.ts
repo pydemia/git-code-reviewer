@@ -33,7 +33,10 @@ import {
   publishReviewToGitHub,
   ReviewPublicationError,
 } from '../services/review-publication.js';
-import { createFindingReviewMemoryCandidates } from '../services/review-memory.js';
+import {
+  createFindingReviewMemoryCandidates,
+  recallReviewMemories,
+} from '../services/review-memory.js';
 
 type JobPayload = {
   operationId?: string;
@@ -41,6 +44,7 @@ type JobPayload = {
   snapshotRequestId?: string;
   analysisId?: string;
   snapshotId?: string;
+  memoryOwnerUserId?: string;
 };
 
 type ClaimedJob = {
@@ -356,22 +360,30 @@ async function persistMaterialization(
     ]);
 
     let analysisId: string | null = null;
+    let memoryOwnerUserId: string | null = null;
     if (materialization.resolution === 'exact') {
       const prompt = await connection.query<{
         id: string | null;
         content_hash: string | null;
         severity_level: ReviewSeverityLevel | null;
+        tenant_id: string;
+        repository_id: string;
+        pull_title: string;
+        requested_by: string | null;
       }>(
-        `select active_prompt.id, active_prompt.content_hash, active_prompt.severity_level
+        `select active_prompt.id, active_prompt.content_hash, active_prompt.severity_level,
+                repository.tenant_id, repository.id as repository_id,
+                pull_request.title as pull_title, operation.requested_by
          from snapshot_requests request
          join pull_requests pull_request on pull_request.id = request.pull_request_id
          join repositories repository on repository.id = pull_request.repository_id
+         left join operations operation on operation.id = $2
          left join lateral (
            select id, content_hash, severity_level from analysis_prompt_versions
            where tenant_id = repository.tenant_id and active order by version desc limit 1
          ) active_prompt on true
          where request.id = $1`,
-        [snapshotRequestId],
+        [snapshotRequestId, job.payload.operationId ?? null],
       );
       const promptVersionId = prompt.rows[0]?.id ?? null;
       const promptHash = prompt.rows[0]?.content_hash ?? 'builtin-v1';
@@ -382,6 +394,15 @@ async function persistMaterialization(
       const providerHash =
         activeProvider?.configurationHash ?? deploymentProvider.configurationHash;
       const skills = await getEffectiveReviewSkills(connection);
+      memoryOwnerUserId = prompt.rows[0]?.requested_by ?? null;
+      const memory = await recallReviewMemories(connection, {
+        tenantId: prompt.rows[0]!.tenant_id,
+        repositoryId: prompt.rows[0]!.repository_id,
+        ...(memoryOwnerUserId ? { ownerUserId: memoryOwnerUserId } : {}),
+        filePaths: materialization.files.map(({ path: filePath }) => filePath),
+        queryText: prompt.rows[0]!.pull_title,
+        approvedBefore: new Date(),
+      });
       const modelProfile = activeProvider
         ? activeProvider.mode === 'chatgpt-account'
           ? `chatgpt-account:${activeProvider.modelName}:${activeProvider.reasoningEffort}`
@@ -393,22 +414,27 @@ async function persistMaterialization(
         `insert into analysis_runs(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
            prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
-           skill_version_id, skill_bundle, skill_hash, severity_level
-         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)
+           skill_version_id, skill_bundle, skill_hash, severity_level, memory_hash,
+           memory_context, memory_owner_user_id
+         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
+           $11, $12, $13, $14::jsonb, $15)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v6:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}`,
+          `analysis:${snapshotId}:default:v7:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v3:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}`,
+          `default-v4:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
           severityLevel,
+          memory.hash,
+          JSON.stringify(memory.items),
+          memoryOwnerUserId,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -421,6 +447,7 @@ async function persistMaterialization(
             analysisId,
             snapshotId,
             pullRequestId: job.payload.pullRequestId,
+            ...(memoryOwnerUserId ? { memoryOwnerUserId } : {}),
           }),
           `analysis.run:${analysisId}`,
         ],
@@ -445,10 +472,10 @@ async function persistMaterialization(
         operationId: job.payload.operationId,
         snapshotId,
         resolution: materialization.resolution,
-        analysisId,
+        analysisId: memoryOwnerUserId ? null : analysisId,
       },
     );
-    if (analysisId) {
+    if (analysisId && !memoryOwnerUserId) {
       await appendEvent(connection, 'pull_request', job.payload.pullRequestId, 'analysis.state', {
         analysisId,
         revision: 1,
@@ -494,13 +521,15 @@ export async function executeAnalysisJob(
     tenantId: string;
     credentialId: string | null;
     installationId: string;
+    memory_context: import('../services/review-memory.js').ReviewMemoryProjection[];
   }>(
     `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
             prompt.version as prompt_version, analysis.prompt_hash, analysis.severity_level,
             analysis.provider_version_id, repository.tenant_id as "tenantId",
             analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
             skills.version as skill_version,
-            repository.credential_id as "credentialId", repository.installation_id as "installationId"
+            repository.credential_id as "credentialId",
+            repository.installation_id as "installationId", analysis.memory_context
      from snapshots snapshot
      join snapshot_requests sr on sr.id = snapshot.request_id
      join pull_requests pr on pr.id = sr.pull_request_id
@@ -551,6 +580,7 @@ export async function executeAnalysisJob(
     headSha: row.head_sha,
     patch: diff.patch,
     files,
+    memory: row.memory_context,
     fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
     ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
     ...(model ? { model } : {}),
@@ -720,20 +750,24 @@ async function persistAnalysis(
       progress: 100,
       reportUrl: `/api/v1/analyses/${analysisId}`,
     };
-    await appendEvent(
-      connection,
-      'pull_request',
-      job.payload.pullRequestId,
-      'analysis.available',
-      eventPayload,
-    );
+    if (!job.payload.memoryOwnerUserId) {
+      await appendEvent(
+        connection,
+        'pull_request',
+        job.payload.pullRequestId,
+        'analysis.available',
+        eventPayload,
+      );
+    }
     await appendEvent(connection, 'analysis', analysisId, 'analysis.available', eventPayload);
-    await enqueueReviewPublication(
-      connection,
-      analysisId,
-      requiredPayload(job, 'pullRequestId'),
-      config.GITHUB_MODE === 'app',
-    );
+    if (!job.payload.memoryOwnerUserId) {
+      await enqueueReviewPublication(
+        connection,
+        analysisId,
+        requiredPayload(job, 'pullRequestId'),
+        config.GITHUB_MODE === 'app',
+      );
+    }
     await connection.query('commit');
   } catch (error) {
     await connection.query('rollback');
@@ -759,7 +793,15 @@ async function updateAnalysisState(
     [analysisId, state, stage, progress, detail ? JSON.stringify(detail) : null],
   );
   const payload = { analysisId, revision: 1, state, stage, progress, progressDetail: detail };
-  await appendEvent(database, 'pull_request', job.payload.pullRequestId, 'analysis.state', payload);
+  if (!job.payload.memoryOwnerUserId) {
+    await appendEvent(
+      database,
+      'pull_request',
+      job.payload.pullRequestId,
+      'analysis.state',
+      payload,
+    );
+  }
   await appendEvent(database, 'analysis', analysisId, 'analysis.state', payload);
 }
 

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { AnalysisProgress, ReviewSeverityLevel } from '@gcr/contracts';
+import type { AnalysisProgress, ReviewMemoryProjection, ReviewSeverityLevel } from '@gcr/contracts';
 import { filterSeverityComments, severityInstructions } from './review-severity.js';
 import {
   gradeSchema,
@@ -39,6 +39,7 @@ export async function runSkillReview(input: {
   model?: ReviewModel;
   instructions?: string;
   severityLevel?: ReviewSeverityLevel;
+  memory?: ReviewMemoryProjection[];
   maxModelCalls: number;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 }): Promise<SkillReviewOutput> {
@@ -85,7 +86,11 @@ export async function runSkillReview(input: {
     }
     coverage.modelCalls += 1;
     try {
-      const result = await input.model.review(body, files, instructions, { stage, skills });
+      const result = await input.model.review(body, files, instructions, {
+        stage,
+        skills,
+        ...(stage === 'unit-comment-block' && input.memory ? { memory: input.memory } : {}),
+      });
       const parsed = legacyAnalysisReportSchema.parse(result.report);
       if (
         parsed.review.is_error ||

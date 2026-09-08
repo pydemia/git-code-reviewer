@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   analyzeSnapshot,
   composeReviewSystemPrompt,
+  composeReviewMemory,
   expandRelationships,
   OpenAICompatibleReviewModel,
   parseModelReviewJson,
@@ -174,6 +175,38 @@ describe('analysis engine', () => {
     expect(guard).toBeGreaterThanOrEqual(0);
     expect(custom).toBeGreaterThan(guard);
     expect(output).toBeGreaterThan(custom);
+  });
+
+  it('marks pinned memory as a lower-priority hypothesis than current source', () => {
+    const prompt = composeReviewMemory([
+      {
+        id: randomUUID(),
+        scope: 'collective',
+        kind: 'decision',
+        revision: 1,
+        summary: '재시도 키를 유지합니다.',
+        detail: '',
+        recommendation: '',
+        categories: ['correctness'],
+        filePaths: ['src/retry.ts'],
+        symbols: [],
+        confidence: 0.9,
+        importance: 5,
+        sourceKind: 'github-pr-message',
+        sourceAnalysisRunId: randomUUID(),
+        sourceBaseSha: 'a'.repeat(40),
+        sourceHeadSha: 'b'.repeat(40),
+        sourceAnchor: {},
+        contentHash: 'c'.repeat(64),
+        aggregationKey: 'd'.repeat(64),
+        contributorCount: 2,
+        conflictCount: 0,
+        score: 120,
+      },
+    ]);
+    expect(prompt).toContain('현재 코드 evidence, repository collective memory, personal memory');
+    expect(prompt.indexOf('현재 코드 evidence')).toBeLessThan(prompt.indexOf('<review_memory>'));
+    expect(prompt).toContain('재시도 키를 유지합니다.');
   });
 
   it('injects tenant instructions into the model system message without changing user diff data', async () => {

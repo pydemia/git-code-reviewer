@@ -11,6 +11,11 @@ import { resolveChatAccountSelection } from '../services/account-registry.js';
 import type { ChatModel } from '../services/chat-model.js';
 import { answerReviewQuestion } from '../services/chat-answer.js';
 import { readPersonalPrompt } from '../services/personal-prompt.js';
+import {
+  mergeChatReviewMemories,
+  recallReviewMemories,
+  type ReviewMemoryProjection,
+} from '../services/review-memory.js';
 import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from './worklist.js';
 
@@ -51,6 +56,7 @@ type ChatMessageRow = {
   status: 'pending' | 'completed' | 'failed';
   content: string;
   citations: ChatCitation[];
+  memory_hash: string | null;
   created_at: Date;
   completed_at: Date | null;
 };
@@ -169,7 +175,7 @@ export async function registerChatRoutes(
         return hiddenNotFound(request, reply);
       }
       const result = await database.query<ChatMessageRow>(
-        `select id, role, status, content, citations, created_at, completed_at
+        `select id, role, status, content, citations, memory_hash, created_at, completed_at
          from chat_messages where session_id = $1 order by created_at, id limit 200`,
         [sessionId],
       );
@@ -234,6 +240,13 @@ export async function registerChatRoutes(
           'select id, path from snapshot_files where snapshot_id = $1 order by path',
           [report.snapshotId],
         );
+        const pinnedMemory = await readChatMemoryContext(
+          database,
+          session.analysis_id,
+          request.user!.id,
+          files.rows.map(({ path: filePath }) => filePath),
+          body.content,
+        );
         const generated = await answerReviewQuestion({
           chatModel: effectiveModel,
           report,
@@ -242,15 +255,21 @@ export async function registerChatRoutes(
           scope: body.scope,
           history,
           personalPrompt,
+          memory: pinnedMemory,
           sessionId,
           ...(session.reasoning_effort ? { reasoningEffort: session.reasoning_effort } : {}),
         });
         const completed = await database.query<ChatMessageRow>(
           `update chat_messages set status = 'completed', content = $2,
-           citations = $3::jsonb, completed_at = clock_timestamp()
+           citations = $3::jsonb, memory_hash = $4, completed_at = clock_timestamp()
            where id = $1
-           returning id, role, status, content, citations, created_at, completed_at`,
-          [ids.assistant_id, generated.content, JSON.stringify(generated.citations)],
+           returning id, role, status, content, citations, memory_hash, created_at, completed_at`,
+          [
+            ids.assistant_id,
+            generated.content,
+            JSON.stringify(generated.citations),
+            pinnedMemory.hash,
+          ],
         );
         await appendEvent(database, 'chat_session', sessionId, 'chat.message.completed', {
           messageId: ids.assistant_id,
@@ -413,15 +432,62 @@ async function canReadAnalysis(
   request: FastifyRequest,
   analysisId: string,
 ) {
-  const result = await database.query<{ repository_id: string }>(
-    `select pr.repository_id from analysis_runs ar join snapshots s on s.id = ar.snapshot_id
+  const result = await database.query<{
+    repository_id: string;
+    memory_owner_user_id: string | null;
+  }>(
+    `select pr.repository_id, ar.memory_owner_user_id
+     from analysis_runs ar join snapshots s on s.id = ar.snapshot_id
      join snapshot_requests sr on sr.id = s.request_id
      join pull_requests pr on pr.id = sr.pull_request_id where ar.id = $1`,
     [analysisId],
   );
-  return result.rows[0]
-    ? canReadRepository(database, authorization, request, result.rows[0].repository_id, 'chat')
-    : false;
+  const row = result.rows[0];
+  if (
+    !row ||
+    (row.memory_owner_user_id &&
+      row.memory_owner_user_id !== request.user!.id &&
+      request.user!.role !== 'administrator')
+  ) {
+    return false;
+  }
+  return canReadRepository(database, authorization, request, row.repository_id, 'chat');
+}
+
+async function readChatMemoryContext(
+  database: Database,
+  analysisId: string,
+  userId: string,
+  filePaths: string[],
+  question: string,
+) {
+  const analysis = await database.query<{
+    tenantId: string;
+    repositoryId: string;
+    memoryHash: string;
+    memoryContext: ReviewMemoryProjection[];
+  }>(
+    `select repository.tenant_id as "tenantId", repository.id as "repositoryId",
+            analysis.memory_hash as "memoryHash", analysis.memory_context as "memoryContext"
+       from analysis_runs analysis
+       join snapshots snapshot on snapshot.id = analysis.snapshot_id
+       join snapshot_requests request on request.id = snapshot.request_id
+       join pull_requests pull_request on pull_request.id = request.pull_request_id
+       join repositories repository on repository.id = pull_request.repository_id
+      where analysis.id = $1`,
+    [analysisId],
+  );
+  const context = analysis.rows[0]!;
+  const current = await recallReviewMemories(database, {
+    tenantId: context.tenantId,
+    repositoryId: context.repositoryId,
+    ownerUserId: userId,
+    filePaths,
+    queryText: question,
+    approvedBefore: new Date(),
+  });
+  const merged = mergeChatReviewMemories(context.memoryContext, current);
+  return { hash: merged.hash, pinnedHash: context.memoryHash, items: merged.items };
 }
 
 async function readReport(
@@ -441,7 +507,7 @@ async function readReport(
 
 async function messageById(database: Database, id: string) {
   const result = await database.query<ChatMessageRow>(
-    `select id, role, status, content, citations, created_at, completed_at
+    `select id, role, status, content, citations, memory_hash, created_at, completed_at
      from chat_messages where id = $1`,
     [id],
   );
@@ -499,6 +565,7 @@ function messageView(row: ChatMessageRow) {
     status: row.status,
     content: row.content,
     citations: row.citations,
+    memoryHash: row.memory_hash,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };

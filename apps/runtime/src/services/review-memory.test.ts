@@ -4,6 +4,7 @@ import {
   aggregatePersonalReviewMemories,
   buildReviewMemorySearchText,
   emptyReviewMemoryHash,
+  mergeChatReviewMemories,
   rankReviewMemories,
   reviewMemoryAggregationKey,
   reviewMemoryContentHash,
@@ -37,6 +38,8 @@ function memory(overrides: Partial<ReviewMemoryRecord> = {}): ReviewMemoryRecord
     sourceAnalysisRunId: randomUUID(),
     sourceFindingId: randomUUID(),
     sourceChatMessageId: null,
+    sourceGithubPrMessageId: null,
+    sourceGithubPrMessageContentHash: null,
     sourceBaseSha: 'a'.repeat(40),
     sourceHeadSha: 'b'.repeat(40),
     sourceAnchor: { path: 'src/users.ts', startLine: 10 },
@@ -104,6 +107,17 @@ describe('review memory ranking', () => {
         ({ id }) => id,
       ),
     ).toEqual([collective.id]);
+  });
+
+  it('keeps pinned collective memory ahead of current personal chat memory', () => {
+    const collective = memory({ scope: 'collective', ownerUserId: null, contributorCount: 2 });
+    const sameTopicPersonal = memory({ id: randomUUID() });
+    const otherPersonal = memory({ id: randomUUID(), aggregationKey: '8'.repeat(64) });
+    const merged = mergeChatReviewMemories(
+      [firstProjection(collective)],
+      reviewMemorySnapshot([firstProjection(sameTopicPersonal), firstProjection(otherPersonal)]),
+    );
+    expect(merged.items.map(({ id }) => id)).toEqual([collective.id, otherPersonal.id]);
   });
 
   it('uses stable content and snapshot hashes independent of input ordering', () => {

@@ -126,6 +126,58 @@ describe('grounded multi-location review chat', () => {
       );
     },
   );
+
+  it('places pinned review memory before history and states collective priority', async () => {
+    const generate = vi.fn<ChatModel['generate']>(
+      async () => '{"content":"답변","citationIds":[]}',
+    );
+    await answerReviewQuestion({
+      chatModel: { name: 'synthetic', generate },
+      report: reportFixture(),
+      files,
+      question: '이 결정을 적용해야 하나요?',
+      scope: {},
+      history: [{ role: 'user', content: '이전 질문' }],
+      sessionId: 'memory-session',
+      memory: {
+        hash: '1'.repeat(64),
+        pinnedHash: '2'.repeat(64),
+        items: [
+          {
+            id: randomUUID(),
+            scope: 'collective',
+            kind: 'decision',
+            revision: 1,
+            summary: '재시도 키를 유지합니다.',
+            detail: '',
+            recommendation: '',
+            categories: ['correctness'],
+            filePaths: ['src/storage.ts'],
+            symbols: [],
+            confidence: 0.9,
+            importance: 5,
+            sourceKind: 'github-pr-message',
+            sourceAnalysisRunId: reportFixture().analysisRevisionId,
+            sourceBaseSha: 'a'.repeat(40),
+            sourceHeadSha: 'b'.repeat(40),
+            sourceAnchor: {},
+            contentHash: '3'.repeat(64),
+            aggregationKey: '4'.repeat(64),
+            contributorCount: 2,
+            conflictCount: 0,
+            score: 120,
+          },
+        ],
+      },
+    });
+    const messages = generate.mock.calls[0]![0].messages;
+    expect(messages[0]!.content).toContain('repository collective, personal 순서');
+    expect(JSON.parse(messages[2]!.content)).toMatchObject({
+      kind: 'review-memory',
+      hash: '1'.repeat(64),
+    });
+    expect(messages[3]).toEqual({ role: 'user', content: '이전 질문' });
+  });
   it('keeps other files in context even when one finding is selected and returns only cited locations', async () => {
     const report = reportFixture();
     const generate = vi.fn<ChatModel['generate']>(async () =>

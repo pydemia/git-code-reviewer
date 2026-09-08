@@ -72,11 +72,12 @@ export async function registerWorklistRoutes(
            join analysis_runs ar on ar.snapshot_id = snapshot.id
            left join reports report on report.analysis_run_id = ar.id
            where sr.pull_request_id = pr.id
-           order by ar.created_at desc limit 1
+             and (ar.memory_owner_user_id is null or ar.memory_owner_user_id = $2)
+           order by (ar.memory_owner_user_id = $2) desc, ar.created_at desc limit 1
          ) latest on true
          where pr.repository_id = $1 and pr.state = 'open'
          order by pr.github_updated_at desc limit 100`,
-        [repoId],
+        [repoId, request.user!.id],
       );
       return { schemaVersion, repositoryId: repoId, items: result.rows, nextCursor: null };
     },
