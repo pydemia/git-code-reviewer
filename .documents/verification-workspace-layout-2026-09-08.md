@@ -2,7 +2,9 @@
 
 ## 범위와 환경
 
-사용자가 요청한 8개 UI 항목을 기존 gray/teal workspace에 반영했다. 선행 구현 commit은 `6224ee6`이며 최종 보완·가이드·검증 기록은 후속 commit에 포함한다. Server/Worker 분석 contract, DB schema, 모델 설정, GHES credential과 PR 게시 설정은 변경하지 않았다. 이번 작업은 commit·push까지이며 PRISM-DEV는 기존 Helm revision 21, source `d9f9418` 상태다.
+사용자가 요청한 8개 UI 항목을 기존 gray/teal workspace에 반영했다. 선행 구현 commit은 `6224ee6`이며 최종 보완·가이드·검증 기록은 `74cdc05`에 포함한다. Server/Worker 분석 contract, DB schema, 모델 설정, GHES credential과 PR 게시 설정은 변경하지 않았다. UI 검증 시점에는 commit·push까지 수행했으며 PRISM-DEV는 Helm revision 21, source `d9f9418` 상태였다.
+
+후속 재배포 요청으로 2026-09-08 10:03 KST에 source `74cdc05`를 application `0.8.0-alpha.12`, Helm revision 22로 배포했다. 실제 HTTPRoute의 JS·CSS hash가 아래 검증에 사용한 production bundle과 일치한다. 배포·health·데이터 보존 검증은 [PRISM-DEV 배포 기록](../deploy/environments/prism-dev/README.md)에 별도로 정리했다.
 
 Web production build를 loopback HTTP server로 제공하고 동일 origin의 API 응답만 합성 fixture로 대체했다. 화면의 `org-name/repo-name`, PR #42, account·model·comment는 UI 검증용이다. 실제 GHES·모델 호출, Chat 전송, PR 댓글 게시는 수행하지 않았다. Integration test는 별도 PostgreSQL 16 container의 tmpfs DB에서 실행했다.
 

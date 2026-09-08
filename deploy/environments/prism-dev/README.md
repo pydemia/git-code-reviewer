@@ -29,7 +29,7 @@
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.11@sha256:7ea9ee6363a0ffd7e221908b17b874f01df55a5a8a0d3cff4c73d58f2f3faf85`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.12@sha256:9380c382eddf61f5871ba71042a8e8750a5ca0ad787ced77c87ea345f426d839`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -398,6 +398,37 @@ ChatGPT model catalog 조회, 분석 미수행 Report 정리, 분석 진행률/s
 | Log | 새 Server/Worker warning/error log 0건, Server의 scheduler leadership 재획득 확인 |
 
 Server startup probe와 Worker readiness probe가 listen 직전 각각 한 번 connection refused를 기록했지만 이후 정상화됐고 container restart는 없다. Health의 model 상태는 실제 ChatGPT inference 성공을 뜻하지 않는다. 운영 account로 모델 조회·분석·Chat을 실행하거나 PR 댓글을 새로 게시하는 검증은 하지 않았다. 새 UI는 실제 제공되는 bundle에 model catalog route·progressDetail·분석 단계 문구가 포함됐는지 확인했으며 이번 배포에서 별도 visual browser 검토는 수행하지 않았다.
+
+## 2026-09-08 Workspace 배치 재배포
+
+10:03 KST에 source `74cdc056833ae7b2866bc27a30a8635c9b94b5b2`를 Helm revision 22로 배포했다. 기존 release values를 재사용하고 PRISM-DEV values의 image tag·digest를 갱신했다.
+
+- Application: `0.8.0-alpha.12`, chart: `0.10.11`
+- Image index digest: `sha256:9380c382eddf61f5871ba71042a8e8750a5ca0ad787ced77c87ea345f426d839`
+- Linux/amd64 image manifest: `sha256:cd318955818ae28cca7124310080c705e91cb74bf955604a99314b9f30a6167d`
+- OCI chart digest: `sha256:4e12f934a4a56f7abd6b357cfb15296ddc66d1dfd4dd06c6e6958a390f4aef84`
+
+Files 기본 전체 펼침, LNB 숨김 toggle, Chat 기본 너비 569px, 하단 Comments와 기본 높이 280px를 반영했다. Summary는 PR 전체 요약 다음에 펼쳐진 파일별 검토를 보여준다. 현재 파일의 inline comment를 기본 표시하고 선택 시작 line만 강조하며 comment 너비는 최대 880px로 제한한다.
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| Source 검증 | 선행 UI 작업에서 PostgreSQL integration을 포함한 218 tests / 39 files, lint·typecheck·Web build·desktop/mobile browser 검증 통과 |
+| Container | 기본 `node:22-alpine`에서 전체 production build 통과. Linux/amd64, UID 1000, read-only/network-none smoke 통과. Built-in Skill 9개·migration 16개 확인 |
+| Supply chain | Registry의 SPDX SBOM·SLSA provenance predicate 확인. Build CA는 BuildKit secret으로 전달했으며 runtime image에 없음 |
+| Helm | Lint·server-side dry-run·upgrade 통과. 10:05 KST Helm connection test 성공 |
+| Workload | 신규 Server·Worker 각각 1/1 Ready, restart 0회. Retention CronJob image도 동일 digest로 갱신 |
+| Route/Health | 기존 HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200 |
+| Web/API | `/api/v1/system` version `0.8.0-alpha.12`, `/login`·`/guide` HTTP 200. 비로그인 repository API HTTP 401 |
+| 운영 데이터 | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, report 31건 유지. Migration 16개로 신규 migration 없음 |
+| Storage/Secret | 두 PVC의 PV ID, auth/registry/PostgreSQL Secret UID·resourceVersion, Corporate CA와 HTTPRoute 유지 |
+| Log | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 재획득 확인 |
+
+실제 HTTPRoute가 제공하는 JS·CSS의 SHA-256이 선행 browser 검증에 사용한 production bundle과 일치했다.
+
+- `/assets/index-DcBl5qze.js`: `925d20fce6d884fd0e16ea04647c48465e51a63ed037f2ef028aefd9c28152a0`
+- `/assets/index-DEzCKiYU.css`: `21fde48398cf0748b42431695c739d938a90d8fb0e68633b295da76216d11fd2`
+
+배포 전 실행 중인 analysis는 없었다. 기존 polling 설정은 유지했으며 확인 사이 analysis 수는 37건에서 38건으로 증가했다. 이번 검증에서 실제 모델 분석·Chat·PR 게시를 별도로 요청하지 않았다. 로그인 후 live UI 조작 검증은 재실행하지 않았으며 동일 bundle의 선행 합성 browser 검증과 live artifact 일치 검증을 구분한다. 기존 Worker는 설정된 900초 종료 유예에 따라 Terminating 상태였고 강제 삭제하지 않았다. 신규 Worker rollout은 정상 완료됐다.
 
 ## 실제 GHES 및 ChatGPT account 등록
 
