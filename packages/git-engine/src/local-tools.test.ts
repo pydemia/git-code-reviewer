@@ -38,6 +38,8 @@ describe('real local Git source tools', () => {
     sha = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
     await execute('git', ['checkout', '-qb', 'review', mergeBaseSha], { cwd: repo });
     await writeFile(path.join(repo, 'revision.ts'), 'head\n');
+    await writeFile(path.join(repo, 'head-only.ts'), 'new implementation\n');
+    await execute('git', ['add', '.'], { cwd: repo });
     await execute('git', ['commit', '-qam', 'head'], { cwd: repo });
     headSha = (await execute('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
     await execute('git', ['clone', '--bare', repo, path.join(root, 'repository.git')]);
@@ -107,6 +109,20 @@ describe('real local Git source tools', () => {
       expect(
         await runLocalSourceTool(root, { name: 'read_file', revision, path: 'revision.ts' }),
       ).toMatchObject({ sha: expectedSha, content });
+  });
+  it('reports an added file as absent in base rather than a source access failure', async () => {
+    expect(
+      await runLocalSourceTool(root, { name: 'read_file', revision: 'base', path: 'head-only.ts' }),
+    ).toEqual({
+      revision: 'base',
+      sha,
+      path: 'head-only.ts',
+      exists: false,
+      reason: 'path_not_present_in_revision',
+    });
+    expect(
+      await runLocalSourceTool(root, { name: 'read_file', revision: 'head', path: 'head-only.ts' }),
+    ).toMatchObject({ sha: headSha, content: 'new implementation\n' });
   });
   it('supports spaces without interpreting paths as options', async () => {
     expect(

@@ -133,8 +133,16 @@ export async function runLocalSourceTool(root: string, input: SourceToolInput): 
     return new TextDecoder('utf-8', { fatal: true }).decode(content).split('\n');
   };
   if (input.name === 'read_file') {
+    if (!filePath) throw Error('path_required');
     const entry = entries.find((item) => item.path === filePath);
-    if (!entry) throw Error('source_not_found');
+    if (!entry)
+      return {
+        revision,
+        sha,
+        path: filePath,
+        exists: false,
+        reason: 'path_not_present_in_revision',
+      };
     const lines = await load(entry);
     const startLine = input.startLine ?? 1;
     const endLine = Math.min(lines.length, input.endLine ?? startLine + 159, startLine + 199);
