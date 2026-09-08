@@ -4,6 +4,8 @@
 
 ## 2026-09-09 Interactive Review Chat 2차 배포
 
+후속 미완료 Summary 수정은 **07:44:01 KST application `0.8.0-alpha.24`, chart `0.10.23`, Helm revision 35**로 배포했다. 구현 `ca6d9c5`, release pin `90b10b4`이며 자세한 digest·검증과 승인된 PR #917 Revision 2 재분석은 [미완료 분석 조사 기록](../../../docs/operations/incomplete-review-2026-09-09.md)을 따른다. 기존 설정·데이터와 128회 모델 예산을 유지했다. 아래 alpha.23은 선행 배포 기록이다.
+
 07:12:40 KST에 application `0.8.0-alpha.23`, chart `0.10.22`를 Helm revision **34**로 배포했다. Source `143ba2ff09abc5fc6247233d742d8b1aae924540`와 image pin `1aeae2d`를 push한 뒤 적용했다.
 
 - Image index: `sha256:52d8344b8255d591c9f5853843bc81bf620120a4ee4e5707bd205c1424637641`

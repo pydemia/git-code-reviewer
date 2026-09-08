@@ -5,15 +5,15 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.23`, chart `0.10.22`, Helm revision 34 배포 완료. 07:12:40 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
-- 배포 source: `143ba2ff09abc5fc6247233d742d8b1aae924540` (push 후 git archive build). Release 설정 commit `1aeae2d`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.24`, chart `0.10.23`, Helm revision 35 배포 완료. 07:44:01 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
+- 배포 source: `ca6d9c5742c5cd87115db21cd7cd808e0b142241` (push 후 git archive build). Release 설정 commit `90b10b4`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
 ### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
 
-2026-09-09 후속 작업: PR #917의 미완료 Summary를 조사했다. 최근 두 분석은 alpha.23 checkpoint 도입 전 Worker 교체를 네 번 거치며 누적 모델 호출 128회를 소진했다. 영구 실패의 불필요한 재시도와 원인 없는 파일 요약을 수정하고 새 revision의 입력 pin·게시 억제·실제 revision event를 추가했다. 413개 테스트를 통과했다. 사용자는 `c3dfc29c-b34e-4214-b3a1-e8375179d30f`를 기존 report 보존·GitHub 댓글 미게시 조건으로 새 revision 재분석하도록 승인했다. 배포 및 실제 재분석은 진행 중이며 [조사 기록](../docs/operations/incomplete-review-2026-09-09.md)에 결과를 이어서 기록한다. 기존 ledger를 삭제하거나 예산을 늘리지 않는다.
+2026-09-09 후속 작업: PR #917의 미완료 Summary를 조사했다. 최근 두 분석은 alpha.23 checkpoint 도입 전 네 attempt에서 누적 모델 호출 128회를 소진했다. 영구 실패의 불필요한 재시도와 원인 없는 파일 요약을 수정하고 새 revision의 입력 pin·게시 억제·실제 revision event를 추가했다. 413개 테스트·typecheck·lint·build, 배포 health·Helm test·migration checksum 검증을 통과했다. 사용자는 `c3dfc29c-b34e-4214-b3a1-e8375179d30f`를 기존 report 보존·GitHub 댓글 미게시 조건으로 새 revision 재분석하도록 승인했다. 새 `3a0a9c85-63df-4afa-8f69-45d2f5168136` Revision 2는 07:45:34 KST에 시작했으며 [조사 기록](../docs/operations/incomplete-review-2026-09-09.md)에 결과를 이어서 기록한다. 기존 ledger를 삭제하거나 예산을 늘리지 않는다. 실행 중 추가 배포를 하지 않는다.
 
 2차 P6–P10 코드를 alpha.23에 배포했다. Batch model checkpoint, 최대 3회 만료 lease 회수, stale attempt 차단·drain, 90초 DB workspace lease와 사용자/origin/credential/SHA별 캐시, 원문 ID를 보존하는 대화 발췌·원문/이전 source 도구, JS/TS 구문 AST·Python lexical 관계 후보, history pagination과 과거 질문·근거 복원을 포함한다. 전체 semantic call graph·공용 mirror·모델 기반 의미 요약·코드/테스트 실행은 제공하지 않는다. 상세 [2차 구현](interactive-review-chat-phase2.md), [검증](verification-interactive-chat-phase2-2026-09-09.md)을 따른다.
 

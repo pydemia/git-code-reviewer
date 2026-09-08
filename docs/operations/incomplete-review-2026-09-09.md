@@ -28,3 +28,17 @@ PR #917의 최근 미완료 두 분석은 checkpoint 도입 전 실행됐다. �
 UTF-8 로컬 PostgreSQL에서 전체 66개 파일·413개 테스트를 통과했다. 25개 파일·64개 window를 가진 합성 분석을 30회와 60회 시점에 drain하고 새 Worker로 두 번 재개했다. 최종 25/25 파일, 64/64 window, 파일/전체 요약을 포함한 실제 mock 요청 90회로 완료했다. Ledger와 checkpoint를 재사용했으며 128회 한도를 늘리거나 초기화하지 않았다.
 
 통합 테스트에서 새 revision 생성의 동시·반복 호출 중복 방지, 입력 pin 보존, 기존 report 불변, revision event와 자동 GitHub 게시 0건을 확인했다. 합성 테스트는 실제 모델의 PR 전체 검토와 구분한다. 사용자 승인에 따른 PR #917 실제 재분석 결과는 배포 후 이 문서에 기록한다.
+
+## PRISM-DEV 적용
+
+2026-09-09 07:44:01 KST, application `0.8.0-alpha.24`, chart `0.10.23`, Helm revision 35로 배포했다. 구현 commit `ca6d9c5`, release 설정 commit `90b10b4`를 push 후 적용했다. Typecheck·lint·production build·413 tests와 read-only/non-root image smoke, Helm dry-run·test가 통과했다.
+
+- Image index: `sha256:f0082579a2a64eebfdaea05108d1ccc6caafc7f7071cc56127b993bba0c010cf`
+- Linux/amd64: `sha256:fe10b65d42b09b87789fe79495cf635801a15869b79ae376b29d96123b23b8ed`
+- OCI chart: `sha256:862cb98fce34e197732390a838a05af87be36d145875eb58e88689cfcc2259bd`
+
+새 Server `git-code-reviewer-server-bdf89d46f-gqs9q` 1/1, Worker `git-code-reviewer-worker-65db587cd7-h27zs` 2/2 Ready·restart 0회다. 실제 HTTPRoute의 health 4종과 `/api/v1/system` alpha.24를 확인했다. Migration 28개 checksum이 source와 일치한다. Image 외 Helm values SHA-256은 전후 `5f3eb1ed55f94d7ce9048eb9ef17e4b92400f3533ed9c8a5da1823ef66bb05c9`로 동일하다.
+
+기존 두 PVC의 UID·PV·access mode, auth·credential registry·PostgreSQL Secret의 UID/resourceVersion, corporate CA와 HTTPRoute를 보존했다. Artifact PVC의 resourceVersion만 Helm 갱신으로 바뀌었고 PVC/PV는 재생성하지 않았다. 배포 직전 사용자 7명·Chat account 4개·GHES credential 1개·활성 repository 2개, analysis 64건·report 56건이었다. 구버전 Worker Pod는 종료 유예에 맡겼으며 강제 삭제하지 않았다.
+
+07:45:34 KST에 승인된 재분석 `3a0a9c85-63df-4afa-8f69-45d2f5168136` (Revision 2)을 시작했다. Source는 기존 최신 partial `c3dfc29c-b34e-4214-b3a1-e8375179d30f`, 고정 head는 `d55d9c434899d6b770a7cef6257907f9b432c3fc`다. Request UUID `e2017a1d-5330-4f4b-8f73-ea28d2648917`는 중복 enqueue 방지용이다. `gpt-5.6-sol:medium`, 25개 파일 전체 검토, 누적 128회 제한과 `skipPublication=true`를 유지한다. 실행 중에는 추가 Worker 배포를 하지 않는다.
