@@ -2,6 +2,38 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-08 Memory·제품 문서 배포
+
+19:18 KST에 upgrade를 시작해 Helm revision 26으로 배포했다. Application은 `0.8.0-alpha.16`, chart는 `0.10.15`다. Source `796793e6c5f533ffbee60c89d9d73921c58f219c`를 push한 뒤 clean source로 빌드했으며 image digest를 고정한 release 설정 `5b8eb7e`도 push 후 적용했다.
+
+개인·집단 Review Memory, GitHub PR 대화 원문·버전 수집과 관리, 분석·Chat 메모리 적용을 포함한다. 앱 상단의 `문서`에서 `Introduction`, `기능 목록`, `사용 가이드`를 전환하며 `/introduction`, `/features`, `/guide`로 직접 접근할 수 있다. 제품 Markdown 원문은 웹 빌드에 포함된다.
+
+- Image index: `sha256:8739f1ac2e56d8f6347cb62132f0aee0d7681fa31c40a13205caac93b4e1c61f`
+- Linux/amd64 manifest: `sha256:b2f3215c1a1cd17aae8dbd157b945b4c32d0bdb21c7b769bc615aec6145da914`
+- OCI chart: `sha256:562dac5fde65bbd36ff02f3c7e81a9d286069d21b79163d76ef95986821f5c62`
+- Registry에서 SPDX SBOM과 SLSA provenance v1 predicate를 확인했다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 선행 기능 검증 | Memory 개발 시 단위 테스트 295건과 DB integration 4건 통과. 문서 변경 후 웹 테스트 65건, lint·웹 빌드와 문서 메뉴·목차·링크 렌더링 검증 통과 |
+| Container | 전체 production build 성공. Network-none·read-only 실행에서 UID 1000, migration 23개, Memory module과 제품 문서의 JS 포함 확인. Build CA secret은 실행 image에 없음 |
+| Helm | Lint·server-side dry-run·upgrade 성공. 19:19:50 KST connection test Succeeded |
+| Migration | 0020–0023 추가 적용. DB의 전체 migration 23개 checksum이 source와 일치 |
+| Workload | Server·Worker 각 1/1 Ready, restart 0회. 이전 Pod 종료. Retention CronJob도 같은 image digest 사용 |
+| HTTP | 실제 `pr-review.prism.ai` Host에서 live·ready·startup·dependencies가 HTTP 200·ok, system version은 `0.8.0-alpha.16` |
+| 문서·인증 | `/login`, `/introduction`, `/features`, `/guide` HTTP 200. Profile·repository·Memory·PR 대화 API의 비로그인 요청은 401 |
+| 데이터·설정 | Users 7명, Chat accounts 4개, GHES credential 1개, 활성 repository 2개, analyses 55건, reports 47건 유지. Image 외 Helm values와 기존 Secret·CA·HTTPRoute·PVC/PV 유지 |
+| Log | 확인한 새 Server·Worker log의 warning/error 0건. Poll scheduler leadership 획득 확인 |
+
+Image 외 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. 두 PVC의 UID·PV·용량·access mode를 보존했다. 기존 auth·credential registry·PostgreSQL Secret과 corporate CA·HTTPRoute의 UID 및 resourceVersion도 유지했다.
+
+실제 HTTPRoute가 제공하는 asset과 게시 image의 SHA-256이 일치한다.
+
+- `/assets/index-_dhcp0bt.css`: `40d8d426c44f0588c09c3411a35d9614e34e77401400e0d745dcda7969326399`
+- `/assets/index-oa7nQ6Be.js`: `1b4a30d082c5649ff81b2bdf628670129e7d808923946b1f774a108c6b01760d`
+
+배포 전 실행 중 job은 0건이었다. 기존 두 repository의 polling 설정은 유지됐으며 배포 후 조회 결과는 `not-modified`, 오류 코드는 null이었다. 최초 DB 확인 시 Memory와 PR 원천 메시지는 0건이었다. 실제 AI·Chat·PR 게시를 검증용으로 요청하거나 공용 메모리를 활성화하지 않았다. 문서 검증은 선행 React 렌더링과 배포된 HTTP·asset 비교이며 로그인 후 live Browser E2E는 수행하지 않았다.
+
 ## 확인된 cluster policy
 
 | 항목                  | PRISM-DEV 값                     |
@@ -29,7 +61,7 @@
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.15@sha256:9b966f7404d531cb4a32d6d83d393e34a9a3af1b6b4f4a6e61346e8dd67a7557`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.16@sha256:8739f1ac2e56d8f6347cb62132f0aee0d7681fa31c40a13205caac93b4e1c61f`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.

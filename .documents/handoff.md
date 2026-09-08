@@ -5,13 +5,23 @@
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.15`, Helm revision 25 배포 완료. 사용자 삭제·로그인/개별 권한 회수와 기존 개인 Prompt·Chat·PR UI 개선 포함
-- 배포 source: `47770d4d946aa3a3d7c18dd1d5481e2487079938` (push 후 clean source build). Release 설정 commit `1704d23`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.16`, Helm revision 26 배포 완료. 개인·집단 Memory, GitHub PR 대화 수집·관리와 제품 문서 메뉴 포함
+- 배포 source: `796793e6c5f533ffbee60c89d9d73921c58f219c` (push 후 clean source build). Release 설정 commit `5b8eb7e`, 배포 기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 2026-09-08 16:01 배포 (revision 25, 현재)
+### 2026-09-08 19:19 배포 (revision 26, 현재)
+
+Memory 설계·모델·후보 workflow·analysis/Chat 적용·관리 UI의 phase commit `0caa1c0`–`b53e311`과 제품 문서 메뉴 `796793e`를 배포했다. Application `0.8.0-alpha.16`, chart `0.10.15`, image digest `sha256:8739f1ac2e56d8f6347cb62132f0aee0d7681fa31c40a13205caac93b4e1c61f`다. Linux/amd64 image에 SPDX SBOM과 SLSA provenance v1을 포함한다. `--reuse-values`와 image tag/digest override로 기존 운영 설정을 보존했다.
+
+Migration 0020–0023을 적용했고 전체 23개 checksum이 source와 일치한다. Server·Worker 각 1/1 Ready·restart 0회, 이전 Pod 종료, Retention image 갱신, Helm test·health 4종·system version과 문서 경로를 검증했다. 실제 HTTPRoute의 JS·CSS hash가 image와 일치하며 비로그인 Memory·PR 대화 API는 401이다. Users 7명, Chat accounts 4개, GHES credential 1개, 활성 repository 2개, analyses 55건, reports 47건을 유지했다.
+
+상단 `문서`는 `/introduction`, `/features`, `/guide`를 연결한다. `docs/product/introduction.md`와 `docs/product/features.md`가 앱의 Markdown 원문이며 Docker build에 포함된다. 사용 가이드의 `#review-memory`에는 후보 저장·활성화와 집단 승인 절차가 있다. 고급 Chat의 질문별 base/head 원본·관계·테스트 추가 조회는 여전히 `.documents/advanced-review-chat-backlog.md`의 구현 계획이다.
+
+실제 모델·Chat·PR 게시와 메모리 활성화는 배포 점검을 위해 실행하지 않았다. 배포 후 기존 repository polling은 `not-modified`이며 오류는 없었고 최초 확인 시 Memory·PR 원천은 0건이었다. 선행 local/fixture 기능 검증과 live HTTP·DB 검증을 구분한다. 자세한 결과는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)를 참고한다.
+
+### 2026-09-08 16:01 배포 (revision 25)
 
 사용자 삭제 Backend `7a38da4`, UI·문서 `47770d4`를 push 후 application `0.8.0-alpha.15` / chart `0.10.14`로 build·게시했다. Release 설정 `1704d23` push 후 `--reuse-values`와 image tag/digest만 override했다. Image digest는 `sha256:9b966f7404d531cb4a32d6d83d393e34a9a3af1b6b4f4a6e61346e8dd67a7557`이며 SPDX SBOM·SLSA provenance를 포함한다.
 
