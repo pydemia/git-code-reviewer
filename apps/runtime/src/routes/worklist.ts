@@ -227,7 +227,8 @@ export async function registerWorklistRoutes(
          from users app_user join tenant_memberships membership on membership.user_id = app_user.id
          join repositories repository on repository.tenant_id = membership.tenant_id
          where app_user.id = $1 and app_user.enabled and membership.enabled
-           and repository.id = $2 and repository.enabled`,
+           and repository.id = $2 and repository.enabled and app_user.deleted_at is null
+         for share of app_user`,
           [userId, repoId],
         );
         if (!target.rows[0]) {
