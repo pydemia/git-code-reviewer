@@ -3,6 +3,9 @@ import {
   localPasswordMaximumLength,
   localPasswordMinimumLength,
   schemaVersion,
+  defaultReviewSeverityLevel,
+  reviewSeverityLevelSchema,
+  type ReviewSeverityLevel,
 } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -66,7 +69,10 @@ const userPasswordBody = z.object({
   password: z.string().min(localPasswordMinimumLength).max(localPasswordMaximumLength),
 });
 const membershipBody = z.object({ enabled: z.boolean().default(true) });
-const promptBody = z.object({ instructions: z.string().trim().min(1).max(12_000) });
+const promptBody = z.object({
+  instructions: z.string().trim().max(12_000),
+  severityLevel: reviewSeverityLevelSchema.default(defaultReviewSeverityLevel),
+});
 const providerVersionBody = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('disabled'),
@@ -94,6 +100,7 @@ type PromptRow = {
   tenantId: string;
   version: number;
   instructions: string;
+  severityLevel: ReviewSeverityLevel;
   contentHash: string;
   active: boolean;
   createdBySubject: string;
@@ -724,8 +731,9 @@ export async function registerAdminRoutes(
       if (!(await canManagePrompt(database, authorization, request, reply, tenantId, 'manage'))) {
         return;
       }
-      const instructions = normalizeInstructions(promptBody.parse(request.body).instructions);
-      const hash = promptHash(instructions);
+      const body = promptBody.parse(request.body);
+      const instructions = normalizeInstructions(body.instructions);
+      const hash = promptHash(instructions, body.severityLevel);
       const connection = await database.connect();
       let promptId: string;
       try {
@@ -745,19 +753,20 @@ export async function registerAdminRoutes(
         } else {
           const created = await connection.query<{ id: string }>(
             `insert into analysis_prompt_versions(
-               tenant_id, version, instructions, content_hash, active,
+               tenant_id, version, instructions, content_hash, severity_level, active,
                created_by, activated_by, activated_at
              ) values (
                $1, (select coalesce(max(version), 0) + 1 from analysis_prompt_versions where tenant_id = $1),
-               $2, $3, true, $4, $4, clock_timestamp()
+               $2, $3, $5, true, $4, $4, clock_timestamp()
              ) returning id`,
-            [tenantId, instructions, hash, request.user!.id],
+            [tenantId, instructions, hash, request.user!.id, body.severityLevel],
           );
           promptId = created.rows[0]!.id;
         }
         await writeAudit(connection, request, 'analysis_prompt.activate', 'tenant', tenantId, {
           promptId,
           hash,
+          severityLevel: body.severityLevel,
         });
         await connection.query('commit');
       } catch (error) {
@@ -864,7 +873,7 @@ async function listPrompts(database: Database, config: AppConfig, tenantId: stri
   );
   const result = await database.query<PromptRow>(
     `select prompt.id, prompt.tenant_id as "tenantId", prompt.version, prompt.instructions,
-            prompt.content_hash as "contentHash", prompt.active,
+            prompt.content_hash as "contentHash", prompt.severity_level as "severityLevel", prompt.active,
             creator.oidc_subject as "createdBySubject", creator.display_name as "createdByName",
             activator.oidc_subject as "activatedBySubject", activator.display_name as "activatedByName",
             prompt.activated_at as "activatedAt", prompt.created_at as "createdAt"
@@ -895,6 +904,7 @@ function promptView(row: PromptRow) {
     tenantId: row.tenantId,
     version: row.version,
     instructions: row.instructions,
+    severityLevel: row.severityLevel,
     contentHash: row.contentHash,
     active: row.active,
     createdBy: { subject: row.createdBySubject, displayName: row.createdByName },
@@ -1011,8 +1021,10 @@ function normalizeInstructions(value: string): string {
   return value.replace(/\r\n?/g, '\n').trim();
 }
 
-function promptHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
+function promptHash(instructions: string, severityLevel: ReviewSeverityLevel): string {
+  return createHash('sha256')
+    .update(JSON.stringify({ format: 'analysis-prompt-v2', instructions, severityLevel }))
+    .digest('hex');
 }
 
 async function writeAudit(

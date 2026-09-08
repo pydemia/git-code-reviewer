@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
+import { defaultReviewSeverityLevel, type ReviewSeverityLevel } from '@gcr/contracts';
 import { FilesystemArtifactStore, type ArtifactCommit } from '@gcr/artifact-store';
 import { createDatabase, type Database, type DatabaseClient } from '@gcr/db';
 import {
@@ -358,13 +359,14 @@ async function persistMaterialization(
       const prompt = await connection.query<{
         id: string | null;
         content_hash: string | null;
+        severity_level: ReviewSeverityLevel | null;
       }>(
-        `select active_prompt.id, active_prompt.content_hash
+        `select active_prompt.id, active_prompt.content_hash, active_prompt.severity_level
          from snapshot_requests request
          join pull_requests pull_request on pull_request.id = request.pull_request_id
          join repositories repository on repository.id = pull_request.repository_id
          left join lateral (
-           select id, content_hash from analysis_prompt_versions
+           select id, content_hash, severity_level from analysis_prompt_versions
            where tenant_id = repository.tenant_id and active order by version desc limit 1
          ) active_prompt on true
          where request.id = $1`,
@@ -372,6 +374,7 @@ async function persistMaterialization(
       );
       const promptVersionId = prompt.rows[0]?.id ?? null;
       const promptHash = prompt.rows[0]?.content_hash ?? 'builtin-v1';
+      const severityLevel = prompt.rows[0]?.severity_level ?? defaultReviewSeverityLevel;
       const activeProvider = await getActiveAnalysisProviderRow(connection);
       const deploymentProvider = deploymentAnalysisProvider(config);
       const providerVersionId = activeProvider?.id ?? null;
@@ -389,21 +392,22 @@ async function persistMaterialization(
         `insert into analysis_runs(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
            prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
-           skill_version_id, skill_bundle, skill_hash
-         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
+           skill_version_id, skill_bundle, skill_hash, severity_level
+         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v5:${promptHash}:${providerHash}:${skills.bundle.hash}`,
+          `analysis:${snapshotId}:default:v6:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v2:${promptHash}:${providerHash}:${skills.bundle.hash}`,
+          `default-v3:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
+          severityLevel,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -480,6 +484,7 @@ export async function executeAnalysisJob(
     prompt_instructions: string | null;
     prompt_version: number | null;
     prompt_hash: string;
+    severity_level: ReviewSeverityLevel | null;
     provider_version_id: string | null;
     skill_version_id: string | null;
     skill_version: number | null;
@@ -490,7 +495,7 @@ export async function executeAnalysisJob(
     installationId: string;
   }>(
     `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
-            prompt.version as prompt_version, analysis.prompt_hash,
+            prompt.version as prompt_version, analysis.prompt_hash, analysis.severity_level,
             analysis.provider_version_id, repository.tenant_id as "tenantId",
             analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
             skills.version as skill_version,
@@ -546,6 +551,7 @@ export async function executeAnalysisJob(
     patch: diff.patch,
     files,
     fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
+    ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
     ...(model ? { model } : {}),
     ...(skillBundle
       ? {
@@ -556,7 +562,7 @@ export async function executeAnalysisJob(
           },
         }
       : {}),
-    ...(row.prompt_instructions && row.prompt_version
+    ...(row.prompt_instructions !== null && row.prompt_version
       ? {
           prompt: {
             instructions: row.prompt_instructions,

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { AnalysisProgress } from '@gcr/contracts';
+import type { AnalysisProgress, ReviewSeverityLevel } from '@gcr/contracts';
+import { filterSeverityComments, severityInstructions } from './review-severity.js';
 export * from './skills.js';
 export * from './review-windows.js';
 export * from './report-forms.js';
@@ -42,6 +43,7 @@ export type AnalysisInput = {
   fixtureMode: boolean;
   model?: ReviewModel;
   prompt?: { instructions: string; version: number; hash: string };
+  severityLevel?: ReviewSeverityLevel;
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
   budgets?: Partial<AnalysisBudgets>;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
@@ -119,6 +121,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       skills: input.skills.bundle,
       ...(input.model ? { model: input.model } : {}),
       ...(input.prompt ? { instructions: input.prompt.instructions } : {}),
+      ...(input.severityLevel ? { severityLevel: input.severityLevel } : {}),
       maxModelCalls: budgets.maxModelCalls,
       ...(input.onProgress ? { onProgress: input.onProgress } : {}),
     });
@@ -130,7 +133,9 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       const modelResult = await input.model.review(
         boundedFiles.map((file) => `File: ${file.path}\n${file.patch}`).join('\n'),
         boundedFiles.map((file) => file.path),
-        input.prompt?.instructions,
+        input.severityLevel
+          ? severityInstructions(input.severityLevel, input.prompt?.instructions)
+          : input.prompt?.instructions,
       );
       legacy = modelResult.report;
       reviewStatus = 'model';
@@ -145,6 +150,19 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     legacy = emptyReview(parsedFiles.map((file) => file.path));
   }
 
+  if (input.severityLevel && !skillResult) {
+    const retained = filterSeverityComments(legacy.review.file_comments, input.severityLevel);
+    if (retained.length !== legacy.review.file_comments.length) {
+      // 구형 single-call/fixture 경로에서도 필터 밖의 comment를 요약에 남기지 않는다.
+      legacy = structuredClone(legacy);
+      legacy.review.file_comments = retained;
+      legacy.review.summary = `${input.severityLevel} 분석 수준에서 ${retained.length}개 comment를 보고합니다.`;
+      legacy.review.grade = retained.some((comment) => comment.priority === 'P3')
+        ? 'critical'
+        : 'adequate';
+      legacy.review.per_file_summaries = [];
+    }
+  }
   const impact = buildImpact(graph, coverage);
   const report = normalizeLegacyReport(legacy, {
     analysisRevisionId: input.analysisId,
@@ -225,6 +243,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     verifier: 'evidence-v1',
     model: input.fixtureMode ? 'fixture-v1' : (input.model?.profile ?? 'disabled'),
     review: reviewStatus,
+    ...(input.severityLevel ? { severity: input.severityLevel } : {}),
     policy: input.skills ? 'skill-review-v1' : 'default-v1',
     prompt: input.prompt
       ? `tenant-v${input.prompt.version}:${input.prompt.hash.slice(0, 12)}`

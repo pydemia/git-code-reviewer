@@ -25,6 +25,7 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
   const schema = `gcr_worker_skills_${randomUUID().replaceAll('-', '')}`;
   let root: Database, database: Database, artifacts: FilesystemArtifactStore, config: AppConfig;
   let directory: string, analysisId: string, snapshotId: string, versionId: string, userId: string;
+  let promptId: string, tenantId: string;
   const builtin = loadBuiltInReviewSkills();
   const original = createReviewSkillBundle([
     ...builtin.skills.map((skill) => skill.markdown),
@@ -73,6 +74,15 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       )
     ).rows[0].id;
     await ensureFixtureRepository(database);
+    tenantId = (await database.query('select tenant_id from repositories limit 1')).rows[0]
+      .tenant_id;
+    promptId = (
+      await database.query(
+        `insert into analysis_prompt_versions(tenant_id,version,instructions,severity_level,content_hash,active,created_by,activated_by,activated_at)
+       values ($1,1,'','rigorous',$2,true,$3,$3,clock_timestamp()) returning id`,
+        [tenantId, 'a'.repeat(64), userId],
+      )
+    ).rows[0].id;
     const repositoryId = (await database.query('select id from repositories limit 1')).rows[0].id;
     await pollRepository(database, new FixtureGitHubClient(), repositoryId);
     const job = (
@@ -162,8 +172,14 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       skill_version_id: versionId,
       skill_hash: original.hash,
       skill_bundle: { hash: original.hash },
+      prompt_version_id: promptId,
+      severity_level: 'rigorous',
     });
     expect(run.analysis_key).toContain(original.hash);
+    expect(run.analysis_key).toContain(':rigorous:');
+    await expect(
+      database.query("update analysis_runs set severity_level='lean' where id=$1", [analysisId]),
+    ).rejects.toThrow('immutable');
     await expect(
       database.query('update analysis_runs set skill_bundle=$2::jsonb, skill_hash=$3 where id=$1', [
         analysisId,
@@ -210,6 +226,12 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
   });
 
   it('uses the queued version after administrators activate another version, and persists custom categories', async () => {
+    await database.query('update analysis_prompt_versions set active=false where active');
+    await database.query(
+      `insert into analysis_prompt_versions(tenant_id,version,instructions,severity_level,content_hash,active,created_by,activated_by,activated_at)
+       values ($1,2,'New tenant guidance','lean',$2,true,$3,$3,clock_timestamp())`,
+      [tenantId, 'b'.repeat(64), userId],
+    );
     await database.query('update analysis_skill_versions set active=false where active');
     await database.query(
       'insert into analysis_skill_versions(version,bundle,content_hash,active,created_by,activated_by,activated_at) values (2,$1::jsonb,$2,true,$3,$3,clock_timestamp())',
@@ -222,6 +244,8 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       analysisJob,
     );
     const instructions = calls.map((call) => call.messages[0]!.content);
+    expect(instructions.every((value) => value.includes('Severity Level): rigorous'))).toBe(true);
+    expect(instructions.some((value) => value.includes('New tenant guidance'))).toBe(false);
     expect(instructions.some((value) => value.includes('Original Skill marker'))).toBe(true);
     expect(instructions.some((value) => value.includes('Updated Skill marker'))).toBe(false);
     for (const stage of ['unit-comment-block', 'overall-summary', 'total-summary'])
@@ -235,6 +259,8 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       )
     ).rows[0];
     const report = await artifacts.readJson<ReviewReport>(stored.locator);
+    expect(report.versions.severity).toBe('rigorous');
+    expect(report.versions.prompt).toBe(`tenant-v1:${'a'.repeat(12)}`); // 빈 지침도 version 고정
     expect(report.analysis?.skills).toMatchObject({
       bundleHash: original.hash,
       versionId,
@@ -358,6 +384,7 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     );
     expect(calls.length).toBe(before + 1);
     expect(calls.at(-1)!.messages[0]!.content).not.toContain('Active Review Skills');
+    expect(calls.at(-1)!.messages[0]!.content).not.toContain('Severity Level');
     const stored = (
       await database.query(
         'select artifact.locator from reports report join artifacts artifact on artifact.id=report.artifact_id where report.analysis_run_id=$1',
@@ -365,5 +392,8 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       )
     ).rows[0];
     expect((await artifacts.readJson<ReviewReport>(stored.locator)).analysis).toBeUndefined();
+    expect(
+      (await artifacts.readJson<ReviewReport>(stored.locator)).versions.severity,
+    ).toBeUndefined();
   });
 });

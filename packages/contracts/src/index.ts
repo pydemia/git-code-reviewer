@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { reviewAnalysisSchema } from './review-analysis.js';
+import { defaultReviewSeverityLevel, reviewSeverityLevelSchema } from './review-severity.js';
+export * from './review-severity.js';
 export * from './review-analysis.js';
 export * from './report-presentation.js';
 
@@ -102,6 +104,7 @@ export const analysisPromptVersionSchema = z.object({
   tenantId: z.string().uuid(),
   version: z.number().int().positive(),
   instructions: z.string(),
+  severityLevel: reviewSeverityLevelSchema.default(defaultReviewSeverityLevel),
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
   active: z.boolean(),
   createdBy: z.object({

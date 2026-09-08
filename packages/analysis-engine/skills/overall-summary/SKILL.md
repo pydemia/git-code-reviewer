@@ -6,7 +6,6 @@ unit: file
 version: 1
 enabled: true
 ---
-
 # 파일별 종합
 
 파일당 하나의 Overall Summary를 작성한다. 해당 파일의 확정된 unit-comment-block만 종합하고 다른 파일의 문제를 섞지 않는다. 변경 목적·실제 동작 변화와 검토 의견의 관계를 한국어로 설명한다.

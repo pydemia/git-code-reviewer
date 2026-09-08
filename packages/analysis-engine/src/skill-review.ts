@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { AnalysisProgress } from '@gcr/contracts';
+import type { AnalysisProgress, ReviewSeverityLevel } from '@gcr/contracts';
+import { filterSeverityComments, severityInstructions } from './review-severity.js';
 import {
   gradeSchema,
   legacyAnalysisReportSchema,
@@ -37,6 +38,7 @@ export async function runSkillReview(input: {
   skills: ReviewSkillBundle;
   model?: ReviewModel;
   instructions?: string;
+  severityLevel?: ReviewSeverityLevel;
   maxModelCalls: number;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 }): Promise<SkillReviewOutput> {
@@ -48,12 +50,15 @@ export async function runSkillReview(input: {
   );
   const windows = input.files.flatMap((file) => buildReviewWindows(file));
   const comments: Comment[] = [];
-  const fingerprints = new Set<string>();
+  const fingerprints = new Map<string, Comment>();
   const limitations: string[] = [];
   const fileResults: SkillReviewOutput['files'] = [];
   const fileGrades = new Map<string, string>();
   const coverage = { windowsPlanned: windows.length, windowsReviewed: 0, modelCalls: 0 };
   let successfulCalls = 0;
+  const instructions = input.severityLevel
+    ? severityInstructions(input.severityLevel, input.instructions)
+    : input.instructions;
   const publishProgress = async (stage: string, currentFile: string | null) => {
     await input.onProgress?.(stage, {
       filesProcessed: fileResults.length,
@@ -80,7 +85,7 @@ export async function runSkillReview(input: {
     }
     coverage.modelCalls += 1;
     try {
-      const result = await input.model.review(body, files, input.instructions, { stage, skills });
+      const result = await input.model.review(body, files, instructions, { stage, skills });
       const parsed = legacyAnalysisReportSchema.parse(result.report);
       if (
         parsed.review.is_error ||
@@ -150,15 +155,30 @@ export async function runSkillReview(input: {
             ]),
           )
           .digest('hex');
-        if (!fingerprints.has(fingerprint)) {
-          fingerprints.add(fingerprint);
+        const previous = fingerprints.get(fingerprint);
+        if (!previous) {
+          fingerprints.set(fingerprint, comment);
           comments.push(comment);
+        } else if (input.severityLevel && ranks[comment.priority]! > ranks[previous.priority]!) {
+          // 같은 근거가 더 높은 priority로 다시 검증되면 P3를 중복으로 버리지 않는다.
+          Object.assign(previous, comment);
         }
       }
       if (valid) {
         completed += 1;
         coverage.windowsReviewed += 1;
       }
+    }
+    // 모든 window의 중복을 제거한 뒤 level을 적용하고, 같은 집합으로 요약한다.
+    if (input.severityLevel) {
+      const retained = new Set(
+        filterSeverityComments(
+          comments.filter((comment) => comment.file === file.path),
+          input.severityLevel,
+        ),
+      );
+      for (let n = comments.length - 1; n >= 0; n -= 1)
+        if (comments[n]!.file === file.path && !retained.has(comments[n]!)) comments.splice(n, 1);
     }
     // Praise를 제거한 동일 unit 집합으로 파일 요약과 최종 report를 만든다.
     const concerns = comments.filter(

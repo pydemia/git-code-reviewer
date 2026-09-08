@@ -6,7 +6,6 @@ unit: analysis
 version: 1
 enabled: true
 ---
-
 # 전체 report
 
 Report는 제목과 판정, 파일별 Overall Summary, 파일로 묶은 AI Comments, Analyzed File List 순서로 구성한다. 제목 아래에는 분석한 파일 수, unit 수, 분석 mode와 소요 시간을 표시한다.
