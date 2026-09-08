@@ -13,9 +13,10 @@ Helm의 `chatAgent.enabled`와 `modelAdmission.enabled`를 설정한다. 기존 
 - `CHAT_AGENT_MAX_MODEL_CALLS=8`, `CHAT_AGENT_MAX_TOOL_CALLS=24`, `CHAT_AGENT_CONTEXT_BYTES=131072`. 설정은 실행 시작 시 고정한다.
 - 계정별 inference 동시 1개, 분당 60개·serialized input 합계 1 MiB. 같은 ChatGPT upstream account ID로 묶는다. 정확한 token quota는 아니며 제공자가 보낸 usage는 가능한 경우 ledger에 기록한다.
 - 실제 요청마다 영속 ledger를 기록하고 전송 이후 실패·401 재시도도 예산에 포함한다. 429는 Retry-After를 3초–30분 안에서 적용한다. 헤더가 없으면 30초 대기한다. 새 Chat은 Worker slot을 반환하고 `waiting_capacity`로 재개한다. 기존 자동 분석·legacy Chat은 최대 2분 안에서 대기한다.
+- 대기 중인 Chat은 계정에 15초짜리 다음 호출 우선권을 등록하고 재시도할 때 갱신한다. 실행 중인 모델 요청은 중단하지 않으며 quota와 429 cooldown도 그대로 적용한다. 만료된 우선권은 다른 요청을 막지 않는다. Chat 활성화 시 Worker concurrency를 2 이상으로 설정하면 한 slot을 Chat용으로 남기고 나머지만 배치 작업에 사용한다. PRISM-DEV는 concurrency 2로 운영한다. 구버전 Worker가 종료되기 전까지는 이 우선순위가 완전히 적용되지 않는다.
 - 실행 lease는 30초, heartbeat 5초와 fence로 오래된 Worker의 저장을 막는다. 실행 attempt의 active timeout은 10분, run 만료는 24시간, 사용자 질문은 30분이다. 중단은 최대 다음 heartbeat에 모델을 abort한다. clone 준비가 이미 시작되었다면 그 subprocess의 timeout까지 정리가 늦어질 수 있다.
 - workspace는 사용자·session·attempt·snapshot·credential version별로 분리한다. revision은 정확한 SHA로 fetch하며 shallow depth는 64다. worktree 파일은 Git blob에서 복원해 checkout filter를 실행하지 않는다. symlink·submodule·1 MiB 초과 파일은 materialize하지 않는다. LFS 대용량 객체는 다운로드하지 않는다.
-- workspace 상한 기본 2 GiB, file entry 최대 50,000. fetch 후와 파일 생성 중 quota를 검사한다. fetch 도중 일시적인 초과를 막는 최종 경계는 Kubernetes volume size limit이다. 전체 캐시는 최대 3개 workspace 예산으로 admission하며 준비는 Worker process당 직렬이다. 30분 미사용 캐시를 다음 준비 때 정리하고 broker의 jail도 idle TTL로 정리한다. 명시적인 DB workspace lease나 공용 mirror는 아직 없다.
+- workspace 상한 기본 2 GiB, file entry 최대 50,000. fetch 후와 파일 생성 중 quota를 검사한다. Kubernetes volume size limit과 eviction은 fetch 도중 초과를 즉시 차단하는 hard quota가 아니므로 임시 초과가 가능하다. 전체 캐시는 최대 3개 workspace 예산으로 admission하며 준비는 Worker process당 직렬이다. 30분 미사용 캐시를 다음 준비 때 정리하고 broker의 jail도 idle TTL로 정리한다. 명시적인 DB workspace lease나 공용 mirror는 아직 없다.
 - source 본문·메타데이터는 run checkpoint와 같은 트랜잭션으로 DB에 저장하고 session 삭제 시 cascade한다. 사용자/repo 권한 철회 시 다음 도구·모델 단계와 source API에서 다시 검사한다. 원본 캐시의 즉시 물리 삭제 대신 접근 차단과 TTL을 사용한다. 자동 분석의 추가 source는 기존 artifact retention을 따른다.
 
 ## 검증과 관찰

@@ -76,6 +76,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
   let stopping = false;
   const active = new Set<Promise<void>>();
   let preferChat = true;
+  let activeBatch = 0;
   const shutdown = stopSignal().then(() => {
     stopping = true;
   });
@@ -92,7 +93,11 @@ export async function runWorker(config: AppConfig): Promise<void> {
     lastLoopAt = Date.now();
     let claimed = false;
     while (!stopping && active.size < config.WORKER_CONCURRENCY) {
-      const priorityJob = !preferChat ? await claimJob(database, executor) : null;
+      const batchAvailable =
+        !config.CHAT_AGENT_ENABLED ||
+        config.WORKER_CONCURRENCY === 1 ||
+        activeBatch < config.WORKER_CONCURRENCY - 1;
+      const priorityJob = !preferChat && batchAvailable ? await claimJob(database, executor) : null;
       if (config.CHAT_AGENT_ENABLED && !priorityJob) {
         const run = await claimAgentRun(database, executor);
         if (run) {
@@ -106,7 +111,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
           continue;
         }
       }
-      const job = priorityJob ?? (await claimJob(database, executor));
+      const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
       if (!job) break;
       preferChat = true;
       claimed = true;
@@ -116,7 +121,11 @@ export async function runWorker(config: AppConfig): Promise<void> {
         },
       );
       active.add(task);
-      void task.finally(() => active.delete(task));
+      activeBatch++;
+      void task.finally(() => {
+        active.delete(task);
+        activeBatch--;
+      });
     }
     if (!claimed || active.size >= config.WORKER_CONCURRENCY) {
       await Promise.race([shutdown, delay(500), ...active]);

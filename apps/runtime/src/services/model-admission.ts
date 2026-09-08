@@ -38,8 +38,9 @@ export function admittedFetch(
       );
       const result = await database.query<{ id: string }>(
         `with admission as (
-        update model_account_capacity set reservation_id=gen_random_uuid(), lease_expires_at=clock_timestamp()+interval '180 seconds',updated_at=clock_timestamp()
+        update model_account_capacity set reservation_id=gen_random_uuid(), lease_expires_at=clock_timestamp()+interval '180 seconds',updated_at=clock_timestamp(),priority_run_key=null,priority_expires_at=null
         where quota_key=$1 and (lease_expires_at is null or lease_expires_at<clock_timestamp()) and (cooldown_until is null or cooldown_until<clock_timestamp())
+          and (priority_expires_at is null or priority_expires_at<clock_timestamp() or priority_run_key=$2)
           and (select count(*) from model_request_ledger where run_key=$2) < $3
           and (select count(*) from model_request_ledger where quota_key=$1 and created_at>clock_timestamp()-interval '1 minute') < 60
           and (select coalesce(sum(input_bytes),0) from model_request_ledger where quota_key=$1 and created_at>clock_timestamp()-interval '1 minute') + $4 <= 1048576
@@ -56,6 +57,11 @@ export function admittedFetch(
       );
       if (Number(count.rows[0]?.count) >= budget.maxCalls)
         throw Error('model_call_budget_exhausted');
+      if (!budget.wait)
+        await database.query(
+          "update model_account_capacity set priority_run_key=$2,priority_expires_at=clock_timestamp()+interval '15 seconds' where quota_key=$1 and (priority_expires_at is null or priority_expires_at<clock_timestamp() or priority_run_key=$2)",
+          [quotaKey, budget.runKey],
+        );
       const capacity = await database.query<{ until: Date }>(
         "select greatest(cooldown_until,clock_timestamp()+interval '3 seconds') as until from model_account_capacity where quota_key=$1",
         [quotaKey],
