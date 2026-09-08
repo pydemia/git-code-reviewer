@@ -1,5 +1,6 @@
 import {
   Building2,
+  Brain,
   Check,
   Cpu,
   FileText,
@@ -74,8 +75,10 @@ import {
 } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
 import { AnalysisSkillsPanel } from './AnalysisSkillsPanel.tsx';
+import { AdminMemoryPanel } from './AdminMemoryPanel.tsx';
 
-type AdminTab = 'tenants' | 'users' | 'provider' | 'prompt' | 'skills' | 'chat' | 'github';
+type AdminTab =
+  'tenants' | 'users' | 'provider' | 'prompt' | 'skills' | 'memory' | 'chat' | 'github';
 type TenantForm = {
   id?: string;
   slug: string;
@@ -514,6 +517,13 @@ export function AdminPage() {
             <MessageSquare size={16} /> ChatGPT accounts
           </button>
           <button
+            className={tab === 'memory' ? 'active' : ''}
+            type="button"
+            onClick={() => selectTab('memory')}
+          >
+            <Brain size={16} /> Repository Memory
+          </button>
+          <button
             className={tab === 'github' ? 'active' : ''}
             type="button"
             onClick={() => selectTab('github')}
@@ -702,6 +712,10 @@ export function AdminPage() {
                 )
               }
             />
+          ) : null}
+
+          {tab === 'memory' ? (
+            <AdminMemoryPanel tenantId={selectedTenantId} repositories={adminRepositories} />
           ) : null}
 
           {tab === 'github' ? (
@@ -2936,6 +2950,7 @@ function readTab(): AdminTab {
     value === 'provider' ||
     value === 'prompt' ||
     value === 'skills' ||
+    value === 'memory' ||
     value === 'chat' ||
     value === 'github'
     ? value

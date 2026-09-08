@@ -36,6 +36,8 @@
 
 `Administration → 분석 Skills`에서 분석 관점과 report 형식의 SKILL.md를 version으로 관리한다. 새 분석은 고정된 Skill bundle으로 code segment를 검토하고 Overall Summary·AI Comments·Analyzed File List를 제공한다. 상세 범위와 검증 기준은 [Skill 기반 report 설계](.documents/skill-based-review-report.md)를 참조한다.
 
+Review workspace의 `Memory` 탭은 사용자별 검토 이력과 GitHub PR 대화를 개인 메모리 후보로 관리하고, 여러 사용자의 승인을 repository 집단 메모리 후보로 집계한다. 분석과 Chat은 현재 코드 근거를 먼저 사용하며 집단 메모리, 개인 메모리 순으로 과거 판단을 참고한다. 관리자 승인은 `Administration → Repository Memory`에서 처리한다. 저장·검색·원문 버전 정책은 [Review Memory 설계](.documents/review-memory-design.md)를 참조한다.
+
 기본 관점 6개는 Commit Defender 원문의 점검 항목과 Tone을 한국어로 옮겼다. `분석 프롬프트`에서 tenant별 Severity Level(lean·generous·moderate·rigorous·severe, 기본 moderate)을 고를 수 있다. 지침과 수준은 함께 version으로 저장하고 새 분석 queue에 고정한다. 수준별 범위와 기존 custom Skill 적용 방법은 [분석 수준 설계](.documents/analysis-severity-level.md)를 참조한다.
 
 ```bash

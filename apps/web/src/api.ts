@@ -18,6 +18,10 @@ import {
   codeObjectListSchema,
   diffIndexSchema,
   githubConnectionListSchema,
+  githubPrMemorySourceListSchema,
+  reviewMemoryListSchema,
+  reviewMemoryResponseSchema,
+  adminReviewMemoryListSchema,
   operationSchema,
   passwordChangeResultSchema,
   profileSchema,
@@ -58,6 +62,11 @@ export type ChatSession = ReturnType<typeof chatSessionSchema.parse>;
 export type ChatAccountCatalog = ReturnType<typeof chatAccountCatalogSchema.parse>;
 export type AdminChatAccount = ReturnType<typeof adminChatAccountListSchema.parse>['items'][number];
 export type GitHubConnection = ReturnType<typeof githubConnectionListSchema.parse>['items'][number];
+export type ReviewMemory = ReturnType<typeof reviewMemoryResponseSchema.parse>['memory'];
+export type ReviewMemoryList = ReturnType<typeof reviewMemoryListSchema.parse>;
+export type GitHubPrMemorySource = ReturnType<
+  typeof githubPrMemorySourceListSchema.parse
+>['items'][number];
 export type AdminRepository = ReturnType<typeof adminRepositoryListSchema.parse>['items'][number];
 export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Profile, Tenant, User };
 export type { AnalysisSkillSettings };
@@ -489,6 +498,94 @@ export async function sendChatMessage(
   });
   if (!response.ok) throw new Error(`Chat message failed: ${response.status}`);
   return chatSendResponseSchema.parse(await response.json());
+}
+
+export async function loadReviewMemories(
+  analysisId: string,
+  signal: AbortSignal,
+): Promise<ReviewMemoryList> {
+  return reviewMemoryListSchema.parse(
+    await fetchJson(`/api/v1/analyses/${analysisId}/review-memories`, signal),
+  );
+}
+
+export async function loadGitHubPrMemorySources(
+  repositoryId: string,
+  pullNumber: number,
+  signal: AbortSignal,
+): Promise<GitHubPrMemorySource[]> {
+  return githubPrMemorySourceListSchema.parse(
+    await fetchJson(
+      `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources`,
+      signal,
+    ),
+  ).items;
+}
+
+export async function createReviewMemoryCandidate(
+  analysisId: string,
+  input: {
+    kind: 'recurring-finding' | 'decision' | 'false-positive' | 'open-question';
+    summary: string;
+    detail?: string;
+    recommendation?: string;
+    categories?: string[];
+    filePaths?: string[];
+    symbols?: string[];
+    confidence?: number;
+    importance?: number;
+    sourceFindingId?: string;
+    sourceChatMessageId?: string;
+    sourceGithubPrMessageId?: string;
+  },
+): Promise<ReviewMemory> {
+  return reviewMemoryResponseSchema.parse(
+    await mutateJson(`/api/v1/analyses/${analysisId}/review-memory-candidates`, 'POST', input),
+  ).memory;
+}
+
+export async function reviewPersonalMemory(
+  memoryId: string,
+  action: 'activate' | 'reject' | 'retire',
+): Promise<ReviewMemory> {
+  return reviewMemoryResponseSchema.parse(
+    await mutateJson(`/api/v1/review-memories/${memoryId}/review`, 'POST', { action }),
+  ).memory;
+}
+
+export async function updateGitHubPrMemorySource(
+  repositoryId: string,
+  pullNumber: number,
+  sourceId: string,
+  state: 'available' | 'ignored',
+): Promise<void> {
+  await mutateJson(
+    `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources/${sourceId}`,
+    'PATCH',
+    { state },
+  );
+}
+
+export async function loadAdminReviewMemories(
+  signal: AbortSignal,
+  filters: { tenantId?: string; repositoryId?: string; state?: string } = {},
+): Promise<ReviewMemory[]> {
+  const query = new URLSearchParams({ scope: 'collective' });
+  if (filters.tenantId) query.set('tenantId', filters.tenantId);
+  if (filters.repositoryId) query.set('repositoryId', filters.repositoryId);
+  if (filters.state) query.set('state', filters.state);
+  return adminReviewMemoryListSchema.parse(
+    await fetchJson(`/api/v1/admin/review-memories?${query}`, signal),
+  ).items;
+}
+
+export async function reviewCollectiveMemory(
+  memoryId: string,
+  action: 'activate' | 'reject' | 'retire',
+): Promise<ReviewMemory> {
+  return reviewMemoryResponseSchema.parse(
+    await mutateJson(`/api/v1/admin/review-memories/${memoryId}/review`, 'POST', { action }),
+  ).memory;
 }
 
 export async function refreshPull(

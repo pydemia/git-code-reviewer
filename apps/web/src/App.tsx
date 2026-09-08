@@ -1,5 +1,6 @@
 import {
   Activity,
+  Brain,
   Braces,
   ChevronDown,
   ChevronRight,
@@ -54,6 +55,7 @@ import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
 import { analysisIsPending, analysisProgressLabel } from './analysis-progress.ts';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
+import { ReviewMemoryPanel } from './ReviewMemoryPanel.tsx';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   WORKSPACE_LAYOUT_LIMITS,
@@ -67,7 +69,7 @@ import {
 
 type ReviewMode = 'files' | 'outline' | 'impact';
 type MainView = 'code' | 'summary';
-type BottomTool = 'comments' | 'graph' | 'impact' | 'tests';
+type BottomTool = 'comments' | 'graph' | 'impact' | 'tests' | 'memory';
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 type ResizeOperation = {
   handle: WorkspaceResizeHandle;
@@ -82,7 +84,13 @@ const WORKLIST_TENANT_STORAGE_KEY = 'git-code-reviewer.worklist-tenant.v1';
 const RESPONSIVE_LAYOUT_BREAKPOINT = 820;
 
 function isBottomTool(value: string | null): value is BottomTool {
-  return value === 'comments' || value === 'graph' || value === 'impact' || value === 'tests';
+  return (
+    value === 'comments' ||
+    value === 'graph' ||
+    value === 'impact' ||
+    value === 'tests' ||
+    value === 'memory'
+  );
 }
 
 export function App() {
@@ -982,6 +990,15 @@ function ReviewWorkspace({
               <GitBranch size={14} /> Git graph
             </button>
             <button
+              className={bottomTool === 'memory' ? 'active' : ''}
+              type="button"
+              role="tab"
+              aria-selected={bottomTool === 'memory'}
+              onClick={() => selectBottomTool('memory')}
+            >
+              <Brain size={14} /> Memory
+            </button>
+            <button
               className={bottomTool === 'impact' ? 'active' : ''}
               type="button"
               role="tab"
@@ -1021,6 +1038,9 @@ function ReviewWorkspace({
             </div>
           ) : null}
           {bottomTool === 'graph' ? <GitGraphPanel data={data} /> : null}
+          {bottomTool === 'memory' && data ? (
+            <ReviewMemoryPanel data={data} chatMessages={chatMessages} />
+          ) : null}
           {bottomTool === 'impact' ? (
             <ImpactPanel
               data={data}

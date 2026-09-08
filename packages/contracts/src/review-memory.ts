@@ -108,6 +108,16 @@ export const reviewMemoryListSchema = z.object({
   personal: z.array(reviewMemorySchema),
 });
 
+export const reviewMemoryResponseSchema = z.object({
+  schemaVersion: z.literal(1),
+  memory: reviewMemorySchema,
+});
+
+export const adminReviewMemoryListSchema = z.object({
+  schemaVersion: z.literal(1),
+  items: z.array(reviewMemorySchema),
+});
+
 export const reviewMemoryCandidateCreateSchema = z
   .object({
     kind: reviewMemoryKindSchema,

@@ -568,10 +568,17 @@ export function GuidePage() {
               </div>
             </div>
             <p>
-              하단 FNB에서 Comments, Git graph, Impact, Tests를 전환할 수 있습니다. Comment를
-              선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에 맞춰집니다.
-              Chat account가 보이지 않으면 시스템 관리자에게 account assignment와 model policy를
-              확인해 달라고 요청하십시오.
+              하단 FNB에서 Comments, Memory, Git graph, Impact, Tests를 전환할 수 있습니다.
+              Comment를 선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에
+              맞춰집니다. Chat account가 보이지 않으면 시스템 관리자에게 account assignment와 model
+              policy를 확인해 달라고 요청하십시오.
+            </p>
+            <p>
+              Memory 탭의 Repository Memory는 여러 사용자가 확인하고 관리자가 승인한 공용 판단이며,
+              내 Memory보다 먼저 적용됩니다. 내 Memory에서는 AI finding, Review Chat과 GitHub PR
+              대화에서 저장한 후보를 적용·제외·폐기할 수 있습니다. PR 대화에는 일반 댓글, review
+              본문과 inline comment가 작성자·파일 위치와 함께 표시됩니다. 중요하지 않은 항목은
+              사용자별로 무시할 수 있고, 댓글이 수정되더라도 후보가 참조한 원문 버전은 유지됩니다.
             </p>
             <p>
               Code·Summary 왼쪽의 패널 toggle로 Files 탐색 영역을 숨기거나 다시 표시할 수 있습니다.

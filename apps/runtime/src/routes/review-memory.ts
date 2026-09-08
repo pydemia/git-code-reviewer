@@ -601,7 +601,8 @@ async function writeMemoryEvent(
 }
 
 function memoryView(memory: ReviewMemoryRecord) {
-  const { searchText: _searchText, ...visible } = memory;
+  const { searchText, ...visible } = memory;
+  void searchText;
   return {
     ...visible,
     reviewedAt: dateString(memory.reviewedAt),
