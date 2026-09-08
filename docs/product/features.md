@@ -43,6 +43,8 @@
 
 의견 수준은 P0 Praise, P1 Info, P2 Warning, P3 Critical입니다. P0는 좋은 변경, P1은 참고할 개선, P2는 merge 전 확인할 위험, P3는 치명적 문제를 뜻합니다. Summary의 종합 판단과 개별 finding은 별도로 읽습니다.
 
+AI 검토를 완료했고 지적 사항이 없는 파일은 `검토한 변경 범위에서 문제가 발견되지 않았습니다.`로 간단히 표시합니다. 일부 검토·미검토·분석 제한과 검토 의견이 있는 파일의 설명은 유지합니다. 기존 report에도 표시 규칙을 적용하며 저장된 원문과 Raw JSON은 바꾸지 않습니다.
+
 파일 전체에 대한 의견은 파일 수준으로 표시합니다. 확보한 diff 밖의 line에 대한 의견을 다른 line에 임의로 붙이지 않습니다.
 
 자세한 조작은 [Review와 Chat 가이드](/guide#review-flow)와 [코드 이동 가이드](/guide#code-navigation)를 참고하세요.

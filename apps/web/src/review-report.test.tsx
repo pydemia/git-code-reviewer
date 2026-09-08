@@ -119,6 +119,47 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(full).not.toContain('<details class="report-overview"');
   expect(full.indexOf(overview.trim())).toBeLessThan(full.indexOf('파일별 검토'));
 
+  const noIssues: typeof report = {
+    ...report,
+    summary: 'PR 전체 변경 설명은 유지합니다.',
+    findings: [],
+    analysis: {
+      format: 'commit-defender-total-summary-v1',
+      status: 'incomplete',
+      mode: 'ai-powered',
+      priority: null,
+      units: [],
+      files: [
+        {
+          fileId: 'file',
+          path: 'src/main.ts',
+          status: 'reviewed',
+          summary:
+            '검토 범위를 모두 확인했으며 추가로 지적할 사항은 없습니다. 다만 제공된 범위만 검토했습니다.',
+          priority: null,
+          unitIds: [],
+        },
+      ],
+      skills: { bundleHash: 'hash', versionId: null, version: null, entries: [] },
+      coverage: { filesCompleted: 1, windowsPlanned: 2, windowsReviewed: 2, modelCalls: 4 },
+    },
+  };
+  const short = renderToStaticMarkup(
+    <ReviewReportPanel
+      report={noIssues}
+      files={[]}
+      section="summary"
+      selectedFindingId={null}
+      onFindingSelect={() => {}}
+      onFileSelect={() => {}}
+    />,
+  );
+  expect(short).toContain('검토한 변경 범위에서 문제가 발견되지 않았습니다.');
+  expect(short).not.toContain('추가로 지적할 사항');
+  expect(short).toContain('PR 전체 변경 설명은 유지합니다.');
+  expect(short).toContain('Coverage limitation');
+  expect(short).toContain('분석 제한 1건');
+
   for (const versions of [{ model: 'fixture' }, { model: 'disabled' }, { review: 'failed' }]) {
     const unavailable = renderToStaticMarkup(
       <ReviewReportPanel

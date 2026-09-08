@@ -240,6 +240,66 @@ describe('shared Commit Defender report presentation', () => {
     expect(presentReviewReport(changed).overview).toBe(changed.summary);
     expect(formatReviewMarkdown(changed)).toContain(escapeReviewMarkdown(changed.summary));
   });
+  it('shortens completed no-issue files in UI and Markdown without rewriting stored content or limitations', () => {
+    const changed = structuredClone(report);
+    const original =
+      '이 파일은 2개로 계획된 검토 범위를 모두 확인했으며, 확정된 review unit이 없어 추가로 지적할 사항은 없습니다. 다만 이는 제공된 변경 범위에 대한 결과만을 의미합니다.';
+    changed.analysis!.files.forEach((file) => {
+      file.summary = original;
+      file.unitIds = [];
+      file.priority = null;
+    });
+    changed.analysis!.units = [];
+    changed.analysis!.status = 'incomplete';
+    changed.analysis!.priority = null;
+    changed.findings = [];
+    changed.coverage.limitations = ['추가 주변 source 조회 제한'];
+    changed.summary = changed
+      .analysis!.files.map((file) => `${file.path}: ${file.summary}`)
+      .join('\n\n');
+    const before = JSON.stringify(changed);
+    const view = presentReviewReport(changed);
+    const concise = '검토한 변경 범위에서 문제가 발견되지 않았습니다.';
+    expect(view.groups.every((file) => file.summary === concise)).toBe(true);
+    expect(view.overview).toBeNull();
+    expect(view.label).toBe('분석 완료 · 제한 있음');
+    const markdown = formatReviewMarkdown(changed);
+    expect(markdown).toContain(escapeReviewMarkdown(concise));
+    expect(markdown).toContain('추가 주변 source 조회 제한');
+    expect(markdown).not.toContain('확정된 review unit');
+    expect(JSON.stringify(changed)).toBe(before);
+
+    for (const mode of ['fixture', 'disabled', 'rule-based'] as const) {
+      changed.analysis!.mode = mode;
+      expect(presentReviewReport(changed).groups[0]!.summary).toBe(original);
+    }
+    changed.analysis!.mode = 'ai-powered';
+    for (const status of ['failed', 'unavailable', 'demo'] as const) {
+      changed.analysis!.status = status;
+      expect(presentReviewReport(changed).groups[0]!.summary).toBe(original);
+    }
+    changed.analysis!.status = 'incomplete';
+    for (const status of ['partial', 'not-reviewed'] as const) {
+      changed.analysis!.files[0]!.status = status;
+      expect(presentReviewReport(changed).groups[0]!.summary).toBe(original);
+    }
+    changed.analysis!.files[0]!.status = 'reviewed';
+    changed.findings = report.findings;
+    expect(presentReviewReport(changed).groups[0]!.summary).toBe(original);
+    changed.findings = [];
+    changed.analysis!.files[0]!.unitIds = [randomUUID()];
+    expect(presentReviewReport(changed).groups[0]!.summary).toBe(original);
+    changed.analysis!.files[0]!.unitIds = [];
+    changed.analysis!.files[0]!.priority = 'P2';
+    expect(presentReviewReport(changed).groups[0]!.summary).toBe(original);
+    delete changed.analysis;
+    expect(presentReviewReport(changed).groups.every((file) => file.status === 'legacy')).toBe(
+      true,
+    );
+    expect(presentReviewReport(changed).groups.every((file) => file.summary !== concise)).toBe(
+      true,
+    );
+  });
   it('escapes HTML inside collapsed headers and code, preserves paragraphs, and rejects unsafe URLs', () => {
     const changed = structuredClone(report);
     changed.summary =

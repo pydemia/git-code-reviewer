@@ -118,14 +118,29 @@ export function presentReviewReport<F extends ReportContent['findings'][number]>
         priority: legacy?.priority ?? null,
       };
     });
-  const groups = files.map((file) => ({
-    ...file,
-    findings: findingsByFile.get(file.fileId) ?? [],
-  }));
+  const groups = files.map((file) => {
+    const findings = findingsByFile.get(file.fileId) ?? [];
+    // 검토 완료와 지적 사항 부재가 모두 확인된 파일만 간결하게 표시한다.
+    // 원본 report와 별도의 분석 제한은 보존한다. Legacy/미수행 결과는 추정하지 않는다.
+    const noIssues =
+      analysis &&
+      ['ai-powered', 'hybrid'].includes(analysis.mode) &&
+      !['demo', 'failed', 'unavailable'].includes(state) &&
+      file.status === 'reviewed' &&
+      'unitIds' in file &&
+      file.unitIds.length === 0 &&
+      file.priority === null &&
+      findings.length === 0;
+    return {
+      ...file,
+      summary: noIssues ? '검토한 변경 범위에서 문제가 발견되지 않았습니다.' : file.summary,
+      findings,
+    };
+  });
   // When total-summary is unavailable, the engine joins the file summaries. Show
   // those once in their file blocks, including for reports already stored.
   const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
-  const rollup = groups.map((file) => `${file.path}: ${file.summary}`).join('\n\n');
+  const rollup = files.map((file) => `${file.path}: ${file.summary}`).join('\n\n');
   const overview = normalize(report.summary) === normalize(rollup) ? null : report.summary.trim();
   return {
     state,
