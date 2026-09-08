@@ -1,6 +1,6 @@
 # Interactive Review Chat 구현 계획
 
-작성일: 2026-09-08. 상태: 사용자 승인 후 P0–P5 구현·검증 진행 중. 운영 반영 완료 여부는 후속 검증 기록을 따른다. 요구사항과 계약은 [설계 문서](interactive-review-chat-design.md)를 따른다.
+작성일: 2026-09-08. 갱신: 2026-09-09. P0–P4의 첫 사용자 경로를 구현했고 P5의 alpha.22 실제 AI 검증·운영 배포와 전체 사용자 활성화를 수행했다. 실제 desktop/mobile UI 조작 검증은 Mac 잠금으로 미완료다. 아래 목록은 최초 계획이며 각 항목을 모두 검증 완료했다는 체크리스트가 아니다. 실제 반영·조정·미완료 범위는 [검증 기록](verification-interactive-chat-2026-09-08.md)과 [운영 문서](../docs/operations/interactive-chat.md)를 따른다. 요구사항과 계약은 [설계 문서](interactive-review-chat-design.md)에 있다.
 
 ## 구현 결정
 

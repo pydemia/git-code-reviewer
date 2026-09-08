@@ -2,24 +2,28 @@
 
 ## 1. 현재 상태
 
-- 최종 갱신: 2026-09-08
+- 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.17`, Helm revision 27 배포 완료. 분석 저장 충돌·호출 예산 수정 포함
-- 배포 source: `192596f18b031180a075e222484c2e9eb5ec7564` (push 후 git archive build). Release 설정 commit `6b3ee2e`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.22`, chart `0.10.21`, Helm revision 33 배포 완료. 00:23 KST에 canary 제한을 해제했으며 기존 사용자·repo·모델 권한은 유지한다.
+- 배포 source: `a964210f1564f0a8b7933cef3418f4803d507773` (push 후 git archive build). Release 설정 commit `a8e0ae2`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 2026-09-08 후속 설계: 로컬 Git 기반 Interactive Review Chat
+### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
 
 사용자 요청에 따라 [설계](interactive-review-chat-design.md)와 [구현 계획](interactive-review-chat-implementation-plan.md)을 작성했다. Worker 로컬의 실제 Git 저장소·revision별 파일 트리, 반복적인 읽기 전용 탐색, 사용자 질문·재개, 영속 run/SSE와 모바일 복구, 자동 분석·Chat 공통 계정 호출 제한을 포함한다. 자동 분석도 같은 workspace/source provider를 사용한다. Demian은 run/event/cancel UI 구조의 참고이며 범용 shell이나 코드 수정 권한을 가져오지 않는다.
 
-P0 `272faac`, P1 `db78467`, P2 `c4562cf`, P3 `a20ceb3`, P4 `10bf5ae`를 구현·push했다. Local Git read 도구, Linux chroot/UID/seccomp broker, 공통 account admission과 실제 streaming, fenced run·질문 응답·재개·중단, 메인 source 탭과 새로고침 복구를 포함한다. Native PRISM-DEV에서 쓰기·경로 이탈·process·network 차단과 실제 Git blob 조회를 검증했고 macOS sandbox 조회도 통과했다. 62개 파일·383개 테스트를 UTF-8 local PostgreSQL과 함께 통과했다. 최초 전체 병렬 실행은 migration lock으로 기존 hook timeout이 나서 maxWorkers=2, hookTimeout=60000으로 재검증했다.
+P0 `272faac`, P1 `db78467`, P2 `c4562cf`, P3 `a20ceb3`, P4 `10bf5ae`와 후속 운영 수정본을 구현·push했다. Local Git read 도구, Linux chroot/UID/seccomp broker, 공통 account admission과 실제 streaming, fenced run·질문 응답·재개·중단, 메인 source 탭과 새로고침 복구를 포함한다. Native PRISM-DEV에서 쓰기·경로 이탈·process·network 차단과 실제 Git blob 조회를 검증했고 macOS sandbox 조회도 통과했다. 63개 파일·391개 테스트, lint·typecheck·production build를 통과했다. DB 통합 테스트는 UTF-8 local PostgreSQL에서 maxWorkers=2, hookTimeout=60000으로 실행했다.
 
-현재 P5 배포 준비 중이며 아래 alpha.17/revision 27을 아직 대체하지 않았다. 새 운영 범위와 남긴 설계 항목은 [운영 문서](../docs/operations/interactive-chat.md)를 따른다. 새 flag는 기본 비활성이며 allowlist canary 검증 후 PRISM-DEV에 전체 활성화한다. Mac 잠금으로 live UI 확인은 대기 중이다. 배포 완료와 실제 모델 결과는 후속 기록으로 확정한다.
+P5 canary에서 실제 provider의 빈 completed output, Git trust bundle, base에 없는 신규 파일, 배치의 Chat 계정 점유와 60초 응답 timeout을 찾아 수정했다. Migration은 26개다. 계정별 동시 호출 1개·run 예산 8회와 byte/RPM 한도는 유지하며 새 Chat의 모델 timeout은 180초다. 새 Worker는 concurrency 2 중 하나를 Chat에 남기고 PRISM-DEV 종료 유예는 3600초다. 기존 최대 attempt에 걸린 배치 두 건에는 ledger를 보존한 단일 복구를 각각 허용했다. 두 배치의 최종 분석 완료는 이번 Chat smoke 완료와 구분하며 마지막 확인 시 running/queued였다.
 
-### 2026-09-08 20:03 배포 (revision 27, 현재)
+실제 등록 `gpt-5.6-sol:medium`의 run `cf19fcf0-c4cf-4c0f-b2a6-24cab6000e55`는 completed다. 모델 8회·source 도구 6회, 실제 근거 3건, 질문·응답·재개, 2,249자 답변과 citation·96개 실제 delta event를 확인했다. 근거의 SHA·blob·content hash와 API 재조회도 일치했다. 이는 실제 handler·Worker 검증이며 로그인 브라우저 E2E는 아니다. 전체 활성화 뒤 Server만 재시작해 새 allowlist를 적용했고 health 4종·Helm test와 migration checksum을 확인했다. 기존 Secret·CA·PVC/PV를 보존했다.
+
+제공 범위와 남긴 설계 항목은 [운영 문서](../docs/operations/interactive-chat.md), 실제·fixture 구분과 canary 오류는 [검증 기록](verification-interactive-chat-2026-09-08.md)을 따른다. 공용 mirror·DB workspace lease·완전한 symbol graph·장기 대화 압축은 아직 없다. Mac 잠금으로 실제 desktop/mobile UI 조작·캡처 검증도 남아 있다. 운영 비밀번호나 인증 Secret은 변경하지 않았다.
+
+### 2026-09-08 20:03 배포 (revision 27, 이전)
 
 누적 분석 56건 중 실패 8건 모두 중복 심볼의 `(analysis_run_id, qualified_name)` 고유 제약 위반 뒤 canonical artifact 재시도 충돌이 발생했다. 심볼 정의 line 구분·겹친 hunk line 중복 제거, 내용 hash 기반 immutable artifact, analysis row 잠금과 단일 report 발행을 적용했다. 모델 호출 예산 32→128, 80~500 core-line window 조정, 파일·전체 요약 호출 예약, 예산 내 한 번의 모델 재시도도 포함한다. YAML 등 symbol adapter 미지원은 relationship/impact coverage에 남기되 AI review 완료와 분리한다. 생성 파일 제외·미검토 범위를 성공으로 바꾸지는 않는다.
 

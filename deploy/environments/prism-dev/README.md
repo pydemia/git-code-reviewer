@@ -2,6 +2,25 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 Interactive Review Chat 배포
+
+00:10:52 KST에 application `0.8.0-alpha.22`, chart `0.10.21`을 Helm revision 32 canary로 배포했다. Source `a964210f1564f0a8b7933cef3418f4803d507773`와 image 고정 설정 `a8e0ae2`를 push 후 적용했다. Build context는 해당 source commit의 `git archive`다.
+
+실제 AI 완료를 확인한 뒤 00:23:01 KST에 revision **33**으로 전체 사용자에게 활성화했다. Allowlist 변경은 Server만 재시작해 반영했고 기존 model/repo 권한은 유지했다. 새 Server 1/1·Worker 2/2 Ready, health 4종 HTTP 200·ok, system alpha.22, 비로그인 Chat API 401, 00:23:30 Helm test 성공을 확인했다. Migration 26개 checksum과 기존 Secret·CA·PVC/PV를 보존했다. 진행 중인 기존 배치의 종료·복구 기록은 별도 검증 문서에 구분했다.
+
+- Image index: `sha256:0f5c24e021c15facefd9c740033809f958bf48eca1c17f92dfb4a1f8193b3111`
+- Linux/amd64 manifest: `sha256:67c45e7fd57ed70152551ca951cdbd8b777cdc2321336becf269ffc67d0b4934`
+- OCI chart: `sha256:521420ffcfdd41708239cbdd433456fb5d6e3aec9166fe09e846334c60185f18`
+- SPDX SBOM·SLSA provenance v1 attestation을 함께 게시했다.
+
+실제 Git의 고정 base·merge-base·head 파일 트리, 읽기 전용 source 도구, 등록 ChatGPT account의 tool/streaming, 사용자 질문과 재개·중단·추가 지시, 영속 run/SSE, 메인 코드 근거 탭을 포함한다. 기존 findings·summary·GitHub 게시 계약은 유지했다. 계정별 admission과 batch/Chat 우선권을 공유하고 모델 8회·도구 24회·context 128 KiB·요청 timeout 180초를 적용한다. Worker concurrency 2 중 하나는 Chat용이며 새 Pod의 종료 유예는 3600초다.
+
+391개 테스트(63개 파일, UTF-8 PostgreSQL 포함), 전체 TypeScript·ESLint·production build, Compose config·Helm lint를 통과했다. Native PRISM-DEV에서 이 image의 UID/환경·쓰기·경로 이탈·process·network 차단과 실제 Git source read를 검증했다. Mac이 잠겨 실제 브라우저 desktop/mobile 조작과 캡처는 수행하지 못했다. SSR과 backend smoke를 화면 검증으로 간주하지 않는다.
+
+실제 `gpt-5.6-sol:medium` run `cf19fcf0-c4cf-4c0f-b2a6-24cab6000e55`는 모델 8회·도구 6회, 사용자 질문·응답·재개 뒤 completed가 됐다. Base/head 근거 3건, 2,249자 답변의 citation, 실제 delta 96건과 source API/hash 일치를 확인했다. 실제 Fastify handler·배포 Worker smoke이며 로그인 HTTP 인증 E2E는 아니다. 배치와 대기·workspace 준비를 포함해 약 9분 25초가 걸렸다. 두 Worker의 확인 가능한 완료 ledger 구간에서 같은 계정의 요청 중첩은 0건이었다.
+
+alpha.18–21 canary에서 발견한 provider stream·Git TLS·신규 파일 부재·계정 점유·60초 timeout 문제와 제한된 기존 job 복구는 [검증 기록](../../../.documents/verification-interactive-chat-2026-09-08.md)에 남겼다. 각 중간 partial/실패를 성공으로 덮어쓰지 않았다. 제공 제한과 복구 절차는 [운영 문서](../../../docs/operations/interactive-chat.md)를 따른다.
+
 ## 2026-09-08 분석 저장·호출 예산 수정 배포
 
 20:02:34 KST에 upgrade를 시작해 Helm revision 27로 배포했다. Application `0.8.0-alpha.17`, chart `0.10.16`이며 source는 `192596f18b031180a075e222484c2e9eb5ec7564`, release 설정은 `6b3ee2e`다. 모두 push 후 반영했다. Build context는 commit의 `git archive`만 사용해 local 진단 데이터와 임시 registry 인증 파일을 제외했다.
@@ -87,7 +106,7 @@ Image 외 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b4
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.17@sha256:ae84499070c0fe8181e5ea16754d673a158bca23ae4f47596b69af96eb9a3bb3`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.22@sha256:0f5c24e021c15facefd9c740033809f958bf48eca1c17f92dfb4a1f8193b3111`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
