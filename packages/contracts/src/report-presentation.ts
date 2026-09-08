@@ -262,9 +262,10 @@ export function formatReviewMarkdown(
       ),
     );
   blocks.push('## AI Comments');
-  for (const file of view.groups) {
-    if (!file.findings.length) continue;
-    blocks.push(`### ${text(file.path)}`);
+  const comments: string[] = [];
+  const commentedFiles = view.groups.filter((file) => file.findings.length > 0);
+  for (const file of commentedFiles) {
+    comments.push(`### ${text(file.path)}`);
     for (const finding of file.findings) {
       const anchor = finding.anchor;
       const location = `${anchor.side} · ${anchor.startLine ? `line ${anchor.startLine}${anchor.endLine && anchor.endLine !== anchor.startLine ? `–${anchor.endLine}` : ''}` : '파일 전체'}`;
@@ -281,17 +282,24 @@ export function formatReviewMarkdown(
           : []),
         ...(link ? [`[관련 코드 보기](${link})`] : []),
       ].join('\n\n');
-      blocks.push(
+      comments.push(
         comment
           .split('\n')
           .map((line) => `> ${line}`)
           .join('\n'),
       );
-      blocks.push('---');
+      comments.push('---');
     }
   }
-  if (!report.findings.length)
-    blocks.push('표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.');
+  if (comments.length)
+    // Keep the entire disclosure in one block so length limits cannot drop a closing tag.
+    blocks.push(
+      details(
+        `검토 의견 ${report.findings.length}개 · 파일 ${commentedFiles.length}개 — 펼쳐 보기`,
+        comments.join('\n\n'),
+      ),
+    );
+  else blocks.push('표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.');
   blocks.push('## Analyzed File List');
   blocks.push(
     details(

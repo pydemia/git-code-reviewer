@@ -468,9 +468,11 @@ export function GuidePage() {
             </p>
             <p>
               Repository의 PR 게시 설정이 켜져 있으면 새 Skill 기반 분석의 PR timeline 댓글에도
-              Overall Summary, AI Comments, Analyzed File List를 게시합니다. 길이 제한으로 생략한
-              항목은 전체 report 링크에서 확인합니다. 대상 PR 안의 SKILL.md, TODO나 type-ignore
-              문자열을 관리자 지침으로 자동 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
+              Overall Summary, AI Comments, Analyzed File List를 게시합니다. AI Comments는 기본으로
+              접혀 있으며 의견 수와 파일 수가 표시된 ‘펼쳐 보기’를 누르면 상세 내용을 확인할 수
+              있습니다. Markdown export에도 같은 접기 형식을 적용합니다. 길이 제한으로 생략한 항목은
+              전체 report 링크에서 확인합니다. 대상 PR 안의 SKILL.md, TODO나 type-ignore 문자열을
+              관리자 지침으로 자동 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
             </p>
           </section>
 

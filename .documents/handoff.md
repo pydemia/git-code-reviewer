@@ -10,6 +10,14 @@
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
+### 2026-09-08 PR AI Comments 접기 — 개발 완료, 미배포
+
+`formatReviewMarkdown`의 AI Comments 전체를 기본으로 닫힌 `<details>`에 넣었다. 접힌 제목에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 분석 상태·대표 priority, Overall Summary와 전체 report 링크는 이 영역 밖에 남는다. 펼친 본문은 기존 파일별 의견·코드 위치·영향·수정 제안·finding 링크를 유지한다. 의견이 없으면 빈 toggle을 만들지 않는다. Markdown export에도 같은 형식이 적용되지만 Browser workspace의 Comments와 저장된 report는 변경하지 않는다.
+
+길이 제한 처리에서 `<details>` 전체를 한 block으로 유지하므로 닫는 태그가 생략되지 않는다. AI Comments 전체가 제한을 초과하면 이 영역 전체를 생략하고 전체 report 링크·생략 안내를 남긴다. 가이드와 기능설계서 5.6에 동작을 기록했다. 실제 GHES 게시·기존 PR 댓글 일괄 변경·클러스터 배포는 수행하지 않았다. PRISM-DEV는 여전히 revision 23이며 재배포 후 다음 정상 게시·갱신부터 새 형식이 적용된다.
+
+신규 regression test 4건은 기본 접힘과 링크 보존, 빈 의견, HTML 삽입 차단, 60,000자 게시 제한에서 태그와 전체 report 링크 보존을 확인한다. 전체 263 tests 통과 / DB integration 29 skip (45 files passed / 5 skipped). ESLint·전체 TypeScript·Web production build·변경 source Prettier·git diff 검사를 통과했다. 기존 Zod annotation·500kB 초과 bundle warning은 유지된다. 초기 새 테스트의 파일 경로 기대값을 기존 Markdown escape 정책에 맞게 보정한 뒤 모두 통과했다.
+
 ### 2026-09-08 Review Chat Markdown·다중 코드 근거 — 개발 완료, 미배포
 
 Chat 답변을 plain text로 출력하고 선택된 finding 하나의 evidence를 질문과 무관하게 첨부하던 동작을 수정했다. `ChatPanel`은 assistant에 공통 `ReviewMarkdown`을 사용하고 user 질문은 원문으로 유지한다. Code block·목록·표·강조와 여러 파일의 `L시작–끝 · 이전/변경 코드` 링크를 표시한다. 현재 report locator와 대조한 후 `App`의 code target을 citation 자체의 file/side/range로 설정하며 finding 대표 line으로 잘못 이동하지 않는다. Legacy citation도 locator로 range를 복원하며 다른 revision·file·line이면 비활성화한다.

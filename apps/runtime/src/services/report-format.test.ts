@@ -162,6 +162,68 @@ describe('shared Commit Defender report presentation', () => {
     expect(markdown).toContain('> 💬 **P3 Critical');
     expect(markdown).toContain('<details>\n<summary><code>src/config.ts</code>');
   });
+  it('collapses all AI Comments by default while keeping status and the full report link outside', () => {
+    const body = renderReviewComment({
+      context: {
+        analysisId: report.analysisRevisionId,
+        owner: 'org-name',
+        name: 'repo-name',
+        pullNumber: 1,
+        headSha: 'b'.repeat(40),
+        report,
+      },
+      findings: report.findings,
+      canonicalReport: report,
+      marker: '<!-- synthetic -->',
+      publicBaseUrl: 'https://review.example',
+    });
+    const [before, rest] = body.split('## AI Comments\n\n');
+    const [comments, after] = rest!.split('\n\n## Analyzed File List');
+    expect(comments).toMatch(
+      /^<details>\n<summary>검토 의견 4개 · 파일 2개 — 펼쳐 보기<\/summary>\n\n/,
+    );
+    expect(comments).toMatch(/\n\n<\/details>$/);
+    expect(comments!.match(/<details>/g)).toHaveLength(1);
+    expect(comments).not.toMatch(/<details[^>]*\bopen\b/);
+    expect(comments).not.toContain('전체 review와 evidence 보기');
+    expect(comments!.match(/> 💬 \*\*P3 Critical/g)).toHaveLength(report.findings.length);
+    expect(comments).toContain(`### ${escapeReviewMarkdown('src/config.ts')}`);
+    expect(comments).toContain(`### ${escapeReviewMarkdown('src/deleted.ts')}`);
+    expect(comments).toContain('**영향**');
+    expect(comments).toContain('**수정 제안**');
+    for (const finding of report.findings) expect(comments).toContain(`finding=${finding.id}`);
+    expect(before).toContain('BLOCKED');
+    expect(before).toContain('P3 Critical');
+    expect(before).toContain('## Overall Summary');
+    expect(after).toContain('[전체 review와 evidence 보기]');
+    expect(after).toContain('이 댓글은 새 분석이 완료되면 같은 위치에서 갱신됩니다.');
+  });
+  it('does not create an empty AI Comments disclosure when no findings exist', () => {
+    const changed = { ...report, findings: [] };
+    const section = formatReviewMarkdown(changed)
+      .split('## AI Comments\n\n')[1]!
+      .split('\n\n## Analyzed File List')[0];
+    expect(section).toBe('표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.');
+    expect(section).not.toContain('<details>');
+  });
+  it('does not allow comment content to close or open a disclosure', () => {
+    const changed = structuredClone(report);
+    const injected = '</details><details open><summary>@everyone</summary>';
+    changed.findings[0]!.title = injected;
+    changed.findings[0]!.problem = injected;
+    changed.findings[0]!.impact = injected;
+    changed.findings[0]!.recommendation = injected;
+    const section = formatReviewMarkdown(changed)
+      .split('## AI Comments\n\n')[1]!
+      .split('\n\n## Analyzed File List')[0]!;
+    expect(section).not.toContain(injected);
+    expect(section).not.toContain('<details open>');
+    expect(section).not.toContain('@everyone');
+    expect(section.match(/<details>/g)).toHaveLength(1);
+    expect(section.match(/<\/details>/g)).toHaveLength(1);
+    expect(section.match(/<summary>/g)).toHaveLength(1);
+    expect(section.match(/<\/summary>/g)).toHaveLength(1);
+  });
   it('shows a stored file-summary rollup once while preserving independent overall summaries', () => {
     const changed = structuredClone(report);
     changed.analysis!.files.forEach((file, i) => {
@@ -311,5 +373,35 @@ describe('shared Commit Defender report presentation', () => {
     expect(text).toContain('[전체 review와 evidence 보기](https://review.example/reviews/one)');
     expect(text).toContain('> 💬 **P3 Critical');
     expect(text.match(/<details>/g)?.length).toBe(text.match(/<\/details>/g)?.length);
+  });
+  it('omits an oversized AI Comments disclosure atomically within the PR publication limit', () => {
+    const changed = structuredClone(report);
+    changed.findings[0]!.problem = '긴 comment 본문'.repeat(10000);
+    const body = renderReviewComment({
+      context: {
+        analysisId: changed.analysisRevisionId,
+        owner: 'org-name',
+        name: 'repo-name',
+        pullNumber: 1,
+        headSha: 'b'.repeat(40),
+        report: changed,
+      },
+      findings: changed.findings,
+      canonicalReport: changed,
+      marker: '<!-- synthetic -->',
+      publicBaseUrl: 'https://review.example',
+    });
+    expect(body.length).toBeLessThanOrEqual(60000);
+    expect(body).toContain('길이 제한으로 일부 항목을 생략했습니다.');
+    expect(body).toContain('BLOCKED');
+    expect(body).toContain('P3 Critical');
+    expect(body).not.toContain('긴 comment 본문');
+    expect(body).not.toContain('검토 의견 4개 · 파일 2개 — 펼쳐 보기');
+    expect(body.match(/<details>/g)?.length).toBe(body.match(/<\/details>/g)?.length);
+    expect(body.match(/<summary>/g)?.length).toBe(body.match(/<\/summary>/g)?.length);
+    expect(body.lastIndexOf('</details>')).toBeLessThan(body.indexOf('길이 제한'));
+    expect(body).toContain(
+      `[전체 review와 evidence 보기](https://review.example/reviews/${changed.analysisRevisionId})`,
+    );
   });
 });
