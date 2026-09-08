@@ -79,7 +79,7 @@ export interface ReviewModel {
 const defaultBudgets: AnalysisBudgets = {
   maxFiles: 500,
   maxBytes: 10 * 1024 * 1024,
-  maxModelCalls: 32,
+  maxModelCalls: 128,
 };
 
 export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOutput> {
@@ -102,7 +102,8 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     ...file,
     headLines: extractHeadLines(file.patch),
   }));
-  const graph = buildRelationshipGraph(input.analysisId, parsedFiles, limitations);
+  const graphLimitations: string[] = [];
+  const graph = buildRelationshipGraph(input.analysisId, parsedFiles, graphLimitations);
   const coverage: Coverage = {
     filesChanged: input.files.length,
     filesExamined: parsedFiles.length,
@@ -111,7 +112,11 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     truncated: limitations.length > 0,
     limitations,
   };
-  graph.coverage = coverage;
+  graph.coverage = {
+    ...coverage,
+    limitations: [...limitations, ...graphLimitations],
+    truncated: limitations.length > 0 || graphLimitations.length > 0,
+  };
 
   let legacy: LegacyAnalysisReport;
   let reviewStatus: 'model' | 'fixture' | 'failed' | 'unavailable' = 'unavailable';
@@ -174,7 +179,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       legacy.review.per_file_summaries = [];
     }
   }
-  const impact = buildImpact(graph, coverage);
+  const impact = buildImpact(graph, graph.coverage);
   const report = normalizeLegacyReport(legacy, {
     analysisRevisionId: input.analysisId,
     snapshotId: input.snapshotId,
@@ -207,6 +212,8 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
   report.impact = impact;
   report.coverage = coverage;
   coverage.truncated = limitations.length > 0;
+  graph.coverage.limitations = [...new Set([...limitations, ...graphLimitations])];
+  graph.coverage.truncated = graph.coverage.limitations.length > 0;
   if (skillResult && input.skills) {
     report.analysis = assembleReviewAnalysis({
       findings: report.findings,
@@ -387,7 +394,10 @@ function classifyFile(file: AnalysisFile): Omit<ParsedFile, keyof AnalysisFile |
     return { language: 'unknown', analyzable: false, reason: 'binary file' };
   if (/(^|\/)(node_modules|vendor|dist|build)\//.test(lower))
     return { language: 'unknown', analyzable: false, reason: 'vendor/generated path' };
-  if (/\.(min\.js|map|lock)$/.test(lower) || /(^|\/)package-lock\.json$/.test(lower))
+  if (
+    /\.(min\.js|map|lock)$/.test(lower) ||
+    /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|bun\.lockb)$/.test(lower)
+  )
     return { language: 'unknown', analyzable: false, reason: 'generated or lock file' };
   if (/\.(ts|tsx|js|jsx|mts|cts)$/.test(lower))
     return { language: 'typescript', analyzable: true, reason: '' };
@@ -424,7 +434,7 @@ function extractHeadLines(
       lineNumber += 1;
     }
   }
-  return result;
+  return [...new Map(result.map((line) => [line.number, line])).values()];
 }
 
 function buildRelationshipGraph(
@@ -444,6 +454,10 @@ function buildRelationshipGraph(
       change: normalizeChange(file.status),
     };
     objects.push(fileObject);
+    if (file.language === 'unknown') {
+      limitations.push(`${file.path}: symbol adapter unavailable`);
+      continue;
+    }
     const symbolPatterns =
       file.language === 'python'
         ? [/^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)/, /^\s*class\s+([A-Za-z_]\w*)/]
@@ -465,7 +479,11 @@ function buildRelationshipGraph(
         currentObject = {
           id: randomUUID(),
           kind,
-          qualifiedName: `${file.path}#${symbolMatch[1]}`,
+          qualifiedName: objects.some(
+            (object) => object.qualifiedName === `${file.path}#${symbolMatch[1]}`,
+          )
+            ? `${file.path}#${symbolMatch[1]}@L${line.number}`
+            : `${file.path}#${symbolMatch[1]}`,
           definition,
           change: line.changed ? 'added' : 'modified',
         };
@@ -496,7 +514,6 @@ function buildRelationshipGraph(
         }
       }
     }
-    if (file.language === 'unknown') limitations.push(`${file.path}: symbol adapter unavailable`);
   }
   return {
     schemaVersion: 1,

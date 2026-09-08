@@ -63,6 +63,102 @@ function analyze(files: AnalysisFile[], model?: ReviewModel, maxModelCalls = 32,
 }
 
 describe('Skill-based review orchestration', () => {
+  it('excludes generated dependency locks without sending them to the model', async () => {
+    const sent: string[] = [];
+    const result = await analyze([file('pnpm-lock.yaml'), file('package.json')], {
+      profile: 'synthetic',
+      review: async (_body, files, _instructions, context) => {
+        if (context?.stage === 'unit-comment-block') sent.push(...files);
+        return output('검토 완료');
+      },
+    });
+    expect(sent).toEqual(['package.json']);
+    expect(result.report.coverage.limitations).toContain('pnpm-lock.yaml: generated or lock file');
+    expect(result.report.analysis?.files[0]?.status).toBe('not-reviewed');
+  });
+
+  it('completes AI review of config files without claiming symbol analysis support', async () => {
+    const result = await analyze([file('config.yaml', '@@ -0,0 +1 @@\n+timeout: 30\n')], {
+      profile: 'synthetic',
+      review: async () => output('설정 변경을 검토했습니다.'),
+    });
+    expect(result.state).toBe('completed');
+    expect(result.report.analysis?.status).toBe('pass');
+    expect(result.report.coverage.limitations).toEqual([]);
+    expect(result.graph.coverage.limitations).toContain('config.yaml: symbol adapter unavailable');
+    expect(result.report.impact.coverage.truncated).toBe(true);
+  });
+
+  it('reserves calls for both summaries when a file has more windows than the budget', async () => {
+    const stages: string[] = [];
+    const patch =
+      '@@ -0,0 +1,3200 @@\n' +
+      Array.from({ length: 3200 }, (_, index) => `+value${index}();`).join('\n');
+    const result = await analyze(
+      [file('large.ts', patch)],
+      {
+        profile: 'synthetic',
+        review: async (_body, _files, _instructions, context) => {
+          stages.push(context!.stage);
+          return output('검토된 범위의 요약입니다.');
+        },
+      },
+      4,
+    );
+    expect(stages).toEqual([
+      'unit-comment-block',
+      'unit-comment-block',
+      'overall-summary',
+      'total-summary',
+    ]);
+    expect(result.report.analysis?.coverage.windowsReviewed).toBe(2);
+    expect(result.report.analysis?.status).toBe('incomplete');
+    expect(result.report.coverage.limitations.join('\n')).not.toContain('Summary 미완료');
+    expect(result.report.coverage.limitations.join('\n')).toContain(
+      'unit-comment-block: model call budget',
+    );
+  });
+
+  it('widens bounded windows to review every line and summary within the call budget', async () => {
+    const observed = new Set<number>();
+    const patch =
+      '@@ -0,0 +1,320 @@\n' +
+      Array.from({ length: 320 }, (_, index) => `+value${index}();`).join('\n');
+    const result = await analyze(
+      [file('schema.json', patch)],
+      {
+        profile: 'synthetic',
+        review: async (body, _files, _instructions, context) => {
+          if (context?.stage === 'unit-comment-block')
+            for (const match of body.matchAll(/^(\d+) \| core \|/gm))
+              observed.add(Number(match[1]));
+          return output('검토 완료');
+        },
+      },
+      4,
+    );
+    expect(observed.size).toBe(320);
+    expect(result.report.analysis?.coverage).toMatchObject({
+      windowsPlanned: 2,
+      windowsReviewed: 2,
+      modelCalls: 4,
+    });
+    expect(result.state).toBe('completed');
+  });
+
+  it('retries a transient provider failure once without leaking errors or inventing coverage', async () => {
+    const review = vi
+      .fn<ReviewModel['review']>()
+      .mockRejectedValueOnce(new DOMException('private upstream detail', 'TimeoutError'))
+      .mockResolvedValue(output('검토 완료'));
+    const result = await analyze([file('retry.ts')], { profile: 'synthetic', review });
+    expect(review).toHaveBeenCalledTimes(4);
+    expect(result.state).toBe('completed');
+    expect(result.report.analysis?.coverage.modelCalls).toBe(4);
+    expect(result.report.analysis?.coverage.windowsReviewed).toBe(1);
+    expect(JSON.stringify(result)).not.toContain('private upstream');
+  });
+
   it('reports file progress and summary stages without counting skipped files as reviewed', async () => {
     const updates: Array<{ stage: string; detail: import('@gcr/contracts').AnalysisProgress }> = [];
     const files = [file('one.ts'), file('two.ts'), file('image.png', 'Binary files differ')];

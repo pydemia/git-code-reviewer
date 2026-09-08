@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
@@ -620,7 +620,7 @@ export async function executeAnalysisJob(
   );
 }
 
-async function persistAnalysis(
+export async function persistAnalysis(
   database: Database,
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
@@ -630,18 +630,28 @@ async function persistAnalysis(
   state: 'completed' | 'partial',
 ) {
   const analysisId = requiredPayload(job, 'analysisId');
+  const reportContent = JSON.stringify(report);
+  const graphContent = JSON.stringify(graph);
   const reportArtifact = await artifacts.commitText(
-    `analyses/${analysisId}/report.v1.json`,
-    JSON.stringify(report),
+    `analyses/${analysisId}/report.${createHash('sha256').update(reportContent).digest('hex')}.v1.json`,
+    reportContent,
   );
   const graphArtifact = await artifacts.commitText(
-    `analyses/${analysisId}/relationships.v1.json`,
-    JSON.stringify(graph),
+    `analyses/${analysisId}/relationships.${createHash('sha256').update(graphContent).digest('hex')}.v1.json`,
+    graphContent,
   );
   const reportId = randomUUID();
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    await connection.query('select id from analysis_runs where id = $1 for update', [analysisId]);
+    const existing = await connection.query('select 1 from reports where analysis_run_id = $1', [
+      analysisId,
+    ]);
+    if (existing.rowCount) {
+      await connection.query('commit');
+      return;
+    }
     const reportArtifactId = await insertArtifact(
       connection,
       'analysis',
@@ -786,12 +796,15 @@ async function updateAnalysisState(
   detail?: import('@gcr/contracts').AnalysisProgress,
 ) {
   const analysisId = requiredPayload(job, 'analysisId');
-  await database.query(
+  const updated = await database.query(
     `update analysis_runs set state = $2, stage = $3, progress = $4,
      progress_detail = case when $3 = 'deterministic' then null else coalesce($5::jsonb, progress_detail) end,
-     started_at = coalesce(started_at, clock_timestamp()) where id = $1`,
+     started_at = coalesce(started_at, clock_timestamp()) where id = $1
+     and state not in ('completed', 'partial')
+     and not exists (select 1 from reports where analysis_run_id = $1)`,
     [analysisId, state, stage, progress, detail ? JSON.stringify(detail) : null],
   );
+  if (!updated.rowCount) return;
   const payload = { analysisId, revision: 1, state, stage, progress, progressDetail: detail };
   if (!job.payload.memoryOwnerUserId) {
     await appendEvent(
@@ -818,6 +831,15 @@ async function completeJob(database: Database, job: ClaimedJob) {
 }
 
 async function failJob(database: Database, job: ClaimedJob, error: unknown) {
+  if (job.type === 'analysis.run') {
+    const published = await database.query('select 1 from reports where analysis_run_id = $1', [
+      job.payload.analysisId,
+    ]);
+    if (published.rowCount) {
+      await completeJob(database, job);
+      return;
+    }
+  }
   const retryable =
     error instanceof GitHubRequestError
       ? error.retryable

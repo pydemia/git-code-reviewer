@@ -18,7 +18,7 @@ import type { ReviewReport } from '@gcr/review-contract';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadConfig, type AppConfig } from '../config.js';
 import { ensureFixtureRepository, pollRepository } from '../services/repositories.js';
-import { executeAnalysisJob, executeSnapshotJob } from './worker.js';
+import { executeAnalysisJob, executeSnapshotJob, persistAnalysis } from './worker.js';
 
 const databaseUrl = process.env.GCR_TEST_DATABASE_URL;
 describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and staged review', () => {
@@ -225,6 +225,40 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     }
   });
 
+  it('retains immutable orphan artifacts after a database rollback without blocking the next attempt', async () => {
+    await database.query(`create function reject_analysis_object() returns trigger language plpgsql as $$
+      begin raise exception 'synthetic database write failure'; end; $$`);
+    await database.query(
+      'create trigger reject_analysis_object before insert on code_objects for each row execute function reject_analysis_object()',
+    );
+    try {
+      await expect(
+        executeAnalysisJob(
+          database,
+          artifacts,
+          { ...config, GITHUB_MODE: 'disabled' },
+          analysisJob,
+        ),
+      ).rejects.toThrow('synthetic database write failure');
+      expect(
+        (await database.query('select 1 from reports where analysis_run_id=$1', [analysisId]))
+          .rowCount,
+      ).toBe(0);
+      const orphans = (await artifacts.list()).filter((entry) =>
+        entry.locator.startsWith(`analyses/${analysisId}/`),
+      );
+      expect(orphans).toHaveLength(2);
+      await artifacts.commitText(
+        `analyses/${analysisId}/report.v1.json`,
+        'legacy interrupted attempt',
+      );
+    } finally {
+      await database.query('drop trigger reject_analysis_object on code_objects');
+      await database.query('drop function reject_analysis_object()');
+      calls.length = 0;
+    }
+  });
+
   it('uses the queued version after administrators activate another version, and persists custom categories', async () => {
     await database.query('update analysis_prompt_versions set active=false where active');
     await database.query(
@@ -294,6 +328,62 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       analysisJob,
     );
     expect(calls.length).toBe(before); // Published report is immutable/idempotent.
+    expect(await artifacts.readText(`analyses/${analysisId}/report.v1.json`)).toBe(
+      'legacy interrupted attempt',
+    );
+  });
+
+  it('serializes concurrent publication and retains the winning immutable report', async () => {
+    const stored = (
+      await database.query(
+        "select locator, artifact_type from artifacts where scope_id=$1 and scope_type='analysis'",
+        [analysisId],
+      )
+    ).rows;
+    const originalReport = await artifacts.readJson<ReviewReport>(
+      stored.find((row) => row.artifact_type === 'report').locator,
+    );
+    const graph = await artifacts.readJson<import('@gcr/review-contract').RelationshipGraph>(
+      stored.find((row) => row.artifact_type === 'relationships').locator,
+    );
+    const nextId = (
+      await database.query(
+        "insert into analysis_runs(snapshot_id, analysis_key, state) values ($1,$2,'analyzing') returning id",
+        [snapshotId, randomUUID()],
+      )
+    ).rows[0].id;
+    const report = {
+      ...originalReport,
+      analysisRevisionId: nextId,
+      findings: [],
+      analysis: undefined,
+    };
+    const nextGraph = { ...graph, analysisRevisionId: nextId, objects: [], relations: [] };
+    const job = { ...analysisJob, payload: { ...analysisJob.payload, analysisId: nextId } };
+    await Promise.all([
+      persistAnalysis(database, artifacts, config, job, report, nextGraph, 'completed'),
+      persistAnalysis(
+        database,
+        artifacts,
+        config,
+        job,
+        { ...report, summary: 'Another valid result' },
+        nextGraph,
+        'completed',
+      ),
+    ]);
+    const rows = (
+      await database.query(
+        'select reports.summary, artifacts.locator from reports join artifacts on artifacts.id=reports.artifact_id where analysis_run_id=$1',
+        [nextId],
+      )
+    ).rows;
+    expect(rows).toHaveLength(1);
+    const winner = await artifacts.readJson<ReviewReport>(rows[0].locator);
+    expect(winner.summary).toBe(rows[0].summary);
+    expect(
+      (await database.query('select 1 from artifacts where scope_id=$1', [nextId])).rowCount,
+    ).toBe(2);
   });
 
   it('serves the pinned report in API/JSON/Markdown and publishes the artifact hierarchy', async () => {

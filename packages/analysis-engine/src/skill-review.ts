@@ -49,7 +49,7 @@ export async function runSkillReview(input: {
       .filter((skill) => skill.enabled && skill.kind === 'perspective')
       .map((skill) => skill.name),
   );
-  const windows = input.files.flatMap((file) => buildReviewWindows(file));
+  const windows = planReviewWindows(input.files, input.maxModelCalls);
   const comments: Comment[] = [];
   const fingerprints = new Map<string, Comment>();
   const limitations: string[] = [];
@@ -76,7 +76,13 @@ export async function runSkillReview(input: {
     files: string[],
   ) => {
     if (!input.model) return null;
-    if (coverage.modelCalls >= input.maxModelCalls) {
+    const reservedCalls =
+      stage === 'unit-comment-block' && input.maxModelCalls >= 3
+        ? 2
+        : stage === 'overall-summary' && input.maxModelCalls >= 2
+          ? 1
+          : 0;
+    if (coverage.modelCalls >= input.maxModelCalls - reservedCalls) {
       limitations.push(`${stage}: model call budget 초과`);
       return null;
     }
@@ -84,28 +90,38 @@ export async function runSkillReview(input: {
       limitations.push(`${stage}: 모델 입력 크기 제한 초과`);
       return null;
     }
-    coverage.modelCalls += 1;
-    try {
-      const result = await input.model.review(body, files, instructions, {
-        stage,
-        skills,
-        ...(stage === 'unit-comment-block' && input.memory ? { memory: input.memory } : {}),
-      });
-      const parsed = legacyAnalysisReportSchema.parse(result.report);
-      if (
-        parsed.review.is_error ||
-        !parsed.review.summary.trim() ||
-        !gradeSchema.safeParse(parsed.review.grade).success
-      )
-        throw new Error('Invalid review result');
-      successfulCalls += 1;
-      return { review: parsed.review, truncated: result.truncated };
-    } catch {
-      limitations.push(
-        `${files.join(', ') || '전체 report'}: ${stage} 모델 호출 또는 응답 검증 실패`,
-      );
-      return null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      coverage.modelCalls += 1;
+      try {
+        const result = await input.model.review(body, files, instructions, {
+          stage,
+          skills,
+          ...(stage === 'unit-comment-block' && input.memory ? { memory: input.memory } : {}),
+        });
+        const parsed = legacyAnalysisReportSchema.parse(result.report);
+        if (
+          parsed.review.is_error ||
+          !parsed.review.summary.trim() ||
+          !gradeSchema.safeParse(parsed.review.grade).success
+        )
+          throw new Error('Invalid review result');
+        successfulCalls += 1;
+        return { review: parsed.review, truncated: result.truncated };
+      } catch (error) {
+        if (attempt === 0 && coverage.modelCalls < input.maxModelCalls - reservedCalls) continue;
+        const code =
+          error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name)
+            ? 'MODEL_TIMEOUT'
+            : error instanceof SyntaxError || (error instanceof Error && error.name === 'ZodError')
+              ? 'MODEL_OUTPUT_INVALID'
+              : 'MODEL_CALL_FAILED';
+        limitations.push(
+          `${files.join(', ') || '전체 report'}: ${stage} 모델 호출 또는 응답 검증 실패 [${code}]`,
+        );
+        return null;
+      }
     }
+    return null;
   };
 
   for (const file of input.allFiles) {
@@ -318,6 +334,16 @@ function highest(comments: Comment[]) {
         : priority,
     null,
   );
+}
+
+function planReviewWindows(files: AnalysisFile[], maxModelCalls: number): ReviewWindow[] {
+  let windows: ReviewWindow[] = [];
+  for (const coreLines of [80, 160, 320, 500]) {
+    windows = files.flatMap((file) => buildReviewWindows(file, { coreLines }));
+    const summaries = new Set(windows.map((window) => window.fileId)).size + 1;
+    if (windows.length + summaries <= maxModelCalls) break;
+  }
+  return windows;
 }
 function worstGrade(grades: string[]) {
   const ordered = ['critical', 'insufficient', 'adequate', 'proficient', 'exceptional'];
