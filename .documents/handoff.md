@@ -4,11 +4,19 @@
 
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
-- 단계: Workspace 배치 변경·가이드·테스트를 commit·push하고 PRISM-DEV에 application `0.8.0-alpha.12`, Helm revision 22로 재배포함
+- 단계: Workspace 배치는 PRISM-DEV application `0.8.0-alpha.12`, Helm revision 22로 배포됨. 후속 Markdown·block 이동·Chat 개선은 commit·push했으며 아직 미배포
 - 배포 source: `74cdc056833ae7b2866bc27a30a8635c9b94b5b2` (재배포 전 원격 최신 commit과 일치 확인). Release 설정·기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-08 Markdown·block 이동·Chat 개선 — 미배포
+
+구현 commit은 `d8ea3c1`이다. Summary가 backtick inline code만 처리해 Markdown 제목·강조·목록이 그대로 노출되던 문제를 공통 `ReviewMarkdown.tsx`로 수정했다. `react-markdown`·`remark-gfm`으로 PR·파일 요약과 Comments 본문을 렌더링하며 raw HTML·위험 URL·외부 image 요청을 제한한다. 파일 요약·Comment article의 본문과 여백도 기존 Code 이동 handler를 사용한다. 내부 control, 링크, 텍스트 선택과 modifier 클릭은 보존한다.
+
+`ChatPanel.tsx`를 App에서 분리하고 Account·Model·Effort를 입력창 아래 DOM 위치로 이동했다. 본문·입력·select는 14px, 입력창은 5줄·최소 140px이며 좁은 panel에서 Account를 별도 줄로 배치한다. 기존 session·draft·모델 선택·전송 처리 자체는 바꾸지 않았다.
+
+Lint·전체 typecheck·Web build, 202 tests 통과. 별도 DB가 필요한 integration 22 tests는 이번 UI 검증에서 skip했다. 실제 component의 local 합성 Browser에서 Markdown·block→Code line 이동·Chat draft/줄바꿈·desktop/mobile DOM 배치를 확인했다. 검증 범위, build warning과 screenshot은 [검증 기록](verification-review-markdown-chat-2026-09-08.md)에 있다. Cluster, account·GHES 설정과 기존 report는 변경하지 않았다. 배포 요청 시 source `d8ea3c1` 이후의 가이드·기록 commit까지 포함해 새 image를 build한다.
 
 ### 2026-09-08 Workspace 배치 변경 — 배포 완료
 

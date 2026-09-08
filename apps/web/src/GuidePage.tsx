@@ -415,7 +415,9 @@ export function GuidePage() {
               Summary 탭은 PR 전체 요약, 펼쳐진 파일별 검토 요약과 Analyzed File List를 표시합니다.
               전체 요약이 없는 과거 report에는 별도 안내가 표시됩니다. 하단 FNB의 Comments는 Commit
               Defender의 unit-comment-block에 해당하는 AI review comment를 파일별로 표시합니다.
-              Comment를 클릭하면 Code 탭의 해당 head/mergeBase line과 inline 설명으로 이동하며
+              요약과 상세 의견의 Markdown은 제목, 강조, 목록, 표와 code block으로 표시합니다. 보안을
+              위해 raw HTML은 실행하지 않고 외부 이미지는 불러오지 않습니다. 파일 요약이나 Comment의
+              본문·여백을 클릭하면 Code 탭의 해당 head/mergeBase line과 inline 설명으로 이동하며
               오른쪽 Chat에서 이어서 질문할 수 있습니다. 파일 수준의 설명에는 line을 만들지
               않습니다. Raw JSON과 Markdown에서도 같은 분석 revision을 확인할 수 있습니다.
             </p>
@@ -458,7 +460,7 @@ export function GuidePage() {
               <div>
                 <strong>3. Chat</strong>
                 <span>
-                  오른쪽에서 account, model, effort를 선택하고 현재 revision을 질문합니다.
+                  오른쪽 입력창 아래에서 Account·Model·Effort를 선택하고 현재 revision을 질문합니다.
                 </span>
               </div>
             </div>
@@ -475,6 +477,11 @@ export function GuidePage() {
               크기를 조절하세요. 더블클릭 또는 Home으로 해당 패널의 기본 크기를 복원합니다. 이전에
               직접 조정한 크기는 유지됩니다.
             </p>
+            <p>
+              Chat 본문과 입력 글씨는 14px이며 입력창은 기본 5줄, 최소 높이 140px입니다.
+              Account·Model·Effort는 입력창 아래에 있고 좁은 패널에서는 Account가 별도 줄로
+              표시됩니다. Enter로 전송하고 Shift+Enter로 줄을 바꿉니다.
+            </p>
           </section>
 
           <section className="guide-section" id="code-navigation">
@@ -486,8 +493,10 @@ export function GuidePage() {
               선택이 가능합니다.
             </p>
             <p>
-              Code에는 현재 파일의 comment 아이콘과 설명이 처음부터 표시됩니다. Summary의 파일
-              경로나 Comments의 ‘코드에서 보기’를 선택하면 해당 파일과 line으로 이동합니다. 선택한
+              Code에는 현재 파일의 comment 아이콘과 설명이 처음부터 표시됩니다. Summary의
+              파일별 요약 block이나 Comments block의 본문·여백을 클릭하면 해당 파일과 line으로
+              이동합니다. 텍스트를 드래그해 선택하거나 링크·접기 control을 사용하면 이동하지
+              않습니다. Keyboard에서는 기존 파일 경로·제목·‘코드에서 보기’ 버튼을 사용하세요. 선택한
               범위의 시작 line만 강조하며 모든 줄에 테두리를 반복하지 않습니다. 긴 inline comment는
               읽기 좋은 최대 너비로 표시합니다. P0 Praise는 좋은 변경, P1 Info는 선택적 개선, P2
               Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드 위치 확인’은

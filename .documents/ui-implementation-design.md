@@ -210,7 +210,8 @@ Internal opaque ID나 external URL 자체는 권한을 부여하지 않는다. �
 
 ## 8. Persistent Chat
 
-- 상단에 사용자가 접근 가능한 Account | Model | Effort selector와 새 대화 시작 command를 둔다.
+- 입력창 아래에 사용자가 접근 가능한 Account | Model | Effort selector를 둔다. DOM과 Tab 순서도 입력창 → 전송 → selector 순서를 따른다. 400px 이하 패널에서는 Account를 별도 줄로 표시한다.
+- Chat 본문·입력·select는 14px, 설명·label은 11–13px로 구분한다. 입력창은 5줄·최소 140px이며 모바일 Chat panel은 최소 560px로 메시지 영역을 남긴다.
 - Model과 Effort option은 선택한 account에서 관리자가 허용한 capability만 표시한다.
 - 첫 message 전까지 선택을 조정할 수 있다. Message가 있는 session에서 account/model/effort를 바꾸면 기존 대화를 수정하지 않고 새 session 생성 확인을 표시한다.
 - Session header에는 실제 account email이나 credential 대신 account display label, model과 effort를 표시한다.

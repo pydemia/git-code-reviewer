@@ -167,7 +167,13 @@ Registry card는 metadata와 action을 한 행에 배치하고 작은 화면에�
 
 Report 상태 badge와 priority는 별도 항목으로 표시한다. Summary는 PR 전체 요약 → 펼쳐진 파일별 검토 요약 → 파일 목록·provenance 순서다. 상세 unit-comment-block은 하단 Comments에만 표시한다. 전체 요약이 없는 report는 누락을 안내하며 파일별 요약을 복제하지 않는다. 현재 파일의 inline comment는 선택 전에도 표시하며 최대 너비 (880px), 좌우 여백 합계 최소 (48px)를 적용한다. Diff의 선택 강조는 시작 line에만 적용한다.
 
-Comment article은 category·line range·문제·영향·수정 제안을 펼쳐 읽을 수 있는 형태다. 제목과 코드 이동 버튼으로 위치를 선택하며 selected는 accent-soft와 focus 테두리, `aria-current`로 전달한다. 경로와 comment 선택은 같은 analysis revision의 diff로 이동한다. Comment가 없거나 검토하지 못한 파일도 파일 목록에서 확인할 수 있다.
+Comment article은 category·line range·문제·영향·수정 제안을 펼쳐 읽을 수 있는 형태다. 파일 요약과 comment의 본문·여백 클릭도 기존 제목·코드 이동 버튼과 같은 위치로 이동한다. 링크·접기 control·텍스트 선택·modifier 클릭은 이동에서 제외한다. Keyboard는 기존 native button을 사용하며 article을 중첩 button으로 만들지 않는다. Selected는 accent-soft와 focus 테두리, `aria-current`로 전달한다. 경로와 comment 선택은 같은 analysis revision의 diff로 이동한다. Comment가 없거나 검토하지 못한 파일도 파일 목록에서 확인할 수 있다.
+
+Summary·파일 요약·Comments 본문은 공통 Markdown renderer를 사용한다. 본문 (14px/1.8), 내부 heading (15–17px), inline code와 fenced code, 목록·표를 구분하고 표·긴 code는 내부에서 가로 scroll한다. Raw HTML은 실행하지 않으며 외부 image는 alt text로 대체한다. 모델의 출력이나 저장된 report를 재작성하지 않는다.
+
+### Review Chat
+
+Revision·scope는 상단, 대화는 가운데, 입력창과 Account·Model·Effort는 하단에 둔다. 본문·입력·select (14px), header (15px), label·metadata (11–13px)로 구분한다. 입력창은 5줄·최소 (140px)이며 selector는 입력창 다음 DOM 순서다. 패널 너비 (400px) 이하에서는 Account를 한 줄로 분리한다. 모바일 Chat은 최소 (560px)를 확보한다.
 
 ## Do's and Don'ts
 
