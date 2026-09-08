@@ -1,5 +1,9 @@
 # Git Code Reviewer - 구현 계획서
 
+## 후속 설계: 로컬 Git 기반 Interactive Review Chat (2026-09-08)
+
+[설계 문서](interactive-review-chat-design.md)와 [단계별 구현 계획](interactive-review-chat-implementation-plan.md)에 실제 clone/checkout, base·merge-base·head 탐색, 사용자 확인과 재개, 실제 streaming·중단·복구, 계정 공통 호출 제한을 정의했다. 자동 분석도 같은 workspace/source provider를 사용한다. 현재는 계획 문서만 작성했으며 구현·배포는 하지 않았다. 아래 기존 milestone의 완료 이력과 구분한다.
+
 ## 후속 commit phase: Skill 번역과 Severity Level (2026-09-08)
 
 - Phase 1: 원문 6개 perspective 전체 번역, 출처·license, checklist 검증. Commit `2ff10b5`.

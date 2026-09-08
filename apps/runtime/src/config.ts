@@ -67,6 +67,13 @@ const configSchema = z.object({
     .regex(/^\d+\.\d+\.\d+$/)
     .default('0.153.0'),
   CHAT_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(2),
+  CHAT_AGENT_ENABLED: booleanString,
+  CHAT_AGENT_MAX_MODEL_CALLS: z.coerce.number().int().min(2).max(32).default(8),
+  CHAT_AGENT_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(100).default(24),
+  CHAT_AGENT_CONTEXT_BYTES: z.coerce.number().int().min(8192).max(524288).default(131072),
+  GIT_SANDBOX_SOCKET: z.string().optional(),
+  GIT_WORKSPACE_MAX_BYTES: z.coerce.number().int().positive().default(2147483648),
+  MODEL_ADMISSION_ENABLED: booleanString,
   CHAT_HOURLY_LIMIT: z.coerce.number().int().positive().default(30),
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
   CREDENTIAL_REGISTRY_ENABLED: booleanString,
