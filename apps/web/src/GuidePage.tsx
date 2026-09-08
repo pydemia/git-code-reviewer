@@ -493,12 +493,12 @@ export function GuidePage() {
               선택이 가능합니다.
             </p>
             <p>
-              Code에는 현재 파일의 comment 아이콘과 설명이 처음부터 표시됩니다. Summary의
-              파일별 요약 block이나 Comments block의 본문·여백을 클릭하면 해당 파일과 line으로
-              이동합니다. 텍스트를 드래그해 선택하거나 링크·접기 control을 사용하면 이동하지
-              않습니다. Keyboard에서는 기존 파일 경로·제목·‘코드에서 보기’ 버튼을 사용하세요. 선택한
-              범위의 시작 line만 강조하며 모든 줄에 테두리를 반복하지 않습니다. 긴 inline comment는
-              읽기 좋은 최대 너비로 표시합니다. P0 Praise는 좋은 변경, P1 Info는 선택적 개선, P2
+              Code에는 현재 파일의 comment 아이콘과 설명이 처음부터 표시됩니다. Summary의 파일별
+              요약 block이나 Comments block의 본문·여백을 클릭하면 해당 파일과 line으로 이동합니다.
+              텍스트를 드래그해 선택하거나 링크·접기 control을 사용하면 이동하지 않습니다.
+              Keyboard에서는 기존 파일 경로·제목·‘코드에서 보기’ 버튼을 사용하세요. 선택한 범위의
+              시작 line만 강조하며 모든 줄에 테두리를 반복하지 않습니다. 긴 inline comment는 읽기
+              좋은 최대 너비로 표시합니다. P0 Praise는 좋은 변경, P1 Info는 선택적 개선, P2
               Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드 위치 확인’은
               diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일 전체에 대한
               comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
