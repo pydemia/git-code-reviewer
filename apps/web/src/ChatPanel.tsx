@@ -1,4 +1,5 @@
 import { Bot, Link2, RefreshCw, Send, Sparkles } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { ChatAccountCatalog, ChatMessage, ChatSession, WorkspaceData } from './api.ts';
 import type { ChatCitation } from '@gcr/contracts';
 import { ReviewMarkdown } from './ReviewMarkdown.tsx';
@@ -31,8 +32,10 @@ export function ChatPanel({
   onEffortChange,
   onSend,
   onCitationSelect,
+  activity,
 }: {
   revision: number | null | undefined;
+  activity?: ReactNode;
   headSha: string | undefined;
   selectedFinding: FindingView | undefined;
   selectedFile: string | undefined;
@@ -116,7 +119,7 @@ export function ChatPanel({
             <span>이 revision의 report와 evidence는 계속 확인할 수 있습니다.</span>
           </div>
         ) : null}
-        {model?.available && messages.length === 0 ? (
+        {model?.available && messages.length === 0 && !activity ? (
           <div className="chat-message-empty">아직 대화가 없습니다.</div>
         ) : null}
         {model?.available
@@ -159,7 +162,8 @@ export function ChatPanel({
               </article>
             ))
           : null}
-        {model?.available && sending ? (
+        {activity}
+        {model?.available && sending && !activity ? (
           <div className="chat-pending">
             <RefreshCw size={13} className="spin" /> 답변을 생성하는 중입니다.
           </div>

@@ -51,6 +51,9 @@ import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewGrade } from './ReviewGrade.tsx';
 import { ChatPanel } from './ChatPanel.tsx';
+import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
+import { useInteractiveChat } from './use-interactive-chat.ts';
+import { sourceEvidenceSchema, type SourceEvidence } from '@gcr/contracts';
 import { resolveChatCitation } from './chat-citations.ts';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
@@ -298,8 +301,37 @@ function ReviewWorkspace({
   const [chatEffort, setChatEffort] = useState('');
   const [chatSelectionRevision, setChatSelectionRevision] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatDraft, setChatDraft] = useState('');
+  const draftKey = user && chatSession ? `gcr.chat-draft:${user.id}:${chatSession.id}` : '';
+  const [draftState, setDraftState] = useState({ key: '', content: '' });
+  const chatDraft = draftState.key === draftKey ? draftState.content : '';
+  const setChatDraft = (content: string) => {
+    setDraftState({ key: draftKey, content });
+    try {
+      if (draftKey) window.sessionStorage.setItem(draftKey, content);
+    } catch {
+      return;
+    }
+  };
+  useEffect(() => {
+    try {
+      setDraftState({
+        key: draftKey,
+        content: draftKey ? (window.sessionStorage.getItem(draftKey) ?? '') : '',
+      });
+    } catch {
+      setDraftState({ key: draftKey, content: '' });
+    }
+  }, [draftKey]);
   const [chatSending, setChatSending] = useState(false);
+  const agentChat = useInteractiveChat(chatSession?.id, setChatMessages);
+  const [sourceEvidence, setSourceEvidence] = useState<SourceEvidence | null>(null);
+  const [sourceError, setSourceError] = useState('');
+  const sourceRequest = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setSourceEvidence(null);
+    setSourceError('');
+    return () => sourceRequest.current?.abort();
+  }, [chatSession?.id]);
   const [diffMode, setDiffMode] = useState<'split' | 'unified'>(() =>
     window.innerWidth <= 760 ? 'unified' : 'split',
   );
@@ -578,6 +610,7 @@ function ReviewWorkspace({
       controller.signal,
     ).then(
       ({ session, messages }) => {
+        if (controller.signal.aborted) return;
         setChatSession(session);
         setChatMessages(messages);
       },
@@ -661,6 +694,7 @@ function ReviewWorkspace({
   const addedTestFiles = useMemo(() => analyzeAddedTests(data?.diff?.files ?? []), [data?.diff]);
 
   const selectFile = (path: string) => {
+    setSourceEvidence(null);
     setMainView('code');
     setSelectedPath(path);
     setSelectedFindingId(null);
@@ -682,6 +716,7 @@ function ReviewWorkspace({
   };
 
   const selectFinding = (finding: FindingView) => {
+    setSourceEvidence(null);
     setSelectedFindingId(finding.id);
     setMainView('code');
     setBottomTool('comments');
@@ -693,6 +728,7 @@ function ReviewWorkspace({
   };
 
   const selectObject = (objectId: string) => {
+    setSourceEvidence(null);
     setMainView('code');
     const anchor = data?.objects.find((item) => item.id === objectId)?.definition;
     const file = data?.files.find((item) => item.id === anchor?.fileId);
@@ -724,6 +760,13 @@ function ReviewWorkspace({
     setChatDraft('');
     setChatSending(true);
     try {
+      if (agentChat.enabled) {
+        await agentChat.submit(content, {
+          ...(selectedFinding ? { findingId: selectedFinding.id } : {}),
+          ...(selectedFile ? { fileId: selectedFile.id } : {}),
+        });
+        return;
+      }
       const response = await sendChatMessage(chatSession.id, content, {
         ...(selectedFinding ? { findingId: selectedFinding.id } : {}),
         ...(selectedFile ? { fileId: selectedFile.id } : {}),
@@ -845,24 +888,35 @@ function ReviewWorkspace({
             </button>
             <div className="main-view-tabs" role="tablist" aria-label="Review content">
               <button
-                className={mainView === 'code' ? 'active' : ''}
+                className={mainView === 'code' && !sourceEvidence ? 'active' : ''}
                 type="button"
                 role="tab"
-                aria-selected={mainView === 'code'}
-                onClick={() => setMainView('code')}
+                aria-selected={mainView === 'code' && !sourceEvidence}
+                onClick={() => {
+                  setSourceEvidence(null);
+                  setMainView('code');
+                }}
               >
                 Code
               </button>
               <button
-                className={mainView === 'summary' ? 'active' : ''}
+                className={mainView === 'summary' && !sourceEvidence ? 'active' : ''}
                 type="button"
                 role="tab"
-                aria-selected={mainView === 'summary'}
+                aria-selected={mainView === 'summary' && !sourceEvidence}
                 disabled={!data?.report}
-                onClick={() => setMainView('summary')}
+                onClick={() => {
+                  setSourceEvidence(null);
+                  setMainView('summary');
+                }}
               >
                 Summary
               </button>
+              {sourceEvidence ? (
+                <button type="button" role="tab" aria-selected="true" className="active">
+                  코드 근거
+                </button>
+              ) : null}
             </div>
             {mainView === 'code' ? (
               <>
@@ -934,7 +988,9 @@ function ReviewWorkspace({
               </small>
             </div>
           ) : null}
-          {mainView === 'code' ? (
+          {sourceEvidence ? (
+            <SourceEvidenceView source={sourceEvidence} onClose={() => setSourceEvidence(null)} />
+          ) : mainView === 'code' ? (
             <div className="review-diff-host">
               {data?.diff && selectedFile ? (
                 <ReviewDiff
@@ -1058,6 +1114,36 @@ function ReviewWorkspace({
           ) : null}
         </section>
         <ChatPanel
+          activity={
+            agentChat.enabled ? (
+              <ChatRunActivity
+                run={agentChat.run}
+                error={agentChat.error || sourceError}
+                sending={agentChat.sending}
+                onAnswer={(answer) => agentChat.submit(answer, {})}
+                onCancel={agentChat.cancel}
+                onEvidence={(unitId) => {
+                  sourceRequest.current?.abort();
+                  const controller = new AbortController();
+                  sourceRequest.current = controller;
+                  setSourceError('');
+                  if (agentChat.run)
+                    void fetch(`/api/v1/chat-runs/${agentChat.run.id}/context/${unitId}`, {
+                      signal: controller.signal,
+                    })
+                      .then(async (response) => {
+                        if (!response.ok) throw Error('source_unavailable');
+                        const source = sourceEvidenceSchema.parse(await response.json());
+                        if (!controller.signal.aborted) setSourceEvidence(source);
+                      })
+                      .catch(() => {
+                        if (!controller.signal.aborted)
+                          setSourceError('코드 근거를 불러오지 못했습니다. 다시 선택해 주세요.');
+                      });
+                }}
+              />
+            ) : undefined
+          }
           revision={data?.analysis?.revision}
           headSha={data?.pull.headSha}
           selectedFinding={selectedFinding}
@@ -1071,7 +1157,11 @@ function ReviewWorkspace({
           accountId={chatAccountId}
           modelName={chatModelName}
           reasoningEffort={chatEffort}
-          messages={chatMessages}
+          messages={
+            agentChat.enabled
+              ? chatMessages.filter((message) => message.id !== agentChat.run?.assistantMessageId)
+              : chatMessages
+          }
           draft={chatDraft}
           sending={chatSending}
           onDraftChange={setChatDraft}
