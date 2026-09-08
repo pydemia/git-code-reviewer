@@ -29,7 +29,7 @@
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.13@sha256:788efe54c4103fcd4c9962a743a5163c5e1597f398a0aaee2e249ae53acc0fcd`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.14@sha256:150fd26eb5bca01ae9d2227e9c13b8b4e163fb5189bbf0c4de0d5ed857306ae5`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
@@ -39,6 +39,8 @@ PRISM-DEV의 outbound HTTPS는 `SK holdings C&C` TLS inspection CA로 다시 서
 ## 배포
 
 아래 namespace·Secret·CA 생성은 최초 설치 절차다. 재배포에서는 기존 Secret과 CA를 유지하고 `helm upgrade`와 검증만 수행한다. 특히 PostgreSQL password와 credential encryption key를 다시 생성하면 기존 데이터나 등록 credential을 사용할 수 없게 된다.
+
+사용자 요청에 따라 기능·설정 변경을 commit·push하면 PRISM-DEV 배포와 검증도 함께 수행한다. 재배포는 현재 release의 `--reuse-values`에 새 image tag·digest만 지정해 관리자가 변경한 운영 설정을 보존한다. 배포 결과만 기록하는 후속 documentation commit에는 image rebuild·재배포가 필요하지 않다.
 
 ```bash
 kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
@@ -432,7 +434,7 @@ Files 기본 전체 펼침, LNB 숨김 toggle, Chat 기본 너비 569px, 하단 
 
 ## 실제 GHES 및 ChatGPT account 등록
 
-현재 배포는 아래 revision 23 기록을 따른다. 앞선 날짜별 검증 수치는 각 배포 당시의 상태다.
+현재 배포는 아래 revision 24 기록을 따른다. 앞선 날짜별 검증 수치는 각 배포 당시의 상태다.
 
 `/admin?tab=github`에서 GHES API/Web base URL과 access token을 등록한 뒤 연결 테스트를 실행하고 review 대상 repository를 등록한다. 등록된 repository는 fixture와 무관하게 해당 token으로 polling과 clone을 수행한다. 사내 CA가 필요하면 `trustedCa.existingConfigMap`을 지정한다.
 
@@ -471,3 +473,39 @@ Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb
 - `/assets/index-CxGqHCXb.css`: `24a521cc5721a44beb917fc8b54ebe503a4b2068da22bb7dc018f00402003016`
 
 배포 시 활성 custom Skill과 tenant Prompt는 없었다. 새 분석은 Built-in bundle `22896b401cb61acda43d030ff1b135fa0bbc44b7b17d93efd5ffb36595147ce7`과 기본 moderate를 사용한다. 이후 관리자가 Prompt를 저장하면 해당 tenant의 새 queue에 선택한 level이 고정된다. 기존 report를 재작성하거나 실제 모델 분석·Chat·PR 게시를 별도로 실행하지 않았다. 로그인 후 live Browser 조작은 재검증하지 않았으며 선행 합성 Browser 검증과 live artifact 일치 검증을 구분한다.
+
+## 2026-09-08 개인 Prompt·Review Chat·PR AI Comments·Grade 배포
+
+15:11 KST에 Helm revision 24 upgrade를 시작해 15:12 KST에 완료했다. Application source는 `41febd29fcfb67f02a8cfa3654091dca03df6e46`이며 build 전 원격 branch와 일치함을 확인했다. Release 설정 `dab42ad`를 먼저 commit·push한 뒤 배포했다. 이후 deployment record만 담는 commit은 실행 image를 바꾸지 않는다.
+
+- Application: `0.8.0-alpha.14`, chart: `0.10.13`
+- Image index digest: `sha256:150fd26eb5bca01ae9d2227e9c13b8b4e163fb5189bbf0c4de0d5ed857306ae5`
+- Linux/amd64 image manifest: `sha256:e96ff45d15be57d583024cac475d93f4089e96aeb2af39ac4fb83be8b93c34e7`
+- OCI chart digest: `sha256:7d44d7fa177418c6ee60e72e1c9ed29cc21db40126cdc07bb9133c87887faf8f`
+
+프로필의 개인 Prompt 편집·저장과 본인 Review Chat 적용, assistant Markdown 렌더링과 여러 파일/line range 링크, PR 게시의 AI Comments 기본 접기, Grade 한글 문구·색상 개선을 포함한다. 기존 shared PR 분석 지침·account·report·게시된 댓글을 일괄 수정하지 않는다. PR 댓글 형식은 다음 정상 게시·갱신부터 적용된다.
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| 선행 source 검증 | 312 tests / 52 files 통과, skip 없음. 로컬 PostgreSQL 16 integration, lint·전체 typecheck·Web build와 합성 desktop/mobile Profile 검증 완료 |
+| Container | `node:22-alpine` 전체 production build. Linux/amd64, UID 1000, read-only/network-none smoke에서 Skill 9개·migration 18개·Prompt 최대 4,000자·Grade `양호` 확인 |
+| Supply chain | Registry의 SPDX SBOM·SLSA provenance 확인. Build CA는 BuildKit secret으로 전달하며 runtime image에 없음 |
+| Helm | Lint·server-side dry-run·upgrade 성공. 15:13 KST connection test Succeeded |
+| Migration | `0018_personal_chat_prompt.sql` 적용. DB checksum `91859fe9ff95be583810be97360a15111677939b8579a93dc1022e3188a39bc5` 일치. `users.personal_prompt`는 text·NOT NULL·빈 문자열 기본값·4,000자 CHECK |
+| Workload | Server·Worker 각 1/1 Ready, restart 0회. 기존 Pod 종료. Retention CronJob도 동일 image digest로 갱신 |
+| Route/Health | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200, 모두 ok |
+| Web/API | `/api/v1/system` version `0.8.0-alpha.14`. `/login`·`/guide`·`/profile` HTTP 200. 비로그인 profile/repository GET 401. Prompt PUT은 Origin 누락 시 403, 올바른 Origin의 비로그인 요청은 401 |
+| 운영 데이터 | users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개, analysis 46건, report 38건 유지. 기존 사용자 7명의 개인 Prompt는 빈 값 |
+| 설정·Storage | Image 외 Helm values hash, 두 PVC/PV ID·10Gi·Bound·access mode, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute UID/resourceVersion 유지 |
+| Log | 검증 중 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인 |
+
+Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. Artifact PVC의 resourceVersion은 변경됐지만 UID·연결 PV·용량·RWX 정책은 유지됐다. PostgreSQL RWO PVC와 데이터도 유지됐다.
+
+실제 HTTPRoute가 제공하는 JS·CSS는 게시한 image 안의 asset과 SHA-256이 일치한다.
+
+- `/assets/index-CniFfEwA.js`: `44058b954c30f8beb4be247da45e16a07bc350dddee01e5fc6a5cc6338a37acb`
+- `/assets/index-C1U2fJN8.css`: `f7cd1751a7c402b5d84b3197133004e6cad175a8f4dd476ad959c84932ebfcad`
+
+최초 HTTP 검증 script는 JSON 대신 HTML 응답을 받아 중단됐다. 명시적 Host header를 지정한 curl로 실제 경로를 재검증해 위 결과를 확인했다. Prompt PUT의 최초 예상값 401은 Origin 검사 순서를 반영하지 못했으므로 Origin 누락 403과 올바른 Origin의 비로그인 401을 나눠 확인했다. 서버 인증·Origin 정책은 변경하지 않았다.
+
+배포 전 실행 중인 analysis는 없었다. 실제 모델 분석·Chat·PR 게시를 별도로 요청하지 않았고 사용자 Prompt·credential 내용을 읽거나 변경하지 않았다. 로그인 후 live Browser E2E는 재실행하지 않았으며 선행 합성 Browser 검증과 이번 image/HTTPRoute 검증을 구분한다. 새 Prompt의 실제 모델 지시 준수 정확도는 이 배포 검증 범위 밖이다.

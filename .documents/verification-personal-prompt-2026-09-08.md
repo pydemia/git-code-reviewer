@@ -1,6 +1,6 @@
 # 개인 Prompt 검증 기록 — 2026-09-08
 
-프로필에서 본인의 Review Chat 지침을 편집하는 기능을 검증했다. 개발 완료·미배포 상태이며 Backend `f06d329`는 먼저 push했다. UI·문서 변경은 이 기록과 같은 commit에 포함한다.
+프로필에서 본인의 Review Chat 지침을 편집하는 기능을 검증했다. Backend `f06d329`, UI·문서 `41febd2`를 push했고 후속 요청으로 PRISM-DEV application `0.8.0-alpha.14` / Helm revision 24에 배포했다. 아래는 개발 검증 기록이며 배포 검증은 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 별도로 기록한다.
 
 ## 구현 범위
 
@@ -35,6 +35,6 @@
 
 ## 검증 한계
 
-Browser의 합성 API 검증과 실제 PostgreSQL integration은 별도로 수행했다. 실제 서버·DB를 연결한 Browser E2E 결과는 아니다. 실제 LLM·GHES 호출과 클러스터 배포는 수행하지 않았으므로 모델의 개인 지침 준수 정확도나 배포 성공을 입증하지 않는다. 접근성 판정은 제공된 화면·구현·상태 동작의 검토 범위다.
+Browser의 합성 API 검증과 실제 PostgreSQL integration은 별도로 수행했다. 실제 서버·DB를 연결한 Browser E2E 결과는 아니다. 개발 검증에서 실제 LLM·GHES 호출과 클러스터 배포는 수행하지 않았으므로 이 검증만으로 모델의 개인 지침 준수 정확도나 배포 성공을 입증하지 않는다. 후속 배포에서는 migration·workload·health·인증 차단·Web asset 일치를 확인했으며 실제 모델 호출은 실행하지 않았다. 접근성 판정은 제공된 화면·구현·상태 동작의 검토 범위다.
 
-기존 Zod annotation·500kB bundle warning은 남아 있다. 배포 환경에는 아직 개인 Prompt가 반영되지 않았으며 재배포 시 migration `0018_personal_chat_prompt.sql`이 필요하다.
+기존 Zod annotation·500kB bundle warning은 남아 있다. PRISM-DEV에는 migration `0018_personal_chat_prompt.sql`이 적용됐고 기존 사용자 7명의 Prompt는 빈 값으로 유지됐다.

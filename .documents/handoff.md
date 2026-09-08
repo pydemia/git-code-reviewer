@@ -5,13 +5,23 @@
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.13`, Helm revision 23 배포 완료. Markdown·block 이동·Chat·GNB 개선과 Skill 번역·Severity Level 포함
-- 배포 source: `cfeba4728c121e0f620d6d48cfb72770e56c1820` (재배포 전 원격 최신 commit과 일치 확인). Release 설정 commit `be15ef8`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.14`, Helm revision 24 배포 완료. 개인 Prompt·Review Chat Markdown/다중 코드 근거·PR AI Comments 접기·Grade 문구/색상 개선 포함
+- 배포 source: `41febd29fcfb67f02a8cfa3654091dca03df6e46` (build 전 원격 최신 commit과 일치 확인). Release 설정 commit `dab42ad`, 배포 기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 2026-09-08 프로필 개인 Prompt — 개발 완료, 미배포
+### 2026-09-08 15:12 배포 (revision 24, 현재)
+
+Source `41febd2`를 application `0.8.0-alpha.14`, chart `0.10.13`으로 build·게시하고 release 설정 `dab42ad`를 push한 뒤 PRISM-DEV를 upgrade했다. Image digest는 `sha256:150fd26eb5bca01ae9d2227e9c13b8b4e163fb5189bbf0c4de0d5ed857306ae5`이며 SPDX SBOM·SLSA provenance를 포함한다. 사용자 요청에 따라 앞으로 기능·설정 작업도 commit·push 후 배포와 검증까지 수행한다.
+
+Migration `0018_personal_chat_prompt.sql` 적용·checksum 일치와 빈 기본값·4,000자 제한을 확인했다. Users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개, analysis 46건, report 38건이 유지됐고 기존 사용자 7명의 개인 Prompt는 빈 값이다. Prompt 원문·Secret을 조회하거나 사용자 설정을 변경하지 않았다.
+
+Server·Worker 각 1/1 Ready·restart 0회, 기존 Pod 종료, Helm test와 health 4종, system version, login·guide·profile 및 새 JS/CSS hash 일치를 확인했다. 비로그인 profile/repository 조회는 401이며 Prompt 저장은 Origin 누락 시 403, 올바른 Origin이어도 비로그인이면 401이다. Image 외 Helm values hash, 두 PVC/PV ID, auth/registry/PostgreSQL Secret과 CA·HTTPRoute UID/resourceVersion을 유지했다. Artifact PVC의 resourceVersion은 Helm 갱신으로 달라졌지만 UID·PV·용량·access mode는 유지됐다.
+
+이번 배포에서 실제 모델 분석·Chat·PR 게시를 별도 실행하지 않았고 로그인 후 live Browser E2E도 재실행하지 않았다. 선행 로컬 312 tests / 52 files·PostgreSQL integration·합성 Browser 검증과 이번 배포 검증은 구분한다. 상세 digest·시각·검증 결과는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
+
+### 2026-09-08 프로필 개인 Prompt — revision 24 반영
 
 사용자는 개인화된 Prompt를 프로필에서 작성하도록 요청했다. 적용 범위는 본인의 Review Chat이며 공동 PR 분석·Tenant Prompt·Skill·PR 게시 결과는 바꾸지 않는다. Backend commit `f06d329`를 먼저 push했고 UI·문서 commit은 후속 git log를 확인한다.
 
@@ -23,37 +33,37 @@ Chat은 소유권·repository 권한을 검사한 뒤 매 질문마다 현재 �
 
 검증: 로컬 PostgreSQL 16의 격리 schema에서 migration 18개와 재실행을 확인하고 사용자 분리·재연결 후 영속성·본문 없는 audit·최대 길이·해제를 검증했다. 전체 312 tests / 52 files 통과, skip 없음. 신규 검증은 20건이며 기존 29 DB integration도 실행했다. ESLint·전체 TypeScript·Web production build 통과. 기존 Zod annotation·500kB bundle warning은 유지된다. 새 SSR test의 HTML attribute 대소문자 기대값만 실제 serializer에 맞춰 수정했다.
 
-Browser는 실제 ProfilePage에 합성 API를 연결했다. Desktop 1440×1000·mobile 390×844에서 저장·재조회·실패 시 초안/alert focus 유지·저장 전 비우기의 비영속성·저장 후 해제와 가로 overflow 없음을 확인했다. `profile-prompt-{desktop,mobile}.png`는 `.impeccable/review/`에 보존한다. 새 UI에 detector warning은 없으며 기존 unrelated 3px 측면 border 4건은 유지했다. 실제 GHES·LLM 호출·클러스터 배포는 하지 않았다. PRISM-DEV는 여전히 application 0.8.0-alpha.13/Helm revision 23이다. 재배포 시 migration 0018과 앞선 미배포 Grade·Chat Markdown·PR 접기 변경도 함께 포함한다.
+Browser는 실제 ProfilePage에 합성 API를 연결했다. Desktop 1440×1000·mobile 390×844에서 저장·재조회·실패 시 초안/alert focus 유지·저장 전 비우기의 비영속성·저장 후 해제와 가로 overflow 없음을 확인했다. `profile-prompt-{desktop,mobile}.png`는 `.impeccable/review/`에 보존한다. 새 UI에 detector warning은 없으며 기존 unrelated 3px 측면 border 4건은 유지했다. 개발 검증에서는 실제 GHES·LLM 호출·클러스터 배포를 하지 않았다. 후속 요청으로 migration 0018과 Grade·Chat Markdown·PR 접기 변경을 revision 24에 함께 배포했다.
 
 독립 Impeccable finish review는 이번 개인 Prompt UI 범위에서 `ship`이며 수정 요구가 없었다. 기존 DESIGN.md와 sidecar의 시각 체계를 유지했다. 검증용 Browser·Vite·PostgreSQL container와 임시 harness는 종료·삭제했으며 기존 사용자 데이터는 변경하지 않았다. 상세 근거와 검증 한계는 [개인 Prompt 검증 기록](verification-personal-prompt-2026-09-08.md)에 있다.
 
-### 2026-09-08 PR AI Comments 접기 — 개발 완료, 미배포
+### 2026-09-08 PR AI Comments 접기 — revision 24 반영
 
 `formatReviewMarkdown`의 AI Comments 전체를 기본으로 닫힌 `<details>`에 넣었다. 접힌 제목에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 분석 상태·대표 priority, Overall Summary와 전체 report 링크는 이 영역 밖에 남는다. 펼친 본문은 기존 파일별 의견·코드 위치·영향·수정 제안·finding 링크를 유지한다. 의견이 없으면 빈 toggle을 만들지 않는다. Markdown export에도 같은 형식이 적용되지만 Browser workspace의 Comments와 저장된 report는 변경하지 않는다.
 
-길이 제한 처리에서 `<details>` 전체를 한 block으로 유지하므로 닫는 태그가 생략되지 않는다. AI Comments 전체가 제한을 초과하면 이 영역 전체를 생략하고 전체 report 링크·생략 안내를 남긴다. 가이드와 기능설계서 5.6에 동작을 기록했다. 실제 GHES 게시·기존 PR 댓글 일괄 변경·클러스터 배포는 수행하지 않았다. PRISM-DEV는 여전히 revision 23이며 재배포 후 다음 정상 게시·갱신부터 새 형식이 적용된다.
+길이 제한 처리에서 `<details>` 전체를 한 block으로 유지하므로 닫는 태그가 생략되지 않는다. AI Comments 전체가 제한을 초과하면 이 영역 전체를 생략하고 전체 report 링크·생략 안내를 남긴다. 가이드와 기능설계서 5.6에 동작을 기록했다. 실제 GHES 게시·기존 PR 댓글 일괄 변경은 수행하지 않았다. 후속 revision 24 배포 이후 다음 정상 게시·갱신부터 새 형식이 적용된다.
 
 신규 regression test 4건은 기본 접힘과 링크 보존, 빈 의견, HTML 삽입 차단, 60,000자 게시 제한에서 태그와 전체 report 링크 보존을 확인한다. 전체 263 tests 통과 / DB integration 29 skip (45 files passed / 5 skipped). ESLint·전체 TypeScript·Web production build·변경 source Prettier·git diff 검사를 통과했다. 기존 Zod annotation·500kB 초과 bundle warning은 유지된다. 초기 새 테스트의 파일 경로 기대값을 기존 Markdown escape 정책에 맞게 보정한 뒤 모두 통과했다.
 
-### 2026-09-08 Review Chat Markdown·다중 코드 근거 — 개발 완료, 미배포
+### 2026-09-08 Review Chat Markdown·다중 코드 근거 — revision 24 반영
 
 Chat 답변을 plain text로 출력하고 선택된 finding 하나의 evidence를 질문과 무관하게 첨부하던 동작을 수정했다. `ChatPanel`은 assistant에 공통 `ReviewMarkdown`을 사용하고 user 질문은 원문으로 유지한다. Code block·목록·표·강조와 여러 파일의 `L시작–끝 · 이전/변경 코드` 링크를 표시한다. 현재 report locator와 대조한 후 `App`의 code target을 citation 자체의 file/side/range로 설정하며 finding 대표 line으로 잘못 이동하지 않는다. Legacy citation도 locator로 range를 복원하며 다른 revision·file·line이면 비활성화한다.
 
 Server `services/chat-answer.ts`는 선택을 힌트로 삼고 여러 파일의 report finding/summary/coverage를 제한된 context에 포함한다. 모델은 Markdown content와 사용한 citation ID 목록을 반환하며 Server가 현재 catalog에 있는 ID만 최대 24개 저장한다. File/side/range 중복 제거, 없는 file·non-diff evidence 제외, context 생략 수, plain text 응답 시 citation 자동 첨부 금지를 적용했다. 기존 optional citation contract에 `endLine/side/path`를 추가했고 DB migration·계정·모델 Provider 구현은 변경하지 않았다. 저장된 메시지/기존 report는 재작성하지 않는다. 자세한 범위는 기능설계서 5.10과 Web 가이드 ‘Review workspace와 Chat’에 있다.
 
-검증: 신규 서비스·UI 테스트 18건과 Fastify API 주입 테스트 3건을 추가했다. 다중 range/삭제 코드/Legacy 호환/잘못된 ID·range 거부/선택 외 파일 context/빈 근거/Markup 안전성, 메시지 저장·재조회와 타 사용자·권한 회수 차단을 확인한다. 실제 PostgreSQL·LLM·GHES 호출은 수행하지 않았다. Local 합성 ChatPanel·ReviewDiff에서 1440×1000·390×844 Markdown 렌더링과 두 링크의 L10(head)↔L50(mergeBase) 이동을 확인했고 문서/Chat 가로 overflow·Browser 오류가 없었다. 첫 desktop harness의 grid 위치 설정을 보정한 뒤 확인했으며 앱 자체 grid는 변경하지 않았다. 검증용 Browser·Vite와 harness는 종료·정리한다. PRISM-DEV는 application 0.8.0-alpha.13/revision 23 그대로이며 Grade 개선과 이 변경은 재배포가 필요하다.
+검증: 신규 서비스·UI 테스트 18건과 Fastify API 주입 테스트 3건을 추가했다. 다중 range/삭제 코드/Legacy 호환/잘못된 ID·range 거부/선택 외 파일 context/빈 근거/Markup 안전성, 메시지 저장·재조회와 타 사용자·권한 회수 차단을 확인한다. 이 기능의 개발 검증에서는 실제 PostgreSQL·LLM·GHES 호출을 수행하지 않았다. Local 합성 ChatPanel·ReviewDiff에서 1440×1000·390×844 Markdown 렌더링과 두 링크의 L10(head)↔L50(mergeBase) 이동을 확인했고 문서/Chat 가로 overflow·Browser 오류가 없었다. 첫 desktop harness의 grid 위치 설정을 보정한 뒤 확인했으며 앱 자체 grid는 변경하지 않았다. 검증용 Browser·Vite와 harness는 종료·정리했다. 후속 요청으로 Grade 개선과 이 변경을 revision 24에 함께 배포했다.
 
 최종 검사: 전체 259 tests 통과 / DB integration 29 skip (45 files passed / 5 skipped). ESLint·Runtime TypeScript·Web production build·변경 source Prettier·git diff 검사를 통과했다. Impeccable detector warning 4건은 기존 3px 측면 border이며 그대로 유지했다. Browser·Vite를 종료하고 임시 harness 두 파일을 삭제했다. 실제 model 응답의 분석 정확도나 live 배포 성공을 검증한 결과는 아니다.
 
-### 2026-09-08 Grade 문구·색상 개선 — 개발 완료, 미배포
+### 2026-09-08 Grade 문구·색상 개선 — revision 24 반영
 
 `exceptional/proficient/adequate/insufficient/critical`을 사용자 화면에서 `탁월/우수/양호/개선 필요/심각`으로 표시한다. 앞의 세 등급은 teal, 개선 필요는 주황, 심각은 빨강이다. `adequate`가 기본 warning 색상을 상속하던 규칙을 제거하고 공통 `reviewGrades`·`ReviewGrade`로 PR 목록, Summary, 가이드, Markdown·PR 게시 문구를 일치시켰다. PR 목록의 P2+ 건수는 Grade와 독립적으로 warning 색상을 사용한다. Summary는 해당 등급 설명과 가이드 링크를 제공한다.
 
-저장 enum, 모델·Skill·Severity Level 판정 기준과 기존 report 본문은 변경하지 않는다. 기존 report도 새 UI에서 한글 Grade를 표시하며 PR 댓글은 다음 정상 게시 시 새 템플릿을 사용한다. 이미 게시한 댓글을 일괄 수정하지 않았다. 긍정적인 Grade여도 P2/P3·분석 제한은 유지하고 실패·미수행·데모 Summary에는 Grade를 표시하지 않는다. PRISM-DEV는 여전히 revision 23이며 이번 변경은 별도 재배포가 필요하다.
+저장 enum, 모델·Skill·Severity Level 판정 기준과 기존 report 본문은 변경하지 않는다. 기존 report도 새 UI에서 한글 Grade를 표시하며 PR 댓글은 다음 정상 게시 시 새 템플릿을 사용한다. 이미 게시한 댓글을 일괄 수정하지 않았다. 긍정적인 Grade여도 P2/P3·분석 제한은 유지하고 실패·미수행·데모 Summary에는 Grade를 표시하지 않는다. 후속 revision 24 배포에 포함됐다.
 
 전체 TypeScript·ESLint·Web production build 통과. 자동 테스트 238건 통과, DB integration 29건은 별도 DB를 띄우지 않아 skip했다(42 files passed / 5 skipped). 새 검증 11건은 다섯 등급의 label/tone, canonical enum 보존·가이드, Markdown 표시를 확인한다. 기존 Summary와 legacy PR 게시 테스트에도 검증을 추가했다. Local production preview의 실제 Worklist·GuidePage에 합성 API를 연결해 1440×1000·390×844에서 Grade와 별도 P2+ 색상, 줄바꿈, 문서 overflow 없음, Browser 오류 없음을 확인했다. Summary·실제 GHES 게시·모델 호출 E2E는 수행하지 않았다. Badge text 대비는 positive 5.52:1, warning 4.84:1, danger 5.62:1이다. Impeccable detector warning 4건은 기존 다른 컴포넌트의 3px 측면 border이며 이번 변경과 무관해 유지했다. 기존 Zod annotation·500kB 초과 bundle warning도 유지된다.
 
-### 2026-09-08 13:04 배포 (revision 23, 현재)
+### 2026-09-08 13:04 배포 (revision 23)
 
 사용자 요청에 따라 source `cfeba47`을 application `0.8.0-alpha.13`, chart `0.10.12`로 배포했다. Image digest는 `sha256:788efe54c4103fcd4c9962a743a5163c5e1597f398a0aaee2e249ae53acc0fcd`이며 SPDX SBOM·SLSA provenance가 포함됐다. 정확한 chart digest·asset hash와 검증 표는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
 
