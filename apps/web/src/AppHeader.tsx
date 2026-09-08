@@ -45,7 +45,7 @@ export function AppHeader({
                 </select>
               </label>
             ) : null}
-            {!compact && user?.role === 'administrator' ? (
+            {user?.role === 'administrator' ? (
               <a className="icon-button" href="/admin" title="관리" aria-label="관리">
                 <Settings size={17} />
               </a>

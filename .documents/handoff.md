@@ -10,6 +10,10 @@
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
+### 2026-09-08 Reviews GNB 설정 버튼 — 미배포
+
+`AppHeader.tsx`의 관리자 설정 링크에서 `!compact` 조건을 제거했다. Reviews는 compact header를 쓰므로 기존에는 설정 버튼이 사라졌다. 관리자에게는 설정 → 사용 가이드 → 내 프로필 → 사용자 → 로그아웃 구성을 동일하게 제공하고 reviewer·비로그인 사용자에게는 설정 링크를 노출하지 않는다. Compact의 tenant picker 숨김과 기존 CSS·링크·서버 권한 검사는 유지했다. Header 회귀 8건을 포함한 Web tests 35건, Web typecheck·변경 파일 ESLint와 detector를 통과했다. 이 조건 변경은 static render 비교로 검증했으며 live Browser·클러스터 재배포는 수행하지 않았다.
+
 ### 2026-09-08 Markdown·block 이동·Chat 개선 — 미배포
 
 구현 commit은 `d8ea3c1`이다. Summary가 backtick inline code만 처리해 Markdown 제목·강조·목록이 그대로 노출되던 문제를 공통 `ReviewMarkdown.tsx`로 수정했다. `react-markdown`·`remark-gfm`으로 PR·파일 요약과 Comments 본문을 렌더링하며 raw HTML·위험 URL·외부 image 요청을 제한한다. 파일 요약·Comment article의 본문과 여백도 기존 Code 이동 handler를 사용한다. 내부 control, 링크, 텍스트 선택과 modifier 클릭은 보존한다.
