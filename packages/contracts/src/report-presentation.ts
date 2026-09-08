@@ -2,6 +2,46 @@ import type { z } from 'zod';
 import type { reportViewSchema } from './index.js';
 import type { ReviewAnalysis } from './review-analysis.js';
 
+// 저장된 Grade와 분석 기준은 유지하고 사용자에게 보이는 평가만 한국어로 설명한다.
+export const reviewGrades = {
+  exceptional: {
+    label: '탁월',
+    description: '구현 완성도가 매우 높은 수준으로 평가했습니다.',
+    tone: 'positive',
+  },
+  proficient: {
+    label: '우수',
+    description: '기본 요구를 넘어 구현 품질이 우수한 수준으로 평가했습니다.',
+    tone: 'positive',
+  },
+  adequate: {
+    label: '양호',
+    description: '기본 요구를 충족하는 수준으로 평가했습니다. 개선 의견은 남아 있을 수 있습니다.',
+    tone: 'positive',
+  },
+  insufficient: {
+    label: '개선 필요',
+    description: '구현 품질이 부족해 개선이 필요한 수준으로 평가했습니다.',
+    tone: 'warning',
+  },
+  critical: {
+    label: '심각',
+    description: '심각한 문제가 있는 수준으로 평가했습니다. 관련 검토 의견을 확인하세요.',
+    tone: 'danger',
+  },
+} as const satisfies Record<
+  z.infer<typeof reportViewSchema>['grade'],
+  {
+    label: string;
+    description: string;
+    tone: 'positive' | 'warning' | 'danger';
+  }
+>;
+
+export function formatReviewGrade(grade: keyof typeof reviewGrades): string {
+  return `${reviewGrades[grade].label} (${grade})`;
+}
+
 export const reviewPriorityLabels = {
   P0: 'P0 Praise',
   P1: 'P1 Info',
@@ -193,7 +233,7 @@ export function formatReviewMarkdown(
   }
   const blocks = [
     ...(options.includeTitle === false ? [] : ['# Git Code Reviewer']),
-    `**${view.label}**${view.priority ? ` · ${reviewPriorityLabels[view.priority]}` : ''}${view.showGrade ? ` · Grade: ${report.grade}${view.state === 'incomplete' ? ' (검토 범위 내)' : ''}` : ''}`,
+    `**${view.label}**${view.priority ? ` · ${reviewPriorityLabels[view.priority]}` : ''}${view.showGrade ? ` · 코드 품질: ${formatReviewGrade(report.grade)}${view.state === 'incomplete' ? ' · 검토 범위 내' : ''}` : ''}`,
     `| 파일 검토 | 검토 의견 | 소요 시간 | 분석 방식 |\n| :--- | :--- | :--- | :--- |\n| ${view.filesCompleted === null ? 'Legacy file coverage' : `${view.filesCompleted}/${report.coverage.filesChanged} files 검토 완료`} | ${report.findings.length} comments | ${formatReviewDuration(report.durationMs)} | ${view.mode} |`,
   ];
   if (view.overview)

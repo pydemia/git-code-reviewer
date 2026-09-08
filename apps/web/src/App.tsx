@@ -21,7 +21,7 @@ import {
   TestTube2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { reviewStatusLabels } from '@gcr/contracts';
+import { reviewGrades, reviewStatusLabels } from '@gcr/contracts';
 import {
   loadAnalysisWorkspace,
   loadChatAccounts,
@@ -47,6 +47,7 @@ import { LoginPage } from './LoginPage.tsx';
 import { ProfilePage } from './ProfilePage.tsx';
 import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
+import { ReviewGrade } from './ReviewGrade.tsx';
 import { ChatPanel } from './ChatPanel.tsx';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
@@ -173,7 +174,7 @@ function Worklist() {
           <div className="pr-table-head">
             <span>Pull request</span>
             <span>상태</span>
-            <span>위험</span>
+            <span>검토 평가</span>
             <span>업데이트</span>
           </div>
           {state.items.map((pr) => (
@@ -196,8 +197,17 @@ function Worklist() {
                 {pr.grade ? <CircleCheck size={14} /> : <Clock3 size={14} />}
                 {pr.draft ? '초안' : pr.grade ? '분석 완료' : formatAnalysisState(pr.analysisState)}
               </span>
-              <span className={`risk-cell ${pr.grade ?? 'unreviewed'}`}>
-                {pr.grade ? `${pr.grade} · P2+ ${pr.attentionCount}` : '미분석'}
+              <span className="risk-cell">
+                {pr.grade ? (
+                  <>
+                    <ReviewGrade grade={pr.grade} />
+                    <span className={pr.attentionCount > 0 ? 'review-attention' : undefined}>
+                      P2+ {pr.attentionCount}
+                    </span>
+                  </>
+                ) : (
+                  '미분석'
+                )}
               </span>
               <span className="muted-cell">{formatRelativeTime(pr.updatedAt)}</span>
             </a>
@@ -748,7 +758,7 @@ function ReviewWorkspace({
                       : data.report.versions.model === 'disabled' ||
                           data.report.versions.review === 'unavailable'
                         ? 'AI review 미수행'
-                        : `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
+                        : `${reviewGrades[data.report.grade].label} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
                 : data?.analysis
                   ? formatAnalysisState(data.analysis.state)
                   : status === 'loading'

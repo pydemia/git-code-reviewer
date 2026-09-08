@@ -73,6 +73,14 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(html).not.toContain('aria-label="검토 의견"');
   expect(html).not.toContain('Validate input');
   expect(html).toContain('6분 57초');
+  expect(html).toContain('코드 품질:');
+  expect(html).toContain('class="review-grade grade-positive"');
+  expect(html).toContain('>양호</span>');
+  expect(html).toContain('P2 Warning');
+  expect(html).toContain('분석 완료 · 제한 있음');
+  expect(html).toContain('검토 범위 내');
+  expect(html).toContain('href="/guide#review-grades"');
+  expect(html).not.toContain('Grade: adequate');
   expect(html).toContain('<details class="report-limitations">');
   expect(html).toContain('<details class="report-file-overview" open="">');
 
@@ -110,4 +118,19 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(full).toContain(overview.trim());
   expect(full).not.toContain('<details class="report-overview"');
   expect(full.indexOf(overview.trim())).toBeLessThan(full.indexOf('파일별 검토'));
+
+  for (const versions of [{ model: 'fixture' }, { model: 'disabled' }, { review: 'failed' }]) {
+    const unavailable = renderToStaticMarkup(
+      <ReviewReportPanel
+        report={{ ...report, versions }}
+        files={[]}
+        section="summary"
+        selectedFindingId={null}
+        onFileSelect={() => {}}
+        onFindingSelect={() => {}}
+      />,
+    );
+    expect(unavailable).not.toContain('class="review-grade');
+    expect(unavailable).not.toContain('기본 요구를 충족');
+  }
 });

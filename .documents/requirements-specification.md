@@ -176,6 +176,8 @@ Priority와 category는 다음 contract를 사용한다.
 
 Finding category enum은 Commit Defender category를 포함한 `correctness | security | compatibility | testing | maintenance | optimization | review-history | setting`이다. Specialist 관점과 category는 서로 다른 축이다. Grade enum은 `exceptional | proficient | adequate | insufficient | critical`이며 report 요약 신호일 뿐 merge 판정이 아니다.
 
+사용자 화면의 Grade label은 순서대로 `탁월 | 우수 | 양호 | 개선 필요 | 심각`이다. `adequate`는 기본 요구를 충족한 양호한 평가로, `proficient`는 기본 요구를 넘어 품질이 우수한 평가로 설명한다. 탁월·우수·양호에는 긍정적인 녹색·teal 계열을 쓰고 개선 필요에는 주황색, 심각에는 빨간색을 쓴다. P0–P3 Priority, 분석 완료·제한 상태, 분석 수준 설정인 Severity Level은 별도 축으로 유지한다. Grade label·색상만 바꾸며 저장된 enum, 모델 판정과 기존 report 본문은 재작성하지 않는다.
+
 ## 8. Browser review workspace
 
 | ID | 수준 | 요구사항 |

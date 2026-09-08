@@ -10,6 +10,14 @@
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
+### 2026-09-08 Grade 문구·색상 개선 — 개발 완료, 미배포
+
+`exceptional/proficient/adequate/insufficient/critical`을 사용자 화면에서 `탁월/우수/양호/개선 필요/심각`으로 표시한다. 앞의 세 등급은 teal, 개선 필요는 주황, 심각은 빨강이다. `adequate`가 기본 warning 색상을 상속하던 규칙을 제거하고 공통 `reviewGrades`·`ReviewGrade`로 PR 목록, Summary, 가이드, Markdown·PR 게시 문구를 일치시켰다. PR 목록의 P2+ 건수는 Grade와 독립적으로 warning 색상을 사용한다. Summary는 해당 등급 설명과 가이드 링크를 제공한다.
+
+저장 enum, 모델·Skill·Severity Level 판정 기준과 기존 report 본문은 변경하지 않는다. 기존 report도 새 UI에서 한글 Grade를 표시하며 PR 댓글은 다음 정상 게시 시 새 템플릿을 사용한다. 이미 게시한 댓글을 일괄 수정하지 않았다. 긍정적인 Grade여도 P2/P3·분석 제한은 유지하고 실패·미수행·데모 Summary에는 Grade를 표시하지 않는다. PRISM-DEV는 여전히 revision 23이며 이번 변경은 별도 재배포가 필요하다.
+
+전체 TypeScript·ESLint·Web production build 통과. 자동 테스트 238건 통과, DB integration 29건은 별도 DB를 띄우지 않아 skip했다(42 files passed / 5 skipped). 새 검증 11건은 다섯 등급의 label/tone, canonical enum 보존·가이드, Markdown 표시를 확인한다. 기존 Summary와 legacy PR 게시 테스트에도 검증을 추가했다. Local production preview의 실제 Worklist·GuidePage에 합성 API를 연결해 1440×1000·390×844에서 Grade와 별도 P2+ 색상, 줄바꿈, 문서 overflow 없음, Browser 오류 없음을 확인했다. Summary·실제 GHES 게시·모델 호출 E2E는 수행하지 않았다. Badge text 대비는 positive 5.52:1, warning 4.84:1, danger 5.62:1이다. Impeccable detector warning 4건은 기존 다른 컴포넌트의 3px 측면 border이며 이번 변경과 무관해 유지했다. 기존 Zod annotation·500kB 초과 bundle warning도 유지된다.
+
 ### 2026-09-08 13:04 배포 (revision 23, 현재)
 
 사용자 요청에 따라 source `cfeba47`을 application `0.8.0-alpha.13`, chart `0.10.12`로 배포했다. Image digest는 `sha256:788efe54c4103fcd4c9962a743a5163c5e1597f398a0aaee2e249ae53acc0fcd`이며 SPDX SBOM·SLSA provenance가 포함됐다. 정확한 chart digest·asset hash와 검증 표는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.

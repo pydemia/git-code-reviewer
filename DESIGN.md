@@ -165,6 +165,8 @@ Registry card는 metadata와 action을 한 행에 배치하고 작은 화면에�
 
 ### Report States / Comments
 
+코드 품질 Grade는 `exceptional → 탁월`, `proficient → 우수`, `adequate → 양호`, `insufficient → 개선 필요`, `critical → 심각`으로 표시한다. 탁월·우수·양호는 accent/accent-soft, 개선 필요는 warning/옅은 주황, 심각은 danger/옅은 빨강을 사용한다. 등급은 색상뿐 아니라 한글 label과 설명으로 구분한다. PR 목록·Summary·가이드는 공통 `ReviewGrade`를 사용하며 PR 게시·Markdown도 같은 한글/영어 매핑을 따른다. Raw JSON과 DB enum은 바꾸지 않는다. PR 목록에서 Grade와 `P2+` 건수는 별도 색상으로 표시하며 양호여도 실제 warning, blocked·분석 제한 표시를 감추지 않는다.
+
 Report 상태 badge와 priority는 별도 항목으로 표시한다. Summary는 PR 전체 요약 → 펼쳐진 파일별 검토 요약 → 파일 목록·provenance 순서다. 상세 unit-comment-block은 하단 Comments에만 표시한다. 전체 요약이 없는 report는 누락을 안내하며 파일별 요약을 복제하지 않는다. 현재 파일의 inline comment는 선택 전에도 표시하며 최대 너비 (880px), 좌우 여백 합계 최소 (48px)를 적용한다. Diff의 선택 강조는 시작 line에만 적용한다.
 
 Comment article은 category·line range·문제·영향·수정 제안을 펼쳐 읽을 수 있는 형태다. 파일 요약과 comment의 본문·여백 클릭도 기존 제목·코드 이동 버튼과 같은 위치로 이동한다. 링크·접기 control·텍스트 선택·modifier 클릭은 이동에서 제외한다. Keyboard는 기존 native button을 사용하며 article을 중첩 button으로 만들지 않는다. Selected는 accent-soft와 focus 테두리, `aria-current`로 전달한다. 경로와 comment 선택은 같은 analysis revision의 diff로 이동한다. Comment가 없거나 검토하지 못한 파일도 파일 목록에서 확인할 수 있다.

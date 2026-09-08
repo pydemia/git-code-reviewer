@@ -12,7 +12,8 @@ import {
 import { useEffect, useState } from 'react';
 import { loadCurrentUser, type User } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
-import { reviewSeverityLevelSchema, reviewSeverityLevels } from '@gcr/contracts';
+import { reviewGrades, reviewSeverityLevelSchema, reviewSeverityLevels } from '@gcr/contracts';
+import { ReviewGrade } from './ReviewGrade.tsx';
 
 const githubPatDocs =
   'https://docs.github.com/en/enterprise-server@3.21/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens';
@@ -52,6 +53,7 @@ export function GuidePage() {
           <a href="#register-repository">Repository 등록</a>
           <a href="#analysis-provider">자동 분석 모델 설정</a>
           <a href="#analysis-skills">분석 Skills와 report</a>
+          <a href="#review-grades">코드 품질 등급</a>
           <a href="#review-flow">Review와 Chat</a>
           <a href="#code-navigation">파일 tree와 코드 이동</a>
           <a href="#troubleshooting">문제 해결</a>
@@ -469,6 +471,44 @@ export function GuidePage() {
               Overall Summary, AI Comments, Analyzed File List를 게시합니다. 길이 제한으로 생략한
               항목은 전체 report 링크에서 확인합니다. 대상 PR 안의 SKILL.md, TODO나 type-ignore
               문자열을 관리자 지침으로 자동 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
+            </p>
+          </section>
+
+          <section className="guide-section" id="review-grades">
+            <h2>코드 품질 등급</h2>
+            <p>
+              Grade는 검토한 코드의 종합 품질 평가입니다. 탁월·우수·양호는 긍정적인 평가이며, 양호는
+              경고 등급이 아닙니다. 개선 필요는 주황색, 심각은 빨간색으로 표시합니다.
+            </p>
+            <div className="guide-table-wrap">
+              <table className="guide-table">
+                <thead>
+                  <tr>
+                    <th>화면 표시</th>
+                    <th>Grade</th>
+                    <th>의미</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Object.keys(reviewGrades) as Array<keyof typeof reviewGrades>).map((grade) => (
+                    <tr key={grade}>
+                      <td>
+                        <ReviewGrade grade={grade} />
+                      </td>
+                      <td>
+                        <code>{grade}</code>
+                      </td>
+                      <td>{reviewGrades[grade].description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p>
+              Grade는 개별 의견의 Priority(P0–P3), 분석 완료 여부, 분석 수준 설정인 Severity Level과
+              별개입니다. 양호·우수여도 P2·P3 의견과 분석 제한을 함께 확인하세요. 분석에 제한이
+              있으면 검토한 범위에만 해당하는 평가이며, merge 승인이나 결함이 없다는 보장은
+              아닙니다. Raw JSON과 저장된 Grade 값은 영어로 유지합니다.
             </p>
           </section>
 

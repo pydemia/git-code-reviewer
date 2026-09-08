@@ -375,7 +375,7 @@ h1 {
 .pr-table-head,
 .pr-row {
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) 120px 100px 90px;
+  grid-template-columns: minmax(360px, 1fr) 120px 128px 90px;
   align-items: center;
 }
 
@@ -462,24 +462,57 @@ h1 {
 }
 
 .risk-cell {
-  color: var(--warning);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.risk-cell.exceptional,
-.risk-cell.proficient {
-  color: #237565;
-}
-
-.risk-cell.insufficient,
-.risk-cell.critical {
-  color: var(--danger);
-}
-
-.risk-cell.unreviewed {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
   color: var(--muted);
+  font-size: 11px;
   font-weight: 600;
+}
+
+.risk-cell > span {
+  white-space: nowrap;
+}
+
+.review-grade {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.grade-positive {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.grade-warning {
+  color: var(--warning);
+  background: #fff0d9;
+}
+
+.grade-danger {
+  color: var(--danger);
+  background: #fce9e7;
+}
+
+.review-attention {
+  color: var(--warning);
+}
+
+.report-grade-description {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.report-grade-description a {
+  color: var(--accent);
 }
 
 .review-page {

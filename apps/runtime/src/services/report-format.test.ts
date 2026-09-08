@@ -97,6 +97,27 @@ describe('shared Commit Defender report presentation', () => {
     expect(parsed.analysis).toEqual(report.analysis);
     expect(JSON.stringify(parsed.analysis)).not.toContain('instructions');
   });
+  it.each([
+    ['exceptional', '탁월'],
+    ['proficient', '우수'],
+    ['adequate', '양호'],
+    ['insufficient', '개선 필요'],
+    ['critical', '심각'],
+  ] as const)(
+    'uses the localized %s grade in Markdown without hiding priority or limitations',
+    (grade, label) => {
+      const changed = {
+        ...report,
+        grade,
+        analysis: { ...report.analysis!, status: 'incomplete' as const },
+      };
+      const markdown = formatReviewMarkdown(changed);
+      expect(markdown).toContain(`코드 품질: ${label} (${grade}) · 검토 범위 내`);
+      expect(markdown).toContain('분석 완료 · 제한 있음');
+      expect(markdown).toContain('P3 Critical');
+      expect(changed.grade).toBe(grade);
+    },
+  );
   it('uses the same hierarchy for Markdown and PR publication with safe content and exact finding links', () => {
     const reportUrl = `https://review.example/reviews/${report.analysisRevisionId}`;
     const markdown = formatReviewMarkdown(report, [], { reportUrl });
@@ -266,7 +287,7 @@ describe('shared Commit Defender report presentation', () => {
         'Overall Summary',
         'AI Comments',
         'Skill bundle',
-        'Grade:',
+        '코드 품질:',
         '@everyone',
         '<script>',
       ])

@@ -42,6 +42,7 @@ describe('GitHub review publication', () => {
 
     expect(body.startsWith('<!-- git-code-reviewer:managed -->')).toBe(true);
     expect(body).toContain('## Git Code Reviewer 결과');
+    expect(body).toContain('**코드 품질:** 개선 필요 (insufficient)');
     expect(body).toContain('| Findings | 1 | 6 | 0 | 0 |');
     expect(body).toContain('6/7 files를 검사했습니다.');
     expect(body).toContain(
@@ -74,6 +75,7 @@ describe('GitHub review publication', () => {
       marker: '<!-- git-code-reviewer:managed -->',
     });
     expect(body).toContain('조치가 필요한 finding은 발견되지 않았습니다.');
+    expect(body).toContain('**코드 품질:** 우수 (proficient)');
     expect(body).not.toContain('전체 review와 evidence 보기');
   });
 

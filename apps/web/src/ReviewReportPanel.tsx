@@ -13,9 +13,11 @@ import {
   presentReviewReport,
   reviewPriorityLabels,
   reviewFileStatusLabels,
+  reviewGrades,
 } from '@gcr/contracts';
 import type { WorkspaceData } from './api.ts';
 import { ReviewMarkdown } from './ReviewMarkdown.tsx';
+import { ReviewGrade } from './ReviewGrade.tsx';
 import { navigateFromReviewBlock } from './review-block-navigation.ts';
 
 type Report = NonNullable<WorkspaceData['report']>;
@@ -194,11 +196,16 @@ export function ReviewReportPanel({
             ) : null}
             {view.showGrade ? (
               <span>
-                Grade: {report.grade}
+                코드 품질: <ReviewGrade grade={report.grade} />
                 {view.state === 'incomplete' ? ' · 검토 범위 내' : ''}
               </span>
             ) : null}
           </div>
+          {view.showGrade ? (
+            <p className="report-grade-description">
+              {reviewGrades[report.grade].description} <a href="/guide#review-grades">등급 기준</a>
+            </p>
+          ) : null}
           <dl className="report-metrics">
             <div>
               <dt>{view.filesCompleted === null ? '수집 파일' : '검토 완료 파일'}</dt>
