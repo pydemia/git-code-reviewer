@@ -13,7 +13,9 @@
 
 ### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
 
-2026-09-09 후속 작업: PR #917의 미완료 Summary를 조사했다. 최근 두 분석은 alpha.23 checkpoint 도입 전 네 attempt에서 누적 모델 호출 128회를 소진했다. 영구 실패의 불필요한 재시도와 원인 없는 파일 요약을 수정하고 새 revision의 입력 pin·게시 억제·실제 revision event를 추가했다. 413개 테스트·typecheck·lint·build, 배포 health·Helm test·migration checksum 검증을 통과했다. 사용자는 `c3dfc29c-b34e-4214-b3a1-e8375179d30f`를 기존 report 보존·GitHub 댓글 미게시 조건으로 새 revision 재분석하도록 승인했다. 새 `3a0a9c85-63df-4afa-8f69-45d2f5168136` Revision 2는 07:45:34 KST에 시작했으며 [조사 기록](../docs/operations/incomplete-review-2026-09-09.md)에 결과를 이어서 기록한다. 기존 ledger를 삭제하거나 예산을 늘리지 않는다. 실행 중 추가 배포를 하지 않는다.
+2026-09-09 후속 작업: PR #917의 미완료 Summary를 조사했다. 최근 두 분석은 alpha.23 checkpoint 도입 전 네 attempt에서 누적 모델 호출 128회를 소진했다. 영구 실패의 불필요한 재시도와 원인 없는 파일 요약을 수정하고 새 revision의 입력 pin·게시 억제·실제 revision event를 추가했다. 413개 테스트·typecheck·lint·build, 배포 health·Helm test·migration checksum 검증을 통과했다. 사용자 승인으로 기존 `c3dfc29c-b34e-4214-b3a1-e8375179d30f`를 report 보존·GitHub 댓글 미게시 조건으로 재분석했다.
+
+새 `3a0a9c85-63df-4afa-8f69-45d2f5168136` Revision 2는 07:45:34–08:15:35 KST 실행 후 **completed**다. 실제 `gpt-5.6-sol:medium`으로 25/25 files·64/64 windows·파일 요약 25개·전체 Summary를 완료했다. 모델 90회·checkpoint 90개, attempt 1, recovery/restart 0회, 미완료 파일 0개다. 기존 report hash·입력 pin·사용자 데이터와 128회 예산을 보존했고 GitHub publication/job은 0개다. 최고 P2·findings 44개이며 주변 source 추가 조회 제한 2건은 유지한다. Canonical diff 전체 검토 완료와 repository 전체 원본 검증을 구분한다. [조사·배포·실제 검증 기록](../docs/operations/incomplete-review-2026-09-09.md)을 참고한다. 로그인 Browser는 재검증하지 않았으며 alpha.22 구버전 Terminating Pod는 강제 삭제하지 않았다. 추가 재분석을 임의로 시작하지 않는다.
 
 2차 P6–P10 코드를 alpha.23에 배포했다. Batch model checkpoint, 최대 3회 만료 lease 회수, stale attempt 차단·drain, 90초 DB workspace lease와 사용자/origin/credential/SHA별 캐시, 원문 ID를 보존하는 대화 발췌·원문/이전 source 도구, JS/TS 구문 AST·Python lexical 관계 후보, history pagination과 과거 질문·근거 복원을 포함한다. 전체 semantic call graph·공용 mirror·모델 기반 의미 요약·코드/테스트 실행은 제공하지 않는다. 상세 [2차 구현](interactive-review-chat-phase2.md), [검증](verification-interactive-chat-phase2-2026-09-09.md)을 따른다.
 
