@@ -26,6 +26,7 @@ import {
   type ReviewSeverityLevel,
 } from '@gcr/contracts';
 import { SeverityLevelField } from './SeverityLevelField';
+import { UserDeleteDialog } from './UserDeleteDialog';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   activateAnalysisProvider,
@@ -36,6 +37,7 @@ import {
   discoverChatAccountModels,
   createGitHubConnection,
   deleteAdminRepository,
+  deleteAdminUser,
   registerGitHubRepository,
   loadAdminChatAccounts,
   loadAdminRepositories,
@@ -147,6 +149,7 @@ export function AdminPage() {
   const [tenantForm, setTenantForm] = useState<TenantForm | null>(null);
   const [userForm, setUserForm] = useState<UserForm | null>(null);
   const [passwordForm, setPasswordForm] = useState<PasswordForm | null>(null);
+  const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
   const [repositoryGrantForm, setRepositoryGrantForm] = useState<RepositoryGrantForm | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -300,6 +303,23 @@ export function AdminPage() {
         tone: 'success',
         text: `${repository.owner}/${repository.name}의 review 등록을 삭제했습니다.`,
       });
+      setReloadToken((value) => value + 1);
+      return null;
+    } catch (error) {
+      return errorMessage(error);
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const submitUserDelete = async (confirmation: string): Promise<string | null> => {
+    if (!deleteUser) return '삭제할 사용자를 다시 선택해 주세요.';
+    setBusyKey(`user:delete:${deleteUser.id}`);
+    setMessage(null);
+    try {
+      await deleteAdminUser(deleteUser.id, confirmation);
+      setUsers((current) => current.filter((item) => item.id !== deleteUser.id));
+      setMessage({ tone: 'success', text: `${deleteUser.displayName} 계정을 삭제했습니다.` });
       setReloadToken((value) => value + 1);
       return null;
     } catch (error) {
@@ -574,6 +594,7 @@ export function AdminPage() {
               onResetPassword={(item) =>
                 setPasswordForm({ id: item.id, displayName: item.displayName, password: '' })
               }
+              onDelete={setDeleteUser}
               onManageRepositories={(item) => {
                 const repositoryIds = item.repositoryGrants.map((grant) => grant.repositoryId);
                 setRepositoryGrantForm({
@@ -744,6 +765,16 @@ export function AdminPage() {
           ) : null}
         </main>
       </div>
+
+      {deleteUser ? (
+        <UserDeleteDialog
+          key={deleteUser.id}
+          user={deleteUser}
+          busy={busyKey === `user:delete:${deleteUser.id}`}
+          onClose={() => setDeleteUser(null)}
+          onSubmit={submitUserDelete}
+        />
+      ) : null}
 
       {tenantForm ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setTenantForm(null)}>
@@ -926,7 +957,7 @@ function TenantPanel({
   );
 }
 
-function UserPanel({
+export function UserPanel({
   currentUserId,
   users,
   tenants,
@@ -939,6 +970,7 @@ function UserPanel({
   onCreate,
   onEdit,
   onResetPassword,
+  onDelete,
   onManageRepositories,
   onAccessChange,
   onMembershipChange,
@@ -955,6 +987,7 @@ function UserPanel({
   onCreate: () => void;
   onEdit: (user: AdminUser) => void;
   onResetPassword: (user: AdminUser) => void;
+  onDelete: (user: AdminUser) => void;
   onManageRepositories: (user: AdminUser) => void;
   onAccessChange: (user: AdminUser, enabled: boolean) => void;
   onMembershipChange: (user: AdminUser, enabled: boolean) => void;
@@ -964,7 +997,9 @@ function UserPanel({
       <div className="admin-title-row">
         <div>
           <p className="eyebrow">Identity access</p>
-          <h1>사용자</h1>
+          <h1 id="admin-users-heading" tabIndex={-1}>
+            사용자
+          </h1>
         </div>
         <button className="command-button primary" type="button" onClick={onCreate}>
           <Plus size={15} /> 사용자 생성
@@ -1066,6 +1101,20 @@ function UserPanel({
                   onClick={() => onResetPassword(item)}
                 >
                   <KeyRound size={14} />
+                </button>
+                <button
+                  className="icon-button surface-icon"
+                  type="button"
+                  title={
+                    item.id === currentUserId
+                      ? '현재 로그인한 계정은 삭제할 수 없습니다.'
+                      : '사용자 삭제'
+                  }
+                  aria-label={`${item.displayName} 삭제`}
+                  disabled={item.id === currentUserId || busyKey !== null}
+                  onClick={() => onDelete(item)}
+                >
+                  <Trash2 size={14} />
                 </button>
               </span>
             </div>

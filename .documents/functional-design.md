@@ -455,6 +455,10 @@ Citation은 기존 `findingId?`, `evidenceId`, `fileId`, `line?`, `label`에 opt
 
 Assistant 본문에는 공통 `ReviewMarkdown`을 사용한다. 한글 본문·English 전문용어, CommonMark/GFM, code·표 내부 scroll을 지원하며 raw HTML 실행과 외부 image 요청은 차단한다. 사용자 질문은 원문 그대로 표시한다. 이미 저장된 메시지나 report는 재작성하지 않으며 여러 근거를 모델이 선택하는 동작은 새 답변부터 적용된다.
 
+#### 사용자 삭제와 개인 Chat 보존 (2026-09-08)
+
+시스템관리자의 사용자 삭제는 migration `0019`의 `users.deleted_at`으로 표시한다. 삭제된 계정은 목록에서 제외하고 로그인·세션·직접 권한·개인 Prompt를 정리하되 개인 Chat과 공동 PR 분석·audit 참조를 보존한다. 개인 Chat은 다른 사용자에게 이전하지 않고 기존 retention을 따른다. 본인 삭제와 마지막 관리자 제거를 막으며 삭제 상태는 Local bootstrap·외부 identity upsert로 복원되지 않는다. UI 확인값·transaction·동시성·API 오류와 username/Subject 예약 정책은 [사용자 관리 설계 6절](local-account-authentication.md#6-사용자-삭제-2026-09-08)을 따른다.
+
 #### 개인 Prompt (2026-09-08)
 
 `내 프로필 → 개인 Prompt`에서 서비스 사용자별 Review Chat 지침을 저장한다. Local·OIDC 사용자와 시스템관리자 모두 본인 설정만 관리한다. Tenant 분석 Prompt·Skill·공동 PR report·PR publication에는 적용하지 않는다. 다른 사용자가 같은 ChatGPT account를 선택해도 이 설정을 공유하지 않는다.

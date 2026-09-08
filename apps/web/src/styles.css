@@ -3770,7 +3770,15 @@ body.workspace-resizing:has(.resize-bottom) {
 
 .user-table .admin-table-head,
 .user-table .admin-table-row {
-  grid-template-columns: minmax(190px, 1fr) 120px 120px 120px 72px 70px;
+  grid-template-columns: minmax(190px, 1fr) 120px 120px 120px 72px 100px;
+}
+
+.user-table {
+  overflow-x: auto;
+}
+
+.user-table .switch-control {
+  position: relative;
 }
 
 .user-row-actions {

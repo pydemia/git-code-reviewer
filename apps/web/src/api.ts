@@ -181,6 +181,10 @@ export async function resetLocalUserPassword(userId: string, password: string): 
   await mutateJson(`/api/v1/admin/users/${userId}/password`, 'PUT', { password });
 }
 
+export async function deleteAdminUser(userId: string, confirmIdentity: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/users/${userId}`, 'DELETE', { confirmIdentity });
+}
+
 export async function updateTenantMembership(
   tenantId: string,
   userId: string,

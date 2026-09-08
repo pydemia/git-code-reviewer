@@ -111,6 +111,18 @@ export function GuidePage() {
               session이 모두 종료되므로 새 비밀번호로 다시 로그인해야 합니다. 외부 인증 계정은
               연결된 IdP에서 프로필과 비밀번호를 변경하십시오.
             </p>
+            <p>
+              시스템관리자는 <a href="/admin?tab=users">설정 → 사용자</a>에서 각 사용자의 휴지통
+              버튼으로 계정을 삭제할 수 있습니다. 확인창에 해당 사용자 이름 또는 Subject를 입력해야
+              하며 현재 로그인한 본인 계정은 삭제할 수 없습니다. 삭제하면 로그인 세션·개별 권한·개인
+              Prompt·Local 비밀번호를 정리하고 사용자 목록에서 제외합니다.
+            </p>
+            <p>
+              삭제한 사용자의 개인 Chat 이력은 retention 정책에 따라 보관하며 다른 사용자에게
+              이전하지 않습니다. 공동 PR report·분석 설정·audit 기록과 외부 IdP 원본 계정은
+              유지합니다. 삭제 후 같은 사용자 이름·Subject로 재등록하거나 화면에서 복원할 수
+              없으므로 일시적인 이용 중지는 사용자 목록의 앱 접근 차단을 사용하세요.
+            </p>
           </section>
 
           <section className="guide-section" id="ghes-credential">

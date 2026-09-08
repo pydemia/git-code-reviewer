@@ -11,6 +11,18 @@
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
+### 2026-09-08 사용자 삭제 — 구현 완료, 배포 준비
+
+관리자 `설정 → 사용자`의 각 행에 삭제 버튼을 추가했다. 확인창에 Local username 또는 외부 Subject를 정확히 입력해야 삭제된다. 현재 로그인한 계정은 삭제할 수 없으며 마지막 활성 관리자 제거와 동시 관리자 변경도 Server에서 차단한다. 일시 차단은 기존 앱 접근 toggle을 사용한다.
+
+Backend commit `7a38da4`는 migration `0019_user_deletion.sql`과 `DELETE /api/v1/admin/users/:userId`를 포함한다. 삭제는 `users.deleted_at` tombstone을 남기고 목록에서 제외하는 방식이다. 계정을 비활성화하고 모든 session·개별 repository grant를 제거하며 tenant membership을 비활성화한다. 개인 Prompt·Local password hash·group 목록도 제거한다. 개인 Chat은 기존 retention에 따라 본인 소유로 유지하고 공동 report·분석 설정·audit의 참조를 보존한다. 삭제된 identity를 자동 복원하거나 같은 username·Subject로 재등록하지 않는다. 외부 IdP 원본 계정과 이미 실행 중인 모델 요청은 변경하지 않는다.
+
+삭제·사용자 접근 변경은 공통 advisory transaction lock과 현재 actor 권한 재검사를 사용한다. 삭제와 audit 기록은 한 transaction이며 audit 실패 시 rollback한다. Local login·session hydration·OIDC upsert·development auth·bootstrap·비밀번호 reset·membership·repository 권한 부여에 tombstone 검사를 반영했다. Repository grant 변경은 사용자 row share lock으로 삭제와 순서를 보장한다.
+
+전체 323 tests / 54 files 통과, skip 없음. 격리된 로컬 PostgreSQL 16에서 migration 19개 적용·재실행, 권한 회수·identity 재사용 차단·기존 report/Chat 보존·audit rollback·동시 관리자 삭제를 검증했다. Typecheck·ESLint·Web production build 통과. 전체 테스트의 초기 기본 worker 수에서는 migration lock 대기로 hook timeout이 발생해 `--maxWorkers=2 --hookTimeout=60000`으로 실행했고 모두 통과했다.
+
+Browser는 실제 UserPanel/UserDeleteDialog에 합성 API를 연결해 입력 확인·실패 시 초안/alert focus 유지·Escape 취소·성공 후 행 제거와 제목 focus를 검증했다. Desktop 1440×1000, mobile 390×844, 1024×900에서 확인했으며 사용자 표에 한정한 checkbox 위치 기준과 가로 scroll 수정으로 모바일 overflow·중간 너비 삭제 버튼 잘림을 해결했다. 독립 finish review의 후속 verdict는 `ship`이며 기존 지적 F1·F2 두 건을 resolved로 판정한 범위다. 기존 디자인은 유지했다. 임시 harness와 Browser·Vite·전용 test DB는 정리했고 실제 운영 사용자는 삭제하지 않았다. 상세 상태·보존 정책은 [Local 인증 설계](local-account-authentication.md#6-사용자-삭제-2026-09-08), 검증은 [사용자 삭제 검증 기록](verification-user-deletion-2026-09-08.md)에 있다.
+
 ### 2026-09-08 15:12 배포 (revision 24, 현재)
 
 Source `41febd2`를 application `0.8.0-alpha.14`, chart `0.10.13`으로 build·게시하고 release 설정 `dab42ad`를 push한 뒤 PRISM-DEV를 upgrade했다. Image digest는 `sha256:150fd26eb5bca01ae9d2227e9c13b8b4e163fb5189bbf0c4de0d5ed857306ae5`이며 SPDX SBOM·SLSA provenance를 포함한다. 사용자 요청에 따라 앞으로 기능·설정 작업도 commit·push 후 배포와 검증까지 수행한다.
