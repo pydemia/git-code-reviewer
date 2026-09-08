@@ -3,6 +3,7 @@ import { reviewAnalysisSchema } from './review-analysis.js';
 import { defaultReviewSeverityLevel, reviewSeverityLevelSchema } from './review-severity.js';
 export * from './review-severity.js';
 export * from './review-analysis.js';
+export * from './review-memory.js';
 export * from './report-presentation.js';
 
 export {

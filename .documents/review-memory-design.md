@@ -2,7 +2,7 @@
 
 ## 1. 목적
 
-Git Code Reviewer가 한 번 생성한 AI review와 사용자가 확인한 review 판단을 다음 PR 분석과 Chat에서 재사용한다. 이 기능은 model fine-tuning이 아니라 repository별 검토 지식을 검색해 현재 snapshot에서 다시 검증하는 retrieval-augmented memory다.
+Git Code Reviewer가 한 번 생성한 AI review와 사용자가 확인한 review 판단을 다음 PR 분석과 Chat에서 재사용한다. 사용자별 누적 memory와 repository별 집단 memory를 함께 지원한다. 이 기능은 model fine-tuning이 아니라 검토 지식을 검색해 현재 snapshot에서 다시 검증하는 retrieval-augmented memory다.
 
 다음 문제를 해결한다.
 
@@ -10,6 +10,7 @@ Git Code Reviewer가 한 번 생성한 AI review와 사용자가 확인한 revie
 - 과거 false positive가 새 분석에서 반복된다.
 - Chat에서 확인한 팀의 결정과 예외 조건이 해당 session이 끝나면 사라진다.
 - 과거 판단을 재사용하더라도 어떤 PR, finding, 사용자 검토에서 왔는지 추적하기 어렵다.
+- 개인 검토 취향과 팀에서 합의된 지식을 구분하지 않으면 다른 사용자에게 개인 맥락이 노출되거나 공용 분석이 한 사용자의 판단에 치우친다.
 
 ## 2. 기준 Blueprint
 
@@ -41,7 +42,21 @@ Review Memory에는 다음 원칙을 적용한다.
 - 과거 memory는 검색 후보일 뿐이며 현재 base/head source에서 확인되지 않은 내용을 단정하지 않는다.
 - 분석에 사용한 memory 목록과 content hash를 고정해 같은 analysis revision의 의미가 바뀌지 않게 한다.
 
-## 4. Memory 종류
+## 4. Memory scope와 종류
+
+### 4.1 Scope
+
+| Scope | 소유·검색 범위 | 사용 위치 |
+| --- | --- | --- |
+| `personal` | tenant + repository + user | 해당 사용자가 요청한 personalized analysis와 본인 Chat |
+| `collective` | tenant + repository | polling 기반 공용 analysis와 모든 사용자의 analysis·Chat |
+
+- Personal memory는 작성자와 administrator만 원문과 provenance를 볼 수 있다.
+- Collective memory는 여러 사용자가 활성화한 personal memory를 aggregation한 결과다. 개인 Chat 원문은 collective 본문에 복사하지 않는다.
+- 한 사용자의 personal memory를 바로 collective로 승격하지 않는다. 최소 두 명의 독립적인 기여 또는 administrator의 명시적 예외 승인이 필요하다.
+- Personalized analysis에서도 collective memory가 personal memory보다 우선한다. Personal memory는 collective와 충돌하지 않는 범위에서 누락된 관점과 사용자별 검토 관심사를 보완한다.
+
+### 4.2 종류
 
 | 종류 | 내용 | 대표 출처 |
 | --- | --- | --- |
@@ -56,16 +71,20 @@ Memory 본문은 `summary`, `detail`, `recommendation`으로 나눈다. 검색 s
 
 ```text
 AI finding 또는 사용자 review
-  -> candidate
-  -> active      승인되어 다음 분석과 Chat에서 검색됨
+  -> personal candidate
+  -> personal active     본인의 다음 분석과 Chat에서 검색됨
+  -> collective candidate 서로 다른 사용자 memory를 repository 단위로 집계
+  -> collective active   공용 분석과 repository 사용자의 분석·Chat에서 검색됨
   -> rejected    잘못되었거나 재사용 가치가 없음
   -> superseded  다른 memory가 대체함
   -> retired     더 이상 적용하지 않음
 ```
 
-- AI finding 저장은 자동으로 수행하지만 상태는 `candidate`다.
-- 사용자는 자신이 작성한 Chat message를 memory 후보로 제출할 수 있다.
-- repository 공용 memory 활성화, 기각, 수정과 폐기는 administrator만 수행한다.
+- 사용자가 요청한 analysis의 AI finding은 해당 사용자의 `personal candidate`로 자동 저장한다.
+- 사용자는 자신의 finding과 Chat message를 personal memory 후보로 제출할 수 있다.
+- 사용자는 자신의 personal candidate를 수정해 활성화하거나 기각·폐기할 수 있다.
+- repository collective memory 활성화, 기각, 수정과 폐기는 administrator만 수행한다.
+- Collective candidate는 같은 repository의 active personal memory를 `aggregation_key`로 묶고 contributor 수와 충돌 상태를 계산해 만든다.
 - PR merge, comment resolve 또는 finding 존재만으로 자동 승인하지 않는다.
 - `active` memory의 의미를 수정할 때 기존 row를 덮어쓰지 않고 새 revision을 만든다.
 - 사용자 삭제 후에도 공용 memory의 검토 근거는 보존하되 actor는 삭제된 사용자 식별자만 참조한다. 개인 Chat 원문 공개 범위는 확대하지 않는다.
@@ -75,11 +94,14 @@ AI finding 또는 사용자 review
 ### 6.1 `review_memories`
 
 - `id`, `tenant_id`, `repository_id`
+- `scope`: `personal|collective`
+- `owner_user_id`: personal이면 필수, collective이면 null
 - `kind`: 네 가지 Memory 종류
 - `state`: `candidate|active|rejected|superseded|retired`
 - `revision`, `supersedes_id`
 - `summary`, `detail`, `recommendation`
 - `categories text[]`, `file_paths text[]`, `symbols text[]`, `search_text`
+- `aggregation_key`, `contributor_count`, `conflict_count`
 - `confidence`, `importance`
 - `source_kind`: `finding|chat-message|manual`
 - `source_analysis_run_id`, `source_finding_id`, `source_chat_message_id`
@@ -88,9 +110,20 @@ AI finding 또는 사용자 review
 - `created_by`, `reviewed_by`, `reviewed_at`, `review_note`
 - `created_at`, `updated_at`
 
-동일 repository에서 같은 `content_hash`를 가진 활성 또는 후보 memory는 중복 생성하지 않는다.
+동일 repository와 사용자에서 같은 `content_hash`를 가진 personal memory는 중복 생성하지 않는다. Collective memory는 repository와 `aggregation_key` 단위로 한 candidate 또는 active revision만 유지한다.
 
-### 6.2 `review_memory_events`
+### 6.2 `review_memory_contributions`
+
+Collective memory와 집계에 사용한 personal memory를 연결한다.
+
+- `collective_memory_id`, `personal_memory_id`
+- contributor user ID와 personal revision
+- `agreement`: `support|conflict`
+- `created_at`
+
+Collective projection에는 contributor 수와 conflict 수만 노출하고 개인 memory 본문과 Chat source는 노출하지 않는다.
+
+### 6.3 `review_memory_events`
 
 상태 변경과 사용자 판단을 append-only audit로 저장한다.
 
@@ -99,32 +132,44 @@ AI finding 또는 사용자 review
 - 사용자 note
 - `created_at`
 
-### 6.3 Analysis memory snapshot
+### 6.4 Analysis memory snapshot
 
 `analysis_runs`에 다음 값을 저장한다.
 
 - `memory_hash`: 선택한 active memory ID, revision과 content hash를 정렬해 계산한 SHA-256
 - `memory_context`: 분석 prompt에 사용한 bounded projection
+- `memory_owner_user_id`: personalized analysis를 요청한 사용자, polling 분석이면 null
 
-`analysis_key`에 `memory_hash`를 포함한다. 새 memory가 활성화되어도 완료된 analysis와 기존 Chat 답변의 context는 변하지 않는다. 새 memory를 반영하려면 새 analysis를 실행한다.
+`analysis_key`에 `memory_hash`와 `memory_owner_user_id`를 포함한다. 새 memory가 활성화되어도 완료된 analysis와 기존 Chat 답변의 context는 변하지 않는다. 새 memory를 반영하려면 새 analysis를 실행한다.
 
 ## 7. 후보 생성
 
 ### 7.1 AI finding
 
-Report transaction에서 finding을 저장한 뒤 다음 조건을 만족하는 finding을 후보로 upsert한다.
+사용자가 직접 refresh한 analysis의 Report transaction에서 finding을 저장한 뒤 다음 조건을 만족하는 finding을 해당 사용자의 personal 후보로 upsert한다. Polling으로 실행한 collective analysis는 특정 사용자의 memory 후보를 만들지 않는다.
 
 - model 또는 analyzer가 만든 P2/P3 finding
 - anchor가 실제 snapshot file을 가리킴
 - verification이 현재 코드 위치를 확인했거나 limitation이 명시됨
 
-초기 구현에서는 finding 하나를 memory 후보 하나로 만든다. 동일 fingerprint와 content hash는 합친다. P0/P1은 반복 규칙이나 결정으로 보기 어려우므로 자동 후보로 만들지 않는다.
+초기 구현에서는 finding 하나를 memory 후보 하나로 만든다. Finding fingerprint를 포함한 `aggregation_key`가 같으면 같은 반복 검토 주제로 취급한다. 동일 사용자, fingerprint와 content hash는 합친다. P0/P1은 반복 규칙이나 결정으로 보기 어려우므로 자동 후보로 만들지 않는다.
 
 ### 7.2 사용자 review와 Chat
 
 사용자는 자신의 completed Chat message를 선택해 후보를 제출한다. 요청에는 memory 종류, 요약, 적용 file/symbol과 설명을 포함한다. 서버는 message 소유권과 analysis의 repository 접근 권한을 검사하고 source ID를 고정한다.
 
 Chat의 assistant 응답만 단독으로 후보화하지 않는다. 사용자가 내용을 확인해 직접 제출한 경우에만 `candidate`가 된다.
+
+### 7.3 Collective aggregation
+
+Personal memory가 활성화될 때 같은 repository와 `aggregation_key`의 active personal memory를 다시 집계한다.
+
+- 서로 다른 owner가 같은 판단을 지지하면 `support` contribution으로 계산한다.
+- `false-positive`와 `recurring-finding`처럼 의미가 반대인 memory가 같은 finding fingerprint를 가리키면 conflict로 계산한다.
+- 기본 quorum은 서로 다른 사용자 2명이다.
+- quorum을 충족하면 collective candidate를 만들거나 새 revision으로 갱신한다.
+- administrator는 contributor 수, conflict와 source PR 범위를 확인한 뒤 collective candidate를 활성화한다.
+- active collective memory의 기여 구성이 바뀌면 기존 revision을 수정하지 않고 새 candidate revision을 만든다.
 
 ## 8. 검색과 ranking
 
@@ -134,13 +179,15 @@ Chat의 assistant 응답만 단독으로 후보화하지 않는다. 사용자가
 
 - 현재 analysis와 같은 `tenant_id`, `repository_id`
 - `state = active`
+- collective memory 또는 현재 `memory_owner_user_id`와 같은 personal memory
 - 현재 analysis 생성 시점 이전에 승인됨
 - superseded 또는 retired가 아님
 
 ### 8.2 Score
 
 ```text
-score = path_match * 40
+score = collective_scope * 100
+      + path_match * 40
       + symbol_match * 30
       + category_match * 15
       + text_rank * 10
@@ -151,6 +198,7 @@ score = path_match * 40
 - exact file path와 symbol 일치를 우선한다.
 - 현재 변경 파일과 겹치지 않는 memory는 자유 검색어가 강하게 일치할 때만 포함한다.
 - `false-positive`도 같은 path/category에서 검색해 반복 지적 방지 지침으로 제공한다.
+- Collective memory에는 scope priority를 부여해 personal memory보다 먼저 배치한다. 같은 주제에서 둘이 충돌하면 collective만 prompt의 적용 기준으로 남기고 personal 항목은 conflict provenance로 표시한다.
 - 최대 12개, item당 1,200자, 전체 8,000자로 제한한다.
 - 같은 source finding, content hash와 supersession chain은 하나만 남긴다.
 
@@ -158,19 +206,21 @@ score = path_match * 40
 
 ## 9. Analysis 연동
 
-Snapshot materialization이 끝난 뒤 analysis row를 만들기 전에 active memory를 조회한다.
+Snapshot materialization이 끝난 뒤 analysis row를 만들기 전에 active memory를 조회한다. Manual refresh의 `operations.requested_by`를 analysis의 `memory_owner_user_id`로 전달한다.
 
-1. 변경 file path와 활성 Skill category로 후보를 검색한다.
+1. Polling 분석은 collective만, manual refresh 분석은 collective와 요청 사용자의 personal memory를 검색한다.
 2. bounded projection과 `memory_hash`를 만든다.
 3. `analysis_key`, `analysis_runs.memory_hash`, `memory_context`에 저장한다.
 4. Worker가 pinned context를 `analyzeSnapshot`에 전달한다.
-5. review prompt는 memory를 과거 검토 가설로 취급하고 현재 supplied source에서 재검증한다.
+5. review prompt는 memory를 과거 검토 가설로 취급하고 현재 supplied source에서 재검증한다. 우선순위는 현재 코드 evidence, collective memory, personal memory 순서다.
+
+같은 base/head에서도 사용자별 memory hash가 다르면 별도 personalized analysis run을 만든다. Personalized run은 owner와 administrator만 조회할 수 있다. PR 목록의 공용 최신 결과는 `memory_owner_user_id is null`인 collective analysis를 사용하고, 로그인 사용자의 workspace에서는 본인 personalized run을 우선 표시한다.
 
 Prompt에는 source PR/SHA, 종류, scope와 사용자 검토 상태를 포함한다. Memory 때문에 현재 diff에 없는 finding을 만들거나 priority를 올리지 않는다. 현재 코드와 충돌하면 현재 evidence를 우선하고 conflict를 report limitation에 기록한다.
 
 ## 10. Chat 연동
 
-Chat은 `analysis_runs.memory_context`만 사용한다. 새 memory가 승인돼도 기존 analysis session의 답변 근거가 조용히 바뀌지 않는다.
+Chat은 `analysis_runs.memory_context`와 session owner의 현재 personal memory를 구분한다. 분석 해석과 finding 근거에는 pinned context만 사용한다. 후속 질문의 개인화에는 같은 repository의 최신 active personal memory를 추가할 수 있지만 답변 metadata에 별도 hash를 기록한다. Collective와 personal이 충돌하면 collective를 우선한다. 새 memory가 승인돼도 이미 완료된 답변의 context는 바뀌지 않는다.
 
 Prompt 순서는 다음과 같다.
 
@@ -187,30 +237,32 @@ Chat 답변은 memory의 source를 citation으로 가장하지 않는다. 현재
 ### 11.1 Repository reviewer API
 
 - `GET /api/v1/analyses/:analysisId/review-memories`
-  - 현재 analysis의 후보와 pinned active memory를 조회한다.
+  - 현재 analysis의 pinned memory와 본인의 personal 후보를 조회한다.
 - `POST /api/v1/analyses/:analysisId/review-memory-candidates`
-  - finding 또는 본인 Chat message를 memory 후보로 제출한다.
+  - finding 또는 본인 Chat message를 personal memory 후보로 제출한다.
+- `POST /api/v1/review-memories/:memoryId/review`
+  - 본인의 personal candidate를 활성화·기각하거나 active memory를 폐기한다.
 
 ### 11.2 Administrator API
 
 - `GET /api/v1/admin/review-memories?tenantId=&repositoryId=&state=`
 - `POST /api/v1/admin/review-memories/:memoryId/review`
-  - `activate|reject|retire|supersede`와 수정 본문, note를 받는다.
+  - collective candidate에 대해 `activate|reject|retire|supersede`와 수정 본문, note를 받는다.
 
 ### 11.3 UI
 
-- Review workspace의 `Memory` tab에서 현재 analysis에 pinned된 memory와 후보를 표시한다.
+- Review workspace의 `Memory` tab에서 `내 Memory`와 `Repository Memory`를 구분하고 현재 analysis에 pinned된 항목을 표시한다.
 - Finding 또는 Chat message에서 `Memory 후보로 제출`을 제공한다.
 - Admin의 repository memory 화면에서 candidate 비교, 수정, 승인, 기각과 폐기를 수행한다.
 - Finding과 Chat에서 memory가 영향을 준 경우 source PR/SHA와 상태를 접을 수 있는 provenance로 표시한다.
 
 ## 12. 보존, 보안과 운영
 
-- tenant/repository 조건은 API 이후 필터가 아니라 SQL 조회에 포함한다.
+- tenant/repository/owner 조건은 API 이후 필터가 아니라 SQL 조회에 포함한다.
 - source Chat message는 작성자와 관리 권한을 확인하며 다른 사용자의 개인 Chat 원문을 memory 본문으로 복사하지 않는다.
 - memory prompt projection은 source code 원문, credential, tool output 전체를 포함하지 않는다.
 - repository 삭제는 기존 review history 보존 정책에 따라 memory도 비활성 repository에 남기며 재등록 전에는 검색하지 않는다.
-- memory 후보와 event는 report retention과 같은 기간을 기본으로 하되 active decision/false-positive는 관리자가 retire할 때까지 보존한다.
+- personal memory는 계정 삭제 시 비활성화하고 collective contribution에는 익명화된 contributor ID와 revision만 보존한다. Collective active decision/false-positive는 관리자가 retire할 때까지 보존한다.
 - `memory.candidate.created`, `memory.activated`, `memory.rejected`, `memory.retired`, `memory.retrieved` event를 남긴다.
 - 분석별 retrieved count, path/symbol match count, prompt chars와 memory conflict 수를 측정한다.
 
@@ -222,6 +274,7 @@ Chat 답변은 memory의 source를 citation으로 가장하지 않는다. 현재
 - 이미 기각된 false positive 재발률
 - finding당 현재 code evidence 비율
 - reviewer 승인·기각 비율
+- 사용자별 personal memory 적중률과 collective quorum·conflict 비율
 - 추가 prompt 문자 수, model latency와 호출 비용
 
 Memory 사용 결과가 좋아졌다는 평가는 memory 수가 아니라 위 비교 결과로 판단한다.
@@ -232,25 +285,26 @@ Memory 사용 결과가 좋아졌다는 평가는 memory 수가 아니라 위 �
 
 예정 commit: `feat(memory): add repository review memory model`
 
-- migration과 contract 추가
-- candidate 생성, content hash, bounded ranking service
-- tenant/repository scope와 상태 transition 단위 테스트
+- personal/collective scope, contribution과 personalized analysis owner migration·contract 추가
+- content/aggregation hash와 bounded ranking service
+- tenant/repository/user scope와 collective aggregation 단위 테스트
 
 ### Phase 2 — 후보와 승인 workflow
 
 예정 commit: `feat(memory): add review memory candidate workflow`
 
-- report finding 자동 후보 생성
+- personalized report finding 자동 personal 후보 생성
 - finding/Chat 기반 사용자 후보 API
-- administrator 조회·승인·기각·폐기 API
+- 사용자 personal 승인과 administrator collective 승인 API
+- personal activation 기반 collective candidate aggregation
 - 권한, source ownership, audit integration test
 
 ### Phase 3 — Analysis와 Chat context 연동
 
 예정 commit: `feat(memory): apply pinned review context to analysis and chat`
 
-- snapshot path 기반 retrieval
-- analysis key와 memory context pinning
+- polling collective와 manual personal+collective retrieval
+- personalized analysis visibility, analysis key와 memory context pinning
 - analysis model prompt와 Chat prompt에 bounded memory 적용
 - 새 memory가 기존 analysis 의미를 바꾸지 않는 회귀 테스트
 
@@ -265,10 +319,11 @@ Memory 사용 결과가 좋아졌다는 평가는 memory 수가 아니라 위 �
 
 ## 15. 완료 조건
 
-- AI P2/P3 finding이 repository-scoped candidate로 생성된다.
+- 사용자 refresh의 AI P2/P3 finding이 user/repository-scoped personal candidate로 생성된다.
 - 사용자가 finding 또는 자신의 Chat message를 후보로 제출할 수 있다.
-- administrator가 candidate를 수정해 활성화하거나 기각·폐기할 수 있다.
-- 활성 memory만 다음 analysis에 포함되고 해당 목록과 hash가 analysis에 고정된다.
+- 사용자는 personal candidate를 활성화·기각·폐기할 수 있다.
+- 여러 사용자의 active personal memory가 repository collective candidate로 집계되고 administrator가 활성화할 수 있다.
+- polling에는 collective, 사용자 분석에는 collective+본인 active memory만 포함되고 목록과 hash가 analysis에 고정된다.
 - analysis와 Chat은 과거 판단을 현재 snapshot에서 재검증하도록 명시된다.
 - Memory provenance를 UI와 API에서 확인할 수 있다.
 - tenant/repository/user 권한과 삭제·보존 정책을 integration test로 검증한다.
