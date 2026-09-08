@@ -2,6 +2,8 @@
 
 2026-09-09. 대상은 P6–P10이다. 코드 수정·테스트 실행 agent와 자동 PR 작성은 포함하지 않는다.
 
+코드는 alpha.23·Helm revision 34에 배포했다. 실제 AI의 과거 대화/근거 재조회·질문 응답·workspace 재사용과 완료 답변을 확인했다. 실제 desktop/mobile 브라우저 조작은 Mac 잠금으로 미완료다. 단계별 검증과 조정 범위는 [검증 기록](verification-interactive-chat-phase2-2026-09-09.md)을 따른다.
+
 | 단계 | 구현 범위 | 검증 기준 |
 | --- | --- | --- |
 | P6 | unit·파일 요약·전체 요약의 모델 결과 checkpoint, job fencing, 만료 lease 회수, 배포 시 단계 경계 drain | 재시작 후 완료된 동일 입력은 모델에 재전송하지 않으며 stale attempt는 report를 확정하지 못한다. 복구는 최대 3회이며 기존 모델 ledger를 유지한다. |

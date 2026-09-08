@@ -2,6 +2,20 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 Interactive Review Chat 2차 배포
+
+07:12:40 KST에 application `0.8.0-alpha.23`, chart `0.10.22`를 Helm revision **34**로 배포했다. Source `143ba2ff09abc5fc6247233d742d8b1aae924540`와 image pin `1aeae2d`를 push한 뒤 적용했다.
+
+- Image index: `sha256:52d8344b8255d591c9f5853843bc81bf620120a4ee4e5707bd205c1424637641`
+- Linux/amd64 manifest: `sha256:08aa02d1504c0ceed091eb2625bf7fb45d39d92d4a1678b50bf4f497c88a62c3`
+- OCI chart: `sha256:c2cbc4b038b8c2ba32a199cc0cd51311cd61f91925e43626d2a86494b93711b8`
+
+Batch checkpoint·fenced job 복구/drain, DB workspace lease·같은 SHA 캐시 재사용, 원문 주소를 보존하는 대화 발췌/재조회, JS/TS AST와 Python lexical 호출·테스트 후보, 이전 run·질문·소스 복원을 포함한다. 집단 메모리 우선권과 기존 접근 권한·모델 예산을 유지한다.
+
+405개 테스트, typecheck·lint·production build·Compose·Helm 검증을 통과했다. Native 격리 환경에서 쓰기·process·network 차단과 실제 Git/AST 조회를 확인했다. Server 1/1·Worker 2/2 Ready, health 4종 HTTP 200, 비로그인 history API 401, 07:14:09 Helm test와 migration 28개 checksum을 확인했다. Image 외 Helm values·Secret·PVC/PV는 유지했다.
+
+실제 AI run `68115d81-e856-4963-bfa9-7d22ad813348`은 기존 검증 대화의 질문과 소스를 다시 읽고 사용자 질문·응답 후 workspace를 재사용해 163초 만에 completed가 됐다. 모델 8회·읽기 도구 6회, 4,687자 답변과 근거 2건·실제 delta 211건을 확인했다. Mac 잠금으로 desktop/mobile UI 조작·캡처는 미수행이다. 상세 기록은 [2차 검증](../../../.documents/verification-interactive-chat-phase2-2026-09-09.md)에 있다.
+
 ## 2026-09-09 Interactive Review Chat 배포
 
 00:10:52 KST에 application `0.8.0-alpha.22`, chart `0.10.21`을 Helm revision 32 canary로 배포했다. Source `a964210f1564f0a8b7933cef3418f4803d507773`와 image 고정 설정 `a8e0ae2`를 push 후 적용했다. Build context는 해당 source commit의 `git archive`다.

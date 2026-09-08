@@ -5,13 +5,19 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.22`, chart `0.10.21`, Helm revision 33 배포 완료. 00:23 KST에 canary 제한을 해제했으며 기존 사용자·repo·모델 권한은 유지한다.
-- 배포 source: `a964210f1564f0a8b7933cef3418f4803d507773` (push 후 git archive build). Release 설정 commit `a8e0ae2`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.23`, chart `0.10.22`, Helm revision 34 배포 완료. 07:12:40 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
+- 배포 source: `143ba2ff09abc5fc6247233d742d8b1aae924540` (push 후 git archive build). Release 설정 commit `1aeae2d`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
 ### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
+
+2차 P6–P10 코드를 alpha.23에 배포했다. Batch model checkpoint, 최대 3회 만료 lease 회수, stale attempt 차단·drain, 90초 DB workspace lease와 사용자/origin/credential/SHA별 캐시, 원문 ID를 보존하는 대화 발췌·원문/이전 source 도구, JS/TS 구문 AST·Python lexical 관계 후보, history pagination과 과거 질문·근거 복원을 포함한다. 전체 semantic call graph·공용 mirror·모델 기반 의미 요약·코드/테스트 실행은 제공하지 않는다. 상세 [2차 구현](interactive-review-chat-phase2.md), [검증](verification-interactive-chat-phase2-2026-09-09.md)을 따른다.
+
+405 tests/66 files, lint·typecheck·production build, native Linux security/Git/AST 검증을 통과했다. 실제 `gpt-5.6-sol:medium` 후속 run `68115d81-e856-4963-bfa9-7d22ad813348`은 기존 canary session에서 과거 질문/소스를 조회하고 ask_user 응답 후 workspace를 재사용해 163초 만에 completed가 됐다. 모델 8회, 도구 6회, source 2건, 4,687자 답변과 delta 211건이다. 기존 수동 복구 배치 2건은 이번 시작 시 모두 completed였다. Desktop/mobile 실제 UI 조작과 screenshot은 Mac 잠금으로 여전히 미완료다.
+
+최종 확인 시 이전 alpha.22 Pod `git-code-reviewer-worker-f67ff8948-nzx85`는 활성 job/Chat lease 0건, Worker exec 불가, 구버전 source-sandbox만 종료 유예 중이었다. Pod는 Terminating으로 남아 API 강제 삭제하지 않았다. 새 Server `git-code-reviewer-server-86dd8cbb7c-2qp4r`, Worker `git-code-reviewer-worker-86f66d497b-8tbp9`는 정상 Ready이며 후속 점검 시 구버전 Pod 삭제 여부만 확인하면 된다. 임시 DB·kernel probe·Helm registry 파일은 정리했다.
 
 사용자 요청에 따라 [설계](interactive-review-chat-design.md)와 [구현 계획](interactive-review-chat-implementation-plan.md)을 작성했다. Worker 로컬의 실제 Git 저장소·revision별 파일 트리, 반복적인 읽기 전용 탐색, 사용자 질문·재개, 영속 run/SSE와 모바일 복구, 자동 분석·Chat 공통 계정 호출 제한을 포함한다. 자동 분석도 같은 workspace/source provider를 사용한다. Demian은 run/event/cancel UI 구조의 참고이며 범용 shell이나 코드 수정 권한을 가져오지 않는다.
 
