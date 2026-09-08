@@ -5,13 +5,25 @@
 - 최종 갱신: 2026-09-08
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.16`, Helm revision 26 배포 완료. 개인·집단 Memory, GitHub PR 대화 수집·관리와 제품 문서 메뉴 포함
-- 배포 source: `796793e6c5f533ffbee60c89d9d73921c58f219c` (push 후 clean source build). Release 설정 commit `5b8eb7e`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.17`, Helm revision 27 배포 완료. 분석 저장 충돌·호출 예산 수정 포함
+- 배포 source: `192596f18b031180a075e222484c2e9eb5ec7564` (push 후 git archive build). Release 설정 commit `6b3ee2e`, 배포 기록 commit은 git log 참조
 - 사용자 소유 `.vscode/` 변경: 건드리지 않음
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
-### 2026-09-08 19:19 배포 (revision 26, 현재)
+### 2026-09-08 20:03 배포 (revision 27, 현재)
+
+누적 분석 56건 중 실패 8건 모두 중복 심볼의 `(analysis_run_id, qualified_name)` 고유 제약 위반 뒤 canonical artifact 재시도 충돌이 발생했다. 심볼 정의 line 구분·겹친 hunk line 중복 제거, 내용 hash 기반 immutable artifact, analysis row 잠금과 단일 report 발행을 적용했다. 모델 호출 예산 32→128, 80~500 core-line window 조정, 파일·전체 요약 호출 예약, 예산 내 한 번의 모델 재시도도 포함한다. YAML 등 symbol adapter 미지원은 relationship/impact coverage에 남기되 AI review 완료와 분리한다. 생성 파일 제외·미검토 범위를 성공으로 바꾸지는 않는다.
+
+57개 파일·346개 테스트(UTF-8 local PostgreSQL integration 포함), lint·typecheck·build 통과. 실제 실패·예산 초과 입력 22건을 fixture model로 재생해 graph 저장과 window·요약 완료를 검증했고 호출 예산 초과·요약 누락은 0건이었다. 이것을 22건의 실제 AI 품질 검증으로 해석하지 않는다.
+
+Image `sha256:ae84499070c0fe8181e5ea16754d673a158bca23ae4f47596b69af96eb9a3bb3`, chart `0.10.16`, SPDX SBOM·SLSA provenance v1 게시. 기존 values 재사용, migration 23개 checksum 일치, Server·Worker Ready/restart 0, health 4종·system version·Helm test 성공. 기존 Secret·CA·HTTPRoute·PVC/PV와 사용자 데이터를 보존했다. 운영 분석 56건·report 48건·과거 실패 8건은 변경하지 않았다.
+
+배포 후 기존 ChatGPT account `gpt-5.6-sol:medium`으로 과거 실패 snapshot의 YAML·Python schema 두 파일을 실제 분석했다. 4/4 window, 두 파일·전체 요약 완료, 모델 호출 8회, finding 3건, 141.6초, `completed`/`model`/`pass`와 고유 graph 심볼을 확인했다. AI coverage 제한은 없고 YAML symbol adapter 제한은 graph/impact에만 남았다. 전체 PR 재분석은 아니며 결과를 운영 DB나 GitHub 댓글로 저장하지 않았다.
+
+원인별 수치와 검증 경계는 `docs/operations/analysis-failures-2026-09-08.md`, digest·운영 검증은 `deploy/environments/prism-dev/README.md`에 있다.
+
+### 2026-09-08 19:19 배포 (revision 26)
 
 Memory 설계·모델·후보 workflow·analysis/Chat 적용·관리 UI의 phase commit `0caa1c0`–`b53e311`과 제품 문서 메뉴 `796793e`를 배포했다. Application `0.8.0-alpha.16`, chart `0.10.15`, image digest `sha256:8739f1ac2e56d8f6347cb62132f0aee0d7681fa31c40a13205caac93b4e1c61f`다. Linux/amd64 image에 SPDX SBOM과 SLSA provenance v1을 포함한다. `--reuse-values`와 image tag/digest override로 기존 운영 설정을 보존했다.
 

@@ -48,4 +48,6 @@ PRISM-DEV 운영 DB와 저장 artifact를 읽어 9월 8일 19:44 KST까지의 �
 
 회귀 테스트는 DB rollback 뒤 재시도, 이전 canonical artifact 보존, 동시 report 발행의 단일 결과, 중복 심볼, window 확장 시 전체 line 포함, 요약 예산 예약, 일시적 모델 오류 재시도, YAML 리뷰와 graph coverage 분리를 포함한다.
 
-배포 버전·digest와 live 검증 결과는 [PRISM-DEV 배포 기록](../../deploy/environments/prism-dev/README.md)에 기록한다.
+전체 테스트 346건, lint·typecheck·production build가 통과했다. 배포 후 등록된 ChatGPT account의 실제 AI로 과거 실패 snapshot의 YAML·Python schema 두 파일을 분석해 4/4 window와 모든 요약 완료, 고유 graph 심볼, `completed` 상태를 확인했다. 소요 141.6초, 모델 호출 8회였으며 모델 응답과 코드 리뷰 품질 전체를 보증하는 수치는 아니다. 전체 PR 재분석이나 운영 report·GitHub 댓글 저장은 수행하지 않았다.
+
+Application `0.8.0-alpha.17` / Helm revision 27을 배포했다. Digest와 live 검증 결과는 [PRISM-DEV 배포 기록](../../deploy/environments/prism-dev/README.md)에 기록한다.

@@ -2,6 +2,32 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-08 분석 저장·호출 예산 수정 배포
+
+20:02:34 KST에 upgrade를 시작해 Helm revision 27로 배포했다. Application `0.8.0-alpha.17`, chart `0.10.16`이며 source는 `192596f18b031180a075e222484c2e9eb5ec7564`, release 설정은 `6b3ee2e`다. 모두 push 후 반영했다. Build context는 commit의 `git archive`만 사용해 local 진단 데이터와 임시 registry 인증 파일을 제외했다.
+
+- Image index: `sha256:ae84499070c0fe8181e5ea16754d673a158bca23ae4f47596b69af96eb9a3bb3`
+- Linux/amd64 manifest: `sha256:d31ed6ce9e552bd0e4f1b85af7a38730f5a267dc7dff4defb00556fb404c2487`
+- OCI chart: `sha256:7151a410295b259653b2451b627275352354006569b2ed58ed358fd04f8e30d9`
+- Registry에서 SPDX SBOM과 SLSA provenance v1을 확인했다.
+
+누적 실패 8건의 원인은 중복 코드 심볼의 DB 고유 제약 위반과 재시도 시 동일 artifact 경로 충돌이었다. 심볼 정의 line 구분, 내용 hash 기반 artifact 경로와 단일 report 발행 잠금을 적용했다. 부분 완료의 호출 예산 문제에는 window 크기 조정, 요약 호출 예약, 기본 128회 상한과 한 번의 제한된 모델 재시도를 적용했다. 미지원 symbol adapter는 graph·impact coverage에 남기고 AI 리뷰 완료 상태와 분리했다. 자세한 집계는 [실패 조사 기록](../../../docs/operations/analysis-failures-2026-09-08.md)에 있다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 테스트 | UTF-8 local PostgreSQL integration을 포함한 57개 파일·346개 테스트, lint·typecheck·production build 통과 |
+| 실제 입력 재생 | 실패 8건의 기존 DB 오류 재현. 실패·호출 예산 사례 22건 모두 수정된 graph 저장 성공. Fixture model으로 모든 window·요약 완료, 최대 124회, 예산 초과·요약 누락 0건 |
+| Container | Node 22.23.2, UID 1000, network-none·read-only 실행 검증. 기본 호출 예산 128, YAML AI fixture 완료와 graph 제한 분리, 실행 image에 build CA secret 없음 |
+| Helm·Workload | Lint·server-side dry-run·upgrade 성공. 새 Server·Worker 각 1/1 Ready, restart 0회, 이전 Pod 종료. 20:04:06 KST Helm test 성공 |
+| HTTP | 실제 Host 경로의 health 4종 HTTP 200·ok, system version `0.8.0-alpha.17`, 비로그인 repository API 401 |
+| DB·데이터 | Migration 23개와 checksum 일치, 신규 migration 없음. Users 7명, Chat accounts 4개, analyses 56건, reports 48건과 과거 실패 8건 보존 |
+| 운영 설정 | Image 외 Helm values SHA-256 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef` 동일. Secret·corporate CA·HTTPRoute UID/resourceVersion과 두 PVC의 UID·PV 보존. 앱 ConfigMap만 새 release로 갱신 |
+| 배포 직후 | 새 Server·Worker warning/error 0건, 새 분석 실패 0건, pending job 0건 |
+
+배포된 Server에서 등록된 ChatGPT account의 `gpt-5.6-sol:medium`으로 과거 실패 snapshot의 YAML 설정과 중복 메서드가 있는 Python schema 파일을 실제 분석했다. 두 파일 모두 `reviewed`, 4/4 window 완료, 파일·전체 요약 완료, 모델 호출 8회, finding 3건, 소요 141.6초였다. 결과는 `completed`/`model`/`pass`, AI coverage 제한 0건이고 graph 심볼 식별자는 모두 고유했다. YAML의 symbol adapter 제한은 graph/impact에만 남았다. 이 smoke test는 전체 PR 재분석이 아니며 검증 report를 운영 DB에 저장하거나 GitHub 댓글로 게시하지 않았다.
+
+과거 실패 record나 원본 artifact를 성공 상태로 덮어쓰지 않았다. 새로운 분석부터 수정된 동작을 사용한다. 생성 파일·lock 파일 제외와 실제 미검토 범위는 계속 부분 완료로 표시한다.
+
 ## 2026-09-08 Memory·제품 문서 배포
 
 19:18 KST에 upgrade를 시작해 Helm revision 26으로 배포했다. Application은 `0.8.0-alpha.16`, chart는 `0.10.15`다. Source `796793e6c5f533ffbee60c89d9d73921c58f219c`를 push한 뒤 clean source로 빌드했으며 image digest를 고정한 release 설정 `5b8eb7e`도 push 후 적용했다.
@@ -61,7 +87,7 @@ Image 외 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b4
 - Ingress: disabled
 - Gateway API: `pr-review.prism.ai` 전용 HTTPRoute
 - 접근: HTTPRoute 또는 `kubectl port-forward`
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.16@sha256:8739f1ac2e56d8f6347cb62132f0aee0d7681fa31c40a13205caac93b4e1c61f`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.17@sha256:ae84499070c0fe8181e5ea16754d673a158bca23ae4f47596b69af96eb9a3bb3`
 - PostgreSQL image: chart 기본 `latest` 대신 PRISM-DEV의 `linux/amd64` manifest digest로 고정
 
 Local account는 browser에서 접근 가능한 OIDC endpoint가 없는 PRISM-DEV 검증용이다. 운영 환경에서는 사내 OIDC와 HTTPS Ingress를 사용한다. 이 profile에는 Ingress나 외부 Service를 추가하지 않는다.
