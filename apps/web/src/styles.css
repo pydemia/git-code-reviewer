@@ -1667,6 +1667,28 @@ body.workspace-resizing:has(.resize-bottom) {
   overflow-wrap: anywhere;
 }
 
+.chat-message-content .review-markdown {
+  margin-top: 0;
+  white-space: normal;
+}
+
+.chat-message-content .review-markdown :is(h4, h5, h6) {
+  margin-top: 18px;
+  font-size: 15px;
+}
+
+.chat-message-content .review-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-message-content .review-markdown :not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #155e52;
+  background: #edf1f3;
+  font-size: 0.92em;
+}
+
 .chat-message-empty,
 .chat-pending {
   min-height: 42px;
@@ -1709,23 +1731,44 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .chat-citations {
+  display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chat-citations-label {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .chat-citations button {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  min-height: 28px;
-  padding: 0 6px;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
   color: #1f675b;
   background: #eef6f4;
   border: 1px solid #cde2dd;
   border-radius: 3px;
   font-size: 12px;
   cursor: pointer;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.chat-citations button svg {
+  flex-shrink: 0;
+}
+
+.chat-citations button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .chat-citations button:disabled {

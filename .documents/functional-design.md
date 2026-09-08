@@ -441,6 +441,18 @@ Comment body는 한국어 설명, 영어 grade/priority, head SHA, P3-P0 count, 
 6. 최종 message/citation만 transaction으로 저장한다. 중단된 stream은 REST 상태 확인 후 사용자가 재시도한다.
 7. 새 analysis가 있으면 UI가 별도 banner를 표시하고 사용자 동의로 새 session을 시작한다.
 
+#### 2026-09-08 현재 구현: Markdown·다중 코드 근거
+
+현재 Chat route는 REST 요청에서 모델 응답을 완성한 뒤 message와 citations를 저장한다. 위 token/delta streaming은 목표 설계이며 이번 변경에서 추가하지 않는다.
+
+Server는 session의 immutable report와 같은 snapshot의 file ID/path를 읽는다. 선택된 finding/file은 우선순위 힌트로만 사용하며 다른 파일의 findings·요약·coverage도 context에 포함한다. Finding 본문은 최대 80개/96,000자, 파일 요약은 최대 100개(항목별 800자)로 제한하고 생략 수를 `contextLimits`에 포함한다. 전체 요약·impact와 개별 본문/evidence에도 길이 제한이 있다. 신규 코드 분석이나 repository 전체 검색을 수행하지 않는다.
+
+`chat-answer.ts`가 report의 diff anchor/evidence로 `citationCatalog`를 만든다. 동일한 file/side/range는 하나로 묶고, snapshot에 없는 file, 역전된 range와 non-diff evidence는 제외한다. Model에는 `{content: Markdown, citationIds: string[]}`를 요청한다. 반환 ID를 catalog와 대조해 중복·미등록 ID를 제거하고 최대 24개를 저장한다. Model이 지정한 임의 URL/line은 채택하지 않는다. Text-only 응답은 그대로 보존하되 선택한 finding의 근거를 자동 첨부하지 않는다.
+
+Citation은 기존 `findingId?`, `evidenceId`, `fileId`, `line?`, `label`에 optional `endLine`, `side`, `path`를 추가했다. 기존 JSONB column을 사용하므로 migration은 없다. Browser는 현재 report의 locator와 다시 대조하고 `파일 경로 · L시작–끝 · 이전/변경 코드`로 표시한다. 클릭 시 finding의 대표 anchor 대신 해당 evidence의 file/side/range로 이동한다. File-level 근거에는 line을 만들지 않는다. 이전 메시지는 저장된 ID로 위치를 복원하며 일치하는 locator가 없으면 링크를 비활성화한다.
+
+Assistant 본문에는 공통 `ReviewMarkdown`을 사용한다. 한글 본문·English 전문용어, CommonMark/GFM, code·표 내부 scroll을 지원하며 raw HTML 실행과 외부 image 요청은 차단한다. 사용자 질문은 원문 그대로 표시한다. 이미 저장된 메시지나 report는 재작성하지 않으며 여러 근거를 모델이 선택하는 동작은 새 답변부터 적용된다.
+
 ### 5.11 Cleanup
 
 worker는 `finally` 단계에서 credential, Git config와 workspace를 삭제한다. Container restart로 같은 pod의 `emptyDir`이 남은 경우 worker startup/periodic cleanup이 active lease가 없는 자기 volume의 run directory만 지운다. Pod가 삭제되면 `emptyDir`과 generic ephemeral PVC는 pod lifecycle에 따라 정리된다.

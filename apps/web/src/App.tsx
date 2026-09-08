@@ -49,6 +49,7 @@ import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewGrade } from './ReviewGrade.tsx';
 import { ChatPanel } from './ChatPanel.tsx';
+import { resolveChatCitation } from './chat-citations.ts';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
 import { analysisIsPending, analysisProgressLabel } from './analysis-progress.ts';
@@ -1053,9 +1054,22 @@ function ReviewWorkspace({
           onModelChange={selectChatModel}
           onEffortChange={selectChatEffort}
           onSend={() => void handleChatSubmit()}
-          onCitationSelect={(findingId) => {
-            const finding = data?.report?.findings.find((item) => item.id === findingId);
-            if (finding) selectFinding(finding);
+          files={data?.files ?? []}
+          findings={data?.report?.findings ?? []}
+          onCitationSelect={(citation) => {
+            const target = resolveChatCitation(
+              citation,
+              data?.files ?? [],
+              data?.report?.findings ?? [],
+            );
+            if (!target) return;
+            setMainView('code');
+            setSelectedPath(target.path);
+            setSelectedFindingId(target.findingId);
+            setCodeTarget((current) => ({
+              ...target.anchor,
+              request: (current?.request ?? 0) + 1,
+            }));
           }}
         />
         {!leftHidden ? (

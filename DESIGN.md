@@ -177,6 +177,8 @@ Summary·파일 요약·Comments 본문은 공통 Markdown renderer를 사용한
 
 Revision·scope는 상단, 대화는 가운데, 입력창과 Account·Model·Effort는 하단에 둔다. 본문·입력·select (14px), header (15px), label·metadata (11–13px)로 구분한다. 입력창은 5줄·최소 (140px)이며 selector는 입력창 다음 DOM 순서다. 패널 너비 (400px) 이하에서는 Account를 한 줄로 분리한다. 모바일 Chat은 최소 (560px)를 확보한다.
 
+Assistant 본문은 Summary와 같은 Markdown renderer를 사용하며 `white-space: normal`로 목록·문단 간격이 중복되지 않게 한다. Chat 내부 heading은 (15px), inline code는 기존 teal text/neutral 배경을 따른다. 사용자 질문은 `pre-wrap`으로 원문을 보존한다. 답변 아래 ‘관련 코드’는 file path·line range·이전/변경 코드를 구분한 native button이며 여러 근거를 wrap한다. 긴 경로는 줄바꿈하고 미확인 locator는 비활성 상태로 설명한다. 전체 너비를 늘리거나 별도 Markdown parser·색상 체계를 추가하지 않는다.
+
 ## Do's and Don'ts
 
 - Do: 기존 색상 token과 control을 재사용하고 상태·선택·action의 역할을 유지한다.

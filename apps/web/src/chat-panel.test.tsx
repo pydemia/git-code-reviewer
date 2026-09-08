@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { ChatPanel } from './ChatPanel.tsx';
+import type { WorkspaceData } from './api.ts';
 
 const props: ComponentProps<typeof ChatPanel> = {
   revision: 1,
@@ -83,4 +84,98 @@ it('retains loading, unavailable, disabled and pending states', () => {
   expect(renderToStaticMarkup(<ChatPanel {...props} accountCatalog={null} />)).not.toContain(
     'chat-model-selectors',
   );
+});
+
+it('renders assistant Markdown safely while preserving the user question verbatim', () => {
+  const content =
+    '# Merge 확인\n\n**위험**과 `path_format`\n\n- 저장 경로\n- 배포 설정\n\n```ts\nconst safe = true;\n```\n\n| 파일 | 상태 |\n| --- | --- |\n| a.ts | 확인 |\n\n<script>alert(1)</script>\n![tracking](https://evil.example/pixel)\n[unsafe](javascript:alert(1))';
+  const html = renderToStaticMarkup(
+    <ChatPanel
+      {...props}
+      messages={[
+        {
+          id: 'assistant',
+          role: 'assistant',
+          status: 'completed',
+          content,
+          citations: [],
+          createdAt: 'now',
+          completedAt: 'now',
+        },
+        {
+          id: 'user',
+          role: 'user',
+          status: 'completed',
+          content: '**이 문구** 그대로\n다음 줄',
+          citations: [],
+          createdAt: 'now',
+          completedAt: 'now',
+        },
+      ]}
+    />,
+  );
+  expect(html).toContain('<h4>Merge 확인</h4>');
+  expect(html).toContain('<strong>위험</strong>');
+  expect(html).toContain('<code>path_format</code>');
+  expect(html).toContain('<ul>');
+  expect(html).toContain('<pre><code class="language-ts">');
+  expect(html).toContain('<table>');
+  expect(html).toContain('**이 문구** 그대로\n다음 줄');
+  for (const unsafe of ['<script>', '<img', 'href="javascript:', 'src="https://evil.example'])
+    expect(html).not.toContain(unsafe);
+});
+
+it('renders separate file/range links and disables stale evidence instead of pointing elsewhere', () => {
+  const anchor = {
+    id: 'anchor',
+    fileId: 'file-a',
+    side: 'head' as const,
+    startLine: 10,
+    endLine: 14,
+    artifactType: 'snapshot-diff',
+  };
+  const evidence = {
+    id: 'evidence',
+    fileId: 'file-b',
+    side: 'mergeBase' as const,
+    startLine: 50,
+    endLine: 57,
+    artifactType: 'snapshot-diff',
+  };
+  const findings = [{ id: 'finding', anchor, evidence: [evidence] }] as NonNullable<
+    WorkspaceData['report']
+  >['findings'];
+  const citations = [
+    { findingId: 'finding', evidenceId: 'anchor', fileId: 'file-a', line: 10, label: 'line 10' },
+    { findingId: 'finding', evidenceId: 'evidence', fileId: 'file-b', line: 50, label: 'line 50' },
+    { findingId: 'finding', evidenceId: 'stale', fileId: 'file-b', line: 99, label: 'line 99' },
+  ];
+  const html = renderToStaticMarkup(
+    <ChatPanel
+      {...props}
+      files={[
+        { id: 'file-a', path: 'src/a.ts' },
+        { id: 'file-b', path: 'k8s/deploy.yaml' },
+      ]}
+      findings={findings}
+      messages={[
+        {
+          id: 'reply',
+          role: 'assistant',
+          status: 'completed',
+          content: '확인 사항',
+          citations,
+          createdAt: 'now',
+          completedAt: 'now',
+        },
+      ]}
+    />,
+  );
+  expect(html).toContain('관련 코드');
+  expect(html).toContain('src/a.ts · L10–14 · 변경 코드');
+  expect(html).toContain('k8s/deploy.yaml · L50–57 · 이전 코드');
+  expect(html).toContain(
+    'disabled="" title="현재 revision에서 이 근거 위치를 확인할 수 없습니다."',
+  );
+  expect(html).toContain('line 99 · 위치 확인 불가');
 });

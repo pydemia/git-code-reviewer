@@ -560,8 +560,12 @@ export const chatCitationSchema = z.object({
   evidenceId: z.string().uuid(),
   fileId: z.string().uuid(),
   line: z.number().int().positive().optional(),
+  endLine: z.number().int().positive().optional(),
+  side: z.enum(['mergeBase', 'head']).optional(),
+  path: z.string().optional(),
   label: z.string(),
 });
+export type ChatCitation = z.infer<typeof chatCitationSchema>;
 
 export const chatAccountModelSchema = z.object({
   id: z.string(),

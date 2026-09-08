@@ -1,5 +1,8 @@
 import { Bot, Link2, RefreshCw, Send, Sparkles } from 'lucide-react';
 import type { ChatAccountCatalog, ChatMessage, ChatSession, WorkspaceData } from './api.ts';
+import type { ChatCitation } from '@gcr/contracts';
+import { ReviewMarkdown } from './ReviewMarkdown.tsx';
+import { resolveChatCitation } from './chat-citations.ts';
 
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 
@@ -18,6 +21,8 @@ export function ChatPanel({
   modelName,
   reasoningEffort,
   messages,
+  files = [],
+  findings = [],
   draft,
   sending,
   onDraftChange,
@@ -41,6 +46,8 @@ export function ChatPanel({
   modelName: string;
   reasoningEffort: string;
   messages: ChatMessage[];
+  files?: Pick<WorkspaceData['files'][number], 'id' | 'path'>[];
+  findings?: FindingView[];
   draft: string;
   sending: boolean;
   onDraftChange: (value: string) => void;
@@ -48,7 +55,7 @@ export function ChatPanel({
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
   onSend: () => void;
-  onCitationSelect: (findingId: string) => void;
+  onCitationSelect: (citation: ChatCitation) => void;
 }) {
   const account = accountCatalog?.items.find((item) => item.id === accountId);
   const selectedModel = account?.models.find((item) => item.id === modelName);
@@ -120,19 +127,33 @@ export function ChatPanel({
                   <strong>{message.role === 'assistant' ? 'Review assistant' : 'You'}</strong>
                   {message.status !== 'completed' ? <small>{message.status}</small> : null}
                 </div>
-                <div className="chat-message-content">{message.content}</div>
+                <div className="chat-message-content">
+                  {message.role === 'assistant' ? (
+                    <ReviewMarkdown text={message.content} />
+                  ) : (
+                    message.content
+                  )}
+                </div>
                 {message.citations.length > 0 ? (
                   <div className="chat-citations" aria-label="답변 근거">
-                    {message.citations.map((citation) => (
-                      <button
-                        type="button"
-                        key={citation.evidenceId}
-                        disabled={!citation.findingId}
-                        onClick={() => citation.findingId && onCitationSelect(citation.findingId)}
-                      >
-                        <Link2 size={11} /> {citation.label}
-                      </button>
-                    ))}
+                    <span className="chat-citations-label">관련 코드</span>
+                    {message.citations.map((citation, index) => {
+                      const target = resolveChatCitation(citation, files, findings);
+                      return (
+                        <button
+                          type="button"
+                          key={`${citation.evidenceId}:${index}`}
+                          disabled={!target}
+                          title={
+                            target?.label ?? '현재 revision에서 이 근거 위치를 확인할 수 없습니다.'
+                          }
+                          onClick={() => target && onCitationSelect(citation)}
+                        >
+                          <Link2 size={12} aria-hidden="true" />
+                          <span>{target?.label ?? `${citation.label} · 위치 확인 불가`}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : null}
               </article>

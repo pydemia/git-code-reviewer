@@ -558,6 +558,21 @@ export function GuidePage() {
               Account·Model·Effort는 입력창 아래에 있고 좁은 패널에서는 Account가 별도 줄로
               표시됩니다. Enter로 전송하고 Shift+Enter로 줄을 바꿉니다.
             </p>
+            <p>
+              Review assistant 답변은 Markdown 제목·목록·강조·코드·표로 표시됩니다. 질문 원문은
+              그대로 보존하며 HTML이나 외부 이미지는 실행·로드하지 않습니다. ‘전체 PR을 merge할 때
+              문제는?’처럼 넓게 질문하면 현재 선택한 finding 외에 다른 파일의 검토 내용도 함께
+              참고합니다. 새 코드 분석을 실행하는 기능은 아니므로 기존 report의 검토 범위와 제한은
+              그대로 적용됩니다.
+            </p>
+            <p>
+              답변 아래 <strong>관련 코드</strong>에는 사용된 근거를 최대 24개 표시합니다. 각 링크는{' '}
+              <code>src/storage.ts · L10–14 · 변경 코드</code>처럼 파일·라인 범위와 이전/변경 코드를
+              구분하며, 누르면 해당 위치로 이동합니다. 파일 전체 근거에는 line 번호를 만들지
+              않습니다. 근거 위치가 현재 revision에 없으면 링크가 비활성화됩니다. 기존 메시지는
+              저장된 근거만 표시하고, 여러 근거를 선택하는 동작은 새 답변부터 적용됩니다. 모델이
+              근거를 반환하지 않으면 임의로 링크를 붙이지 않습니다.
+            </p>
           </section>
 
           <section className="guide-section" id="code-navigation">

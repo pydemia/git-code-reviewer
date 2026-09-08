@@ -10,6 +10,16 @@
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
+### 2026-09-08 Review Chat Markdown·다중 코드 근거 — 개발 완료, 미배포
+
+Chat 답변을 plain text로 출력하고 선택된 finding 하나의 evidence를 질문과 무관하게 첨부하던 동작을 수정했다. `ChatPanel`은 assistant에 공통 `ReviewMarkdown`을 사용하고 user 질문은 원문으로 유지한다. Code block·목록·표·강조와 여러 파일의 `L시작–끝 · 이전/변경 코드` 링크를 표시한다. 현재 report locator와 대조한 후 `App`의 code target을 citation 자체의 file/side/range로 설정하며 finding 대표 line으로 잘못 이동하지 않는다. Legacy citation도 locator로 range를 복원하며 다른 revision·file·line이면 비활성화한다.
+
+Server `services/chat-answer.ts`는 선택을 힌트로 삼고 여러 파일의 report finding/summary/coverage를 제한된 context에 포함한다. 모델은 Markdown content와 사용한 citation ID 목록을 반환하며 Server가 현재 catalog에 있는 ID만 최대 24개 저장한다. File/side/range 중복 제거, 없는 file·non-diff evidence 제외, context 생략 수, plain text 응답 시 citation 자동 첨부 금지를 적용했다. 기존 optional citation contract에 `endLine/side/path`를 추가했고 DB migration·계정·모델 Provider 구현은 변경하지 않았다. 저장된 메시지/기존 report는 재작성하지 않는다. 자세한 범위는 기능설계서 5.10과 Web 가이드 ‘Review workspace와 Chat’에 있다.
+
+검증: 신규 서비스·UI 테스트 18건과 Fastify API 주입 테스트 3건을 추가했다. 다중 range/삭제 코드/Legacy 호환/잘못된 ID·range 거부/선택 외 파일 context/빈 근거/Markup 안전성, 메시지 저장·재조회와 타 사용자·권한 회수 차단을 확인한다. 실제 PostgreSQL·LLM·GHES 호출은 수행하지 않았다. Local 합성 ChatPanel·ReviewDiff에서 1440×1000·390×844 Markdown 렌더링과 두 링크의 L10(head)↔L50(mergeBase) 이동을 확인했고 문서/Chat 가로 overflow·Browser 오류가 없었다. 첫 desktop harness의 grid 위치 설정을 보정한 뒤 확인했으며 앱 자체 grid는 변경하지 않았다. 검증용 Browser·Vite와 harness는 종료·정리한다. PRISM-DEV는 application 0.8.0-alpha.13/revision 23 그대로이며 Grade 개선과 이 변경은 재배포가 필요하다.
+
+최종 검사: 전체 259 tests 통과 / DB integration 29 skip (45 files passed / 5 skipped). ESLint·Runtime TypeScript·Web production build·변경 source Prettier·git diff 검사를 통과했다. Impeccable detector warning 4건은 기존 3px 측면 border이며 그대로 유지했다. Browser·Vite를 종료하고 임시 harness 두 파일을 삭제했다. 실제 model 응답의 분석 정확도나 live 배포 성공을 검증한 결과는 아니다.
+
 ### 2026-09-08 Grade 문구·색상 개선 — 개발 완료, 미배포
 
 `exceptional/proficient/adequate/insufficient/critical`을 사용자 화면에서 `탁월/우수/양호/개선 필요/심각`으로 표시한다. 앞의 세 등급은 teal, 개선 필요는 주황, 심각은 빨강이다. `adequate`가 기본 warning 색상을 상속하던 규칙을 제거하고 공통 `reviewGrades`·`ReviewGrade`로 PR 목록, Summary, 가이드, Markdown·PR 게시 문구를 일치시켰다. PR 목록의 P2+ 건수는 Grade와 독립적으로 warning 색상을 사용한다. Summary는 해당 등급 설명과 가이드 링크를 제공한다.
