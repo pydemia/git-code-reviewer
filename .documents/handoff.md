@@ -5,8 +5,8 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.27`, chart `0.10.26`, Helm revision 38 운영 중. 11:44 KST 확인 시 Provider v8 `gpt-5.6-terra:medium`, 병렬 4개가 활성화되어 선행 작업의 4개 활성화 대기는 해소됐다. 이 설정을 덮어쓰지 않는다.
-- 배포 source: `2bfadea9f7ce8bdc14eefdae2f2864cbcf665ae4` (push 후 git archive build). Release 설정 commit `b1adbaf`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.28`, chart `0.10.27`, Helm revision 39 운영 중(2026-09-09 11:54:49 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
+- 배포 source: `5d9a9204218583ecdaea16827f68eff97f673b99` (push 후 git archive build). Backend commit `5039fbf`, release 설정 commit `56268be`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
@@ -17,7 +17,9 @@
 
 Interactive Chat은 질문별 `selection`을 서버에 전달하고 기존 session을 모델과 무관하게 재사용한다. Provider preset은 사용자에게 허용된 ChatGPT account/model/effort만 노출하며 OpenAI-compatible batch Provider는 포함하지 않는다. HTTP에서도 CSPRNG UUID를 만들고, 이력 메뉴를 밝은 배경의 ‘이전 대화와 코드 근거’로 수정했다. 기존 UI를 유지하면서 빈 목록·오류·loading 상태를 보완했다.
 
-전체 459 tests와 추가 Admin 삭제 UI 테스트, 같은 session 모델 전환 API 테스트가 통과했다. Browser 합성 fixture에서 randomUUID 부재 상태의 질문 2개, Sol/medium → Luna/low 변경, Markdown, 이전 질문·code L12–14 이동과 alert 0개를 확인했다. 실제 외부 모델 호출은 하지 않았다. `apps/web/tests/registry-chat.html`은 Vite 개발 서버에서만 사용하는 합성 검증 페이지이며 production build에는 포함되지 않는다. 실제 account/Provider 삭제·재분석·PR 댓글 게시는 금지한다. [구현·검증 기록](../docs/operations/registry-chat-fixes-2026-09-09.md)을 갱신하면서 commit/push 후 alpha.28 배포를 완료해야 한다.
+전체 75개 파일·460개 tests, lint·typecheck·production build를 통과했다. Browser 합성 fixture에서 randomUUID 부재 상태의 질문 2개, Sol/medium → Luna/low 변경, Markdown, 이전 질문·code L12–14 이동과 alert 0개를 확인했다. 실제 외부 모델 호출은 하지 않았다. `apps/web/tests/registry-chat.html`은 Vite 개발 서버에서만 사용하는 합성 검증 페이지이며 production build에는 포함되지 않는다. 검증 목적으로 실제 account/Provider 삭제·재분석·PR 댓글 게시를 실행하지 않는다.
+
+Commit·push 후 alpha.28 배포를 완료했다. Health 4종·새 bundle hash·Helm test·migration 31개 checksum과 사용자 7명·account 7개·분석 70건·report 62건의 ID 집합을 확인했다. Image 외 Helm values·Secret·CA·HTTPRoute·PVC/PV를 보존했고 실제 tombstone은 0개다. 새 Server 1/1·Worker 2/2 Ready, restart 0이다. Alpha.27 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. [구현·검증·배포 기록](../docs/operations/registry-chat-fixes-2026-09-09.md)을 참고한다.
 
 ### 2026-09-09 분석 모델 선택과 파일 병렬 처리
 
@@ -27,7 +29,7 @@ Backend `4c19a77`을 commit·push했다. Migration `0030`은 기존 Provider ver
 
 설정 저장·재로딩, 모델별 Effort 전환, 이전 version 재활성화, Desktop/Mobile 합성 Browser 검증을 완료했다. 독립 화면 검토는 `ship`이다. 446개 테스트·typecheck·lint·build, alpha.27 배포·health·Helm test·migration 30개 checksum이 통과했다. 사용자 7명·account 7개·analysis 67개·report 59개와 report 원문 hash를 유지했다. 실제 Luna/medium의 짧은 모델 요청 네 개가 동시에 완료됐다(1,808ms). 이는 PR 분석 속도 측정이 아니며 분석·report·GitHub 게시를 생성하지 않았다.
 
-**남은 작업:** 운영 Provider v4의 병렬 수는 기존 동작 보존 때문에 아직 1이다. Browser는 `Debugger unattached`와 Computer Use 권한 대기, 배포 초기 관리자 credential의 정식 API 로그인은 401이다. 비밀번호 초기화·session 위조·DB 직접 변경을 하지 않았다. 현재 로그인한 관리자가 `설정 → 분석 모델 → 파일 병렬 처리 수 4개 → 새 버전 저장 및 활성화`를 수행해야 한다. 이후 활성 concurrency 4를 다시 확인한다. 기존 Account·Luna/medium을 임의로 되돌리거나 추가 PR 재분석을 시작하지 않는다. Alpha.26 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. 상세 [배포 기록](../docs/operations/parallel-analysis-2026-09-09.md), 구현·제약은 [병렬 분석 문서](../docs/operations/parallel-analysis.md)를 참고한다.
+**11:09 배포 당시 남은 작업(이후 해소):** 운영 Provider v4의 병렬 수는 기존 동작 보존 때문에 1이었다. Browser는 `Debugger unattached`와 Computer Use 권한 대기, 배포 초기 관리자 credential의 정식 API 로그인은 401이었다. 비밀번호 초기화·session 위조·DB 직접 변경은 하지 않았다. 11:44 후속 점검에서 별도 운영 변경으로 Provider v8 `gpt-5.6-terra:medium`·concurrency 4가 활성화된 것을 확인했으며 alpha.28 배포에서도 유지했다. 기존 Luna 설정으로 되돌리거나 추가 PR 재분석을 시작하지 않는다. 상세 [당시 배포 기록](../docs/operations/parallel-analysis-2026-09-09.md), 구현·제약은 [병렬 분석 문서](../docs/operations/parallel-analysis.md)를 참고한다.
 
 11:15 후속 점검에서는 별도 운영 분석 한 건이 완료되어 analysis 68개·report 60개가 됐다. 기존 report 59개의 hash는 그대로다. 연결 진단은 PR 재분석·게시를 생성하지 않았으며 새 운영 workflow의 publication과 구분한다.
 

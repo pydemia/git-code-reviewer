@@ -31,3 +31,29 @@ HTTP에서는 `crypto.randomUUID`가 없을 수 있으므로 `getRandomValues`�
 - Impeccable 점검은 기존 light theme·typography를 유지하며 불필요한 question 강조 border와 dark select를 정리했다. 실제 운영 account·Provider 삭제, 재분석, PR 댓글 게시는 수행하지 않았다.
 
 Browser 재현: `pnpm --filter @gcr/web exec vite --host 127.0.0.1 --port 4018` 후 `/tests/registry-chat.html`을 연다. 이 페이지는 외부 API를 호출하지 않는 합성 test harness다.
+
+## PRISM-DEV 배포
+
+2026-09-09 11:54:49 KST에 application `0.8.0-alpha.28`, chart `0.10.27`을 Helm revision **39**로 배포했다. Source `5d9a9204218583ecdaea16827f68eff97f673b99`, Backend `5039fbf`, release pin `56268be`는 모두 push했다. 배포 기록만 바꾸는 후속 commit은 image를 다시 만들지 않는다.
+
+- Image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.28`
+- Image index: `sha256:9b01ad32833b727af4b4aa3c3110823ef55b9e00bab41bfc11bebc56f6a98db0`
+- Linux/amd64 manifest: `sha256:700b389759f1c3fd09411621c07ee5689044ea87e74cebeddf84f47af95f26ef`
+- SPDX SBOM·SLSA provenance attestation: `sha256:bf10feb4ffffa0de896dd1f76718b5b91c7dcb47cc740c76584566e3fff1587e`
+- OCI chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer:0.10.27`, digest `sha256:ec23059d14c068d4066c0edeb49b060eabd0792673e907a19f11e62e0a47beda`
+
+Clean `git archive`를 build context로 사용했다. Runtime base는 alpha.27의 검증된 base를 재사용했다. Container를 UID 1000·read-only·network-none으로 검사했으며 migration 31개, build CA secret과 Browser 합성 harness의 실행 image 미포함을 확인했다.
+
+`PRISM-DEV` context의 API `https://10.250.107.193:6443`, namespace/release `git-code-reviewer`에 `--reuse-values`와 image tag/digest override만 적용했다. Image 외 Helm values의 배포 전·dry-run·배포 후 SHA-256은 모두 `5f3eb1ed55f94d7ce9048eb9ef17e4b92400f3533ed9c8a5da1823ef66bb05c9`다.
+
+### 배포 검증
+
+- 새 Server `git-code-reviewer-server-5c48598f9-l4b9p` 1/1, Worker `git-code-reviewer-worker-59d6c59f9-q4hd5` 2/2 Ready이며 restart 0회다. 두 Deployment rollout을 확인했다.
+- Helm 연결 test는 11:55:50 KST에 Succeeded로 끝났다. Health startup/live/ready/dependencies 모두 ok이며 system API는 alpha.28이다.
+- `http://pr-review.prism.ai`의 gateway 경로로 받은 `/assets/index-BP5RTXd6.js` SHA-256 `56be5afe7fcd06cd1c5eeb9949d53c0239da2c1af98318b59dd65210288d5240`이 image와 일치한다. 새 Provider 선택·이력 UI 문구와 HTTP UUID fallback도 bundle에 포함됐다.
+- Migration 31개가 적용됐으며 checksum 불일치는 없다. 실제 account·Provider tombstone은 0개다. 사용자 7명·ChatGPT account 7개·분석 70건·report 62건의 ID 집합 hash가 배포 전후 동일하다.
+- 활성 Provider는 v8 `gpt-5.6-terra:medium`, concurrency 4, timeout 300000ms이며 configuration hash `2fdc6d40a3871aaeb3be7174891afee59582c1db4fea7428dddcdd4f064f0041`을 보존했다.
+- Auth·credential registry·PostgreSQL Secret과 CA ConfigMap의 UID/resourceVersion은 그대로다. HTTPRoute UID와 hostname을 보존했고 Accepted/ResolvedRefs 모두 True다.
+- `nfs-csi`의 PostgreSQL RWO 10Gi와 artifact RWX 10Gi PVC는 기존 UID·PV·용량·access mode를 유지한다. Artifact PVC의 release label에 따른 resourceVersion만 변경됐다.
+
+Alpha.27 Worker `git-code-reviewer-worker-85b55879bd-54bcj`는 기존 source-sandbox의 3600초 종료 유예로 Terminating 상태다. 강제 삭제하지 않았다. 실제 로그인 Browser에서 운영 모델에 질문하는 검증, 운영 account·Provider 삭제, 추가 PR 재분석·댓글 게시는 수행하지 않았다. 모델 변경과 HTTP 오류는 합성 Browser 및 API 통합 테스트로 검증했고 배포 후에는 실행 version·정적 bundle·health·migration·운영 데이터 보존을 확인했다.

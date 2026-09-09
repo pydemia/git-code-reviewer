@@ -2,11 +2,17 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 Registry 삭제·Review Chat 배포
+
+11:54:49 KST에 application `0.8.0-alpha.28`, chart `0.10.27`을 Helm revision **39**로 배포했다. Source `5d9a920`과 release pin `56268be`를 push한 뒤 적용했다. 비활성 account·Provider 삭제, 질문별 ChatGPT 모델·effort 선택, HTTP UUID 오류와 이전 대화·코드 근거 메뉴 수정을 포함한다.
+
+460개 테스트·lint·typecheck·production build와 Desktop/Mobile 합성 Browser 검증을 통과했다. Health 4종·실제 gateway의 bundle hash·11:55:50 Helm test·migration 31개 checksum을 확인했다. 사용자 7명·account 7개·분석 70건·report 62건, 활성 Provider v8 Terra/medium/병렬 4개를 유지했다. Image 외 values·Secret·CA·HTTPRoute·nfs-csi PVC/PV를 보존했다. 실제 account 삭제나 외부 모델 요청은 검증을 위해 실행하지 않았다. Digest와 삭제·모델 선택의 범위는 [구현·배포 기록](../../../docs/operations/registry-chat-fixes-2026-09-09.md)을 따른다.
+
 ## 2026-09-09 분석 모델·병렬 처리 배포
 
 11:09:36 KST에 application `0.8.0-alpha.27`, chart `0.10.26`을 Helm revision **38**로 배포했다. Admin의 `분석 모델`에서 Account·Model·Effort와 파일 병렬 수 1~4개를 설정한다. 새 설정 기본값은 4개이며 기존 Provider version은 보존한다.
 
-446개 테스트·typecheck·lint·build, health 4종·Helm test·migration 30개 checksum과 기존 데이터 보존을 확인했다. 등록된 Luna/medium으로 짧은 모델 요청 네 개의 동시 실행도 확인했다. **운영 Provider v4는 아직 병렬 1개**다. 관리자 API 재인증과 Browser 권한 문제로 4개 활성화만 남아 있으며 관리자가 화면에서 4개를 선택해 새 버전으로 저장해야 한다. 자세한 결과·digest·남은 단계는 [배포 기록](../../../docs/operations/parallel-analysis-2026-09-09.md)을 따른다.
+446개 테스트·typecheck·lint·build, health 4종·Helm test·migration 30개 checksum과 기존 데이터 보존을 확인했다. 등록된 Luna/medium으로 짧은 모델 요청 네 개의 동시 실행도 확인했다. 당시 운영 Provider v4는 병렬 1개였으며 관리자 API 재인증과 Browser 권한 문제로 4개 활성화가 남았다. **11:44 후속 점검에서 Provider v8 Terra/medium/병렬 4개 활성화를 확인했으며 alpha.28 배포에서도 유지했다.** 자세한 당시 결과·digest는 [배포 기록](../../../docs/operations/parallel-analysis-2026-09-09.md)을 따른다.
 
 ## 2026-09-09 PR 상태 동기화 배포
 
