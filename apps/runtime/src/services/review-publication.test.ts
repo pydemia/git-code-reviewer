@@ -130,7 +130,7 @@ describe('GitHub review publication', () => {
       outcome: 'updated' as const,
     }));
     const github = {
-      listOpenPulls: vi.fn(),
+      listPulls: vi.fn(),
       upsertPullRequestComment,
     } as unknown as GitHubReader & GitHubReviewPublisher;
 

@@ -159,18 +159,20 @@ Terminal failure는 `last_error_code`를 보존하며 administrator가 동일 do
 1. 운영 환경은 기본 application OIDC가 user identity를 확인한다. Proxy identity mode는 §9.2의 trust 조건을 충족할 때만 사용한다. 외부 OIDC endpoint가 없는 private pilot은 Local account와 server session을 사용한다.
 2. server는 subject를 `users`에 upsert하고 role/group mapping을 적용한다.
 3. `GET /repositories`는 grant가 있는 registered repository만 반환한다.
-4. PR 목록은 현재 observed head, 최신 analysis state, priority count와 poll 상태를 함께 반환한다.
-5. browser는 마지막으로 선택한 repository 같은 비민감 preference만 localStorage에 보관한다.
+4. PR 목록은 현재 observed head, GitHub state와 `mergedAt`, 최신 analysis state, priority count와 poll 상태를 함께 반환한다. PR 상태와 분석 상태는 별도 열로 표시한다.
+5. 목록의 `Open / Closed / All` toggle은 단일 선택이며 기본값은 Open이다. Closed에는 Merged를 포함하고 URL의 `?state=open|closed|all`로 선택을 유지한다. 표시 건수는 해당 Tenant에서 접근 가능한 repository 전체의 상태별 합계다.
+6. `GET /api/v1/repositories/:id/pulls?state=...&cursor=...`는 100개씩 반환하고 `counts`와 `nextCursor`를 제공한다. Browser는 마지막 page까지 읽고 중복 ID를 제거한다. Filter/Tenant 전환 시 이전 요청을 취소하고 늦게 도착한 응답을 버린다.
+7. Closed/Merged PR의 기존 분석은 보존한다. 분석이 있으면 report로, 없으면 GitHub PR 원문으로 이동한다. 목록의 `새로고침`은 저장된 관측값을 다시 읽으며 즉시 GitHub polling을 수행하는 버튼이 아니다. Poll 실패·초기 대기는 별도로 안내한다.
 
 ### 5.2 Background poll
 
 1. leader scheduler가 `next_poll_at <= now()` target을 claim한다.
 2. Repository가 참조하는 GHES credential을 암호화 저장소에서 읽고 access token과 현재 권한 상태를 확인한다.
-3. conditional request와 pagination으로 open PR을 읽는다.
+3. `state=all`, `sort=updated`, `direction=desc`, `per_page=100`으로 PR을 읽는다. 첫 page에만 ETag conditional request를 사용하며 변경 시 마지막 page까지 읽는다. 1,000 page 안전 한도를 넘거나 중간 page가 실패하면 부분 응답을 성공으로 저장하지 않는다.
 4. PR adapter가 PR metadata 또는 명시적 ref query로 현재 base branch tip과 head SHA를 확정한다.
 5. PR number/state/base/head를 저장된 관측값과 비교한다.
-6. 새 PR 또는 변경 SHA에 대해 snapshot request를 upsert하고 materialize job을 생성한다.
-7. 닫힌 PR은 state만 갱신하며 기존 report retention을 유지한다.
+6. Open PR만 새 PR 또는 변경 SHA에 대해 snapshot request를 upsert하고 materialize job을 생성한다. 과거 Closed PR이 처음 reopen되면 해당 SHA에 snapshot request가 없는 경우 분석을 시작한다. 같은 SHA의 기존 snapshot request가 있으면 reopen만으로 중복 분석하지 않는다.
+7. Closed PR은 GitHub가 반환한 state와 `merged_at`을 저장하며 기존 report retention을 유지한다. 응답에서 빠졌다는 이유로 Closed를 추정하지 않는다. 최초 과거 Closed/Merged backfill은 분석과 PR 대화 전체 수집을 시작하지 않는다. Migration `0029`는 기존 Open 전용 ETag를 비워 첫 전체 상태 동기화를 예약한다.
 8. quota, request budget과 tier에 따라 다음 poll 시각을 계산한다.
 
 ### 5.3 Manual refresh

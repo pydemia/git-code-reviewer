@@ -99,7 +99,7 @@
 | REQ-GH-001 | 필수 | 시스템 관리자는 승인된 service identity의 GHES access token을 connection으로 등록한다. Fine-grained PAT은 대상 private repository만 선택하고 Metadata와 Contents는 read, Pull requests는 PR 조회와 timeline 댓글 생성·갱신을 위한 read/write로 제한한다. Issues, Administration, Contents write와 Workflows 권한은 요구하지 않는다. |
 | REQ-GH-002 | 필수 | GHES access token은 deployment master key로 암호화해 저장하고 API header와 ephemeral Git credential helper에서만 복호화해 사용한다. Browser response, clone URL, Git config, job payload와 log에 원문이나 ciphertext를 넣지 않는다. |
 | REQ-GH-003 | 필수 | scheduler는 registered repository만 polling한다. |
-| REQ-GH-004 | 필수 | open PR과 base/head SHA 변화를 browser가 닫혀 있어도 감지한다. |
+| REQ-GH-004 | 필수 | Browser가 닫혀 있어도 GitHub의 Open/Closed 상태, merge 시각과 base/head SHA 변화를 polling으로 동기화한다. Merged는 Closed에 포함한다. 과거 Closed/Merged PR은 metadata만 가져오며 자동 분석하지 않는다. |
 | REQ-GH-005 | 필수 | active PR과 idle/draft repository에 서로 다른 poll interval과 backoff를 적용한다. |
 | REQ-GH-006 | 필수 | pagination, conditional request와 rate-limit reset을 처리한다. |
 | REQ-GH-007 | 필수 | 사용자는 현재 PR에 대해 우선순위가 높은 manual refresh를 요청할 수 있다. |

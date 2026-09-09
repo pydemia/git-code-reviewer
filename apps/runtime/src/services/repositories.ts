@@ -76,11 +76,11 @@ export async function pollRepository(
   );
 
   try {
-    const result = await reader.listOpenPulls(repository, pollState.rows[0]?.etag);
+    const result = await reader.listPulls(repository, pollState.rows[0]?.etag);
     if (result.outcome === 'updated') {
-      await persistPulls(database, repositoryId, result.pulls);
+      const conversationPulls = await persistPulls(database, repositoryId, result.pulls);
       if (reader.listPullRequestMessages) {
-        for (const pull of result.pulls) {
+        for (const pull of conversationPulls) {
           const messages = await reader.listPullRequestMessages(repository, pull.number);
           await persistPullRequestMessages(database, repositoryId, pull.number, messages);
         }
@@ -92,7 +92,7 @@ export async function pollRepository(
        on conflict (repository_id) do update set
          next_poll_at = excluded.next_poll_at,
          last_polled_at = excluded.last_polled_at,
-         etag = coalesce(excluded.etag, poll_states.etag),
+         etag = excluded.etag,
          consecutive_failures = 0,
          backoff_until = null,
          last_outcome = excluded.last_outcome,
@@ -231,8 +231,9 @@ async function persistPulls(
   database: Database,
   repositoryId: string,
   pulls: PullRequestObservation[],
-): Promise<void> {
+): Promise<PullRequestObservation[]> {
   const connection = await database.connect();
+  const conversationPulls: PullRequestObservation[] = [];
   try {
     await connection.query('begin');
     const active = await connection.query(
@@ -241,24 +242,33 @@ async function persistPulls(
     );
     if (!active.rowCount) {
       await connection.query('commit');
-      return;
+      return [];
     }
     for (const pull of pulls) {
-      const current = await connection.query<{ base_sha: string; head_sha: string }>(
-        `select base_sha, head_sha from pull_requests where repository_id = $1 and number = $2`,
+      const current = await connection.query<{
+        base_sha: string;
+        head_sha: string;
+        state: string;
+        snapshot_requested: boolean;
+      }>(
+        `select pr.base_sha, pr.head_sha, pr.state,
+           exists (select 1 from snapshot_requests request where request.pull_request_id = pr.id
+             and request.base_sha = pr.base_sha and request.head_sha = pr.head_sha) as snapshot_requested
+         from pull_requests pr where pr.repository_id = $1 and pr.number = $2`,
         [repositoryId, pull.number],
       );
       const persisted = await connection.query<{ id: string }>(
         `insert into pull_requests(
            repository_id, github_id, number, title, state, draft, author_login, html_url,
-           base_ref, base_sha, head_ref, head_sha, github_updated_at, observed_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp())
+           base_ref, base_sha, head_ref, head_sha, github_updated_at, merged_at, observed_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,clock_timestamp())
          on conflict (repository_id, number) do update set
            github_id = excluded.github_id, title = excluded.title, state = excluded.state,
            draft = excluded.draft, author_login = excluded.author_login, html_url = excluded.html_url,
            base_ref = excluded.base_ref, base_sha = excluded.base_sha,
            head_ref = excluded.head_ref, head_sha = excluded.head_sha,
-           github_updated_at = excluded.github_updated_at, observed_at = clock_timestamp()
+           github_updated_at = excluded.github_updated_at, merged_at = excluded.merged_at,
+           observed_at = clock_timestamp()
          returning id`,
         [
           repositoryId,
@@ -274,10 +284,19 @@ async function persistPulls(
           pull.headRef,
           pull.headSha,
           pull.updatedAt,
+          pull.state === 'closed' ? (pull.mergedAt ?? null) : null,
         ],
       );
       const previous = current.rows[0];
-      if (!previous || previous.base_sha !== pull.baseSha || previous.head_sha !== pull.headSha) {
+      // 과거 Closed/Merged PR은 metadata만 동기화하며 분석이나 대화 전체 backfill을 시작하지 않는다.
+      if (pull.state === 'open' || previous?.state === 'open') conversationPulls.push(pull);
+      if (
+        pull.state === 'open' &&
+        (!previous ||
+          previous.base_sha !== pull.baseSha ||
+          previous.head_sha !== pull.headSha ||
+          (previous.state === 'closed' && !previous.snapshot_requested))
+      ) {
         await enqueueSnapshot(
           connection,
           persisted.rows[0]!.id,
@@ -288,13 +307,9 @@ async function persistPulls(
         );
       }
     }
-    const openNumbers = pulls.map((pull) => pull.number);
-    await connection.query(
-      `update pull_requests set state = 'closed', observed_at = clock_timestamp()
-       where repository_id = $1 and state = 'open' and not (number = any($2::integer[]))`,
-      [repositoryId, openNumbers],
-    );
+    // 응답에서 빠졌다는 이유만으로 Closed를 추정하지 않는다. GitHub의 명시적 상태만 반영한다.
     await connection.query('commit');
+    return conversationPulls;
   } catch (error) {
     await connection.query('rollback');
     throw error;

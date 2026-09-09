@@ -14,6 +14,75 @@ const target = {
 };
 
 describe('GitHub adapter', () => {
+  const apiPull = (
+    number: number,
+    state: 'open' | 'closed' = 'open',
+    mergedAt: string | null = null,
+  ) => ({
+    id: number,
+    number,
+    title: `Synthetic PR ${number}`,
+    state,
+    merged_at: mergedAt,
+    draft: false,
+    html_url: `https://github.example/org-name/repo-name/pull/${number}`,
+    updated_at: '2026-09-09T00:00:00Z',
+    user: { login: 'synthetic' },
+    base: { sha: 'a'.repeat(40), ref: 'main' },
+    head: { sha: 'b'.repeat(40), ref: 'branch' },
+  });
+
+  it('requests all PR states and preserves merged_at separately from closed state', async () => {
+    const client = new GitHubAccessTokenClient('synthetic', async (input) => {
+      expect(new URL(String(input)).searchParams.get('state')).toBe('all');
+      return Response.json([
+        apiPull(1),
+        apiPull(2, 'closed'),
+        apiPull(3, 'closed', '2026-09-09T00:00:00Z'),
+      ]);
+    });
+    expect((await client.listPulls(target)).pulls).toMatchObject([
+      { state: 'open', mergedAt: null },
+      { state: 'closed', mergedAt: null },
+      { state: 'closed', mergedAt: '2026-09-09T00:00:00Z' },
+    ]);
+  });
+
+  it('does not truncate the history at the previous 20-page boundary', async () => {
+    const pages: number[] = [];
+    const client = new GitHubAccessTokenClient('synthetic', async (input, init) => {
+      const page = Number(new URL(String(input)).searchParams.get('page'));
+      pages.push(page);
+      expect(new Headers(init?.headers).get('if-none-match')).toBe(page === 1 ? 'previous' : null);
+      return Response.json(
+        Array.from({ length: page < 21 ? 100 : 1 }, (_, i) =>
+          apiPull((page - 1) * 100 + i + 1, 'closed'),
+        ),
+        { headers: { etag: 'first-page' } },
+      );
+    });
+    const result = await client.listPulls(target, 'previous');
+    expect(result.pulls).toHaveLength(2001);
+    expect(pages).toHaveLength(21);
+    expect(result.etag).toBe('first-page');
+  });
+
+  it('fails a partial fetch and preserves first-page conditional request semantics', async () => {
+    let fail = true;
+    const client = new GitHubAccessTokenClient('synthetic', async (input) => {
+      if (!fail) return new Response(null, { status: 304 });
+      return new URL(String(input)).searchParams.get('page') === '1'
+        ? Response.json(Array.from({ length: 100 }, (_, i) => apiPull(i + 1)))
+        : new Response(null, { status: 503 });
+    });
+    await expect(client.listPulls(target)).rejects.toBeInstanceOf(GitHubRequestError);
+    fail = false;
+    await expect(client.listPulls(target, 'etag')).resolves.toEqual({
+      outcome: 'not-modified',
+      etag: 'etag',
+      pulls: [],
+    });
+  });
   it('builds exact-SHA file links from trusted components', () => {
     expect(
       buildPermanentFileUrl(
@@ -38,8 +107,8 @@ describe('GitHub adapter', () => {
 
   it('honors fixture etags', async () => {
     const client = new FixtureGitHubClient();
-    const first = await client.listOpenPulls(target);
-    const second = await client.listOpenPulls(target, first.etag);
+    const first = await client.listPulls(target);
+    const second = await client.listPulls(target, first.etag);
     expect(first.outcome).toBe('updated');
     expect(second.outcome).toBe('not-modified');
   });
@@ -52,7 +121,7 @@ describe('GitHub adapter', () => {
       authorization = new Headers(init?.headers).get('authorization') ?? '';
       return new Response('[]', { status: 200, headers: { etag: 'test' } });
     });
-    await client.listOpenPulls({
+    await client.listPulls({
       installationId: 'unused',
       apiBaseUrl: 'https://github.example/api/v3/',
       owner: 'platform',

@@ -7,6 +7,7 @@ const pullSchema = z.object({
   number: z.number().int().positive(),
   title: z.string(),
   state: z.enum(['open', 'closed']),
+  merged_at: z.string().nullable().optional(),
   draft: z.boolean().nullable().default(false),
   html_url: z.string().url(),
   updated_at: z.string(),
@@ -51,6 +52,7 @@ export type PullRequestObservation = {
   number: number;
   title: string;
   state: 'open' | 'closed';
+  mergedAt?: string | null;
   draft: boolean;
   url: string;
   author: string;
@@ -89,7 +91,7 @@ export type PullRequestMessageObservation = {
 };
 
 export interface GitHubReader {
-  listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult>;
+  listPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult>;
   listPullRequestMessages?(
     target: RepositoryTarget,
     pullNumber: number,
@@ -137,41 +139,10 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
     private readonly request: typeof fetch = fetch,
   ) {}
 
-  async listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
-    const pulls: PullRequestObservation[] = [];
-    let page = 1;
-    let responseEtag: string | null = null;
-
-    while (page <= 20) {
-      const url = new URL(
-        `repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/pulls`,
-        ensureTrailingSlash(target.apiBaseUrl),
-      );
-      url.searchParams.set('state', 'open');
-      url.searchParams.set('sort', 'updated');
-      url.searchParams.set('direction', 'desc');
-      url.searchParams.set('per_page', '100');
-      url.searchParams.set('page', String(page));
-
-      const response = await this.installationRequest(
-        target.installationId,
-        target.apiBaseUrl,
-        url,
-        {
-          headers: page === 1 && etag ? { 'if-none-match': etag } : {},
-        },
-      );
-      if (response.status === 304) {
-        return { outcome: 'not-modified', etag: etag ?? null, pulls: [] };
-      }
-      responseEtag ??= response.headers.get('etag');
-      const body = z.array(pullSchema).parse(await response.json());
-      pulls.push(...body.map(normalizePull));
-      if (body.length < 100) break;
-      page += 1;
-    }
-
-    return { outcome: 'updated', etag: responseEtag, pulls };
+  async listPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
+    return listRepositoryPulls(target, etag, (url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    );
   }
 
   async getGitCredential(
@@ -286,45 +257,8 @@ export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublis
     if (!token.trim()) throw new Error('GitHub access token is required');
   }
 
-  async listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
-    const pulls: PullRequestObservation[] = [];
-    let page = 1;
-    let responseEtag: string | null = null;
-    while (page <= 20) {
-      const url = new URL(
-        `repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/pulls`,
-        ensureTrailingSlash(target.apiBaseUrl),
-      );
-      url.searchParams.set('state', 'open');
-      url.searchParams.set('sort', 'updated');
-      url.searchParams.set('direction', 'desc');
-      url.searchParams.set('per_page', '100');
-      url.searchParams.set('page', String(page));
-      const headers = new Headers({
-        accept: 'application/vnd.github+json',
-        authorization: `Bearer ${this.token}`,
-        'x-github-api-version': '2022-11-28',
-      });
-      if (page === 1 && etag) headers.set('if-none-match', etag);
-      const response = await this.request(url, { headers });
-      if (response.status === 304) {
-        return { outcome: 'not-modified', etag: etag ?? null, pulls: [] };
-      }
-      if (!response.ok) {
-        const retryAfter = Number(response.headers.get('retry-after'));
-        throw new GitHubRequestError(
-          response.status,
-          response.status === 429 || response.status >= 500,
-          Number.isFinite(retryAfter) ? retryAfter : null,
-        );
-      }
-      responseEtag ??= response.headers.get('etag');
-      const body = z.array(pullSchema).parse(await response.json());
-      pulls.push(...body.map(normalizePull));
-      if (body.length < 100) break;
-      page += 1;
-    }
-    return { outcome: 'updated', etag: responseEtag, pulls };
+  async listPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
+    return listRepositoryPulls(target, etag, (url, init) => this.authenticatedRequest(url, init));
   }
 
   async getGitCredential(): Promise<{ username: string; password: string }> {
@@ -360,7 +294,7 @@ export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublis
     headers.set('authorization', `Bearer ${this.token}`);
     headers.set('x-github-api-version', '2022-11-28');
     const response = await this.request(url, { ...init, headers });
-    if (response.ok) return response;
+    if (response.ok || response.status === 304) return response;
     const retryAfter = Number(response.headers.get('retry-after'));
     await response.body?.cancel().catch(() => undefined);
     throw new GitHubRequestError(
@@ -372,7 +306,7 @@ export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublis
 }
 
 export class FixtureGitHubClient implements GitHubReader {
-  async listOpenPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
+  async listPulls(target: RepositoryTarget, etag?: string | null): Promise<PullResult> {
     const fixtureEtag = `"fixture-${createHash('sha1').update(`${target.owner}/${target.name}`).digest('hex').slice(0, 8)}"`;
     if (etag === fixtureEtag) return { outcome: 'not-modified', etag, pulls: [] };
     return {
@@ -633,12 +567,52 @@ function ensureTrailingSlash(value: string): string {
   return value.endsWith('/') ? value : `${value}/`;
 }
 
+// 모든 페이지를 정상적으로 가져온 경우에만 저장한다. 상한 도달 시 부분 결과를 성공으로 처리하지 않는다.
+async function listRepositoryPulls(
+  target: RepositoryTarget,
+  etag: string | null | undefined,
+  request: (url: URL, init: RequestInit) => Promise<Response>,
+): Promise<PullResult> {
+  const pulls = new Map<number, PullRequestObservation>();
+  let responseEtag: string | null = null;
+  for (let page = 1; page <= 1000; page += 1) {
+    const url = new URL(
+      `repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.name)}/pulls`,
+      ensureTrailingSlash(target.apiBaseUrl),
+    );
+    url.search = new URLSearchParams({
+      state: 'all',
+      sort: 'updated',
+      direction: 'desc',
+      per_page: '100',
+      page: String(page),
+    }).toString();
+    const response = await request(url, {
+      headers: page === 1 && etag ? { 'if-none-match': etag } : {},
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (page === 1 && response.status === 304)
+      return { outcome: 'not-modified', etag: etag ?? null, pulls: [] };
+    if (page === 1) responseEtag = response.headers.get('etag');
+    const body = z.array(pullSchema).parse(await response.json());
+    for (const item of body) {
+      const pull = normalizePull(item);
+      const previous = pulls.get(pull.number);
+      if (!previous || pull.updatedAt >= previous.updatedAt) pulls.set(pull.number, pull);
+    }
+    if (body.length < 100)
+      return { outcome: 'updated', etag: responseEtag, pulls: [...pulls.values()] };
+  }
+  throw new Error('GitHub pull request pagination exceeded 1000 pages');
+}
+
 function normalizePull(pull: z.infer<typeof pullSchema>): PullRequestObservation {
   return {
     githubId: pull.id,
     number: pull.number,
     title: pull.title,
     state: pull.state,
+    mergedAt: pull.state === 'closed' ? (pull.merged_at ?? null) : null,
     draft: pull.draft ?? false,
     url: pull.html_url,
     author: pull.user?.login ?? 'unknown',

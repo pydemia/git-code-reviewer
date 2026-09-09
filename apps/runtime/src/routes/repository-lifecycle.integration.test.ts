@@ -343,7 +343,7 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
     const polling = pollRepository(
       database,
       {
-        listOpenPulls: async () => {
+        listPulls: async () => {
           started();
           await pending;
           return { outcome: 'updated' as const, pulls: [] };

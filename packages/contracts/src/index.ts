@@ -274,6 +274,7 @@ export const pullRequestSchema = z.object({
   number: z.number().int().positive(),
   title: z.string(),
   state: z.enum(['open', 'closed']),
+  mergedAt: z.string().nullable().optional(),
   draft: z.boolean(),
   author: z.string(),
   htmlUrl: z.string().url(),
@@ -294,6 +295,14 @@ export const pullRequestSummarySchema = pullRequestSchema.extend({
 });
 export type PullRequestSummary = z.infer<typeof pullRequestSummarySchema>;
 
+export const pullRequestStateFilterSchema = z.enum(['open', 'closed', 'all']);
+export type PullRequestStateFilter = z.infer<typeof pullRequestStateFilterSchema>;
+export const pullRequestCountsSchema = z.object({
+  open: z.number().int().nonnegative(),
+  closed: z.number().int().nonnegative(),
+  all: z.number().int().nonnegative(),
+});
+
 export const repositoryListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   items: z.array(repositorySchema),
@@ -304,6 +313,7 @@ export const pullRequestListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   repositoryId: z.string().uuid(),
   items: z.array(pullRequestSummarySchema),
+  counts: pullRequestCountsSchema.optional(),
   nextCursor: z.string().nullable(),
 });
 
