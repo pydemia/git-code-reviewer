@@ -2,6 +2,12 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 PR 상태 동기화 배포
+
+09:23:16 KST에 application `0.8.0-alpha.26`, chart `0.10.25`를 Helm revision **37**로 배포했다. Source `fafb3d5`, release pin `a528a1d`를 push 후 적용했다. GitHub의 Open/Closed·merge 시각을 동기화하고 Worklist에 `Open / Closed / All` 필터를 제공한다.
+
+427개 테스트·typecheck·lint·build, health 4종·version·Helm test, migration 29개 checksum을 확인했다. 실제 등록된 두 repository의 PR 1,093개(Open 11, Closed 1,082, 그중 Merged 1,026)를 GitHub와 대조해 누락·상태 불일치 0건을 확인했다. 과거 Closed/Merged는 metadata만 수집했으며 기존 report 57개와 사용자·모델 설정을 보존했다. Image 외 values·Secret·CA·HTTPRoute·PVC/PV는 유지한다. Digest·브라우저 검증과 이전 Worker 종료 유예는 [상태 동기화 배포 기록](../../../docs/operations/pr-state-sync-2026-09-09.md)을 따른다.
+
 ## 2026-09-09 파일 요약 문구 배포
 
 08:37:15 KST에 application `0.8.0-alpha.25`, chart `0.10.24`를 Helm revision **36**으로 배포했다. Source `0610479`와 release pin `783e5db`를 push 후 적용했다. 의견이 없는 검토 완료 파일만 짧게 표시하며 기존 report·미완료 안내·분석 제한은 유지한다.

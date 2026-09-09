@@ -5,11 +5,19 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.25`, chart `0.10.24`, Helm revision 36 배포 완료. 08:37:15 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
-- 배포 source: `06104794cb2ed1e59c05bc1b57d9d119fc8dc4c5` (push 후 git archive build). Release 설정 commit `783e5db`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.26`, chart `0.10.25`, Helm revision 37 배포 완료. 09:23:16 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
+- 배포 source: `fafb3d55d32a6e68bc656ba6dff5108863ef39cc` (push 후 git archive build). Release 설정 commit `a528a1d`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-09 PR 상태 동기화와 필터
+
+기존 Open 전용 조회·누락 PR의 Closed 추정을 제거하고 GitHub의 `state`와 `merged_at`을 저장한다. `listPulls`는 App/PAT 공통 전체 상태 pagination과 첫 page ETag를 사용한다. Migration `0029`가 merged_at을 추가하고 기존 ETag를 비워 전체 수집을 예약한다. Worklist API에 `state=open|closed|all`과 100개 단위 cursor/counts를 제공하고 Browser는 모든 page를 읽는다. 기본 Open, Closed는 Merged 포함, URL 선택 유지, PR 상태와 분석 평가 분리, 모바일 상태 유지, 취소된 요청의 늦은 응답 차단을 구현했다.
+
+과거 Closed/Merged PR은 metadata만 수집하며 분석·대화 전체 backfill을 시작하지 않는다. Reopen된 PR은 해당 SHA의 snapshot request가 없는 경우에만 분석한다. 기존 report가 있는 Closed/Merged는 report로, 없으면 GitHub 원문으로 이동한다. `새로고침`은 DB 목록을 다시 읽으며 실제 상태 수집은 repository polling 주기를 따른다.
+
+Source `38bcc39`·`fafb3d5`, release `a528a1d`를 commit·push했다. 427개 테스트, typecheck·lint·build·browser 검증을 통과했다. 배포 후 등록된 두 repo의 PR 1,093개(Open 11, Closed 1,082, 그중 Merged 1,026)를 GitHub와 다시 대조해 누락/불일치/초과 0건을 확인했다. Browser의 All/Closed/Open 행 수도 일치한다. 사용자 7명·account 4개·analysis 65개·report 57개의 ID 집합과 기존 report 원문 hash를 유지했고 새 분석/게시 job은 0개다. Image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다. Alpha.25 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. 상세 digest·검증·동기화 시각은 [운영 기록](../docs/operations/pr-state-sync-2026-09-09.md)을 참고한다.
 
 ### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
 
