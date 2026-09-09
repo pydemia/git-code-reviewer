@@ -1,4 +1,4 @@
-import type { ReviewMemoryProjection } from '@gcr/contracts';
+import { reviewWritingGuidelines, type ReviewMemoryProjection } from '@gcr/contracts';
 import type { ReviewSkillBundle } from '@gcr/review-contract';
 import { composeReviewSkills, validateReviewSkillBundle } from './skills.js';
 
@@ -25,6 +25,7 @@ export function composeSkillReviewPrompt(
     context.stage === 'unit-comment-block' ? composeReviewMemory(context.memory) : '',
     composeReviewSkills(bundle, context.stage),
     `Current analysis stage: ${context.stage}`,
+    reviewWritingGuidelines,
     '설명은 한국어로 작성하고 코드 식별자와 전문용어는 영어로 유지하세요. 보지 않은 source, test 실행 결과, 과거 review나 취약점 정보를 만들지 마세요.',
     'P0 Praise는 근거 있는 칭찬만, P1 Info는 선택적 개선, P2 Warning은 조건부 위험, P3 Critical은 직접 확인된 보안 문제·데이터 손실·build 실패·확정적인 crash입니다. P3를 문체나 엄격도 설정 때문에 낮추지 마세요.',
     context.stage === 'unit-comment-block'

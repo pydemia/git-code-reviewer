@@ -81,7 +81,7 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(html).toContain('검토 범위 내');
   expect(html).toContain('href="/guide#review-grades"');
   expect(html).not.toContain('Grade: adequate');
-  expect(html).toContain('<details class="report-limitations">');
+  expect(html).toContain('<details class="report-limitations" open="">');
   expect(html).toContain('<details class="report-file-overview" open="">');
 
   const comments = renderToStaticMarkup(
@@ -159,6 +159,7 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(short).toContain('PR 전체 변경 설명은 유지합니다.');
   expect(short).toContain('Coverage limitation');
   expect(short).toContain('분석 제한 1건');
+  expect(short).toContain('<details class="report-limitations" open="">');
 
   for (const versions of [{ model: 'fixture' }, { model: 'disabled' }, { review: 'failed' }]) {
     const unavailable = renderToStaticMarkup(

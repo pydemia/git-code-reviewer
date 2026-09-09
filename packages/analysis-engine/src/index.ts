@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { AnalysisProgress, ReviewMemoryProjection, ReviewSeverityLevel } from '@gcr/contracts';
+import {
+  reviewWritingGuidelines,
+  type AnalysisProgress,
+  type ReviewMemoryProjection,
+  type ReviewSeverityLevel,
+} from '@gcr/contracts';
 import { filterSeverityComments, severityInstructions } from './review-severity.js';
 export * from './skills.js';
 export * from './review-windows.js';
@@ -760,6 +765,7 @@ export function composeReviewSystemPrompt(
 ${administratorInstructions}
 Review only supplied diff lines for correctness, security, compatibility, testing, and maintenance.
 설명은 한글로 작성하고 코드 식별자와 전문 용어는 영어를 유지하세요.
+${reviewWritingGuidelines}
 전체 summary에는 실제 변경 목적과 동작 변화, 확인된 위험을 구체적으로 설명하세요.
 각 comment에는 어떤 코드가 어떤 조건에서 어떤 문제를 일으키는지와 수정 방법을 적으세요.
 관측하지 못한 실행 결과, 테스트 통과, 다른 파일의 동작을 만들어내지 마세요. 불확실한 조건은 명시하세요.

@@ -1,5 +1,6 @@
 import {
   personalPromptSchema,
+  reviewWritingGuidelines,
   type ChatCitation,
   type ReviewMemoryProjection,
 } from '@gcr/contracts';
@@ -148,7 +149,7 @@ export async function answerReviewQuestion(input: {
           'selectionHint는 현재 화면 선택일 뿐 질문 범위를 제한하지 않습니다. 전체 PR 질문은 여러 파일의 findings와 요약을 종합하세요.',
           'coverage와 contextLimits를 확인하고 검토하지 못한 내용을 안전하다고 단정하지 마세요.',
           '답변은 JSON 객체 하나만 반환하세요: {"content":"Markdown 답변", "citationIds":["E1","E2"]}.',
-          'content에는 짧은 제목, 정상적인 Markdown 목록(- 다음 공백), 강조와 inline/fenced code를 사용하세요.',
+          reviewWritingGuidelines,
           'citationIds에는 이번 답변에서 실제 사용한 citationCatalog의 ID만 최대 24개 넣으세요. 여러 파일·라인 근거를 함께 선택할 수 있습니다.',
           '근거가 없으면 빈 배열을 반환하세요. URL, 파일 경로, line이나 ID를 만들지 말고 이전 대화의 ID도 재사용하지 마세요.',
           '링크는 서버가 별도로 표시하므로 content에 citation ID나 코드 이동 URL을 직접 넣지 마세요.',

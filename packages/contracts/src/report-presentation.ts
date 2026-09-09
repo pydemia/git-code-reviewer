@@ -240,12 +240,7 @@ export function formatReviewMarkdown(
     `| 파일 검토 | 검토 의견 | 소요 시간 | 분석 방식 |\n| :--- | :--- | :--- | :--- |\n| ${view.filesCompleted === null ? 'Legacy file coverage' : `${view.filesCompleted}/${report.coverage.filesChanged} files 검토 완료`} | ${report.findings.length} comments | ${formatReviewDuration(report.durationMs)} | ${view.mode} |`,
   ];
   if (view.overview) {
-    if (forPullRequest) blocks.push('## PR 전체 요약');
-    blocks.push(
-      !forPullRequest && view.overview.length > 600
-        ? details('전체 분석 요약', narrative(view.overview))
-        : narrative(view.overview),
-    );
+    blocks.push(`## 전체 분석 요약\n\n${narrative(view.overview)}`);
   }
   if (view.state === 'demo')
     blocks.push(
@@ -253,10 +248,7 @@ export function formatReviewMarkdown(
     );
   if (report.coverage.limitations.length)
     blocks.push(
-      details(
-        `분석 제한 ${report.coverage.limitations.length}건`,
-        report.coverage.limitations.map((item) => `- ${text(item)}`).join('\n'),
-      ),
+      `## 분석 제한 ${report.coverage.limitations.length}건\n\n${report.coverage.limitations.map((item) => `- ${text(item)}`).join('\n')}`,
     );
   if (!forPullRequest) {
     blocks.push('## Overall Summary');

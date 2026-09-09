@@ -27,8 +27,10 @@ export function formatReviewNarrative(value: string): string {
     .replace(/\r\n?/g, '\n')
     .split('\n')
     .map((line) => {
-      const heading = /^ {0,3}#{1,6}\s+(.+)$/.exec(line);
-      if (heading) return `**${inline(heading[1]!, false)}**`;
+      const heading = /^ {0,3}(#{1,6})\s+(.+)$/.exec(line);
+      // Report의 section(h2)·파일(h3)보다 낮은 heading으로만 표시한다.
+      if (heading)
+        return `${'#'.repeat(Math.min(6, heading[1]!.length + 3))} ${inline(heading[2]!)}`;
       const item = /^(\s*)([-+*]|\d{1,9}[.)])\s+(.+)$/.exec(line);
       if (item) {
         const indent = item[1]!.replaceAll('\t', '    ');

@@ -157,7 +157,14 @@ Workspace의 Repository Memory에는 현재 분석에 고정된 항목이 표시
 
 Repository의 결과 게시 설정을 활성화하면 공용 분석 결과를 GitHub PR timeline의 관리형 요약 댓글로 생성·갱신합니다. 게시 상태, 원본 링크와 오류를 관리 화면에서 확인할 수 있습니다. 개인화 분석은 공용 PR 댓글로 게시하지 않습니다.
 
-PR 댓글에는 전체 요약과 comment가 있는 파일의 요약·comment-block만 표시하며 전체 파일 목록은 생략합니다. 목록·강조·inline code를 유지하고 긴 AI Comments는 접어서 표시합니다. 검토 수·분석 제한·전체 report 링크는 남기며 앱과 Markdown export에서는 전체 파일을 확인할 수 있습니다.
+PR 댓글 구성은 다음과 같습니다.
+
+- **펼쳐서 표시:** 전체 분석 요약, 분석 제한의 항목별 목록
+- **접어서 표시:** comment가 있는 파일의 요약·comment-block을 담은 AI Comments
+- **생략:** 중복 Overall Summary section, 전체 파일 목록, comment가 없는 파일별 요약
+- **유지:** 검토 수·판정·전체 report 링크. 앱과 Markdown export에서는 전체 파일 확인 가능
+
+분석·Review Chat은 요약할 내용을 Header와 List로 간결하게 작성합니다. 원인·실행 흐름·예외 조건처럼 자세한 설명이 필요한 부분은 문단으로 유지합니다. 기존 report·대화를 재작성하지 않으며 새로운 분석·질문에 적용됩니다.
 
 개발·검증용 Docker Compose와 VS Code의 Server·Worker·Web 실행 설정을 제공합니다. Kubernetes에서는 같은 애플리케이션 image로 Server, Worker, migration과 retention 작업을 구분해 실행합니다. PostgreSQL과 분석 artifact를 함께 운영하며 인증·인가, 상태 점검, 백업·복구 절차는 저장소의 운영 문서에 정리되어 있습니다.
 

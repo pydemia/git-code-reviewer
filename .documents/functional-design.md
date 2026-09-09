@@ -235,7 +235,14 @@ Browser와 Markdown export는 같은 순수 presentation 함수를 사용한다.
 
 PR 댓글과 Markdown export의 `AI Comments` 상세 내용은 하나의 `<details>`로 묶어 기본으로 접는다. `<summary>`에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 펼치면 파일별 priority, 코드 위치, 문제, 영향, 수정 제안과 관련 코드 링크를 확인할 수 있다. PR 댓글에서는 해당 파일 요약도 이 묶음 안에 한 번만 표시한다. 분석 상태·대표 priority, PR 전체 요약과 전체 report 링크는 이 접기 영역 밖에 유지한다. 의견이 없으면 빈 접기 영역 대신 상태에 맞는 안내문을 표시한다. 길이 제한은 `<details>` 전체를 하나의 block으로 취급하므로 닫는 태그가 잘리지 않는다. AI Comments 전체가 제한을 초과하면 해당 영역을 생략하고 영역 밖에 생략 안내와 전체 report 링크를 남긴다. 기존 PR 댓글은 일괄 수정하지 않으며 배포 후 다음 정상 게시·갱신부터 적용한다. Browser workspace의 Comments 펼침 상태와 저장된 report 내용은 바꾸지 않는다.
 
-2026-09-09부터 Built-in overall-summary·total-summary는 version 2를 사용한다. 짧은 결론과 독립적인 논점의 bullet list, 필요한 조치의 numbered list를 사용하고 전체 report·파일 목록을 요약 안에 중복 생성하지 않는다. PR/Markdown formatter는 문단·목록·강조·inline code만 제한적으로 복원한다. 모델이 출력한 HTML·링크·mention은 계속 escape한다. 이미 queue에 고정된 bundle과 관리자가 저장한 custom version은 그대로 유지한다.
+2026-09-10부터 Built-in overall-summary·total-summary는 version 3, unit-comment-block은 version 2를 사용한다. 분석(3개 Skill stage·legacy)과 Review Chat(interactive·report 기반)은 `reviewWritingGuidelines`를 공유한다.
+
+- 요약: 짧은 결론 뒤에 필요한 Header·List를 배치한다. 한 항목에 하나의 논점을 담고 실제 순서가 있는 절차만 numbered list로 쓴다.
+- 상세 설명: 원인·실행 흐름·발생 조건·trade-off는 문단으로 유지한다. 근거·예외·priority·coverage를 간결함 때문에 생략하지 않는다.
+- 중복 제거: 전체 report·파일 목록을 요약 안에 다시 만들지 않는다. 단일 답변·의견 없는 파일에는 불필요한 제목을 붙이지 않는다.
+- 표시: PR과 Markdown export의 전체 분석 요약·분석 제한은 제목과 본문/목록으로 펼쳐 놓는다. Browser의 분석 제한은 기본 펼침이며 사용자가 접을 수 있다. PR은 중복 Overall Summary와 전체 파일 목록을 생략하고 AI Comments만 기존처럼 접는다.
+- 안전성: PR/Markdown formatter는 h4–h6 범위의 Header·List·강조·inline code를 제한적으로 복원한다. 모델이 출력한 HTML·링크·mention은 escape한다. JSON·citation 계약은 그대로다.
+- 적용 시점: Skill·Chat run에 이미 pinned된 내용, custom Skill·개인 Prompt와 저장된 report·대화를 덮어쓰지 않는다. 새 공통 Prompt는 배포 runtime이 새로 조합하는 모델 요청에 적용되며, 과거 checkpoint의 모델 호출 결과를 다시 생성하지 않는다.
 
 초기 compatibility baseline은 Commit Defender commit `47dabfea718729b0ccc685ae173857476040d6ea`의 다음 구현이다.
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { ReviewReport } from '@gcr/review-contract';
-import { chatCitationSchema } from '@gcr/contracts';
+import { chatCitationSchema, reviewWritingGuidelines } from '@gcr/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import {
   answerReviewQuestion,
@@ -96,6 +96,7 @@ describe('grounded multi-location review chat', () => {
     expect(messages.filter((message) => message.role === 'system')).toHaveLength(1);
     expect(messages[0]!.content).not.toContain(prompt);
     expect(messages[0]!.content).toContain('답변은 JSON 객체 하나만 반환하세요');
+    expect(messages[0]!.content).toContain(reviewWritingGuidelines);
     expect(messages[0]!.content).toContain('현재 질문을 우선하세요');
     expect(messages.at(-2)).toEqual({
       role: 'user',

@@ -162,13 +162,36 @@ describe('shared Commit Defender report presentation', () => {
     );
     expect(published.match(/Git Code Reviewer/g)).toHaveLength(1);
     expect(published.startsWith('<!-- synthetic -->')).toBe(true);
-    expect(published).toContain('## PR 전체 요약');
+    expect(published).toContain('## 전체 분석 요약');
     expect(published).not.toContain('## Overall Summary');
     expect(published).not.toContain('## Analyzed File List');
     expect(markdown).toContain('<code>SESSION&#95;SECRET</code>');
     expect(markdown).toContain('> 💬 **P3 Critical');
     expect(markdown).toContain('<details>\n<summary><code>src/config.ts</code>');
   });
+  it.each(['pull-request', 'full'] as const)(
+    'keeps long overview and limitations outside disclosures in %s output',
+    (audience) => {
+      const changed = structuredClone(report);
+      changed.summary =
+        '전체 변경을 검토했습니다. '.repeat(60) + '\n\n## 확인 사항\n\n- 검토 의견을 확인하세요.';
+      changed.coverage.limitations = ['대상 파일 일부 미검토', '추가 source 조회 범위 제한'];
+      const before = JSON.stringify(changed);
+      const body = formatReviewMarkdown(changed, [], { audience });
+      const overview = body.slice(body.indexOf('## 전체 분석 요약'), body.indexOf('## 분석 제한'));
+      const limitations = body.slice(
+        body.indexOf('## 분석 제한'),
+        body.indexOf(audience === 'full' ? '## Overall Summary' : '## AI Comments'),
+      );
+      expect(overview).toContain('##### 확인 사항\n\n- 검토 의견을 확인하세요');
+      expect(overview).not.toMatch(/<\/?details|<summary>/);
+      expect(limitations).toContain(
+        '## 분석 제한 2건\n\n- 대상 파일 일부 미검토\n- 추가 source 조회 범위 제한',
+      );
+      expect(limitations).not.toMatch(/<\/?details|<summary>/);
+      expect(JSON.stringify(changed)).toBe(before);
+    },
+  );
   it('collapses all AI Comments by default while keeping status and the full report link outside', () => {
     const body = renderReviewComment({
       context: {
@@ -201,7 +224,7 @@ describe('shared Commit Defender report presentation', () => {
     for (const finding of report.findings) expect(comments).toContain(`finding=${finding.id}`);
     expect(before).toContain('BLOCKED');
     expect(before).toContain('P3 Critical');
-    expect(before).toContain('## PR 전체 요약');
+    expect(before).toContain('## 전체 분석 요약');
     expect(comments).toContain('**파일 요약 · 검토 완료**');
     expect(after).toContain('[전체 review와 evidence 보기]');
     expect(after).toContain('이 댓글은 새 분석이 완료되면 같은 위치에서 갱신됩니다.');
@@ -250,7 +273,7 @@ describe('shared Commit Defender report presentation', () => {
     changed.analysis!.files[0]!.summary = narrative;
     changed.findings[0]!.problem = narrative;
     const markdown = formatReviewMarkdown(changed, [], { audience: 'pull-request' });
-    expect(markdown).toContain('**검토 의견**\n\n- **권한 검증**: <code>check&#40;&#41;</code>');
+    expect(markdown).toContain('##### 검토 의견\n\n- **권한 검증**: <code>check&#40;&#41;</code>');
     expect(markdown).toContain('- **예외 처리**');
     expect(markdown).toContain('  - 실패 조건');
     expect(markdown).toContain('1. 입력 확인\n2. 오류 처리');

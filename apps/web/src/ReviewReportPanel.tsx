@@ -236,7 +236,7 @@ export function ReviewReportPanel({
             </p>
           ) : null}
           {report.coverage.limitations.length ? (
-            <details className="report-limitations">
+            <details className="report-limitations" open>
               <summary>분석 제한 {report.coverage.limitations.length}건</summary>
               <ul>
                 {report.coverage.limitations.map((item, index) => (

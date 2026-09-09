@@ -493,13 +493,29 @@ export function GuidePage() {
               bundle/hash를 사용합니다. 변경 사항을 기존 PR에 적용하려면 Workspace에서 새로고침하여
               새 분석을 만드세요.
             </p>
+            <h3>분석·Review Chat의 작성 형식</h3>
+            <ul>
+              <li>
+                <strong>요약:</strong> 짧은 결론 뒤에 Header와 List로 변경·위험·조치를 구분합니다.
+                한 항목에는 하나의 논점만 담습니다.
+              </li>
+              <li>
+                <strong>상세 설명:</strong> 원인·실행 흐름·예외 조건·trade-off는 문단으로
+                설명합니다. 간결함을 위해 근거나 분석 제한을 생략하지 않습니다.
+              </li>
+              <li>
+                <strong>중복 제거:</strong> 파일 요약은 확정 comment만 종합하고 전체 요약은 여러
+                파일의 같은 논점을 묶습니다. 전체 report나 파일 목록을 반복하지 않습니다.
+              </li>
+              <li>
+                <strong>의견 없음:</strong> 검토가 완료된 파일에만 문제가 발견되지 않았다는 짧은
+                문장을 표시합니다.
+              </li>
+            </ul>
             <p>
-              Overall Summary와 Total Summary는 짧은 결론 뒤에 독립적인 검토 의견을 목록으로
-              정리합니다. 파일 요약은 해당 파일의 확정 comment만 종합하며 PR 전체 요약은 여러 파일에
-              걸친 같은 논점을 묶습니다. 전체 report나 파일 목록을 요약 안에 반복하지 않습니다.
-              검토가 완료됐고 지적할 내용이 없는 파일은 문제가 발견되지 않았다는 짧은 문장으로
-              표시합니다. Built-in form version 2부터 적용되며 관리자가 저장한 별도 Skill version과
-              기존 분석 결과는 자동으로 덮어쓰지 않습니다.
+              Built-in Overall Summary·Total Summary는 version 3, Unit Comment Block은 version 2를
+              사용합니다. 공통 작성 지침은 새 분석·Review Chat 질문에 적용됩니다. 기존 report·대화와
+              관리자가 저장한 Skill·개인 Prompt는 덮어쓰지 않습니다.
             </p>
             <p>
               Worker는 line 번호가 있는 window별로 comment를 생성하고 검증된 code segment·unit을
@@ -525,15 +541,30 @@ export function GuidePage() {
               아닙니다. 분석 미완료·미수행·실패·데모 상태와 파일별 검토 상태를 함께 확인하세요. 화면
               아래 Coverage는 코드 수집 범위이고 report의 ‘files 검토 완료’와는 다릅니다.
             </p>
+            <h3>GitHub PR 메시지</h3>
+            <ul>
+              <li>
+                <strong>기본 표시:</strong> 전체 분석 요약과 분석 제한을 펼쳐서 보여줍니다.
+              </li>
+              <li>
+                <strong>생략:</strong> 중복되는 Overall Summary section, 전체 파일 목록, comment가
+                없는 파일별 요약은 게시하지 않습니다.
+              </li>
+              <li>
+                <strong>AI Comments:</strong> ‘펼쳐 보기’에서 comment가 있는 파일의
+                요약·comment-block·관련 코드 링크를 확인합니다.
+              </li>
+              <li>
+                <strong>전체 내용:</strong> 검토 수·판정·분석 제한을 유지하며 길이 제한으로 생략된
+                항목은 전체 report 링크에서 확인합니다. 앱과 Markdown export에는 전체 파일이
+                남습니다.
+              </li>
+            </ul>
             <p>
-              Repository의 PR 게시 설정이 켜져 있으면 PR timeline 댓글에 전체 요약과 comment가 있는
-              파일만 게시합니다. 전체 파일 목록과 comment가 없는 파일별 요약은 생략하며 검토 수와
-              분석 제한은 유지합니다. AI Comments의 ‘펼쳐 보기’를 누르면 해당 파일의 요약과
-              comment-block, 관련 코드 링크를 확인할 수 있습니다. 목록·강조·inline code를 읽기 좋게
-              표시하되 HTML·임의 링크·mention은 차단합니다. Markdown export와 앱에는 전체 파일
-              목록을 유지합니다. 길이 제한으로 생략한 항목은 전체 report 링크에서 확인합니다. 대상
-              PR 안의 SKILL.md, TODO나 type-ignore 문자열을 관리자 지침으로 자동 신뢰하지 않으며
-              Skill에 Secret을 넣으면 안 됩니다.
+              Repository의 PR 게시 설정이 켜져 있을 때 다음 정상 게시·갱신부터 적용됩니다. 기존
+              댓글은 자동으로 일괄 수정하지 않습니다. Header·List·강조·inline code는 표시하되
+              HTML·임의 링크·mention은 차단합니다. 대상 PR의 SKILL.md, TODO나 type-ignore를 관리자
+              지침으로 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
             </p>
           </section>
 
