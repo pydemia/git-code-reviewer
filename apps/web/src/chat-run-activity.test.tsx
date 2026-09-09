@@ -45,6 +45,57 @@ function render(value: ChatRunView) {
   );
 }
 describe('interactive review states', () => {
+  it('expands the current timeline and shows Thinking only while running', () => {
+    const html = render({ ...run, status: 'running' });
+    expect(html).toContain('class="chat-thinking"');
+    expect(html).toContain('Thinking');
+    expect(html).toContain('aria-label="답변 생성 중"');
+    expect(html).toContain('<details open=""');
+    expect(html).toContain('read_file');
+    for (const status of [
+      'queued',
+      'waiting_capacity',
+      'awaiting_input',
+      'cancelling',
+      'completed',
+      'partial',
+      'failed',
+      'cancelled',
+    ] as const) {
+      expect(render({ ...run, status })).not.toContain('chat-thinking');
+    }
+  });
+  it('shows immediate feedback before a run is accepted and an explicit empty timeline', () => {
+    const html = renderToStaticMarkup(
+      <ChatRunActivity
+        run={null}
+        error=""
+        sending
+        onAnswer={async () => {}}
+        onCancel={async () => {}}
+        onEvidence={() => {}}
+      />,
+    );
+    expect(html).toContain('질문을 전송하고 있습니다.');
+    expect(html).not.toContain('Thinking');
+    expect(render({ ...run, timeline: [] })).toContain('아직 기록된 조회 과정이 없습니다.');
+  });
+  it('does not animate or expand a read-only historical run', () => {
+    const html = renderToStaticMarkup(
+      <ChatRunActivity
+        run={{ ...run, status: 'running' }}
+        readOnly
+        error=""
+        sending={false}
+        onAnswer={async () => {}}
+        onCancel={async () => {}}
+        onEvidence={() => {}}
+      />,
+    );
+    expect(html).not.toContain('chat-thinking');
+    expect(html).not.toContain('<details open');
+    expect(html).toContain('저장된 답변입니다.');
+  });
   it('keeps historical questions read-only and offers a separate history selector', () => {
     const html = renderToStaticMarkup(
       <ChatRunActivity

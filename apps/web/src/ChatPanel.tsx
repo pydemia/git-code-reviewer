@@ -1,9 +1,10 @@
-import { Bot, Link2, RefreshCw, Send, Sparkles } from 'lucide-react';
+import { Bot, Link2, Send, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ChatAccountCatalog, ChatMessage, ChatSession, WorkspaceData } from './api.ts';
 import type { ChatCitation } from '@gcr/contracts';
 import { ReviewMarkdown } from './ReviewMarkdown.tsx';
 import { resolveChatCitation } from './chat-citations.ts';
+import { ChatThinking } from './ChatThinking.tsx';
 
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 
@@ -190,7 +191,7 @@ export function ChatPanel({
         {activity}
         {model?.available && sending && !activity ? (
           <div className="chat-pending">
-            <RefreshCw size={13} className="spin" /> 답변을 생성하는 중입니다.
+            <ChatThinking />
           </div>
         ) : null}
       </div>

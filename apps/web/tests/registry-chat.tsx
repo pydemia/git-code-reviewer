@@ -141,6 +141,26 @@ const catalog: ChatAccountCatalog = {
   ],
 };
 export function Harness() {
+  const preview = new URLSearchParams(location.search).has('activity');
+  const [previewRun, setPreviewRun] = useState<ChatRunView>({
+    id: '00000000-0000-4000-8000-000000000005',
+    sessionId,
+    assistantMessageId: null,
+    status: 'running',
+    phase: 'model',
+    content: '',
+    error: null,
+    model: { name: 'test-sol', effort: 'medium' },
+    modelCalls: 1,
+    toolCalls: 1,
+    contextBytes: 512,
+    question: null,
+    resumeAfter: null,
+    evidence: [],
+    timeline: [
+      { id: '1', type: 'tool.completed', label: 'src/example.ts의 변경 코드를 읽었습니다.' },
+    ],
+  });
   const [items, setItems] = useState<ChatMessage[]>([]);
   const chat = useInteractiveChat(sessionId, setItems);
   const [draft, setDraft] = useState('이 함수는 어떤 역할을 하나요?');
@@ -162,6 +182,41 @@ export function Harness() {
         </div>
       ) : null}
       <div style={{ width: 'min(640px,100vw)', height: '100dvh' }}>
+        {preview ? (
+          <div aria-label="합성 상태 전환">
+            <button
+              onClick={() =>
+                setPreviewRun((run) => ({
+                  ...run,
+                  timeline: [
+                    ...run.timeline,
+                    {
+                      id: String(run.timeline.length + 1),
+                      type: 'tool.completed',
+                      label: '관련 테스트를 확인했습니다.',
+                    },
+                  ],
+                }))
+              }
+            >
+              조회 갱신
+            </button>
+            <button
+              onClick={() =>
+                setPreviewRun((run) => ({ ...run, id: browserUuid(), status: 'running' }))
+              }
+            >
+              새 질문
+            </button>
+            {(
+              ['waiting_capacity', 'awaiting_input', 'completed', 'failed', 'cancelled'] as const
+            ).map((status) => (
+              <button key={status} onClick={() => setPreviewRun((run) => ({ ...run, status }))}>
+                {status}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <ChatPanel
           revision={1}
           headSha={source.sha}
@@ -212,7 +267,7 @@ export function Harness() {
                 onEvidence={() => setEvidence(true)}
               />
               <ChatRunActivity
-                run={chat.run}
+                run={preview ? previewRun : chat.run}
                 error={chat.error}
                 sending={chat.sending}
                 onAnswer={(answer) => chat.submit(answer, {})}

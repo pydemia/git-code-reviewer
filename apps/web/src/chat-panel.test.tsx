@@ -127,7 +127,7 @@ it('retains loading, unavailable, disabled and pending states', () => {
   );
   expect(unavailable).toContain('사용 가능한 ChatGPT account가 없습니다.');
   expect(unavailable).toContain('aria-label="질문" aria-keyshortcuts="Enter" disabled=""');
-  expect(renderToStaticMarkup(<ChatPanel {...props} sending />)).toContain('답변을 생성하는 중');
+  expect(renderToStaticMarkup(<ChatPanel {...props} sending />)).toContain('Thinking');
   expect(renderToStaticMarkup(<ChatPanel {...props} accountCatalog={null} />)).not.toContain(
     'chat-model-selectors',
   );

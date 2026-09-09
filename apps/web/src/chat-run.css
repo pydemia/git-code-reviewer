@@ -62,6 +62,48 @@
   justify-content: space-between;
   gap: 8px;
 }
+.chat-thinking {
+  display: inline-block;
+  color: var(--accent, #176b5d);
+  font-size: 15px;
+  font-weight: 650;
+}
+/* 진행 중인 상태만 글자 안에서 빛이 흐른다. 미지원 환경에서는 기본 글자색을 쓴다. */
+@supports (background-clip: text) {
+  .chat-thinking {
+    background-image: linear-gradient(110deg, #176b5d 35%, #4c7f76 50%, #176b5d 65%);
+    background-size: 240% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: chat-thinking-shimmer 2.4s linear infinite;
+  }
+}
+@keyframes chat-thinking-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .chat-thinking {
+    animation: none;
+    background: none;
+    color: var(--accent, #176b5d);
+  }
+}
+.chat-run-timeline summary {
+  cursor: pointer;
+  padding-block: 4px;
+}
+.chat-run-timeline summary:focus-visible {
+  outline: 2px solid var(--focus, #268b7a);
+  outline-offset: 2px;
+}
+.chat-run-timeline > p {
+  margin-top: 8px;
+}
 .chat-run-activity button {
   border: 1px solid #384459;
   border-radius: 5px;

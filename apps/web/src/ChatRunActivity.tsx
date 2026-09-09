@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { isTerminalChatRun, type ChatRunView, type SourceEvidence } from '@gcr/contracts';
 import { ReviewMarkdown } from './ReviewMarkdown.tsx';
+import { ChatThinking } from './ChatThinking.tsx';
 import './chat-run.css';
 
 const statusLabels: Record<ChatRunView['status'], string> = {
@@ -42,6 +43,7 @@ export function ChatRunActivity({
       setActionError('응답을 저장하지 못했습니다. 다시 시도해 주세요.');
     }
   };
+  if (!run && sending) return <p role="status">질문을 전송하고 있습니다.</p>;
   if (!run)
     return error ? (
       <p role="alert">{error}</p>
@@ -49,9 +51,13 @@ export function ChatRunActivity({
       <p className="chat-message-empty">질문에 따라 로컬 Git·기존 코드·테스트를 조회합니다.</p>
     );
   return (
-    <section className="chat-run-activity" aria-label="추가 코드 분석">
+    <section className="chat-run-activity" aria-label="답변 생성 상태">
       <div className="chat-run-status">
-        <strong role="status">{statusLabels[run.status]}</strong>
+        {run.status === 'running' && !readOnly ? (
+          <ChatThinking />
+        ) : (
+          <strong role="status">{statusLabels[run.status]}</strong>
+        )}
         {!readOnly && !isTerminalChatRun(run.status) ? (
           <button
             type="button"
@@ -61,18 +67,25 @@ export function ChatRunActivity({
           </button>
         ) : null}
       </div>
+      {sending && isTerminalChatRun(run.status) && !readOnly ? (
+        <p role="status">새 질문을 전송하고 있습니다.</p>
+      ) : null}
       <small>
         {run.model ? `${run.model.name} · ${run.model.effort} · ` : ''}
         모델 {run.modelCalls}회 · 도구 {run.toolCalls}회 · 근거 {Math.ceil(run.contextBytes / 1024)}{' '}
         KiB
       </small>
-      <details>
+      <details key={run.id} open={!readOnly} className="chat-run-timeline">
         <summary>조회 과정 · {run.timeline.length}</summary>
-        <ol>
-          {run.timeline.map((event) => (
-            <li key={event.id}>{event.label}</li>
-          ))}
-        </ol>
+        {run.timeline.length ? (
+          <ol>
+            {run.timeline.map((event) => (
+              <li key={event.id}>{event.label}</li>
+            ))}
+          </ol>
+        ) : (
+          <p className="chat-history-help">아직 기록된 조회 과정이 없습니다.</p>
+        )}
       </details>
       {run.content ? (
         <div className="chat-message-content">
