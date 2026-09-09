@@ -46,6 +46,7 @@ export const chatRunViewSchema = z.object({
   assistantMessageId: z.string().uuid().nullable(),
   phase: z.string(),
   content: z.string(),
+  model: z.object({ name: z.string(), effort: z.string() }).optional(),
   error: z.string().nullable(),
   modelCalls: z.number(),
   toolCalls: z.number(),
@@ -70,7 +71,14 @@ export const chatRunHistorySchema = z.object({
   nextCursor: z.string().uuid().nullable(),
 });
 export type ChatRunHistory = z.infer<typeof chatRunHistorySchema>;
+export const chatRunSelectionSchema = z.object({
+  accountId: z.string().uuid(),
+  modelName: z.string().trim().min(1).max(200),
+  reasoningEffort: z.string().trim().min(1).max(40),
+});
+export type ChatRunSelection = z.infer<typeof chatRunSelectionSchema>;
 export const createChatRunSchema = z.object({
+  selection: chatRunSelectionSchema.optional(),
   idempotencyKey: z.string().uuid(),
   content: z.string().trim().min(1).max(4000),
   scope: z

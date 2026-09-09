@@ -604,6 +604,18 @@ export const chatAccountModelSchema = z.object({
 export const chatAccountCatalogSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   enabled: z.boolean(),
+  analysisPresets: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        version: z.number().int().positive(),
+        active: z.boolean(),
+        accountId: z.string().uuid(),
+        modelName: z.string(),
+        reasoningEffort: z.string(),
+      }),
+    )
+    .optional(),
   items: z.array(
     z.object({
       id: z.string().uuid(),

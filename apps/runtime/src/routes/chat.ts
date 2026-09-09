@@ -108,6 +108,9 @@ export async function registerChatRoutes(
             body.accountId,
             body.modelName,
             body.reasoningEffort,
+            config.CHAT_AGENT_ENABLED &&
+              (!config.CHAT_AGENT_ALLOWED_USER_IDS ||
+                config.CHAT_AGENT_ALLOWED_USER_IDS.split(',').includes(request.user!.id)),
           );
           if (existing) return reply.code(200).send(sessionView(existing, selection.model));
         }
@@ -541,6 +544,7 @@ async function findExistingSession(
   accountId: string | null = null,
   modelName: string | null = null,
   reasoningEffort: string | null = null,
+  acrossModels = false,
 ): Promise<ChatSessionRow | null> {
   const result = await database.query<ChatSessionRow>(
     `select session.id, session.analysis_run_id as analysis_id, session.scope,
@@ -549,11 +553,11 @@ async function findExistingSession(
             session.created_at, session.updated_at
      from chat_sessions session left join chat_accounts account on account.id = session.chat_account_id
      where session.analysis_run_id = $1 and session.user_id = $2
-       and session.chat_account_id is not distinct from $3::uuid
+       and ($6::boolean or (session.chat_account_id is not distinct from $3::uuid
        and session.model_name is not distinct from $4::text
-       and session.reasoning_effort is not distinct from $5::text
-     order by session.created_at desc limit 1`,
-    [analysisId, userId, accountId, modelName, reasoningEffort],
+       and session.reasoning_effort is not distinct from $5::text))
+     order by session.updated_at desc, session.id desc limit 1`,
+    [analysisId, userId, accountId, modelName, reasoningEffort, acrossModels],
   );
   return result.rows[0] ?? null;
 }

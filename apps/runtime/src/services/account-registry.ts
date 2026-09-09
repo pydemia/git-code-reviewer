@@ -68,7 +68,7 @@ export async function listAvailableChatAccounts(database: Database, userId: stri
             model.allowed_efforts as "allowedEfforts", model.default_effort as "defaultEffort"
      from chat_accounts account
      join chat_account_models model on model.account_id = account.id and model.enabled
-     where account.enabled and exists (
+     where account.enabled and account.deleted_at is null and exists (
        select 1 from chat_account_assignments assignment
        where assignment.account_id = account.id and assignment.enabled and (
          (assignment.scope_type = 'all' and assignment.scope_id = '*') or
@@ -267,7 +267,7 @@ function hydrateChatAccount(
           'chat-account',
         );
         await client.query(
-          "update chat_accounts set credential_ciphertext=$2,credential_iv=$3,credential_auth_tag=$4,credential_fingerprint=$5,credential_version=credential_version+1,health='ready',last_validated_at=clock_timestamp(),updated_at=clock_timestamp() where id=$1 or (enabled and credential_fingerprint=$6)",
+          "update chat_accounts set credential_ciphertext=$2,credential_iv=$3,credential_auth_tag=$4,credential_fingerprint=$5,credential_version=credential_version+1,health='ready',last_validated_at=clock_timestamp(),updated_at=clock_timestamp() where deleted_at is null and enabled and (id=$1 or credential_fingerprint=$6)",
           [
             row.id,
             encrypted.credentialCiphertext,
@@ -297,7 +297,7 @@ function hydrateChatAccount(
            credential_auth_tag = $4, credential_fingerprint = $5,
            credential_version = credential_version + 1, health = 'ready',
            last_validated_at = clock_timestamp(), updated_at = clock_timestamp()
-         where id = $1`,
+         where id = $1 and enabled and deleted_at is null`,
         [
           row.id,
           encrypted.credentialCiphertext,
@@ -406,7 +406,7 @@ export async function rotateChatAccountCredential(
        credential_auth_tag = $4, credential_fingerprint = $5,
        credential_version = credential_version + 1, health = 'unverified',
        last_validated_at = null, updated_at = clock_timestamp()
-     where id = $1 returning id`,
+     where id = $1 and deleted_at is null returning id`,
     [
       accountId,
       encrypted.credentialCiphertext,
@@ -433,7 +433,7 @@ export async function listAdminChatAccounts(database: Database) {
               'scopeType', assignment.scope_type, 'scopeId', assignment.scope_id,
               'enabled', assignment.enabled) order by assignment.scope_type, assignment.scope_id)
               from chat_account_assignments assignment where assignment.account_id = account.id), '[]'::jsonb) as assignments
-     from chat_accounts account order by account.display_name`,
+     from chat_accounts account where account.deleted_at is null order by account.display_name`,
   );
   return result.rows;
 }

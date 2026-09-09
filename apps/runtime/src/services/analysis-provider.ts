@@ -37,6 +37,7 @@ export type AnalysisProviderRow = AccountConfiguration & {
   credentialAuthTag: Buffer | null;
   configurationHash: string;
   active: boolean;
+  deletedAt?: Date | string | null;
   createdBySubject: string;
   createdByName: string;
   activatedBySubject: string | null;
@@ -85,7 +86,7 @@ export const analysisProviderColumns = `
   provider.credential_ciphertext as "credentialCiphertext",
   provider.credential_iv as "credentialIv",
   provider.credential_auth_tag as "credentialAuthTag",
-  provider.configuration_hash as "configurationHash", provider.active,
+  provider.configuration_hash as "configurationHash", provider.active, provider.deleted_at as "deletedAt",
   creator.oidc_subject as "createdBySubject", creator.display_name as "createdByName",
   activator.oidc_subject as "activatedBySubject", activator.display_name as "activatedByName",
   provider.activated_at as "activatedAt", provider.created_at as "createdAt"`;
@@ -96,7 +97,7 @@ export async function listAnalysisProviderRows(database: Pick<Database, 'query'>
      from analysis_provider_versions provider
      join users creator on creator.id = provider.created_by
      left join users activator on activator.id = provider.activated_by
-     order by provider.version desc`,
+     where provider.deleted_at is null order by provider.version desc`,
   );
 }
 
@@ -106,7 +107,7 @@ export async function getActiveAnalysisProviderRow(database: Pick<Database, 'que
      from analysis_provider_versions provider
      join users creator on creator.id = provider.created_by
      left join users activator on activator.id = provider.activated_by
-     where provider.active limit 1`,
+     where provider.active and provider.deleted_at is null limit 1`,
   );
   return result.rows[0] ?? null;
 }

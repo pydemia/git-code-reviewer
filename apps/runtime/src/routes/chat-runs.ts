@@ -16,6 +16,7 @@ import {
 import { appendEvent, type EventRow, formatServerSentEvent } from '../events/index.js';
 import { ownedSession, readChatMemoryContext, readReport } from './chat.js';
 import { readConversationContext } from '../services/conversation-context.js';
+import { resolveChatAccountSelection } from '../services/account-registry.js';
 
 const runParams = z.object({ runId: z.string().uuid() });
 const sessionParams = z.object({ sessionId: z.string().uuid() });
@@ -55,6 +56,7 @@ export async function chatRunView(database: Database, run: AgentRun) {
     status: run.status,
     phase: run.phase,
     content: run.content,
+    model: { name: run.configuration.modelName, effort: run.configuration.effort },
     error: run.error_code,
     modelCalls: run.model_calls,
     toolCalls: run.tool_calls,
@@ -115,11 +117,32 @@ export async function registerChatRunRoutes(
         [sessionId, body.idempotencyKey],
       );
       if (existing.rows[0]) return chatRunView(database, existing.rows[0]);
-      if (!session.chat_account_id || !session.model_name || !session.reasoning_effort)
+      const chosen = body.selection ?? {
+        accountId: session.chat_account_id,
+        modelName: session.model_name,
+        reasoningEffort: session.reasoning_effort,
+      };
+      if (!chosen.accountId || !chosen.modelName || !chosen.reasoningEffort)
         return reply.code(400).send({
           error: {
             code: 'AGENT_ACCOUNT_REQUIRED',
             message: '등록된 ChatGPT 계정을 선택해 주세요.',
+          },
+        });
+      const selection = await resolveChatAccountSelection(
+        database,
+        config,
+        request.user!.id,
+        chosen.accountId,
+        chosen.modelName,
+        chosen.reasoningEffort,
+      );
+      if (!selection)
+        return reply.code(403).send({
+          error: {
+            code: 'CHAT_SELECTION_UNAVAILABLE',
+            message:
+              '이 account, model 또는 effort를 사용할 수 없습니다. 계정 목록을 새로고침해 주세요.',
           },
         });
       const report = await readReport(database, artifacts, session.analysis_id);
@@ -217,9 +240,9 @@ export async function registerChatRunRoutes(
             JSON.stringify({
               snapshotId: report.snapshotId,
               ownerId: request.user!.id,
-              accountId: session.chat_account_id,
-              modelName: session.model_name,
-              effort: session.reasoning_effort,
+              accountId: chosen.accountId,
+              modelName: chosen.modelName,
+              effort: chosen.reasoningEffort,
               instructions: reviewAgentInstructions,
               maxModelCalls: config.CHAT_AGENT_MAX_MODEL_CALLS,
               modelTimeoutMs: config.CHAT_AGENT_MODEL_TIMEOUT_MS,

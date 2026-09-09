@@ -10,6 +10,7 @@ import {
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { deleteRegistryEntry, registryDeletionMessages } from '../services/registry-deletion.js';
 import { requireAdministrator } from '../auth/index.js';
 import { registerAnalysisSkillRoutes } from './analysis-skills.js';
 import { hasOtherAdministrator, lockUserAdministration } from '../services/user-lifecycle.js';
@@ -670,7 +671,7 @@ export async function registerAdminRoutes(
         hash = prepared.configurationHash;
         await connection.query('update analysis_provider_versions set active = false where active');
         const existing = await connection.query<{ id: string }>(
-          'select id from analysis_provider_versions where configuration_hash = $1',
+          'select id from analysis_provider_versions where configuration_hash = $1 and deleted_at is null',
           [hash],
         );
         if (existing.rows[0]) {
@@ -749,7 +750,7 @@ export async function registerAdminRoutes(
         await connection.query('begin');
         await lockProvider(connection);
         const provider = await getAnalysisProviderRow(connection, providerId);
-        if (!provider) {
+        if (!provider || provider.deletedAt) {
           await connection.query('rollback');
           return hiddenNotFound(request, reply);
         }
@@ -781,6 +782,39 @@ export async function registerAdminRoutes(
       } finally {
         connection.release();
       }
+      return { schemaVersion, id: providerId };
+    },
+  );
+
+  app.delete(
+    '/api/v1/admin/analysis-provider/versions/:providerId',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      if (!(await canManageProvider(authorization, request, 'manage')))
+        return hiddenNotFound(request, reply);
+      if (!config.MODEL_ADMIN_ENABLED)
+        return providerBadRequest(request, reply, 'Provider 관리자 설정이 비활성화되어 있습니다.');
+      const { providerId } = providerParams.parse(request.params);
+      const { confirmation } = z
+        .object({ confirmation: z.string().min(1).max(120) })
+        .parse(request.body);
+      const outcome = await deleteRegistryEntry(
+        database,
+        'analysis_provider',
+        providerId,
+        confirmation,
+        request.user!.subject,
+        request.id,
+      );
+      if (outcome !== 'deleted')
+        return reply.code(outcome === 'not-found' ? 404 : 409).send({
+          error: {
+            code: 'REGISTRY_DELETE_CONFLICT',
+            message: registryDeletionMessages[outcome],
+            requestId: request.id,
+            retryable: false,
+          },
+        });
       return { schemaVersion, id: providerId };
     },
   );
@@ -1101,7 +1135,7 @@ async function activateProvider(
 ) {
   return database.query(
     `update analysis_provider_versions set active = true, activated_by = $2,
-       activated_at = clock_timestamp() where id = $1 returning id`,
+       activated_at = clock_timestamp() where id = $1 and deleted_at is null returning id`,
     [providerId, actorId],
   );
 }

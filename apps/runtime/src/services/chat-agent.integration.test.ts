@@ -15,6 +15,8 @@ import {
 } from './chat-agent.js';
 import { AuthorizationService } from './authorization.js';
 import { registerChatRunRoutes } from '../routes/chat-runs.js';
+import { registerChatRoutes } from '../routes/chat.js';
+import { EventHub } from '../events/index.js';
 import { admittedFetch, ModelCapacityError, withModelBudget } from './model-admission.js';
 import type { AuthUser } from '../auth/index.js';
 import { claimJob } from '../jobs/worker.js';
@@ -126,6 +128,40 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
       CHAT_AGENT_ENABLED: 'true',
     });
     temporary = await mkdtemp(path.join(os.tmpdir(), 'gcr-agent-api-'));
+    const coverage = {
+      filesChanged: 0,
+      filesExamined: 0,
+      objectsExamined: 0,
+      relationsExamined: 0,
+      truncated: false,
+      limitations: [],
+    };
+    const artifact = await new FilesystemArtifactStore(temporary).commitText(
+      'synthetic-report.json',
+      JSON.stringify({
+        schemaVersion: 1,
+        compatibility: {
+          commitDefenderSchemaVersion: 1,
+          baselineRevision: '47dabfea718729b0ccc685ae173857476040d6ea',
+        },
+        analysisRevisionId: analysisId,
+        snapshotId,
+        summary: '검증 report',
+        grade: 'adequate',
+        hasCriticalFindings: false,
+        perFileSummaries: [],
+        findings: [],
+        impact: { summary: '', affectedAreas: [], coverage, confidence: 'high' },
+        coverage,
+        versions: { model: 'synthetic' },
+        durationMs: 1,
+      }),
+    );
+    await database.query(
+      `insert into artifacts(scope_type,scope_id,artifact_type,version,checksum,byte_size,locator)
+      values('analysis',$1,'report',1,$2,$3,$4)`,
+      [analysisId, artifact.checksum, artifact.byteSize, artifact.locator],
+    );
     app = Fastify();
     app.addHook('onRequest', async (request) => {
       request.user = request.headers['x-other-user'] ? { ...user, id: randomUUID() } : user;
@@ -135,6 +171,15 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
       database,
       new FilesystemArtifactStore(temporary),
       config,
+      new AuthorizationService(config),
+    );
+    await registerChatRoutes(
+      app,
+      database,
+      new EventHub(database),
+      new FilesystemArtifactStore(temporary),
+      { ...config, CHAT_MODEL_MODE: 'registry' },
+      null,
       new AuthorizationService(config),
     );
   });
@@ -400,6 +445,78 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
       )
     ).rows[0]!;
   }
+  it('pins the selected model and effort per question while preserving the same session history', async () => {
+    const original = await createRun();
+    for (const [modelName, reasoningEffort] of [
+      ['model-a', 'low'],
+      ['model-b', 'high'],
+    ]) {
+      const session = await app.inject({
+        method: 'POST',
+        url: `/api/v1/analyses/${analysisId}/chat-sessions`,
+        payload: { accountId: randomUUID(), modelName, reasoningEffort },
+      });
+      expect(session.statusCode).toBe(200);
+      expect(session.json().id).toBe(original.session_id);
+    }
+    expect((await database.query('select count(*)::int as n from chat_sessions')).rows[0].n).toBe(
+      1,
+    );
+    await database.query("update chat_runs set status='completed' where id=$1", [original.id]);
+    await database.query(
+      "update chat_messages set status='completed',content='이전 답변' where id=$1",
+      [original.assistant_message_id],
+    );
+    const selection = {
+      accountId: randomUUID(),
+      modelName: 'selected-model',
+      reasoningEffort: 'high',
+    };
+    const payload = {
+      content: '다른 모델로 설명해 주세요.',
+      idempotencyKey: randomUUID(),
+      selection,
+    };
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/chat-sessions/${original.session_id}/runs`,
+      payload,
+    });
+    expect(response.statusCode).toBe(202);
+    const next = (
+      await database.query<AgentRun>('select * from chat_runs where id=$1', [response.json().id])
+    ).rows[0]!;
+    expect(next.configuration).toMatchObject({
+      accountId: selection.accountId,
+      modelName: 'selected-model',
+      effort: 'high',
+    });
+    expect(JSON.stringify(next.checkpoint.messages)).toContain('이전 답변');
+    expect(next.session_id).toBe(original.session_id);
+    const previous = (
+      await database.query<AgentRun>('select * from chat_runs where id=$1', [original.id])
+    ).rows[0]!;
+    expect(previous.configuration.modelName).toBe('test');
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/v1/chat-sessions/${original.session_id}/runs`,
+          payload,
+        })
+      ).json().id,
+    ).toBe(next.id);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/v1/chat-sessions/${original.session_id}/runs`,
+          headers: { 'x-other-user': '1' },
+          payload,
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
   it('paginates owned history and restores answered questions and immutable source', async () => {
     const original = await createRun();
     const message = (
