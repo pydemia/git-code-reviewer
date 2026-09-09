@@ -670,7 +670,7 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
     expect(capacity.reservation_id).toBeNull();
     expect(capacity.cooldown_until.getTime()).toBeGreaterThan(Date.now());
   });
-  it('gives a waiting chat the next account slot before another batch request', async () => {
+  it('serves chat in its reserved slot while a batch response is still open', async () => {
     const order: string[] = [];
     const quota = randomUUID();
     const fetcher = admittedFetch(database, quota, async (_input, init) => {
@@ -682,10 +682,6 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
     const initial = await withModelBudget(batch, () =>
       fetcher('https://example.invalid', { body: 'batch-first' }),
     );
-    await expect(
-      withModelBudget(chat, () => fetcher('https://example.invalid', { body: 'chat' })),
-    ).rejects.toBeInstanceOf(ModelCapacityError);
-    await initial.text();
     const nextBatch = withModelBudget(batch, () =>
       fetcher('https://example.invalid', { body: 'batch-next', signal: AbortSignal.timeout(5000) }),
     );
@@ -693,6 +689,7 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
       fetcher('https://example.invalid', { body: 'chat' }),
     );
     await priority.text();
+    await initial.text();
     await (await nextBatch).text();
     expect(order).toEqual(['batch-first', 'chat', 'batch-next']);
   });

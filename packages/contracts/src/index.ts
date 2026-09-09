@@ -157,6 +157,7 @@ export const analysisProviderModeSchema = z.enum([
 export type AnalysisProviderMode = z.infer<typeof analysisProviderModeSchema>;
 
 export const analysisProviderVersionSchema = z.object({
+  concurrency: z.number().int().min(1).max(4).default(1),
   chatAccountId: z.string().uuid().nullable().default(null),
   reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).nullable().default(null),
   id: z.string().uuid(),
@@ -184,6 +185,7 @@ export const analysisProviderVersionSchema = z.object({
 export type AnalysisProviderVersion = z.infer<typeof analysisProviderVersionSchema>;
 
 export const analysisProviderEffectiveSchema = z.object({
+  concurrency: z.number().int().min(1).max(4).default(1),
   chatAccountId: z.string().uuid().nullable().default(null),
   reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).nullable().default(null),
   source: z.enum(['administration', 'deployment']),

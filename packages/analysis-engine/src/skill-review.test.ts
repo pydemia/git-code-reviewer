@@ -57,7 +57,13 @@ const comment = (file: string, overrides: object = {}) => ({
   recommendation: '사용 전에 허용 범위를 검사하세요.',
   ...overrides,
 });
-function analyze(files: AnalysisFile[], model?: ReviewModel, maxModelCalls = 32, skills = bundle) {
+function analyze(
+  files: AnalysisFile[],
+  model?: ReviewModel,
+  maxModelCalls = 32,
+  skills = bundle,
+  concurrency = 1,
+) {
   return analyzeSnapshot({
     analysisId: randomUUID(),
     snapshotId: randomUUID(),
@@ -66,6 +72,7 @@ function analyze(files: AnalysisFile[], model?: ReviewModel, maxModelCalls = 32,
     patch: '',
     files,
     fixtureMode: false,
+    concurrency,
     skills: { bundle: skills, versionId: randomUUID(), version: 7 },
     ...(model ? { model } : {}),
     budgets: { maxModelCalls },
@@ -74,6 +81,59 @@ function analyze(files: AnalysisFile[], model?: ReviewModel, maxModelCalls = 32,
 }
 
 describe('Skill-based review orchestration', () => {
+  it('reviews four files concurrently, preserving report order and waiting before total summary', async () => {
+    const files = Array.from({ length: 6 }, (_, n) => file(`file-${n}.ts`));
+    let active = 0,
+      peak = 0;
+    const summaries = new Set<string>();
+    const model: ReviewModel = {
+      profile: 'synthetic-parallel',
+      review: async (_body, paths, _instructions, context) => {
+        active++;
+        peak = Math.max(peak, active);
+        if (context?.stage === 'total-summary') expect(summaries.size).toBe(6);
+        await new Promise((resolve) => setTimeout(resolve, paths[0] === 'file-0.ts' ? 15 : 2));
+        if (context?.stage === 'overall-summary') summaries.add(paths[0]!);
+        active--;
+        return output(
+          '검토 완료',
+          context?.stage === 'unit-comment-block' ? [comment(paths[0]!)] : [],
+        );
+      },
+    };
+    const result = await analyze(files, model, 32, bundle, 4);
+    expect(peak).toBe(4);
+    expect(active).toBe(0);
+    expect(result.report.analysis?.files.map((item) => item.path)).toEqual(
+      files.map((item) => item.path),
+    );
+    expect(result.report.analysis?.coverage).toMatchObject({ windowsReviewed: 6, modelCalls: 13 });
+    expect(result.report.coverage.limitations).toEqual([]);
+  });
+
+  it('keeps failure explanations file-local and charges concurrent retries to the shared budget', async () => {
+    let calls = 0;
+    const result = await analyze(
+      [file('a.ts'), file('b.ts'), file('c.ts'), file('d.ts')],
+      {
+        profile: 'synthetic-failures',
+        review: async (_body, paths) => {
+          calls++;
+          await new Promise((resolve) => setTimeout(resolve, 2));
+          if (paths[0] === 'a.ts') throw Error('model_call_budget_exhausted');
+          throw Error('Invalid review result');
+        },
+      },
+      6,
+      bundle,
+      4,
+    );
+    expect(calls).toBeLessThanOrEqual(6);
+    expect(
+      result.report.analysis?.files.find((item) => item.path === 'b.ts')?.summary,
+    ).not.toContain('호출 예산');
+    expect(result.state).toBe('partial');
+  });
   it('excludes generated dependency locks without sending them to the model', async () => {
     const sent: string[] = [];
     const result = await analyze([file('pnpm-lock.yaml'), file('package.json')], {

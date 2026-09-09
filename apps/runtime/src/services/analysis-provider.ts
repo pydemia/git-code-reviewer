@@ -19,7 +19,11 @@ const credentialAad = Buffer.from('git-code-reviewer:analysis-provider:v1', 'utf
 
 export type AnalysisProviderMode = 'disabled' | 'openai-compatible' | 'chatgpt-account';
 
-type AccountConfiguration = { chatAccountId?: string | null; reasoningEffort?: string | null };
+type AccountConfiguration = {
+  chatAccountId?: string | null;
+  reasoningEffort?: string | null;
+  concurrency?: number;
+};
 
 export type AnalysisProviderRow = AccountConfiguration & {
   id: string;
@@ -77,6 +81,7 @@ export const analysisProviderColumns = `
   provider.id, provider.version, provider.mode, provider.endpoint,
   provider.chat_account_id as "chatAccountId", provider.reasoning_effort as "reasoningEffort",
   provider.model_name as "modelName", provider.timeout_ms as "timeoutMs",
+  provider.concurrency,
   provider.credential_ciphertext as "credentialCiphertext",
   provider.credential_iv as "credentialIv",
   provider.credential_auth_tag as "credentialAuthTag",
@@ -129,8 +134,12 @@ export function prepareAnalysisProvider(
   if (!config.MODEL_ADMIN_ENABLED) {
     throw new AnalysisProviderConfigurationError('Provider 관리자 설정이 비활성화되어 있습니다.');
   }
+  const concurrency = input.concurrency ?? 4;
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 4)
+    throw new AnalysisProviderConfigurationError('병렬 처리 수는 1~4 사이의 정수로 선택하세요.');
   if (input.mode === 'disabled') {
     return {
+      concurrency,
       mode: 'disabled',
       endpoint: null,
       modelName: null,
@@ -139,6 +148,7 @@ export function prepareAnalysisProvider(
       credentialIv: null,
       credentialAuthTag: null,
       configurationHash: hashProviderConfiguration({
+        concurrency,
         mode: 'disabled',
         endpoint: null,
         modelName: null,
@@ -160,6 +170,7 @@ export function prepareAnalysisProvider(
       );
     }
     return {
+      concurrency,
       mode: input.mode,
       endpoint: null,
       modelName: input.modelName.trim(),
@@ -177,6 +188,7 @@ export function prepareAnalysisProvider(
             input.modelName.trim(),
             input.reasoningEffort,
             input.timeoutMs,
+            concurrency,
           ]),
         )
         .digest('hex'),
@@ -189,12 +201,14 @@ export function prepareAnalysisProvider(
   if (!apiKey) throw new AnalysisProviderConfigurationError('새 API key가 필요합니다.');
   const encrypted = encryptProviderCredential(apiKey, config.MODEL_CREDENTIAL_ENCRYPTION_KEY);
   return {
+    concurrency,
     mode: 'openai-compatible',
     endpoint,
     modelName,
     timeoutMs: input.timeoutMs,
     ...encrypted,
     configurationHash: hashProviderConfiguration({
+      concurrency,
       mode: 'openai-compatible',
       endpoint,
       modelName,
@@ -231,6 +245,7 @@ export async function resolveAnalysisProvider(
       : null;
   return {
     source: 'administration',
+    concurrency: row.concurrency ?? 1,
     versionId: row.id,
     version: row.version,
     mode: row.mode,
@@ -254,6 +269,7 @@ export function deploymentAnalysisProvider(config: AppConfig): ResolvedAnalysisP
   const apiKey = config.MODEL_API_KEY?.trim() || null;
   return {
     source: 'deployment',
+    concurrency: 1,
     versionId: null,
     version: null,
     mode: config.MODEL_MODE,
@@ -356,6 +372,7 @@ export async function testAnalysisProvider(
 
 export function analysisProviderView(row: AnalysisProviderRow) {
   return {
+    concurrency: row.concurrency ?? 1,
     chatAccountId: row.chatAccountId ?? null,
     reasoningEffort: row.reasoningEffort ?? null,
     id: row.id,
@@ -515,6 +532,7 @@ function encryptionKey(value: string | undefined): Buffer {
 }
 
 function hashProviderConfiguration(value: {
+  concurrency?: number;
   mode: AnalysisProviderMode;
   endpoint: string | null;
   modelName: string | null;
@@ -532,6 +550,7 @@ function hashProviderConfiguration(value: {
         value.modelName,
         value.timeoutMs,
         credentialHash,
+        ...(value.concurrency === undefined ? [] : [value.concurrency]),
       ]),
     )
     .digest('hex');

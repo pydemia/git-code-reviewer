@@ -2,7 +2,13 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { Database } from '@gcr/db';
 
-export type ModelBudget = { runKey: string; maxCalls: number; wait?: boolean };
+export type ModelBudget = {
+  runKey: string;
+  maxCalls: number;
+  wait?: boolean;
+  concurrency?: number;
+  lane?: 'batch' | 'interactive';
+};
 const budgetContext = new AsyncLocalStorage<ModelBudget>();
 export function withModelBudget<Result>(
   budget: ModelBudget,
@@ -28,26 +34,22 @@ export function admittedFetch(
       runKey: `interactive:${randomUUID()}`,
       maxCalls: 8,
       wait: true,
+      lane: 'interactive' as const,
     };
     const started = Date.now();
     let reservation: string | undefined;
     while (!reservation) {
-      await database.query(
-        'insert into model_account_capacity(quota_key) values ($1) on conflict do nothing',
-        [quotaKey],
-      );
+      init?.signal?.throwIfAborted();
       const result = await database.query<{ id: string }>(
-        `with admission as (
-        update model_account_capacity set reservation_id=gen_random_uuid(), lease_expires_at=clock_timestamp()+interval '180 seconds',updated_at=clock_timestamp(),priority_run_key=null,priority_expires_at=null
-        where quota_key=$1 and (lease_expires_at is null or lease_expires_at<clock_timestamp()) and (cooldown_until is null or cooldown_until<clock_timestamp())
-          and (priority_expires_at is null or priority_expires_at<clock_timestamp() or priority_run_key=$2)
-          and (select count(*) from model_request_ledger where run_key=$2) < $3
-          and (select count(*) from model_request_ledger where quota_key=$1 and created_at>clock_timestamp()-interval '1 minute') < 60
-          and (select coalesce(sum(input_bytes),0) from model_request_ledger where quota_key=$1 and created_at>clock_timestamp()-interval '1 minute') + $4 <= 1048576
-        returning reservation_id
-      ) insert into model_request_ledger(id,quota_key,run_key,state,input_bytes)
-        select reservation_id,$1,$2,'reserved',$4 from admission returning id`,
-        [quotaKey, budget.runKey, budget.maxCalls, Buffer.byteLength(String(init?.body ?? ''))],
+        'select reserve_model_request($1,$2,$3,$4,$5,$6) as id',
+        [
+          quotaKey,
+          budget.runKey,
+          budget.maxCalls,
+          inputBytes,
+          (budget.lane ?? (budget.wait === true ? 'batch' : 'interactive')) === 'batch',
+          budget.concurrency ?? 1,
+        ],
       );
       reservation = result.rows[0]?.id;
       if (reservation) break;
@@ -80,12 +82,9 @@ export function admittedFetch(
       : controller.signal;
     const heartbeat = setInterval(() => {
       void database
-        .query(
-          "update model_account_capacity set lease_expires_at=clock_timestamp()+interval '180 seconds' where quota_key=$1 and reservation_id=$2 and lease_expires_at>clock_timestamp() returning quota_key",
-          [quotaKey, reservation],
-        )
+        .query<{ renewed: boolean }>('select heartbeat_model_request($1) as renewed', [reservation])
         .then((result) => {
-          if (!result.rowCount) controller.abort(Error('model_lease_lost'));
+          if (!result.rows[0]?.renewed) controller.abort(Error('model_lease_lost'));
         })
         .catch(() => controller.abort(Error('model_lease_lost')));
     }, 15000);
@@ -93,14 +92,11 @@ export function admittedFetch(
       if (finished) return;
       finished = true;
       clearInterval(heartbeat);
-      await database.query(
-        'update model_request_ledger set state=$2,finished_at=clock_timestamp() where id=$1',
-        [reservation, state],
-      );
-      await database.query(
-        'update model_account_capacity set reservation_id=null,lease_expires_at=null,cooldown_until=coalesce($3,cooldown_until) where quota_key=$1 and reservation_id=$2',
-        [quotaKey, reservation, cooldown ?? null],
-      );
+      await database.query('select finish_model_request($1,$2,$3)', [
+        reservation,
+        state,
+        cooldown ?? null,
+      ]);
     };
     try {
       init?.signal?.throwIfAborted();

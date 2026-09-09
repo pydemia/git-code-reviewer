@@ -222,14 +222,7 @@ async function executeJob(
     if (job.type === 'snapshot.materialize') {
       await executeSnapshotJob(database, github, artifacts, config, workspace, job);
     } else if (job.type === 'analysis.run') {
-      await withModelBudget(
-        {
-          runKey: `analysis:${job.payload.analysisId}`,
-          maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
-          wait: true,
-        },
-        () => executeAnalysisJob(database, artifacts, config, job, draining),
-      );
+      await executeAnalysisJob(database, artifacts, config, job, draining);
     } else {
       await publishReviewToGitHub(database, github, config, job, artifacts);
     }
@@ -647,50 +640,60 @@ export async function executeAnalysisJob(
   });
   await updateAnalysisState(database, job, 'analyzing', 'review', 25);
   try {
-    const output = await analyzeSnapshot({
-      onProgress: async (stage, detail) => {
-        if (draining()) throw Error('worker_draining');
-        await assertJobLease(database, job);
-        const progress =
-          stage === 'total-summary'
-            ? 85
-            : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
-        await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
+    const output = await withModelBudget(
+      {
+        runKey: `analysis:${analysisId}`,
+        maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+        wait: true,
+        concurrency: provider.concurrency ?? 1,
       },
-      analysisId,
-      snapshotId,
-      baseSha: row.base_sha,
-      headSha: row.head_sha,
-      patch: diff.patch,
-      files,
-      memory: row.memory_context,
-      fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
-      ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
-      ...(model ? { model } : {}),
-      ...(skillBundle
-        ? {
-            skills: {
-              bundle: skillBundle,
-              versionId: row.skill_version_id,
-              version: row.skill_version,
-            },
-          }
-        : {}),
-      ...(row.prompt_instructions !== null && row.prompt_version
-        ? {
-            prompt: {
-              instructions: row.prompt_instructions,
-              version: row.prompt_version,
-              hash: row.prompt_hash,
-            },
-          }
-        : {}),
-      budgets: {
-        maxFiles: config.ANALYSIS_MAX_FILES,
-        maxBytes: config.ANALYSIS_MAX_BYTES,
-        maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
-      },
-    });
+      () =>
+        analyzeSnapshot({
+          concurrency: provider.concurrency ?? 1,
+          onProgress: async (stage, detail) => {
+            if (draining()) throw Error('worker_draining');
+            await assertJobLease(database, job);
+            const progress =
+              stage === 'total-summary'
+                ? 85
+                : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
+            await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
+          },
+          analysisId,
+          snapshotId,
+          baseSha: row.base_sha,
+          headSha: row.head_sha,
+          patch: diff.patch,
+          files,
+          memory: row.memory_context,
+          fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
+          ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
+          ...(model ? { model } : {}),
+          ...(skillBundle
+            ? {
+                skills: {
+                  bundle: skillBundle,
+                  versionId: row.skill_version_id,
+                  version: row.skill_version,
+                },
+              }
+            : {}),
+          ...(row.prompt_instructions !== null && row.prompt_version
+            ? {
+                prompt: {
+                  instructions: row.prompt_instructions,
+                  version: row.prompt_version,
+                  hash: row.prompt_hash,
+                },
+              }
+            : {}),
+          budgets: {
+            maxFiles: config.ANALYSIS_MAX_FILES,
+            maxBytes: config.ANALYSIS_MAX_BYTES,
+            maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+          },
+        }),
+    );
     await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
     if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
     await persistAnalysis(

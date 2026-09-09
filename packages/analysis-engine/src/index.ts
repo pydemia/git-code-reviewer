@@ -46,6 +46,7 @@ export type AnalysisInput = {
   files: AnalysisFile[];
   fixtureMode: boolean;
   model?: ReviewModel;
+  concurrency?: number;
   prompt?: { instructions: string; version: number; hash: string };
   severityLevel?: ReviewSeverityLevel;
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
@@ -134,6 +135,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       ...(input.severityLevel ? { severityLevel: input.severityLevel } : {}),
       ...(input.memory ? { memory: input.memory } : {}),
       maxModelCalls: budgets.maxModelCalls,
+      concurrency: input.concurrency ?? 1,
       ...(input.onProgress ? { onProgress: input.onProgress } : {}),
     });
     legacy = skillResult.legacy;

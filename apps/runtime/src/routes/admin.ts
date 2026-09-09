@@ -78,10 +78,12 @@ const promptBody = z.object({
 const providerVersionBody = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('disabled'),
+    concurrency: z.number().int().min(1).max(4).default(4),
     timeoutMs: z.number().int().min(1_000).max(600_000).default(120_000),
   }),
   z.object({
     mode: z.literal('openai-compatible'),
+    concurrency: z.number().int().min(1).max(4).default(4),
     endpoint: z.string().url().max(2_048),
     modelName: z.string().trim().min(1).max(200),
     timeoutMs: z.number().int().min(1_000).max(600_000),
@@ -89,6 +91,7 @@ const providerVersionBody = z.discriminatedUnion('mode', [
   }),
   z.object({
     mode: z.literal('chatgpt-account'),
+    concurrency: z.number().int().min(1).max(4).default(4),
     chatAccountId: z.string().uuid(),
     modelName: z.string().trim().min(1).max(200),
     reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']),
@@ -618,6 +621,7 @@ export async function registerAdminRoutes(
             chatAccountId: active.chatAccountId,
             reasoningEffort: active.reasoningEffort,
             timeoutMs: active.timeoutMs,
+            concurrency: active.concurrency,
             apiKeyConfigured: active.apiKeyConfigured,
             configurationHash: active.configurationHash,
           }
@@ -632,6 +636,7 @@ export async function registerAdminRoutes(
           endpoint: deployment.endpoint,
           modelName: deployment.modelName,
           timeoutMs: deployment.timeoutMs,
+          concurrency: deployment.concurrency ?? 1,
           apiKeyConfigured: deployment.apiKey !== null,
           configurationHash: deployment.configurationHash,
         },
@@ -677,10 +682,10 @@ export async function registerAdminRoutes(
                version, mode, endpoint, model_name, timeout_ms,
                credential_ciphertext, credential_iv, credential_auth_tag,
                configuration_hash, active, created_by, activated_by, activated_at,
-               chat_account_id, reasoning_effort
+               chat_account_id, reasoning_effort, concurrency
              ) values (
                (select coalesce(max(version), 0) + 1 from analysis_provider_versions),
-               $1, $2, $3, $4, $5, $6, $7, $8, true, $9, $9, clock_timestamp(), $10, $11
+               $1, $2, $3, $4, $5, $6, $7, $8, true, $9, $9, clock_timestamp(), $10, $11, $12
              ) returning id`,
             [
               prepared.mode,
@@ -694,6 +699,7 @@ export async function registerAdminRoutes(
               request.user!.id,
               prepared.chatAccountId ?? null,
               prepared.reasoningEffort ?? null,
+              prepared.concurrency,
             ],
           );
           providerId = created.rows[0]!.id;
@@ -709,6 +715,7 @@ export async function registerAdminRoutes(
             modelName: prepared.modelName,
             chatAccountId: prepared.chatAccountId ?? null,
             reasoningEffort: prepared.reasoningEffort ?? null,
+            concurrency: prepared.concurrency,
             configurationHash: prepared.configurationHash,
           },
         );
@@ -1114,6 +1121,7 @@ async function canManageProvider(
 
 function providerEffectiveView(provider: ReturnType<typeof deploymentAnalysisProvider>) {
   return {
+    concurrency: provider.concurrency ?? 1,
     chatAccountId: provider.chatAccountId ?? null,
     reasoningEffort: provider.reasoningEffort ?? null,
     source: provider.source,

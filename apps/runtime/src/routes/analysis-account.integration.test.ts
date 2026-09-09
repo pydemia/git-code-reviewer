@@ -3,6 +3,7 @@ import path from 'node:path';
 import { composeReviewSystemPrompt, loadBuiltInReviewSkills } from '@gcr/analysis-engine';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { ZodError } from 'zod';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AuthUser } from '../auth/index.js';
 import { loadConfig } from '../config.js';
@@ -84,6 +85,12 @@ describe.skipIf(!databaseUrl).sequential('registered account batch review with P
     });
     vi.stubGlobal('fetch', fetcher);
     app = Fastify();
+    // 실제 Server의 공통 ZodError → 400 처리와 같은 검증 경계다.
+    app.setErrorHandler((error, _request, reply) =>
+      error instanceof ZodError
+        ? reply.code(400).send({ code: 'INVALID_REQUEST' })
+        : reply.send(error),
+    );
     app.addHook('onRequest', async (request) => {
       request.user = { ...admin, role };
     });
@@ -167,6 +174,7 @@ describe.skipIf(!databaseUrl).sequential('registered account batch review with P
       mode: 'chatgpt-account',
       chat_account_id: accountId,
       reasoning_effort: 'high',
+      concurrency: 4,
       endpoint: null,
       credential_ciphertext: null,
     });
@@ -174,6 +182,7 @@ describe.skipIf(!databaseUrl).sequential('registered account batch review with P
     expect(settings.json().effective).toMatchObject({
       chatAccountId: accountId,
       reasoningEffort: 'high',
+      concurrency: 4,
     });
     expect(settings.body).not.toContain('synthetic-refresh');
     const duplicate = await app.inject({
@@ -185,9 +194,26 @@ describe.skipIf(!databaseUrl).sequential('registered account batch review with P
     const changed = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/analysis-provider/versions',
-      payload: { ...input(), reasoningEffort: 'low' },
+      payload: { ...input(), reasoningEffort: 'low', concurrency: 2 },
     });
     expect(changed.json().id).not.toBe(providerId);
+    expect((await resolveAnalysisProvider(database, config, changed.json().id)).concurrency).toBe(
+      2,
+    );
+    expect((await resolveAnalysisProvider(database, config, providerId)).concurrency).toBe(4);
+    await expect(
+      database.query('update analysis_provider_versions set concurrency=1 where id=$1', [
+        providerId,
+      ]),
+    ).rejects.toThrow('immutable');
+    for (const concurrency of [0, 5, 1.5]) {
+      const invalid = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/analysis-provider/versions',
+        payload: { ...input(), concurrency },
+      });
+      expect(invalid.statusCode).toBe(400);
+    }
     expect((await resolveAnalysisProvider(database, config, providerId)).reasoningEffort).toBe(
       'high',
     );
