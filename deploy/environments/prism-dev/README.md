@@ -2,6 +2,12 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 Review Chat 진행 상태 배포
+
+15:24:31 KST에 application `0.8.0-alpha.29`, chart `0.10.28`을 Helm revision **40**으로 배포했다. Source `f49c82e`·release pin `3bcb983`를 push한 뒤 적용했다. 현재 질문의 조회 과정을 기본으로 펼치고 실제 답변 생성 중에는 Thinking shimmer를 표시한다. 수동 접기·새 질문 초기화·reduced motion을 지원한다.
+
+Frontend 94개 테스트·typecheck·lint·build와 Desktop/Mobile 합성 Browser 검증을 통과했다. Health 4종·실제 JS/CSS hash·15:25:35 Helm test·migration 31개 checksum을 확인했다. 기존 사용자·account·분석·report ID와 Provider v8 Terra/medium/병렬 4개, Secret·CA·HTTPRoute·PVC/PV를 보존했다. 기존 운영 분석 한 건의 완료로 report가 69개에서 70개로 늘었으며 검증용 재분석은 실행하지 않았다. 자세한 결과는 [배포 기록](../../../docs/operations/chat-thinking-2026-09-09.md)을 따른다.
+
 ## 2026-09-09 Registry 삭제·Review Chat 배포
 
 11:54:49 KST에 application `0.8.0-alpha.28`, chart `0.10.27`을 Helm revision **39**로 배포했다. Source `5d9a920`과 release pin `56268be`를 push한 뒤 적용했다. 비활성 account·Provider 삭제, 질문별 ChatGPT 모델·effort 선택, HTTP UUID 오류와 이전 대화·코드 근거 메뉴 수정을 포함한다.

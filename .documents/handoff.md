@@ -5,11 +5,19 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.28`, chart `0.10.27`, Helm revision 39 운영 중(2026-09-09 11:54:49 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
-- 배포 source: `5d9a9204218583ecdaea16827f68eff97f673b99` (push 후 git archive build). Backend commit `5039fbf`, release 설정 commit `56268be`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.29`, chart `0.10.28`, Helm revision 40 운영 중(2026-09-09 15:24:31 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
+- 배포 source: `f49c82e38ca566d39f940e221ccdd6c5c5ff3778` (push 후 git archive build). Release 설정 commit `3bcb983`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-09 Review Chat 진행 상태 표시
+
+현재 질문의 ‘조회 과정’을 기본으로 펼친다. 사용자가 접으면 같은 run 갱신에서는 유지하고 새 질문에서 다시 펼친다. `running`일 때 Thinking 글자 안으로 빛이 흐르는 CSS 효과를 표시하며 계정 대기·사용자 응답 대기·완료·실패·중단과 구분한다. 저장된 과거 질문은 움직이지 않는다. Reduced motion·forced colors에서는 일반 글자로 표시하고 Screen reader에는 ‘답변 생성 중’이라는 status를 제공한다.
+
+Frontend 22개 파일·94개 테스트, web typecheck·전체 lint·production build, Desktop/Mobile 합성 Browser의 상태 전환·키보드 접기·shimmer 변화·reduced motion을 검증했다. Source·release commit을 push하고 alpha.29를 배포했다. Health 4종·15:25:35 Helm test·실제 JS/CSS hash·migration 31개 checksum이 일치한다. 기존 사용자 7명·account 7개·분석 78건·report 69건의 ID는 전부 보존됐다. 기존 운영 분석 한 건이 완료되어 report는 70개이며 새 분석·모델 호출·PR 게시를 검증 목적으로 시작하지 않았다.
+
+Image 외 Helm values·Secret·CA·HTTPRoute·PVC/PV를 보존했고 새 Server 1/1·Worker 2/2 Ready, restart 0이다. Alpha.28 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. Digest와 검증 경계는 [진행 상태 배포 기록](../docs/operations/chat-thinking-2026-09-09.md)을 참고한다.
 
 ### 2026-09-09 Registry 삭제·Review Chat 수정
 
