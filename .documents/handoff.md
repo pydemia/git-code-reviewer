@@ -2,14 +2,24 @@
 
 ## 1. 현재 상태
 
-- 최종 갱신: 2026-09-09
+- 최종 갱신: 2026-09-10
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.30`, chart `0.10.29`, Helm revision 41 운영 중(2026-09-09 19:19:07 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
-- 배포 source: `43c7d331daa2f6e31d1bc374817f7d875cc789a1` (push 후 git archive build). Release 설정 commit `2302a31`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.31`, chart `0.10.30`, Helm revision 42 운영 중(2026-09-10 08:54:35 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
+- 배포 source: `729de5bb5616e244d699f1c57ce01b056cf9add4` (push 후 git archive build). Release 설정 commit `38b0a9a`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-10 PR 요약·분석 제한 펼침과 공통 작성 지침
+
+- **PR 메시지:** 중복 Overall Summary·전체 파일 목록 생략을 유지한다. 전체 분석 요약과 분석 제한은 접기 밖의 Header·본문·List로 표시하고 AI Comments만 기존처럼 접는다. Markdown export의 600자 이상 요약 자동 접기도 제거했다. Browser의 분석 제한은 기본 펼침이며 사용자가 접을 수 있다.
+- **작성 형식:** `reviewWritingGuidelines`를 Skill 3개 stage·legacy 분석·interactive Chat·report 기반 Chat이 공유한다. 요약은 개조식 Header·List, 상세 원인·흐름·조건은 문단으로 작성한다. JSON·citation·priority·coverage 계약은 유지한다. 새 Built-in overall-summary·total-summary는 v3, unit-comment-block은 v2다. Bundle hash는 `dc25811a1b436f80576aa2a129c7a2431dbb52638ee66820065dfe82ef4a947c`다.
+- **검증:** 77개 파일·476개 tests, lint·typecheck·build, Desktop·Mobile·중간 너비와 CSS zoom 200% 합성 Browser 검증을 통과했다. 기본 펼침·키보드 접기·Header·List와 가로 overflow 없음을 확인했다. 개발 서버 전용 `apps/web/tests/structured-messages.html`은 실제 Report/Markdown 컴포넌트를 사용하며 production bundle에 포함되지 않는다.
+- **배포:** source·release commit push 후 alpha.31 적용. 실제 Server·Worker의 Built-in hash·공통 Prompt·PR formatter, health 4종·asset hash·08:55:39 Helm test·migration 31개 checksum을 확인했다. 사용자 7명·account 7개·분석 99건·report 91건의 ID, Provider v8, image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다.
+- **적용 시점:** 새 Skill은 새 분석부터, PR 구성은 다음 정상 게시·갱신부터 적용한다. 이미 pinned된 Skill·Chat 지침, custom Skill·개인 Prompt와 기존 report·대화를 덮어쓰지 않는다. Runtime 공통 Prompt 변경이 과거 checkpoint 결과를 재생성하지 않는다. 실제 모델·재분석·GitHub 게시는 검증 목적으로 시작하지 않았다.
+
+새 Server 1/1·Worker 2/2 Ready, restart 0이다. Alpha.30 Worker는 source-sandbox 종료 유예로 Terminating 상태이며 강제 삭제하지 않는다. Impeccable은 기존 UI를 유지하면서 정보 계층·기본 펼침·문구만 정리하는 데 사용했다. 상세 digest·검증 경계는 [배포 기록](../docs/operations/structured-messages-2026-09-10.md)을 따른다.
 
 ### 2026-09-09 Summary Skill·PR 댓글 가독성
 

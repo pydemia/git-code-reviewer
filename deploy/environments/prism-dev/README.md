@@ -2,6 +2,15 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-10 PR 메시지·공통 작성 지침 배포
+
+- **Release:** 08:54:35 KST, application `0.8.0-alpha.31`, chart `0.10.30`, Helm revision **42**. Source `729de5b`·release pin `38b0a9a` push 후 적용.
+- **내용:** PR 전체 분석 요약·분석 제한을 펼쳐서 표시. 중복 Overall Summary·전체 파일 목록 생략 유지. 분석·Chat 공통 지침은 요약을 Header·List로, 상세 설명은 문단으로 작성.
+- **검증:** 476개 테스트·lint·typecheck·build, Desktop/Mobile 합성 Browser, 실제 Server·Worker의 새 Built-in hash, health 4종·asset hash·08:55:39 Helm test·migration 31개 checksum 통과.
+- **보존:** 사용자 7명·account 7개·분석 99건·report 91건, Provider v8 Terra/medium/병렬 4개, image 외 values·Secret·CA·HTTPRoute·nfs-csi PVC/PV 유지.
+
+기존 report·대화·PR 댓글은 재작성하지 않았고 검증용 모델 요청·재분석·게시도 실행하지 않았다. 적용 시점과 digest는 [배포 기록](../../../docs/operations/structured-messages-2026-09-10.md)을 따른다.
+
 ## 2026-09-09 Summary Skill·PR 댓글 가독성 배포
 
 19:19:07 KST에 application `0.8.0-alpha.30`, chart `0.10.29`를 Helm revision **41**로 배포했다. Source `43c7d33`·release pin `2302a31`을 push한 뒤 적용했다. Summary Skill v2는 짧은 결론·목록을 사용하며 PR 댓글에는 전체 파일 목록을 생략하고 comment가 있는 파일의 요약·comment-block만 담는다. 전체 Markdown export는 유지한다.

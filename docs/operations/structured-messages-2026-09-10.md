@@ -28,4 +28,31 @@
 
 Built-in bundle SHA-256: `dc25811a1b436f80576aa2a129c7a2431dbb52638ee66820065dfe82ef4a947c`.
 
-배포 결과는 완료 후 기록한다.
+## PRISM-DEV 배포
+
+- 적용: **2026-09-10 08:54:35 KST**, application `0.8.0-alpha.31`, chart `0.10.30`, Helm revision **42**
+- Source: `729de5bb5616e244d699f1c57ce01b056cf9add4`. Release pin: `38b0a9a`. 두 commit을 push한 뒤 적용했다.
+- Build: source commit의 clean git archive, linux/amd64, alpha.30 runtime base 재사용. Dependency 설치와 파일 처리에 평소보다 시간이 걸렸지만 전체 image build·push를 완료했다.
+- Image index: `sha256:c190547fe932f7b8d8219986260bb7feb6bc76f32889478a61955511f52c4f3d`
+- Linux/amd64 manifest: `sha256:24b94fae68865e7c53827064abae5767cce41702e2232f93d70c633fa64149c4`
+- SBOM·provenance attestation: `sha256:34c2c828000b37b8cbee824d563ecca02a90245ab139f53575e6ee204283bbcc`
+- OCI chart `registry-1.docker.io/pydemia/git-code-reviewer:0.10.30`: `sha256:1b66111c31a777eec1affd1d75cbc67e5fe9d6f9e51779eae2208e8292d03651`
+
+### 배포 검증
+
+- Image를 UID 1000·read-only·network-none으로 실행해 새 Skill, 공통 Prompt, 펼쳐진 요약·제한, PR의 comment 보유 파일만 표시하는 구성과 전체 Markdown export 보존을 확인했다. 실행 image에 build CA secret·Browser fixture는 없다.
+- 실제 Server·Worker의 effective Skill source는 `builtin`이며 bundle hash가 위 값과 일치한다. 동일한 formatter·공통 Prompt 검증도 통과했다.
+- 새 Server `git-code-reviewer-server-7995578787-fb5hv` 1/1, Worker `git-code-reviewer-worker-fc4756bf-tv682` 2/2 Ready, restart 0이다. 확인한 log의 warning/error는 0건이다.
+- Health startup/live/ready/dependencies 모두 ok, system version alpha.31, 비로그인 `/api/v1/me`는 401이다. Helm 연결 test는 **08:55:39 KST Succeeded**다.
+- Migration 31개 checksum 모두 일치하며 새 migration은 없다. 배포 전후 사용자 7명·account 7개·분석 99건·report 91건의 ID가 모두 동일하다. 대기·실행 job은 0개다.
+- 실제 gateway의 JS·CSS hash가 게시 image와 일치한다. `/assets/index-BGGs7h6i.js`: `e2e5da63bcc907fa902d22b3d8f4c3155a782eccf02050f2a87efd76a5b0f8db`, `/assets/index-BCAc3R7X.css`: `c6d2a203b4e6cd04c9210492af44cab0075f8e5b75383005c1a3f1ed804978d5`.
+- 합성 PR Markdown의 CommonMark AST에서 전체 분석 요약·분석 제한 heading, 하위 heading과 목록 2개를 확인했다. 해당 요약·제한에는 details가 없다. 실제 GitHub 댓글을 게시한 검증과는 구분한다.
+
+### 보존한 설정
+
+- Image 외 Helm values hash는 배포 전·dry-run·배포 후 모두 `5f3eb1ed55f94d7ce9048eb9ef17e4b92400f3533ed9c8a5da1823ef66bb05c9`다.
+- Provider v8 `gpt-5.6-terra:medium`·concurrency 4·timeout 300000과 configuration hash를 유지했다.
+- Auth·credential registry·PostgreSQL Secret, corporate CA ConfigMap, HTTPRoute의 UID/resourceVersion은 그대로다.
+- nfs-csi PostgreSQL RWO 10Gi·artifacts RWX 10Gi의 PVC UID·PV·capacity를 유지했다. Artifacts PVC는 release label에 따른 resourceVersion만 변경됐다.
+
+Alpha.30 Worker `git-code-reviewer-worker-84b7598f5c-f5jfw`는 source-sandbox 종료 유예로 Terminating 상태이며 강제 삭제하지 않았다. 실제 모델 호출·재분석·기존 PR 댓글 갱신은 이번 검증 목적으로 실행하지 않았다.
