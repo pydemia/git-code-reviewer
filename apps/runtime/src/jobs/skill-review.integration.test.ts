@@ -544,14 +544,10 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
         artifacts,
       );
       const posted = JSON.stringify(upsertPullRequestComment.mock.calls);
-      for (const title of [
-        'Overall Summary',
-        'AI Comments',
-        'Analyzed File List',
-        original.hash,
-        'api\\\\-compatibility',
-      ])
+      for (const title of ['AI Comments', '파일 요약', original.hash, 'api\\\\-compatibility'])
         expect(posted).toContain(title);
+      expect(posted).not.toContain('Analyzed File List');
+      expect(posted).not.toContain('## Overall Summary');
     } finally {
       await app.close();
     }

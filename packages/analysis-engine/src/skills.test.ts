@@ -40,6 +40,20 @@ describe('review Skill catalog', () => {
       expect(skill.instructions).toContain('Apache-2.0');
     }
   });
+  it('uses version 2 summary forms with readable Markdown and no repeated full report', () => {
+    const file = defaults.skills.find((skill) => skill.name === 'overall-summary')!;
+    const total = defaults.skills.find((skill) => skill.name === 'total-summary')!;
+    for (const skill of [file, total]) {
+      expect(skill.version).toBe(2);
+      expect(skill.instructions).toContain('Markdown bullet list');
+      expect(skill.instructions).toContain('빈 줄');
+      expect(skill.instructions).toContain('`file_comments`는 빈 배열');
+    }
+    expect(file.instructions).toContain('검토한 변경 범위에서 문제가 발견되지 않았습니다.');
+    expect(total.instructions).toContain('report 전체를 다시 작성하지 않는다');
+    expect(total.instructions).toContain('파일 순서대로 나열하지 않으며');
+    expect(total.instructions).toContain('priority를 높이거나 낮추지 않는다');
+  });
   it('allows a new perspective without an enum change and builds stage-specific prompts', () => {
     const source = defaults.skills
       .find((skill) => skill.name === 'correctness')!

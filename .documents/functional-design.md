@@ -231,9 +231,11 @@ snapshot materialization
 
 `analysis` 확장은 code segment·unit·파일 요약·Skill provenance·검토 완료 범위를 보존한다. Comment의 file/side/line range/category를 검증한 뒤 unit으로 확정하며 summary에는 확정한 unit만 전달한다. 새 Skill pipeline의 accepted P3는 유지한다. 아래의 legacy compatibility normalization은 Skill binding이 없는 migration 이전 작업에만 적용된다. 실패, 잘린 출력, 생략은 성공한 unit을 유지하면서 미완료 범위로 기록한다. Provider 미설정은 unavailable, 호출 전체 실패는 failed, fixture는 demo다.
 
-Browser와 Markdown export는 같은 순수 presentation 함수를 사용한다. PR publication은 pinned Skill hash가 일치하는 canonical report artifact를 읽어 Overall Summary, 파일별 AI Comments, Analyzed File List를 게시한다. Artifact가 없거나 분석/Skill이 다르면 축약 DB summary로 대체 게시하지 않는다. 댓글 길이 제한은 block 경계에서 생략하고 전체 report 링크와 생략 안내를 남긴다. Raw JSON은 동일한 analysis 확장을 제공하며 Skill 지침 원문은 관리자 API에만 노출한다.
+Browser와 Markdown export는 같은 순수 presentation 함수를 사용한다. PR publication은 pinned Skill hash가 일치하는 canonical report artifact를 읽고 `audience: pull-request` 형식으로 PR 전체 요약과 comment가 있는 파일의 요약·AI Comments만 게시한다. 전체 파일 목록과 comment가 없는 파일별 요약은 PR 댓글에서 생략하되 검토 수·분석 제한·provenance·전체 report 링크는 유지한다. 앱과 기본 Markdown export는 전체 파일을 유지한다. Artifact가 없거나 분석/Skill이 다르면 축약 DB summary로 대체 게시하지 않는다. 댓글 길이 제한은 block 경계에서 생략하고 전체 report 링크와 생략 안내를 남긴다. Raw JSON은 동일한 analysis 확장을 제공하며 Skill 지침 원문은 관리자 API에만 노출한다.
 
-PR 댓글과 Markdown export의 `AI Comments` 상세 내용은 하나의 `<details>`로 묶어 기본으로 접는다. `<summary>`에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 펼치면 파일별 priority, 코드 위치, 문제, 영향, 수정 제안과 관련 코드 링크를 확인할 수 있다. 분석 상태·대표 priority, Overall Summary와 전체 report 링크는 이 접기 영역 밖에 유지한다. 의견이 없으면 빈 접기 영역 대신 안내문을 표시한다. 길이 제한은 `<details>` 전체를 하나의 block으로 취급하므로 닫는 태그가 잘리지 않는다. AI Comments 전체가 제한을 초과하면 해당 영역을 생략하고 영역 밖에 생략 안내와 전체 report 링크를 남긴다. 기존 PR 댓글은 일괄 수정하지 않으며 배포 후 다음 정상 게시·갱신부터 적용한다. Browser workspace의 Comments 펼침 상태와 저장된 report 내용은 바꾸지 않는다.
+PR 댓글과 Markdown export의 `AI Comments` 상세 내용은 하나의 `<details>`로 묶어 기본으로 접는다. `<summary>`에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 펼치면 파일별 priority, 코드 위치, 문제, 영향, 수정 제안과 관련 코드 링크를 확인할 수 있다. PR 댓글에서는 해당 파일 요약도 이 묶음 안에 한 번만 표시한다. 분석 상태·대표 priority, PR 전체 요약과 전체 report 링크는 이 접기 영역 밖에 유지한다. 의견이 없으면 빈 접기 영역 대신 상태에 맞는 안내문을 표시한다. 길이 제한은 `<details>` 전체를 하나의 block으로 취급하므로 닫는 태그가 잘리지 않는다. AI Comments 전체가 제한을 초과하면 해당 영역을 생략하고 영역 밖에 생략 안내와 전체 report 링크를 남긴다. 기존 PR 댓글은 일괄 수정하지 않으며 배포 후 다음 정상 게시·갱신부터 적용한다. Browser workspace의 Comments 펼침 상태와 저장된 report 내용은 바꾸지 않는다.
+
+2026-09-09부터 Built-in overall-summary·total-summary는 version 2를 사용한다. 짧은 결론과 독립적인 논점의 bullet list, 필요한 조치의 numbered list를 사용하고 전체 report·파일 목록을 요약 안에 중복 생성하지 않는다. PR/Markdown formatter는 문단·목록·강조·inline code만 제한적으로 복원한다. 모델이 출력한 HTML·링크·mention은 계속 escape한다. 이미 queue에 고정된 bundle과 관리자가 저장한 custom version은 그대로 유지한다.
 
 초기 compatibility baseline은 Commit Defender commit `47dabfea718729b0ccc685ae173857476040d6ea`의 다음 구현이다.
 

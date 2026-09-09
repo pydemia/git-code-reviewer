@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { reportViewSchema } from './index.js';
 import type { ReviewAnalysis } from './review-analysis.js';
+import { formatReviewNarrative } from './review-narrative.js';
 
 // 저장된 Grade와 분석 기준은 유지하고 사용자에게 보이는 평가만 한국어로 설명한다.
 export const reviewGrades = {
@@ -183,9 +184,15 @@ export function escapeReviewMarkdown(value: string): string {
 export function formatReviewMarkdown(
   report: ReportContent,
   paths: ReportFile[] = [],
-  options: { reportUrl?: string; maxLength?: number; includeTitle?: boolean } = {},
+  options: {
+    reportUrl?: string;
+    maxLength?: number;
+    includeTitle?: boolean;
+    audience?: 'full' | 'pull-request';
+  } = {},
 ): string {
   const view = presentReviewReport(report, paths);
+  const forPullRequest = options.audience === 'pull-request';
   const text = escapeReviewMarkdown;
   const html = (value: string) =>
     value
@@ -195,26 +202,7 @@ export function formatReviewMarkdown(
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;')
       .replaceAll('@', '＠');
-  // Inline HTML still permits Markdown parsing between its tags. Entities keep
-  // code punctuation literal (including link syntax and emphasis).
-  const code = (value: string) =>
-    html(value).replace(/[\\`*_{}[\]()#+.!|~-]/g, (character) => `&#${character.charCodeAt(0)};`);
-  const narrative = (value: string) =>
-    value
-      .split(/\r?\n/)
-      .map((line) =>
-        line
-          .split(/(`[^`\n]+`)/g)
-          .map((part) =>
-            part.startsWith('`') && part.endsWith('`')
-              ? `<code>${code(part.slice(1, -1))}</code>`
-              : part.trim()
-                ? `${part.match(/^\s*/)?.[0] ?? ''}${text(part)}${part.match(/\s*$/)?.[0] ?? ''}`
-                : part,
-          )
-          .join(''),
-      )
-      .join('\n');
+  const narrative = formatReviewNarrative;
   // Only these template tags are HTML; source/model content is always escaped.
   const details = (label: string, body: string) =>
     `<details>\n<summary>${label}</summary>\n\n${body}\n\n</details>`;
@@ -251,12 +239,14 @@ export function formatReviewMarkdown(
     `**${view.label}**${view.priority ? ` · ${reviewPriorityLabels[view.priority]}` : ''}${view.showGrade ? ` · 코드 품질: ${formatReviewGrade(report.grade)}${view.state === 'incomplete' ? ' · 검토 범위 내' : ''}` : ''}`,
     `| 파일 검토 | 검토 의견 | 소요 시간 | 분석 방식 |\n| :--- | :--- | :--- | :--- |\n| ${view.filesCompleted === null ? 'Legacy file coverage' : `${view.filesCompleted}/${report.coverage.filesChanged} files 검토 완료`} | ${report.findings.length} comments | ${formatReviewDuration(report.durationMs)} | ${view.mode} |`,
   ];
-  if (view.overview)
+  if (view.overview) {
+    if (forPullRequest) blocks.push('## PR 전체 요약');
     blocks.push(
-      view.overview.length > 600
+      !forPullRequest && view.overview.length > 600
         ? details('전체 분석 요약', narrative(view.overview))
         : narrative(view.overview),
     );
+  }
   if (view.state === 'demo')
     blocks.push(
       '> 실제 AI 검토 완료를 의미하지 않습니다. 분석 Provider 설정과 오류를 확인한 뒤 재분석하세요.',
@@ -268,19 +258,25 @@ export function formatReviewMarkdown(
         report.coverage.limitations.map((item) => `- ${text(item)}`).join('\n'),
       ),
     );
-  blocks.push('## Overall Summary');
-  for (const file of view.groups)
-    blocks.push(
-      details(
-        `<code>${html(file.path)}</code> · ${reviewFileStatusLabels[file.status]} · ${file.findings.length} comments${file.priority ? ` · ${reviewPriorityLabels[file.priority]}` : ''}`,
-        narrative(file.summary),
-      ),
-    );
+  if (!forPullRequest) {
+    blocks.push('## Overall Summary');
+    for (const file of view.groups)
+      blocks.push(
+        details(
+          `<code>${html(file.path)}</code> · ${reviewFileStatusLabels[file.status]} · ${file.findings.length} comments${file.priority ? ` · ${reviewPriorityLabels[file.priority]}` : ''}`,
+          narrative(file.summary),
+        ),
+      );
+  }
   blocks.push('## AI Comments');
   const comments: string[] = [];
   const commentedFiles = view.groups.filter((file) => file.findings.length > 0);
   for (const file of commentedFiles) {
     comments.push(`### ${text(file.path)}`);
+    if (forPullRequest && file.summary.trim())
+      comments.push(
+        `**파일 요약 · ${reviewFileStatusLabels[file.status]}**\n\n${narrative(file.summary)}`,
+      );
     for (const finding of file.findings) {
       const anchor = finding.anchor;
       const location = `${anchor.side} · ${anchor.startLine ? `line ${anchor.startLine}${anchor.endLine && anchor.endLine !== anchor.startLine ? `–${anchor.endLine}` : ''}` : '파일 전체'}`;
@@ -314,19 +310,26 @@ export function formatReviewMarkdown(
         comments.join('\n\n'),
       ),
     );
-  else blocks.push('표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.');
-  blocks.push('## Analyzed File List');
-  blocks.push(
-    details(
-      `파일 ${view.groups.length}개 보기`,
-      `| 파일 | 검토 상태 | 의견 |\n| :--- | :--- | ---: |\n${view.groups
-        .map(
-          (file) =>
-            `| ${text(file.path)} | ${reviewFileStatusLabels[file.status]} | ${file.findings.length} |`,
-        )
-        .join('\n')}`,
-    ),
-  );
+  else
+    blocks.push(
+      forPullRequest && view.state === 'pass'
+        ? '검토한 변경 범위에서 문제가 발견되지 않았습니다.'
+        : '표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.',
+    );
+  if (!forPullRequest) {
+    blocks.push('## Analyzed File List');
+    blocks.push(
+      details(
+        `파일 ${view.groups.length}개 보기`,
+        `| 파일 | 검토 상태 | 의견 |\n| :--- | :--- | ---: |\n${view.groups
+          .map(
+            (file) =>
+              `| ${text(file.path)} | ${reviewFileStatusLabels[file.status]} | ${file.findings.length} |`,
+          )
+          .join('\n')}`,
+      ),
+    );
+  }
   if (report.analysis)
     blocks.push(
       details(

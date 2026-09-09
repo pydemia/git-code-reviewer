@@ -494,6 +494,14 @@ export function GuidePage() {
               새 분석을 만드세요.
             </p>
             <p>
+              Overall Summary와 Total Summary는 짧은 결론 뒤에 독립적인 검토 의견을 목록으로
+              정리합니다. 파일 요약은 해당 파일의 확정 comment만 종합하며 PR 전체 요약은 여러 파일에
+              걸친 같은 논점을 묶습니다. 전체 report나 파일 목록을 요약 안에 반복하지 않습니다.
+              검토가 완료됐고 지적할 내용이 없는 파일은 문제가 발견되지 않았다는 짧은 문장으로
+              표시합니다. Built-in form version 2부터 적용되며 관리자가 저장한 별도 Skill version과
+              기존 분석 결과는 자동으로 덮어쓰지 않습니다.
+            </p>
+            <p>
               Worker는 line 번호가 있는 window별로 comment를 생성하고 검증된 code segment·unit을
               파일별 Overall Summary와 전체 summary로 집계합니다. 모델 입력은 core 80줄과 경계
               context 12줄로 나누며 호출 예산은 기본 32회입니다. 파일 요약과 전체 요약도 호출 예산에
@@ -518,12 +526,14 @@ export function GuidePage() {
               아래 Coverage는 코드 수집 범위이고 report의 ‘files 검토 완료’와는 다릅니다.
             </p>
             <p>
-              Repository의 PR 게시 설정이 켜져 있으면 새 Skill 기반 분석의 PR timeline 댓글에도
-              Overall Summary, AI Comments, Analyzed File List를 게시합니다. AI Comments는 기본으로
-              접혀 있으며 의견 수와 파일 수가 표시된 ‘펼쳐 보기’를 누르면 상세 내용을 확인할 수
-              있습니다. Markdown export에도 같은 접기 형식을 적용합니다. 길이 제한으로 생략한 항목은
-              전체 report 링크에서 확인합니다. 대상 PR 안의 SKILL.md, TODO나 type-ignore 문자열을
-              관리자 지침으로 자동 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
+              Repository의 PR 게시 설정이 켜져 있으면 PR timeline 댓글에 전체 요약과 comment가 있는
+              파일만 게시합니다. 전체 파일 목록과 comment가 없는 파일별 요약은 생략하며 검토 수와
+              분석 제한은 유지합니다. AI Comments의 ‘펼쳐 보기’를 누르면 해당 파일의 요약과
+              comment-block, 관련 코드 링크를 확인할 수 있습니다. 목록·강조·inline code를 읽기 좋게
+              표시하되 HTML·임의 링크·mention은 차단합니다. Markdown export와 앱에는 전체 파일
+              목록을 유지합니다. 길이 제한으로 생략한 항목은 전체 report 링크에서 확인합니다. 대상
+              PR 안의 SKILL.md, TODO나 type-ignore 문자열을 관리자 지침으로 자동 신뢰하지 않으며
+              Skill에 Secret을 넣으면 안 됩니다.
             </p>
           </section>
 

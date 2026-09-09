@@ -138,16 +138,16 @@ Workspace의 Repository Memory에는 현재 분석에 고정된 항목이 표시
 
 **메뉴 위치:** 관리자 계정 → 상단 관리
 
-| 관리 메뉴         | 제공 기능                                                                          |
-| ----------------- | ---------------------------------------------------------------------------------- |
-| 테넌트            | Tenant와 사용자 membership 관리                                                    |
-| 사용자            | 사용자 접근 상태, role과 권한 관리, Local account 관리와 사용자 삭제               |
-| GHES 연결         | GitHub 연결·PAT, repository 등록, polling과 PR 결과 게시 설정                      |
+| 관리 메뉴         | 제공 기능                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| 테넌트            | Tenant와 사용자 membership 관리                                                                        |
+| 사용자            | 사용자 접근 상태, role과 권한 관리, Local account 관리와 사용자 삭제                                   |
+| GHES 연결         | GitHub 연결·PAT, repository 등록, polling과 PR 결과 게시 설정                                          |
 | 분석 모델         | 등록된 Account·Model·Effort 선택, 파일 병렬 수 1~4개 설정(새 설정 기본값 4), 연결 테스트와 버전 활성화 |
-| 분석 프롬프트     | Tenant별 추가 지침과 Severity Level을 버전으로 저장·활성화                         |
-| 분석 Skills       | 검토 관점과 unit-comment-block·overall-summary·total-summary 형식 관리             |
-| ChatGPT accounts  | Account 등록, 사용자 할당과 허용 model·effort 관리                                 |
-| Repository Memory | 집단 메모리 후보 검토와 활성화·기각·폐기                                           |
+| 분석 프롬프트     | Tenant별 추가 지침과 Severity Level을 버전으로 저장·활성화                                             |
+| 분석 Skills       | 검토 관점과 unit-comment-block·overall-summary·total-summary 형식 관리                                 |
+| ChatGPT accounts  | Account 등록, 사용자 할당과 허용 model·effort 관리                                                     |
+| Repository Memory | 집단 메모리 후보 검토와 활성화·기각·폐기                                                               |
 
 기본 Skill 관점은 correctness, security, maintenance, optimization, review-history, setting입니다. Severity Level은 lean, generous, moderate, rigorous, severe 중 선택하며 기본값은 moderate입니다. 변경한 분석 설정은 새 분석에 적용합니다.
 
@@ -156,6 +156,8 @@ Workspace의 Repository Memory에는 현재 분석에 고정된 항목이 표시
 ## GitHub 게시 · 실행과 운영
 
 Repository의 결과 게시 설정을 활성화하면 공용 분석 결과를 GitHub PR timeline의 관리형 요약 댓글로 생성·갱신합니다. 게시 상태, 원본 링크와 오류를 관리 화면에서 확인할 수 있습니다. 개인화 분석은 공용 PR 댓글로 게시하지 않습니다.
+
+PR 댓글에는 전체 요약과 comment가 있는 파일의 요약·comment-block만 표시하며 전체 파일 목록은 생략합니다. 목록·강조·inline code를 유지하고 긴 AI Comments는 접어서 표시합니다. 검토 수·분석 제한·전체 report 링크는 남기며 앱과 Markdown export에서는 전체 파일을 확인할 수 있습니다.
 
 개발·검증용 Docker Compose와 VS Code의 Server·Worker·Web 실행 설정을 제공합니다. Kubernetes에서는 같은 애플리케이션 image로 Server, Worker, migration과 retention 작업을 구분해 실행합니다. PostgreSQL과 분석 artifact를 함께 운영하며 인증·인가, 상태 점검, 백업·복구 절차는 저장소의 운영 문서에 정리되어 있습니다.
 
