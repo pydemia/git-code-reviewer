@@ -5,11 +5,21 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.29`, chart `0.10.28`, Helm revision 40 운영 중(2026-09-09 15:24:31 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
-- 배포 source: `f49c82e38ca566d39f940e221ccdd6c5c5ff3778` (push 후 git archive build). Release 설정 commit `3bcb983`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.30`, chart `0.10.29`, Helm revision 41 운영 중(2026-09-09 19:19:07 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
+- 배포 source: `43c7d331daa2f6e31d1bc374817f7d875cc789a1` (push 후 git archive build). Release 설정 commit `2302a31`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-09 Summary Skill·PR 댓글 가독성
+
+Built-in `overall-summary`·`total-summary`를 version 2로 올렸다. 짧은 결론 뒤에 독립적인 논점을 bullet list로, 실제 조치 순서만 numbered list로 작성한다. Total Summary는 PR 전체 요약만 생성하며 전체 report·파일 목록·AI Comments를 반복하지 않는다. 한국어 설명과 영어 전문용어, coverage·priority 근거, 검토 완료·의견 없음 파일의 짧은 문구를 유지한다. 다른 perspective와 unit-comment-block은 바꾸지 않았다.
+
+PR publication은 `audience: pull-request`로 전체 파일 목록·comment 없는 파일별 요약을 생략한다. PR 전체 요약과 판정·집계·제한을 남기고 comment가 있는 파일의 요약·comment-block을 기존의 접힌 AI Comments 안에 묶는다. 앱과 전체 Markdown export는 전체 파일을 유지한다. 새 공통 narrative formatter는 목록·강조·inline code만 제한적으로 복원하며 HTML·임의 링크·mention과 details injection을 차단한다.
+
+76개 파일·469개 테스트(PostgreSQL integration 포함), lint·typecheck·build와 CommonMark AST 검증을 통과했다. Source·release commit push 후 alpha.30 배포, health 4종·19:20:17 Helm test·실제 asset hash·migration 31개 checksum을 확인했다. 실제 Server·Worker의 effective Skill source는 Built-in이며 bundle hash는 `1f82188dfc8f859b220087784ce08a90e4e01c8ab15bcf303c52ddb87a6a6a6c`다. Custom version·기존 report·queue에 pinned된 bundle을 덮어쓰지 않는다. 새 Skill은 새 분석부터, PR 구성은 다음 정상 게시·갱신부터 적용된다.
+
+기존 사용자 7명·account 7개·분석 89건·report 81건의 ID를 보존했다. 별도 운영 분석 한 건이 완료되어 분석 90건·report 82건이 됐고 검증 목적 모델 호출·재분석·PR 게시는 없었다. Provider v8·image 외 values·Secret·CA·HTTPRoute·PVC/PV를 유지했다. 새 Server 1/1·Worker 2/2 Ready, restart 0이며 alpha.29 Worker는 종료 유예로 Terminating 상태다. 강제 삭제하지 않는다. 실제 AI 결과·GitHub 렌더링 화면은 검증하지 않았으며 상세 digest·검증 범위는 [배포 기록](../docs/operations/readable-summary-2026-09-09.md)을 따른다.
 
 ### 2026-09-09 Review Chat 진행 상태 표시
 

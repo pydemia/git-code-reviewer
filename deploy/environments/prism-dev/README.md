@@ -2,6 +2,12 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 Summary Skill·PR 댓글 가독성 배포
+
+19:19:07 KST에 application `0.8.0-alpha.30`, chart `0.10.29`를 Helm revision **41**로 배포했다. Source `43c7d33`·release pin `2302a31`을 push한 뒤 적용했다. Summary Skill v2는 짧은 결론·목록을 사용하며 PR 댓글에는 전체 파일 목록을 생략하고 comment가 있는 파일의 요약·comment-block만 담는다. 전체 Markdown export는 유지한다.
+
+469개 테스트·lint·typecheck·build, health 4종·실제 JS/CSS hash·19:20:17 Helm test·migration 31개 checksum을 확인했다. 실제 Server·Worker는 새 Built-in bundle을 사용한다. 기존 사용자·account·분석·report ID, Provider v8 Terra/medium/병렬 4개와 image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다. 기존 report·pinned Skill은 바꾸지 않으며 검증용 모델 요청·재분석·PR 게시를 실행하지 않았다. 적용 시점·digest·검증 범위는 [배포 기록](../../../docs/operations/readable-summary-2026-09-09.md)을 따른다.
+
 ## 2026-09-09 Review Chat 진행 상태 배포
 
 15:24:31 KST에 application `0.8.0-alpha.29`, chart `0.10.28`을 Helm revision **40**으로 배포했다. Source `f49c82e`·release pin `3bcb983`를 push한 뒤 적용했다. 현재 질문의 조회 과정을 기본으로 펼치고 실제 답변 생성 중에는 Thinking shimmer를 표시한다. 수동 접기·새 질문 초기화·reduced motion을 지원한다.
