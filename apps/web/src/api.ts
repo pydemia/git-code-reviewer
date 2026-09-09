@@ -73,6 +73,7 @@ export type { AnalysisSkillSettings };
 export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
 export type AnalysisProviderSettings = ReturnType<typeof analysisProviderSettingsSchema.parse>;
 export type AnalysisProviderInput = {
+  concurrency: number;
   chatAccountId?: string;
   reasoningEffort?: string;
   mode: AnalysisProviderMode;

@@ -11,6 +11,14 @@
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
 
+### 2026-09-09 분석 모델 선택과 파일 병렬 처리
+
+사용자는 Admin에서 분석 Model·Effort를 선택하고 병렬 분석을 실행하도록 요청했으며 초기 병렬 수로 **4개**를 지정했다. `/admin?tab=provider`를 `분석 모델`로 표시하고 Account·Model·허용 Effort·파일 병렬 수(1~4개)를 한 화면에서 설정한다. 배포 직전에 다시 조회한 운영 Account·Model·Effort를 유지한다. 작업 도중 다른 Admin 조작으로 기존 sol 대신 v4 `gpt-5.6-luna:medium`이 활성화된 것을 확인했으므로 이를 덮어쓰지 않는다. 설정은 새 Provider version으로 저장하며 이미 생성된 분석과 report는 바꾸지 않는다.
+
+Backend `4c19a77`을 commit·push했다. Migration `0030`은 기존 Provider version에 concurrency 1을 부여하고 새 version 기본값은 4다. 파일 단위 bounded pool, 파일 내부 window 순차 실행, 입력 순서 결과 병합과 progress write 직렬화, 단일 source workspace/byte budget 보호를 구현했다. PostgreSQL의 account별 batch 최대 4개 + Interactive Chat 전용 1개 slot, 요청별 lease·heartbeat, 기존 run/RPM/byte budget과 429 cooldown을 유지한다. 구 Worker reservation을 존중한다. 검토 범위나 요약 단계를 줄인 최적화가 아니다.
+
+설정 저장·재로딩, 모델별 Effort 전환, 이전 version 재활성화, Desktop/Mobile 합성 Browser 검증을 완료했다. 독립 화면 검토는 `ship`이다. 운영 배포와 concurrency 4 활성화 결과는 아래 운영 기록에 후속 반영한다. 임의 PR 전체 재분석이나 GitHub 게시를 실행하지 않는다. 구현·제약은 [병렬 분석 문서](../docs/operations/parallel-analysis.md)를 참고한다.
+
 ### 2026-09-09 PR 상태 동기화와 필터
 
 기존 Open 전용 조회·누락 PR의 Closed 추정을 제거하고 GitHub의 `state`와 `merged_at`을 저장한다. `listPulls`는 App/PAT 공통 전체 상태 pagination과 첫 page ETag를 사용한다. Migration `0029`가 merged_at을 추가하고 기존 ETag를 비워 전체 수집을 예약한다. Worklist API에 `state=open|closed|all`과 100개 단위 cursor/counts를 제공하고 Browser는 모든 page를 읽는다. 기본 Open, Closed는 Merged 포함, URL 선택 유지, PR 상태와 분석 평가 분리, 모바일 상태 유지, 취소된 요청의 늦은 응답 차단을 구현했다.

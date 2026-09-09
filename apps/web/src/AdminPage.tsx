@@ -17,6 +17,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { analysisEffortDescription } from './analysis-provider-ui.ts';
 import {
   githubRepositoryExample,
   parseGitHubRepositoryUrl,
@@ -86,6 +87,7 @@ type TenantForm = {
   enabled: boolean;
 };
 type ProviderDraft = {
+  concurrency: number;
   mode: 'disabled' | 'openai-compatible' | 'chatgpt-account';
   chatAccountId: string;
   reasoningEffort: string;
@@ -141,6 +143,7 @@ export function AdminPage() {
   const [githubConnections, setGithubConnections] = useState<GitHubConnection[]>([]);
   const [adminRepositories, setAdminRepositories] = useState<AdminRepository[]>([]);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>({
+    concurrency: 4,
     chatAccountId: '',
     reasoningEffort: '',
     mode: 'disabled',
@@ -426,10 +429,15 @@ export function AdminPage() {
 
   const providerInput = (): AnalysisProviderInput =>
     providerDraft.mode === 'disabled'
-      ? { mode: 'disabled', timeoutMs: providerDraft.timeoutMs }
+      ? {
+          mode: 'disabled',
+          timeoutMs: providerDraft.timeoutMs,
+          concurrency: providerDraft.concurrency,
+        }
       : providerDraft.mode === 'chatgpt-account'
         ? {
             mode: 'chatgpt-account',
+            concurrency: providerDraft.concurrency,
             chatAccountId: providerDraft.chatAccountId,
             modelName: providerDraft.modelName,
             reasoningEffort: providerDraft.reasoningEffort,
@@ -437,6 +445,7 @@ export function AdminPage() {
           }
         : {
             mode: 'openai-compatible',
+            concurrency: providerDraft.concurrency,
             endpoint: providerDraft.endpoint,
             modelName: providerDraft.modelName,
             timeoutMs: providerDraft.timeoutMs,
@@ -493,7 +502,7 @@ export function AdminPage() {
             type="button"
             onClick={() => selectTab('provider')}
           >
-            <Cpu size={16} /> 분석 Provider
+            <Cpu size={16} /> 분석 모델
           </button>
           <button
             className={tab === 'prompt' ? 'active' : ''}
@@ -1558,7 +1567,7 @@ function PromptPanel({
   );
 }
 
-function ProviderPanel({
+export function ProviderPanel({
   accounts,
   data,
   draft,
@@ -1607,13 +1616,16 @@ function ProviderPanel({
     (draft.mode === 'disabled' ||
       (draft.mode === 'chatgpt-account' ? accountComplete : openAiComplete)) &&
     draft.timeoutMs >= 1_000 &&
-    draft.timeoutMs <= 600_000;
+    draft.timeoutMs <= 600_000 &&
+    Number.isInteger(draft.concurrency) &&
+    draft.concurrency >= 1 &&
+    draft.concurrency <= 4;
 
   return (
     <section className="admin-section provider-section">
       <div className="admin-title-row">
         <div>
-          <h1>분석 Provider</h1>
+          <h1>분석 모델 및 실행 설정</h1>
         </div>
       </div>
 
@@ -1636,13 +1648,13 @@ function ProviderPanel({
               ? 'Credential 설정됨'
               : '별도 credential 없음'}
         </span>
+        <span>파일 병렬 처리 · 최대 {data?.effective.concurrency ?? 1}개</span>
       </div>
 
       <div className="provider-editor">
         <p className="provider-help">
-          Review Chat과 별도로 새 분석에 사용할 account·model·effort를 선택합니다. Worker는
-          repository의 tenant 또는 all 권한이 부여된 account만 사용합니다. 저장한 설정은 새 분석부터
-          적용됩니다. 기존 report를 다시 분석하려면 Workspace에서 새로고침하세요.
+          자동 분석과 수동 재분석에 사용할 Account·Model·Effort를 선택합니다. Review Chat의 선택과는
+          별도입니다. 저장 후 새로 생성되는 분석에 적용되며, 이미 생성된 분석과 Report는 유지합니다.
         </p>
         <div className="provider-mode-control" role="group" aria-label="Provider mode">
           <button
@@ -1712,7 +1724,7 @@ function ProviderPanel({
                 </select>
               </label>
               <label className="field-label">
-                Model
+                분석 Model
                 <select
                   value={draft.modelName}
                   disabled={!editable || !account || busyKey !== null}
@@ -1737,8 +1749,10 @@ function ProviderPanel({
                 </select>
               </label>
               <label className="field-label">
-                Effort
+                Reasoning effort
                 <select
+                  aria-label="Reasoning effort"
+                  aria-describedby="analysis-effort-help"
                   value={draft.reasoningEffort}
                   disabled={!editable || !model || busyKey !== null}
                   onChange={(event) =>
@@ -1752,6 +1766,9 @@ function ProviderPanel({
                     </option>
                   ))}
                 </select>
+                <small id="analysis-effort-help">
+                  {analysisEffortDescription(draft.reasoningEffort)}
+                </small>
               </label>
             </>
           ) : (
@@ -1778,6 +1795,28 @@ function ProviderPanel({
               </label>
             </>
           )}
+          <label className="field-label">
+            파일 병렬 처리 수
+            <select
+              aria-label="파일 병렬 처리 수"
+              aria-describedby="analysis-concurrency-help"
+              value={draft.concurrency}
+              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+              onChange={(event) =>
+                onDraftChange({ ...draft, concurrency: Number(event.target.value) })
+              }
+            >
+              {[1, 2, 3, 4].map((count) => (
+                <option key={count} value={count}>
+                  {count === 1 ? '1개 · 순차 처리' : `${count}개 · 병렬 처리`}
+                </option>
+              ))}
+            </select>
+            <small id="analysis-concurrency-help">
+              한 PR의 파일을 동시에 검토합니다. 파일 안의 코드 구간은 순서대로 검토하고 PR 전체
+              Summary는 마지막에 생성합니다.
+            </small>
+          </label>
           <label className="field-label">
             Timeout (ms)
             <input
@@ -1807,6 +1846,19 @@ function ProviderPanel({
             </label>
           ) : null}
         </div>
+
+        {draft.mode === 'chatgpt-account' ? (
+          <p className="provider-help">
+            선택지가 없다면 <a href="/admin?tab=chat">ChatGPT accounts에서 Model·Effort 등록</a>을
+            확인하세요. Account가 지원하고 관리자가 허용한 값만 표시합니다. 분석에는 all 또는 tenant
+            권한이 필요합니다.
+          </p>
+        ) : null}
+        <p className="provider-help">
+          같은 account의 분석 요청은 최대 4개, Review Chat은 별도 1개로 제한합니다. Rate limit 응답
+          시 Retry-After를 따릅니다. 병렬 수를 높여도 파일 수와 요청 제한에 따라 소요 시간은
+          달라집니다.
+        </p>
 
         {draft.mode !== 'chatgpt-account' ? (
           <div className="provider-origin-row">
@@ -1876,6 +1928,7 @@ function ProviderPanel({
               </span>
               <span>{provider.mode}</span>
               <code>{provider.modelName ?? 'disabled'}</code>
+              <span>병렬 {provider.concurrency}개</span>
               {provider.mode === 'chatgpt-account' ? (
                 <span>
                   {accounts.find((item) => item.id === provider.chatAccountId)?.displayName ??
@@ -2959,6 +3012,7 @@ function readTab(): AdminTab {
 
 function providerDraftFrom(settings: AnalysisProviderSettings): ProviderDraft {
   return {
+    concurrency: settings.effective.source === 'deployment' ? 4 : settings.effective.concurrency,
     chatAccountId: settings.effective.chatAccountId ?? '',
     reasoningEffort: settings.effective.reasoningEffort ?? '',
     mode: settings.effective.mode,

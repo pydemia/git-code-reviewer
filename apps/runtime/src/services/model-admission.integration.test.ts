@@ -124,10 +124,18 @@ describe.skipIf(!url)('parallel account admission', () => {
     const quota = randomUUID();
     let active = 0,
       peak = 0;
+    let release!: () => void;
+    const allStarted = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // Let all admissions reach the transport even on a busy test database.
+    // The timeout releases a broken implementation so the assertion can fail cleanly.
+    const timeout = setTimeout(() => release(), 2000);
     const transport = admittedFetch(database, quota, async () => {
       active++;
       peak = Math.max(peak, active);
-      await new Promise((resolve) => setTimeout(resolve, 15));
+      if (active === 4) release();
+      await allStarted;
       active--;
       return new Response('synthetic');
     });
@@ -137,7 +145,7 @@ describe.skipIf(!url)('parallel account admission', () => {
         Promise.all(
           Array.from({ length: 4 }, () => transport('https://synthetic.invalid/v1/responses')),
         ),
-    );
+    ).finally(() => clearTimeout(timeout));
     expect(peak).toBe(4);
     expect(await reserve(quota, randomUUID())).toBeNull();
     await Promise.all(responses.map((response) => response.text()));

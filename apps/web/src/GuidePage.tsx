@@ -397,16 +397,31 @@ export function GuidePage() {
               전용 권한은 대화에만 사용하며 자동 분석에는 사용할 수 없습니다.
             </p>
             <p>
-              Administration → 분석 Provider에서 ‘등록된 ChatGPT account’를 선택하고
-              account·model·effort와 Timeout을 지정합니다. ‘연결 테스트’는 코드 없이 짧은 응답만
-              확인합니다. ‘새 버전 저장 및 활성화’를 누르면 이후 생성되는 분석에 적용됩니다. 분석
-              프롬프트는 repository의 tenant 설정을 따릅니다.
+              <a href="/admin?tab=provider">Administration → 분석 모델</a>에서 ‘등록된 ChatGPT
+              account’를 선택하고 Account·Model·Reasoning effort, 파일 병렬 처리 수와 Timeout을
+              지정합니다. ‘연결 테스트’는 코드 없이 짧은 응답만 확인합니다. ‘새 버전 저장 및
+              활성화’를 누르면 이후 생성되는 분석에 적용됩니다. 분석 프롬프트는 repository의 tenant
+              설정을 따릅니다.
+            </p>
+            <p>
+              Model과 effort는 account에 등록된 허용 목록에서 선택합니다. 목록이 부족하면 ChatGPT
+              accounts의 모델 목록 조회에서 실제 지원 값을 확인하고 등록하세요. low는 속도를,
+              high·xhigh는 깊은 검토를 우선하며 medium은 두 요구 사이의 균형을 맞춥니다. Effort를
+              낮추면 복잡한 결함을 놓칠 수 있으므로 같은 PR로 결과를 비교하세요.
+            </p>
+            <p>
+              파일 병렬 처리 수는 1~4개이며 새 설정의 기본값은 4개입니다. 파일 안의 코드 구간은
+              순서대로 검토하고, 모든 파일 검토가 끝난 뒤 PR 전체 Summary를 만듭니다. 같은 account의
+              분석 요청은 최대 4개, Review Chat은 별도 1개로 제한합니다. Provider의 rate limit에
+              도달하면 Retry-After 동안 대기하므로 4배 속도를 보장하지 않습니다. Timeout이나 분석
+              예산을 줄여 검토 범위를 생략하는 방식은 사용하지 않습니다.
             </p>
             <p>
               Review Chat에서 선택한 모델은 자동 분석 설정을 바꾸지 않습니다. 기존 PR을 다시
               분석하려면 Workspace에서 새로고침하세요. 같은 commit도 새 revision으로 분석하며 이전
               report는 이력으로 남습니다. Account 인증 갱신은 registry를 공유하지만
-              account·model·effort 설정은 분석 버전에 고정됩니다.
+              Account·Model·Effort와 병렬 처리 수는 분석 버전에 고정됩니다. 실행 중인 분석의 설정은
+              바뀌지 않으며 병렬 처리에서도 Report 파일 순서와 실패·미완료 표시는 유지합니다.
             </p>
             <p>
               ‘데모 분석’은 실제 AI review가 아닙니다. ‘AI review 미수행’ 또는 ‘AI review 실패’가

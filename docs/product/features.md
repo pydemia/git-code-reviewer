@@ -143,7 +143,7 @@ Workspace의 Repository Memory에는 현재 분석에 고정된 항목이 표시
 | 테넌트            | Tenant와 사용자 membership 관리                                                    |
 | 사용자            | 사용자 접근 상태, role과 권한 관리, Local account 관리와 사용자 삭제               |
 | GHES 연결         | GitHub 연결·PAT, repository 등록, polling과 PR 결과 게시 설정                      |
-| 분석 Provider     | 등록된 ChatGPT account 또는 OpenAI-compatible 모델 연결, 연결 테스트와 버전 활성화 |
+| 분석 모델         | 등록된 Account·Model·Effort 선택, 파일 병렬 수 1~4개 설정(새 설정 기본값 4), 연결 테스트와 버전 활성화 |
 | 분석 프롬프트     | Tenant별 추가 지침과 Severity Level을 버전으로 저장·활성화                         |
 | 분석 Skills       | 검토 관점과 unit-comment-block·overall-summary·total-summary 형식 관리             |
 | ChatGPT accounts  | Account 등록, 사용자 할당과 허용 model·effort 관리                                 |

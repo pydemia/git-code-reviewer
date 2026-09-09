@@ -4452,6 +4452,17 @@ body.workspace-resizing:has(.resize-bottom) {
   min-width: 0;
 }
 
+.provider-form-grid .field-label small {
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.provider-help a {
+  color: #176b5d;
+  text-underline-offset: 2px;
+}
+
 .provider-key-field {
   grid-column: 1 / -1;
 }
