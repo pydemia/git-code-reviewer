@@ -21,6 +21,8 @@ Backend `4c19a77`을 commit·push했다. Migration `0030`은 기존 Provider ver
 
 **남은 작업:** 운영 Provider v4의 병렬 수는 기존 동작 보존 때문에 아직 1이다. Browser는 `Debugger unattached`와 Computer Use 권한 대기, 배포 초기 관리자 credential의 정식 API 로그인은 401이다. 비밀번호 초기화·session 위조·DB 직접 변경을 하지 않았다. 현재 로그인한 관리자가 `설정 → 분석 모델 → 파일 병렬 처리 수 4개 → 새 버전 저장 및 활성화`를 수행해야 한다. 이후 활성 concurrency 4를 다시 확인한다. 기존 Account·Luna/medium을 임의로 되돌리거나 추가 PR 재분석을 시작하지 않는다. Alpha.26 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. 상세 [배포 기록](../docs/operations/parallel-analysis-2026-09-09.md), 구현·제약은 [병렬 분석 문서](../docs/operations/parallel-analysis.md)를 참고한다.
 
+11:15 후속 점검에서는 별도 운영 분석 한 건이 완료되어 analysis 68개·report 60개가 됐다. 기존 report 59개의 hash는 그대로다. 연결 진단은 PR 재분석·게시를 생성하지 않았으며 새 운영 workflow의 publication과 구분한다.
+
 ### 2026-09-09 PR 상태 동기화와 필터
 
 기존 Open 전용 조회·누락 PR의 Closed 추정을 제거하고 GitHub의 `state`와 `merged_at`을 저장한다. `listPulls`는 App/PAT 공통 전체 상태 pagination과 첫 page ETag를 사용한다. Migration `0029`가 merged_at을 추가하고 기존 ETag를 비워 전체 수집을 예약한다. Worklist API에 `state=open|closed|all`과 100개 단위 cursor/counts를 제공하고 Browser는 모든 page를 읽는다. 기본 Open, Closed는 Merged 포함, URL 선택 유지, PR 상태와 분석 평가 분리, 모바일 상태 유지, 취소된 요청의 늦은 응답 차단을 구현했다.

@@ -51,6 +51,8 @@
 
 배포 직전/후 사용자 7명, Chat account 7개, analysis 67개, report 59개의 ID 집합이 일치한다. Report row 전체 SHA-256은 양쪽 모두 `c994bfe2f96c7ed7753a6cbaf72cb1abcbf3935e349e932bccbbd0b34be609d7`다. 최초 작업 중 실행되던 분석 한 건은 배포 전에 정상 완료됐다. 배포 직전과 모델 진단 후 조회에서 실행·대기 job은 0건이다.
 
+11:15 후속 점검에서는 별도 운영 workflow가 analysis `be6d82c4-ed00-43bd-bca0-45d57abe91f9` 한 건을 11:12:51–11:15:10에 완료하고 기존 publication 정책에 따라 게시했다. 총 analysis는 68개, report는 60개로 늘었다. 배포 전 report 59개만 다시 계산한 hash는 여전히 동일하다. 이 workflow는 네 번의 연결 진단과 별개이며 검증 스크립트가 생성한 PR 재분석·게시가 아니다.
+
 Image 외 Helm values hash는 `5f3eb1ed55f94d7ce9048eb9ef17e4b92400f3533ed9c8a5da1823ef66bb05c9`로 동일하다. Auth·credential registry·PostgreSQL Secret, corporate CA, HTTPRoute의 UID·resourceVersion을 유지했다. 두 PVC의 UID·PV·nfs-csi·10Gi·access mode를 보존했다. Artifact PVC의 resourceVersion은 Helm metadata 갱신으로 바뀌었으며 삭제·재생성하지 않았다.
 
 검증용 Local server·Browser와 전용 PostgreSQL Container/합성 DB는 정리했다. 사용자 소유의 다른 Container·repository 파일·운영 데이터를 삭제하지 않았다. 운영 Browser 검증용 탭은 제어 권한 문제로 닫지 못했다.
