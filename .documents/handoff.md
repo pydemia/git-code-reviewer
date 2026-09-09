@@ -5,8 +5,8 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.26`, chart `0.10.25`, Helm revision 37 배포 완료. 09:23:16 KST 배포, 기존 전체 사용자 활성화·repo·모델 권한 유지.
-- 배포 source: `fafb3d55d32a6e68bc656ba6dff5108863ef39cc` (push 후 git archive build). Release 설정 commit `a528a1d`, 배포 기록 commit은 git log 참조
+- 단계: PRISM-DEV application `0.8.0-alpha.27`, chart `0.10.26`, Helm revision 38 배포 완료. 11:09:36 KST 배포. 운영 Provider의 병렬 수 4개 활성화는 관리자 재인증 문제로 남아 있다. 기존 사용자·repo·모델 권한 유지.
+- 배포 source: `2bfadea9f7ce8bdc14eefdae2f2864cbcf665ae4` (push 후 git archive build). Release 설정 commit `b1adbaf`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
@@ -17,7 +17,9 @@
 
 Backend `4c19a77`을 commit·push했다. Migration `0030`은 기존 Provider version에 concurrency 1을 부여하고 새 version 기본값은 4다. 파일 단위 bounded pool, 파일 내부 window 순차 실행, 입력 순서 결과 병합과 progress write 직렬화, 단일 source workspace/byte budget 보호를 구현했다. PostgreSQL의 account별 batch 최대 4개 + Interactive Chat 전용 1개 slot, 요청별 lease·heartbeat, 기존 run/RPM/byte budget과 429 cooldown을 유지한다. 구 Worker reservation을 존중한다. 검토 범위나 요약 단계를 줄인 최적화가 아니다.
 
-설정 저장·재로딩, 모델별 Effort 전환, 이전 version 재활성화, Desktop/Mobile 합성 Browser 검증을 완료했다. 독립 화면 검토는 `ship`이다. 운영 배포와 concurrency 4 활성화 결과는 아래 운영 기록에 후속 반영한다. 임의 PR 전체 재분석이나 GitHub 게시를 실행하지 않는다. 구현·제약은 [병렬 분석 문서](../docs/operations/parallel-analysis.md)를 참고한다.
+설정 저장·재로딩, 모델별 Effort 전환, 이전 version 재활성화, Desktop/Mobile 합성 Browser 검증을 완료했다. 독립 화면 검토는 `ship`이다. 446개 테스트·typecheck·lint·build, alpha.27 배포·health·Helm test·migration 30개 checksum이 통과했다. 사용자 7명·account 7개·analysis 67개·report 59개와 report 원문 hash를 유지했다. 실제 Luna/medium의 짧은 모델 요청 네 개가 동시에 완료됐다(1,808ms). 이는 PR 분석 속도 측정이 아니며 분석·report·GitHub 게시를 생성하지 않았다.
+
+**남은 작업:** 운영 Provider v4의 병렬 수는 기존 동작 보존 때문에 아직 1이다. Browser는 `Debugger unattached`와 Computer Use 권한 대기, 배포 초기 관리자 credential의 정식 API 로그인은 401이다. 비밀번호 초기화·session 위조·DB 직접 변경을 하지 않았다. 현재 로그인한 관리자가 `설정 → 분석 모델 → 파일 병렬 처리 수 4개 → 새 버전 저장 및 활성화`를 수행해야 한다. 이후 활성 concurrency 4를 다시 확인한다. 기존 Account·Luna/medium을 임의로 되돌리거나 추가 PR 재분석을 시작하지 않는다. Alpha.26 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. 상세 [배포 기록](../docs/operations/parallel-analysis-2026-09-09.md), 구현·제약은 [병렬 분석 문서](../docs/operations/parallel-analysis.md)를 참고한다.
 
 ### 2026-09-09 PR 상태 동기화와 필터
 

@@ -2,6 +2,12 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-09 분석 모델·병렬 처리 배포
+
+11:09:36 KST에 application `0.8.0-alpha.27`, chart `0.10.26`을 Helm revision **38**로 배포했다. Admin의 `분석 모델`에서 Account·Model·Effort와 파일 병렬 수 1~4개를 설정한다. 새 설정 기본값은 4개이며 기존 Provider version은 보존한다.
+
+446개 테스트·typecheck·lint·build, health 4종·Helm test·migration 30개 checksum과 기존 데이터 보존을 확인했다. 등록된 Luna/medium으로 짧은 모델 요청 네 개의 동시 실행도 확인했다. **운영 Provider v4는 아직 병렬 1개**다. 관리자 API 재인증과 Browser 권한 문제로 4개 활성화만 남아 있으며 관리자가 화면에서 4개를 선택해 새 버전으로 저장해야 한다. 자세한 결과·digest·남은 단계는 [배포 기록](../../../docs/operations/parallel-analysis-2026-09-09.md)을 따른다.
+
 ## 2026-09-09 PR 상태 동기화 배포
 
 09:23:16 KST에 application `0.8.0-alpha.26`, chart `0.10.25`를 Helm revision **37**로 배포했다. Source `fafb3d5`, release pin `a528a1d`를 push 후 적용했다. GitHub의 Open/Closed·merge 시각을 동기화하고 Worklist에 `Open / Closed / All` 필터를 제공한다.
