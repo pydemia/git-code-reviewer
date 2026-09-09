@@ -12,7 +12,6 @@ import {
   Files,
   GitBranch,
   GitPullRequest,
-  ListFilter,
   Maximize2,
   Network,
   MessageSquare,
@@ -22,7 +21,7 @@ import {
   TestTube2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { reviewGrades, reviewStatusLabels } from '@gcr/contracts';
+import { reviewGrades, reviewStatusLabels, pullRequestStateFilterSchema } from '@gcr/contracts';
 import {
   loadAnalysisWorkspace,
   loadChatAccounts,
@@ -50,6 +49,7 @@ import { ProfilePage } from './ProfilePage.tsx';
 import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewGrade } from './ReviewGrade.tsx';
+import { PullRequestFilters, PullRequestState } from './PullRequestFilters.tsx';
 import { ChatPanel } from './ChatPanel.tsx';
 import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
 import { ChatRunHistory } from './ChatRunHistory.tsx';
@@ -118,6 +118,12 @@ export function App() {
 
 function Worklist() {
   const [reloadToken, setReloadToken] = useState(0);
+  const [pullState, setPullState] = useState(() => {
+    const value = pullRequestStateFilterSchema.safeParse(
+      new URLSearchParams(window.location.search).get('state'),
+    );
+    return value.success ? value.data : 'open';
+  });
   const [user, setUser] = useState<User | null>(null);
   const [selectedTenantId, setSelectedTenantId] = useState(
     () => window.localStorage.getItem(WORKLIST_TENANT_STORAGE_KEY) ?? '',
@@ -125,32 +131,38 @@ function Worklist() {
   const [state, setState] = useState<{
     status: 'loading' | 'ready' | 'error';
     items: WorklistItem[];
-  }>({ status: 'loading', items: [] });
+    counts: { open: number; closed: number; all: number } | null;
+    syncErrors: number;
+    pendingSync: number;
+  }>({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
 
   useEffect(() => {
     const controller = new AbortController();
-    setState((current) => ({ ...current, status: 'loading' }));
+    setState({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
     void loadCurrentUser(controller.signal)
       .then((currentUser) => {
+        if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
         const tenantId = currentUser.tenants.some((tenant) => tenant.id === selectedTenantId)
           ? selectedTenantId
           : (currentUser.tenants[0]?.id ?? '');
         setUser(currentUser);
         if (tenantId !== selectedTenantId) setSelectedTenantId(tenantId);
         if (tenantId) window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
-        return loadWorklist(controller.signal, tenantId || undefined);
+        return loadWorklist(controller.signal, tenantId || undefined, pullState);
       })
       .then(
-        (items) => setState({ status: 'ready', items }),
+        (result) => {
+          if (!controller.signal.aborted) setState({ status: 'ready', ...result });
+        },
         (error: unknown) => {
           if (!controller.signal.aborted) {
             console.error(error);
-            setState({ status: 'error', items: [] });
+            setState({ status: 'error', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
           }
         },
       );
     return () => controller.abort();
-  }, [reloadToken, selectedTenantId]);
+  }, [reloadToken, selectedTenantId, pullState]);
 
   const selectTenant = (tenantId: string) => {
     window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
@@ -163,7 +175,6 @@ function Worklist() {
       <main className="worklist-main">
         <div className="worklist-title-row">
           <div>
-            <p className="eyebrow">Review queue</p>
             <h1>Pull requests</h1>
           </div>
           <button
@@ -173,25 +184,41 @@ function Worklist() {
             disabled={state.status === 'loading'}
           >
             <RefreshCw size={15} />
-            {state.status === 'loading' ? '불러오는 중' : '동기화'}
+            {state.status === 'loading' ? '불러오는 중' : '새로고침'}
           </button>
         </div>
-        <div className="filter-bar" aria-label="Pull request 필터">
-          <button className="filter-button active" type="button">
-            <GitPullRequest size={15} /> 열림 <span>{state.items.length}</span>
-          </button>
-          <button className="filter-button" type="button">
-            <CircleAlert size={15} /> 확인 필요 <span>0</span>
-          </button>
-          <div className="filter-spacer" />
-          <button className="icon-button" type="button" title="필터" aria-label="필터">
-            <ListFilter size={16} />
-          </button>
-        </div>
-        <section className="pr-table" aria-label="Pull request 목록">
+        <p className="worklist-sync-help" id="closed-filter-help">
+          Closed에는 Merged가 포함됩니다. GitHub 상태는 repository polling 주기에 따라 갱신됩니다.
+        </p>
+        {state.syncErrors > 0 ? (
+          <p className="worklist-sync-warning" role="status">
+            {state.syncErrors}개 repository의 동기화에 실패해 마지막 수집 상태를 표시합니다.
+            관리자에게 연결·Polling 설정 확인을 요청하세요.
+          </p>
+        ) : null}
+        {state.pendingSync > 0 ? (
+          <p className="worklist-sync-help" role="status">
+            {state.pendingSync}개 repository는 최초 동기화를 기다리고 있습니다.
+          </p>
+        ) : null}
+        <PullRequestFilters
+          value={pullState}
+          counts={state.counts}
+          onChange={(value) => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('state', value);
+            window.history.replaceState(null, '', url);
+            setPullState(value);
+          }}
+        />
+        <section
+          className="pr-table"
+          aria-label="Pull request 목록"
+          aria-busy={state.status === 'loading'}
+        >
           <div className="pr-table-head">
             <span>Pull request</span>
-            <span>상태</span>
+            <span>PR 상태</span>
             <span>검토 평가</span>
             <span>업데이트</span>
           </div>
@@ -201,7 +228,13 @@ function Worklist() {
               href={
                 pr.latestAnalysisId
                   ? `/reviews/${pr.latestAnalysisId}`
-                  : `/repositories/${pr.repository.id}/pulls/${pr.number}`
+                  : pr.state === 'closed'
+                    ? pr.htmlUrl
+                    : `/repositories/${pr.repository.id}/pulls/${pr.number}`
+              }
+              target={pr.state === 'closed' && !pr.latestAnalysisId ? '_blank' : undefined}
+              rel={
+                pr.state === 'closed' && !pr.latestAnalysisId ? 'noopener noreferrer' : undefined
               }
               key={pr.id}
             >
@@ -209,11 +242,20 @@ function Worklist() {
                 <span className="pr-title">{pr.title}</span>
                 <span className="pr-meta">
                   {pr.repository.owner}/{pr.repository.name} #{pr.number} · {pr.author}
+                  {pr.state === 'closed' && !pr.latestAnalysisId ? (
+                    <>
+                      {' · GitHub에서 보기 '}
+                      <ExternalLink size={11} aria-hidden="true" />
+                    </>
+                  ) : null}
                 </span>
               </span>
               <span className="status-cell">
-                {pr.grade ? <CircleCheck size={14} /> : <Clock3 size={14} />}
-                {pr.draft ? '초안' : pr.grade ? '분석 완료' : formatAnalysisState(pr.analysisState)}
+                <PullRequestState
+                  state={pr.state}
+                  draft={pr.draft}
+                  mergedAt={pr.mergedAt ?? null}
+                />
               </span>
               <span className="risk-cell">
                 {pr.grade ? (
@@ -223,6 +265,8 @@ function Worklist() {
                       P2+ {pr.attentionCount}
                     </span>
                   </>
+                ) : pr.analysisState ? (
+                  formatAnalysisState(pr.analysisState)
                 ) : (
                   '미분석'
                 )}
@@ -231,7 +275,7 @@ function Worklist() {
             </a>
           ))}
           {state.status === 'loading' ? (
-            <div className="table-state">
+            <div className="table-state" role="status">
               <RefreshCw size={16} className="spin" /> PR을 불러오는 중입니다.
             </div>
           ) : null}
@@ -242,7 +286,12 @@ function Worklist() {
           ) : null}
           {state.status === 'ready' && state.items.length === 0 ? (
             <div className="table-state">
-              <GitPullRequest size={16} /> 등록된 open PR이 없습니다.
+              <GitPullRequest size={16} />{' '}
+              {pullState === 'open'
+                ? 'Open PR이 없습니다.'
+                : pullState === 'closed'
+                  ? 'Closed 또는 Merged PR이 없습니다.'
+                  : '수집된 PR이 없습니다.'}
             </div>
           ) : null}
         </section>

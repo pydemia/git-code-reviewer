@@ -48,13 +48,16 @@ worklist는 반복 업무를 위한 compact table/list다.
 | 열 | 내용 |
 |---|---|
 | PR | number, title, author, draft |
+| PR 상태 | GitHub Open / Closed / Merged. Draft는 Open의 보조 표시이며 분석 상태와 혼합하지 않는다. |
 | Repository | owner/name |
 | Change | files/additions/deletions |
 | Analysis | latest state, partial/stale, elapsed time |
 | Findings | grade와 P3/P2/P1 count |
 | Updated | GHES update와 마지막 poll 시각 |
 
-repository, author, review state, priority, draft, updated time filter를 제공한다. 행을 선택하면 최신 immutable analysis route로 이동한다. 분석이 없으면 PR 상세 shell을 먼저 열고 refresh 상태를 표시한다.
+현재 구현은 Tenant 선택과 `Open / Closed / All` 단일 선택 toggle을 제공한다. 기본값은 Open이고 Closed에는 Merged를 포함한다. 건수는 현재 접근 가능한 repository의 상태별 합계이며 선택은 URL query에 유지한다. 로딩 중에는 건수를 `–`로 표시하고 이전 filter의 행을 남기지 않는다. Repository/author/priority/draft/updated time의 세부 filter는 후속 범위다.
+
+행을 선택하면 기존 immutable analysis route로 이동한다. 분석이 없는 Open PR은 상세 shell을 열고 Closed/Merged PR은 GitHub 원문을 새 tab으로 연다. 목록의 `새로고침`은 저장된 관측값을 다시 읽으며 GitHub 상태는 background polling 주기로 갱신된다. 820px 이하에서는 PR 상태를 행의 다음 줄에 유지한다.
 
 ## 3. Workspace topology
 

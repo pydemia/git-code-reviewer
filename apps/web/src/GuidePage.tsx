@@ -554,7 +554,7 @@ export function GuidePage() {
             <div className="guide-flow">
               <div>
                 <strong>1. Worklist</strong>
-                <span>Tenant를 선택하고 분석할 PR을 엽니다.</span>
+                <span>Tenant와 Open / Closed / All 상태를 선택하고 PR을 엽니다.</span>
               </div>
               <ArrowRight size={17} />
               <div>
@@ -571,6 +571,14 @@ export function GuidePage() {
                 </span>
               </div>
             </div>
+            <p>
+              Worklist의 Closed에는 merge 없이 닫힌 PR과 Merged PR이 모두 포함됩니다. 각 행의 PR
+              상태와 검토 평가는 별도 항목이며 Draft는 Open에 포함됩니다. GitHub 상태는 repository의
+              polling 주기에 따라 자동 갱신되고 새로고침은 마지막 수집 결과를 다시 불러옵니다.
+              동기화에 실패하면 마지막 상태와 오류 안내를 표시합니다. 처음 등록한 repository의 과거
+              Closed·Merged PR도 수집하지만 자동 분석하지는 않습니다. 저장된 분석이 없는 Closed PR은
+              GitHub 원문으로 열립니다.
+            </p>
             <p>
               하단 FNB에서 Comments, Memory, Git graph, Impact, Tests를 전환할 수 있습니다.
               Comment를 선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에

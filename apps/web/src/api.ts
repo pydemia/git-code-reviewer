@@ -134,20 +134,59 @@ export async function logout(): Promise<void> {
 export async function loadWorklist(
   signal: AbortSignal,
   tenantId?: string,
-): Promise<WorklistItem[]> {
+  state: import('@gcr/contracts').PullRequestStateFilter = 'open',
+): Promise<{
+  items: WorklistItem[];
+  counts: { open: number; closed: number; all: number };
+  syncErrors: number;
+  pendingSync: number;
+}> {
   const query = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
   const repositories = repositoryListSchema.parse(
     await fetchJson(`/api/v1/repositories${query}`, signal),
   ).items;
-  const pulls = await Promise.all(
+  const results = await Promise.all(
     repositories.map(async (repository) => {
-      const response = pullRequestListSchema.parse(
-        await fetchJson(`/api/v1/repositories/${repository.id}/pulls`, signal),
-      );
-      return response.items.map((pull) => ({ ...pull, repository }));
+      const items = new Map<string, WorklistItem>();
+      let cursor: string | null = null;
+      let counts = { open: 0, closed: 0, all: 0 };
+      do {
+        const query = new URLSearchParams({ state, ...(cursor ? { cursor } : {}) });
+        const response = pullRequestListSchema.parse(
+          await fetchJson(`/api/v1/repositories/${repository.id}/pulls?${query}`, signal),
+        );
+        for (const pull of response.items) items.set(pull.id, { ...pull, repository });
+        if (response.counts) counts = response.counts;
+        if (
+          response.nextCursor &&
+          (!/^\d+$/.test(response.nextCursor) ||
+            Number(response.nextCursor) > 1_000_000 ||
+            Number(response.nextCursor) <= Number(cursor ?? 0))
+        )
+          throw new Error('PR 목록 pagination이 진행되지 않았습니다.');
+        cursor = response.nextCursor;
+      } while (cursor);
+      return { items: [...items.values()], counts };
     }),
   );
-  return [...pulls.flat()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return {
+    items: results
+      .flatMap(({ items }) => items)
+      .sort(
+        (left, right) =>
+          right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id),
+      ),
+    counts: results.reduce(
+      (total, { counts }) => ({
+        open: total.open + counts.open,
+        closed: total.closed + counts.closed,
+        all: total.all + counts.all,
+      }),
+      { open: 0, closed: 0, all: 0 },
+    ),
+    syncErrors: repositories.filter((repository) => repository.pollOutcome === 'failed').length,
+    pendingSync: repositories.filter((repository) => !repository.lastPolledAt).length,
+  };
 }
 
 export async function loadAdminTenants(signal: AbortSignal): Promise<Tenant[]> {
