@@ -21,7 +21,12 @@ import {
   TestTube2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { reviewGrades, reviewStatusLabels, pullRequestStateFilterSchema } from '@gcr/contracts';
+import {
+  reviewGrades,
+  reviewStatusLabels,
+  pullRequestStateFilterSchema,
+  isTerminalChatRun,
+} from '@gcr/contracts';
 import {
   loadAnalysisWorkspace,
   loadChatAccounts,
@@ -349,7 +354,18 @@ function ReviewWorkspace({
   const [chatAccountId, setChatAccountId] = useState('');
   const [chatModelName, setChatModelName] = useState('');
   const [chatEffort, setChatEffort] = useState('');
-  const [chatSelectionRevision, setChatSelectionRevision] = useState(0);
+  const [chatConnectionError, setChatConnectionError] = useState('');
+  const openedChatKey = useRef('');
+  const chatSelectionRef = useRef({
+    accountId: chatAccountId,
+    modelName: chatModelName,
+    reasoningEffort: chatEffort,
+  });
+  chatSelectionRef.current = {
+    accountId: chatAccountId,
+    modelName: chatModelName,
+    reasoningEffort: chatEffort,
+  };
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const draftKey = user && chatSession ? `gcr.chat-draft:${user.id}:${chatSession.id}` : '';
   const [draftState, setDraftState] = useState({ key: '', content: '' });
@@ -622,11 +638,18 @@ function ReviewWorkspace({
         if (controller.signal.aborted) return;
         setChatAccounts(catalog);
         setChatAccountsStatus('ready');
-        const account = catalog.items[0];
-        const model = account?.models[0];
-        setChatAccountId((current) => current || account?.id || '');
-        setChatModelName((current) => current || model?.id || '');
-        setChatEffort((current) => current || model?.defaultEffort || '');
+        const current = chatSelectionRef.current;
+        const account =
+          catalog.items.find((item) => item.id === current.accountId) ?? catalog.items[0];
+        const model =
+          account?.models.find((item) => item.id === current.modelName) ?? account?.models[0];
+        setChatAccountId(account?.id ?? '');
+        setChatModelName(model?.id ?? '');
+        setChatEffort(
+          model?.allowedEfforts.includes(current.reasoningEffort)
+            ? current.reasoningEffort
+            : (model?.defaultEffort ?? ''),
+        );
       },
       (error: unknown) => {
         if (!controller.signal.aborted) {
@@ -640,13 +663,21 @@ function ReviewWorkspace({
 
   useEffect(() => {
     const currentAnalysisId = data?.analysis?.id;
-    if (!currentAnalysisId || !data?.report || !chatAccounts) return;
+    if (!currentAnalysisId || !data?.report || !chatAccounts || !agentChat.configured) return;
+    const sessionKey = agentChat.enabled
+      ? currentAnalysisId
+      : JSON.stringify([currentAnalysisId, chatAccountId, chatModelName, chatEffort]);
+    if (openedChatKey.current === sessionKey) return;
     if (chatAccounts.enabled && (!chatAccountId || !chatModelName || !chatEffort)) {
       setChatSession(null);
       setChatMessages([]);
       return;
     }
     const controller = new AbortController();
+    setChatSession(null);
+    openedChatKey.current = '';
+    setChatMessages([]);
+    setChatConnectionError('');
     void openChatSession(
       currentAnalysisId,
       chatAccounts.enabled
@@ -654,18 +685,21 @@ function ReviewWorkspace({
             accountId: chatAccountId,
             modelName: chatModelName,
             reasoningEffort: chatEffort,
-            newSession: chatSelectionRevision > 0,
           }
         : {},
       controller.signal,
     ).then(
       ({ session, messages }) => {
         if (controller.signal.aborted) return;
+        openedChatKey.current = sessionKey;
         setChatSession(session);
         setChatMessages(messages);
       },
       (error: unknown) => {
-        if (!controller.signal.aborted) console.error(error);
+        if (!controller.signal.aborted)
+          setChatConnectionError(
+            error instanceof Error ? error.message : '대화 연결에 실패했습니다.',
+          );
       },
     );
     return () => controller.abort();
@@ -674,7 +708,8 @@ function ReviewWorkspace({
     chatAccounts,
     chatEffort,
     chatModelName,
-    chatSelectionRevision,
+    agentChat.enabled,
+    agentChat.configured,
     data?.analysis?.id,
     data?.report,
   ]);
@@ -687,19 +722,16 @@ function ReviewWorkspace({
     setChatAccountId(accountId);
     setChatModelName(model?.id ?? '');
     setChatEffort(model?.defaultEffort ?? '');
-    setChatSelectionRevision((value) => value + 1);
   };
 
   const selectChatModel = (modelName: string) => {
     const model = selectedChatAccount?.models.find((item) => item.id === modelName);
     setChatModelName(modelName);
     setChatEffort(model?.defaultEffort ?? '');
-    setChatSelectionRevision((value) => value + 1);
   };
 
   const selectChatEffort = (effort: string) => {
     setChatEffort(effort);
-    setChatSelectionRevision((value) => value + 1);
   };
 
   const handleRefresh = async () => {
@@ -805,16 +837,28 @@ function ReviewWorkspace({
   };
 
   const handleChatSubmit = async () => {
-    if (!chatSession?.model.available || !chatDraft.trim() || chatSending) return;
+    if (
+      !chatSession?.model.available ||
+      chatSession.analysisId !== data?.analysis?.id ||
+      !chatDraft.trim() ||
+      chatSending ||
+      chatAccountsStatus !== 'ready' ||
+      (chatAccounts?.enabled && !selectedChatAccount)
+    )
+      return;
     const content = chatDraft.trim();
     setChatDraft('');
     setChatSending(true);
     try {
       if (agentChat.enabled) {
-        await agentChat.submit(content, {
-          ...(selectedFinding ? { findingId: selectedFinding.id } : {}),
-          ...(selectedFile ? { fileId: selectedFile.id } : {}),
-        });
+        await agentChat.submit(
+          content,
+          {
+            ...(selectedFinding ? { findingId: selectedFinding.id } : {}),
+            ...(selectedFile ? { fileId: selectedFile.id } : {}),
+          },
+          chatSelectionRef.current,
+        );
         return;
       }
       const response = await sendChatMessage(chatSession.id, content, {
@@ -1164,6 +1208,17 @@ function ReviewWorkspace({
           ) : null}
         </section>
         <ChatPanel
+          connectionError={chatConnectionError || (!agentChat.configured ? agentChat.error : '')}
+          selectionLocked={
+            chatSending || Boolean(agentChat.run && !isTerminalChatRun(agentChat.run.status))
+          }
+          onPresetChange={(id) => {
+            const preset = chatAccounts?.analysisPresets?.find((item) => item.id === id);
+            if (!preset) return;
+            setChatAccountId(preset.accountId);
+            setChatModelName(preset.modelName);
+            setChatEffort(preset.reasoningEffort);
+          }}
           activity={
             agentChat.enabled ? (
               <>
@@ -1179,6 +1234,8 @@ function ReviewWorkspace({
                     }}
                     onEvidence={(runId, unitId) => {
                       sourceRequest.current?.abort();
+                      setSourceEvidence(null);
+                      setMainView('code');
                       const controller = new AbortController();
                       sourceRequest.current = controller;
                       setSourceError('');
@@ -1208,6 +1265,8 @@ function ReviewWorkspace({
                   onCancel={agentChat.cancel}
                   onEvidence={(unitId) => {
                     sourceRequest.current?.abort();
+                    setSourceEvidence(null);
+                    setMainView('code');
                     const controller = new AbortController();
                     sourceRequest.current = controller;
                     setSourceError('');

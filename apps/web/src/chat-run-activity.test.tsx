@@ -80,17 +80,18 @@ describe('interactive review states', () => {
         onSelect={() => {}}
       />,
     );
-    expect(history).toContain('이전 분석과 코드 근거');
+    expect(history).toContain('이전 대화와 코드 근거');
+    expect(history).toContain('아직 저장된 대화가 없습니다.');
     expect(history).toContain('<select');
   });
   it.each([
-    ['queued', '분석 대기'],
-    ['running', '분석 중'],
+    ['queued', '답변 생성 대기'],
+    ['running', '답변 생성 중'],
     ['awaiting_input', '응답을 기다리고 있습니다'],
     ['waiting_capacity', '계정 호출 한도 대기'],
-    ['completed', '분석 완료'],
+    ['completed', '답변 완료'],
     ['partial', '부분 완료'],
-    ['failed', '분석 실패'],
+    ['failed', '답변 생성 실패'],
     ['cancelled', '중단됨'],
   ] as const)('renders %s distinctly', (status, label) => {
     expect(render({ ...run, status })).toContain(label);

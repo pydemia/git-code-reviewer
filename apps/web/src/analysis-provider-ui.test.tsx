@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { analysisProviderSettingsSchema } from '@gcr/contracts';
-import { ProviderPanel } from './AdminPage';
+import { ProviderPanel, ChatAccountPanel } from './AdminPage';
 import { analysisEffortDescription } from './analysis-provider-ui';
 import { saveAnalysisProvider } from './api';
 
@@ -107,6 +107,40 @@ describe('analysis model settings', () => {
     expect(analysisEffortDescription('low')).toContain('줄어들 수');
     expect(analysisEffortDescription('high')).toContain('시간이 더');
     expect(analysisEffortDescription('unknown')).toContain('선택하세요');
+  });
+  it('offers deletion only for disabled accounts and inactive provider versions', () => {
+    for (const active of [false, true]) {
+      const account = { ...props.accounts[0]!, enabled: active };
+      const accountHtml = renderToStaticMarkup(
+        <ChatAccountPanel
+          accounts={[account]}
+          tenants={[]}
+          busyKey={null}
+          onCreate={async () => {}}
+          onToggle={async () => {}}
+          onDelete={() => {}}
+        />,
+      );
+      expect(accountHtml.includes(`${account.displayName} 삭제`)).toBe(!active);
+      const data = analysisProviderSettingsSchema.parse({
+        ...settings,
+        items: [
+          {
+            ...effective,
+            id: effective.versionId,
+            active,
+            createdBy: { subject: 'test', displayName: '검증 관리자' },
+            activatedBy: null,
+            activatedAt: null,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      });
+      const providerHtml = renderToStaticMarkup(
+        <ProviderPanel {...props} data={data} onDelete={() => {}} />,
+      );
+      expect(providerHtml.includes('Provider v1 삭제')).toBe(!active);
+    }
   });
   it('saves account/model/effort and parallelism in one version request', async () => {
     const fetcher = vi.fn(async () => Response.json({ id: effective.versionId }));

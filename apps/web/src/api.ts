@@ -305,6 +305,15 @@ export async function activateAnalysisProvider(providerId: string): Promise<void
   await mutateJson(`/api/v1/admin/analysis-provider/versions/${providerId}/activate`, 'POST');
 }
 
+export async function deleteAnalysisProvider(
+  providerId: string,
+  confirmation: string,
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/analysis-provider/versions/${providerId}`, 'DELETE', {
+    confirmation,
+  });
+}
+
 export async function resetAnalysisProvider(): Promise<void> {
   await mutateJson('/api/v1/admin/analysis-provider/reset', 'POST');
 }
@@ -343,6 +352,10 @@ export async function updateChatAccount(
   values: { enabled?: boolean; authJson?: string },
 ): Promise<void> {
   await mutateJson(`/api/v1/admin/chat-accounts/${accountId}`, 'PATCH', values);
+}
+
+export async function deleteChatAccount(accountId: string, confirmation: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/chat-accounts/${accountId}`, 'DELETE', { confirmation });
 }
 
 export async function discoverChatAccountModels(authJson: string) {

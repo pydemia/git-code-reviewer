@@ -4,14 +4,14 @@ import { ReviewMarkdown } from './ReviewMarkdown.tsx';
 import './chat-run.css';
 
 const statusLabels: Record<ChatRunView['status'], string> = {
-  queued: '분석 대기',
-  running: '분석 중',
+  queued: '답변 생성 대기',
+  running: '답변 생성 중',
   awaiting_input: '응답을 기다리고 있습니다',
   waiting_capacity: '계정 호출 한도 대기',
   cancelling: '중단 중',
-  completed: '분석 완료',
+  completed: '답변 완료',
   partial: '부분 완료',
-  failed: '분석 실패',
+  failed: '답변 생성 실패',
   cancelled: '중단됨',
 };
 export function ChatRunActivity({
@@ -62,6 +62,7 @@ export function ChatRunActivity({
         ) : null}
       </div>
       <small>
+        {run.model ? `${run.model.name} · ${run.model.effort} · ` : ''}
         모델 {run.modelCalls}회 · 도구 {run.toolCalls}회 · 근거 {Math.ceil(run.contextBytes / 1024)}{' '}
         KiB
       </small>
@@ -78,7 +79,7 @@ export function ChatRunActivity({
           <ReviewMarkdown text={run.content.replace(/\[source:[a-f0-9]+\]/g, '')} />
         </div>
       ) : null}
-      {readOnly ? <p>저장된 분석 이력입니다. 새 요청과 중단은 현재 대화에서 처리합니다.</p> : null}
+      {readOnly ? <p>저장된 답변입니다. 새 질문은 아래 입력창에서 보낼 수 있습니다.</p> : null}
       {(run.questions ?? [])
         .filter((question) => question.answer !== null || readOnly)
         .map((question) => (

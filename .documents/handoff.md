@@ -5,11 +5,19 @@
 - 최종 갱신: 2026-09-09
 - branch: `feat/browser-review-service`
 - 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
-- 단계: PRISM-DEV application `0.8.0-alpha.27`, chart `0.10.26`, Helm revision 38 배포 완료. 11:09:36 KST 배포. 운영 Provider의 병렬 수 4개 활성화는 관리자 재인증 문제로 남아 있다. 기존 사용자·repo·모델 권한 유지.
+- 단계: PRISM-DEV application `0.8.0-alpha.27`, chart `0.10.26`, Helm revision 38 운영 중. 11:44 KST 확인 시 Provider v8 `gpt-5.6-terra:medium`, 병렬 4개가 활성화되어 선행 작업의 4개 활성화 대기는 해소됐다. 이 설정을 덮어쓰지 않는다.
 - 배포 source: `2bfadea9f7ce8bdc14eefdae2f2864cbcf665ae4` (push 후 git archive build). Release 설정 commit `b1adbaf`, 배포 기록 commit은 git log 참조
 - `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-09 Registry 삭제·Review Chat 수정
+
+현재 요청은 비활성 ChatGPT account·Provider 삭제, Review Chat의 분석 모델 선택, HTTP `crypto.randomUUID` 오류, 이력·코드 근거 메뉴 수정이다. Backend `5039fbf`를 push했다. Account는 credential을 제거하는 tombstone, Provider는 pinned 작업을 위한 immutable 설정을 보존하는 tombstone으로 처리한다. 관리자 상태 검사·확인 이름·감사 기록 rollback, 삭제된 항목 재활성화 방지, 같은 설정 재등록을 구현했다. Migration은 `0031_registry_deletion.sql`이다.
+
+Interactive Chat은 질문별 `selection`을 서버에 전달하고 기존 session을 모델과 무관하게 재사용한다. Provider preset은 사용자에게 허용된 ChatGPT account/model/effort만 노출하며 OpenAI-compatible batch Provider는 포함하지 않는다. HTTP에서도 CSPRNG UUID를 만들고, 이력 메뉴를 밝은 배경의 ‘이전 대화와 코드 근거’로 수정했다. 기존 UI를 유지하면서 빈 목록·오류·loading 상태를 보완했다.
+
+전체 459 tests와 추가 Admin 삭제 UI 테스트, 같은 session 모델 전환 API 테스트가 통과했다. Browser 합성 fixture에서 randomUUID 부재 상태의 질문 2개, Sol/medium → Luna/low 변경, Markdown, 이전 질문·code L12–14 이동과 alert 0개를 확인했다. 실제 외부 모델 호출은 하지 않았다. `apps/web/tests/registry-chat.html`은 Vite 개발 서버에서만 사용하는 합성 검증 페이지이며 production build에는 포함되지 않는다. 실제 account/Provider 삭제·재분석·PR 댓글 게시는 금지한다. [구현·검증 기록](../docs/operations/registry-chat-fixes-2026-09-09.md)을 갱신하면서 commit/push 후 alpha.28 배포를 완료해야 한다.
 
 ### 2026-09-09 분석 모델 선택과 파일 병렬 처리
 

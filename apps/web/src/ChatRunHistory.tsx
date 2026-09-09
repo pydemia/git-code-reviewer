@@ -33,8 +33,12 @@ export function ChatRunHistory({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [expanded, setExpanded] = useState(Boolean(selected));
   const evidenceCallback = useRef(onEvidence);
   evidenceCallback.current = onEvidence;
+  useEffect(() => {
+    setBefore(null);
+  }, [latestRunId]);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -58,7 +62,7 @@ export function ChatRunHistory({
         setError('');
       })
       .catch(() => {
-        if (!controller.signal.aborted) setError('분석 이력을 불러오지 못했습니다.');
+        if (!controller.signal.aborted) setError('대화 이력을 불러오지 못했습니다.');
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -91,12 +95,23 @@ export function ChatRunHistory({
     return () => controller.abort();
   }, [selected, sessionId, key, retry]);
   return (
-    <details className="chat-run-history" open={selected ? true : undefined}>
-      <summary>이전 분석과 코드 근거</summary>
+    <details
+      className="chat-run-history"
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary>이전 대화와 코드 근거</summary>
+      <p className="chat-history-help">
+        이 revision에서 나눈 이전 질문과 답변의 코드 근거를 확인합니다.
+      </p>
+      {!loading && items.length === 0 && !error && !selected ? (
+        <p>아직 저장된 대화가 없습니다. 아래 입력창에서 질문해 주세요.</p>
+      ) : null}
       <label>
-        분석 선택
+        이전 질문
         <select
           value={selected}
+          disabled={loading || (items.length === 0 && !selected)}
           onChange={(event) => {
             const next = event.target.value;
             onSelect();
@@ -111,7 +126,7 @@ export function ChatRunHistory({
         >
           <option value="">이전 질문을 선택해 주세요</option>
           {selected && !items.some((item) => item.id === selected) ? (
-            <option value={selected}>저장한 분석</option>
+            <option value={selected}>저장된 답변</option>
           ) : null}
           {items.map((item) => (
             <option key={item.id} value={item.id}>
@@ -134,6 +149,7 @@ export function ChatRunHistory({
           </button>
         </p>
       ) : null}
+      {selected && !run && !error ? <p role="status">답변을 불러오는 중입니다.</p> : null}
       {run ? (
         <ChatRunActivity
           key={run.id}

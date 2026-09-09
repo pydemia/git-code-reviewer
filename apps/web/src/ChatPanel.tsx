@@ -33,9 +33,15 @@ export function ChatPanel({
   onSend,
   onCitationSelect,
   activity,
+  connectionError = '',
+  selectionLocked = false,
+  onPresetChange,
 }: {
   revision: number | null | undefined;
   activity?: ReactNode;
+  connectionError?: string;
+  selectionLocked?: boolean;
+  onPresetChange?: (id: string) => void;
   headSha: string | undefined;
   selectedFinding: FindingView | undefined;
   selectedFile: string | undefined;
@@ -62,6 +68,18 @@ export function ChatPanel({
 }) {
   const account = accountCatalog?.items.find((item) => item.id === accountId);
   const selectedModel = account?.models.find((item) => item.id === modelName);
+  const canSend = Boolean(
+    model?.available &&
+    accountStatus === 'ready' &&
+    (!accountCatalog?.enabled || selectedModel?.allowedEfforts.includes(reasoningEffort)),
+  );
+  const presets = accountCatalog?.analysisPresets ?? [];
+  const preset = presets.find(
+    (item) =>
+      item.accountId === accountId &&
+      item.modelName === modelName &&
+      item.reasoningEffort === reasoningEffort,
+  );
   return (
     <aside
       className={`chat-panel${accountCatalog?.enabled ? ' registry-enabled' : ''}`}
@@ -97,7 +115,16 @@ export function ChatPanel({
               : '분석 결과가 준비되면 질문할 수 있습니다.'}
           </div>
         ) : null}
+        {connectionError ? (
+          <div className="chat-unavailable" role="alert">
+            <strong>{connectionError}</strong>
+            <button type="button" onClick={onRetryAccounts}>
+              다시 연결
+            </button>
+          </div>
+        ) : null}
         {accountStatus === 'ready' &&
+        !connectionError &&
         reportReady &&
         !model &&
         !(accountCatalog?.enabled && accountCatalog.items.length === 0) ? (
@@ -122,46 +149,44 @@ export function ChatPanel({
         {model?.available && messages.length === 0 && !activity ? (
           <div className="chat-message-empty">아직 대화가 없습니다.</div>
         ) : null}
-        {model?.available
-          ? messages.map((message) => (
-              <article className={`chat-message ${message.role}`} key={message.id}>
-                <div className="message-author">
-                  {message.role === 'assistant' ? <Sparkles size={12} /> : null}
-                  <strong>{message.role === 'assistant' ? 'Review assistant' : 'You'}</strong>
-                  {message.status !== 'completed' ? <small>{message.status}</small> : null}
-                </div>
-                <div className="chat-message-content">
-                  {message.role === 'assistant' ? (
-                    <ReviewMarkdown text={message.content} />
-                  ) : (
-                    message.content
-                  )}
-                </div>
-                {message.citations.length > 0 ? (
-                  <div className="chat-citations" aria-label="답변 근거">
-                    <span className="chat-citations-label">관련 코드</span>
-                    {message.citations.map((citation, index) => {
-                      const target = resolveChatCitation(citation, files, findings);
-                      return (
-                        <button
-                          type="button"
-                          key={`${citation.evidenceId}:${index}`}
-                          disabled={!target}
-                          title={
-                            target?.label ?? '현재 revision에서 이 근거 위치를 확인할 수 없습니다.'
-                          }
-                          onClick={() => target && onCitationSelect(citation)}
-                        >
-                          <Link2 size={12} aria-hidden="true" />
-                          <span>{target?.label ?? `${citation.label} · 위치 확인 불가`}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </article>
-            ))
-          : null}
+        {messages.map((message) => (
+          <article className={`chat-message ${message.role}`} key={message.id}>
+            <div className="message-author">
+              {message.role === 'assistant' ? <Sparkles size={12} /> : null}
+              <strong>{message.role === 'assistant' ? 'Review assistant' : 'You'}</strong>
+              {message.status !== 'completed' ? <small>{message.status}</small> : null}
+            </div>
+            <div className="chat-message-content">
+              {message.role === 'assistant' ? (
+                <ReviewMarkdown text={message.content} />
+              ) : (
+                message.content
+              )}
+            </div>
+            {message.citations.length > 0 ? (
+              <div className="chat-citations" aria-label="답변 근거">
+                <span className="chat-citations-label">관련 코드</span>
+                {message.citations.map((citation, index) => {
+                  const target = resolveChatCitation(citation, files, findings);
+                  return (
+                    <button
+                      type="button"
+                      key={`${citation.evidenceId}:${index}`}
+                      disabled={!target}
+                      title={
+                        target?.label ?? '현재 revision에서 이 근거 위치를 확인할 수 없습니다.'
+                      }
+                      onClick={() => target && onCitationSelect(citation)}
+                    >
+                      <Link2 size={12} aria-hidden="true" />
+                      <span>{target?.label ?? `${citation.label} · 위치 확인 불가`}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </article>
+        ))}
         {activity}
         {model?.available && sending && !activity ? (
           <div className="chat-pending">
@@ -189,7 +214,7 @@ export function ChatPanel({
           }
           aria-label="질문"
           aria-keyshortcuts="Enter"
-          disabled={!model?.available}
+          disabled={!canSend}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -204,7 +229,7 @@ export function ChatPanel({
             type="submit"
             title="질문 보내기"
             aria-label="질문 보내기"
-            disabled={!model?.available || !draft.trim() || sending}
+            disabled={!canSend || !draft.trim() || sending}
           >
             <Send size={14} />
           </button>
@@ -212,9 +237,33 @@ export function ChatPanel({
       </form>
       {accountCatalog?.enabled ? (
         <div className="chat-model-selectors" aria-label="Chat model 설정">
+          {presets.length && onPresetChange ? (
+            <label className="chat-analysis-preset">
+              <span>분석 Provider 설정 불러오기</span>
+              <select
+                aria-label="분석 Provider 설정 불러오기"
+                value={preset?.id ?? ''}
+                disabled={selectionLocked || accountStatus !== 'ready'}
+                onChange={(event) => onPresetChange(event.target.value)}
+              >
+                <option value="">Account · Model · Effort 직접 선택</option>
+                {presets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    v{item.version}
+                    {item.active ? ' · 분석에 사용 중' : ''} · {item.modelName} ·{' '}
+                    {item.reasoningEffort}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label>
             <span>Account</span>
-            <select value={accountId} onChange={(event) => onAccountChange(event.target.value)}>
+            <select
+              value={accountId}
+              disabled={selectionLocked || accountStatus !== 'ready'}
+              onChange={(event) => onAccountChange(event.target.value)}
+            >
               {accountCatalog.items.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.displayName}
@@ -224,7 +273,11 @@ export function ChatPanel({
           </label>
           <label>
             <span>Model</span>
-            <select value={modelName} onChange={(event) => onModelChange(event.target.value)}>
+            <select
+              value={modelName}
+              disabled={selectionLocked || accountStatus !== 'ready'}
+              onChange={(event) => onModelChange(event.target.value)}
+            >
               {(account?.models ?? []).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.displayName}
@@ -236,6 +289,7 @@ export function ChatPanel({
             <span>Effort</span>
             <select
               value={reasoningEffort}
+              disabled={selectionLocked || accountStatus !== 'ready'}
               onChange={(event) => onEffortChange(event.target.value)}
             >
               {(selectedModel?.allowedEfforts ?? []).map((effort) => (
@@ -245,6 +299,11 @@ export function ChatPanel({
               ))}
             </select>
           </label>
+          <p className="chat-model-help">
+            {selectionLocked
+              ? '답변 생성이 끝나면 모델을 변경할 수 있습니다.'
+              : '다음 질문에 적용됩니다. 분석 설정과 이전 답변은 바뀌지 않습니다.'}
+          </p>
         </div>
       ) : null}
     </aside>

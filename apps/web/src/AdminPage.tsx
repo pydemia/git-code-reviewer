@@ -40,6 +40,8 @@ import {
   createGitHubConnection,
   deleteAdminRepository,
   deleteAdminUser,
+  deleteAnalysisProvider,
+  deleteChatAccount,
   registerGitHubRepository,
   loadAdminChatAccounts,
   loadAdminRepositories,
@@ -657,6 +659,22 @@ export function AdminPage() {
                   '선택한 Provider 버전을 활성화했습니다.',
                 )
               }
+              onDelete={(providerId) => {
+                const provider = providerData?.items.find((item) => item.id === providerId);
+                if (
+                  !provider ||
+                  provider.active ||
+                  !window.confirm(
+                    `Provider v${provider.version}을 삭제할까요? 목록에서는 제거되며, 기존 분석과 이미 대기 중인 작업의 설정은 보존됩니다.`,
+                  )
+                )
+                  return;
+                void runMutation(
+                  `provider:delete:${providerId}`,
+                  () => deleteAnalysisProvider(providerId, `v${provider.version}`),
+                  '비활성 Provider를 삭제했습니다.',
+                );
+              }}
               onReset={() => {
                 if (!window.confirm('배포 환경의 Provider 설정으로 되돌릴까요?')) return;
                 void runMutation(
@@ -720,6 +738,20 @@ export function AdminPage() {
                   `ChatGPT account를 ${enabled ? '활성화' : '비활성화'}했습니다.`,
                 )
               }
+              onDelete={(account) => {
+                if (
+                  account.enabled ||
+                  !window.confirm(
+                    `${account.displayName} account를 삭제할까요? 저장된 credential은 삭제되며 복구할 수 없습니다. 기존 분석과 대화 기록은 보존됩니다.`,
+                  )
+                )
+                  return;
+                void runMutation(
+                  `chat-account:delete:${account.id}`,
+                  () => deleteChatAccount(account.id, account.displayName),
+                  '비활성 ChatGPT account와 저장된 credential을 삭제했습니다.',
+                );
+              }}
             />
           ) : null}
 
@@ -1577,6 +1609,7 @@ export function ProviderPanel({
   onSave,
   onActivate,
   onReset,
+  onDelete,
 }: {
   accounts: AdminChatAccount[];
   data: AnalysisProviderSettings | null;
@@ -1587,6 +1620,7 @@ export function ProviderPanel({
   onSave: () => void;
   onActivate: (providerId: string) => void;
   onReset: () => void;
+  onDelete?: (providerId: string) => void;
 }) {
   const editable = data?.editable ?? false;
   const availableAccounts = accounts.filter(
@@ -1950,6 +1984,17 @@ export function ProviderPanel({
                   <Check size={14} /> 활성화
                 </button>
               ) : null}
+              {!provider.active && onDelete ? (
+                <button
+                  className="command-button danger"
+                  type="button"
+                  disabled={!editable || busyKey !== null}
+                  aria-label={`Provider v${provider.version} 삭제`}
+                  onClick={() => onDelete(provider.id)}
+                >
+                  <Trash2 size={14} /> 삭제
+                </button>
+              ) : null}
             </div>
           </article>
         ))}
@@ -1961,12 +2006,13 @@ export function ProviderPanel({
   );
 }
 
-function ChatAccountPanel({
+export function ChatAccountPanel({
   accounts,
   tenants,
   busyKey,
   onCreate,
   onToggle,
+  onDelete,
 }: {
   accounts: AdminChatAccount[];
   tenants: Tenant[];
@@ -1984,6 +2030,7 @@ function ChatAccountPanel({
     assignments: Array<{ scopeType: string; scopeId: string }>;
   }) => Promise<unknown>;
   onToggle: (accountId: string, enabled: boolean) => Promise<unknown>;
+  onDelete?: (account: AdminChatAccount) => void;
 }) {
   const [displayName, setDisplayName] = useState('');
   const [authJson, setAuthJson] = useState('');
@@ -2208,6 +2255,17 @@ function ChatAccountPanel({
               >
                 {account.enabled ? '비활성화' : '활성화'}
               </button>
+              {!account.enabled && onDelete ? (
+                <button
+                  className="command-button danger"
+                  type="button"
+                  disabled={busyKey !== null}
+                  aria-label={`${account.displayName} 삭제`}
+                  onClick={() => onDelete(account)}
+                >
+                  <Trash2 size={14} /> 삭제
+                </button>
+              ) : null}
             </div>
           </article>
         ))}

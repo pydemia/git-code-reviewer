@@ -54,6 +54,53 @@ const props: ComponentProps<typeof ChatPanel> = {
   onCitationSelect() {},
 };
 
+it('offers permission-filtered analysis presets and locks settings during generation', () => {
+  const html = renderToStaticMarkup(
+    <ChatPanel
+      {...props}
+      selectionLocked
+      onPresetChange={() => {}}
+      accountCatalog={{
+        ...props.accountCatalog!,
+        analysisPresets: [
+          {
+            id: 'preset',
+            version: 2,
+            active: true,
+            accountId: 'account',
+            modelName: 'test-model',
+            reasoningEffort: 'high',
+          },
+        ],
+      }}
+    />,
+  );
+  expect(html).toContain('분석 Provider 설정 불러오기');
+  expect(html).toContain('v2 · 분석에 사용 중');
+  expect(html.match(/<select[^>]*disabled/g)).toHaveLength(4);
+  expect(html).toContain('답변 생성이 끝나면 모델을 변경');
+});
+it('shows readable prior messages even when no account is currently available', () => {
+  const html = renderToStaticMarkup(
+    <ChatPanel
+      {...props}
+      model={{ ...props.model!, available: false }}
+      messages={[
+        {
+          id: 'past',
+          role: 'assistant',
+          status: 'completed',
+          content: '**이전 답변**',
+          citations: [],
+          memoryHash: null,
+          createdAt: '',
+          completedAt: null,
+        },
+      ]}
+    />,
+  );
+  expect(html).toContain('<strong>이전 답변</strong>');
+});
 it('places account/model/effort after the taller composer in DOM and keyboard order', () => {
   const html = renderToStaticMarkup(<ChatPanel {...props} />);
   expect(html).toContain('rows="5"');

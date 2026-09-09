@@ -392,6 +392,13 @@ export function GuidePage() {
           <section className="guide-section" id="analysis-provider">
             <h2>등록된 ChatGPT account로 자동 분석하기</h2>
             <p>
+              비활성 ChatGPT account와 비활성 Provider 버전에는 삭제 버튼이 표시됩니다. Account를
+              삭제하면 저장된 credential과 사용 권한을 제거하며 복구할 수 없습니다. 기존 분석과 대화
+              기록은 남습니다. 활성 Provider나 대기·진행 중인 분석·대화가 참조하는 account는 사용을
+              정리한 뒤 삭제하세요. Provider 삭제는 선택 목록에서 버전을 제거하는 동작이며, 이미
+              대기 중인 분석을 위해 그 버전의 실행 설정과 암호화된 credential은 보존합니다.
+            </p>
+            <p>
               시스템 관리자는 Administration → ChatGPT accounts에서 account와 사용할 model ID, 허용
               effort를 등록하고 분석 대상 repository의 tenant 또는 all 권한을 부여합니다. user·group
               전용 권한은 대화에만 사용하며 자동 분석에는 사용할 수 없습니다.
@@ -617,11 +624,25 @@ export function GuidePage() {
               표시됩니다. Enter로 전송하고 Shift+Enter로 줄을 바꿉니다.
             </p>
             <p>
+              ‘분석 Provider 설정 불러오기’에서 등록된 ChatGPT 분석 모델을 선택하거나,
+              Account·Model·Effort를 직접 바꿀 수 있습니다. 사용자에게 허용된 account와 model만
+              표시되며 선택값은 다음 질문부터 적용됩니다. Interactive Chat은 모델을 바꿔도 같은
+              revision의 대화를 유지합니다. 답변 생성 중에는 모델 변경이 잠기며 기존 실행에는 영향을
+              주지 않습니다. OpenAI-compatible batch Provider는 현재 이 선택 목록에 포함되지
+              않습니다.
+            </p>
+            <p>
+              ‘이전 대화와 코드 근거’는 PR 분석 revision 선택 메뉴가 아닙니다. 현재 revision에서
+              나눈 이전 질문을 고르면 저장된 답변과 파일·라인 범위별 코드 근거를 확인할 수 있습니다.
+              저장된 질문이 없으면 입력창에서 먼저 질문하세요.
+            </p>
+            <p>
               Review assistant 답변은 Markdown 제목·목록·강조·코드·표로 표시됩니다. 질문 원문은
               그대로 보존하며 HTML이나 외부 이미지는 실행·로드하지 않습니다. ‘전체 PR을 merge할 때
               문제는?’처럼 넓게 질문하면 현재 선택한 finding 외에 다른 파일의 검토 내용도 함께
-              참고합니다. 새 코드 분석을 실행하는 기능은 아니므로 기존 report의 검토 범위와 제한은
-              그대로 적용됩니다.
+              참고합니다. Interactive Chat이 활성화되어 있으면 고정된 snapshot의 기존 코드와
+              테스트도 도구로 조회합니다. 기존 batch report를 수정하거나 테스트를 실행하지는
+              않습니다.
             </p>
             <p>
               답변 아래 <strong>관련 코드</strong>에는 사용된 근거를 최대 24개 표시합니다. 각 링크는{' '}
