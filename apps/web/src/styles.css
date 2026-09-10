@@ -23,6 +23,7 @@
   --danger: #b42318;
   --warning: #b54708;
   --code: #161a20;
+  --app-header-height: 44px;
 }
 
 * {
@@ -41,6 +42,13 @@ body,
 body {
   min-height: 100dvh;
   overflow: hidden;
+}
+
+html,
+.admin-page,
+.guide-page,
+.profile-page {
+  scroll-padding-top: var(--app-header-height);
 }
 
 button,
@@ -65,8 +73,15 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+.app-header-container {
+  height: var(--app-header-height);
+}
+
 .app-header {
-  height: 44px;
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  height: var(--app-header-height);
   color: #f7f9fb;
   background: #1f252c;
   border-bottom: 1px solid #11151a;
@@ -544,7 +559,7 @@ h1 {
 .review-page {
   height: 100dvh;
   display: grid;
-  grid-template-rows: 44px 42px minmax(0, 1fr);
+  grid-template-rows: var(--app-header-height) 42px minmax(0, 1fr);
 }
 
 .review-context {
@@ -2752,15 +2767,15 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .guide-shell {
-  min-height: calc(100dvh - 44px);
+  min-height: calc(100dvh - var(--app-header-height));
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
 }
 
 .guide-nav {
   position: sticky;
-  top: 0;
-  height: calc(100dvh - 44px);
+  top: var(--app-header-height);
+  height: calc(100dvh - var(--app-header-height));
   overflow-y: auto;
   display: grid;
   align-content: start;
@@ -3156,7 +3171,7 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .admin-shell {
-  min-height: calc(100dvh - 44px);
+  min-height: calc(100dvh - var(--app-header-height));
   display: grid;
   grid-template-columns: 210px minmax(0, 1fr);
 }
@@ -4975,7 +4990,7 @@ body.workspace-resizing:has(.resize-bottom) {
   .review-page {
     min-height: 100dvh;
     height: auto;
-    grid-template-rows: 44px auto auto;
+    grid-template-rows: var(--app-header-height) auto auto;
   }
 
   .review-context {
