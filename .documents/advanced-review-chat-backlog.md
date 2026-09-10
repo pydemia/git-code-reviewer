@@ -1,10 +1,16 @@
 # 고급 Review Chat context backlog
 
+## 후속 설계 (2026-09-08)
+
+이 초안은 [로컬 Git 기반 Interactive Review Chat 설계](interactive-review-chat-design.md)와 [구현 계획](interactive-review-chat-implementation-plan.md)으로 확장했다. 현재 구현·배포된 기능을 뜻하지 않는다.
+
+새 계획에서는 Worker에 실제 Git 저장소와 revision별 파일 트리를 만들고, AI가 로컬 파일/Git 도구를 반복 호출하며 사용자의 추가 답변을 받아 분석을 재개한다. 자동 분석도 같은 source provider를 사용한다. 아래의 일회성 context pack 준비·즉시 workspace 삭제 제안은 lease/TTL 기반 재사용·checkpoint 복구로 대체하며, 모델에 실제 전달한 근거만 인용한다는 원칙과 조회 예산·읽기 전용 경계는 유지한다. 이후 구현은 새 문서를 기준으로 한다. 아래 상세는 이전 초안으로 보존한다.
+
 ## 현재 상태
 
-자동 분석은 immutable snapshot의 canonical diff를 `unit-comment-block`, 파일별 `overall-summary`, 전체 `total-summary`로 처리한다. Review Chat은 이 report를 설명하는 용도로 구현되어 있으며 모델 입력은 전체 요약, grade, finding 한 건과 impact 요약으로 제한된다. 선택한 file이나 symbol이 scope에 있어도 해당 코드, base 구현, 관계, test 본문을 조회하지 않는다.
+자동 분석은 immutable snapshot의 canonical diff를 `unit-comment-block`, 파일별 `overall-summary`, 전체 `total-summary`로 처리한다. Review Chat은 report의 전체·파일 요약, 여러 findings, 선택 범위, history와 memory를 입력한다. 선택한 file이나 symbol이 scope에 있어도 해당 코드, base 구현, 관계, test 본문을 추가 조회하지 않는다.
 
-Snapshot Worker는 materialization 중 repository를 임시 작업공간에 초기화하고 exact `baseSha`와 `headSha`를 fetch한다. merge-base와 head 사이의 diff와 commit 목록을 artifact로 저장한 뒤 작업공간을 삭제한다. 따라서 자동 분석 시점에는 base commit을 읽을 수 있지만 Chat 시점에는 diff 밖의 기존 구현을 다시 조회할 수 없다.
+Snapshot Worker는 materialization 중 repository를 임시 작업공간에 초기화하고 exact `baseSha`와 `headSha`를 fetch한다. merge-base와 head 사이의 diff와 commit 목록을 artifact로 저장한 뒤 작업공간을 삭제한다. 소스 파일 트리를 checkout하지 않으며 후속 자동 분석과 Chat은 이 Git 작업공간을 직접 조회하지 않는다.
 
 ## 목표
 

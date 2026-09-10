@@ -1,7 +1,7 @@
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.10'
-  digest: 'sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc'
+  tag: '0.8.0-alpha.31'
+  digest: 'sha256:c190547fe932f7b8d8219986260bb7feb6bc76f32889478a61955511f52c4f3d'
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 publicBaseUrl: https://git-code-reviewer.example.internal
@@ -23,6 +23,18 @@ server:
   resources:
     requests: { cpu: 100m, memory: 192Mi }
     limits: { cpu: '1', memory: 1Gi }
+
+chatAgent:
+  enabled: false
+  allowedUserIds: []
+  maxModelCalls: 8
+  modelTimeoutMs: 180000
+  maxToolCalls: 24
+  contextBytes: 131072
+  workspaceMaxBytes: 2147483648
+  sandboxStorage: 10Gi
+modelAdmission:
+  enabled: false
 
 worker:
   replicas: 2

@@ -1,6 +1,6 @@
 import {
   Activity,
-  Bot,
+  Brain,
   Braces,
   ChevronDown,
   ChevronRight,
@@ -11,25 +11,28 @@ import {
   FileCode2,
   Files,
   GitBranch,
-  GitCommitHorizontal,
   GitPullRequest,
-  Link2,
-  ListFilter,
   Maximize2,
   Network,
-  PanelBottom,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   RefreshCw,
-  Send,
-  Sparkles,
   TestTube2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { reviewStatusLabels } from '@gcr/contracts';
+import {
+  reviewGrades,
+  reviewStatusLabels,
+  pullRequestStateFilterSchema,
+  isTerminalChatRun,
+} from '@gcr/contracts';
 import {
   loadAnalysisWorkspace,
   loadChatAccounts,
   loadWorklist,
   loadWorkspace,
+  loadAnalysisStatus,
   openChatSession,
   refreshPull,
   sendChatMessage,
@@ -45,26 +48,38 @@ import {
 import { AdminPage } from './AdminPage.tsx';
 import { AppHeader } from './AppHeader.tsx';
 import { GuidePage } from './GuidePage.tsx';
+import { ProductDocumentPage } from './ProductDocumentPage.tsx';
 import { LoginPage } from './LoginPage.tsx';
 import { ProfilePage } from './ProfilePage.tsx';
 import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
+import { ReviewGrade } from './ReviewGrade.tsx';
+import { PullRequestFilters, PullRequestState } from './PullRequestFilters.tsx';
+import { ChatPanel } from './ChatPanel.tsx';
+import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
+import { ChatRunHistory } from './ChatRunHistory.tsx';
+import { useInteractiveChat } from './use-interactive-chat.ts';
+import { sourceEvidenceSchema, type SourceEvidence } from '@gcr/contracts';
+import { resolveChatCitation } from './chat-citations.ts';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
+import { analysisIsPending, analysisProgressLabel } from './analysis-progress.ts';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
+import { ReviewMemoryPanel } from './ReviewMemoryPanel.tsx';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   WORKSPACE_LAYOUT_LIMITS,
   constrainWorkspaceLayout,
   parseWorkspaceLayout,
+  migrateWorkspaceLayout,
   resizeWorkspaceLayout,
   type WorkspaceLayout,
   type WorkspaceResizeHandle,
 } from './workspace-layout.ts';
 
 type ReviewMode = 'files' | 'outline' | 'impact';
-type MainView = 'code' | 'summary' | 'comments';
-type BottomTool = 'evidence' | 'graph' | 'impact' | 'tests';
+type MainView = 'code' | 'summary';
+type BottomTool = 'comments' | 'graph' | 'impact' | 'tests' | 'memory';
 type FindingView = NonNullable<WorkspaceData['report']>['findings'][number];
 type ResizeOperation = {
   handle: WorkspaceResizeHandle;
@@ -74,16 +89,26 @@ type ResizeOperation = {
   layout: WorkspaceLayout;
 };
 
-const WORKSPACE_LAYOUT_STORAGE_KEY = 'git-code-reviewer.workspace-layout.v1';
+const WORKSPACE_LAYOUT_STORAGE_KEY = 'git-code-reviewer.workspace-layout.v2';
 const WORKLIST_TENANT_STORAGE_KEY = 'git-code-reviewer.worklist-tenant.v1';
 const RESPONSIVE_LAYOUT_BREAKPOINT = 820;
 
 function isBottomTool(value: string | null): value is BottomTool {
-  return value === 'evidence' || value === 'graph' || value === 'impact' || value === 'tests';
+  return (
+    value === 'comments' ||
+    value === 'graph' ||
+    value === 'impact' ||
+    value === 'tests' ||
+    value === 'memory'
+  );
 }
 
 export function App() {
   if (window.location.pathname === '/login') return <LoginPage />;
+  if (window.location.pathname === '/introduction')
+    return <ProductDocumentPage documentId="introduction" />;
+  if (window.location.pathname === '/features')
+    return <ProductDocumentPage documentId="features" />;
   if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/profile') return <ProfilePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;
@@ -98,6 +123,12 @@ export function App() {
 
 function Worklist() {
   const [reloadToken, setReloadToken] = useState(0);
+  const [pullState, setPullState] = useState(() => {
+    const value = pullRequestStateFilterSchema.safeParse(
+      new URLSearchParams(window.location.search).get('state'),
+    );
+    return value.success ? value.data : 'open';
+  });
   const [user, setUser] = useState<User | null>(null);
   const [selectedTenantId, setSelectedTenantId] = useState(
     () => window.localStorage.getItem(WORKLIST_TENANT_STORAGE_KEY) ?? '',
@@ -105,32 +136,38 @@ function Worklist() {
   const [state, setState] = useState<{
     status: 'loading' | 'ready' | 'error';
     items: WorklistItem[];
-  }>({ status: 'loading', items: [] });
+    counts: { open: number; closed: number; all: number } | null;
+    syncErrors: number;
+    pendingSync: number;
+  }>({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
 
   useEffect(() => {
     const controller = new AbortController();
-    setState((current) => ({ ...current, status: 'loading' }));
+    setState({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
     void loadCurrentUser(controller.signal)
       .then((currentUser) => {
+        if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
         const tenantId = currentUser.tenants.some((tenant) => tenant.id === selectedTenantId)
           ? selectedTenantId
           : (currentUser.tenants[0]?.id ?? '');
         setUser(currentUser);
         if (tenantId !== selectedTenantId) setSelectedTenantId(tenantId);
         if (tenantId) window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
-        return loadWorklist(controller.signal, tenantId || undefined);
+        return loadWorklist(controller.signal, tenantId || undefined, pullState);
       })
       .then(
-        (items) => setState({ status: 'ready', items }),
+        (result) => {
+          if (!controller.signal.aborted) setState({ status: 'ready', ...result });
+        },
         (error: unknown) => {
           if (!controller.signal.aborted) {
             console.error(error);
-            setState({ status: 'error', items: [] });
+            setState({ status: 'error', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
           }
         },
       );
     return () => controller.abort();
-  }, [reloadToken, selectedTenantId]);
+  }, [reloadToken, selectedTenantId, pullState]);
 
   const selectTenant = (tenantId: string) => {
     window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
@@ -143,7 +180,6 @@ function Worklist() {
       <main className="worklist-main">
         <div className="worklist-title-row">
           <div>
-            <p className="eyebrow">Review queue</p>
             <h1>Pull requests</h1>
           </div>
           <button
@@ -153,26 +189,42 @@ function Worklist() {
             disabled={state.status === 'loading'}
           >
             <RefreshCw size={15} />
-            {state.status === 'loading' ? '불러오는 중' : '동기화'}
+            {state.status === 'loading' ? '불러오는 중' : '새로고침'}
           </button>
         </div>
-        <div className="filter-bar" aria-label="Pull request 필터">
-          <button className="filter-button active" type="button">
-            <GitPullRequest size={15} /> 열림 <span>{state.items.length}</span>
-          </button>
-          <button className="filter-button" type="button">
-            <CircleAlert size={15} /> 확인 필요 <span>0</span>
-          </button>
-          <div className="filter-spacer" />
-          <button className="icon-button" type="button" title="필터" aria-label="필터">
-            <ListFilter size={16} />
-          </button>
-        </div>
-        <section className="pr-table" aria-label="Pull request 목록">
+        <p className="worklist-sync-help" id="closed-filter-help">
+          Closed에는 Merged가 포함됩니다. GitHub 상태는 repository polling 주기에 따라 갱신됩니다.
+        </p>
+        {state.syncErrors > 0 ? (
+          <p className="worklist-sync-warning" role="status">
+            {state.syncErrors}개 repository의 동기화에 실패해 마지막 수집 상태를 표시합니다.
+            관리자에게 연결·Polling 설정 확인을 요청하세요.
+          </p>
+        ) : null}
+        {state.pendingSync > 0 ? (
+          <p className="worklist-sync-help" role="status">
+            {state.pendingSync}개 repository는 최초 동기화를 기다리고 있습니다.
+          </p>
+        ) : null}
+        <PullRequestFilters
+          value={pullState}
+          counts={state.counts}
+          onChange={(value) => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('state', value);
+            window.history.replaceState(null, '', url);
+            setPullState(value);
+          }}
+        />
+        <section
+          className="pr-table"
+          aria-label="Pull request 목록"
+          aria-busy={state.status === 'loading'}
+        >
           <div className="pr-table-head">
             <span>Pull request</span>
-            <span>상태</span>
-            <span>위험</span>
+            <span>PR 상태</span>
+            <span>검토 평가</span>
             <span>업데이트</span>
           </div>
           {state.items.map((pr) => (
@@ -181,7 +233,13 @@ function Worklist() {
               href={
                 pr.latestAnalysisId
                   ? `/reviews/${pr.latestAnalysisId}`
-                  : `/repositories/${pr.repository.id}/pulls/${pr.number}`
+                  : pr.state === 'closed'
+                    ? pr.htmlUrl
+                    : `/repositories/${pr.repository.id}/pulls/${pr.number}`
+              }
+              target={pr.state === 'closed' && !pr.latestAnalysisId ? '_blank' : undefined}
+              rel={
+                pr.state === 'closed' && !pr.latestAnalysisId ? 'noopener noreferrer' : undefined
               }
               key={pr.id}
             >
@@ -189,20 +247,40 @@ function Worklist() {
                 <span className="pr-title">{pr.title}</span>
                 <span className="pr-meta">
                   {pr.repository.owner}/{pr.repository.name} #{pr.number} · {pr.author}
+                  {pr.state === 'closed' && !pr.latestAnalysisId ? (
+                    <>
+                      {' · GitHub에서 보기 '}
+                      <ExternalLink size={11} aria-hidden="true" />
+                    </>
+                  ) : null}
                 </span>
               </span>
               <span className="status-cell">
-                {pr.grade ? <CircleCheck size={14} /> : <Clock3 size={14} />}
-                {pr.draft ? '초안' : pr.grade ? '분석 완료' : formatAnalysisState(pr.analysisState)}
+                <PullRequestState
+                  state={pr.state}
+                  draft={pr.draft}
+                  mergedAt={pr.mergedAt ?? null}
+                />
               </span>
-              <span className={`risk-cell ${pr.grade ?? 'unreviewed'}`}>
-                {pr.grade ? `${pr.grade} · P2+ ${pr.attentionCount}` : '미분석'}
+              <span className="risk-cell">
+                {pr.grade ? (
+                  <>
+                    <ReviewGrade grade={pr.grade} />
+                    <span className={pr.attentionCount > 0 ? 'review-attention' : undefined}>
+                      P2+ {pr.attentionCount}
+                    </span>
+                  </>
+                ) : pr.analysisState ? (
+                  formatAnalysisState(pr.analysisState)
+                ) : (
+                  '미분석'
+                )}
               </span>
               <span className="muted-cell">{formatRelativeTime(pr.updatedAt)}</span>
             </a>
           ))}
           {state.status === 'loading' ? (
-            <div className="table-state">
+            <div className="table-state" role="status">
               <RefreshCw size={16} className="spin" /> PR을 불러오는 중입니다.
             </div>
           ) : null}
@@ -213,7 +291,12 @@ function Worklist() {
           ) : null}
           {state.status === 'ready' && state.items.length === 0 ? (
             <div className="table-state">
-              <GitPullRequest size={16} /> 등록된 open PR이 없습니다.
+              <GitPullRequest size={16} />{' '}
+              {pullState === 'open'
+                ? 'Open PR이 없습니다.'
+                : pullState === 'closed'
+                  ? 'Closed 또는 Merged PR이 없습니다.'
+                  : '수집된 PR이 없습니다.'}
             </div>
           ) : null}
         </section>
@@ -260,16 +343,61 @@ function ReviewWorkspace({
   const [reviewMode, setReviewMode] = useState<ReviewMode>('files');
   const [mainView, setMainView] = useState<MainView>('code');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-  const [bottomTool, setBottomTool] = useState<BottomTool>('evidence');
+  const [bottomTool, setBottomTool] = useState<BottomTool>('comments');
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
   const [chatAccounts, setChatAccounts] = useState<ChatAccountCatalog | null>(null);
+  const [chatAccountsStatus, setChatAccountsStatus] = useState<'loading' | 'ready' | 'error'>(
+    'loading',
+  );
+  const [chatAccountsRevision, setChatAccountsRevision] = useState(0);
+  const [progressError, setProgressError] = useState(false);
   const [chatAccountId, setChatAccountId] = useState('');
   const [chatModelName, setChatModelName] = useState('');
   const [chatEffort, setChatEffort] = useState('');
-  const [chatSelectionRevision, setChatSelectionRevision] = useState(0);
+  const [chatConnectionError, setChatConnectionError] = useState('');
+  const openedChatKey = useRef('');
+  const chatSelectionRef = useRef({
+    accountId: chatAccountId,
+    modelName: chatModelName,
+    reasoningEffort: chatEffort,
+  });
+  chatSelectionRef.current = {
+    accountId: chatAccountId,
+    modelName: chatModelName,
+    reasoningEffort: chatEffort,
+  };
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatDraft, setChatDraft] = useState('');
+  const draftKey = user && chatSession ? `gcr.chat-draft:${user.id}:${chatSession.id}` : '';
+  const [draftState, setDraftState] = useState({ key: '', content: '' });
+  const chatDraft = draftState.key === draftKey ? draftState.content : '';
+  const setChatDraft = (content: string) => {
+    setDraftState({ key: draftKey, content });
+    try {
+      if (draftKey) window.sessionStorage.setItem(draftKey, content);
+    } catch {
+      return;
+    }
+  };
+  useEffect(() => {
+    try {
+      setDraftState({
+        key: draftKey,
+        content: draftKey ? (window.sessionStorage.getItem(draftKey) ?? '') : '',
+      });
+    } catch {
+      setDraftState({ key: draftKey, content: '' });
+    }
+  }, [draftKey]);
   const [chatSending, setChatSending] = useState(false);
+  const agentChat = useInteractiveChat(chatSession?.id, setChatMessages);
+  const [sourceEvidence, setSourceEvidence] = useState<SourceEvidence | null>(null);
+  const [sourceError, setSourceError] = useState('');
+  const sourceRequest = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setSourceEvidence(null);
+    setSourceError('');
+    return () => sourceRequest.current?.abort();
+  }, [chatSession?.id]);
   const [diffMode, setDiffMode] = useState<'split' | 'unified'>(() =>
     window.innerWidth <= 760 ? 'unified' : 'split',
   );
@@ -283,11 +411,22 @@ function ReviewWorkspace({
   }, []);
   const [workspaceLayout, setWorkspaceLayout] = useState(() => {
     try {
-      return parseWorkspaceLayout(window.localStorage.getItem(WORKSPACE_LAYOUT_STORAGE_KEY));
+      const stored = window.localStorage.getItem(WORKSPACE_LAYOUT_STORAGE_KEY);
+      return stored !== null
+        ? parseWorkspaceLayout(stored)
+        : migrateWorkspaceLayout(
+            window.localStorage.getItem('git-code-reviewer.workspace-layout.v1'),
+          );
     } catch {
       return DEFAULT_WORKSPACE_LAYOUT;
     }
   });
+  const [leftHidden, setLeftHidden] = useState(false);
+  const [layoutBounds, setLayoutBounds] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight - 86,
+  });
+  const visibleLayout = constrainWorkspaceLayout(workspaceLayout, layoutBounds, leftHidden);
   const [resizing, setResizing] = useState<WorkspaceResizeHandle | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const resizeOperationRef = useRef<ResizeOperation | null>(null);
@@ -306,7 +445,7 @@ function ReviewWorkspace({
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      layout: workspaceLayout,
+      layout: visibleLayout,
     };
     setResizing(handle);
   };
@@ -319,7 +458,13 @@ function ReviewWorkspace({
         ? event.clientY - operation.startY
         : event.clientX - operation.startX;
     setWorkspaceLayout(
-      resizeWorkspaceLayout(operation.layout, operation.handle, delta, workspaceBounds()),
+      resizeWorkspaceLayout(
+        operation.layout,
+        operation.handle,
+        delta,
+        workspaceBounds(),
+        leftHidden,
+      ),
     );
   };
 
@@ -335,7 +480,13 @@ function ReviewWorkspace({
 
   const resizeWithKeyboard = (handle: WorkspaceResizeHandle, delta: number) => {
     setWorkspaceLayout((current) =>
-      resizeWorkspaceLayout(current, handle, delta, workspaceBounds()),
+      resizeWorkspaceLayout(
+        constrainWorkspaceLayout(current, workspaceBounds(), leftHidden),
+        handle,
+        delta,
+        workspaceBounds(),
+        leftHidden,
+      ),
     );
   };
 
@@ -352,12 +503,8 @@ function ReviewWorkspace({
     if (!workspace) return;
     const observer = new ResizeObserver(([entry]) => {
       if (!entry || entry.contentRect.width <= RESPONSIVE_LAYOUT_BREAKPOINT) return;
-      setWorkspaceLayout((current) =>
-        constrainWorkspaceLayout(current, {
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        }),
-      );
+      // 화면 축소 때문에 사용자의 저장된 크기를 덮어쓰지 않습니다.
+      setLayoutBounds({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
     observer.observe(workspace);
     return () => observer.disconnect();
@@ -370,6 +517,7 @@ function ReviewWorkspace({
 
   useEffect(() => {
     const controller = new AbortController();
+    setStatus('loading');
     const workspaceRequest = analysisId
       ? loadAnalysisWorkspace(analysisId, controller.signal)
       : repositoryId && pullNumber
@@ -387,7 +535,7 @@ function ReviewWorkspace({
         setSelectedFindingId(requestedFinding?.id ?? null);
         setCodeTarget(requestedFinding ? { ...requestedFinding.anchor, request: 0 } : null);
         setReviewMode('files');
-        setMainView(requestedFinding ? 'comments' : 'code');
+        setMainView('code');
         const requestedObjectId = search.get('symbol');
         const requestedObject = workspace.objects.find((object) => object.id === requestedObjectId);
         setSelectedObjectId(
@@ -398,7 +546,13 @@ function ReviewWorkspace({
         );
         const requestedTool = search.get('tool');
         setBottomTool(
-          isBottomTool(requestedTool) ? requestedTool : requestedObject ? 'impact' : 'evidence',
+          requestedTool === 'evidence'
+            ? 'comments'
+            : isBottomTool(requestedTool)
+              ? requestedTool
+              : requestedObject
+                ? 'impact'
+                : 'comments',
         );
         setSelectedPath(
           requestedFinding
@@ -418,33 +572,112 @@ function ReviewWorkspace({
     return () => controller.abort();
   }, [analysisId, repositoryId, pullNumber]);
 
+  const currentAnalysisId = data?.analysis?.id;
+  const currentAnalysisState = data?.analysis?.state;
+  const currentRepositoryId = data?.pull.repositoryId;
+  const currentPullNumber = data?.pull.number;
   useEffect(() => {
+    if (
+      !currentRepositoryId ||
+      !currentPullNumber ||
+      ['completed', 'partial', 'failed', 'cancelled'].includes(currentAnalysisState ?? '')
+    )
+      return;
     const controller = new AbortController();
-    void loadChatAccounts(controller.signal).then(
-      (catalog) => {
-        setChatAccounts(catalog);
-        const account = catalog.items[0];
-        const model = account?.models[0];
-        setChatAccountId((current) => current || account?.id || '');
-        setChatModelName((current) => current || model?.id || '');
-        setChatEffort((current) => current || model?.defaultEffort || '');
-      },
-      (error: unknown) => {
-        if (!controller.signal.aborted) console.error(error);
-      },
-    );
-    return () => controller.abort();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        if (currentAnalysisId) {
+          const next = await loadAnalysisStatus(currentAnalysisId, controller.signal);
+          if (next.analysis.state === 'completed' || next.analysis.state === 'partial') {
+            const workspace = await loadAnalysisWorkspace(currentAnalysisId, controller.signal);
+            if (!controller.signal.aborted) setData(workspace);
+          } else if (!controller.signal.aborted) {
+            setData((current) =>
+              current?.analysis?.id === currentAnalysisId
+                ? { ...current, analysis: next.analysis }
+                : current,
+            );
+          }
+        } else {
+          const workspace = await loadWorkspace(
+            currentRepositoryId,
+            currentPullNumber,
+            controller.signal,
+          );
+          if (!controller.signal.aborted) {
+            setData(workspace);
+            setSelectedPath((current) => current ?? initialSelectedPath(workspace));
+          }
+        }
+        if (!controller.signal.aborted) setProgressError(false);
+      } catch {
+        if (!controller.signal.aborted) setProgressError(true);
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(() => void poll(), 2000);
+      }
+    };
+    timer = setTimeout(() => void poll(), 2000);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [currentAnalysisId, currentAnalysisState, currentRepositoryId, currentPullNumber]);
+
+  useEffect(() => {
+    const refreshAccounts = () => setChatAccountsRevision((value) => value + 1);
+    window.addEventListener('focus', refreshAccounts);
+    return () => window.removeEventListener('focus', refreshAccounts);
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setChatAccountsStatus('loading');
+    void loadChatAccounts(controller.signal).then(
+      (catalog) => {
+        if (controller.signal.aborted) return;
+        setChatAccounts(catalog);
+        setChatAccountsStatus('ready');
+        const current = chatSelectionRef.current;
+        const account =
+          catalog.items.find((item) => item.id === current.accountId) ?? catalog.items[0];
+        const model =
+          account?.models.find((item) => item.id === current.modelName) ?? account?.models[0];
+        setChatAccountId(account?.id ?? '');
+        setChatModelName(model?.id ?? '');
+        setChatEffort(
+          model?.allowedEfforts.includes(current.reasoningEffort)
+            ? current.reasoningEffort
+            : (model?.defaultEffort ?? ''),
+        );
+      },
+      (error: unknown) => {
+        if (!controller.signal.aborted) {
+          console.error(error);
+          setChatAccountsStatus('error');
+        }
+      },
+    );
+    return () => controller.abort();
+  }, [chatAccountsRevision]);
+
+  useEffect(() => {
     const currentAnalysisId = data?.analysis?.id;
-    if (!currentAnalysisId || !data?.report || !chatAccounts) return;
+    if (!currentAnalysisId || !data?.report || !chatAccounts || !agentChat.configured) return;
+    const sessionKey = agentChat.enabled
+      ? currentAnalysisId
+      : JSON.stringify([currentAnalysisId, chatAccountId, chatModelName, chatEffort]);
+    if (openedChatKey.current === sessionKey) return;
     if (chatAccounts.enabled && (!chatAccountId || !chatModelName || !chatEffort)) {
       setChatSession(null);
       setChatMessages([]);
       return;
     }
     const controller = new AbortController();
+    setChatSession(null);
+    openedChatKey.current = '';
+    setChatMessages([]);
+    setChatConnectionError('');
     void openChatSession(
       currentAnalysisId,
       chatAccounts.enabled
@@ -452,17 +685,21 @@ function ReviewWorkspace({
             accountId: chatAccountId,
             modelName: chatModelName,
             reasoningEffort: chatEffort,
-            newSession: chatSelectionRevision > 0,
           }
         : {},
       controller.signal,
     ).then(
       ({ session, messages }) => {
+        if (controller.signal.aborted) return;
+        openedChatKey.current = sessionKey;
         setChatSession(session);
         setChatMessages(messages);
       },
       (error: unknown) => {
-        if (!controller.signal.aborted) console.error(error);
+        if (!controller.signal.aborted)
+          setChatConnectionError(
+            error instanceof Error ? error.message : '대화 연결에 실패했습니다.',
+          );
       },
     );
     return () => controller.abort();
@@ -471,7 +708,8 @@ function ReviewWorkspace({
     chatAccounts,
     chatEffort,
     chatModelName,
-    chatSelectionRevision,
+    agentChat.enabled,
+    agentChat.configured,
     data?.analysis?.id,
     data?.report,
   ]);
@@ -484,19 +722,16 @@ function ReviewWorkspace({
     setChatAccountId(accountId);
     setChatModelName(model?.id ?? '');
     setChatEffort(model?.defaultEffort ?? '');
-    setChatSelectionRevision((value) => value + 1);
   };
 
   const selectChatModel = (modelName: string) => {
     const model = selectedChatAccount?.models.find((item) => item.id === modelName);
     setChatModelName(modelName);
     setChatEffort(model?.defaultEffort ?? '');
-    setChatSelectionRevision((value) => value + 1);
   };
 
   const selectChatEffort = (effort: string) => {
     setChatEffort(effort);
-    setChatSelectionRevision((value) => value + 1);
   };
 
   const handleRefresh = async () => {
@@ -529,6 +764,8 @@ function ReviewWorkspace({
   };
 
   const selectedFile = data?.files.find((file) => file.path === selectedPath) ?? data?.files[0];
+  const analysisPending = status !== 'error' && analysisIsPending(data?.analysis ?? null);
+  const progressDetail = data?.analysis?.progressDetail;
   const selectedDiff = data?.diff?.files.find((file) => file.path === selectedFile?.path)?.patch;
   const selectedFinding = data?.report?.findings.find(
     (finding) => finding.id === selectedFindingId && finding.anchor.fileId === selectedFile?.id,
@@ -539,6 +776,7 @@ function ReviewWorkspace({
   const addedTestFiles = useMemo(() => analyzeAddedTests(data?.diff?.files ?? []), [data?.diff]);
 
   const selectFile = (path: string) => {
+    setSourceEvidence(null);
     setMainView('code');
     setSelectedPath(path);
     setSelectedFindingId(null);
@@ -560,9 +798,10 @@ function ReviewWorkspace({
   };
 
   const selectFinding = (finding: FindingView) => {
+    setSourceEvidence(null);
     setSelectedFindingId(finding.id);
     setMainView('code');
-    setBottomTool('evidence');
+    setBottomTool('comments');
     setCodeTarget((current) => ({ ...finding.anchor, request: (current?.request ?? 0) + 1 }));
     const file = data?.files.find((item) => item.id === finding.anchor.fileId);
     if (file) setSelectedPath(file.path);
@@ -571,6 +810,7 @@ function ReviewWorkspace({
   };
 
   const selectObject = (objectId: string) => {
+    setSourceEvidence(null);
     setMainView('code');
     const anchor = data?.objects.find((item) => item.id === objectId)?.definition;
     const file = data?.files.find((item) => item.id === anchor?.fileId);
@@ -597,11 +837,30 @@ function ReviewWorkspace({
   };
 
   const handleChatSubmit = async () => {
-    if (!chatSession?.model.available || !chatDraft.trim() || chatSending) return;
+    if (
+      !chatSession?.model.available ||
+      chatSession.analysisId !== data?.analysis?.id ||
+      !chatDraft.trim() ||
+      chatSending ||
+      chatAccountsStatus !== 'ready' ||
+      (chatAccounts?.enabled && !selectedChatAccount)
+    )
+      return;
     const content = chatDraft.trim();
     setChatDraft('');
     setChatSending(true);
     try {
+      if (agentChat.enabled) {
+        await agentChat.submit(
+          content,
+          {
+            ...(selectedFinding ? { findingId: selectedFinding.id } : {}),
+            ...(selectedFile ? { fileId: selectedFile.id } : {}),
+          },
+          chatSelectionRef.current,
+        );
+        return;
+      }
       const response = await sendChatMessage(chatSession.id, content, {
         ...(selectedFinding ? { findingId: selectedFinding.id } : {}),
         ...(selectedFile ? { fileId: selectedFile.id } : {}),
@@ -650,10 +909,14 @@ function ReviewWorkspace({
                       : data.report.versions.model === 'disabled' ||
                           data.report.versions.review === 'unavailable'
                         ? 'AI review 미수행'
-                        : `${data.report.grade} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
+                        : `${reviewGrades[data.report.grade].label} · P2+ ${data.report.findings.filter((finding) => finding.priority === 'P2' || finding.priority === 'P3').length}`
                 : data?.analysis
                   ? formatAnalysisState(data.analysis.state)
-                  : '분석 없음'}
+                  : status === 'loading'
+                    ? '분석 상태 확인 중'
+                    : status === 'error'
+                      ? '분석 상태 확인 실패'
+                      : '코드 준비 중'}
           </span>
           <button className="revision-button" type="button">
             Revision {data?.analysis?.revision ?? '-'} <ChevronDown size={13} />
@@ -685,13 +948,14 @@ function ReviewWorkspace({
         ref={workspaceRef}
         style={
           {
-            '--left-panel-width': `${workspaceLayout.leftWidth}px`,
-            '--chat-panel-width': `${workspaceLayout.chatWidth}px`,
-            '--bottom-panel-height': `${workspaceLayout.bottomHeight}px`,
+            '--left-panel-width': `${leftHidden ? 0 : visibleLayout.leftWidth}px`,
+            '--chat-panel-width': `${visibleLayout.chatWidth}px`,
+            '--bottom-panel-height': `${visibleLayout.bottomHeight}px`,
           } as CSSProperties
         }
       >
         <ReviewSidebar
+          hidden={leftHidden}
           data={data}
           status={status}
           mode={reviewMode}
@@ -705,36 +969,48 @@ function ReviewWorkspace({
 
         <section className="diff-panel" aria-label="Review content">
           <div className="diff-toolbar">
+            <button
+              type="button"
+              className="icon-button sidebar-toggle"
+              aria-label={leftHidden ? '왼쪽 탐색 패널 표시' : '왼쪽 탐색 패널 숨기기'}
+              title={leftHidden ? '왼쪽 탐색 패널 표시' : '왼쪽 탐색 패널 숨기기'}
+              aria-expanded={!leftHidden}
+              aria-controls="review-sidebar"
+              onClick={() => setLeftHidden((current) => !current)}
+            >
+              {leftHidden ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            </button>
             <div className="main-view-tabs" role="tablist" aria-label="Review content">
               <button
-                className={mainView === 'code' ? 'active' : ''}
+                className={mainView === 'code' && !sourceEvidence ? 'active' : ''}
                 type="button"
                 role="tab"
-                aria-selected={mainView === 'code'}
-                onClick={() => setMainView('code')}
+                aria-selected={mainView === 'code' && !sourceEvidence}
+                onClick={() => {
+                  setSourceEvidence(null);
+                  setMainView('code');
+                }}
               >
                 Code
               </button>
               <button
-                className={mainView === 'summary' ? 'active' : ''}
+                className={mainView === 'summary' && !sourceEvidence ? 'active' : ''}
                 type="button"
                 role="tab"
-                aria-selected={mainView === 'summary'}
+                aria-selected={mainView === 'summary' && !sourceEvidence}
                 disabled={!data?.report}
-                onClick={() => setMainView('summary')}
+                onClick={() => {
+                  setSourceEvidence(null);
+                  setMainView('summary');
+                }}
               >
                 Summary
               </button>
-              <button
-                className={mainView === 'comments' ? 'active' : ''}
-                type="button"
-                role="tab"
-                aria-selected={mainView === 'comments'}
-                disabled={!data?.report}
-                onClick={() => setMainView('comments')}
-              >
-                Comments <span>{data?.report?.findings.length ?? 0}</span>
-              </button>
+              {sourceEvidence ? (
+                <button type="button" role="tab" aria-selected="true" className="active">
+                  코드 근거
+                </button>
+              ) : null}
             </div>
             {mainView === 'code' ? (
               <>
@@ -776,7 +1052,39 @@ function ReviewWorkspace({
               </>
             ) : null}
           </div>
-          {mainView === 'code' ? (
+          {analysisPending ? (
+            <div className="analysis-progress-banner" role="status" aria-live="polite">
+              <div className="analysis-progress-heading">
+                <RefreshCw size={16} className="spin" />
+                <strong>
+                  {status === 'loading'
+                    ? '분석 상태 확인 중'
+                    : analysisProgressLabel(data?.analysis ?? null)}
+                </strong>
+                {progressDetail ? (
+                  <span>
+                    {progressDetail.filesProcessed}/{progressDetail.filesTotal} 파일 처리
+                  </span>
+                ) : null}
+                <span>{data?.analysis?.progress ?? 0}%</span>
+              </div>
+              <progress aria-label="분석 진행률" max={100} value={data?.analysis?.progress ?? 0} />
+              {progressDetail ? (
+                <small>
+                  검토 완료 {progressDetail.filesReviewed} · 미검토 {progressDetail.filesSkipped}
+                  {progressDetail.currentFile ? ` · ${progressDetail.currentFile}` : ''}
+                </small>
+              ) : null}
+              <small>
+                {progressError
+                  ? '진행 상태를 다시 확인하고 있습니다.'
+                  : '코드 diff를 먼저 확인하세요. 분석이 끝나면 줄별 검토 의견이 자동으로 표시됩니다.'}
+              </small>
+            </div>
+          ) : null}
+          {sourceEvidence ? (
+            <SourceEvidenceView source={sourceEvidence} onClose={() => setSourceEvidence(null)} />
+          ) : mainView === 'code' ? (
             <div className="review-diff-host">
               {data?.diff && selectedFile ? (
                 <ReviewDiff
@@ -785,6 +1093,7 @@ function ReviewWorkspace({
                   mode={diffMode}
                   target={codeTarget}
                   finding={selectedFinding}
+                  findings={data?.report?.findings ?? []}
                 />
               ) : (
                 <div className="diff-empty">
@@ -792,7 +1101,7 @@ function ReviewWorkspace({
                   <span>
                     {status === 'error'
                       ? 'Snapshot을 불러오지 못했습니다.'
-                      : '아직 materialized snapshot이 없습니다.'}
+                      : '코드 diff를 준비하고 있습니다.'}
                   </span>
                 </div>
               )}
@@ -815,40 +1124,16 @@ function ReviewWorkspace({
           )}
         </section>
 
-        <ChatPanel
-          revision={data?.analysis?.revision}
-          headSha={data?.pull.headSha}
-          selectedFinding={selectedFinding}
-          selectedFile={selectedFile?.path}
-          model={chatSession?.model ?? null}
-          accountCatalog={chatAccounts}
-          accountId={chatAccountId}
-          modelName={chatModelName}
-          reasoningEffort={chatEffort}
-          messages={chatMessages}
-          draft={chatDraft}
-          sending={chatSending}
-          onDraftChange={setChatDraft}
-          onAccountChange={selectChatAccount}
-          onModelChange={selectChatModel}
-          onEffortChange={selectChatEffort}
-          onSend={() => void handleChatSubmit()}
-          onCitationSelect={(findingId) => {
-            const finding = data?.report?.findings.find((item) => item.id === findingId);
-            if (finding) selectFinding(finding);
-          }}
-        />
-
-        <section className="bottom-panel" aria-label="분석 근거">
+        <section className="bottom-panel" aria-label="검토 의견과 분석 도구">
           <nav className="bottom-tabs" role="tablist" aria-label="Review tools">
             <button
-              className={bottomTool === 'evidence' ? 'active' : ''}
+              className={bottomTool === 'comments' ? 'active' : ''}
               type="button"
               role="tab"
-              aria-selected={bottomTool === 'evidence'}
-              onClick={() => selectBottomTool('evidence')}
+              aria-selected={bottomTool === 'comments'}
+              onClick={() => selectBottomTool('comments')}
             >
-              <PanelBottom size={14} /> Evidence
+              <MessageSquare size={14} /> Comments <span>{data?.report?.findings.length ?? 0}</span>
             </button>
             <button
               className={bottomTool === 'graph' ? 'active' : ''}
@@ -858,6 +1143,15 @@ function ReviewWorkspace({
               onClick={() => selectBottomTool('graph')}
             >
               <GitBranch size={14} /> Git graph
+            </button>
+            <button
+              className={bottomTool === 'memory' ? 'active' : ''}
+              type="button"
+              role="tab"
+              aria-selected={bottomTool === 'memory'}
+              onClick={() => selectBottomTool('memory')}
+            >
+              <Brain size={14} /> Memory
             </button>
             <button
               className={bottomTool === 'impact' ? 'active' : ''}
@@ -878,10 +1172,30 @@ function ReviewWorkspace({
               <TestTube2 size={14} /> Tests
             </button>
           </nav>
-          {bottomTool === 'evidence' ? (
-            <EvidenceContent finding={selectedFinding} headSha={data?.analysis?.headSha} />
+          {bottomTool === 'comments' ? (
+            <div className="bottom-comments-host">
+              {data?.report ? (
+                <ReviewReportPanel
+                  report={data.report}
+                  files={data.files}
+                  section="comments"
+                  selectedFindingId={selectedFindingId}
+                  onFindingSelect={selectFinding}
+                  onFileSelect={selectFile}
+                />
+              ) : (
+                <div className="panel-empty">
+                  {status === 'error'
+                    ? 'Report를 불러오지 못했습니다. 새로고침하여 다시 확인하세요.'
+                    : '분석이 완료되면 검토 의견이 여기에 표시됩니다.'}
+                </div>
+              )}
+            </div>
           ) : null}
           {bottomTool === 'graph' ? <GitGraphPanel data={data} /> : null}
+          {bottomTool === 'memory' && data ? (
+            <ReviewMemoryPanel data={data} chatMessages={chatMessages} />
+          ) : null}
           {bottomTool === 'impact' ? (
             <ImpactPanel
               data={data}
@@ -893,27 +1207,153 @@ function ReviewWorkspace({
             <TestsPanel files={addedTestFiles} onFileSelect={selectFile} />
           ) : null}
         </section>
-        <WorkspaceResizeHandle
-          name="left"
-          label="탐색 패널 크기 조절"
-          value={workspaceLayout.leftWidth}
-          minimum={WORKSPACE_LAYOUT_LIMITS.leftMin}
-          maximum={WORKSPACE_LAYOUT_LIMITS.leftMax}
-          onPointerDown={startResize}
-          onPointerMove={continueResize}
-          onPointerEnd={finishResize}
-          onKeyboardResize={resizeWithKeyboard}
-          onReset={() =>
-            setWorkspaceLayout((current) => ({
-              ...current,
-              leftWidth: DEFAULT_WORKSPACE_LAYOUT.leftWidth,
-            }))
+        <ChatPanel
+          connectionError={chatConnectionError || (!agentChat.configured ? agentChat.error : '')}
+          selectionLocked={
+            chatSending || Boolean(agentChat.run && !isTerminalChatRun(agentChat.run.status))
           }
+          onPresetChange={(id) => {
+            const preset = chatAccounts?.analysisPresets?.find((item) => item.id === id);
+            if (!preset) return;
+            setChatAccountId(preset.accountId);
+            setChatModelName(preset.modelName);
+            setChatEffort(preset.reasoningEffort);
+          }}
+          activity={
+            agentChat.enabled ? (
+              <>
+                {chatSession ? (
+                  <ChatRunHistory
+                    key={chatSession.id}
+                    sessionId={chatSession.id}
+                    latestRunId={agentChat.run?.id}
+                    onSelect={() => {
+                      sourceRequest.current?.abort();
+                      setSourceEvidence(null);
+                      setSourceError('');
+                    }}
+                    onEvidence={(runId, unitId) => {
+                      sourceRequest.current?.abort();
+                      setSourceEvidence(null);
+                      setMainView('code');
+                      const controller = new AbortController();
+                      sourceRequest.current = controller;
+                      setSourceError('');
+                      void fetch(`/api/v1/chat-runs/${runId}/context/${unitId}`, {
+                        signal: controller.signal,
+                      })
+                        .then(async (response) => {
+                          if (!response.ok) throw Error('source_unavailable');
+                          const source = sourceEvidenceSchema.parse(await response.json());
+                          if (!controller.signal.aborted) setSourceEvidence(source);
+                        })
+                        .catch(() => {
+                          if (!controller.signal.aborted)
+                            setSourceError(
+                              '이전 코드 근거에 접근할 수 없습니다. 권한 또는 보존 기간을 확인해 주세요.',
+                            );
+                        });
+                    }}
+                  />
+                ) : null}
+                <ChatRunActivity
+                  key={agentChat.run?.id}
+                  run={agentChat.run}
+                  error={agentChat.error || sourceError}
+                  sending={agentChat.sending}
+                  onAnswer={(answer) => agentChat.submit(answer, {})}
+                  onCancel={agentChat.cancel}
+                  onEvidence={(unitId) => {
+                    sourceRequest.current?.abort();
+                    setSourceEvidence(null);
+                    setMainView('code');
+                    const controller = new AbortController();
+                    sourceRequest.current = controller;
+                    setSourceError('');
+                    if (agentChat.run)
+                      void fetch(`/api/v1/chat-runs/${agentChat.run.id}/context/${unitId}`, {
+                        signal: controller.signal,
+                      })
+                        .then(async (response) => {
+                          if (!response.ok) throw Error('source_unavailable');
+                          const source = sourceEvidenceSchema.parse(await response.json());
+                          if (!controller.signal.aborted) setSourceEvidence(source);
+                        })
+                        .catch(() => {
+                          if (!controller.signal.aborted)
+                            setSourceError('코드 근거를 불러오지 못했습니다. 다시 선택해 주세요.');
+                        });
+                  }}
+                />
+              </>
+            ) : undefined
+          }
+          revision={data?.analysis?.revision}
+          headSha={data?.pull.headSha}
+          selectedFinding={selectedFinding}
+          selectedFile={selectedFile?.path}
+          model={chatSession?.model ?? null}
+          accountCatalog={chatAccounts}
+          accountStatus={chatAccountsStatus}
+          reportReady={Boolean(data?.report)}
+          analysisPending={analysisPending}
+          onRetryAccounts={() => setChatAccountsRevision((value) => value + 1)}
+          accountId={chatAccountId}
+          modelName={chatModelName}
+          reasoningEffort={chatEffort}
+          messages={
+            agentChat.enabled
+              ? chatMessages.filter((message) => message.id !== agentChat.run?.assistantMessageId)
+              : chatMessages
+          }
+          draft={chatDraft}
+          sending={chatSending}
+          onDraftChange={setChatDraft}
+          onAccountChange={selectChatAccount}
+          onModelChange={selectChatModel}
+          onEffortChange={selectChatEffort}
+          onSend={() => void handleChatSubmit()}
+          files={data?.files ?? []}
+          findings={data?.report?.findings ?? []}
+          onCitationSelect={(citation) => {
+            const target = resolveChatCitation(
+              citation,
+              data?.files ?? [],
+              data?.report?.findings ?? [],
+            );
+            if (!target) return;
+            setMainView('code');
+            setSelectedPath(target.path);
+            setSelectedFindingId(target.findingId);
+            setCodeTarget((current) => ({
+              ...target.anchor,
+              request: (current?.request ?? 0) + 1,
+            }));
+          }}
         />
+        {!leftHidden ? (
+          <WorkspaceResizeHandle
+            name="left"
+            label="탐색 패널 크기 조절"
+            value={visibleLayout.leftWidth}
+            minimum={WORKSPACE_LAYOUT_LIMITS.leftMin}
+            maximum={WORKSPACE_LAYOUT_LIMITS.leftMax}
+            onPointerDown={startResize}
+            onPointerMove={continueResize}
+            onPointerEnd={finishResize}
+            onKeyboardResize={resizeWithKeyboard}
+            onReset={() =>
+              setWorkspaceLayout((current) => ({
+                ...current,
+                leftWidth: DEFAULT_WORKSPACE_LAYOUT.leftWidth,
+              }))
+            }
+          />
+        ) : null}
         <WorkspaceResizeHandle
           name="chat"
           label="채팅 패널 크기 조절"
-          value={workspaceLayout.chatWidth}
+          value={visibleLayout.chatWidth}
           minimum={WORKSPACE_LAYOUT_LIMITS.chatMin}
           maximum={WORKSPACE_LAYOUT_LIMITS.chatMax}
           onPointerDown={startResize}
@@ -930,7 +1370,7 @@ function ReviewWorkspace({
         <WorkspaceResizeHandle
           name="bottom"
           label="하단 패널 크기 조절"
-          value={workspaceLayout.bottomHeight}
+          value={visibleLayout.bottomHeight}
           minimum={WORKSPACE_LAYOUT_LIMITS.bottomMin}
           maximum={Math.max(
             WORKSPACE_LAYOUT_LIMITS.bottomMin,
@@ -1009,6 +1449,7 @@ function WorkspaceResizeHandle({
 }
 
 function ReviewSidebar({
+  hidden,
   data,
   status,
   mode,
@@ -1019,6 +1460,7 @@ function ReviewSidebar({
   onFileSelect,
   onObjectSelect,
 }: {
+  hidden: boolean;
   data: WorkspaceData | null;
   status: 'loading' | 'ready' | 'error';
   mode: ReviewMode;
@@ -1034,7 +1476,7 @@ function ReviewSidebar({
     data?.objects.filter((object) => object.definition?.fileId === selectedFileId) ?? [];
 
   return (
-    <aside className="left-panel" aria-label="검토 탐색">
+    <aside id="review-sidebar" className="left-panel" aria-label="검토 탐색" hidden={hidden}>
       <nav className="side-tabs" aria-label="검토 보기">
         <button
           className={`side-tab ${mode === 'files' ? 'active' : ''}`}
@@ -1139,196 +1581,6 @@ function ReviewSidebar({
           <i style={{ width: `${coveragePercent}%` }} />
         </div>
       </div>
-    </aside>
-  );
-}
-
-function ChatPanel({
-  revision,
-  headSha,
-  selectedFinding,
-  selectedFile,
-  model,
-  accountCatalog,
-  accountId,
-  modelName,
-  reasoningEffort,
-  messages,
-  draft,
-  sending,
-  onDraftChange,
-  onAccountChange,
-  onModelChange,
-  onEffortChange,
-  onSend,
-  onCitationSelect,
-}: {
-  revision: number | null | undefined;
-  headSha: string | undefined;
-  selectedFinding: FindingView | undefined;
-  selectedFile: string | undefined;
-  model: ChatSession['model'] | null;
-  accountCatalog: ChatAccountCatalog | null;
-  accountId: string;
-  modelName: string;
-  reasoningEffort: string;
-  messages: ChatMessage[];
-  draft: string;
-  sending: boolean;
-  onDraftChange: (value: string) => void;
-  onAccountChange: (value: string) => void;
-  onModelChange: (value: string) => void;
-  onEffortChange: (value: string) => void;
-  onSend: () => void;
-  onCitationSelect: (findingId: string) => void;
-}) {
-  const account = accountCatalog?.items.find((item) => item.id === accountId);
-  const selectedModel = account?.models.find((item) => item.id === modelName);
-  return (
-    <aside
-      className={`chat-panel${accountCatalog?.enabled ? ' registry-enabled' : ''}`}
-      aria-label="분석 대화"
-    >
-      <div className="chat-heading">
-        <span>
-          <Bot size={15} /> Review chat
-        </span>
-        <span className="chat-revision">R{revision ?? '-'} locked</span>
-      </div>
-      <div className="chat-scope" title={selectedFinding?.title ?? selectedFile}>
-        <Link2 size={12} />
-        <span>{selectedFinding?.title ?? selectedFile ?? '전체 report'}</span>
-        <code>{headSha?.slice(0, 7) ?? '-------'}</code>
-      </div>
-      {accountCatalog?.enabled ? (
-        <div className="chat-model-selectors" aria-label="Chat model 설정">
-          <label>
-            <span>Account</span>
-            <select value={accountId} onChange={(event) => onAccountChange(event.target.value)}>
-              {accountCatalog.items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Model</span>
-            <select value={modelName} onChange={(event) => onModelChange(event.target.value)}>
-              {(account?.models ?? []).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Effort</span>
-            <select
-              value={reasoningEffort}
-              onChange={(event) => onEffortChange(event.target.value)}
-            >
-              {(selectedModel?.allowedEfforts ?? []).map((effort) => (
-                <option key={effort} value={effort}>
-                  {effort}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      ) : null}
-      <div className="chat-messages" aria-live="polite">
-        {!model && !(accountCatalog?.enabled && accountCatalog.items.length === 0) ? (
-          <div className="chat-message-empty">Chat 연결 상태를 확인하는 중입니다.</div>
-        ) : null}
-        {accountCatalog?.enabled && accountCatalog.items.length === 0 ? (
-          <div className="chat-unavailable">
-            <Bot size={22} />
-            <strong>사용 가능한 ChatGPT account가 없습니다.</strong>
-            <span>시스템 관리자에게 account 할당을 요청해 주세요.</span>
-          </div>
-        ) : null}
-        {model && !model.available ? (
-          <div className="chat-unavailable">
-            <Bot size={22} />
-            <strong>Chat 모델이 연결되지 않았습니다.</strong>
-            <span>이 revision의 report와 evidence는 계속 확인할 수 있습니다.</span>
-          </div>
-        ) : null}
-        {model?.available && messages.length === 0 ? (
-          <div className="chat-message-empty">아직 대화가 없습니다.</div>
-        ) : null}
-        {model?.available
-          ? messages.map((message) => (
-              <article className={`chat-message ${message.role}`} key={message.id}>
-                <div className="message-author">
-                  {message.role === 'assistant' ? <Sparkles size={12} /> : null}
-                  <strong>{message.role === 'assistant' ? 'Review assistant' : 'You'}</strong>
-                  {message.status !== 'completed' ? <small>{message.status}</small> : null}
-                </div>
-                <div className="chat-message-content">{message.content}</div>
-                {message.citations.length > 0 ? (
-                  <div className="chat-citations" aria-label="답변 근거">
-                    {message.citations.map((citation) => (
-                      <button
-                        type="button"
-                        key={citation.evidenceId}
-                        disabled={!citation.findingId}
-                        onClick={() => citation.findingId && onCitationSelect(citation.findingId)}
-                      >
-                        <Link2 size={11} /> {citation.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </article>
-            ))
-          : null}
-        {model?.available && sending ? (
-          <div className="chat-pending">
-            <RefreshCw size={13} className="spin" /> 답변을 생성하는 중입니다.
-          </div>
-        ) : null}
-      </div>
-      <form
-        className="chat-composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSend();
-        }}
-      >
-        <textarea
-          rows={3}
-          value={draft}
-          maxLength={4_000}
-          placeholder={
-            model?.available
-              ? '현재 리비전에 대해 질문'
-              : 'Chat 모델을 연결한 후 질문할 수 있습니다.'
-          }
-          aria-label="질문"
-          aria-keyshortcuts="Enter"
-          disabled={!model?.available}
-          onChange={(event) => onDraftChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
-            event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
-          }}
-        />
-        <div className="composer-actions">
-          <span>Enter 전송 · Shift+Enter 줄바꿈 · {draft.length}/4000</span>
-          <button
-            className="send-button"
-            type="submit"
-            title="질문 보내기"
-            aria-label="질문 보내기"
-            disabled={!model?.available || !draft.trim() || sending}
-          >
-            <Send size={14} />
-          </button>
-        </div>
-      </form>
     </aside>
   );
 }
@@ -1513,51 +1765,6 @@ function TestsPanel({
             ) : null}
           </section>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function EvidenceContent({
-  finding,
-  headSha,
-}: {
-  finding: FindingView | undefined;
-  headSha: string | undefined;
-}) {
-  if (!finding) {
-    return (
-      <div className="panel-empty evidence-empty">
-        Comments에서 항목을 선택하면 관련 코드와 설명이 표시됩니다.
-      </div>
-    );
-  }
-  const ghesLink = finding.links.find((link) => link.rel === 'ghes' && link.available);
-  return (
-    <div className="evidence-content">
-      <div className={`severity-mark priority-${finding.priority.toLowerCase()}`}>
-        {finding.priority}
-      </div>
-      <div>
-        <strong>{finding.title}</strong>
-        <p>
-          {finding.category} ·{' '}
-          {finding.anchor.startLine ? `line ${finding.anchor.startLine}` : '파일 전체'}
-        </p>
-      </div>
-      <div className="evidence-facts">
-        <span>
-          <GitCommitHorizontal size={13} /> {headSha?.slice(0, 7) ?? '-------'}
-        </span>
-        <span>
-          <CircleCheck size={13} />
-          {finding.verification.status === 'verified' ? '코드 위치 확인' : '코드 위치 확인 제한'}
-        </span>
-        {ghesLink ? (
-          <a href={ghesLink.href} target="_blank" rel="noreferrer">
-            <ExternalLink size={12} /> GHES
-          </a>
-        ) : null}
       </div>
     </div>
   );

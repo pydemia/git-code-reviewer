@@ -3,6 +3,7 @@ import {
   errorEnvelope,
   localPasswordMaximumLength,
   localPasswordMinimumLength,
+  personalPromptUpdateSchema,
   schemaVersion,
 } from '@gcr/contracts';
 import type { Database } from '@gcr/db';
@@ -11,6 +12,7 @@ import { z } from 'zod';
 import { requireUser, type AuthUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
 import { hashLocalPassword, verifyLocalPassword } from '../services/local-accounts.js';
+import { readPersonalPrompt } from '../services/personal-prompt.js';
 
 const profilePatchBody = z.object({
   displayName: z.string().trim().min(1).max(120),
@@ -32,8 +34,45 @@ export async function registerProfileRoutes(
   config: AppConfig,
 ) {
   app.get('/api/v1/profile', { preHandler: requireUser }, async (request) => {
-    const credential = await findLocalCredential(database, request.user!.id);
-    return profileView(request.user!, config, credential);
+    const [credential, personalPrompt] = await Promise.all([
+      findLocalCredential(database, request.user!.id),
+      readPersonalPrompt(database, request.user!.id),
+    ]);
+    return profileView(request.user!, config, credential, personalPrompt);
+  });
+
+  app.put('/api/v1/profile/prompt', { preHandler: requireUser }, async (request, reply) => {
+    const parsed = personalPromptUpdateSchema.safeParse(request.body);
+    if (!parsed.success) {
+      await writeAudit(database, request, 'user.prompt.update', 'failure');
+      throw parsed.error;
+    }
+    const connection = await database.connect();
+    try {
+      await connection.query('begin');
+      const result = await connection.query<{ personalPrompt: string }>(
+        `update users set personal_prompt = $2, updated_at = clock_timestamp()
+         where id = $1 and enabled returning personal_prompt as "personalPrompt"`,
+        [request.user!.id, parsed.data.personalPrompt],
+      );
+      await writeAudit(
+        connection,
+        request,
+        'user.prompt.update',
+        result.rowCount ? 'success' : 'failure',
+      );
+      await connection.query('commit');
+      if (!result.rows[0])
+        return reply
+          .code(404)
+          .send(errorEnvelope('RESOURCE_NOT_FOUND', '사용자를 찾을 수 없습니다.', request.id));
+      return { schemaVersion, personalPrompt: result.rows[0].personalPrompt };
+    } catch (error) {
+      await connection.query('rollback');
+      throw error;
+    } finally {
+      connection.release();
+    }
   });
 
   app.patch('/api/v1/profile', { preHandler: requireUser }, async (request, reply) => {
@@ -62,12 +101,14 @@ export async function registerProfileRoutes(
         return externallyManaged(request, reply, 'profile');
       }
       const credential = await findLocalCredential(connection, request.user!.id);
+      const personalPrompt = await readPersonalPrompt(connection, request.user!.id);
       await writeAudit(connection, request, 'user.profile.update', 'success');
       await connection.query('commit');
       return profileView(
         { ...request.user!, displayName: result.rows[0].displayName },
         config,
         credential,
+        personalPrompt,
       );
     } catch (error) {
       await connection.query('rollback');
@@ -180,7 +221,12 @@ async function findLocalCredential(
   return result.rows[0] ?? null;
 }
 
-function profileView(user: AuthUser, config: AppConfig, credential: CredentialRow | null) {
+function profileView(
+  user: AuthUser,
+  config: AppConfig,
+  credential: CredentialRow | null,
+  personalPrompt: string,
+) {
   const local = credential !== null;
   return {
     schemaVersion,
@@ -195,6 +241,7 @@ function profileView(user: AuthUser, config: AppConfig, credential: CredentialRo
     profileEditable: local && config.AUTH_MODE === 'local',
     passwordChangeAllowed: local && config.AUTH_MODE === 'local',
     passwordChangedAt: credential ? new Date(credential.passwordChangedAt).toISOString() : null,
+    personalPrompt,
   };
 }
 

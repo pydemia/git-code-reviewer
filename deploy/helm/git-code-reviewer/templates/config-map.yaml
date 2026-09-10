@@ -51,6 +51,17 @@ data:
   CHATGPT_ACCOUNT_REFRESH_ENDPOINT: {{ .Values.model.chat.account.refreshEndpoint | quote }}
   CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES: {{ .Values.model.chat.account.proactiveRefreshMinutes | quote }}
   CHAT_CONCURRENCY_LIMIT: {{ .Values.model.chat.concurrencyLimit | quote }}
+  CHAT_AGENT_ENABLED: {{ .Values.chatAgent.enabled | quote }}
+  CHAT_AGENT_ALLOWED_USER_IDS: {{ join "," .Values.chatAgent.allowedUserIds | quote }}
+  CHAT_AGENT_MAX_MODEL_CALLS: {{ .Values.chatAgent.maxModelCalls | quote }}
+  CHAT_AGENT_MODEL_TIMEOUT_MS: {{ default 180000 .Values.chatAgent.modelTimeoutMs | quote }}
+  CHAT_AGENT_MAX_TOOL_CALLS: {{ .Values.chatAgent.maxToolCalls | quote }}
+  CHAT_AGENT_CONTEXT_BYTES: {{ .Values.chatAgent.contextBytes | quote }}
+  GIT_WORKSPACE_MAX_BYTES: {{ .Values.chatAgent.workspaceMaxBytes | quote }}
+  MODEL_ADMISSION_ENABLED: {{ .Values.modelAdmission.enabled | quote }}
+  {{- if .Values.chatAgent.enabled }}
+  GIT_SANDBOX_SOCKET: /tmp/git-code-reviewer/workspaces/sandbox.sock
+  {{- end }}
   CHAT_HOURLY_LIMIT: {{ .Values.model.chat.hourlyLimit | quote }}
   CHAT_SESSION_MESSAGE_LIMIT: {{ .Values.model.chat.sessionMessageLimit | quote }}
   ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts

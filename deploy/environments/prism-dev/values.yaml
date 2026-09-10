@@ -9,11 +9,23 @@
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.10'
-  digest: 'sha256:6ba6774875548e5e9ca309dc68a44940957d54c797b2747ccaecd9a130b1edf7'
+  tag: '0.8.0-alpha.31'
+  digest: 'sha256:c190547fe932f7b8d8219986260bb7feb6bc76f32889478a61955511f52c4f3d'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
+
+chatAgent:
+  enabled: true
+  allowedUserIds: []
+  maxModelCalls: 8
+  modelTimeoutMs: 180000
+  maxToolCalls: 24
+  contextBytes: 131072
+  workspaceMaxBytes: 1073741824
+  sandboxStorage: 5Gi
+modelAdmission:
+  enabled: true
 
 publicBaseUrl: http://pr-review.prism.ai
 
@@ -28,7 +40,8 @@ server:
 
 worker:
   replicas: 1
-  concurrency: 1
+  concurrency: 2
+  terminationGracePeriodSeconds: 3600
   workspace:
     mode: emptyDir
     size: 5Gi

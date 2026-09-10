@@ -159,18 +159,20 @@ Terminal failure는 `last_error_code`를 보존하며 administrator가 동일 do
 1. 운영 환경은 기본 application OIDC가 user identity를 확인한다. Proxy identity mode는 §9.2의 trust 조건을 충족할 때만 사용한다. 외부 OIDC endpoint가 없는 private pilot은 Local account와 server session을 사용한다.
 2. server는 subject를 `users`에 upsert하고 role/group mapping을 적용한다.
 3. `GET /repositories`는 grant가 있는 registered repository만 반환한다.
-4. PR 목록은 현재 observed head, 최신 analysis state, priority count와 poll 상태를 함께 반환한다.
-5. browser는 마지막으로 선택한 repository 같은 비민감 preference만 localStorage에 보관한다.
+4. PR 목록은 현재 observed head, GitHub state와 `mergedAt`, 최신 analysis state, priority count와 poll 상태를 함께 반환한다. PR 상태와 분석 상태는 별도 열로 표시한다.
+5. 목록의 `Open / Closed / All` toggle은 단일 선택이며 기본값은 Open이다. Closed에는 Merged를 포함하고 URL의 `?state=open|closed|all`로 선택을 유지한다. 표시 건수는 해당 Tenant에서 접근 가능한 repository 전체의 상태별 합계다.
+6. `GET /api/v1/repositories/:id/pulls?state=...&cursor=...`는 100개씩 반환하고 `counts`와 `nextCursor`를 제공한다. Browser는 마지막 page까지 읽고 중복 ID를 제거한다. Filter/Tenant 전환 시 이전 요청을 취소하고 늦게 도착한 응답을 버린다.
+7. Closed/Merged PR의 기존 분석은 보존한다. 분석이 있으면 report로, 없으면 GitHub PR 원문으로 이동한다. 목록의 `새로고침`은 저장된 관측값을 다시 읽으며 즉시 GitHub polling을 수행하는 버튼이 아니다. Poll 실패·초기 대기는 별도로 안내한다.
 
 ### 5.2 Background poll
 
 1. leader scheduler가 `next_poll_at <= now()` target을 claim한다.
 2. Repository가 참조하는 GHES credential을 암호화 저장소에서 읽고 access token과 현재 권한 상태를 확인한다.
-3. conditional request와 pagination으로 open PR을 읽는다.
+3. `state=all`, `sort=updated`, `direction=desc`, `per_page=100`으로 PR을 읽는다. 첫 page에만 ETag conditional request를 사용하며 변경 시 마지막 page까지 읽는다. 1,000 page 안전 한도를 넘거나 중간 page가 실패하면 부분 응답을 성공으로 저장하지 않는다.
 4. PR adapter가 PR metadata 또는 명시적 ref query로 현재 base branch tip과 head SHA를 확정한다.
 5. PR number/state/base/head를 저장된 관측값과 비교한다.
-6. 새 PR 또는 변경 SHA에 대해 snapshot request를 upsert하고 materialize job을 생성한다.
-7. 닫힌 PR은 state만 갱신하며 기존 report retention을 유지한다.
+6. Open PR만 새 PR 또는 변경 SHA에 대해 snapshot request를 upsert하고 materialize job을 생성한다. 과거 Closed PR이 처음 reopen되면 해당 SHA에 snapshot request가 없는 경우 분석을 시작한다. 같은 SHA의 기존 snapshot request가 있으면 reopen만으로 중복 분석하지 않는다.
+7. Closed PR은 GitHub가 반환한 state와 `merged_at`을 저장하며 기존 report retention을 유지한다. 응답에서 빠졌다는 이유로 Closed를 추정하지 않는다. 최초 과거 Closed/Merged backfill은 분석과 PR 대화 전체 수집을 시작하지 않는다. Migration `0029`는 기존 Open 전용 ETag를 비워 첫 전체 상태 동기화를 예약한다.
 8. quota, request budget과 tier에 따라 다음 poll 시각을 계산한다.
 
 ### 5.3 Manual refresh
@@ -225,9 +227,22 @@ snapshot materialization
 
 새 작업은 `.documents/skill-based-review-report.md`의 R1–R10을 적용한다. `analysis_runs`에 고정한 전역 Skill bundle과 tenant prompt, account/model/effort를 사용하여 window별 unit-comment-block → 파일별 overall-summary → total-summary 순서로 분석한다. 관리자 API와 `Administration → 분석 Skills`에서 6개 기본 perspective, 3개 form과 사용자 정의 perspective를 SKILL.md로 관리한다. 저장/활성화는 immutable bundle version을 만들고 이전 version 재활성화와 Built-in 복원을 지원한다. Queue에 들어간 작업에는 이후 관리 변경을 소급 적용하지 않는다.
 
+2026-09-08부터 기본 perspective는 Commit Defender 원문 번역 version 2를 사용한다. Tenant Prompt version에는 Severity Level을 함께 저장하며 default는 moderate다. Migration 0017은 Prompt와 analysis run에 severity_level을 추가하고 version 내용·queue의 Prompt 바인딩을 변경하지 못하게 한다. Worker는 unit 검증·중복 제거 → 파일 단위 severity 필터 → 파일/전체 요약 순서로 실행한다. 이전 run의 NULL level과 기존 hash는 유지한다. API body·필터 범위·호환 동작은 [분석 수준 설계](analysis-severity-level.md)를 따른다.
+
 `analysis` 확장은 code segment·unit·파일 요약·Skill provenance·검토 완료 범위를 보존한다. Comment의 file/side/line range/category를 검증한 뒤 unit으로 확정하며 summary에는 확정한 unit만 전달한다. 새 Skill pipeline의 accepted P3는 유지한다. 아래의 legacy compatibility normalization은 Skill binding이 없는 migration 이전 작업에만 적용된다. 실패, 잘린 출력, 생략은 성공한 unit을 유지하면서 미완료 범위로 기록한다. Provider 미설정은 unavailable, 호출 전체 실패는 failed, fixture는 demo다.
 
-Browser와 Markdown export는 같은 순수 presentation 함수를 사용한다. PR publication은 pinned Skill hash가 일치하는 canonical report artifact를 읽어 Overall Summary, 파일별 AI Comments, Analyzed File List를 게시한다. Artifact가 없거나 분석/Skill이 다르면 축약 DB summary로 대체 게시하지 않는다. 댓글 길이 제한은 block 경계에서 생략하고 전체 report 링크와 생략 안내를 남긴다. Raw JSON은 동일한 analysis 확장을 제공하며 Skill 지침 원문은 관리자 API에만 노출한다.
+Browser와 Markdown export는 같은 순수 presentation 함수를 사용한다. PR publication은 pinned Skill hash가 일치하는 canonical report artifact를 읽고 `audience: pull-request` 형식으로 PR 전체 요약과 comment가 있는 파일의 요약·AI Comments만 게시한다. 전체 파일 목록과 comment가 없는 파일별 요약은 PR 댓글에서 생략하되 검토 수·분석 제한·provenance·전체 report 링크는 유지한다. 앱과 기본 Markdown export는 전체 파일을 유지한다. Artifact가 없거나 분석/Skill이 다르면 축약 DB summary로 대체 게시하지 않는다. 댓글 길이 제한은 block 경계에서 생략하고 전체 report 링크와 생략 안내를 남긴다. Raw JSON은 동일한 analysis 확장을 제공하며 Skill 지침 원문은 관리자 API에만 노출한다.
+
+PR 댓글과 Markdown export의 `AI Comments` 상세 내용은 하나의 `<details>`로 묶어 기본으로 접는다. `<summary>`에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 펼치면 파일별 priority, 코드 위치, 문제, 영향, 수정 제안과 관련 코드 링크를 확인할 수 있다. PR 댓글에서는 해당 파일 요약도 이 묶음 안에 한 번만 표시한다. 분석 상태·대표 priority, PR 전체 요약과 전체 report 링크는 이 접기 영역 밖에 유지한다. 의견이 없으면 빈 접기 영역 대신 상태에 맞는 안내문을 표시한다. 길이 제한은 `<details>` 전체를 하나의 block으로 취급하므로 닫는 태그가 잘리지 않는다. AI Comments 전체가 제한을 초과하면 해당 영역을 생략하고 영역 밖에 생략 안내와 전체 report 링크를 남긴다. 기존 PR 댓글은 일괄 수정하지 않으며 배포 후 다음 정상 게시·갱신부터 적용한다. Browser workspace의 Comments 펼침 상태와 저장된 report 내용은 바꾸지 않는다.
+
+2026-09-10부터 Built-in overall-summary·total-summary는 version 3, unit-comment-block은 version 2를 사용한다. 분석(3개 Skill stage·legacy)과 Review Chat(interactive·report 기반)은 `reviewWritingGuidelines`를 공유한다.
+
+- 요약: 짧은 결론 뒤에 필요한 Header·List를 배치한다. 한 항목에 하나의 논점을 담고 실제 순서가 있는 절차만 numbered list로 쓴다.
+- 상세 설명: 원인·실행 흐름·발생 조건·trade-off는 문단으로 유지한다. 근거·예외·priority·coverage를 간결함 때문에 생략하지 않는다.
+- 중복 제거: 전체 report·파일 목록을 요약 안에 다시 만들지 않는다. 단일 답변·의견 없는 파일에는 불필요한 제목을 붙이지 않는다.
+- 표시: PR과 Markdown export의 전체 분석 요약·분석 제한은 제목과 본문/목록으로 펼쳐 놓는다. Browser의 분석 제한은 기본 펼침이며 사용자가 접을 수 있다. PR은 중복 Overall Summary와 전체 파일 목록을 생략하고 AI Comments만 기존처럼 접는다.
+- 안전성: PR/Markdown formatter는 h4–h6 범위의 Header·List·강조·inline code를 제한적으로 복원한다. 모델이 출력한 HTML·링크·mention은 escape한다. JSON·citation 계약은 그대로다.
+- 적용 시점: Skill·Chat run에 이미 pinned된 내용, custom Skill·개인 Prompt와 저장된 report·대화를 덮어쓰지 않는다. 새 공통 Prompt는 배포 runtime이 새로 조합하는 모델 요청에 적용되며, 과거 checkpoint의 모델 호출 결과를 다시 생성하지 않는다.
 
 초기 compatibility baseline은 Commit Defender commit `47dabfea718729b0ccc685ae173857476040d6ea`의 다음 구현이다.
 
@@ -438,6 +453,33 @@ Comment body는 한국어 설명, 영어 grade/priority, head SHA, P3-P0 count, 
 5. server가 model을 직접 호출해 token/delta를 현재 SSE connection으로 stream한다.
 6. 최종 message/citation만 transaction으로 저장한다. 중단된 stream은 REST 상태 확인 후 사용자가 재시도한다.
 7. 새 analysis가 있으면 UI가 별도 banner를 표시하고 사용자 동의로 새 session을 시작한다.
+
+#### 2026-09-08 현재 구현: Markdown·다중 코드 근거
+
+현재 Chat route는 REST 요청에서 모델 응답을 완성한 뒤 message와 citations를 저장한다. 위 token/delta streaming은 목표 설계이며 이번 변경에서 추가하지 않는다.
+
+Server는 session의 immutable report와 같은 snapshot의 file ID/path를 읽는다. 선택된 finding/file은 우선순위 힌트로만 사용하며 다른 파일의 findings·요약·coverage도 context에 포함한다. Finding 본문은 최대 80개/96,000자, 파일 요약은 최대 100개(항목별 800자)로 제한하고 생략 수를 `contextLimits`에 포함한다. 전체 요약·impact와 개별 본문/evidence에도 길이 제한이 있다. 신규 코드 분석이나 repository 전체 검색을 수행하지 않는다.
+
+`chat-answer.ts`가 report의 diff anchor/evidence로 `citationCatalog`를 만든다. 동일한 file/side/range는 하나로 묶고, snapshot에 없는 file, 역전된 range와 non-diff evidence는 제외한다. Model에는 `{content: Markdown, citationIds: string[]}`를 요청한다. 반환 ID를 catalog와 대조해 중복·미등록 ID를 제거하고 최대 24개를 저장한다. Model이 지정한 임의 URL/line은 채택하지 않는다. Text-only 응답은 그대로 보존하되 선택한 finding의 근거를 자동 첨부하지 않는다.
+
+Citation은 기존 `findingId?`, `evidenceId`, `fileId`, `line?`, `label`에 optional `endLine`, `side`, `path`를 추가했다. 기존 JSONB column을 사용하므로 migration은 없다. Browser는 현재 report의 locator와 다시 대조하고 `파일 경로 · L시작–끝 · 이전/변경 코드`로 표시한다. 클릭 시 finding의 대표 anchor 대신 해당 evidence의 file/side/range로 이동한다. File-level 근거에는 line을 만들지 않는다. 이전 메시지는 저장된 ID로 위치를 복원하며 일치하는 locator가 없으면 링크를 비활성화한다.
+
+Assistant 본문에는 공통 `ReviewMarkdown`을 사용한다. 한글 본문·English 전문용어, CommonMark/GFM, code·표 내부 scroll을 지원하며 raw HTML 실행과 외부 image 요청은 차단한다. 사용자 질문은 원문 그대로 표시한다. 이미 저장된 메시지나 report는 재작성하지 않으며 여러 근거를 모델이 선택하는 동작은 새 답변부터 적용된다.
+
+#### 사용자 삭제와 개인 Chat 보존 (2026-09-08)
+
+시스템관리자의 사용자 삭제는 migration `0019`의 `users.deleted_at`으로 표시한다. 삭제된 계정은 목록에서 제외하고 로그인·세션·직접 권한·개인 Prompt를 정리하되 개인 Chat과 공동 PR 분석·audit 참조를 보존한다. 개인 Chat은 다른 사용자에게 이전하지 않고 기존 retention을 따른다. 본인 삭제와 마지막 관리자 제거를 막으며 삭제 상태는 Local bootstrap·외부 identity upsert로 복원되지 않는다. UI 확인값·transaction·동시성·API 오류와 username/Subject 예약 정책은 [사용자 관리 설계 6절](local-account-authentication.md#6-사용자-삭제-2026-09-08)을 따른다.
+
+#### 개인 Prompt (2026-09-08)
+
+`내 프로필 → 개인 Prompt`에서 서비스 사용자별 Review Chat 지침을 저장한다. Local·OIDC 사용자와 시스템관리자 모두 본인 설정만 관리한다. Tenant 분석 Prompt·Skill·공동 PR report·PR publication에는 적용하지 않는다. 다른 사용자가 같은 ChatGPT account를 선택해도 이 설정을 공유하지 않는다.
+
+- Migration `0018_personal_chat_prompt.sql`: `users.personal_prompt text NOT NULL DEFAULT ''`, DB 최대 4,000자 제약. 기존 사용자는 빈 값으로 시작하고 새 사용자의 기본값도 같다.
+- `GET /api/v1/profile`에 본인의 `personalPrompt`를 추가한다. 사용자 목록·일반 User 응답에는 추가하지 않는다. `PUT /api/v1/profile/prompt`는 `{personalPrompt: string}`만 받으며 사용자 ID·role 등 추가 필드를 거부한다. 인증된 `request.user.id`만 갱신하고 비활성 사용자는 갱신하지 않는다. API는 4,000자 초과와 null 문자를 거부하고 앞뒤 공백을 제거한다. 빈 문자열을 저장하면 해제한다. 기존 표시 이름·비밀번호 변경 API의 외부 IdP 제한은 그대로 유지한다.
+- 갱신과 `user.prompt.update` audit을 같은 transaction에 기록하고 audit 저장 실패 시 rollback한다. Audit에는 actor·대상 user ID·성공 여부만 남기며 Prompt 원문은 넣지 않는다.
+- Chat은 session 소유권·repository 권한을 확인한 뒤 매 질문마다 현재 사용자의 저장된 Prompt를 읽는다. 진행 중인 응답은 읽은 값을 사용하고 저장 이후 시작하는 질문부터 새 값을 적용한다. 기존 session을 다시 만들거나 과거 대화·report를 재작성하지 않는다.
+- Prompt는 system 문자열에 이어 붙이지 않고 별도의 `user` message에 `personal-preferences` JSON으로 전달한다. System에는 답변 스타일·설명 깊이·관심 영역에만 반영하고 현재 질문과 충돌하면 질문을 우선하도록 지시한다. JSON 응답 형식·citation catalog 검증·기존 접근 권한은 유지한다. Prompt가 비어 있으면 이 message를 추가하지 않는다. Prompt 원문을 Chat message나 event에 별도 저장하지 않지만 생성 답변에 그 내용이 반영될 수 있다.
+- UI는 8줄 textarea, 글자 수, 저장·내용 비우기, 저장 중·성공·오류 상태를 제공한다. 비우기는 초안을 지우며 저장해야 서버에서 해제된다. 모델로 전송되는 지침임을 안내하고 Secret 입력을 경고한다. 원문을 Browser localStorage에 저장하지 않는다.
 
 ### 5.11 Cleanup
 

@@ -3,12 +3,17 @@ import {
   localPasswordMaximumLength,
   localPasswordMinimumLength,
   schemaVersion,
+  defaultReviewSeverityLevel,
+  reviewSeverityLevelSchema,
+  type ReviewSeverityLevel,
 } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { deleteRegistryEntry, registryDeletionMessages } from '../services/registry-deletion.js';
 import { requireAdministrator } from '../auth/index.js';
 import { registerAnalysisSkillRoutes } from './analysis-skills.js';
+import { hasOtherAdministrator, lockUserAdministration } from '../services/user-lifecycle.js';
 import { providerAllowedOrigins, type AppConfig } from '../config.js';
 import {
   AnalysisProviderConfigurationError,
@@ -65,15 +70,21 @@ const userPatchBody = z
 const userPasswordBody = z.object({
   password: z.string().min(localPasswordMinimumLength).max(localPasswordMaximumLength),
 });
+const userDeleteBody = z.object({ confirmIdentity: z.string().trim().min(1).max(2048) }).strict();
 const membershipBody = z.object({ enabled: z.boolean().default(true) });
-const promptBody = z.object({ instructions: z.string().trim().min(1).max(12_000) });
+const promptBody = z.object({
+  instructions: z.string().trim().max(12_000),
+  severityLevel: reviewSeverityLevelSchema.default(defaultReviewSeverityLevel),
+});
 const providerVersionBody = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('disabled'),
+    concurrency: z.number().int().min(1).max(4).default(4),
     timeoutMs: z.number().int().min(1_000).max(600_000).default(120_000),
   }),
   z.object({
     mode: z.literal('openai-compatible'),
+    concurrency: z.number().int().min(1).max(4).default(4),
     endpoint: z.string().url().max(2_048),
     modelName: z.string().trim().min(1).max(200),
     timeoutMs: z.number().int().min(1_000).max(600_000),
@@ -81,6 +92,7 @@ const providerVersionBody = z.discriminatedUnion('mode', [
   }),
   z.object({
     mode: z.literal('chatgpt-account'),
+    concurrency: z.number().int().min(1).max(4).default(4),
     chatAccountId: z.string().uuid(),
     modelName: z.string().trim().min(1).max(200),
     reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']),
@@ -94,6 +106,7 @@ type PromptRow = {
   tenantId: string;
   version: number;
   instructions: string;
+  severityLevel: ReviewSeverityLevel;
   contentHash: string;
   active: boolean;
   createdBySubject: string;
@@ -214,6 +227,7 @@ export async function registerAdminRoutes(
        left join local_credentials credential on credential.user_id = app_user.id
        left join tenant_memberships membership on membership.user_id = app_user.id
        left join tenants tenant on tenant.id = membership.tenant_id
+       where app_user.deleted_at is null
        group by app_user.id, credential.user_id, credential.username
        order by app_user.display_name, app_user.id`,
     );
@@ -333,19 +347,161 @@ export async function registerAdminRoutes(
           },
         });
       }
-      const result = await database.query(
-        `update users set display_name = coalesce($2, display_name),
+      const connection = await database.connect();
+      try {
+        await connection.query('begin');
+        if (!(await lockUserAdministration(connection, request.user!.id))) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        if (
+          (body.enabled === false || body.role === 'reviewer') &&
+          !(await hasOtherAdministrator(connection, userId))
+        ) {
+          await connection.query('rollback');
+          return reply.code(409).send({
+            error: {
+              code: 'LAST_ADMINISTRATOR_REQUIRED',
+              message: '활성 시스템관리자가 최소 한 명 필요합니다.',
+              requestId: request.id,
+              retryable: false,
+            },
+          });
+        }
+        const result = await connection.query(
+          `update users set display_name = coalesce($2, display_name),
            role = coalesce($3, role), enabled = coalesce($4, enabled),
-           updated_at = clock_timestamp() where id = $1 returning id`,
-        [userId, body.displayName ?? null, body.role ?? null, body.enabled ?? null],
-      );
-      if (!result.rowCount) return hiddenNotFound(request, reply);
-      if (body.enabled === false || (body.role !== undefined && userId !== request.user!.id))
-        await database.query('delete from user_sessions where user_id = $1', [userId]);
-      await writeAudit(database, request, 'user.access.update', 'user', userId, {
-        fields: Object.keys(body),
-      });
+           updated_at = clock_timestamp() where id = $1 and deleted_at is null returning id`,
+          [userId, body.displayName ?? null, body.role ?? null, body.enabled ?? null],
+        );
+        if (!result.rowCount) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        if (body.enabled === false || (body.role !== undefined && userId !== request.user!.id))
+          await connection.query('delete from user_sessions where user_id = $1', [userId]);
+        await writeAudit(connection, request, 'user.access.update', 'user', userId, {
+          fields: Object.keys(body),
+        });
+        await connection.query('commit');
+      } catch (error) {
+        await connection.query('rollback');
+        throw error;
+      } finally {
+        connection.release();
+      }
       return { schemaVersion, id: userId };
+    },
+  );
+
+  app.delete(
+    '/api/v1/admin/users/:userId',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      const { userId } = userParams.parse(request.params);
+      if (!(await allowed(authorization, request, 'manage', { kind: 'user', id: userId })))
+        return hiddenNotFound(request, reply);
+      const body = userDeleteBody.parse(request.body);
+      if (userId === request.user!.id)
+        return reply.code(409).send({
+          error: {
+            code: 'SELF_DELETE_NOT_ALLOWED',
+            message: '현재 로그인한 계정은 삭제할 수 없습니다.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
+      const connection = await database.connect();
+      try {
+        await connection.query('begin');
+        if (!(await lockUserAdministration(connection, request.user!.id))) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        const result = await connection.query<{ subject: string; identity: string }>(
+          `select u.oidc_subject as subject, coalesce(c.username, u.oidc_subject) as identity
+         from users u left join local_credentials c on c.user_id = u.id
+         where u.id = $1 and u.deleted_at is null for update of u`,
+          [userId],
+        );
+        const target = result.rows[0];
+        if (!target) {
+          await connection.query('rollback');
+          return hiddenNotFound(request, reply);
+        }
+        if (body.confirmIdentity !== target.identity) {
+          await connection.query('rollback');
+          return reply.code(409).send({
+            error: {
+              code: 'USER_DELETE_CONFIRMATION_MISMATCH',
+              message: '삭제 확인값이 사용자 이름 또는 Subject와 일치하지 않습니다.',
+              requestId: request.id,
+              retryable: false,
+            },
+          });
+        }
+        if (!(await hasOtherAdministrator(connection, userId))) {
+          await connection.query('rollback');
+          return reply.code(409).send({
+            error: {
+              code: 'LAST_ADMINISTRATOR_REQUIRED',
+              message: '활성 시스템관리자가 최소 한 명 필요합니다.',
+              requestId: request.id,
+              retryable: false,
+            },
+          });
+        }
+        await connection.query(
+          `with changed as (
+             update review_memories set
+               state = case state when 'candidate' then 'rejected' else 'retired' end,
+               reviewed_by = $2, reviewed_at = clock_timestamp(), review_note = 'user-deleted',
+               updated_at = clock_timestamp()
+             where scope = 'personal' and owner_user_id = $1 and state in ('candidate', 'active')
+             returning id, state, revision
+           )
+           insert into review_memory_events(
+             memory_id, action, actor_user_id, before_state, after_state, revision, note)
+           select id, case state when 'rejected' then 'rejected' else 'retired' end,
+                  $2, case state when 'rejected' then 'candidate' else 'active' end,
+                  state, revision, 'user-deleted'
+             from changed`,
+          [userId, request.user!.id],
+        );
+        await connection.query(
+          `update review_memory_contributions set contributor_user_id = null
+           where contributor_user_id = $1`,
+          [userId],
+        );
+        await connection.query(
+          `update users set deleted_at = clock_timestamp(), enabled = false, personal_prompt = '',
+           groups_json = '[]'::jsonb, updated_at = clock_timestamp() where id = $1`,
+          [userId],
+        );
+        await connection.query('delete from user_sessions where user_id = $1', [userId]);
+        await connection.query(
+          `update local_credentials set password_hash = '!deleted', updated_at = clock_timestamp()
+         where user_id = $1`,
+          [userId],
+        );
+        await connection.query(
+          `update tenant_memberships set enabled = false, updated_at = clock_timestamp() where user_id = $1`,
+          [userId],
+        );
+        await connection.query('delete from repository_grants where subject_or_group = $1', [
+          target.subject,
+        ]);
+        await writeAudit(connection, request, 'user.delete', 'user', userId, {
+          chatHistory: 'retained',
+        });
+        await connection.query('commit');
+        return reply.code(204).send();
+      } catch (error) {
+        await connection.query('rollback');
+        throw error;
+      } finally {
+        connection.release();
+      }
     },
   );
 
@@ -370,7 +526,8 @@ export async function registerAdminRoutes(
       const result = await database.query(
         `update local_credentials set password_hash = $2,
            password_changed_at = clock_timestamp(), updated_at = clock_timestamp()
-         where user_id = $1 returning user_id`,
+         where user_id = $1 and exists
+           (select 1 from users where id = $1 and deleted_at is null) returning user_id`,
         [userId, passwordHash],
       );
       if (!result.rowCount) {
@@ -404,7 +561,7 @@ export async function registerAdminRoutes(
       const result = await database.query(
         `insert into tenant_memberships(tenant_id, user_id, enabled, created_by)
          select tenant.id, app_user.id, $3, $4 from tenants tenant cross join users app_user
-         where tenant.id = $1 and app_user.id = $2
+         where tenant.id = $1 and app_user.id = $2 and app_user.deleted_at is null
          on conflict (tenant_id, user_id) do update set
            enabled = excluded.enabled, updated_at = clock_timestamp()
          returning tenant_id`,
@@ -465,6 +622,7 @@ export async function registerAdminRoutes(
             chatAccountId: active.chatAccountId,
             reasoningEffort: active.reasoningEffort,
             timeoutMs: active.timeoutMs,
+            concurrency: active.concurrency,
             apiKeyConfigured: active.apiKeyConfigured,
             configurationHash: active.configurationHash,
           }
@@ -479,6 +637,7 @@ export async function registerAdminRoutes(
           endpoint: deployment.endpoint,
           modelName: deployment.modelName,
           timeoutMs: deployment.timeoutMs,
+          concurrency: deployment.concurrency ?? 1,
           apiKeyConfigured: deployment.apiKey !== null,
           configurationHash: deployment.configurationHash,
         },
@@ -512,7 +671,7 @@ export async function registerAdminRoutes(
         hash = prepared.configurationHash;
         await connection.query('update analysis_provider_versions set active = false where active');
         const existing = await connection.query<{ id: string }>(
-          'select id from analysis_provider_versions where configuration_hash = $1',
+          'select id from analysis_provider_versions where configuration_hash = $1 and deleted_at is null',
           [hash],
         );
         if (existing.rows[0]) {
@@ -524,10 +683,10 @@ export async function registerAdminRoutes(
                version, mode, endpoint, model_name, timeout_ms,
                credential_ciphertext, credential_iv, credential_auth_tag,
                configuration_hash, active, created_by, activated_by, activated_at,
-               chat_account_id, reasoning_effort
+               chat_account_id, reasoning_effort, concurrency
              ) values (
                (select coalesce(max(version), 0) + 1 from analysis_provider_versions),
-               $1, $2, $3, $4, $5, $6, $7, $8, true, $9, $9, clock_timestamp(), $10, $11
+               $1, $2, $3, $4, $5, $6, $7, $8, true, $9, $9, clock_timestamp(), $10, $11, $12
              ) returning id`,
             [
               prepared.mode,
@@ -541,6 +700,7 @@ export async function registerAdminRoutes(
               request.user!.id,
               prepared.chatAccountId ?? null,
               prepared.reasoningEffort ?? null,
+              prepared.concurrency,
             ],
           );
           providerId = created.rows[0]!.id;
@@ -556,6 +716,7 @@ export async function registerAdminRoutes(
             modelName: prepared.modelName,
             chatAccountId: prepared.chatAccountId ?? null,
             reasoningEffort: prepared.reasoningEffort ?? null,
+            concurrency: prepared.concurrency,
             configurationHash: prepared.configurationHash,
           },
         );
@@ -589,7 +750,7 @@ export async function registerAdminRoutes(
         await connection.query('begin');
         await lockProvider(connection);
         const provider = await getAnalysisProviderRow(connection, providerId);
-        if (!provider) {
+        if (!provider || provider.deletedAt) {
           await connection.query('rollback');
           return hiddenNotFound(request, reply);
         }
@@ -621,6 +782,39 @@ export async function registerAdminRoutes(
       } finally {
         connection.release();
       }
+      return { schemaVersion, id: providerId };
+    },
+  );
+
+  app.delete(
+    '/api/v1/admin/analysis-provider/versions/:providerId',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      if (!(await canManageProvider(authorization, request, 'manage')))
+        return hiddenNotFound(request, reply);
+      if (!config.MODEL_ADMIN_ENABLED)
+        return providerBadRequest(request, reply, 'Provider 관리자 설정이 비활성화되어 있습니다.');
+      const { providerId } = providerParams.parse(request.params);
+      const { confirmation } = z
+        .object({ confirmation: z.string().min(1).max(120) })
+        .parse(request.body);
+      const outcome = await deleteRegistryEntry(
+        database,
+        'analysis_provider',
+        providerId,
+        confirmation,
+        request.user!.subject,
+        request.id,
+      );
+      if (outcome !== 'deleted')
+        return reply.code(outcome === 'not-found' ? 404 : 409).send({
+          error: {
+            code: 'REGISTRY_DELETE_CONFLICT',
+            message: registryDeletionMessages[outcome],
+            requestId: request.id,
+            retryable: false,
+          },
+        });
       return { schemaVersion, id: providerId };
     },
   );
@@ -724,8 +918,9 @@ export async function registerAdminRoutes(
       if (!(await canManagePrompt(database, authorization, request, reply, tenantId, 'manage'))) {
         return;
       }
-      const instructions = normalizeInstructions(promptBody.parse(request.body).instructions);
-      const hash = promptHash(instructions);
+      const body = promptBody.parse(request.body);
+      const instructions = normalizeInstructions(body.instructions);
+      const hash = promptHash(instructions, body.severityLevel);
       const connection = await database.connect();
       let promptId: string;
       try {
@@ -745,19 +940,20 @@ export async function registerAdminRoutes(
         } else {
           const created = await connection.query<{ id: string }>(
             `insert into analysis_prompt_versions(
-               tenant_id, version, instructions, content_hash, active,
+               tenant_id, version, instructions, content_hash, severity_level, active,
                created_by, activated_by, activated_at
              ) values (
                $1, (select coalesce(max(version), 0) + 1 from analysis_prompt_versions where tenant_id = $1),
-               $2, $3, true, $4, $4, clock_timestamp()
+               $2, $3, $5, true, $4, $4, clock_timestamp()
              ) returning id`,
-            [tenantId, instructions, hash, request.user!.id],
+            [tenantId, instructions, hash, request.user!.id, body.severityLevel],
           );
           promptId = created.rows[0]!.id;
         }
         await writeAudit(connection, request, 'analysis_prompt.activate', 'tenant', tenantId, {
           promptId,
           hash,
+          severityLevel: body.severityLevel,
         });
         await connection.query('commit');
       } catch (error) {
@@ -864,7 +1060,7 @@ async function listPrompts(database: Database, config: AppConfig, tenantId: stri
   );
   const result = await database.query<PromptRow>(
     `select prompt.id, prompt.tenant_id as "tenantId", prompt.version, prompt.instructions,
-            prompt.content_hash as "contentHash", prompt.active,
+            prompt.content_hash as "contentHash", prompt.severity_level as "severityLevel", prompt.active,
             creator.oidc_subject as "createdBySubject", creator.display_name as "createdByName",
             activator.oidc_subject as "activatedBySubject", activator.display_name as "activatedByName",
             prompt.activated_at as "activatedAt", prompt.created_at as "createdAt"
@@ -895,6 +1091,7 @@ function promptView(row: PromptRow) {
     tenantId: row.tenantId,
     version: row.version,
     instructions: row.instructions,
+    severityLevel: row.severityLevel,
     contentHash: row.contentHash,
     active: row.active,
     createdBy: { subject: row.createdBySubject, displayName: row.createdByName },
@@ -938,7 +1135,7 @@ async function activateProvider(
 ) {
   return database.query(
     `update analysis_provider_versions set active = true, activated_by = $2,
-       activated_at = clock_timestamp() where id = $1 returning id`,
+       activated_at = clock_timestamp() where id = $1 and deleted_at is null returning id`,
     [providerId, actorId],
   );
 }
@@ -958,6 +1155,7 @@ async function canManageProvider(
 
 function providerEffectiveView(provider: ReturnType<typeof deploymentAnalysisProvider>) {
   return {
+    concurrency: provider.concurrency ?? 1,
     chatAccountId: provider.chatAccountId ?? null,
     reasoningEffort: provider.reasoningEffort ?? null,
     source: provider.source,
@@ -1011,8 +1209,10 @@ function normalizeInstructions(value: string): string {
   return value.replace(/\r\n?/g, '\n').trim();
 }
 
-function promptHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
+function promptHash(instructions: string, severityLevel: ReviewSeverityLevel): string {
+  return createHash('sha256')
+    .update(JSON.stringify({ format: 'analysis-prompt-v2', instructions, severityLevel }))
+    .digest('hex');
 }
 
 async function writeAudit(

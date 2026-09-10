@@ -12,6 +12,9 @@ import {
 import { useEffect, useState } from 'react';
 import { loadCurrentUser, type User } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
+import { DocumentationNav } from './DocumentationNav.tsx';
+import { reviewGrades, reviewSeverityLevelSchema, reviewSeverityLevels } from '@gcr/contracts';
+import { ReviewGrade } from './ReviewGrade.tsx';
 
 const githubPatDocs =
   'https://docs.github.com/en/enterprise-server@3.21/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens';
@@ -43,15 +46,19 @@ export function GuidePage() {
         <aside className="guide-nav" aria-label="사용 가이드 목차">
           <div className="guide-nav-title">
             <BookOpenText size={16} />
-            <strong>사용 가이드</strong>
+            <strong>문서</strong>
           </div>
+          <DocumentationNav currentPath="/guide" />
+          <p className="guide-nav-section-title">사용 가이드 목차</p>
           <a href="#start">시작하기</a>
           <a href="#profile">개인 프로필</a>
           <a href="#ghes-credential">GHES credential</a>
           <a href="#register-repository">Repository 등록</a>
           <a href="#analysis-provider">자동 분석 모델 설정</a>
           <a href="#analysis-skills">분석 Skills와 report</a>
+          <a href="#review-grades">코드 품질 등급</a>
           <a href="#review-flow">Review와 Chat</a>
+          <a href="#review-memory">Memory와 PR 대화</a>
           <a href="#code-navigation">파일 tree와 코드 이동</a>
           <a href="#troubleshooting">문제 해결</a>
           <a href="#security">보안 점검</a>
@@ -82,7 +89,7 @@ export function GuidePage() {
             <div className="guide-section-heading">
               <KeyRound size={19} />
               <div>
-                <h2>개인 프로필과 비밀번호</h2>
+                <h2>개인 프로필·Prompt·비밀번호</h2>
               </div>
             </div>
             <p>
@@ -91,9 +98,34 @@ export function GuidePage() {
               수정할 수 있습니다.
             </p>
             <p>
+              <strong>개인 Prompt</strong>에는 답변 길이, 설명 방식, 관심 영역 등 본인의 Review Chat
+              지침을 최대 4,000자까지 작성할 수 있습니다. 예를 들어 ‘결론부터 설명하고 보안과
+              backward compatibility를 중점적으로 검토해 주세요’라고 입력한 뒤 ‘개인 Prompt 저장’을
+              누르세요. 기존 대화에서도 다음 질문부터 적용되며 과거 메시지는 바뀌지 않습니다. ‘내용
+              비우기’ 후 저장하면 적용이 해제됩니다.
+            </p>
+            <p>
+              개인 Prompt는 서비스 로그인 사용자별로 저장됩니다. 같은 ChatGPT account를 사용하는
+              다른 사용자, 공동 PR 분석과 PR 댓글에는 적용되지 않습니다. Local account와 외부 인증
+              계정 모두 설정할 수 있습니다. 입력 내용은 선택한 모델로 전송되므로 비밀번호나 Access
+              token을 넣지 마세요. 개인 Prompt는 답변 형식과 근거 검증 규칙을 변경하지 않습니다.
+            </p>
+            <p>
               비밀번호는 현재 비밀번호를 확인한 뒤 8~128자로 변경합니다. 변경이 완료되면 기존
               session이 모두 종료되므로 새 비밀번호로 다시 로그인해야 합니다. 외부 인증 계정은
               연결된 IdP에서 프로필과 비밀번호를 변경하십시오.
+            </p>
+            <p>
+              시스템관리자는 <a href="/admin?tab=users">설정 → 사용자</a>에서 각 사용자의 휴지통
+              버튼으로 계정을 삭제할 수 있습니다. 확인창에 해당 사용자 이름 또는 Subject를 입력해야
+              하며 현재 로그인한 본인 계정은 삭제할 수 없습니다. 삭제하면 로그인 세션·개별 권한·개인
+              Prompt·Local 비밀번호를 정리하고 사용자 목록에서 제외합니다.
+            </p>
+            <p>
+              삭제한 사용자의 개인 Chat 이력은 retention 정책에 따라 보관하며 다른 사용자에게
+              이전하지 않습니다. 공동 PR report·분석 설정·audit 기록과 외부 IdP 원본 계정은
+              유지합니다. 삭제 후 같은 사용자 이름·Subject로 재등록하거나 화면에서 복원할 수
+              없으므로 일시적인 이용 중지는 사용자 목록의 앱 접근 차단을 사용하세요.
             </p>
           </section>
 
@@ -360,21 +392,43 @@ export function GuidePage() {
           <section className="guide-section" id="analysis-provider">
             <h2>등록된 ChatGPT account로 자동 분석하기</h2>
             <p>
+              비활성 ChatGPT account와 비활성 Provider 버전에는 삭제 버튼이 표시됩니다. Account를
+              삭제하면 저장된 credential과 사용 권한을 제거하며 복구할 수 없습니다. 기존 분석과 대화
+              기록은 남습니다. 활성 Provider나 대기·진행 중인 분석·대화가 참조하는 account는 사용을
+              정리한 뒤 삭제하세요. Provider 삭제는 선택 목록에서 버전을 제거하는 동작이며, 이미
+              대기 중인 분석을 위해 그 버전의 실행 설정과 암호화된 credential은 보존합니다.
+            </p>
+            <p>
               시스템 관리자는 Administration → ChatGPT accounts에서 account와 사용할 model ID, 허용
               effort를 등록하고 분석 대상 repository의 tenant 또는 all 권한을 부여합니다. user·group
               전용 권한은 대화에만 사용하며 자동 분석에는 사용할 수 없습니다.
             </p>
             <p>
-              Administration → 분석 Provider에서 ‘등록된 ChatGPT account’를 선택하고
-              account·model·effort와 Timeout을 지정합니다. ‘연결 테스트’는 코드 없이 짧은 응답만
-              확인합니다. ‘새 버전 저장 및 활성화’를 누르면 이후 생성되는 분석에 적용됩니다. 분석
-              프롬프트는 repository의 tenant 설정을 따릅니다.
+              <a href="/admin?tab=provider">Administration → 분석 모델</a>에서 ‘등록된 ChatGPT
+              account’를 선택하고 Account·Model·Reasoning effort, 파일 병렬 처리 수와 Timeout을
+              지정합니다. ‘연결 테스트’는 코드 없이 짧은 응답만 확인합니다. ‘새 버전 저장 및
+              활성화’를 누르면 이후 생성되는 분석에 적용됩니다. 분석 프롬프트는 repository의 tenant
+              설정을 따릅니다.
+            </p>
+            <p>
+              Model과 effort는 account에 등록된 허용 목록에서 선택합니다. 목록이 부족하면 ChatGPT
+              accounts의 모델 목록 조회에서 실제 지원 값을 확인하고 등록하세요. low는 속도를,
+              high·xhigh는 깊은 검토를 우선하며 medium은 두 요구 사이의 균형을 맞춥니다. Effort를
+              낮추면 복잡한 결함을 놓칠 수 있으므로 같은 PR로 결과를 비교하세요.
+            </p>
+            <p>
+              파일 병렬 처리 수는 1~4개이며 새 설정의 기본값은 4개입니다. 파일 안의 코드 구간은
+              순서대로 검토하고, 모든 파일 검토가 끝난 뒤 PR 전체 Summary를 만듭니다. 같은 account의
+              분석 요청은 최대 4개, Review Chat은 별도 1개로 제한합니다. Provider의 rate limit에
+              도달하면 Retry-After 동안 대기하므로 4배 속도를 보장하지 않습니다. Timeout이나 분석
+              예산을 줄여 검토 범위를 생략하는 방식은 사용하지 않습니다.
             </p>
             <p>
               Review Chat에서 선택한 모델은 자동 분석 설정을 바꾸지 않습니다. 기존 PR을 다시
               분석하려면 Workspace에서 새로고침하세요. 같은 commit도 새 revision으로 분석하며 이전
               report는 이력으로 남습니다. Account 인증 갱신은 registry를 공유하지만
-              account·model·effort 설정은 분석 버전에 고정됩니다.
+              Account·Model·Effort와 병렬 처리 수는 분석 버전에 고정됩니다. 실행 중인 분석의 설정은
+              바뀌지 않으며 병렬 처리에서도 Report 파일 순서와 실패·미완료 표시는 유지합니다.
             </p>
             <p>
               ‘데모 분석’은 실제 AI review가 아닙니다. ‘AI review 미수행’ 또는 ‘AI review 실패’가
@@ -392,17 +446,76 @@ export function GuidePage() {
               관점과 unit-comment-block, overall-summary, total-summary 형식이 포함됩니다.
             </p>
             <p>
+              기본 관점 6개의 version 2는 Commit Defender 원문의 점검 항목과 Tone을 한국어로
+              옮겼으며 전문용어는 영어로 유지합니다. 이미 저장해 활성화한 custom bundle은 자동으로
+              덮어쓰지 않습니다. 새 기본 내용을 적용하려면 ‘Built-in을 초안으로 불러오기’로 내용을
+              비교·수정한 뒤 ‘Version 저장 및 활성화’를 선택하세요.
+            </p>
+            <p>
               ‘Perspective 추가’로 새 관점을 만들고 name, title, version과 한국어 지침을 작성하세요.
               이름은 영어 소문자·숫자·hyphen을 사용합니다. 관점을 끄려면 enabled를 false로 바꾸며 세
               form은 활성 상태로 유지해야 합니다. ‘Version 저장 및 활성화’는 전역 설정으로, 이후
               queue에 들어가는 모든 tenant의 분석에 적용됩니다. Tenant별 추가 지침은 분석
               프롬프트에서 관리합니다.
             </p>
+            <h3>분석 수준 · Severity Level</h3>
+            <p>
+              Administration → 분석 프롬프트에서 tenant를 고르고 분석 수준을 선택한 뒤 ‘새 버전 저장
+              및 활성화’를 누르세요. 추가 지침은 비워도 됩니다. 기본값은 moderate입니다.
+              Model·effort는 분석 Provider에서 따로 설정하며, Severity Level은 검토 범위와 보고할
+              comment의 priority 기준을 조절합니다.
+            </p>
+            <dl>
+              {reviewSeverityLevelSchema.options.map((level) => (
+                <div key={level}>
+                  <dt>
+                    <strong>{level}</strong> · {reviewSeverityLevels[level].scope}
+                  </dt>
+                  <dd>{reviewSeverityLevels[level].description}</dd>
+                </div>
+              ))}
+            </dl>
+            <p>
+              P1은 화면에서 Info로 표시하는 선택적 개선 제안입니다. Moderate의 한도는 여러 window를
+              합친 파일 전체에 적용하고 P2·P3는 개수 제한 없이 유지합니다. Severe에서도 같은 파일에
+              문제가 있으면 P0 Praise를 함께 넣지 않습니다. Level 때문에 priority를 올리거나 확인된
+              P3를 낮추지 않습니다. 요약은 필터를 통과한 comment를 기준으로 작성합니다.
+            </p>
+            <p>
+              지침과 분석 수준은 하나의 immutable version으로 저장됩니다. 이전 version을 활성화하면
+              둘 다 복원되고 ‘기본값 복원’은 추가 지침 없음·moderate로 돌아갑니다. 변경 전 queue에
+              들어간 작업과 기존 report는 그대로 유지됩니다. 새 report의 Raw JSON에서
+              versions.severity와 versions.prompt로 적용 수준과 version을 확인할 수 있습니다.
+            </p>
             <p>
               Version history에서 이전 version을 활성화하거나 Built-in으로 복원할 수 있습니다.
               저장된 본문과 기존 report는 변경되지 않습니다. Queue에 들어간 작업은 그때 고정한 Skill
               bundle/hash를 사용합니다. 변경 사항을 기존 PR에 적용하려면 Workspace에서 새로고침하여
               새 분석을 만드세요.
+            </p>
+            <h3>분석·Review Chat의 작성 형식</h3>
+            <ul>
+              <li>
+                <strong>요약:</strong> 짧은 결론 뒤에 Header와 List로 변경·위험·조치를 구분합니다.
+                한 항목에는 하나의 논점만 담습니다.
+              </li>
+              <li>
+                <strong>상세 설명:</strong> 원인·실행 흐름·예외 조건·trade-off는 문단으로
+                설명합니다. 간결함을 위해 근거나 분석 제한을 생략하지 않습니다.
+              </li>
+              <li>
+                <strong>중복 제거:</strong> 파일 요약은 확정 comment만 종합하고 전체 요약은 여러
+                파일의 같은 논점을 묶습니다. 전체 report나 파일 목록을 반복하지 않습니다.
+              </li>
+              <li>
+                <strong>의견 없음:</strong> 검토가 완료된 파일에만 문제가 발견되지 않았다는 짧은
+                문장을 표시합니다.
+              </li>
+            </ul>
+            <p>
+              Built-in Overall Summary·Total Summary는 version 3, Unit Comment Block은 version 2를
+              사용합니다. 공통 작성 지침은 새 분석·Review Chat 질문에 적용됩니다. 기존 report·대화와
+              관리자가 저장한 Skill·개인 Prompt는 덮어쓰지 않습니다.
             </p>
             <p>
               Worker는 line 번호가 있는 window별로 comment를 생성하고 검증된 code segment·unit을
@@ -412,10 +525,13 @@ export function GuidePage() {
               범위를 표시합니다.
             </p>
             <p>
-              Summary 탭은 전체 상태, Overall Summary와 Analyzed File List를 표시합니다. Comments
-              탭은 Commit Defender의 unit-comment-block에 해당하는 AI review comment를 파일별로
-              표시합니다. Comment를 클릭하면 Code 탭의 해당 head/mergeBase line과 inline 설명으로
-              이동하며 오른쪽 Chat에서 이어서 질문할 수 있습니다. 파일 수준의 설명에는 line을 만들지
+              Summary 탭은 PR 전체 요약, 펼쳐진 파일별 검토 요약과 Analyzed File List를 표시합니다.
+              전체 요약이 없는 과거 report에는 별도 안내가 표시됩니다. 하단 FNB의 Comments는 Commit
+              Defender의 unit-comment-block에 해당하는 AI review comment를 파일별로 표시합니다.
+              요약과 상세 의견의 Markdown은 제목, 강조, 목록, 표와 code block으로 표시합니다. 보안을
+              위해 raw HTML은 실행하지 않고 외부 이미지는 불러오지 않습니다. 파일 요약이나 Comment의
+              본문·여백을 클릭하면 Code 탭의 해당 head/mergeBase line과 inline 설명으로 이동하며
+              오른쪽 Chat에서 이어서 질문할 수 있습니다. 파일 수준의 설명에는 line을 만들지
               않습니다. Raw JSON과 Markdown에서도 같은 분석 revision을 확인할 수 있습니다.
             </p>
             <p>
@@ -425,11 +541,68 @@ export function GuidePage() {
               아닙니다. 분석 미완료·미수행·실패·데모 상태와 파일별 검토 상태를 함께 확인하세요. 화면
               아래 Coverage는 코드 수집 범위이고 report의 ‘files 검토 완료’와는 다릅니다.
             </p>
+            <h3>GitHub PR 메시지</h3>
+            <ul>
+              <li>
+                <strong>기본 표시:</strong> 전체 분석 요약과 분석 제한을 펼쳐서 보여줍니다.
+              </li>
+              <li>
+                <strong>생략:</strong> 중복되는 Overall Summary section, 전체 파일 목록, comment가
+                없는 파일별 요약은 게시하지 않습니다.
+              </li>
+              <li>
+                <strong>AI Comments:</strong> ‘펼쳐 보기’에서 comment가 있는 파일의
+                요약·comment-block·관련 코드 링크를 확인합니다.
+              </li>
+              <li>
+                <strong>전체 내용:</strong> 검토 수·판정·분석 제한을 유지하며 길이 제한으로 생략된
+                항목은 전체 report 링크에서 확인합니다. 앱과 Markdown export에는 전체 파일이
+                남습니다.
+              </li>
+            </ul>
             <p>
-              Repository의 PR 게시 설정이 켜져 있으면 새 Skill 기반 분석의 PR timeline 댓글에도
-              Overall Summary, AI Comments, Analyzed File List를 게시합니다. 길이 제한으로 생략한
-              항목은 전체 report 링크에서 확인합니다. 대상 PR 안의 SKILL.md, TODO나 type-ignore
-              문자열을 관리자 지침으로 자동 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
+              Repository의 PR 게시 설정이 켜져 있을 때 다음 정상 게시·갱신부터 적용됩니다. 기존
+              댓글은 자동으로 일괄 수정하지 않습니다. Header·List·강조·inline code는 표시하되
+              HTML·임의 링크·mention은 차단합니다. 대상 PR의 SKILL.md, TODO나 type-ignore를 관리자
+              지침으로 신뢰하지 않으며 Skill에 Secret을 넣으면 안 됩니다.
+            </p>
+          </section>
+
+          <section className="guide-section" id="review-grades">
+            <h2>코드 품질 등급</h2>
+            <p>
+              Grade는 검토한 코드의 종합 품질 평가입니다. 탁월·우수·양호는 긍정적인 평가이며, 양호는
+              경고 등급이 아닙니다. 개선 필요는 주황색, 심각은 빨간색으로 표시합니다.
+            </p>
+            <div className="guide-table-wrap">
+              <table className="guide-table">
+                <thead>
+                  <tr>
+                    <th>화면 표시</th>
+                    <th>Grade</th>
+                    <th>의미</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Object.keys(reviewGrades) as Array<keyof typeof reviewGrades>).map((grade) => (
+                    <tr key={grade}>
+                      <td>
+                        <ReviewGrade grade={grade} />
+                      </td>
+                      <td>
+                        <code>{grade}</code>
+                      </td>
+                      <td>{reviewGrades[grade].description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p>
+              Grade는 개별 의견의 Priority(P0–P3), 분석 완료 여부, 분석 수준 설정인 Severity Level과
+              별개입니다. 양호·우수여도 P2·P3 의견과 분석 제한을 함께 확인하세요. 분석에 제한이
+              있으면 검토한 범위에만 해당하는 평가이며, merge 승인이나 결함이 없다는 보장은
+              아닙니다. Raw JSON과 저장된 Grade 값은 영어로 유지합니다.
             </p>
           </section>
 
@@ -444,42 +617,155 @@ export function GuidePage() {
             <div className="guide-flow">
               <div>
                 <strong>1. Worklist</strong>
-                <span>Tenant를 선택하고 분석할 PR을 엽니다.</span>
+                <span>Tenant와 Open / Closed / All 상태를 선택하고 PR을 엽니다.</span>
               </div>
               <ArrowRight size={17} />
               <div>
                 <strong>2. Summary와 Comments</strong>
-                <span>메인 탭에서 전체 요약과 unit comment를 구분해 확인합니다.</span>
+                <span>
+                  메인 Summary에서 PR·파일 요약을, 하단 Comments에서 상세 의견을 읽습니다.
+                </span>
               </div>
               <ArrowRight size={17} />
               <div>
                 <strong>3. Chat</strong>
                 <span>
-                  오른쪽에서 account, model, effort를 선택하고 현재 revision을 질문합니다.
+                  오른쪽 입력창 아래에서 Account·Model·Effort를 선택하고 현재 revision을 질문합니다.
                 </span>
               </div>
             </div>
             <p>
-              하단 FNB에서 Evidence, Git graph, Impact, Tests를 전환할 수 있습니다. Comment를
-              선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에 맞춰집니다.
-              Chat account가 보이지 않으면 시스템 관리자에게 account assignment와 model policy를
-              확인해 달라고 요청하십시오.
+              Worklist의 Closed에는 merge 없이 닫힌 PR과 Merged PR이 모두 포함됩니다. 각 행의 PR
+              상태와 검토 평가는 별도 항목이며 Draft는 Open에 포함됩니다. GitHub 상태는 repository의
+              polling 주기에 따라 자동 갱신되고 새로고침은 마지막 수집 결과를 다시 불러옵니다.
+              동기화에 실패하면 마지막 상태와 오류 안내를 표시합니다. 처음 등록한 repository의 과거
+              Closed·Merged PR도 수집하지만 자동 분석하지는 않습니다. 저장된 분석이 없는 Closed PR은
+              GitHub 원문으로 열립니다.
+            </p>
+            <p>
+              하단 FNB에서 Comments, Memory, Git graph, Impact, Tests를 전환할 수 있습니다.
+              Comment를 선택하면 diff anchor, evidence와 Chat scope가 같은 analysis revision에
+              맞춰집니다. Chat account가 보이지 않으면 시스템 관리자에게 account assignment와 model
+              policy를 확인해 달라고 요청하십시오.
+            </p>
+            <p>
+              Memory 탭에서 과거 판단과 PR 대화를 관리합니다. 후보 저장과 집단 메모리 승인은{' '}
+              <a href="#review-memory">Memory와 PR 대화</a> 절차를 참고하세요.
+            </p>
+            <p>
+              Code·Summary 왼쪽의 패널 toggle로 Files 탐색 영역을 숨기거나 다시 표시할 수 있습니다.
+              Chat의 기본 너비는 569px, 하단 Comments의 기본 높이는 280px이며 화면 크기에 맞춰
+              조정됩니다. Desktop에서는 경계선을 drag하거나, 경계선에 Tab으로 이동한 뒤 방향키로
+              크기를 조절하세요. 더블클릭 또는 Home으로 해당 패널의 기본 크기를 복원합니다. 이전에
+              직접 조정한 크기는 유지됩니다.
+            </p>
+            <p>
+              Chat 본문과 입력 글씨는 14px이며 입력창은 기본 5줄, 최소 높이 140px입니다.
+              Account·Model·Effort는 입력창 아래에 있고 좁은 패널에서는 Account가 별도 줄로
+              표시됩니다. Enter로 전송하고 Shift+Enter로 줄을 바꿉니다.
+            </p>
+            <p>
+              ‘분석 Provider 설정 불러오기’에서 등록된 ChatGPT 분석 모델을 선택하거나,
+              Account·Model·Effort를 직접 바꿀 수 있습니다. 사용자에게 허용된 account와 model만
+              표시되며 선택값은 다음 질문부터 적용됩니다. Interactive Chat은 모델을 바꿔도 같은
+              revision의 대화를 유지합니다. 답변 생성 중에는 모델 변경이 잠기며 기존 실행에는 영향을
+              주지 않습니다. OpenAI-compatible batch Provider는 현재 이 선택 목록에 포함되지
+              않습니다.
+            </p>
+            <p>
+              ‘이전 대화와 코드 근거’는 PR 분석 revision 선택 메뉴가 아닙니다. 현재 revision에서
+              나눈 이전 질문을 고르면 저장된 답변과 파일·라인 범위별 코드 근거를 확인할 수 있습니다.
+              저장된 질문이 없으면 입력창에서 먼저 질문하세요.
+            </p>
+            <p>
+              새 질문의 ‘조회 과정’은 기본으로 펼쳐집니다. 직접 접은 상태는 진행 상태가 갱신되어도
+              유지되며 다음 질문에서는 다시 펼쳐집니다. 답변 생성 중에는 Thinking 글자에 빛이 흐르는
+              효과가 표시됩니다. 계정 대기·추가 응답 대기·완료 상태는 별도 문구로 구분하며
+              운영체제의 동작 줄이기 설정에서는 움직임 없이 Thinking을 표시합니다.
+            </p>
+            <p>
+              Review assistant 답변은 Markdown 제목·목록·강조·코드·표로 표시됩니다. 질문 원문은
+              그대로 보존하며 HTML이나 외부 이미지는 실행·로드하지 않습니다. ‘전체 PR을 merge할 때
+              문제는?’처럼 넓게 질문하면 현재 선택한 finding 외에 다른 파일의 검토 내용도 함께
+              참고합니다. Interactive Chat이 활성화되어 있으면 고정된 snapshot의 기존 코드와
+              테스트도 도구로 조회합니다. 기존 batch report를 수정하거나 테스트를 실행하지는
+              않습니다.
+            </p>
+            <p>
+              답변 아래 <strong>관련 코드</strong>에는 사용된 근거를 최대 24개 표시합니다. 각 링크는{' '}
+              <code>src/storage.ts · L10–14 · 변경 코드</code>처럼 파일·라인 범위와 이전/변경 코드를
+              구분하며, 누르면 해당 위치로 이동합니다. 파일 전체 근거에는 line 번호를 만들지
+              않습니다. 근거 위치가 현재 revision에 없으면 링크가 비활성화됩니다. 기존 메시지는
+              저장된 근거만 표시하고, 여러 근거를 선택하는 동작은 새 답변부터 적용됩니다. 모델이
+              근거를 반환하지 않으면 임의로 링크를 붙이지 않습니다.
+            </p>
+          </section>
+
+          <section className="guide-section" id="review-memory">
+            <h2>Memory와 GitHub PR 대화 관리</h2>
+            <p>
+              PR을 열고 하단 Memory 탭을 선택하세요. Repository Memory는 현재 분석에 고정된 집단
+              판단을, 내 Memory는 본인의 후보와 활성 항목을 보여줍니다. 현재 코드와 보고서의 근거를
+              먼저 확인하고 집단 메모리, 개인 메모리 순으로 과거 판단을 참고합니다.
+            </p>
+            <h3>PR 대화에서 메모리 저장하기</h3>
+            <ol className="guide-steps">
+              <li>
+                PR 대화에서 수집된 일반 댓글, review 본문과 inline comment를 확인합니다. 작성자,
+                본문과 제공된 코드 위치를 읽고 원본 링크에서 GitHub 대화의 맥락을 확인하세요.
+              </li>
+              <li>
+                이후 리뷰에 참고할 내용의 Memory 후보를 누릅니다. 해당 사용자의 원천 상태가 ‘후보로
+                저장됨’으로 바뀌고 내 Memory에 개인 후보가 추가됩니다.
+              </li>
+              <li>
+                내 Memory에서 후보 내용을 확인한 뒤 적용 또는 제외를 선택합니다. 활성 항목이 더 이상
+                유효하지 않으면 폐기합니다.
+              </li>
+              <li>
+                저장하지 않은 원천은 무시 또는 다시 표시로 관리합니다. 이 상태는 사용자별이며 다른
+                사람의 목록이나 GitHub 원문에는 영향을 주지 않습니다.
+              </li>
+            </ol>
+            <p>
+              대화는 open PR polling 시 수집됩니다. 봇 메시지도 원천에는 보존하지만 자동으로
+              메모리를 활성화하지 않습니다. GitHub에서 본문이 수정되어도 후보가 참조한 저장 당시
+              원문 버전은 유지됩니다. 현재 Review와 Chat 영역에서는 finding과 본인의 완료된 Chat
+              메시지를 같은 방식으로 후보로 저장할 수 있습니다.
+            </p>
+            <h3>집단 메모리 승인과 분석 반영</h3>
+            <p>
+              같은 repository와 검토 주제에서 서로 다른 사용자 두 명 이상이 개인 메모리를 승인하면
+              집단 후보를 만듭니다. 관리자는 관리 → Repository Memory에서 repository를 선택하고
+              내용·기여 수·충돌 수를 검토한 뒤 활성화 또는 기각합니다. 활성화된 공용 판단은 같은
+              화면에서 폐기할 수 있습니다.
+            </p>
+            <p>
+              새 메모리를 분석에 반영하려면 Review workspace를 새로고침하세요. Polling 분석은 집단
+              메모리를 사용하고 수동 분석은 요청자의 개인 메모리도 참고합니다. 완료된 보고서와 당시
+              고정된 메모리는 변경되지 않습니다. Chat의 새 답변에는 현재 관련 개인 메모리를 추가로
+              참고할 수 있습니다. 개인화 분석은 공용 PR 댓글로 게시하지 않습니다.
             </p>
           </section>
 
           <section className="guide-section" id="code-navigation">
             <h2>파일 tree와 코드 위치로 이동하기</h2>
             <p>
-              Files에서 폴더를 눌러 접거나 펼칩니다. 각 줄 오른쪽의 초록색 +와 빨간색 −는 추가·삭제
-              line 수입니다. 폴더에는 하위 파일의 합계를 표시하며 알 수 없는 수치는 —로 표시합니다.
-              방향키로 이동·접기·펼치기, Enter로 파일 선택이 가능합니다.
+              Files는 모든 폴더를 펼친 상태로 시작하며 폴더를 눌러 접거나 펼칠 수 있습니다. 각 줄
+              오른쪽의 초록색 +와 빨간색 −는 추가·삭제 line 수입니다. 폴더에는 하위 파일의 합계를
+              표시하며 알 수 없는 수치는 —로 표시합니다. 방향키로 이동·접기·펼치기, Enter로 파일
+              선택이 가능합니다.
             </p>
             <p>
-              Summary의 파일 요약이나 Comments의 Review comment를 선택하면 Code 탭의 해당 파일과
-              line으로 이동하고 코드 아래에 전체 설명을 펼칩니다. P0 Praise는 좋은 변경, P1 Info는
-              선택적 개선, P2 Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드
-              위치 확인’은 diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일
-              전체에 대한 comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
+              Code에는 현재 파일의 comment 아이콘과 설명이 처음부터 표시됩니다. Summary의 파일별
+              요약 block이나 Comments block의 본문·여백을 클릭하면 해당 파일과 line으로 이동합니다.
+              텍스트를 드래그해 선택하거나 링크·접기 control을 사용하면 이동하지 않습니다.
+              Keyboard에서는 기존 파일 경로·제목·‘코드에서 보기’ 버튼을 사용하세요. 선택한 범위의
+              시작 line만 강조하며 모든 줄에 테두리를 반복하지 않습니다. 긴 inline comment는 읽기
+              좋은 최대 너비로 표시합니다. P0 Praise는 좋은 변경, P1 Info는 선택적 개선, P2
+              Warning은 merge 전 확인할 위험, P3 Critical은 치명적 문제입니다. ‘코드 위치 확인’은
+              diff에 해당 line이 있다는 뜻이며 문제의 재현을 보장하지 않습니다. 파일 전체에 대한
+              comment나 diff 밖 line은 별도로 안내하고 다른 line에 붙이지 않습니다.
             </p>
           </section>
 

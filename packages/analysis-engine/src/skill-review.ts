@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import type { AnalysisProgress, ReviewMemoryProjection, ReviewSeverityLevel } from '@gcr/contracts';
+import { filterSeverityComments, severityInstructions } from './review-severity.js';
 import {
   gradeSchema,
   legacyAnalysisReportSchema,
@@ -15,6 +17,8 @@ import {
   type ReviewWindow,
 } from './review-windows.js';
 import { validateReviewSkillBundle } from './skills.js';
+import { incompleteFileSummary, reviewFailure } from './review-failures.js';
+import { mapConcurrent } from './concurrency.js';
 
 type Comment = LegacyAnalysisReport['review']['file_comments'][number];
 type FileResult = ReviewAnalysis['files'][number];
@@ -36,7 +40,11 @@ export async function runSkillReview(input: {
   skills: ReviewSkillBundle;
   model?: ReviewModel;
   instructions?: string;
+  severityLevel?: ReviewSeverityLevel;
+  memory?: ReviewMemoryProjection[];
   maxModelCalls: number;
+  concurrency?: number;
+  onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 }): Promise<SkillReviewOutput> {
   const skills = validateReviewSkillBundle(input.skills);
   const active = new Set(
@@ -44,58 +52,103 @@ export async function runSkillReview(input: {
       .filter((skill) => skill.enabled && skill.kind === 'perspective')
       .map((skill) => skill.name),
   );
-  const windows = input.files.flatMap((file) => buildReviewWindows(file));
+  const windows = planReviewWindows(input.files, input.maxModelCalls);
   const comments: Comment[] = [];
-  const fingerprints = new Set<string>();
   const limitations: string[] = [];
   const fileResults: SkillReviewOutput['files'] = [];
+  const processedFiles: SkillReviewOutput['files'] = [];
   const fileGrades = new Map<string, string>();
   const coverage = { windowsPlanned: windows.length, windowsReviewed: 0, modelCalls: 0 };
   let successfulCalls = 0;
+  const instructions = input.severityLevel
+    ? severityInstructions(input.severityLevel, input.instructions)
+    : input.instructions;
+  let progressQueue = Promise.resolve();
+  const publishProgress = (stage: string, currentFile: string | null) => {
+    // DB progress write가 늦게 끝나면서 완료 수가 과거 값으로 돌아가지 않게 한다.
+    progressQueue = progressQueue.then(() =>
+      input.onProgress?.(stage, {
+        filesProcessed: processedFiles.length,
+        filesTotal: input.allFiles.length,
+        filesReviewed: processedFiles.filter((file) => file.status === 'reviewed').length,
+        filesSkipped: processedFiles.filter((file) => file.status === 'not-reviewed').length,
+        currentFile,
+      }),
+    );
+    return progressQueue;
+  };
 
   const call = async (
     stage: 'unit-comment-block' | 'overall-summary' | 'total-summary',
     body: string,
     files: string[],
+    issues: string[] = limitations,
   ) => {
     if (!input.model) return null;
-    if (coverage.modelCalls >= input.maxModelCalls) {
-      limitations.push(`${stage}: model call budget 초과`);
-      return null;
-    }
+    const reservedCalls =
+      stage === 'unit-comment-block' && input.maxModelCalls >= 3
+        ? 2
+        : stage === 'overall-summary' && input.maxModelCalls >= 2
+          ? 1
+          : 0;
     if (Buffer.byteLength(body) > maxStageInputBytes) {
-      limitations.push(`${stage}: 모델 입력 크기 제한 초과`);
+      issues.push(`${stage}: 모델 입력 크기 제한 초과`);
       return null;
     }
-    coverage.modelCalls += 1;
-    try {
-      const result = await input.model.review(body, files, input.instructions, { stage, skills });
-      const parsed = legacyAnalysisReportSchema.parse(result.report);
-      if (
-        parsed.review.is_error ||
-        !parsed.review.summary.trim() ||
-        !gradeSchema.safeParse(parsed.review.grade).success
-      )
-        throw new Error('Invalid review result');
-      successfulCalls += 1;
-      return { review: parsed.review, truncated: result.truncated };
-    } catch {
-      limitations.push(
-        `${files.join(', ') || '전체 report'}: ${stage} 모델 호출 또는 응답 검증 실패`,
-      );
-      return null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      // 각 retry 직전에 동기적으로 예약해 병렬 호출의 budget 초과를 막는다.
+      if (coverage.modelCalls >= input.maxModelCalls - reservedCalls) {
+        issues.push(`${stage}: model call budget 초과`);
+        return null;
+      }
+      coverage.modelCalls += 1;
+      try {
+        const result = await input.model.review(body, files, instructions, {
+          stage,
+          skills,
+          ...(stage === 'unit-comment-block' && input.memory ? { memory: input.memory } : {}),
+        });
+        const parsed = legacyAnalysisReportSchema.parse(result.report);
+        if (
+          parsed.review.is_error ||
+          !parsed.review.summary.trim() ||
+          !gradeSchema.safeParse(parsed.review.grade).success
+        )
+          throw new Error('Invalid review result');
+        successfulCalls += 1;
+        return { review: parsed.review, truncated: result.truncated };
+      } catch (error) {
+        if (error instanceof Error && ['worker_draining', 'job_lease_lost'].includes(error.message))
+          throw error;
+        const { code, retryable } = reviewFailure(error);
+        if (retryable && attempt === 0 && coverage.modelCalls < input.maxModelCalls - reservedCalls)
+          continue;
+        issues.push(
+          `${files.join(', ') || '전체 report'}: ${stage} 모델 호출 또는 응답 검증 실패 [${code}]`,
+        );
+        return null;
+      }
     }
+    return null;
   };
 
-  for (const file of input.allFiles) {
+  const results = await mapConcurrent(input.allFiles, input.concurrency ?? 1, async (file) => {
+    const issues: string[] = [];
+    const comments: Comment[] = [];
+    const fingerprints = new Map<string, Comment>();
+    await publishProgress('unit-comment-block', file.path);
     const selected = input.files.some((candidate) => candidate.id === file.id);
     const planned = windows.filter((window) => window.fileId === file.id);
     let completed = 0;
     let attempted = 0;
-    if (selected && !planned.length)
-      limitations.push(`${file.path}: 분석 가능한 변경 line이 없습니다.`);
+    if (selected && !planned.length) issues.push(`${file.path}: 분석 가능한 변경 line이 없습니다.`);
     for (const window of planned) {
-      const result = await call('unit-comment-block', formatReviewWindow(window), [file.path]);
+      const result = await call(
+        'unit-comment-block',
+        formatReviewWindow(window),
+        [file.path],
+        issues,
+      );
       if (!result) continue;
       attempted += 1;
       let valid = !result.truncated;
@@ -104,12 +157,12 @@ export async function runSkillReview(input: {
         !result.review.file_comments.some((comment) => comment.priority === 'P3')
       ) {
         valid = false;
-        limitations.push(`${file.path}: Critical grade와 unit priority가 일치하지 않습니다.`);
+        issues.push(`${file.path}: Critical grade와 unit priority가 일치하지 않습니다.`);
       }
-      if (result.truncated) limitations.push(`${file.path}: 잘린 unit-comment-block 응답`);
+      if (result.truncated) issues.push(`${file.path}: 잘린 unit-comment-block 응답`);
       if (result.review.file_comments.length > 80) {
         valid = false;
-        limitations.push(`${file.path}: window당 comment 수 제한 초과`);
+        issues.push(`${file.path}: window당 comment 수 제한 초과`);
       }
       for (const candidate of result.review.file_comments.slice(0, 80)) {
         const end = candidate.end_line ?? candidate.line;
@@ -122,7 +175,7 @@ export async function runSkillReview(input: {
           !windowContainsComment(window, candidate.line, end)
         ) {
           valid = false;
-          limitations.push(`${file.path}: Skill 또는 code segment와 일치하지 않는 comment 제외`);
+          issues.push(`${file.path}: Skill 또는 code segment와 일치하지 않는 comment 제외`);
           continue;
         }
         const comment = { ...candidate, side: window.side, end_line: end };
@@ -138,15 +191,30 @@ export async function runSkillReview(input: {
             ]),
           )
           .digest('hex');
-        if (!fingerprints.has(fingerprint)) {
-          fingerprints.add(fingerprint);
+        const previous = fingerprints.get(fingerprint);
+        if (!previous) {
+          fingerprints.set(fingerprint, comment);
           comments.push(comment);
+        } else if (input.severityLevel && ranks[comment.priority]! > ranks[previous.priority]!) {
+          // 같은 근거가 더 높은 priority로 다시 검증되면 P3를 중복으로 버리지 않는다.
+          Object.assign(previous, comment);
         }
       }
       if (valid) {
         completed += 1;
         coverage.windowsReviewed += 1;
       }
+    }
+    // 모든 window의 중복을 제거한 뒤 level을 적용하고, 같은 집합으로 요약한다.
+    if (input.severityLevel) {
+      const retained = new Set(
+        filterSeverityComments(
+          comments.filter((comment) => comment.file === file.path),
+          input.severityLevel,
+        ),
+      );
+      for (let n = comments.length - 1; n >= 0; n -= 1)
+        if (comments[n]!.file === file.path && !retained.has(comments[n]!)) comments.splice(n, 1);
     }
     // Praise를 제거한 동일 unit 집합으로 파일 요약과 최종 report를 만든다.
     const concerns = comments.filter(
@@ -172,8 +240,9 @@ export async function runSkillReview(input: {
           ? units.map((unit) => unit.comment).join('\n\n')
           : attempted
             ? '처리된 window에서 추가 comment가 생성되지 않았습니다.'
-            : '이 파일의 AI review를 완료하지 못했습니다.';
+            : incompleteFileSummary(issues);
     if (attempted > 0) {
+      await publishProgress('overall-summary', file.path);
       const result = await call(
         'overall-summary',
         JSON.stringify({
@@ -183,6 +252,7 @@ export async function runSkillReview(input: {
           change: { status: file.status, additions: file.additions, deletions: file.deletions },
         }),
         [file.path],
+        issues,
       );
       if (
         result &&
@@ -194,13 +264,22 @@ export async function runSkillReview(input: {
         fileGrades.set(file.id, result.review.grade);
       } else {
         status = 'partial';
-        limitations.push(`${file.path}: Overall Summary 미완료, 생성된 unit 설명을 표시합니다.`);
+        issues.push(`${file.path}: Overall Summary 미완료, 생성된 unit 설명을 표시합니다.`);
       }
     }
-    fileResults.push({ fileId: file.id, path: file.path, status, summary });
+    const result = { fileId: file.id, path: file.path, status, summary };
+    processedFiles.push(result);
+    await publishProgress('file-review', file.path);
+    return { result, comments, issues };
+  });
+  for (const file of results) {
+    fileResults.push(file.result);
+    comments.push(...file.comments);
+    limitations.push(...file.issues);
   }
   let summary = 'AI review를 완료하지 못했습니다. 파일별 분석 상태를 확인하세요.';
   if (successfulCalls > 0) {
+    await publishProgress('total-summary', null);
     const result = await call(
       'total-summary',
       JSON.stringify({
@@ -278,6 +357,16 @@ function highest(comments: Comment[]) {
         : priority,
     null,
   );
+}
+
+function planReviewWindows(files: AnalysisFile[], maxModelCalls: number): ReviewWindow[] {
+  let windows: ReviewWindow[] = [];
+  for (const coreLines of [80, 160, 320, 500]) {
+    windows = files.flatMap((file) => buildReviewWindows(file, { coreLines }));
+    const summaries = new Set(windows.map((window) => window.fileId)).size + 1;
+    if (windows.length + summaries <= maxModelCalls) break;
+  }
+  return windows;
 }
 function worstGrade(grades: string[]) {
   const ordered = ['critical', 'insufficient', 'adequate', 'proficient', 'exceptional'];

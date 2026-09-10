@@ -65,15 +65,16 @@ export async function registerSnapshotRoutes(
         return hiddenNotFound(request, reply);
       const result = await database.query(
         `select ar.id, ar.snapshot_id as "snapshotId", ar.revision, ar.state, ar.stage, ar.progress,
-                ar.created_at as "createdAt", s.resolution, s.merge_base_sha as "mergeBaseSha",
+                ar.progress_detail as "progressDetail", ar.created_at as "createdAt", s.resolution, s.merge_base_sha as "mergeBaseSha",
                 sr.base_sha as "baseSha", sr.head_sha as "headSha"
          from pull_requests pr
          join snapshot_requests sr on sr.pull_request_id = pr.id
          join snapshots s on s.request_id = sr.id
          left join analysis_runs ar on ar.snapshot_id = s.id
+           and (ar.memory_owner_user_id is null or ar.memory_owner_user_id = $3)
          where pr.repository_id = $1 and pr.number = $2
-         order by s.created_at desc limit 20`,
-        [repoId, number],
+         order by s.created_at desc, ar.revision desc, ar.created_at desc limit 20`,
+        [repoId, number, request.user!.id],
       );
       return { schemaVersion, items: result.rows };
     },
@@ -128,8 +129,9 @@ export async function registerSnapshotRoutes(
     }>(
       `select o.*, pr.repository_id
        from operations o join pull_requests pr on pr.id = o.scope_id
-       where o.id = $1 and o.scope_type = 'pull_request'`,
-      [id],
+       where o.id = $1 and o.scope_type = 'pull_request'
+         and (o.requested_by is null or o.requested_by = $2 or $3::boolean)`,
+      [id, request.user!.id, request.user!.role === 'administrator'],
     );
     const row = result.rows[0];
     if (!row || !(await canReadRepository(database, authorization, request, row.repository_id))) {

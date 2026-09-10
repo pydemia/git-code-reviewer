@@ -35,9 +35,11 @@ Report의 `versions.review`는 `model`, `fixture`, `unavailable`, `failed`를 �
 
 ## 탐색과 코드 표시
 
-Files는 directory-first tree로 렌더링한다. 선택한 파일의 상위 폴더는 펼치고 나머지는 접는다. 모두 접기·모두 펼치기, 방향키, Home/End, Enter를 지원한다. 파일명은 한 줄로 표시하고 전체 path는 tooltip으로 제공한다. 각 파일·폴더 오른쪽에는 초록색 additions와 빨간색 deletions를 분리한다. 폴더는 하위 합계이며 미확인 수치가 있으면 0 대신 `—`를 표시한다.
+Files는 directory-first tree로 렌더링하고 모든 폴더를 펼친 상태로 시작한다. 사용자가 접은 폴더는 panel 숨김·표시 후에도 유지한다. 다른 파일로 이동할 때는 해당 파일의 상위 폴더를 펼친다. 모두 접기·모두 펼치기, 방향키, Home/End, Enter를 지원한다. 파일명은 한 줄로 표시하고 전체 path는 tooltip으로 제공한다. 각 파일·폴더 오른쪽에는 초록색 additions와 빨간색 deletions를 분리한다. 폴더는 하위 합계이며 미확인 수치가 있으면 0 대신 `—`를 표시한다.
 
-파일 요약·finding·praise·Outline 선택 시 같은 snapshot의 해당 파일과 코드 위치로 이동한다. Finding은 관련 line을 강조하고 바로 아래에 전체 설명을 펼친다. 같은 항목을 다시 눌러도 해당 위치로 이동한다. 파일 전체 comment와 diff 밖 line은 별도 안내를 표시하며 임의의 다른 line으로 연결하지 않는다. 파일 선택은 첫 변경 line으로 이동한다.
+메인은 Code·Summary를, 하단 FNB는 Comments·Git graph·Impact·Tests를 제공한다. Summary는 PR 전체 요약 뒤에 펼쳐진 파일별 요약을 표시하며 상세 comment는 하단에만 둔다. 전체 요약이 없는 기존 report는 재분석 안내를 표시한다. 파일 요약·finding·praise·Outline 선택 시 같은 snapshot의 해당 파일과 코드 위치로 이동한다. 현재 파일의 comment 아이콘과 inline 설명은 선택 전에도 표시한다. Finding 선택 시 시작 line만 강조하고 같은 항목을 다시 눌러도 해당 위치로 이동한다. 파일 전체 comment와 diff 밖 line은 별도 안내를 표시하며 임의의 다른 line으로 연결하지 않는다. 파일 선택은 첫 변경 line으로 이동한다.
+
+메인 toolbar의 toggle로 LNB를 숨기고 복원한다. 기본 LNB 244px, Chat 569px, FNB 280px이며 Code 최소 너비 360px를 보존한다. 저장한 크기와 화면에 적용할 크기를 분리하여 화면을 줄였다가 넓히면 사용자 설정이 복원된다. localStorage v1에서 v2로 최초 이전할 때 Chat 316px·FNB 176px의 이전 기본값만 교체한다. 직접 조절한 값은 유지하며 separator 더블클릭·Home으로 새 기본값을 적용할 수 있다.
 
 Split은 같은 row에 base/head를 정렬한다. Unified도 삭제 line과 base/head line 번호를 유지한다. 여러 hunk, 신설·삭제 파일, unequal additions/deletions, 마지막 개행을 처리한다. Code와 모델 설명은 React text로 출력하여 raw HTML을 실행하지 않는다.
 

@@ -1,4 +1,6 @@
 import type { Database } from '@gcr/db';
+import { createHash } from 'node:crypto';
+import { admittedFetch } from './model-admission.js';
 import { normalizeGitHubBaseUrl, parseGitHubRepositoryUrl } from '@gcr/contracts';
 import {
   GitHubAccessTokenClient,
@@ -9,6 +11,8 @@ import type { AppConfig } from '../config.js';
 import {
   RegisteredChatGptAccountModel,
   validateChatGptAuthJson,
+  chatGptQuotaIdentity,
+  refreshChatGptAuthJson,
   type ChatModel,
 } from './chat-model.js';
 import {
@@ -64,15 +68,18 @@ export async function listAvailableChatAccounts(database: Database, userId: stri
             model.allowed_efforts as "allowedEfforts", model.default_effort as "defaultEffort"
      from chat_accounts account
      join chat_account_models model on model.account_id = account.id and model.enabled
-     where account.enabled and exists (
+     where account.enabled and account.deleted_at is null and exists (
        select 1 from chat_account_assignments assignment
        where assignment.account_id = account.id and assignment.enabled and (
          (assignment.scope_type = 'all' and assignment.scope_id = '*') or
          (assignment.scope_type = 'user' and assignment.scope_id = ($1::uuid)::text) or
          (assignment.scope_type = 'tenant' and exists (
-           select 1 from tenant_memberships membership
-           where membership.user_id = $1::uuid and membership.tenant_id::text = assignment.scope_id
-             and membership.enabled
+           select 1 from tenants tenant where tenant.id::text = assignment.scope_id and tenant.enabled
+             and (exists (select 1 from users app_user where app_user.id = $1::uuid
+                          and app_user.enabled and app_user.role = 'administrator')
+               or exists (select 1 from tenant_memberships membership
+                          where membership.user_id = $1::uuid and membership.tenant_id = tenant.id
+                            and membership.enabled))
          )) or
          (assignment.scope_type = 'group' and exists (
            select 1 from users app_user
@@ -122,6 +129,7 @@ export async function resolveChatAccountSelection(
   accountId: string,
   modelName: string,
   effort: string,
+  timeoutMs = config.CHAT_MODEL_TIMEOUT_MS,
 ): Promise<ChatAccountSelection | null> {
   const result = await database.query<ChatAccountSelectionRow>(
     `select account.id, account.display_name as "displayName", account.endpoint,
@@ -141,9 +149,12 @@ export async function resolveChatAccountSelection(
            (assignment.scope_type = 'all' and assignment.scope_id = '*') or
            (assignment.scope_type = 'user' and assignment.scope_id = ($1::uuid)::text) or
            (assignment.scope_type = 'tenant' and exists (
-             select 1 from tenant_memberships membership
-             where membership.user_id = $1::uuid and membership.tenant_id::text = assignment.scope_id
-               and membership.enabled
+             select 1 from tenants tenant where tenant.id::text = assignment.scope_id and tenant.enabled
+             and (exists (select 1 from users app_user where app_user.id = $1::uuid
+                          and app_user.enabled and app_user.role = 'administrator')
+               or exists (select 1 from tenant_memberships membership
+                          where membership.user_id = $1::uuid and membership.tenant_id = tenant.id
+                            and membership.enabled))
            )) or
            (assignment.scope_type = 'group' and exists (
              select 1 from users app_user
@@ -155,7 +166,7 @@ export async function resolveChatAccountSelection(
   );
   const row = result.rows[0];
   if (!row || !row.allowedEfforts.includes(effort)) return null;
-  return hydrateChatAccount(database, config, row, effort, config.CHAT_MODEL_TIMEOUT_MS);
+  return hydrateChatAccount(database, config, row, effort, timeoutMs);
 }
 
 /** Worker는 user/group 권한을 빌리지 않고 repository의 tenant grant를 확인한다. */
@@ -211,14 +222,70 @@ function hydrateChatAccount(
   timeoutMs: number,
 ): ChatAccountSelection {
   const authJson = decryptCredential(row, config.CREDENTIAL_ENCRYPTION_KEY, 'chat-account');
+  const quotaKey = createHash('sha256')
+    .update(`chatgpt:${chatGptQuotaIdentity(authJson)}`)
+    .digest('hex');
   const model = new RegisteredChatGptAccountModel({
     name: row.modelName,
     endpoint: row.endpoint,
     timeoutMs,
     authJson,
+    ...(config.MODEL_ADMISSION_ENABLED || config.CHAT_AGENT_ENABLED
+      ? { fetch: admittedFetch(database, quotaKey) }
+      : {}),
     installationId: row.installationId,
     refreshUrl: config.CHATGPT_ACCOUNT_REFRESH_ENDPOINT,
     proactiveRefreshMinutes: config.CHATGPT_ACCOUNT_PROACTIVE_REFRESH_MINUTES,
+    refreshAuthJson: async (previous) => {
+      const client = await (database as Database).connect();
+      try {
+        await client.query('begin');
+        await client.query('select pg_advisory_xact_lock(hashtext($1))', [
+          `account-refresh:${quotaKey}`,
+        ]);
+        const selected = await client.query<CredentialColumns>(
+          'select credential_ciphertext as "credentialCiphertext",credential_iv as "credentialIv",credential_auth_tag as "credentialAuthTag" from chat_accounts where id=$1 and enabled for update',
+          [row.id],
+        );
+        if (!selected.rows[0]) throw Error('account_unavailable');
+        const current = decryptCredential(
+          selected.rows[0],
+          config.CREDENTIAL_ENCRYPTION_KEY,
+          'chat-account',
+        );
+        if (JSON.parse(current).tokens.access_token !== JSON.parse(previous).tokens.access_token) {
+          await client.query('commit');
+          return current;
+        }
+        const refreshed = await refreshChatGptAuthJson(
+          current,
+          config.CHATGPT_ACCOUNT_REFRESH_ENDPOINT,
+        );
+        const encrypted = encryptCredential(
+          refreshed,
+          config.CREDENTIAL_ENCRYPTION_KEY,
+          'chat-account',
+        );
+        await client.query(
+          "update chat_accounts set credential_ciphertext=$2,credential_iv=$3,credential_auth_tag=$4,credential_fingerprint=$5,credential_version=credential_version+1,health='ready',last_validated_at=clock_timestamp(),updated_at=clock_timestamp() where deleted_at is null and enabled and (id=$1 or credential_fingerprint=$6)",
+          [
+            row.id,
+            encrypted.credentialCiphertext,
+            encrypted.credentialIv,
+            encrypted.credentialAuthTag,
+            credentialFingerprint(refreshed),
+            credentialFingerprint(current),
+          ],
+        );
+        await client.query('commit');
+        return refreshed;
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
     persistAuthJson: async (updatedAuthJson) => {
       const encrypted = encryptCredential(
         updatedAuthJson,
@@ -230,7 +297,7 @@ function hydrateChatAccount(
            credential_auth_tag = $4, credential_fingerprint = $5,
            credential_version = credential_version + 1, health = 'ready',
            last_validated_at = clock_timestamp(), updated_at = clock_timestamp()
-         where id = $1`,
+         where id = $1 and enabled and deleted_at is null`,
         [
           row.id,
           encrypted.credentialCiphertext,
@@ -339,7 +406,7 @@ export async function rotateChatAccountCredential(
        credential_auth_tag = $4, credential_fingerprint = $5,
        credential_version = credential_version + 1, health = 'unverified',
        last_validated_at = null, updated_at = clock_timestamp()
-     where id = $1 returning id`,
+     where id = $1 and deleted_at is null returning id`,
     [
       accountId,
       encrypted.credentialCiphertext,
@@ -366,7 +433,7 @@ export async function listAdminChatAccounts(database: Database) {
               'scopeType', assignment.scope_type, 'scopeId', assignment.scope_id,
               'enabled', assignment.enabled) order by assignment.scope_type, assignment.scope_id)
               from chat_account_assignments assignment where assignment.account_id = account.id), '[]'::jsonb) as assignments
-     from chat_accounts account order by account.display_name`,
+     from chat_accounts account where account.deleted_at is null order by account.display_name`,
   );
   return result.rows;
 }

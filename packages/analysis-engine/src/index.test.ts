@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   analyzeSnapshot,
   composeReviewSystemPrompt,
+  composeReviewMemory,
   expandRelationships,
   OpenAICompatibleReviewModel,
   parseModelReviewJson,
@@ -10,6 +11,41 @@ import {
 } from './index.js';
 
 describe('analysis engine', () => {
+  it('keeps repeated symbol declarations distinct and ignores overlapping hunk copies', async () => {
+    const result = await analyzeSnapshot({
+      analysisId: randomUUID(),
+      snapshotId: randomUUID(),
+      baseSha: 'a'.repeat(40),
+      headSha: 'b'.repeat(40),
+      patch: '',
+      fixtureMode: true,
+      files: [
+        {
+          id: randomUUID(),
+          path: 'models.py',
+          previousPath: null,
+          status: 'modified',
+          additions: 3,
+          deletions: 0,
+          patch:
+            '@@ -1,2 +1,3 @@\n+class First:\n+    def validate(self): pass\n+class Second:\n@@ -4,0 +4,1 @@\n+    def validate(self): pass\n@@ -4,0 +4,1 @@\n+    def validate(self): pass\n',
+        },
+      ],
+    });
+    const names = result.graph.objects.map((object) => object.qualifiedName);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toContain('models.py#validate');
+    expect(names).toContain('models.py#validate@L4');
+    expect(result.graph.objects.filter((object) => object.kind === 'function')).toHaveLength(2);
+    const objectIds = new Set(result.graph.objects.map((object) => object.id));
+    expect(
+      result.graph.relations.every(
+        (relation) =>
+          objectIds.has(relation.sourceObjectId) && objectIds.has(relation.targetObjectId),
+      ),
+    ).toBe(true);
+  });
+
   it('preserves Korean file summaries, specific recommendations, and file-level anchors', async () => {
     const result = modelReviewFromText(
       JSON.stringify({
@@ -174,6 +210,38 @@ describe('analysis engine', () => {
     expect(guard).toBeGreaterThanOrEqual(0);
     expect(custom).toBeGreaterThan(guard);
     expect(output).toBeGreaterThan(custom);
+  });
+
+  it('marks pinned memory as a lower-priority hypothesis than current source', () => {
+    const prompt = composeReviewMemory([
+      {
+        id: randomUUID(),
+        scope: 'collective',
+        kind: 'decision',
+        revision: 1,
+        summary: '재시도 키를 유지합니다.',
+        detail: '',
+        recommendation: '',
+        categories: ['correctness'],
+        filePaths: ['src/retry.ts'],
+        symbols: [],
+        confidence: 0.9,
+        importance: 5,
+        sourceKind: 'github-pr-message',
+        sourceAnalysisRunId: randomUUID(),
+        sourceBaseSha: 'a'.repeat(40),
+        sourceHeadSha: 'b'.repeat(40),
+        sourceAnchor: {},
+        contentHash: 'c'.repeat(64),
+        aggregationKey: 'd'.repeat(64),
+        contributorCount: 2,
+        conflictCount: 0,
+        score: 120,
+      },
+    ]);
+    expect(prompt).toContain('현재 코드 evidence, repository collective memory, personal memory');
+    expect(prompt.indexOf('현재 코드 evidence')).toBeLessThan(prompt.indexOf('<review_memory>'));
+    expect(prompt).toContain('재시도 키를 유지합니다.');
   });
 
   it('injects tenant instructions into the model system message without changing user diff data', async () => {

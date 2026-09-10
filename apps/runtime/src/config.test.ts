@@ -16,6 +16,8 @@ describe('loadConfig', () => {
     expect(config.TRUST_PROXY).toBe(false);
     expect(config.WORKER_CONCURRENCY).toBe(2);
     expect(config.CHAT_CONCURRENCY_LIMIT).toBe(2);
+    expect(config.CHAT_MODEL_TIMEOUT_MS).toBe(60_000);
+    expect(config.CHAT_AGENT_MODEL_TIMEOUT_MS).toBe(180_000);
     expect(config.AUTHORIZATION_MODE).toBe('local');
   });
 
@@ -31,6 +33,15 @@ describe('loadConfig', () => {
 
   it('does not expose invalid values in its error', () => {
     expect(() => loadConfig({ DATABASE_URL: '' })).toThrow('Invalid configuration: DATABASE_URL');
+  });
+
+  it('bounds the interactive model timeout independently of legacy chat', () => {
+    expect(() => loadConfig({ ...baseEnvironment, CHAT_AGENT_MODEL_TIMEOUT_MS: '300001' })).toThrow(
+      'CHAT_AGENT_MODEL_TIMEOUT_MS',
+    );
+    const config = loadConfig({ ...baseEnvironment, CHAT_AGENT_MODEL_TIMEOUT_MS: '240000' });
+    expect(config.CHAT_AGENT_MODEL_TIMEOUT_MS).toBe(240000);
+    expect(config.CHAT_MODEL_TIMEOUT_MS).toBe(60000);
   });
 
   it('constructs the database URL from a mounted password file', () => {

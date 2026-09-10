@@ -51,14 +51,13 @@ export async function registerAuthentication(
 
   if (config.AUTH_MODE === 'local') await bootstrapLocalAccounts(database, config);
 
-  let developmentUser: Promise<AuthUser> | undefined;
   let oidcConfiguration: Promise<oidc.Configuration> | undefined;
   let proxyPublicKey: ReturnType<typeof importSPKI> | undefined;
 
   app.addHook('preHandler', async (request) => {
     if (request.url.startsWith('/health/')) return;
     if (config.AUTH_MODE === 'development') {
-      developmentUser ??= upsertUser(
+      const user = await upsertUser(
         database,
         {
           subject: config.DEV_USER_SUBJECT,
@@ -68,7 +67,6 @@ export async function registerAuthentication(
         },
         config,
       );
-      const user = await developmentUser;
       request.user = user.enabled ? user : null;
       return;
     }
@@ -230,7 +228,7 @@ export async function registerAuthentication(
       `select credential.user_id as "userId", credential.password_hash as "passwordHash",
               app_user.enabled
        from local_credentials credential join users app_user on app_user.id = credential.user_id
-       where credential.username = $1`,
+       where credential.username = $1 and app_user.deleted_at is null`,
       [username],
     );
     const credential = result.rows[0];
@@ -303,7 +301,7 @@ async function upsertUser(
   user: Pick<AuthUser, 'subject' | 'displayName' | 'role' | 'groups'>,
   config: AppConfig,
 ): Promise<AuthUser> {
-  const result = await database.query<{
+  let result = await database.query<{
     id: string;
     oidc_subject: string;
     display_name: string;
@@ -318,14 +316,23 @@ async function upsertUser(
        role = excluded.role,
        groups_json = excluded.groups_json,
        updated_at = clock_timestamp()
+     where users.deleted_at is null
      returning id, oidc_subject, display_name, role, groups_json, enabled`,
     [user.subject, user.displayName, user.role, JSON.stringify(user.groups)],
   );
+  // 삭제된 subject는 다시 생성하거나 IdP claim으로 갱신하지 않는다.
+  if (!result.rows[0])
+    result = await database.query(
+      `select id, oidc_subject, display_name, role, groups_json, enabled
+     from users where oidc_subject = $1`,
+      [user.subject],
+    );
   const row = result.rows[0]!;
-  if (config.AUTO_JOIN_DEFAULT_TENANT) {
+  if (config.AUTO_JOIN_DEFAULT_TENANT && row.enabled) {
     await database.query(
       `insert into tenant_memberships(tenant_id, user_id)
        select id, $1 from tenants where slug = $2 and enabled
+         and exists (select 1 from users where id = $1 and enabled and deleted_at is null)
        on conflict (tenant_id, user_id) do nothing`,
       [row.id, config.DEFAULT_TENANT_SLUG],
     );
@@ -351,7 +358,8 @@ async function findSessionUser(database: Database, token: string): Promise<AuthU
   }>(
     `update user_sessions s set last_seen_at = clock_timestamp()
      from users u
-     where s.id_hash = $1 and s.expires_at > clock_timestamp() and u.id = s.user_id and u.enabled
+     where s.id_hash = $1 and s.expires_at > clock_timestamp() and u.id = s.user_id
+       and u.enabled and u.deleted_at is null
      returning u.id, u.oidc_subject, u.display_name, u.role, u.groups_json, u.enabled`,
     [hash(token)],
   );
@@ -485,6 +493,7 @@ async function bootstrapLocalAccount(
       await connection.query(
         `insert into tenant_memberships(tenant_id, user_id)
          select id, $1 from tenants where slug = $2 and enabled
+           and exists (select 1 from users where id = $1 and enabled and deleted_at is null)
          on conflict (tenant_id, user_id) do nothing`,
         [user.rows[0]!.id, config.DEFAULT_TENANT_SLUG],
       );

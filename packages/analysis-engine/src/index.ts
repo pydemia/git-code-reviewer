@@ -1,9 +1,20 @@
 import { randomUUID } from 'node:crypto';
+import {
+  reviewWritingGuidelines,
+  type AnalysisProgress,
+  type ReviewMemoryProjection,
+  type ReviewSeverityLevel,
+} from '@gcr/contracts';
+import { filterSeverityComments, severityInstructions } from './review-severity.js';
 export * from './skills.js';
 export * from './review-windows.js';
 export * from './report-forms.js';
 export * from './review-prompt.js';
-import { composeSkillReviewPrompt, type ReviewStageContext } from './review-prompt.js';
+import {
+  composeReviewMemory,
+  composeSkillReviewPrompt,
+  type ReviewStageContext,
+} from './review-prompt.js';
 import { runSkillReview, type SkillReviewOutput } from './skill-review.js';
 import { assembleReviewAnalysis, filterContradictoryPraise } from './report-forms.js';
 import type { ReviewSkillBundle } from '@gcr/review-contract';
@@ -40,9 +51,13 @@ export type AnalysisInput = {
   files: AnalysisFile[];
   fixtureMode: boolean;
   model?: ReviewModel;
+  concurrency?: number;
   prompt?: { instructions: string; version: number; hash: string };
+  severityLevel?: ReviewSeverityLevel;
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
+  memory?: ReviewMemoryProjection[];
   budgets?: Partial<AnalysisBudgets>;
+  onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 };
 
 export type AnalysisBudgets = {
@@ -70,7 +85,7 @@ export interface ReviewModel {
 const defaultBudgets: AnalysisBudgets = {
   maxFiles: 500,
   maxBytes: 10 * 1024 * 1024,
-  maxModelCalls: 32,
+  maxModelCalls: 128,
 };
 
 export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOutput> {
@@ -93,7 +108,8 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     ...file,
     headLines: extractHeadLines(file.patch),
   }));
-  const graph = buildRelationshipGraph(input.analysisId, parsedFiles, limitations);
+  const graphLimitations: string[] = [];
+  const graph = buildRelationshipGraph(input.analysisId, parsedFiles, graphLimitations);
   const coverage: Coverage = {
     filesChanged: input.files.length,
     filesExamined: parsedFiles.length,
@@ -102,7 +118,11 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     truncated: limitations.length > 0,
     limitations,
   };
-  graph.coverage = coverage;
+  graph.coverage = {
+    ...coverage,
+    limitations: [...limitations, ...graphLimitations],
+    truncated: limitations.length > 0 || graphLimitations.length > 0,
+  };
 
   let legacy: LegacyAnalysisReport;
   let reviewStatus: 'model' | 'fixture' | 'failed' | 'unavailable' = 'unavailable';
@@ -117,7 +137,11 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       skills: input.skills.bundle,
       ...(input.model ? { model: input.model } : {}),
       ...(input.prompt ? { instructions: input.prompt.instructions } : {}),
+      ...(input.severityLevel ? { severityLevel: input.severityLevel } : {}),
+      ...(input.memory ? { memory: input.memory } : {}),
       maxModelCalls: budgets.maxModelCalls,
+      concurrency: input.concurrency ?? 1,
+      ...(input.onProgress ? { onProgress: input.onProgress } : {}),
     });
     legacy = skillResult.legacy;
     reviewStatus = skillResult.reviewStatus;
@@ -127,12 +151,21 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       const modelResult = await input.model.review(
         boundedFiles.map((file) => `File: ${file.path}\n${file.patch}`).join('\n'),
         boundedFiles.map((file) => file.path),
-        input.prompt?.instructions,
+        [
+          input.severityLevel
+            ? severityInstructions(input.severityLevel, input.prompt?.instructions)
+            : input.prompt?.instructions,
+          composeReviewMemory(input.memory),
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
       );
       legacy = modelResult.report;
       reviewStatus = 'model';
       if (modelResult.truncated) limitations.push('model output이 잘려 복구된 범위만 포함');
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && ['worker_draining', 'job_lease_lost'].includes(error.message))
+        throw error;
       reviewStatus = 'failed';
       limitations.push('model review 실패로 deterministic context만 생성');
       legacy = emptyReview(parsedFiles.map((file) => file.path));
@@ -142,7 +175,20 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     legacy = emptyReview(parsedFiles.map((file) => file.path));
   }
 
-  const impact = buildImpact(graph, coverage);
+  if (input.severityLevel && !skillResult) {
+    const retained = filterSeverityComments(legacy.review.file_comments, input.severityLevel);
+    if (retained.length !== legacy.review.file_comments.length) {
+      // 구형 single-call/fixture 경로에서도 필터 밖의 comment를 요약에 남기지 않는다.
+      legacy = structuredClone(legacy);
+      legacy.review.file_comments = retained;
+      legacy.review.summary = `${input.severityLevel} 분석 수준에서 ${retained.length}개 comment를 보고합니다.`;
+      legacy.review.grade = retained.some((comment) => comment.priority === 'P3')
+        ? 'critical'
+        : 'adequate';
+      legacy.review.per_file_summaries = [];
+    }
+  }
+  const impact = buildImpact(graph, graph.coverage);
   const report = normalizeLegacyReport(legacy, {
     analysisRevisionId: input.analysisId,
     snapshotId: input.snapshotId,
@@ -175,6 +221,8 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
   report.impact = impact;
   report.coverage = coverage;
   coverage.truncated = limitations.length > 0;
+  graph.coverage.limitations = [...new Set([...limitations, ...graphLimitations])];
+  graph.coverage.truncated = graph.coverage.limitations.length > 0;
   if (skillResult && input.skills) {
     report.analysis = assembleReviewAnalysis({
       findings: report.findings,
@@ -222,6 +270,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     verifier: 'evidence-v1',
     model: input.fixtureMode ? 'fixture-v1' : (input.model?.profile ?? 'disabled'),
     review: reviewStatus,
+    ...(input.severityLevel ? { severity: input.severityLevel } : {}),
     policy: input.skills ? 'skill-review-v1' : 'default-v1',
     prompt: input.prompt
       ? `tenant-v${input.prompt.version}:${input.prompt.hash.slice(0, 12)}`
@@ -354,7 +403,10 @@ function classifyFile(file: AnalysisFile): Omit<ParsedFile, keyof AnalysisFile |
     return { language: 'unknown', analyzable: false, reason: 'binary file' };
   if (/(^|\/)(node_modules|vendor|dist|build)\//.test(lower))
     return { language: 'unknown', analyzable: false, reason: 'vendor/generated path' };
-  if (/\.(min\.js|map|lock)$/.test(lower) || /(^|\/)package-lock\.json$/.test(lower))
+  if (
+    /\.(min\.js|map|lock)$/.test(lower) ||
+    /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|bun\.lockb)$/.test(lower)
+  )
     return { language: 'unknown', analyzable: false, reason: 'generated or lock file' };
   if (/\.(ts|tsx|js|jsx|mts|cts)$/.test(lower))
     return { language: 'typescript', analyzable: true, reason: '' };
@@ -391,7 +443,7 @@ function extractHeadLines(
       lineNumber += 1;
     }
   }
-  return result;
+  return [...new Map(result.map((line) => [line.number, line])).values()];
 }
 
 function buildRelationshipGraph(
@@ -411,6 +463,10 @@ function buildRelationshipGraph(
       change: normalizeChange(file.status),
     };
     objects.push(fileObject);
+    if (file.language === 'unknown') {
+      limitations.push(`${file.path}: symbol adapter unavailable`);
+      continue;
+    }
     const symbolPatterns =
       file.language === 'python'
         ? [/^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)/, /^\s*class\s+([A-Za-z_]\w*)/]
@@ -432,7 +488,11 @@ function buildRelationshipGraph(
         currentObject = {
           id: randomUUID(),
           kind,
-          qualifiedName: `${file.path}#${symbolMatch[1]}`,
+          qualifiedName: objects.some(
+            (object) => object.qualifiedName === `${file.path}#${symbolMatch[1]}`,
+          )
+            ? `${file.path}#${symbolMatch[1]}@L${line.number}`
+            : `${file.path}#${symbolMatch[1]}`,
           definition,
           change: line.changed ? 'added' : 'modified',
         };
@@ -463,7 +523,6 @@ function buildRelationshipGraph(
         }
       }
     }
-    if (file.language === 'unknown') limitations.push(`${file.path}: symbol adapter unavailable`);
   }
   return {
     schemaVersion: 1,
@@ -706,6 +765,7 @@ export function composeReviewSystemPrompt(
 ${administratorInstructions}
 Review only supplied diff lines for correctness, security, compatibility, testing, and maintenance.
 설명은 한글로 작성하고 코드 식별자와 전문 용어는 영어를 유지하세요.
+${reviewWritingGuidelines}
 전체 summary에는 실제 변경 목적과 동작 변화, 확인된 위험을 구체적으로 설명하세요.
 각 comment에는 어떤 코드가 어떤 조건에서 어떤 문제를 일으키는지와 수정 방법을 적으세요.
 관측하지 못한 실행 결과, 테스트 통과, 다른 파일의 동작을 만들어내지 마세요. 불확실한 조건은 명시하세요.

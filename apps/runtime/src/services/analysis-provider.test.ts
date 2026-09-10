@@ -9,6 +9,19 @@ import {
 } from './analysis-provider.js';
 
 describe('analysis provider administration', () => {
+  it('defaults to four and pins concurrency into the provider configuration hash', () => {
+    const base = { mode: 'disabled' as const, timeoutMs: 30000 };
+    expect(prepareAnalysisProvider(base, providerConfig()).concurrency).toBe(4);
+    const hashes = [1, 2, 3, 4].map(
+      (concurrency) =>
+        prepareAnalysisProvider({ ...base, concurrency }, providerConfig()).configurationHash,
+    );
+    expect(new Set(hashes).size).toBe(4);
+    for (const concurrency of [0, 5, 2.5, NaN])
+      expect(() => prepareAnalysisProvider({ ...base, concurrency }, providerConfig())).toThrow(
+        '병렬 처리 수',
+      );
+  });
   it('encrypts credentials and reuses them without returning plaintext', () => {
     const config = providerConfig();
     const prepared = prepareAnalysisProvider(

@@ -1,4 +1,4 @@
-import { errorEnvelope, schemaVersion } from '@gcr/contracts';
+import { errorEnvelope, schemaVersion, pullRequestStateFilterSchema } from '@gcr/contracts';
 import type { Database } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -22,6 +22,15 @@ const repositoryBody = z.object({
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).default(120),
 });
 const repositoryListQuery = z.object({ tenantId: z.string().uuid().optional() });
+const pullListQuery = z.object({
+  state: pullRequestStateFilterSchema.default('open'),
+  cursor: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(z.number().int().min(0).max(1_000_000))
+    .optional(),
+});
 const repositoryPatch = z.object({
   enabled: z.boolean().optional(),
   pollingEnabled: z.boolean().optional(),
@@ -53,10 +62,11 @@ export async function registerWorklistRoutes(
     { preHandler: requireUser },
     async (request, reply) => {
       const { repoId } = repositoryParams.parse(request.params);
+      const { state, cursor = 0 } = pullListQuery.parse(request.query);
       if (!(await canReadRepository(database, authorization, request, repoId)))
         return hiddenNotFound(request, reply);
       const result = await database.query(
-        `select pr.id, pr.number, pr.title, pr.state, pr.draft, pr.author_login as "author",
+        `select pr.id, pr.number, pr.title, pr.state, pr.merged_at as "mergedAt", pr.draft, pr.author_login as "author",
                 pr.html_url as "htmlUrl", pr.base_ref as "baseRef", pr.base_sha as "baseSha",
                 pr.head_ref as "headRef", pr.head_sha as "headSha",
                 pr.github_updated_at as "updatedAt", pr.observed_at as "observedAt",
@@ -72,13 +82,26 @@ export async function registerWorklistRoutes(
            join analysis_runs ar on ar.snapshot_id = snapshot.id
            left join reports report on report.analysis_run_id = ar.id
            where sr.pull_request_id = pr.id
-           order by ar.created_at desc limit 1
+             and (ar.memory_owner_user_id is null or ar.memory_owner_user_id = $2)
+           order by (ar.memory_owner_user_id = $2) desc, ar.created_at desc limit 1
          ) latest on true
-         where pr.repository_id = $1 and pr.state = 'open'
-         order by pr.github_updated_at desc limit 100`,
+         where pr.repository_id = $1 and ($3 = 'all' or pr.state = $3)
+         order by pr.github_updated_at desc, pr.id desc limit 101 offset $4`,
+        [repoId, request.user!.id, state, cursor],
+      );
+      const counts = await database.query(
+        `select count(*) filter (where state = 'open')::int as open,
+                count(*) filter (where state = 'closed')::int as closed, count(*)::int as all
+           from pull_requests where repository_id = $1`,
         [repoId],
       );
-      return { schemaVersion, repositoryId: repoId, items: result.rows, nextCursor: null };
+      return {
+        schemaVersion,
+        repositoryId: repoId,
+        items: result.rows.slice(0, 100),
+        counts: counts.rows[0],
+        nextCursor: result.rows.length > 100 ? String(cursor + 100) : null,
+      };
     },
   );
 
@@ -90,7 +113,7 @@ export async function registerWorklistRoutes(
       if (!(await canReadRepository(database, authorization, request, repoId)))
         return hiddenNotFound(request, reply);
       const result = await database.query(
-        `select pr.id, pr.repository_id as "repositoryId", pr.number, pr.title, pr.state, pr.draft,
+        `select pr.id, pr.repository_id as "repositoryId", pr.number, pr.title, pr.state, pr.merged_at as "mergedAt", pr.draft,
                 author_login as "author", html_url as "htmlUrl", base_ref as "baseRef",
                 base_sha as "baseSha", head_ref as "headRef", head_sha as "headSha",
                 github_updated_at as "updatedAt", observed_at as "observedAt",
@@ -227,7 +250,8 @@ export async function registerWorklistRoutes(
          from users app_user join tenant_memberships membership on membership.user_id = app_user.id
          join repositories repository on repository.tenant_id = membership.tenant_id
          where app_user.id = $1 and app_user.enabled and membership.enabled
-           and repository.id = $2 and repository.enabled`,
+           and repository.id = $2 and repository.enabled and app_user.deleted_at is null
+         for share of app_user`,
           [userId, repoId],
         );
         if (!target.rows[0]) {

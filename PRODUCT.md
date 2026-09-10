@@ -13,14 +13,14 @@ Git Code Reviewer는 사내 GitHub Enterprise Server의 PR을 중앙에서 분�
 
 ## 사용자 접점
 
-사용자는 사내 HTTPS URL을 일반 browser로 연다. VS Code extension, browser extension과 native client는 제공하지 않는다. 첫 화면은 등록 repository의 PR worklist이며 각 PR에서 dense review workspace로 이동한다. GNB의 `내 프로필`에서는 계정 정보를 확인하고 Local account의 표시 이름과 비밀번호를 관리한다. `사용 가이드`는 role별 시작 절차, GHES credential 최소 권한과 입력값, repository polling, Review Chat과 오류 진단을 설명한다.
+사용자는 사내 HTTPS URL을 일반 browser로 연다. VS Code extension, browser extension과 native client는 제공하지 않는다. 첫 화면은 등록 repository의 PR worklist이며 각 PR에서 dense review workspace로 이동한다. GNB의 `내 프로필`에서는 계정 정보와 본인의 Review Chat에 적용할 개인 Prompt를 관리하고 Local account의 표시 이름과 비밀번호를 변경한다. 개인 Prompt는 공동 PR 분석과 다른 사용자에게 적용하지 않는다. `사용 가이드`는 role별 시작 절차, GHES credential 최소 권한과 입력값, repository polling, Review Chat과 오류 진단을 설명한다.
 
 Review workspace는 제공된 visual artifact의 구조를 따른다.
 
 - LNB: Files, Outline, Impact 탐색
-- Main: Code, Overall Summary, Commit Defender unit-comment-block 기반 Comments 탭과 maximized analysis tool
+- Main: Code, PR 전체 요약·파일별 검토를 보여주는 Summary와 maximized analysis tool
 - Right dock: analysis revision/materialization-bound Chat
-- FNB: Evidence, Git graph, History, Ownership, object relationships, Impact, Tests
+- FNB: 파일별 unit-comment-block 기반 Comments, Git graph, Impact, Tests. History·Ownership·object relationships는 확장 설계다.
 
 ## 동작
 

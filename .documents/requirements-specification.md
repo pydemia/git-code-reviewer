@@ -1,5 +1,9 @@
 # Git Code Reviewer - 요구사항 명세서
 
+## 후속 요구사항: Skill 원문 번역과 분석 수준
+
+2026-09-08 범위는 [분석 수준 설계](analysis-severity-level.md)로 추적한다. 6개 perspective의 원문 점검 항목·Tone을 누락 없이 한국어로 번역하며 전문용어와 Report form은 유지한다. 관리자는 tenant별 분석 프롬프트에서 lean·generous·moderate·rigorous·severe를 한국어 설명과 함께 선택한다. 기본값은 moderate이며 추가 지침 없이 수준만 저장할 수 있다. 지침과 수준은 동일한 immutable version에 포함하고 새 queue에 고정한다. 기존 report·queued 작업·활성 custom Skill은 소급 변경하지 않는다. Moderate의 P1 한도는 파일 전체에 2개이고 모든 수준에서 accepted P3를 보존한다. 파일·전체 요약은 필터를 통과한 unit만 사용한다. Model·effort와는 독립적인 설정이다.
+
 ## 후속 요구사항: Skill 기반 report
 
 2026-09-07에 추가된 Commit Defender report와 Skill 관리의 완료 조건은 [R1–R10](skill-based-review-report.md#완료-기준)으로 추적한다. 전체 상태와 파일별 Overall Summary, 파일로 묶인 unit-comment-block, Analyzed File List를 같은 분석 revision에서 제공한다. 관리자 Skill version과 queued snapshot은 불변이며 custom perspective 추가를 허용한다. 실패·미검토·데모를 PASS로 표시하지 않고, 파일/line 근거가 없는 주장을 정상 comment처럼 게시하지 않는다. JSON/Markdown과 PR timeline도 같은 계층을 유지한다.
@@ -95,7 +99,7 @@
 | REQ-GH-001 | 필수 | 시스템 관리자는 승인된 service identity의 GHES access token을 connection으로 등록한다. Fine-grained PAT은 대상 private repository만 선택하고 Metadata와 Contents는 read, Pull requests는 PR 조회와 timeline 댓글 생성·갱신을 위한 read/write로 제한한다. Issues, Administration, Contents write와 Workflows 권한은 요구하지 않는다. |
 | REQ-GH-002 | 필수 | GHES access token은 deployment master key로 암호화해 저장하고 API header와 ephemeral Git credential helper에서만 복호화해 사용한다. Browser response, clone URL, Git config, job payload와 log에 원문이나 ciphertext를 넣지 않는다. |
 | REQ-GH-003 | 필수 | scheduler는 registered repository만 polling한다. |
-| REQ-GH-004 | 필수 | open PR과 base/head SHA 변화를 browser가 닫혀 있어도 감지한다. |
+| REQ-GH-004 | 필수 | Browser가 닫혀 있어도 GitHub의 Open/Closed 상태, merge 시각과 base/head SHA 변화를 polling으로 동기화한다. Merged는 Closed에 포함한다. 과거 Closed/Merged PR은 metadata만 가져오며 자동 분석하지 않는다. |
 | REQ-GH-005 | 필수 | active PR과 idle/draft repository에 서로 다른 poll interval과 backoff를 적용한다. |
 | REQ-GH-006 | 필수 | pagination, conditional request와 rate-limit reset을 처리한다. |
 | REQ-GH-007 | 필수 | 사용자는 현재 PR에 대해 우선순위가 높은 manual refresh를 요청할 수 있다. |
@@ -171,6 +175,8 @@ Priority와 category는 다음 contract를 사용한다.
 | P0 | 칭찬 | 검토할 가치가 있는 좋은 변경 | positive/file-level observation, 조치 불필요 |
 
 Finding category enum은 Commit Defender category를 포함한 `correctness | security | compatibility | testing | maintenance | optimization | review-history | setting`이다. Specialist 관점과 category는 서로 다른 축이다. Grade enum은 `exceptional | proficient | adequate | insufficient | critical`이며 report 요약 신호일 뿐 merge 판정이 아니다.
+
+사용자 화면의 Grade label은 순서대로 `탁월 | 우수 | 양호 | 개선 필요 | 심각`이다. `adequate`는 기본 요구를 충족한 양호한 평가로, `proficient`는 기본 요구를 넘어 품질이 우수한 평가로 설명한다. 탁월·우수·양호에는 긍정적인 녹색·teal 계열을 쓰고 개선 필요에는 주황색, 심각에는 빨간색을 쓴다. P0–P3 Priority, 분석 완료·제한 상태, 분석 수준 설정인 Severity Level은 별도 축으로 유지한다. Grade label·색상만 바꾸며 저장된 enum, 모델 판정과 기존 report 본문은 재작성하지 않는다.
 
 ## 8. Browser review workspace
 

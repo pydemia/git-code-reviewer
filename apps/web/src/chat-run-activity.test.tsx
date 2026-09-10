@@ -1,0 +1,174 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import type { ChatRunView, SourceEvidence } from '@gcr/contracts';
+import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
+import { ChatRunHistory } from './ChatRunHistory.tsx';
+
+const source: SourceEvidence = {
+  id: 'a'.repeat(24),
+  revision: 'base',
+  sha: 'b'.repeat(40),
+  blob: 'c'.repeat(40),
+  hash: 'd'.repeat(64),
+  path: 'src/unchanged.ts',
+  startLine: 12,
+  endLine: 13,
+  content: '<script>not executed</script>\nreturn 3;',
+  truncated: true,
+};
+const run: ChatRunView = {
+  id: '00000000-0000-4000-8000-000000000001',
+  sessionId: '00000000-0000-4000-8000-000000000002',
+  assistantMessageId: null,
+  status: 'completed',
+  phase: 'completed',
+  content: '코드 확인 결과입니다.',
+  error: null,
+  modelCalls: 2,
+  toolCalls: 1,
+  contextBytes: 128,
+  question: null,
+  resumeAfter: null,
+  evidence: [source],
+  timeline: [{ id: '1', type: 'tool.completed', label: 'read_file' }],
+};
+function render(value: ChatRunView) {
+  return renderToStaticMarkup(
+    <ChatRunActivity
+      run={value}
+      error=""
+      sending={false}
+      onAnswer={async () => {}}
+      onCancel={async () => {}}
+      onEvidence={() => {}}
+    />,
+  );
+}
+describe('interactive review states', () => {
+  it('expands the current timeline and shows Thinking only while running', () => {
+    const html = render({ ...run, status: 'running' });
+    expect(html).toContain('class="chat-thinking"');
+    expect(html).toContain('Thinking');
+    expect(html).toContain('aria-label="답변 생성 중"');
+    expect(html).toContain('<details open=""');
+    expect(html).toContain('read_file');
+    for (const status of [
+      'queued',
+      'waiting_capacity',
+      'awaiting_input',
+      'cancelling',
+      'completed',
+      'partial',
+      'failed',
+      'cancelled',
+    ] as const) {
+      expect(render({ ...run, status })).not.toContain('chat-thinking');
+    }
+  });
+  it('shows immediate feedback before a run is accepted and an explicit empty timeline', () => {
+    const html = renderToStaticMarkup(
+      <ChatRunActivity
+        run={null}
+        error=""
+        sending
+        onAnswer={async () => {}}
+        onCancel={async () => {}}
+        onEvidence={() => {}}
+      />,
+    );
+    expect(html).toContain('질문을 전송하고 있습니다.');
+    expect(html).not.toContain('Thinking');
+    expect(render({ ...run, timeline: [] })).toContain('아직 기록된 조회 과정이 없습니다.');
+  });
+  it('does not animate or expand a read-only historical run', () => {
+    const html = renderToStaticMarkup(
+      <ChatRunActivity
+        run={{ ...run, status: 'running' }}
+        readOnly
+        error=""
+        sending={false}
+        onAnswer={async () => {}}
+        onCancel={async () => {}}
+        onEvidence={() => {}}
+      />,
+    );
+    expect(html).not.toContain('chat-thinking');
+    expect(html).not.toContain('<details open');
+    expect(html).toContain('저장된 답변입니다.');
+  });
+  it('keeps historical questions read-only and offers a separate history selector', () => {
+    const html = renderToStaticMarkup(
+      <ChatRunActivity
+        run={{
+          ...run,
+          status: 'awaiting_input',
+          questions: [
+            {
+              id: run.id,
+              question: '과거 업무 기준',
+              answer: '재시도 금지',
+              options: [],
+              expiresAt: new Date().toISOString(),
+            },
+          ],
+        }}
+        readOnly
+        error=""
+        sending={false}
+        onAnswer={async () => {}}
+        onCancel={async () => {}}
+        onEvidence={() => {}}
+      />,
+    );
+    expect(html).toContain('재시도 금지');
+    expect(html).not.toContain('<textarea');
+    expect(html).not.toContain('>중단<');
+    const history = renderToStaticMarkup(
+      <ChatRunHistory
+        sessionId={run.sessionId}
+        latestRunId={run.id}
+        onEvidence={() => {}}
+        onSelect={() => {}}
+      />,
+    );
+    expect(history).toContain('이전 대화와 코드 근거');
+    expect(history).toContain('아직 저장된 대화가 없습니다.');
+    expect(history).toContain('<select');
+  });
+  it.each([
+    ['queued', '답변 생성 대기'],
+    ['running', '답변 생성 중'],
+    ['awaiting_input', '응답을 기다리고 있습니다'],
+    ['waiting_capacity', '계정 호출 한도 대기'],
+    ['completed', '답변 완료'],
+    ['partial', '부분 완료'],
+    ['failed', '답변 생성 실패'],
+    ['cancelled', '중단됨'],
+  ] as const)('renders %s distinctly', (status, label) => {
+    expect(render({ ...run, status })).toContain(label);
+  });
+  it('shows persisted question choices and free text instead of a pending spinner', () => {
+    const html = render({
+      ...run,
+      status: 'awaiting_input',
+      question: {
+        id: run.id,
+        question: '재시도를 허용하나요?',
+        options: ['허용', '금지'],
+        answer: null,
+        expiresAt: new Date().toISOString(),
+      },
+    });
+    expect(html).toContain('재시도를 허용하나요?');
+    expect(html).toContain('<textarea');
+    expect(html).toContain('답변하고 분석 계속');
+  });
+  it('keeps source identity and escapes repository HTML', () => {
+    expect(render(run)).toContain('src/unchanged.ts:12');
+    const html = renderToStaticMarkup(<SourceEvidenceView source={source} onClose={() => {}} />);
+    expect(html).toContain(source.sha);
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('파일 전체를 검토했다는 뜻은 아닙니다.');
+  });
+});

@@ -2,6 +2,10 @@ import { execFile } from 'node:child_process';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { gitTrustEnvironment } from './git-trust.js';
+export { prepareSourceWorkspace, safeSourcePath, workspaceSize } from './workspace.js';
+export type { WorkspaceManifest } from './workspace.js';
+export type { SourceToolInput } from './local-tools.js';
 
 const execFileAsync = promisify(execFile);
 const fullSha = /^[a-f0-9]{40}$/i;
@@ -50,7 +54,12 @@ export async function materializeGitSnapshot(
     { mode: 0o700 },
   );
   await chmod(askPassPath, 0o700);
-  const run = createGitRunner(input.workspace, askPassPath, input.credential);
+  const run = createGitRunner(
+    input.workspace,
+    askPassPath,
+    input.credential,
+    await gitTrustEnvironment(input.workspace),
+  );
   await run(['init', '--quiet']);
   await run(['remote', 'add', 'origin', cloneUrl]);
   await run([
@@ -271,6 +280,7 @@ function createGitRunner(
   workspace: string,
   askPassPath: string,
   credential: { username: string; password: string },
+  trustEnvironment: NodeJS.ProcessEnv,
 ): GitRunner {
   return async (arguments_: string[]) => {
     try {
@@ -303,6 +313,7 @@ function createGitRunner(
             GIT_ASKPASS_REQUIRE: 'force',
             GIT_ASKPASS: askPassPath,
             GIT_LFS_SKIP_SMUDGE: '1',
+            ...trustEnvironment,
             GCR_GIT_USERNAME: credential.username,
             GCR_GIT_PASSWORD: credential.password,
           },

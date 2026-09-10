@@ -4,6 +4,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireAdministrator, requireUser } from '../auth/index.js';
 import type { AppConfig } from '../config.js';
+import { ChatModelCatalogError, discoverChatAccountModels } from '../services/chat-model.js';
+import { deleteRegistryEntry, registryDeletionMessages } from '../services/registry-deletion.js';
 import {
   createChatAccount,
   createGitHubConnection,
@@ -115,19 +117,74 @@ export async function registerAccountRegistryRoutes(
   database: Database,
   config: AppConfig,
 ) {
-  app.get('/api/v1/chat-accounts', { preHandler: requireUser }, async (request) => ({
-    schemaVersion,
-    enabled: config.CREDENTIAL_REGISTRY_ENABLED,
-    items: config.CREDENTIAL_REGISTRY_ENABLED
+  app.get('/api/v1/chat-accounts', { preHandler: requireUser }, async (request) => {
+    const items = config.CREDENTIAL_REGISTRY_ENABLED
       ? await listAvailableChatAccounts(database, request.user!.id)
-      : [],
-  }));
+      : [];
+    const presets = items.length
+      ? await database.query<{
+          id: string;
+          version: number;
+          active: boolean;
+          accountId: string;
+          modelName: string;
+          reasoningEffort: string;
+        }>(
+          `select id,version,active,chat_account_id as "accountId",model_name as "modelName",reasoning_effort as "reasoningEffort"
+      from analysis_provider_versions where mode='chatgpt-account' and deleted_at is null
+        and chat_account_id=any($1::uuid[]) order by version desc`,
+          [items.map((item) => item.id)],
+        )
+      : { rows: [] };
+    // Provider 등록 자체로 사용 권한을 부여하지 않는다.
+    const analysisPresets = presets.rows.filter((preset) =>
+      items.some(
+        (account) =>
+          account.id === preset.accountId &&
+          account.models.some(
+            (model) =>
+              model.id === preset.modelName &&
+              model.allowedEfforts.includes(preset.reasoningEffort),
+          ),
+      ),
+    );
+    return { schemaVersion, enabled: config.CREDENTIAL_REGISTRY_ENABLED, items, analysisPresets };
+  });
 
   app.get('/api/v1/admin/chat-accounts', { preHandler: requireAdministrator }, async () => ({
     schemaVersion,
     enabled: config.CREDENTIAL_REGISTRY_ENABLED,
     items: config.CREDENTIAL_REGISTRY_ENABLED ? await listAdminChatAccounts(database) : [],
   }));
+
+  app.post(
+    '/api/v1/admin/chat-accounts/discover-models',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      ensureRegistryEnabled(config);
+      const { authJson } = accountBody.pick({ authJson: true }).parse(request.body);
+      reply.header('cache-control', 'no-store');
+      try {
+        const items = await discoverChatAccountModels(authJson, {
+          clientVersion: config.CHATGPT_ACCOUNT_CLIENT_VERSION,
+          allowedEfforts: reasoningEfforts,
+        });
+        return { schemaVersion, items };
+      } catch (error) {
+        if (!(error instanceof ChatModelCatalogError)) throw error;
+        return reply
+          .code(error.statusCode)
+          .send(
+            errorEnvelope(
+              'MODEL_CATALOG_UNAVAILABLE',
+              error.message,
+              request.id,
+              error.statusCode === 502,
+            ),
+          );
+      }
+    },
+  );
 
   app.post(
     '/api/v1/admin/chat-accounts',
@@ -158,13 +215,44 @@ export async function registerAccountRegistryRoutes(
           `update chat_accounts set enabled = $2,
              health = case when $2 and health = 'disabled' then 'unverified'
                            when not $2 then 'disabled' else health end,
-             updated_at = clock_timestamp() where id = $1`,
+             updated_at = clock_timestamp() where id = $1 and deleted_at is null`,
           [id, body.enabled],
         );
         changed ||= Boolean(result.rowCount);
       }
       if (!changed) return reply.code(404).send(notFound(request));
       await writeAudit(database, request, 'chat-account.update', 'chat_account', id);
+      return { schemaVersion, id };
+    },
+  );
+
+  app.delete(
+    '/api/v1/admin/chat-accounts/:id',
+    { preHandler: requireAdministrator },
+    async (request, reply) => {
+      ensureRegistryEnabled(config);
+      const { id } = uuidParams.parse(request.params);
+      const { confirmation } = z
+        .object({ confirmation: z.string().min(1).max(120) })
+        .parse(request.body);
+      const outcome = await deleteRegistryEntry(
+        database,
+        'chat_account',
+        id,
+        confirmation,
+        request.user!.subject,
+        request.id,
+      );
+      if (outcome !== 'deleted')
+        return reply
+          .code(outcome === 'not-found' ? 404 : 409)
+          .send(
+            errorEnvelope(
+              'REGISTRY_DELETE_CONFLICT',
+              registryDeletionMessages[outcome],
+              request.id,
+            ),
+          );
       return { schemaVersion, id };
     },
   );

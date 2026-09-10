@@ -2,13 +2,250 @@
 
 ## 1. 현재 상태
 
-- 최종 갱신: 2026-09-07
+- 최종 갱신: 2026-09-10
 - branch: `feat/browser-review-service`
-- 단계: Commit Defender report를 메인 Code·Summary·Comments 탭으로 분리하고 Chat Enter/Shift+Enter 단축키를 PRISM-DEV Helm revision 19에 배포함
-- remote: report 구현 `9930f90`, 시작 오류 수정 `bd017f2`, main tabs `7bf85eb`, revision 19 release `fb1025d`
-- 사용자 소유 `.vscode/` 변경: 건드리지 않음
+- 작업 완료 기준(사용자 요청, 2026-09-08): 기능·설정 작업은 commit·push 후 PRISM-DEV 배포와 검증까지 함께 수행한다. 별도 재배포 요청을 기다리지 않는다. 배포 결과만 기록하는 후속 documentation commit은 실행 image를 바꾸지 않는다.
+- 단계: PRISM-DEV application `0.8.0-alpha.31`, chart `0.10.30`, Helm revision 42 운영 중(2026-09-10 08:54:35 KST). Provider v8 `gpt-5.6-terra:medium`, 병렬 4개를 보존했다. 선행 작업의 4개 활성화 대기는 해소됐으며 이 설정을 덮어쓰지 않는다.
+- 배포 source: `729de5bb5616e244d699f1c57ce01b056cf9add4` (push 후 git archive build). Release 설정 commit `38b0a9a`, 배포 기록 commit은 git log 참조
+- `.vscode/launch.json`: Interactive Chat 개발용 flag 추가
 
 현재 repository에는 browser application, Node.js Server/Worker runtime, PostgreSQL schema, shared artifact storage, container image와 Helm chart가 있다. 기존 CI/CD 중심 방향은 Kubernetes에서 중앙 운영하는 사내 web service로 교체했다.
+
+### 2026-09-10 PR 요약·분석 제한 펼침과 공통 작성 지침
+
+- **PR 메시지:** 중복 Overall Summary·전체 파일 목록 생략을 유지한다. 전체 분석 요약과 분석 제한은 접기 밖의 Header·본문·List로 표시하고 AI Comments만 기존처럼 접는다. Markdown export의 600자 이상 요약 자동 접기도 제거했다. Browser의 분석 제한은 기본 펼침이며 사용자가 접을 수 있다.
+- **작성 형식:** `reviewWritingGuidelines`를 Skill 3개 stage·legacy 분석·interactive Chat·report 기반 Chat이 공유한다. 요약은 개조식 Header·List, 상세 원인·흐름·조건은 문단으로 작성한다. JSON·citation·priority·coverage 계약은 유지한다. 새 Built-in overall-summary·total-summary는 v3, unit-comment-block은 v2다. Bundle hash는 `dc25811a1b436f80576aa2a129c7a2431dbb52638ee66820065dfe82ef4a947c`다.
+- **검증:** 77개 파일·476개 tests, lint·typecheck·build, Desktop·Mobile·중간 너비와 CSS zoom 200% 합성 Browser 검증을 통과했다. 기본 펼침·키보드 접기·Header·List와 가로 overflow 없음을 확인했다. 개발 서버 전용 `apps/web/tests/structured-messages.html`은 실제 Report/Markdown 컴포넌트를 사용하며 production bundle에 포함되지 않는다.
+- **배포:** source·release commit push 후 alpha.31 적용. 실제 Server·Worker의 Built-in hash·공통 Prompt·PR formatter, health 4종·asset hash·08:55:39 Helm test·migration 31개 checksum을 확인했다. 사용자 7명·account 7개·분석 99건·report 91건의 ID, Provider v8, image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다.
+- **적용 시점:** 새 Skill은 새 분석부터, PR 구성은 다음 정상 게시·갱신부터 적용한다. 이미 pinned된 Skill·Chat 지침, custom Skill·개인 Prompt와 기존 report·대화를 덮어쓰지 않는다. Runtime 공통 Prompt 변경이 과거 checkpoint 결과를 재생성하지 않는다. 실제 모델·재분석·GitHub 게시는 검증 목적으로 시작하지 않았다.
+
+새 Server 1/1·Worker 2/2 Ready, restart 0이다. Alpha.30 Worker는 source-sandbox 종료 유예로 Terminating 상태이며 강제 삭제하지 않는다. Impeccable은 기존 UI를 유지하면서 정보 계층·기본 펼침·문구만 정리하는 데 사용했다. 상세 digest·검증 경계는 [배포 기록](../docs/operations/structured-messages-2026-09-10.md)을 따른다.
+
+### 2026-09-09 Summary Skill·PR 댓글 가독성
+
+Built-in `overall-summary`·`total-summary`를 version 2로 올렸다. 짧은 결론 뒤에 독립적인 논점을 bullet list로, 실제 조치 순서만 numbered list로 작성한다. Total Summary는 PR 전체 요약만 생성하며 전체 report·파일 목록·AI Comments를 반복하지 않는다. 한국어 설명과 영어 전문용어, coverage·priority 근거, 검토 완료·의견 없음 파일의 짧은 문구를 유지한다. 다른 perspective와 unit-comment-block은 바꾸지 않았다.
+
+PR publication은 `audience: pull-request`로 전체 파일 목록·comment 없는 파일별 요약을 생략한다. PR 전체 요약과 판정·집계·제한을 남기고 comment가 있는 파일의 요약·comment-block을 기존의 접힌 AI Comments 안에 묶는다. 앱과 전체 Markdown export는 전체 파일을 유지한다. 새 공통 narrative formatter는 목록·강조·inline code만 제한적으로 복원하며 HTML·임의 링크·mention과 details injection을 차단한다.
+
+76개 파일·469개 테스트(PostgreSQL integration 포함), lint·typecheck·build와 CommonMark AST 검증을 통과했다. Source·release commit push 후 alpha.30 배포, health 4종·19:20:17 Helm test·실제 asset hash·migration 31개 checksum을 확인했다. 실제 Server·Worker의 effective Skill source는 Built-in이며 bundle hash는 `1f82188dfc8f859b220087784ce08a90e4e01c8ab15bcf303c52ddb87a6a6a6c`다. Custom version·기존 report·queue에 pinned된 bundle을 덮어쓰지 않는다. 새 Skill은 새 분석부터, PR 구성은 다음 정상 게시·갱신부터 적용된다.
+
+기존 사용자 7명·account 7개·분석 89건·report 81건의 ID를 보존했다. 별도 운영 분석 한 건이 완료되어 분석 90건·report 82건이 됐고 검증 목적 모델 호출·재분석·PR 게시는 없었다. Provider v8·image 외 values·Secret·CA·HTTPRoute·PVC/PV를 유지했다. 새 Server 1/1·Worker 2/2 Ready, restart 0이며 alpha.29 Worker는 종료 유예로 Terminating 상태다. 강제 삭제하지 않는다. 실제 AI 결과·GitHub 렌더링 화면은 검증하지 않았으며 상세 digest·검증 범위는 [배포 기록](../docs/operations/readable-summary-2026-09-09.md)을 따른다.
+
+### 2026-09-09 Review Chat 진행 상태 표시
+
+현재 질문의 ‘조회 과정’을 기본으로 펼친다. 사용자가 접으면 같은 run 갱신에서는 유지하고 새 질문에서 다시 펼친다. `running`일 때 Thinking 글자 안으로 빛이 흐르는 CSS 효과를 표시하며 계정 대기·사용자 응답 대기·완료·실패·중단과 구분한다. 저장된 과거 질문은 움직이지 않는다. Reduced motion·forced colors에서는 일반 글자로 표시하고 Screen reader에는 ‘답변 생성 중’이라는 status를 제공한다.
+
+Frontend 22개 파일·94개 테스트, web typecheck·전체 lint·production build, Desktop/Mobile 합성 Browser의 상태 전환·키보드 접기·shimmer 변화·reduced motion을 검증했다. Source·release commit을 push하고 alpha.29를 배포했다. Health 4종·15:25:35 Helm test·실제 JS/CSS hash·migration 31개 checksum이 일치한다. 기존 사용자 7명·account 7개·분석 78건·report 69건의 ID는 전부 보존됐다. 기존 운영 분석 한 건이 완료되어 report는 70개이며 새 분석·모델 호출·PR 게시를 검증 목적으로 시작하지 않았다.
+
+Image 외 Helm values·Secret·CA·HTTPRoute·PVC/PV를 보존했고 새 Server 1/1·Worker 2/2 Ready, restart 0이다. Alpha.28 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. Digest와 검증 경계는 [진행 상태 배포 기록](../docs/operations/chat-thinking-2026-09-09.md)을 참고한다.
+
+### 2026-09-09 Registry 삭제·Review Chat 수정
+
+현재 요청은 비활성 ChatGPT account·Provider 삭제, Review Chat의 분석 모델 선택, HTTP `crypto.randomUUID` 오류, 이력·코드 근거 메뉴 수정이다. Backend `5039fbf`를 push했다. Account는 credential을 제거하는 tombstone, Provider는 pinned 작업을 위한 immutable 설정을 보존하는 tombstone으로 처리한다. 관리자 상태 검사·확인 이름·감사 기록 rollback, 삭제된 항목 재활성화 방지, 같은 설정 재등록을 구현했다. Migration은 `0031_registry_deletion.sql`이다.
+
+Interactive Chat은 질문별 `selection`을 서버에 전달하고 기존 session을 모델과 무관하게 재사용한다. Provider preset은 사용자에게 허용된 ChatGPT account/model/effort만 노출하며 OpenAI-compatible batch Provider는 포함하지 않는다. HTTP에서도 CSPRNG UUID를 만들고, 이력 메뉴를 밝은 배경의 ‘이전 대화와 코드 근거’로 수정했다. 기존 UI를 유지하면서 빈 목록·오류·loading 상태를 보완했다.
+
+전체 75개 파일·460개 tests, lint·typecheck·production build를 통과했다. Browser 합성 fixture에서 randomUUID 부재 상태의 질문 2개, Sol/medium → Luna/low 변경, Markdown, 이전 질문·code L12–14 이동과 alert 0개를 확인했다. 실제 외부 모델 호출은 하지 않았다. `apps/web/tests/registry-chat.html`은 Vite 개발 서버에서만 사용하는 합성 검증 페이지이며 production build에는 포함되지 않는다. 검증 목적으로 실제 account/Provider 삭제·재분석·PR 댓글 게시를 실행하지 않는다.
+
+Commit·push 후 alpha.28 배포를 완료했다. Health 4종·새 bundle hash·Helm test·migration 31개 checksum과 사용자 7명·account 7개·분석 70건·report 62건의 ID 집합을 확인했다. Image 외 Helm values·Secret·CA·HTTPRoute·PVC/PV를 보존했고 실제 tombstone은 0개다. 새 Server 1/1·Worker 2/2 Ready, restart 0이다. Alpha.27 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. [구현·검증·배포 기록](../docs/operations/registry-chat-fixes-2026-09-09.md)을 참고한다.
+
+### 2026-09-09 분석 모델 선택과 파일 병렬 처리
+
+사용자는 Admin에서 분석 Model·Effort를 선택하고 병렬 분석을 실행하도록 요청했으며 초기 병렬 수로 **4개**를 지정했다. `/admin?tab=provider`를 `분석 모델`로 표시하고 Account·Model·허용 Effort·파일 병렬 수(1~4개)를 한 화면에서 설정한다. 배포 직전에 다시 조회한 운영 Account·Model·Effort를 유지한다. 작업 도중 다른 Admin 조작으로 기존 sol 대신 v4 `gpt-5.6-luna:medium`이 활성화된 것을 확인했으므로 이를 덮어쓰지 않는다. 설정은 새 Provider version으로 저장하며 이미 생성된 분석과 report는 바꾸지 않는다.
+
+Backend `4c19a77`을 commit·push했다. Migration `0030`은 기존 Provider version에 concurrency 1을 부여하고 새 version 기본값은 4다. 파일 단위 bounded pool, 파일 내부 window 순차 실행, 입력 순서 결과 병합과 progress write 직렬화, 단일 source workspace/byte budget 보호를 구현했다. PostgreSQL의 account별 batch 최대 4개 + Interactive Chat 전용 1개 slot, 요청별 lease·heartbeat, 기존 run/RPM/byte budget과 429 cooldown을 유지한다. 구 Worker reservation을 존중한다. 검토 범위나 요약 단계를 줄인 최적화가 아니다.
+
+설정 저장·재로딩, 모델별 Effort 전환, 이전 version 재활성화, Desktop/Mobile 합성 Browser 검증을 완료했다. 독립 화면 검토는 `ship`이다. 446개 테스트·typecheck·lint·build, alpha.27 배포·health·Helm test·migration 30개 checksum이 통과했다. 사용자 7명·account 7개·analysis 67개·report 59개와 report 원문 hash를 유지했다. 실제 Luna/medium의 짧은 모델 요청 네 개가 동시에 완료됐다(1,808ms). 이는 PR 분석 속도 측정이 아니며 분석·report·GitHub 게시를 생성하지 않았다.
+
+**11:09 배포 당시 남은 작업(이후 해소):** 운영 Provider v4의 병렬 수는 기존 동작 보존 때문에 1이었다. Browser는 `Debugger unattached`와 Computer Use 권한 대기, 배포 초기 관리자 credential의 정식 API 로그인은 401이었다. 비밀번호 초기화·session 위조·DB 직접 변경은 하지 않았다. 11:44 후속 점검에서 별도 운영 변경으로 Provider v8 `gpt-5.6-terra:medium`·concurrency 4가 활성화된 것을 확인했으며 alpha.28 배포에서도 유지했다. 기존 Luna 설정으로 되돌리거나 추가 PR 재분석을 시작하지 않는다. 상세 [당시 배포 기록](../docs/operations/parallel-analysis-2026-09-09.md), 구현·제약은 [병렬 분석 문서](../docs/operations/parallel-analysis.md)를 참고한다.
+
+11:15 후속 점검에서는 별도 운영 분석 한 건이 완료되어 analysis 68개·report 60개가 됐다. 기존 report 59개의 hash는 그대로다. 연결 진단은 PR 재분석·게시를 생성하지 않았으며 새 운영 workflow의 publication과 구분한다.
+
+### 2026-09-09 PR 상태 동기화와 필터
+
+기존 Open 전용 조회·누락 PR의 Closed 추정을 제거하고 GitHub의 `state`와 `merged_at`을 저장한다. `listPulls`는 App/PAT 공통 전체 상태 pagination과 첫 page ETag를 사용한다. Migration `0029`가 merged_at을 추가하고 기존 ETag를 비워 전체 수집을 예약한다. Worklist API에 `state=open|closed|all`과 100개 단위 cursor/counts를 제공하고 Browser는 모든 page를 읽는다. 기본 Open, Closed는 Merged 포함, URL 선택 유지, PR 상태와 분석 평가 분리, 모바일 상태 유지, 취소된 요청의 늦은 응답 차단을 구현했다.
+
+과거 Closed/Merged PR은 metadata만 수집하며 분석·대화 전체 backfill을 시작하지 않는다. Reopen된 PR은 해당 SHA의 snapshot request가 없는 경우에만 분석한다. 기존 report가 있는 Closed/Merged는 report로, 없으면 GitHub 원문으로 이동한다. `새로고침`은 DB 목록을 다시 읽으며 실제 상태 수집은 repository polling 주기를 따른다.
+
+Source `38bcc39`·`fafb3d5`, release `a528a1d`를 commit·push했다. 427개 테스트, typecheck·lint·build·browser 검증을 통과했다. 배포 후 등록된 두 repo의 PR 1,093개(Open 11, Closed 1,082, 그중 Merged 1,026)를 GitHub와 다시 대조해 누락/불일치/초과 0건을 확인했다. Browser의 All/Closed/Open 행 수도 일치한다. 사용자 7명·account 4개·analysis 65개·report 57개의 ID 집합과 기존 report 원문 hash를 유지했고 새 분석/게시 job은 0개다. Image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다. Alpha.25 Worker는 source-sandbox 종료 유예 중이며 강제 삭제하지 않았다. 상세 digest·검증·동기화 시각은 [운영 기록](../docs/operations/pr-state-sync-2026-09-09.md)을 참고한다.
+
+### 2026-09-08–09 로컬 Git 기반 Interactive Review Chat
+
+2026-09-09 파일 요약 문구 후속 수정: 사용자는 지적할 내용이 없는 파일의 긴 완료 설명을 줄이도록 요청했다. 공통 `presentReviewReport`에서 실제 AI/hybrid 분석의 reviewed 파일이며 unit·finding이 없고 priority가 null일 때만 `검토한 변경 범위에서 문제가 발견되지 않았습니다.`로 표시한다. 기존 report도 재분석 없이 적용하며 원본·Raw JSON·PR 전체 요약·분석 제한은 유지한다. UI와 Markdown/향후 PR 게시가 같은 표시 규칙을 사용한다. 미완료·실패·미수행·demo·Legacy와 의견이 있는 파일은 기존 설명을 유지한다.
+
+414개 테스트·typecheck·lint·build와 alpha.25 배포 검증을 완료했다. 로그인한 실제 #917 Revision 2 화면의 11개 파일 요약과 Markdown이 같은 짧은 문구를 표시하며 기존 report hash·제한 2건은 보존했다. Desktop screenshot과 mobile DOM(390×844, 가로 overflow 없음)을 확인했다. Mobile screenshot은 capture timeout/축소 오류로 판독하지 못했고 200% zoom은 미검증이다. 재분석·Chat·GitHub 게시를 실행하지 않았다. 상세 digest·검증·범위 밖 UI 관찰은 [문구 변경 기록](../docs/operations/concise-review-summaries-2026-09-09.md)에 있다. 이전 alpha.22 Terminating Pod는 이번 점검 전에 사라졌고 alpha.24 Worker는 종료 유예 중이며 강제 삭제하지 않았다.
+
+2026-09-09 후속 작업: PR #917의 미완료 Summary를 조사했다. 최근 두 분석은 alpha.23 checkpoint 도입 전 네 attempt에서 누적 모델 호출 128회를 소진했다. 영구 실패의 불필요한 재시도와 원인 없는 파일 요약을 수정하고 새 revision의 입력 pin·게시 억제·실제 revision event를 추가했다. 413개 테스트·typecheck·lint·build, 배포 health·Helm test·migration checksum 검증을 통과했다. 사용자 승인으로 기존 `c3dfc29c-b34e-4214-b3a1-e8375179d30f`를 report 보존·GitHub 댓글 미게시 조건으로 재분석했다.
+
+새 `3a0a9c85-63df-4afa-8f69-45d2f5168136` Revision 2는 07:45:34–08:15:35 KST 실행 후 **completed**다. 실제 `gpt-5.6-sol:medium`으로 25/25 files·64/64 windows·파일 요약 25개·전체 Summary를 완료했다. 모델 90회·checkpoint 90개, attempt 1, recovery/restart 0회, 미완료 파일 0개다. 기존 report hash·입력 pin·사용자 데이터와 128회 예산을 보존했고 GitHub publication/job은 0개다. 최고 P2·findings 44개이며 주변 source 추가 조회 제한 2건은 유지한다. Canonical diff 전체 검토 완료와 repository 전체 원본 검증을 구분한다. [조사·배포·실제 검증 기록](../docs/operations/incomplete-review-2026-09-09.md)을 참고한다. 로그인 Browser는 재검증하지 않았으며 alpha.22 구버전 Terminating Pod는 강제 삭제하지 않았다. 추가 재분석을 임의로 시작하지 않는다.
+
+2차 P6–P10 코드를 alpha.23에 배포했다. Batch model checkpoint, 최대 3회 만료 lease 회수, stale attempt 차단·drain, 90초 DB workspace lease와 사용자/origin/credential/SHA별 캐시, 원문 ID를 보존하는 대화 발췌·원문/이전 source 도구, JS/TS 구문 AST·Python lexical 관계 후보, history pagination과 과거 질문·근거 복원을 포함한다. 전체 semantic call graph·공용 mirror·모델 기반 의미 요약·코드/테스트 실행은 제공하지 않는다. 상세 [2차 구현](interactive-review-chat-phase2.md), [검증](verification-interactive-chat-phase2-2026-09-09.md)을 따른다.
+
+405 tests/66 files, lint·typecheck·production build, native Linux security/Git/AST 검증을 통과했다. 실제 `gpt-5.6-sol:medium` 후속 run `68115d81-e856-4963-bfa9-7d22ad813348`은 기존 canary session에서 과거 질문/소스를 조회하고 ask_user 응답 후 workspace를 재사용해 163초 만에 completed가 됐다. 모델 8회, 도구 6회, source 2건, 4,687자 답변과 delta 211건이다. 기존 수동 복구 배치 2건은 이번 시작 시 모두 completed였다. Desktop/mobile 실제 UI 조작과 screenshot은 Mac 잠금으로 여전히 미완료다.
+
+최종 확인 시 이전 alpha.22 Pod `git-code-reviewer-worker-f67ff8948-nzx85`는 활성 job/Chat lease 0건, Worker exec 불가, 구버전 source-sandbox만 종료 유예 중이었다. Pod는 Terminating으로 남아 API 강제 삭제하지 않았다. 새 Server `git-code-reviewer-server-86dd8cbb7c-2qp4r`, Worker `git-code-reviewer-worker-86f66d497b-8tbp9`는 정상 Ready이며 후속 점검 시 구버전 Pod 삭제 여부만 확인하면 된다. 임시 DB·kernel probe·Helm registry 파일은 정리했다.
+
+사용자 요청에 따라 [설계](interactive-review-chat-design.md)와 [구현 계획](interactive-review-chat-implementation-plan.md)을 작성했다. Worker 로컬의 실제 Git 저장소·revision별 파일 트리, 반복적인 읽기 전용 탐색, 사용자 질문·재개, 영속 run/SSE와 모바일 복구, 자동 분석·Chat 공통 계정 호출 제한을 포함한다. 자동 분석도 같은 workspace/source provider를 사용한다. Demian은 run/event/cancel UI 구조의 참고이며 범용 shell이나 코드 수정 권한을 가져오지 않는다.
+
+P0 `272faac`, P1 `db78467`, P2 `c4562cf`, P3 `a20ceb3`, P4 `10bf5ae`와 후속 운영 수정본을 구현·push했다. Local Git read 도구, Linux chroot/UID/seccomp broker, 공통 account admission과 실제 streaming, fenced run·질문 응답·재개·중단, 메인 source 탭과 새로고침 복구를 포함한다. Native PRISM-DEV에서 쓰기·경로 이탈·process·network 차단과 실제 Git blob 조회를 검증했고 macOS sandbox 조회도 통과했다. 63개 파일·391개 테스트, lint·typecheck·production build를 통과했다. DB 통합 테스트는 UTF-8 local PostgreSQL에서 maxWorkers=2, hookTimeout=60000으로 실행했다.
+
+P5 canary에서 실제 provider의 빈 completed output, Git trust bundle, base에 없는 신규 파일, 배치의 Chat 계정 점유와 60초 응답 timeout을 찾아 수정했다. Migration은 26개다. 계정별 동시 호출 1개·run 예산 8회와 byte/RPM 한도는 유지하며 새 Chat의 모델 timeout은 180초다. 새 Worker는 concurrency 2 중 하나를 Chat에 남기고 PRISM-DEV 종료 유예는 3600초다. 기존 최대 attempt에 걸린 배치 두 건에는 ledger를 보존한 단일 복구를 각각 허용했다. 두 배치의 최종 분석 완료는 이번 Chat smoke 완료와 구분하며 마지막 확인 시 running/queued였다.
+
+실제 등록 `gpt-5.6-sol:medium`의 run `cf19fcf0-c4cf-4c0f-b2a6-24cab6000e55`는 completed다. 모델 8회·source 도구 6회, 실제 근거 3건, 질문·응답·재개, 2,249자 답변과 citation·96개 실제 delta event를 확인했다. 근거의 SHA·blob·content hash와 API 재조회도 일치했다. 이는 실제 handler·Worker 검증이며 로그인 브라우저 E2E는 아니다. 전체 활성화 뒤 Server만 재시작해 새 allowlist를 적용했고 health 4종·Helm test와 migration checksum을 확인했다. 기존 Secret·CA·PVC/PV를 보존했다.
+
+제공 범위와 남긴 설계 항목은 [운영 문서](../docs/operations/interactive-chat.md), 실제·fixture 구분과 canary 오류는 [검증 기록](verification-interactive-chat-2026-09-08.md)을 따른다. 공용 mirror·DB workspace lease·완전한 symbol graph·장기 대화 압축은 아직 없다. Mac 잠금으로 실제 desktop/mobile UI 조작·캡처 검증도 남아 있다. 운영 비밀번호나 인증 Secret은 변경하지 않았다.
+
+### 2026-09-08 20:03 배포 (revision 27, 이전)
+
+누적 분석 56건 중 실패 8건 모두 중복 심볼의 `(analysis_run_id, qualified_name)` 고유 제약 위반 뒤 canonical artifact 재시도 충돌이 발생했다. 심볼 정의 line 구분·겹친 hunk line 중복 제거, 내용 hash 기반 immutable artifact, analysis row 잠금과 단일 report 발행을 적용했다. 모델 호출 예산 32→128, 80~500 core-line window 조정, 파일·전체 요약 호출 예약, 예산 내 한 번의 모델 재시도도 포함한다. YAML 등 symbol adapter 미지원은 relationship/impact coverage에 남기되 AI review 완료와 분리한다. 생성 파일 제외·미검토 범위를 성공으로 바꾸지는 않는다.
+
+57개 파일·346개 테스트(UTF-8 local PostgreSQL integration 포함), lint·typecheck·build 통과. 실제 실패·예산 초과 입력 22건을 fixture model로 재생해 graph 저장과 window·요약 완료를 검증했고 호출 예산 초과·요약 누락은 0건이었다. 이것을 22건의 실제 AI 품질 검증으로 해석하지 않는다.
+
+Image `sha256:ae84499070c0fe8181e5ea16754d673a158bca23ae4f47596b69af96eb9a3bb3`, chart `0.10.16`, SPDX SBOM·SLSA provenance v1 게시. 기존 values 재사용, migration 23개 checksum 일치, Server·Worker Ready/restart 0, health 4종·system version·Helm test 성공. 기존 Secret·CA·HTTPRoute·PVC/PV와 사용자 데이터를 보존했다. 운영 분석 56건·report 48건·과거 실패 8건은 변경하지 않았다.
+
+배포 후 기존 ChatGPT account `gpt-5.6-sol:medium`으로 과거 실패 snapshot의 YAML·Python schema 두 파일을 실제 분석했다. 4/4 window, 두 파일·전체 요약 완료, 모델 호출 8회, finding 3건, 141.6초, `completed`/`model`/`pass`와 고유 graph 심볼을 확인했다. AI coverage 제한은 없고 YAML symbol adapter 제한은 graph/impact에만 남았다. 전체 PR 재분석은 아니며 결과를 운영 DB나 GitHub 댓글로 저장하지 않았다.
+
+원인별 수치와 검증 경계는 `docs/operations/analysis-failures-2026-09-08.md`, digest·운영 검증은 `deploy/environments/prism-dev/README.md`에 있다.
+
+### 2026-09-08 19:19 배포 (revision 26)
+
+Memory 설계·모델·후보 workflow·analysis/Chat 적용·관리 UI의 phase commit `0caa1c0`–`b53e311`과 제품 문서 메뉴 `796793e`를 배포했다. Application `0.8.0-alpha.16`, chart `0.10.15`, image digest `sha256:8739f1ac2e56d8f6347cb62132f0aee0d7681fa31c40a13205caac93b4e1c61f`다. Linux/amd64 image에 SPDX SBOM과 SLSA provenance v1을 포함한다. `--reuse-values`와 image tag/digest override로 기존 운영 설정을 보존했다.
+
+Migration 0020–0023을 적용했고 전체 23개 checksum이 source와 일치한다. Server·Worker 각 1/1 Ready·restart 0회, 이전 Pod 종료, Retention image 갱신, Helm test·health 4종·system version과 문서 경로를 검증했다. 실제 HTTPRoute의 JS·CSS hash가 image와 일치하며 비로그인 Memory·PR 대화 API는 401이다. Users 7명, Chat accounts 4개, GHES credential 1개, 활성 repository 2개, analyses 55건, reports 47건을 유지했다.
+
+상단 `문서`는 `/introduction`, `/features`, `/guide`를 연결한다. `docs/product/introduction.md`와 `docs/product/features.md`가 앱의 Markdown 원문이며 Docker build에 포함된다. 사용 가이드의 `#review-memory`에는 후보 저장·활성화와 집단 승인 절차가 있다. 고급 Chat의 질문별 base/head 원본·관계·테스트 추가 조회는 여전히 `.documents/advanced-review-chat-backlog.md`의 구현 계획이다.
+
+실제 모델·Chat·PR 게시와 메모리 활성화는 배포 점검을 위해 실행하지 않았다. 배포 후 기존 repository polling은 `not-modified`이며 오류는 없었고 최초 확인 시 Memory·PR 원천은 0건이었다. 선행 local/fixture 기능 검증과 live HTTP·DB 검증을 구분한다. 자세한 결과는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)를 참고한다.
+
+### 2026-09-08 16:01 배포 (revision 25)
+
+사용자 삭제 Backend `7a38da4`, UI·문서 `47770d4`를 push 후 application `0.8.0-alpha.15` / chart `0.10.14`로 build·게시했다. Release 설정 `1704d23` push 후 `--reuse-values`와 image tag/digest만 override했다. Image digest는 `sha256:9b966f7404d531cb4a32d6d83d393e34a9a3af1b6b4f4a6e61346e8dd67a7557`이며 SPDX SBOM·SLSA provenance를 포함한다.
+
+Migration 0019 적용·checksum 일치, 새 Server·Worker 각 1/1 Ready·restart 0회, Helm test, health 4종, system version, login·guide·admin 경로와 JS/CSS hash 일치를 확인했다. 비로그인 사용자 GET·DELETE는 404, profile GET은 401이다. Users 7명·삭제 0명, Chat account 4개, GHES credential 1개, 활성 repository 2개를 유지했다. 기존 polling 중 analysis 48→49건, report 39→40건으로 증가했다. Image 외 values hash, 기존 PVC/PV·Secret·CA·HTTPRoute는 보존했다.
+
+배포 시 실행 중 분석 1건이 있어 기존 Worker의 900초 종료 유예와 작업 완료 대기를 유지했다. 16:08 KST 확인 시 새 workload는 정상이며 이전 Worker `git-code-reviewer-worker-76779559d4-6ljqx`는 해당 분석 완료를 기다리는 Terminating 상태다. 기존 job은 15:58:51 시작, 마지막 heartbeat 16:07:51이며 outcome/error_code는 NULL이다. 45초 Pod 종료 대기 두 번은 timeout됐지만 새 release의 rollout·health 실패는 아니다. 기존 Worker를 강제 종료하지 않았으며 완료 후 Kubernetes가 회수한다. 운영 사용자 삭제·실제 모델/Chat/PR 게시를 검증용으로 실행하지 않았고 개인정보·credential 원문도 조회하지 않았다. 상세 검증과 digest는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
+
+### 2026-09-08 사용자 삭제 — revision 25 반영
+
+관리자 `설정 → 사용자`의 각 행에 삭제 버튼을 추가했다. 확인창에 Local username 또는 외부 Subject를 정확히 입력해야 삭제된다. 현재 로그인한 계정은 삭제할 수 없으며 마지막 활성 관리자 제거와 동시 관리자 변경도 Server에서 차단한다. 일시 차단은 기존 앱 접근 toggle을 사용한다.
+
+Backend commit `7a38da4`는 migration `0019_user_deletion.sql`과 `DELETE /api/v1/admin/users/:userId`를 포함한다. 삭제는 `users.deleted_at` tombstone을 남기고 목록에서 제외하는 방식이다. 계정을 비활성화하고 모든 session·개별 repository grant를 제거하며 tenant membership을 비활성화한다. 개인 Prompt·Local password hash·group 목록도 제거한다. 개인 Chat은 기존 retention에 따라 본인 소유로 유지하고 공동 report·분석 설정·audit의 참조를 보존한다. 삭제된 identity를 자동 복원하거나 같은 username·Subject로 재등록하지 않는다. 외부 IdP 원본 계정과 이미 실행 중인 모델 요청은 변경하지 않는다.
+
+삭제·사용자 접근 변경은 공통 advisory transaction lock과 현재 actor 권한 재검사를 사용한다. 삭제와 audit 기록은 한 transaction이며 audit 실패 시 rollback한다. Local login·session hydration·OIDC upsert·development auth·bootstrap·비밀번호 reset·membership·repository 권한 부여에 tombstone 검사를 반영했다. Repository grant 변경은 사용자 row share lock으로 삭제와 순서를 보장한다.
+
+전체 323 tests / 54 files 통과, skip 없음. 격리된 로컬 PostgreSQL 16에서 migration 19개 적용·재실행, 권한 회수·identity 재사용 차단·기존 report/Chat 보존·audit rollback·동시 관리자 삭제를 검증했다. Typecheck·ESLint·Web production build 통과. 전체 테스트의 초기 기본 worker 수에서는 migration lock 대기로 hook timeout이 발생해 `--maxWorkers=2 --hookTimeout=60000`으로 실행했고 모두 통과했다.
+
+Browser는 실제 UserPanel/UserDeleteDialog에 합성 API를 연결해 입력 확인·실패 시 초안/alert focus 유지·Escape 취소·성공 후 행 제거와 제목 focus를 검증했다. Desktop 1440×1000, mobile 390×844, 1024×900에서 확인했으며 사용자 표에 한정한 checkbox 위치 기준과 가로 scroll 수정으로 모바일 overflow·중간 너비 삭제 버튼 잘림을 해결했다. 독립 finish review의 후속 verdict는 `ship`이며 기존 지적 F1·F2 두 건을 resolved로 판정한 범위다. 기존 디자인은 유지했다. 임시 harness와 Browser·Vite·전용 test DB는 정리했고 실제 운영 사용자는 삭제하지 않았다. 상세 상태·보존 정책은 [Local 인증 설계](local-account-authentication.md#6-사용자-삭제-2026-09-08), 검증은 [사용자 삭제 검증 기록](verification-user-deletion-2026-09-08.md)에 있다.
+
+### 2026-09-08 15:12 배포 (revision 24)
+
+Source `41febd2`를 application `0.8.0-alpha.14`, chart `0.10.13`으로 build·게시하고 release 설정 `dab42ad`를 push한 뒤 PRISM-DEV를 upgrade했다. Image digest는 `sha256:150fd26eb5bca01ae9d2227e9c13b8b4e163fb5189bbf0c4de0d5ed857306ae5`이며 SPDX SBOM·SLSA provenance를 포함한다. 사용자 요청에 따라 앞으로 기능·설정 작업도 commit·push 후 배포와 검증까지 수행한다.
+
+Migration `0018_personal_chat_prompt.sql` 적용·checksum 일치와 빈 기본값·4,000자 제한을 확인했다. Users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개, analysis 46건, report 38건이 유지됐고 기존 사용자 7명의 개인 Prompt는 빈 값이다. Prompt 원문·Secret을 조회하거나 사용자 설정을 변경하지 않았다.
+
+Server·Worker 각 1/1 Ready·restart 0회, 기존 Pod 종료, Helm test와 health 4종, system version, login·guide·profile 및 새 JS/CSS hash 일치를 확인했다. 비로그인 profile/repository 조회는 401이며 Prompt 저장은 Origin 누락 시 403, 올바른 Origin이어도 비로그인이면 401이다. Image 외 Helm values hash, 두 PVC/PV ID, auth/registry/PostgreSQL Secret과 CA·HTTPRoute UID/resourceVersion을 유지했다. Artifact PVC의 resourceVersion은 Helm 갱신으로 달라졌지만 UID·PV·용량·access mode는 유지됐다.
+
+이번 배포에서 실제 모델 분석·Chat·PR 게시를 별도 실행하지 않았고 로그인 후 live Browser E2E도 재실행하지 않았다. 선행 로컬 312 tests / 52 files·PostgreSQL integration·합성 Browser 검증과 이번 배포 검증은 구분한다. 상세 digest·시각·검증 결과는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
+
+### 2026-09-08 프로필 개인 Prompt — revision 24 반영
+
+사용자는 개인화된 Prompt를 프로필에서 작성하도록 요청했다. 적용 범위는 본인의 Review Chat이며 공동 PR 분석·Tenant Prompt·Skill·PR 게시 결과는 바꾸지 않는다. Backend commit `f06d329`를 먼저 push했고 UI·문서 commit은 후속 git log를 확인한다.
+
+Migration `0018_personal_chat_prompt.sql`이 `users.personal_prompt`를 빈 문자열 기본값·최대 4,000자로 추가한다. 본인 GET profile 응답과 `PUT /api/v1/profile/prompt`를 제공하며 Local/OIDC·일반사용자/관리자 모두 `request.user.id`로만 저장한다. 추가 userId 필드를 거부하고 저장+내용 없는 audit을 transaction으로 묶는다. 앞뒤 공백 제거·null 문자 거부·빈 값 저장 시 해제를 적용했다. 표시 이름·비밀번호의 IdP 제한과 기존 사용자 응답 contract는 유지한다.
+
+Chat은 소유권·repository 권한을 검사한 뒤 매 질문마다 현재 사용자의 Prompt를 읽는다. System 지침과 섞지 않고 별도의 `user` message에 `personal-preferences` JSON으로 넣는다. 스타일·설명 깊이·관심 영역에 반영하도록 지시하며 현재 질문·근거·JSON 응답 규칙을 우선한다. Prompt를 Chat message/event에 별도 저장하지 않고 기존 대화·report를 재작성하지 않는다. 모델 답변 자체에는 개인 지침 내용이 반영될 수 있다. 실제 모델의 지시 준수 정확도를 검증한 결과는 아니다.
+
+`ProfilePage`의 프로필 정보와 비밀번호 사이에 독립 `PersonalPromptForm`을 추가했다. 8줄 textarea·글자 수·저장·내용 비우기를 제공한다. 비우기는 초안만 변경하며 저장해야 해제된다. 저장 실패 시 입력값을 유지하고 alert로 focus를 옮긴다. 선택한 모델로 전송된다는 점과 Secret 입력 금지를 안내한다. 가이드·제품 정의·기능설계서 5.10에 반영했다.
+
+검증: 로컬 PostgreSQL 16의 격리 schema에서 migration 18개와 재실행을 확인하고 사용자 분리·재연결 후 영속성·본문 없는 audit·최대 길이·해제를 검증했다. 전체 312 tests / 52 files 통과, skip 없음. 신규 검증은 20건이며 기존 29 DB integration도 실행했다. ESLint·전체 TypeScript·Web production build 통과. 기존 Zod annotation·500kB bundle warning은 유지된다. 새 SSR test의 HTML attribute 대소문자 기대값만 실제 serializer에 맞춰 수정했다.
+
+Browser는 실제 ProfilePage에 합성 API를 연결했다. Desktop 1440×1000·mobile 390×844에서 저장·재조회·실패 시 초안/alert focus 유지·저장 전 비우기의 비영속성·저장 후 해제와 가로 overflow 없음을 확인했다. `profile-prompt-{desktop,mobile}.png`는 `.impeccable/review/`에 보존한다. 새 UI에 detector warning은 없으며 기존 unrelated 3px 측면 border 4건은 유지했다. 개발 검증에서는 실제 GHES·LLM 호출·클러스터 배포를 하지 않았다. 후속 요청으로 migration 0018과 Grade·Chat Markdown·PR 접기 변경을 revision 24에 함께 배포했다.
+
+독립 Impeccable finish review는 이번 개인 Prompt UI 범위에서 `ship`이며 수정 요구가 없었다. 기존 DESIGN.md와 sidecar의 시각 체계를 유지했다. 검증용 Browser·Vite·PostgreSQL container와 임시 harness는 종료·삭제했으며 기존 사용자 데이터는 변경하지 않았다. 상세 근거와 검증 한계는 [개인 Prompt 검증 기록](verification-personal-prompt-2026-09-08.md)에 있다.
+
+### 2026-09-08 PR AI Comments 접기 — revision 24 반영
+
+`formatReviewMarkdown`의 AI Comments 전체를 기본으로 닫힌 `<details>`에 넣었다. 접힌 제목에는 의견 수·의견이 있는 파일 수와 ‘펼쳐 보기’를 표시한다. 분석 상태·대표 priority, Overall Summary와 전체 report 링크는 이 영역 밖에 남는다. 펼친 본문은 기존 파일별 의견·코드 위치·영향·수정 제안·finding 링크를 유지한다. 의견이 없으면 빈 toggle을 만들지 않는다. Markdown export에도 같은 형식이 적용되지만 Browser workspace의 Comments와 저장된 report는 변경하지 않는다.
+
+길이 제한 처리에서 `<details>` 전체를 한 block으로 유지하므로 닫는 태그가 생략되지 않는다. AI Comments 전체가 제한을 초과하면 이 영역 전체를 생략하고 전체 report 링크·생략 안내를 남긴다. 가이드와 기능설계서 5.6에 동작을 기록했다. 실제 GHES 게시·기존 PR 댓글 일괄 변경은 수행하지 않았다. 후속 revision 24 배포 이후 다음 정상 게시·갱신부터 새 형식이 적용된다.
+
+신규 regression test 4건은 기본 접힘과 링크 보존, 빈 의견, HTML 삽입 차단, 60,000자 게시 제한에서 태그와 전체 report 링크 보존을 확인한다. 전체 263 tests 통과 / DB integration 29 skip (45 files passed / 5 skipped). ESLint·전체 TypeScript·Web production build·변경 source Prettier·git diff 검사를 통과했다. 기존 Zod annotation·500kB 초과 bundle warning은 유지된다. 초기 새 테스트의 파일 경로 기대값을 기존 Markdown escape 정책에 맞게 보정한 뒤 모두 통과했다.
+
+### 2026-09-08 Review Chat Markdown·다중 코드 근거 — revision 24 반영
+
+Chat 답변을 plain text로 출력하고 선택된 finding 하나의 evidence를 질문과 무관하게 첨부하던 동작을 수정했다. `ChatPanel`은 assistant에 공통 `ReviewMarkdown`을 사용하고 user 질문은 원문으로 유지한다. Code block·목록·표·강조와 여러 파일의 `L시작–끝 · 이전/변경 코드` 링크를 표시한다. 현재 report locator와 대조한 후 `App`의 code target을 citation 자체의 file/side/range로 설정하며 finding 대표 line으로 잘못 이동하지 않는다. Legacy citation도 locator로 range를 복원하며 다른 revision·file·line이면 비활성화한다.
+
+Server `services/chat-answer.ts`는 선택을 힌트로 삼고 여러 파일의 report finding/summary/coverage를 제한된 context에 포함한다. 모델은 Markdown content와 사용한 citation ID 목록을 반환하며 Server가 현재 catalog에 있는 ID만 최대 24개 저장한다. File/side/range 중복 제거, 없는 file·non-diff evidence 제외, context 생략 수, plain text 응답 시 citation 자동 첨부 금지를 적용했다. 기존 optional citation contract에 `endLine/side/path`를 추가했고 DB migration·계정·모델 Provider 구현은 변경하지 않았다. 저장된 메시지/기존 report는 재작성하지 않는다. 자세한 범위는 기능설계서 5.10과 Web 가이드 ‘Review workspace와 Chat’에 있다.
+
+검증: 신규 서비스·UI 테스트 18건과 Fastify API 주입 테스트 3건을 추가했다. 다중 range/삭제 코드/Legacy 호환/잘못된 ID·range 거부/선택 외 파일 context/빈 근거/Markup 안전성, 메시지 저장·재조회와 타 사용자·권한 회수 차단을 확인한다. 이 기능의 개발 검증에서는 실제 PostgreSQL·LLM·GHES 호출을 수행하지 않았다. Local 합성 ChatPanel·ReviewDiff에서 1440×1000·390×844 Markdown 렌더링과 두 링크의 L10(head)↔L50(mergeBase) 이동을 확인했고 문서/Chat 가로 overflow·Browser 오류가 없었다. 첫 desktop harness의 grid 위치 설정을 보정한 뒤 확인했으며 앱 자체 grid는 변경하지 않았다. 검증용 Browser·Vite와 harness는 종료·정리했다. 후속 요청으로 Grade 개선과 이 변경을 revision 24에 함께 배포했다.
+
+최종 검사: 전체 259 tests 통과 / DB integration 29 skip (45 files passed / 5 skipped). ESLint·Runtime TypeScript·Web production build·변경 source Prettier·git diff 검사를 통과했다. Impeccable detector warning 4건은 기존 3px 측면 border이며 그대로 유지했다. Browser·Vite를 종료하고 임시 harness 두 파일을 삭제했다. 실제 model 응답의 분석 정확도나 live 배포 성공을 검증한 결과는 아니다.
+
+### 2026-09-08 Grade 문구·색상 개선 — revision 24 반영
+
+`exceptional/proficient/adequate/insufficient/critical`을 사용자 화면에서 `탁월/우수/양호/개선 필요/심각`으로 표시한다. 앞의 세 등급은 teal, 개선 필요는 주황, 심각은 빨강이다. `adequate`가 기본 warning 색상을 상속하던 규칙을 제거하고 공통 `reviewGrades`·`ReviewGrade`로 PR 목록, Summary, 가이드, Markdown·PR 게시 문구를 일치시켰다. PR 목록의 P2+ 건수는 Grade와 독립적으로 warning 색상을 사용한다. Summary는 해당 등급 설명과 가이드 링크를 제공한다.
+
+저장 enum, 모델·Skill·Severity Level 판정 기준과 기존 report 본문은 변경하지 않는다. 기존 report도 새 UI에서 한글 Grade를 표시하며 PR 댓글은 다음 정상 게시 시 새 템플릿을 사용한다. 이미 게시한 댓글을 일괄 수정하지 않았다. 긍정적인 Grade여도 P2/P3·분석 제한은 유지하고 실패·미수행·데모 Summary에는 Grade를 표시하지 않는다. 후속 revision 24 배포에 포함됐다.
+
+전체 TypeScript·ESLint·Web production build 통과. 자동 테스트 238건 통과, DB integration 29건은 별도 DB를 띄우지 않아 skip했다(42 files passed / 5 skipped). 새 검증 11건은 다섯 등급의 label/tone, canonical enum 보존·가이드, Markdown 표시를 확인한다. 기존 Summary와 legacy PR 게시 테스트에도 검증을 추가했다. Local production preview의 실제 Worklist·GuidePage에 합성 API를 연결해 1440×1000·390×844에서 Grade와 별도 P2+ 색상, 줄바꿈, 문서 overflow 없음, Browser 오류 없음을 확인했다. Summary·실제 GHES 게시·모델 호출 E2E는 수행하지 않았다. Badge text 대비는 positive 5.52:1, warning 4.84:1, danger 5.62:1이다. Impeccable detector warning 4건은 기존 다른 컴포넌트의 3px 측면 border이며 이번 변경과 무관해 유지했다. 기존 Zod annotation·500kB 초과 bundle warning도 유지된다.
+
+### 2026-09-08 13:04 배포 (revision 23)
+
+사용자 요청에 따라 source `cfeba47`을 application `0.8.0-alpha.13`, chart `0.10.12`로 배포했다. Image digest는 `sha256:788efe54c4103fcd4c9962a743a5163c5e1597f398a0aaee2e249ae53acc0fcd`이며 SPDX SBOM·SLSA provenance가 포함됐다. 정확한 chart digest·asset hash와 검증 표는 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
+
+Migration `0017` 적용 및 checksum 일치, Server·Worker rollout/각 1/1 Ready·restart 0회, Helm test, health 4종, `/login`·`/guide`·system version 확인을 통과했다. 기존 Pod는 종료됐다. Image 외 Helm values, 두 PVC/PV, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute는 유지했다. Users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 43건, report 35건을 보존했고 기존 analysis의 severity_level 43건은 NULL이다.
+
+배포 당시 활성 custom Skill/tenant Prompt는 없으므로 새 분석에는 번역 Built-in version 2와 moderate가 적용된다. 아래 개발 기록의 custom Skill 수동 활성화 안내는 custom bundle이 있는 환경에만 해당한다. 실제 운영 account로 모델·Chat·PR 게시를 별도 실행하지 않았다. 실제 HTTPRoute의 JS/CSS는 선행 합성 Browser 검증 bundle과 SHA-256이 일치한다.
+
+### 2026-09-08 Skill 원문 번역·Severity Level — revision 23 반영
+
+Commit Defender `14203044e4e0cf2ba5d44fcf521425a4113f7840`의 6개 perspective를 점검 항목·Tone 전체를 유지해 한국어로 번역했다. Correctness·Maintenance는 사용자 첨부 원문과 일치한다. 전문용어는 영어로 유지하고 기존 근거 검증·Secret 비노출 기준을 별도 절로 보존했다. Perspective version 2, form 3개는 내용/version 유지. 출처·Apache-2.0 license 포함. 번역 commit은 `2ff10b5`, backend commit은 `1c89187`이다.
+
+관리자 `분석 프롬프트`에 tenant별 Severity Level radio 5개와 한국어 설명·priority 범위를 추가했다. 기본 moderate. lean=P3, generous=P2/P3, moderate=P1 최대 2개/파일+P2/P3, rigorous=P1/P2/P3, severe=P0–P3이며 같은 파일의 concern/Praise 모순은 제거한다. 원본 package.json 설명과 filter가 다른 부분은 실제 Prompt/reviewer 코드를 기준으로 이식했다. Model·effort와는 별개다.
+
+Migration `0017_analysis_severity.sql`이 필요하다. 지침이 비어도 수준만 저장할 수 있고 지침·level을 함께 hash/version으로 관리한다. 새 analysis는 materialization 때 Prompt ID/hash/level을 고정하고 후속 활성화 변경을 받지 않는다. Worker는 모든 stage에 수준 지침을 전달하며 여러 window의 중복 제거 후 파일별 필터를 적용해 요약과 comment를 일치시킨다. 같은 근거의 P1/P3 중복은 P3를 남긴다. Report `versions.severity`/`versions.prompt`로 추적한다. 이전 queue의 NULL level과 기존 hash·report는 재작성하지 않는다.
+
+Custom Skill을 저장해 활성화한 환경에서는 배포만으로 내용을 덮어쓰지 않는다. 새 번역본을 적용하려면 `분석 Skills → Built-in을 초안으로 불러오기 → 비교/편집 → Version 저장 및 활성화`가 필요하다. 개발 단계에서는 live bundle·Provider·GHES·클러스터를 변경하지 않았으며 후속 요청으로 Server/Worker와 migration 0017을 revision 23에 배포했다.
+
+검증은 전체 256 tests/46 files(전용 local PostgreSQL integration 포함, skip 없음), typecheck·lint·Web build 통과. 실제 AdminPage를 합성 API와 연결해 빈 지침 저장, tenant별 복원, loading 잠금, keyboard, desktop/mobile을 확인했다. 상세 내용과 경고·검증 한계는 [설계](analysis-severity-level.md), [검증 기록](verification-analysis-severity-2026-09-08.md)을 참조한다. 임시 Browser·Vite·harness·test DB는 종료/정리하고 합성 screenshot만 문서에 보관한다.
+
+### 2026-09-08 Reviews GNB 설정 버튼 — revision 23 반영
+
+`AppHeader.tsx`의 관리자 설정 링크에서 `!compact` 조건을 제거했다. Reviews는 compact header를 쓰므로 기존에는 설정 버튼이 사라졌다. 관리자에게는 설정 → 사용 가이드 → 내 프로필 → 사용자 → 로그아웃 구성을 동일하게 제공하고 reviewer·비로그인 사용자에게는 설정 링크를 노출하지 않는다. Compact의 tenant picker 숨김과 기존 CSS·링크·서버 권한 검사는 유지했다. Header 회귀 8건을 포함한 Web tests 35건, Web typecheck·변경 파일 ESLint와 detector를 통과했다. 이 조건 변경은 static render 비교로 검증했으며 live Browser·클러스터 재배포는 수행하지 않았다.
+
+### 2026-09-08 Markdown·block 이동·Chat 개선 — revision 23 반영
+
+구현 commit은 `d8ea3c1`이다. Summary가 backtick inline code만 처리해 Markdown 제목·강조·목록이 그대로 노출되던 문제를 공통 `ReviewMarkdown.tsx`로 수정했다. `react-markdown`·`remark-gfm`으로 PR·파일 요약과 Comments 본문을 렌더링하며 raw HTML·위험 URL·외부 image 요청을 제한한다. 파일 요약·Comment article의 본문과 여백도 기존 Code 이동 handler를 사용한다. 내부 control, 링크, 텍스트 선택과 modifier 클릭은 보존한다.
+
+`ChatPanel.tsx`를 App에서 분리하고 Account·Model·Effort를 입력창 아래 DOM 위치로 이동했다. 본문·입력·select는 14px, 입력창은 5줄·최소 140px이며 좁은 panel에서 Account를 별도 줄로 배치한다. 기존 session·draft·모델 선택·전송 처리 자체는 바꾸지 않았다.
+
+Lint·전체 typecheck·Web build, 202 tests 통과. 별도 DB가 필요한 integration 22 tests는 이번 UI 검증에서 skip했다. 실제 component의 local 합성 Browser에서 Markdown·block→Code line 이동·Chat draft/줄바꿈·desktop/mobile DOM 배치를 확인했다. 검증 범위, build warning과 screenshot은 [검증 기록](verification-review-markdown-chat-2026-09-08.md)에 있다. Cluster, account·GHES 설정과 기존 report는 변경하지 않았다. 배포 요청 시 source `d8ea3c1` 이후의 가이드·기록 commit까지 포함해 새 image를 build한다.
+
+### 2026-09-08 Workspace 배치 변경 — 배포 완료
+
+사용자는 Files 전체 펼침 기본값, LNB 숨김 toggle, Chat 약 1.8배 확대, FNB Comments 이동·높이 확대, PR 전체 요약 후 펼쳐진 파일 요약, 선택 전 inline comment, Diff의 반복 line 테두리 제거와 읽기 너비 제한을 요청했다. 구현은 `6224ee6`으로 먼저 push했고 모바일 control·Tab 순서·가이드·검증 기록은 `74cdc05`에 있다.
+
+- `FileTree.tsx`: 기본 전체 펼침, 접은 경로만 state에 저장. 선택 파일의 ancestor 자동 펼침과 green/red 합계·keyboard 지원 유지. LNB는 unmount하지 않아 숨김·복원 뒤 접힌 상태가 남는다.
+- `workspace-layout.ts`, `App.tsx`: LNB/Chat/FNB 기본값 244/569/280px, Chat 최대 800px, Main 최소 360px. 표시 크기를 viewport에 맞춰 계산하되 저장한 크기를 덮어쓰지 않는다. localStorage v2는 기존 v1의 기본 316/176px만 이전하며 직접 지정한 값은 보존한다. LNB toggle은 메인 toolbar에 있고 separator 더블클릭·Home은 해당 패널 초기화다.
+- `ReviewReportPanel.tsx`: Summary에는 PR 전체 요약 → 펼쳐진 파일 요약 → 파일 목록·provenance만 남긴다. 상세 unit block은 FNB Comments에 둔다. 과거 report에 total-summary가 없으면 누락을 안내하며 결과를 재작성하지 않는다. Comments에는 코드 이동·위치 확인·GHES 원문을 유지한다.
+- `ReviewDiff.tsx`: 현재 파일의 모든 inline comment는 선택 전에도 표시한다. 선택 시 시작 line만 강조하며 block 너비는 최대 880px다. File-level과 diff 밖 anchor를 구분한다. 기존 finding deep link는 Code와 Comments를 함께 열고 `tool=evidence`는 Comments로 해석한다.
+- 모바일에서도 FNB tab label과 Split/Unified control을 숨기지 않는다. DOM 순서는 LNB → Main → Comments → Chat이며 시각 순서와 Tab 이동 순서를 맞춘다.
+
+전체 218 tests(39 files, local PostgreSQL integration 포함), lint/typecheck/Web production build와 browser 검증을 통과했다. 상세 근거·합성 screenshot은 [Workspace 배치 검증](verification-workspace-layout-2026-09-08.md)에 있다. 실제 GHES·모델·PR 게시 검증은 실행하지 않았다. 후속 재배포 요청에 따라 새 image를 build하고 아래 revision 22로 배포했다. 기존 immutable report·Secret·PVC는 유지했으며 신규 DB migration은 없다.
+
+### 2026-09-08 10:03 배포 (revision 22)
+
+Source `74cdc05`의 application `0.8.0-alpha.12`, chart `0.10.11`을 registry에 게시하고 PRISM-DEV release를 revision 22로 upgrade했다. Linux/amd64 image에는 SPDX SBOM과 SLSA provenance가 있다. 전체 container build, non-root/read-only smoke, Helm lint·server-side dry-run·test와 Server/Worker rollout이 통과했다. 상세 digest와 검증 기록은 [PRISM-DEV 배포 문서](../deploy/environments/prism-dev/README.md)에 있다.
+
+신규 Server·Worker 각각 1/1 Ready, restart 0회이며 HTTPRoute의 health 4개 endpoint, login·guide는 HTTP 200, 비로그인 repository API는 401이다. 제공 중인 JS·CSS hash가 선행 browser 검증 bundle과 일치한다. 두 PVC의 PV ID, auth/registry/PostgreSQL Secret UID·resourceVersion, CA ConfigMap과 HTTPRoute를 유지했다. 운영 데이터는 migration 16개, users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, report 31건이며 analysis는 확인 사이 37→38건이 됐다. 기존 polling 설정은 유지했고 별도 live 모델 호출·PR 게시 검증은 하지 않았다. 기존 Worker는 900초 종료 유예에 따른 Terminating 상태로 강제 삭제하지 않았다.
+
+### 2026-09-08 07:44 배포 (revision 21)
+
+사용자의 10분 대기 요청 후 원격을 다시 조회했고, 후속 즉시 재배포 요청에서 새 `d9f9418`을 확인해 배포 대상을 갱신했다. `9e80b53`의 진행 중 image build는 취소하고 게시하지 않았다. Application `0.8.0-alpha.11`, chart `0.10.10`을 registry에 게시한 뒤 기존 values·Secret·PVC·HTTPRoute를 유지해 revision 21로 upgrade했다. 상세 digest와 검증 표는 `deploy/environments/prism-dev/README.md`에 있다.
+
+신규 `0016_analysis_progress.sql`이 nullable `analysis_runs.progress_detail` JSONB column을 추가했다. Local PostgreSQL integration을 포함한 212 tests(38 files, skip 없음), lint/typecheck/production build, image smoke, Helm lint/dry-run/test와 rollout을 통과했다. 운영 migration 16개, users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 36건, report 31건을 확인했다. Server/Worker는 각 1/1 Ready, restart 0회이며 실제 HTTPRoute에서 version과 새 bundle을 검증했다. Startup/readiness probe의 최초 connection refused 각 1건 외 지속 장애는 없고 application warning/error log는 0건이다.
+
+이번 배포는 기존 Provider/account 설정을 바꾸거나 실제 모델 호출·PR 댓글 게시를 실행하지 않았다. Model catalog와 analysis status API의 동작은 automated test로 확인했고 live 접근 경로·bundle·인증 차단을 검증했다. 과거 절의 날짜별 수치와 배포 상태는 당시 기록이다.
 
 ### 1.0b 2026-09-07 Commit Defender report와 분석 Skill
 
@@ -150,20 +387,20 @@ Migration `0011_github_review_publication.sql`과 `github.review.publish` durabl
 
 ### Container image
 
-- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.9`
-- source revision: `7bf85eb5af12`
-- manifest digest: `sha256:d59632677e4df8d871581cde38addcca486f6ac447f9a856c321b7e015e4c8cc`
+- image: `docker.io/pydemia/git-code-reviewer:0.8.0-alpha.12`
+- source revision: `74cdc056833a`
+- image index digest: `sha256:9380c382eddf61f5871ba71042a8e8750a5ca0ad787ced77c87ea345f426d839`
 - platform: `linux/amd64`
-- supply-chain metadata: 이번 build에는 provenance/SBOM attestation 미포함
+- supply-chain metadata: SPDX SBOM과 SLSA provenance attestation 포함
 
 하나의 immutable image가 `serve`, `worker`, `migrate`, `retention` command를 제공한다.
 
 ### Helm chart
 
 - chart: `oci://registry-1.docker.io/pydemia/git-code-reviewer`
-- version: `0.10.8`
-- app version: `0.8.0-alpha.9`
-- chart digest: `sha256:0c3ae26bcb10c9fe8075e2d43a123cb03ba37e20adc37c5fb994697147b12ef2`
+- version: `0.10.11`
+- app version: `0.8.0-alpha.12`
+- chart digest: `sha256:4e12f934a4a56f7abd6b357cfb15296ddc66d1dfd4dd06c6e6958a390f4aef84`
 - 기본 database: 외부 PostgreSQL 15+
 - pilot database: `postgresql.enabled=true`이면 별도 RWO PVC와 함께 Bitnami PostgreSQL dependency 설치
 - identity: enterprise 예시는 `keycloak.enabled=true`로 Bitnami Keycloak `25.2.0`, TLS Ingress와 전용 PostgreSQL dependency 설치

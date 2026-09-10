@@ -2,12 +2,18 @@
 ARG RUNTIME_BASE=node:22-alpine
 FROM node:22-alpine AS build
 WORKDIR /app
+COPY deploy/sandbox/launcher.c /tmp/launcher.c
+RUN --mount=type=secret,id=build_ca \
+  if [ -s /run/secrets/build_ca ]; then export SSL_CERT_FILE=/run/secrets/build_ca; fi \
+  && apk add --no-cache build-base linux-headers \
+  && cc -Os -static -Wall -Wextra -Werror /tmp/launcher.c -o /tmp/gcr-source-sandbox
 RUN --mount=type=secret,id=build_ca \
   if [ -s /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi \
   && npm install --global pnpm@10.17.1
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps ./apps
 COPY packages ./packages
+COPY docs/product ./docs/product
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store --mount=type=secret,id=build_ca \
   if [ -s /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi \
   && pnpm config set store-dir /pnpm/store \
@@ -30,6 +36,8 @@ RUN --mount=type=secret,id=build_ca \
   && mkdir -p /app /var/lib/git-code-reviewer/artifacts /tmp/git-code-reviewer/workspaces \
   && chown -R node:node /app /var/lib/git-code-reviewer /tmp/git-code-reviewer
 WORKDIR /app
+COPY --from=build /tmp/gcr-source-sandbox /usr/local/bin/gcr-source-sandbox
+COPY deploy/sandbox/broker.mjs /app/sandbox/broker.mjs
 ENV NODE_ENV=production \
   APP_VERSION=${VERSION} \
   WEB_DIST=/app/apps/web/dist \
@@ -52,6 +60,7 @@ COPY --from=build --chown=node:node /app/packages/github/package.json ./packages
 COPY --from=build --chown=node:node /app/packages/github/node_modules ./packages/github/node_modules
 COPY --from=build --chown=node:node /app/packages/github/dist ./packages/github/dist
 COPY --from=build --chown=node:node /app/packages/git-engine/package.json ./packages/git-engine/package.json
+COPY --from=build --chown=node:node /app/packages/git-engine/node_modules ./packages/git-engine/node_modules
 COPY --from=build --chown=node:node /app/packages/git-engine/dist ./packages/git-engine/dist
 COPY --from=build --chown=node:node /app/packages/artifact-store/package.json ./packages/artifact-store/package.json
 COPY --from=build --chown=node:node /app/packages/artifact-store/dist ./packages/artifact-store/dist

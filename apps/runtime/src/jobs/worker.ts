@@ -1,7 +1,8 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
+import { defaultReviewSeverityLevel, type ReviewSeverityLevel } from '@gcr/contracts';
 import { FilesystemArtifactStore, type ArtifactCommit } from '@gcr/artifact-store';
 import { createDatabase, type Database, type DatabaseClient } from '@gcr/db';
 import {
@@ -14,6 +15,11 @@ import type { RelationshipGraph, ReviewReport } from '@gcr/review-contract';
 import Fastify from 'fastify';
 import type { AppConfig } from '../config.js';
 import { appendEvent } from '../events/index.js';
+import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
+import { withModelBudget } from '../services/model-admission.js';
+import { assertJobLease, checkpointReviewModel } from '../services/analysis-checkpoint.js';
+import { recoverExpiredJobs } from './recovery.js';
+import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
 import {
   createReviewModel,
   deploymentAnalysisProvider,
@@ -32,6 +38,10 @@ import {
   publishReviewToGitHub,
   ReviewPublicationError,
 } from '../services/review-publication.js';
+import {
+  createFindingReviewMemoryCandidates,
+  recallReviewMemories,
+} from '../services/review-memory.js';
 
 type JobPayload = {
   operationId?: string;
@@ -39,6 +49,9 @@ type JobPayload = {
   snapshotRequestId?: string;
   analysisId?: string;
   snapshotId?: string;
+  memoryOwnerUserId?: string;
+  // 승인된 운영 재분석은 공동 report를 저장하되 GitHub에는 게시하지 않는다.
+  skipPublication?: boolean;
 };
 
 type ClaimedJob = {
@@ -66,13 +79,16 @@ export async function runWorker(config: AppConfig): Promise<void> {
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
+  let preferChat = true;
+  let activeBatch = 0;
+  let lastRecoveryAt = 0;
   const shutdown = stopSignal().then(() => {
     stopping = true;
   });
 
   health.get('/health/live', async () => ({ status: 'ok' }));
   health.get('/health/ready', async (_request, reply) =>
-    Date.now() - lastLoopAt < 15_000
+    !stopping && Date.now() - lastLoopAt < 15_000
       ? { status: 'ok' }
       : reply.code(503).send({ status: 'degraded' }),
   );
@@ -80,18 +96,52 @@ export async function runWorker(config: AppConfig): Promise<void> {
 
   while (!stopping) {
     lastLoopAt = Date.now();
+    if (Date.now() - lastRecoveryAt > 10000) {
+      await recoverExpiredJobs(database);
+      lastRecoveryAt = Date.now();
+    }
     let claimed = false;
     while (!stopping && active.size < config.WORKER_CONCURRENCY) {
-      const job = await claimJob(database, executor);
+      const batchAvailable =
+        !config.CHAT_AGENT_ENABLED ||
+        config.WORKER_CONCURRENCY === 1 ||
+        activeBatch < config.WORKER_CONCURRENCY - 1;
+      const priorityJob = !preferChat && batchAvailable ? await claimJob(database, executor) : null;
+      if (config.CHAT_AGENT_ENABLED && !priorityJob) {
+        const run = await claimAgentRun(database, executor);
+        if (run) {
+          preferChat = false;
+          claimed = true;
+          const task = executeAgentRun(database, config, run).catch(() =>
+            health.log.error({ runId: run.id }, 'chat run failed'),
+          );
+          active.add(task);
+          void task.finally(() => active.delete(task));
+          continue;
+        }
+      }
+      const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
       if (!job) break;
+      preferChat = true;
       claimed = true;
-      const task = executeJob(database, github, artifacts, config, executor, job, health.log).catch(
-        (error: unknown) => {
-          health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
-        },
-      );
+      const task = executeJob(
+        database,
+        github,
+        artifacts,
+        config,
+        executor,
+        job,
+        health.log,
+        () => stopping,
+      ).catch((error: unknown) => {
+        health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
+      });
       active.add(task);
-      void task.finally(() => active.delete(task));
+      activeBatch++;
+      void task.finally(() => {
+        active.delete(task);
+        activeBatch--;
+      });
     }
     if (!claimed || active.size >= config.WORKER_CONCURRENCY) {
       await Promise.race([shutdown, delay(500), ...active]);
@@ -103,7 +153,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
   await database.end();
 }
 
-async function claimJob(database: Database, executor: string): Promise<ClaimedJob | null> {
+export async function claimJob(database: Database, executor: string): Promise<ClaimedJob | null> {
   const connection = await database.connect();
   try {
     await connection.query('begin');
@@ -111,8 +161,7 @@ async function claimJob(database: Database, executor: string): Promise<ClaimedJo
       `with candidate as (
          select id from jobs
          where type in ('snapshot.materialize', 'analysis.run', 'github.review.publish')
-           and ((state = 'queued' and available_at <= clock_timestamp())
-             or (state = 'running' and lease_expires_at < clock_timestamp()))
+           and state = 'queued' and available_at <= clock_timestamp()
            and attempt_count < max_attempts
          order by priority, available_at, created_at
          for update skip locked limit 1
@@ -153,15 +202,19 @@ async function executeJob(
   executor: string,
   job: ClaimedJob,
   logger: Logger,
+  draining: () => boolean,
 ): Promise<void> {
   const heartbeat = setInterval(
     () =>
-      void database.query(
-        `update jobs set lease_expires_at = clock_timestamp() + interval '30 seconds',
+      void database
+        .query(
+          `update jobs set lease_expires_at = clock_timestamp() + interval '30 seconds',
          heartbeat_at = clock_timestamp(), updated_at = clock_timestamp()
-         where id = $1 and state = 'running' and lease_owner = $2`,
-        [job.id, executor],
-      ),
+         where id = $1 and state = 'running' and lease_owner = $2 and attempt_count=$3
+         and lease_expires_at>clock_timestamp()`,
+          [job.id, executor, job.attempt_count],
+        )
+        .catch(() => undefined),
     10_000,
   );
   const workspace = path.join(config.WORKSPACE_ROOT, `job-${job.id}-${job.attempt_count}`);
@@ -169,13 +222,21 @@ async function executeJob(
     if (job.type === 'snapshot.materialize') {
       await executeSnapshotJob(database, github, artifacts, config, workspace, job);
     } else if (job.type === 'analysis.run') {
-      await executeAnalysisJob(database, artifacts, config, job);
+      await executeAnalysisJob(database, artifacts, config, job, draining);
     } else {
       await publishReviewToGitHub(database, github, config, job, artifacts);
     }
     await completeJob(database, job);
     logger.info({ jobId: job.id, type: job.type }, 'job completed');
   } catch (error) {
+    if (error instanceof Error && error.message === 'worker_draining') {
+      await database.query(
+        "update jobs set lease_expires_at=clock_timestamp()-interval '1 second' where id=$1 and state='running' and lease_owner=$2 and attempt_count=$3",
+        [job.id, executor, job.attempt_count],
+      );
+      return;
+    }
+    if (error instanceof Error && error.message === 'job_lease_lost') return;
     await failJob(database, job, error);
     logger.error(
       {
@@ -299,6 +360,7 @@ async function persistMaterialization(
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    await assertJobLease(connection, job);
     const version = await connection.query<{ version: number }>(
       `select coalesce(max(version), 0) + 1 as version from snapshots where request_id = $1`,
       [snapshotRequestId],
@@ -354,30 +416,49 @@ async function persistMaterialization(
     ]);
 
     let analysisId: string | null = null;
+    let memoryOwnerUserId: string | null = null;
     if (materialization.resolution === 'exact') {
       const prompt = await connection.query<{
         id: string | null;
         content_hash: string | null;
+        severity_level: ReviewSeverityLevel | null;
+        tenant_id: string;
+        repository_id: string;
+        pull_title: string;
+        requested_by: string | null;
       }>(
-        `select active_prompt.id, active_prompt.content_hash
+        `select active_prompt.id, active_prompt.content_hash, active_prompt.severity_level,
+                repository.tenant_id, repository.id as repository_id,
+                pull_request.title as pull_title, operation.requested_by
          from snapshot_requests request
          join pull_requests pull_request on pull_request.id = request.pull_request_id
          join repositories repository on repository.id = pull_request.repository_id
+         left join operations operation on operation.id = $2
          left join lateral (
-           select id, content_hash from analysis_prompt_versions
+           select id, content_hash, severity_level from analysis_prompt_versions
            where tenant_id = repository.tenant_id and active order by version desc limit 1
          ) active_prompt on true
          where request.id = $1`,
-        [snapshotRequestId],
+        [snapshotRequestId, job.payload.operationId ?? null],
       );
       const promptVersionId = prompt.rows[0]?.id ?? null;
       const promptHash = prompt.rows[0]?.content_hash ?? 'builtin-v1';
+      const severityLevel = prompt.rows[0]?.severity_level ?? defaultReviewSeverityLevel;
       const activeProvider = await getActiveAnalysisProviderRow(connection);
       const deploymentProvider = deploymentAnalysisProvider(config);
       const providerVersionId = activeProvider?.id ?? null;
       const providerHash =
         activeProvider?.configurationHash ?? deploymentProvider.configurationHash;
       const skills = await getEffectiveReviewSkills(connection);
+      memoryOwnerUserId = prompt.rows[0]?.requested_by ?? null;
+      const memory = await recallReviewMemories(connection, {
+        tenantId: prompt.rows[0]!.tenant_id,
+        repositoryId: prompt.rows[0]!.repository_id,
+        ...(memoryOwnerUserId ? { ownerUserId: memoryOwnerUserId } : {}),
+        filePaths: materialization.files.map(({ path: filePath }) => filePath),
+        queryText: prompt.rows[0]!.pull_title,
+        approvedBefore: new Date(),
+      });
       const modelProfile = activeProvider
         ? activeProvider.mode === 'chatgpt-account'
           ? `chatgpt-account:${activeProvider.modelName}:${activeProvider.reasoningEffort}`
@@ -389,21 +470,27 @@ async function persistMaterialization(
         `insert into analysis_runs(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
            prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
-           skill_version_id, skill_bundle, skill_hash
-         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
+           skill_version_id, skill_bundle, skill_hash, severity_level, memory_hash,
+           memory_context, memory_owner_user_id
+         ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
+           $11, $12, $13, $14::jsonb, $15)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v5:${promptHash}:${providerHash}:${skills.bundle.hash}`,
+          `analysis:${snapshotId}:default:v7:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v2:${promptHash}:${providerHash}:${skills.bundle.hash}`,
+          `default-v4:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
+          severityLevel,
+          memory.hash,
+          JSON.stringify(memory.items),
+          memoryOwnerUserId,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -416,6 +503,7 @@ async function persistMaterialization(
             analysisId,
             snapshotId,
             pullRequestId: job.payload.pullRequestId,
+            ...(memoryOwnerUserId ? { memoryOwnerUserId } : {}),
           }),
           `analysis.run:${analysisId}`,
         ],
@@ -440,10 +528,10 @@ async function persistMaterialization(
         operationId: job.payload.operationId,
         snapshotId,
         resolution: materialization.resolution,
-        analysisId,
+        analysisId: memoryOwnerUserId ? null : analysisId,
       },
     );
-    if (analysisId) {
+    if (analysisId && !memoryOwnerUserId) {
       await appendEvent(connection, 'pull_request', job.payload.pullRequestId, 'analysis.state', {
         analysisId,
         revision: 1,
@@ -466,7 +554,9 @@ export async function executeAnalysisJob(
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
   job: ClaimedJob,
+  draining: () => boolean = () => false,
 ): Promise<void> {
+  await assertJobLease(database, job);
   const analysisId = requiredPayload(job, 'analysisId');
   const snapshotId = requiredPayload(job, 'snapshotId');
   const existing = await database.query('select 1 from reports where analysis_run_id = $1', [
@@ -480,6 +570,7 @@ export async function executeAnalysisJob(
     prompt_instructions: string | null;
     prompt_version: number | null;
     prompt_hash: string;
+    severity_level: ReviewSeverityLevel | null;
     provider_version_id: string | null;
     skill_version_id: string | null;
     skill_version: number | null;
@@ -488,13 +579,15 @@ export async function executeAnalysisJob(
     tenantId: string;
     credentialId: string | null;
     installationId: string;
+    memory_context: import('../services/review-memory.js').ReviewMemoryProjection[];
   }>(
     `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
-            prompt.version as prompt_version, analysis.prompt_hash,
+            prompt.version as prompt_version, analysis.prompt_hash, analysis.severity_level,
             analysis.provider_version_id, repository.tenant_id as "tenantId",
             analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
             skills.version as skill_version,
-            repository.credential_id as "credentialId", repository.installation_id as "installationId"
+            repository.credential_id as "credentialId",
+            repository.installation_id as "installationId", analysis.memory_context
      from snapshots snapshot
      join snapshot_requests sr on sr.id = snapshot.request_id
      join pull_requests pr on pr.id = sr.pull_request_id
@@ -509,7 +602,22 @@ export async function executeAnalysisJob(
   if (!row) throw new Error('Analysis snapshot is unavailable');
   const skillBundle = resolvePinnedReviewSkills(row.skill_bundle, row.skill_hash);
   const provider = await resolveAnalysisProvider(database, config, row.provider_version_id);
-  const model = createReviewModel(provider, { database, config, tenantId: row.tenantId });
+  const baseModel = createReviewModel(provider, { database, config, tenantId: row.tenantId });
+  const sourceContext =
+    config.CHAT_AGENT_ENABLED && baseModel && !isFixtureRepository(config.GITHUB_MODE, row)
+      ? withAnalysisSourceContext(baseModel, database, artifacts, config, analysisId, snapshotId)
+      : null;
+  const contextualModel = sourceContext?.model ?? baseModel;
+  const model = contextualModel
+    ? checkpointReviewModel(
+        contextualModel,
+        database,
+        analysisId,
+        job,
+        sourceContext?.limitations,
+        draining,
+      )
+    : undefined;
   const locator = await database.query<{ locator: string }>(
     `select locator from artifacts where scope_type = 'snapshot' and scope_id = $1
      and artifact_type = 'diff-index' and version = 1 and state = 'available'`,
@@ -530,53 +638,79 @@ export async function executeAnalysisJob(
     const id = fileIds.get(file.path);
     return id ? [{ id, ...file }] : [];
   });
-  await updateAnalysisState(database, job, 'analyzing', 'review', 55);
-  const output = await analyzeSnapshot({
-    analysisId,
-    snapshotId,
-    baseSha: row.base_sha,
-    headSha: row.head_sha,
-    patch: diff.patch,
-    files,
-    fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
-    ...(model ? { model } : {}),
-    ...(skillBundle
-      ? {
-          skills: {
-            bundle: skillBundle,
-            versionId: row.skill_version_id,
-            version: row.skill_version,
+  await updateAnalysisState(database, job, 'analyzing', 'review', 25);
+  try {
+    const output = await withModelBudget(
+      {
+        runKey: `analysis:${analysisId}`,
+        maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+        wait: true,
+        concurrency: provider.concurrency ?? 1,
+      },
+      () =>
+        analyzeSnapshot({
+          concurrency: provider.concurrency ?? 1,
+          onProgress: async (stage, detail) => {
+            if (draining()) throw Error('worker_draining');
+            await assertJobLease(database, job);
+            const progress =
+              stage === 'total-summary'
+                ? 85
+                : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
+            await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
           },
-        }
-      : {}),
-    ...(row.prompt_instructions && row.prompt_version
-      ? {
-          prompt: {
-            instructions: row.prompt_instructions,
-            version: row.prompt_version,
-            hash: row.prompt_hash,
+          analysisId,
+          snapshotId,
+          baseSha: row.base_sha,
+          headSha: row.head_sha,
+          patch: diff.patch,
+          files,
+          memory: row.memory_context,
+          fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
+          ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
+          ...(model ? { model } : {}),
+          ...(skillBundle
+            ? {
+                skills: {
+                  bundle: skillBundle,
+                  versionId: row.skill_version_id,
+                  version: row.skill_version,
+                },
+              }
+            : {}),
+          ...(row.prompt_instructions !== null && row.prompt_version
+            ? {
+                prompt: {
+                  instructions: row.prompt_instructions,
+                  version: row.prompt_version,
+                  hash: row.prompt_hash,
+                },
+              }
+            : {}),
+          budgets: {
+            maxFiles: config.ANALYSIS_MAX_FILES,
+            maxBytes: config.ANALYSIS_MAX_BYTES,
+            maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
           },
-        }
-      : {}),
-    budgets: {
-      maxFiles: config.ANALYSIS_MAX_FILES,
-      maxBytes: config.ANALYSIS_MAX_BYTES,
-      maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
-    },
-  });
-  await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
-  await persistAnalysis(
-    database,
-    artifacts,
-    config,
-    job,
-    output.report,
-    output.graph,
-    output.state,
-  );
+        }),
+    );
+    await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
+    if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
+    await persistAnalysis(
+      database,
+      artifacts,
+      config,
+      job,
+      output.report,
+      output.graph,
+      output.state,
+    );
+  } finally {
+    await sourceContext?.release();
+  }
 }
 
-async function persistAnalysis(
+export async function persistAnalysis(
   database: Database,
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
@@ -586,18 +720,32 @@ async function persistAnalysis(
   state: 'completed' | 'partial',
 ) {
   const analysisId = requiredPayload(job, 'analysisId');
+  const reportContent = JSON.stringify(report);
+  const graphContent = JSON.stringify(graph);
   const reportArtifact = await artifacts.commitText(
-    `analyses/${analysisId}/report.v1.json`,
-    JSON.stringify(report),
+    `analyses/${analysisId}/report.${createHash('sha256').update(reportContent).digest('hex')}.v1.json`,
+    reportContent,
   );
   const graphArtifact = await artifacts.commitText(
-    `analyses/${analysisId}/relationships.v1.json`,
-    JSON.stringify(graph),
+    `analyses/${analysisId}/relationships.${createHash('sha256').update(graphContent).digest('hex')}.v1.json`,
+    graphContent,
   );
   const reportId = randomUUID();
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    await assertJobLease(connection, job);
+    const locked = await connection.query<{ revision: number }>(
+      'select revision from analysis_runs where id = $1 for update',
+      [analysisId],
+    );
+    const existing = await connection.query('select 1 from reports where analysis_run_id = $1', [
+      analysisId,
+    ]);
+    if (existing.rowCount) {
+      await connection.query('commit');
+      return;
+    }
     const reportArtifactId = await insertArtifact(
       connection,
       'analysis',
@@ -655,6 +803,7 @@ async function persistAnalysis(
         ],
       );
     }
+    await createFindingReviewMemoryCandidates(connection, analysisId);
     for (const object of graph.objects) {
       await connection.query(
         `insert into code_objects(id, analysis_run_id, kind, qualified_name, change, definition)
@@ -699,26 +848,30 @@ async function persistAnalysis(
     );
     const eventPayload = {
       analysisId,
-      revision: 1,
+      revision: locked.rows[0]!.revision,
       state,
       stage: 'published',
       progress: 100,
       reportUrl: `/api/v1/analyses/${analysisId}`,
     };
-    await appendEvent(
-      connection,
-      'pull_request',
-      job.payload.pullRequestId,
-      'analysis.available',
-      eventPayload,
-    );
+    if (!job.payload.memoryOwnerUserId) {
+      await appendEvent(
+        connection,
+        'pull_request',
+        job.payload.pullRequestId,
+        'analysis.available',
+        eventPayload,
+      );
+    }
     await appendEvent(connection, 'analysis', analysisId, 'analysis.available', eventPayload);
-    await enqueueReviewPublication(
-      connection,
-      analysisId,
-      requiredPayload(job, 'pullRequestId'),
-      config.GITHUB_MODE === 'app',
-    );
+    if (!job.payload.memoryOwnerUserId && job.payload.skipPublication !== true) {
+      await enqueueReviewPublication(
+        connection,
+        analysisId,
+        requiredPayload(job, 'pullRequestId'),
+        config.GITHUB_MODE === 'app',
+      );
+    }
     await connection.query('commit');
   } catch (error) {
     await connection.query('rollback');
@@ -729,36 +882,105 @@ async function persistAnalysis(
 }
 
 async function updateAnalysisState(
-  database: Database,
+  pool: Database,
   job: ClaimedJob,
   state: 'analyzing',
   stage: string,
   progress: number,
+  detail?: import('@gcr/contracts').AnalysisProgress,
 ) {
-  const analysisId = requiredPayload(job, 'analysisId');
-  await database.query(
-    `update analysis_runs set state = $2, stage = $3, progress = $4,
-     started_at = coalesce(started_at, clock_timestamp()) where id = $1`,
-    [analysisId, state, stage, progress],
-  );
-  const payload = { analysisId, revision: 1, state, stage, progress };
-  await appendEvent(database, 'pull_request', job.payload.pullRequestId, 'analysis.state', payload);
-  await appendEvent(database, 'analysis', analysisId, 'analysis.state', payload);
+  const database = await pool.connect();
+  try {
+    await database.query('begin');
+    await assertJobLease(database, job);
+    const analysisId = requiredPayload(job, 'analysisId');
+    const updated = await database.query(
+      `update analysis_runs set state = $2, stage = $3, progress = $4,
+     progress_detail = case when $3 = 'deterministic' then null else coalesce($5::jsonb, progress_detail) end,
+     started_at = coalesce(started_at, clock_timestamp()) where id = $1
+     and state not in ('completed', 'partial')
+     and not exists (select 1 from reports where analysis_run_id = $1) returning revision`,
+      [analysisId, state, stage, progress, detail ? JSON.stringify(detail) : null],
+    );
+    if (!updated.rowCount) {
+      await database.query('commit');
+      return;
+    }
+    const payload = {
+      analysisId,
+      revision: updated.rows[0]!.revision,
+      state,
+      stage,
+      progress,
+      progressDetail: detail,
+    };
+    if (!job.payload.memoryOwnerUserId) {
+      await appendEvent(
+        database,
+        'pull_request',
+        job.payload.pullRequestId,
+        'analysis.state',
+        payload,
+      );
+    }
+    await appendEvent(database, 'analysis', analysisId, 'analysis.state', payload);
+    await database.query('commit');
+  } catch (error) {
+    await database.query('rollback');
+    throw error;
+  } finally {
+    database.release();
+  }
 }
 
 async function completeJob(database: Database, job: ClaimedJob) {
-  await database.query(
-    `update job_attempts set ended_at = clock_timestamp(), outcome = 'completed' where id = $1`,
-    [job.attempt_id],
-  );
-  await database.query(
-    `update jobs set state = 'completed', lease_owner = null, lease_expires_at = null,
+  const client = await database.connect();
+  try {
+    await client.query('begin');
+    await assertJobLease(client, job);
+    await client.query(
+      `update job_attempts set ended_at = clock_timestamp(), outcome = 'completed' where id = $1`,
+      [job.attempt_id],
+    );
+    await client.query(
+      `update jobs set state = 'completed', lease_owner = null, lease_expires_at = null,
      updated_at = clock_timestamp() where id = $1`,
-    [job.id],
-  );
+      [job.id],
+    );
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function failJob(database: Database, job: ClaimedJob, error: unknown) {
+  if (job.type === 'analysis.run') {
+    const published = await database.query('select 1 from reports where analysis_run_id = $1', [
+      job.payload.analysisId,
+    ]);
+    if (published.rowCount) {
+      await completeJob(database, job);
+      return;
+    }
+  }
+  const client = await database.connect();
+  try {
+    await client.query('begin');
+    await assertJobLease(client, job);
+    await recordJobFailure(client, job, error);
+    await client.query('commit');
+  } catch (failure) {
+    await client.query('rollback');
+    throw failure;
+  } finally {
+    client.release();
+  }
+}
+
+async function recordJobFailure(database: DatabaseClient, job: ClaimedJob, error: unknown) {
   const retryable =
     error instanceof GitHubRequestError
       ? error.retryable
@@ -866,7 +1088,10 @@ async function insertArtifact(
   return result.rows[0]!.id;
 }
 
-function requiredPayload(job: ClaimedJob, key: keyof JobPayload): string {
+function requiredPayload(
+  job: ClaimedJob,
+  key: Exclude<keyof JobPayload, 'skipPublication'>,
+): string {
   const value = job.payload[key];
   if (!value) throw new Error(`Job payload is missing ${key}`);
   return value;

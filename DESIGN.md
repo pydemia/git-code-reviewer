@@ -131,7 +131,7 @@ Body stack의 첫 서체인 Noto Sans KR Variable은 `main.tsx`에서 실제로 
 
 ## Layout
 
-Desktop review workspace는 global header (44px), PR context (42px), 나머지 높이를 사용하는 panel grid다. 초기 LNB·Chat 너비와 FNB 높이는 각각 (244px·316px·176px)이며 사용자가 separator로 조정한다. LNB는 Files·Outline·Impact 탐색에 집중하고 메인은 Code·Summary·Comments를 탭으로 전환한다. Admin은 navigation (210px)과 본문으로 나누고 본문은 최대 (1180px), worklist는 최대 (1120px)다.
+Desktop review workspace는 global header (44px), PR context (42px), 나머지 높이를 사용하는 panel grid다. 2026-09-08부터 초기 LNB·Chat 너비와 FNB 높이는 각각 (244px·569px·280px)이며 사용자가 separator로 조정한다. LNB는 Files·Outline·Impact 탐색에 집중하며 모든 폴더가 기본으로 펼쳐진다. 메인 toolbar의 toggle로 LNB를 숨기거나 다시 표시한다. 메인은 Code·Summary, 하단은 Comments·Git graph·Impact·Tests를 전환한다. Admin은 navigation (210px)과 본문으로 나누고 본문은 최대 (1180px), worklist는 최대 (1120px)다.
 
 좁은 화면에서는 실제 CSS breakpoint를 따른다. (1100px) 이하에서 context metadata를 줄이고 (820px) 이하에서 workspace를 LNB → diff → FNB → Chat 순서로 쌓는다. 같은 breakpoint에서 Admin navigation은 가로 scroll로 전환한다. Skills workbench는 (760px) 이하에서 목록을 select로 바꾸고 editor를 한 열로 표시한다. (540px) 이하에서도 Skills action은 텍스트 label을 유지하며 저장 버튼은 본문 너비를 사용한다.
 
@@ -157,7 +157,7 @@ Command button은 최소 높이 (32px), icon/text 간격 (7px)의 공통 control
 
 ### Navigation
 
-Admin navigation은 icon과 label을 나란히 표시하고 active 항목은 teal tint와 테두리로 구분한다. Skills 목록도 같은 선택색을 쓰며 현재 항목을 `aria-current`로 표시한다. Workspace의 Files·Outline·Impact는 LNB에, Code·Summary·Comments는 메인 toolbar에, Evidence·Git graph·Impact·Tests는 하단 tool tab에 둔다.
+Admin navigation은 icon과 label을 나란히 표시하고 active 항목은 teal tint와 테두리로 구분한다. Skills 목록도 같은 선택색을 쓰며 현재 항목을 `aria-current`로 표시한다. Workspace의 Files·Outline·Impact는 LNB에, Code·Summary는 메인 toolbar에, Comments·Git graph·Impact·Tests는 하단 tool tab에 둔다. 모바일에서도 하단 tab의 텍스트 label을 유지한다.
 
 ### Cards / Containers
 
@@ -165,9 +165,19 @@ Registry card는 metadata와 action을 한 행에 배치하고 작은 화면에�
 
 ### Report States / Comments
 
-Report 상태 badge와 priority는 별도 항목으로 표시한다. Overall Summary → AI Comments → Analyzed File List 순서는 Report 컴포넌트에 적용된다. Sticky section navigation의 높이를 측정해 이동한 heading이 가려지지 않게 한다.
+코드 품질 Grade는 `exceptional → 탁월`, `proficient → 우수`, `adequate → 양호`, `insufficient → 개선 필요`, `critical → 심각`으로 표시한다. 탁월·우수·양호는 accent/accent-soft, 개선 필요는 warning/옅은 주황, 심각은 danger/옅은 빨강을 사용한다. 등급은 색상뿐 아니라 한글 label과 설명으로 구분한다. PR 목록·Summary·가이드는 공통 `ReviewGrade`를 사용하며 PR 게시·Markdown도 같은 한글/영어 매핑을 따른다. Raw JSON과 DB enum은 바꾸지 않는다. PR 목록에서 Grade와 `P2+` 건수는 별도 색상으로 표시하며 양호여도 실제 warning, blocked·분석 제한 표시를 감추지 않는다.
 
-Comment button은 category·line range·문제·영향·수정 제안을 펼쳐 읽을 수 있는 형태다. Hover는 옅은 녹색, selected는 accent-soft와 focus 테두리를 사용하며 선택 여부는 `aria-pressed`로 전달한다. 경로와 comment 선택은 같은 analysis revision의 diff로 이동한다. Comment가 없거나 검토하지 못한 파일도 파일 목록에서 확인할 수 있다.
+Report 상태 badge와 priority는 별도 항목으로 표시한다. Summary는 PR 전체 요약 → 펼쳐진 파일별 검토 요약 → 파일 목록·provenance 순서다. 상세 unit-comment-block은 하단 Comments에만 표시한다. 전체 요약이 없는 report는 누락을 안내하며 파일별 요약을 복제하지 않는다. 현재 파일의 inline comment는 선택 전에도 표시하며 최대 너비 (880px), 좌우 여백 합계 최소 (48px)를 적용한다. Diff의 선택 강조는 시작 line에만 적용한다.
+
+Comment article은 category·line range·문제·영향·수정 제안을 펼쳐 읽을 수 있는 형태다. 파일 요약과 comment의 본문·여백 클릭도 기존 제목·코드 이동 버튼과 같은 위치로 이동한다. 링크·접기 control·텍스트 선택·modifier 클릭은 이동에서 제외한다. Keyboard는 기존 native button을 사용하며 article을 중첩 button으로 만들지 않는다. Selected는 accent-soft와 focus 테두리, `aria-current`로 전달한다. 경로와 comment 선택은 같은 analysis revision의 diff로 이동한다. Comment가 없거나 검토하지 못한 파일도 파일 목록에서 확인할 수 있다.
+
+Summary·파일 요약·Comments 본문은 공통 Markdown renderer를 사용한다. 본문 (14px/1.8), 내부 heading (15–17px), inline code와 fenced code, 목록·표를 구분하고 표·긴 code는 내부에서 가로 scroll한다. Raw HTML은 실행하지 않으며 외부 image는 alt text로 대체한다. 모델의 출력이나 저장된 report를 재작성하지 않는다.
+
+### Review Chat
+
+Revision·scope는 상단, 대화는 가운데, 입력창과 Account·Model·Effort는 하단에 둔다. 본문·입력·select (14px), header (15px), label·metadata (11–13px)로 구분한다. 입력창은 5줄·최소 (140px)이며 selector는 입력창 다음 DOM 순서다. 패널 너비 (400px) 이하에서는 Account를 한 줄로 분리한다. 모바일 Chat은 최소 (560px)를 확보한다.
+
+Assistant 본문은 Summary와 같은 Markdown renderer를 사용하며 `white-space: normal`로 목록·문단 간격이 중복되지 않게 한다. Chat 내부 heading은 (15px), inline code는 기존 teal text/neutral 배경을 따른다. 사용자 질문은 `pre-wrap`으로 원문을 보존한다. 답변 아래 ‘관련 코드’는 file path·line range·이전/변경 코드를 구분한 native button이며 여러 근거를 wrap한다. 긴 경로는 줄바꿈하고 미확인 locator는 비활성 상태로 설명한다. 전체 너비를 늘리거나 별도 Markdown parser·색상 체계를 추가하지 않는다.
 
 ## Do's and Don'ts
 

@@ -22,71 +22,77 @@ export function AppHeader({
     .join('');
 
   return (
-    <header className="app-header">
-      <div className="brand-row">
-        <a className="brand" href="/" aria-label="Git Code Reviewer 홈">
-          <ShieldCheck size={19} strokeWidth={2.2} />
-          <span>Git Code Reviewer</span>
-        </a>
-        {!compact || user ? (
-          <div className="header-actions">
-            {!compact && user && user.tenants.length > 0 && onTenantChange ? (
-              <label className="tenant-picker">
-                <span className="sr-only">Tenant</span>
-                <select
-                  value={selectedTenantId ?? user.tenants[0]?.id}
-                  onChange={(event) => onTenantChange(event.target.value)}
+    <div className="app-header-container">
+      <header className="app-header">
+        <div className="brand-row">
+          <a className="brand" href="/" aria-label="Git Code Reviewer 홈">
+            <ShieldCheck size={19} strokeWidth={2.2} />
+            <span>Git Code Reviewer</span>
+          </a>
+          {!compact || user ? (
+            <div className="header-actions">
+              {!compact && user && user.tenants.length > 0 && onTenantChange ? (
+                <label className="tenant-picker">
+                  <span className="sr-only">Tenant</span>
+                  <select
+                    value={selectedTenantId ?? user.tenants[0]?.id}
+                    onChange={(event) => onTenantChange(event.target.value)}
+                  >
+                    {user.tenants.map((tenant) => (
+                      <option value={tenant.id} key={tenant.id}>
+                        {tenant.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {user?.role === 'administrator' ? (
+                <a className="icon-button" href="/admin" title="관리" aria-label="관리">
+                  <Settings size={17} />
+                </a>
+              ) : null}
+              {user ? (
+                <a
+                  className="header-guide-link"
+                  href="/guide"
+                  aria-current={
+                    ['/guide', '/introduction', '/features'].includes(window.location.pathname)
+                      ? 'page'
+                      : undefined
+                  }
                 >
-                  {user.tenants.map((tenant) => (
-                    <option value={tenant.id} key={tenant.id}>
-                      {tenant.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            {!compact && user?.role === 'administrator' ? (
-              <a className="icon-button" href="/admin" title="관리" aria-label="관리">
-                <Settings size={17} />
-              </a>
-            ) : null}
-            {user ? (
-              <a
-                className="header-guide-link"
-                href="/guide"
-                aria-current={window.location.pathname === '/guide' ? 'page' : undefined}
-              >
-                <BookOpenText size={15} />
-                <span>사용 가이드</span>
-              </a>
-            ) : null}
-            {user ? (
-              <a
-                className="header-profile-link"
-                href="/profile"
-                aria-current={window.location.pathname === '/profile' ? 'page' : undefined}
-              >
-                <CircleUserRound size={15} />
-                <span>내 프로필</span>
-              </a>
-            ) : null}
-            <span className="avatar" role="img" aria-label={user?.displayName ?? '사용자'}>
-              {initials || '--'}
-            </span>
-            {user ? (
-              <button
-                className="icon-button"
-                type="button"
-                title="로그아웃"
-                aria-label="로그아웃"
-                onClick={() => void logout()}
-              >
-                <LogOut size={16} />
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </header>
+                  <BookOpenText size={15} />
+                  <span>문서</span>
+                </a>
+              ) : null}
+              {user ? (
+                <a
+                  className="header-profile-link"
+                  href="/profile"
+                  aria-current={window.location.pathname === '/profile' ? 'page' : undefined}
+                >
+                  <CircleUserRound size={15} />
+                  <span>내 프로필</span>
+                </a>
+              ) : null}
+              <span className="avatar" role="img" aria-label={user?.displayName ?? '사용자'}>
+                {initials || '--'}
+              </span>
+              {user ? (
+                <button
+                  className="icon-button"
+                  type="button"
+                  title="로그아웃"
+                  aria-label="로그아웃"
+                  onClick={() => void logout()}
+                >
+                  <LogOut size={16} />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </header>
+    </div>
   );
 }

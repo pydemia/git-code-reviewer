@@ -1,6 +1,6 @@
 import { createHash, createHmac } from 'node:crypto';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
-import { formatReviewMarkdown } from '@gcr/contracts';
+import { formatReviewGrade, formatReviewMarkdown } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { GitHubReader, GitHubReviewPublisher, RepositoryTarget } from '@gcr/github';
 import { reviewReportSchema, type ReviewFinding, type ReviewReport } from '@gcr/review-contract';
@@ -349,6 +349,8 @@ export function renderReviewComment(input: {
     return (
       heading +
       formatReviewMarkdown(input.canonicalReport, [], {
+        includeTitle: false,
+        audience: 'pull-request',
         ...(reportUrl ? { reportUrl } : {}),
         maxLength: 60000 - heading.length - tail.length,
       }) +
@@ -368,7 +370,7 @@ export function renderReviewComment(input: {
     '',
     `\`${escapeInline(context.owner)}/${escapeInline(context.name)} #${context.pullNumber}\` · head \`${escapeInline(context.headSha.slice(0, 12))}\``,
     '',
-    `**등급:** ${gradeLabel(context.report.grade)}${context.report.hasCriticalFindings ? ' · 조치가 필요한 P3 finding이 있습니다.' : ''}`,
+    `**코드 품질:** ${formatReviewGrade(context.report.grade)}${context.report.hasCriticalFindings ? ' · 조치가 필요한 P3 finding이 있습니다.' : ''}`,
     '',
     escapeMarkdown(context.report.summary),
     '',
@@ -413,16 +415,6 @@ export function managedCommentMarker(config: AppConfig, pullRequestId: string): 
     .digest('hex')
     .slice(0, 24);
   return `<!-- git-code-reviewer:${pullRequestId}:${signature} -->`;
-}
-
-function gradeLabel(grade: ReviewReport['grade']): string {
-  return {
-    exceptional: 'Exceptional',
-    proficient: 'Proficient',
-    adequate: 'Adequate',
-    insufficient: 'Insufficient',
-    critical: 'Critical',
-  }[grade];
 }
 
 function escapeMarkdown(value: string): string {

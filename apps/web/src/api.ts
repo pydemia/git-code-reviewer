@@ -1,4 +1,6 @@
 import {
+  defaultReviewSeverityLevel,
+  type ReviewSeverityLevel,
   analysisSkillSettingsSchema,
   adminChatAccountListSchema,
   adminRepositoryListSchema,
@@ -6,17 +8,24 @@ import {
   analysisProviderSettingsSchema,
   analysisProviderTestResultSchema,
   analysisListSchema,
+  analysisStatusSchema,
   analysisPromptListSchema,
   chatAccountCatalogSchema,
+  chatAccountModelDiscoverySchema,
   chatMessageListSchema,
   chatSendResponseSchema,
   chatSessionSchema,
   codeObjectListSchema,
   diffIndexSchema,
   githubConnectionListSchema,
+  githubPrMemorySourceListSchema,
+  reviewMemoryListSchema,
+  reviewMemoryResponseSchema,
+  adminReviewMemoryListSchema,
   operationSchema,
   passwordChangeResultSchema,
   profileSchema,
+  personalPromptResultSchema,
   pullRequestDetailSchema,
   pullRequestListSchema,
   refreshResponseSchema,
@@ -53,12 +62,18 @@ export type ChatSession = ReturnType<typeof chatSessionSchema.parse>;
 export type ChatAccountCatalog = ReturnType<typeof chatAccountCatalogSchema.parse>;
 export type AdminChatAccount = ReturnType<typeof adminChatAccountListSchema.parse>['items'][number];
 export type GitHubConnection = ReturnType<typeof githubConnectionListSchema.parse>['items'][number];
+export type ReviewMemory = ReturnType<typeof reviewMemoryResponseSchema.parse>['memory'];
+export type ReviewMemoryList = ReturnType<typeof reviewMemoryListSchema.parse>;
+export type GitHubPrMemorySource = ReturnType<
+  typeof githubPrMemorySourceListSchema.parse
+>['items'][number];
 export type AdminRepository = ReturnType<typeof adminRepositoryListSchema.parse>['items'][number];
 export type { AdminUser, AnalysisPromptVersion, AnalysisProviderVersion, Profile, Tenant, User };
 export type { AnalysisSkillSettings };
 export type AnalysisPromptList = ReturnType<typeof analysisPromptListSchema.parse>;
 export type AnalysisProviderSettings = ReturnType<typeof analysisProviderSettingsSchema.parse>;
 export type AnalysisProviderInput = {
+  concurrency: number;
   chatAccountId?: string;
   reasoningEffort?: string;
   mode: AnalysisProviderMode;
@@ -78,6 +93,12 @@ export async function loadProfile(signal: AbortSignal): Promise<Profile> {
 
 export async function updateProfile(displayName: string): Promise<Profile> {
   return profileSchema.parse(await mutateJson('/api/v1/profile', 'PATCH', { displayName }));
+}
+
+export async function updatePersonalPrompt(personalPrompt: string): Promise<string> {
+  return personalPromptResultSchema.parse(
+    await mutateJson('/api/v1/profile/prompt', 'PUT', { personalPrompt }),
+  ).personalPrompt;
 }
 
 export async function changeOwnPassword(
@@ -114,20 +135,59 @@ export async function logout(): Promise<void> {
 export async function loadWorklist(
   signal: AbortSignal,
   tenantId?: string,
-): Promise<WorklistItem[]> {
+  state: import('@gcr/contracts').PullRequestStateFilter = 'open',
+): Promise<{
+  items: WorklistItem[];
+  counts: { open: number; closed: number; all: number };
+  syncErrors: number;
+  pendingSync: number;
+}> {
   const query = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
   const repositories = repositoryListSchema.parse(
     await fetchJson(`/api/v1/repositories${query}`, signal),
   ).items;
-  const pulls = await Promise.all(
+  const results = await Promise.all(
     repositories.map(async (repository) => {
-      const response = pullRequestListSchema.parse(
-        await fetchJson(`/api/v1/repositories/${repository.id}/pulls`, signal),
-      );
-      return response.items.map((pull) => ({ ...pull, repository }));
+      const items = new Map<string, WorklistItem>();
+      let cursor: string | null = null;
+      let counts = { open: 0, closed: 0, all: 0 };
+      do {
+        const query = new URLSearchParams({ state, ...(cursor ? { cursor } : {}) });
+        const response = pullRequestListSchema.parse(
+          await fetchJson(`/api/v1/repositories/${repository.id}/pulls?${query}`, signal),
+        );
+        for (const pull of response.items) items.set(pull.id, { ...pull, repository });
+        if (response.counts) counts = response.counts;
+        if (
+          response.nextCursor &&
+          (!/^\d+$/.test(response.nextCursor) ||
+            Number(response.nextCursor) > 1_000_000 ||
+            Number(response.nextCursor) <= Number(cursor ?? 0))
+        )
+          throw new Error('PR 목록 pagination이 진행되지 않았습니다.');
+        cursor = response.nextCursor;
+      } while (cursor);
+      return { items: [...items.values()], counts };
     }),
   );
-  return [...pulls.flat()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return {
+    items: results
+      .flatMap(({ items }) => items)
+      .sort(
+        (left, right) =>
+          right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id),
+      ),
+    counts: results.reduce(
+      (total, { counts }) => ({
+        open: total.open + counts.open,
+        closed: total.closed + counts.closed,
+        all: total.all + counts.all,
+      }),
+      { open: 0, closed: 0, all: 0 },
+    ),
+    syncErrors: repositories.filter((repository) => repository.pollOutcome === 'failed').length,
+    pendingSync: repositories.filter((repository) => !repository.lastPolledAt).length,
+  };
 }
 
 export async function loadAdminTenants(signal: AbortSignal): Promise<Tenant[]> {
@@ -170,6 +230,10 @@ export async function resetLocalUserPassword(userId: string, password: string): 
   await mutateJson(`/api/v1/admin/users/${userId}/password`, 'PUT', { password });
 }
 
+export async function deleteAdminUser(userId: string, confirmIdentity: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/users/${userId}`, 'DELETE', { confirmIdentity });
+}
+
 export async function updateTenantMembership(
   tenantId: string,
   userId: string,
@@ -187,9 +251,14 @@ export async function loadAnalysisPrompts(
   );
 }
 
-export async function saveAnalysisPrompt(tenantId: string, instructions: string): Promise<void> {
+export async function saveAnalysisPrompt(
+  tenantId: string,
+  instructions: string,
+  severityLevel: ReviewSeverityLevel = defaultReviewSeverityLevel,
+): Promise<void> {
   await mutateJson(`/api/v1/admin/tenants/${tenantId}/analysis-prompts`, 'POST', {
     instructions,
+    severityLevel,
   });
 }
 
@@ -236,6 +305,15 @@ export async function activateAnalysisProvider(providerId: string): Promise<void
   await mutateJson(`/api/v1/admin/analysis-provider/versions/${providerId}/activate`, 'POST');
 }
 
+export async function deleteAnalysisProvider(
+  providerId: string,
+  confirmation: string,
+): Promise<void> {
+  await mutateJson(`/api/v1/admin/analysis-provider/versions/${providerId}`, 'DELETE', {
+    confirmation,
+  });
+}
+
 export async function resetAnalysisProvider(): Promise<void> {
   await mutateJson('/api/v1/admin/analysis-provider/reset', 'POST');
 }
@@ -274,6 +352,16 @@ export async function updateChatAccount(
   values: { enabled?: boolean; authJson?: string },
 ): Promise<void> {
   await mutateJson(`/api/v1/admin/chat-accounts/${accountId}`, 'PATCH', values);
+}
+
+export async function deleteChatAccount(accountId: string, confirmation: string): Promise<void> {
+  await mutateJson(`/api/v1/admin/chat-accounts/${accountId}`, 'DELETE', { confirmation });
+}
+
+export async function discoverChatAccountModels(authJson: string) {
+  return chatAccountModelDiscoverySchema.parse(
+    await mutateJson('/api/v1/admin/chat-accounts/discover-models', 'POST', { authJson }),
+  ).items;
 }
 
 export async function loadGitHubConnections(signal: AbortSignal): Promise<GitHubConnection[]> {
@@ -372,6 +460,7 @@ export async function loadWorkspace(
   repositoryId: string,
   pullNumber: number,
   signal: AbortSignal,
+  analysisId?: string,
 ): Promise<WorkspaceData> {
   const [pullValue, analysesValue] = await Promise.all([
     fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
@@ -379,7 +468,10 @@ export async function loadWorkspace(
   ]);
   const pull = pullRequestDetailSchema.parse(pullValue);
   const analyses = analysisListSchema.parse(analysesValue).items;
-  const analysis = analyses[0] ?? null;
+  const analysis = analysisId
+    ? (analyses.find((item) => item.id === analysisId) ?? null)
+    : (analyses[0] ?? null);
+  if (analysisId && !analysis) throw new Error('Analysis revision is unavailable');
   if (!analysis)
     return { pull, analysis: null, files: [], diff: null, commits: [], report: null, objects: [] };
   const reportReady =
@@ -408,29 +500,14 @@ export async function loadAnalysisWorkspace(
   analysisId: string,
   signal: AbortSignal,
 ): Promise<WorkspaceData> {
-  const report = reportViewSchema.parse(await fetchJson(`/api/v1/analyses/${analysisId}`, signal));
-  const { repositoryId, pullNumber, snapshotId } = report.context;
-  const [pullValue, analysesValue, filesValue, diffValue, commitsValue, objectsValue] =
-    await Promise.all([
-      fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
-      fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses`, signal),
-      fetchJson(`/api/v1/snapshots/${snapshotId}/files`, signal),
-      fetchJson(`/api/v1/snapshots/${snapshotId}/diff`, signal),
-      fetchJson(`/api/v1/snapshots/${snapshotId}/commits`, signal),
-      fetchJson(`/api/v1/analyses/${analysisId}/objects`, signal),
-    ]);
-  const analyses = analysisListSchema.parse(analysesValue).items;
-  const analysis = analyses.find((item) => item.id === analysisId);
-  if (!analysis) throw new Error('Analysis revision is unavailable');
-  return {
-    pull: pullRequestDetailSchema.parse(pullValue),
-    analysis,
-    files: snapshotFileListSchema.parse(filesValue).items,
-    diff: diffIndexSchema.parse(diffValue),
-    commits: snapshotCommitListSchema.parse(commitsValue).commits,
-    report,
-    objects: codeObjectListSchema.parse(objectsValue).items,
-  };
+  const context = await loadAnalysisStatus(analysisId, signal);
+  return loadWorkspace(context.repositoryId, context.pullNumber, signal, analysisId);
+}
+
+export async function loadAnalysisStatus(analysisId: string, signal: AbortSignal) {
+  return analysisStatusSchema.parse(
+    await fetchJson(`/api/v1/analyses/${analysisId}/status`, signal),
+  );
 }
 
 export async function openChatSession(
@@ -474,6 +551,94 @@ export async function sendChatMessage(
   });
   if (!response.ok) throw new Error(`Chat message failed: ${response.status}`);
   return chatSendResponseSchema.parse(await response.json());
+}
+
+export async function loadReviewMemories(
+  analysisId: string,
+  signal: AbortSignal,
+): Promise<ReviewMemoryList> {
+  return reviewMemoryListSchema.parse(
+    await fetchJson(`/api/v1/analyses/${analysisId}/review-memories`, signal),
+  );
+}
+
+export async function loadGitHubPrMemorySources(
+  repositoryId: string,
+  pullNumber: number,
+  signal: AbortSignal,
+): Promise<GitHubPrMemorySource[]> {
+  return githubPrMemorySourceListSchema.parse(
+    await fetchJson(
+      `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources`,
+      signal,
+    ),
+  ).items;
+}
+
+export async function createReviewMemoryCandidate(
+  analysisId: string,
+  input: {
+    kind: 'recurring-finding' | 'decision' | 'false-positive' | 'open-question';
+    summary: string;
+    detail?: string;
+    recommendation?: string;
+    categories?: string[];
+    filePaths?: string[];
+    symbols?: string[];
+    confidence?: number;
+    importance?: number;
+    sourceFindingId?: string;
+    sourceChatMessageId?: string;
+    sourceGithubPrMessageId?: string;
+  },
+): Promise<ReviewMemory> {
+  return reviewMemoryResponseSchema.parse(
+    await mutateJson(`/api/v1/analyses/${analysisId}/review-memory-candidates`, 'POST', input),
+  ).memory;
+}
+
+export async function reviewPersonalMemory(
+  memoryId: string,
+  action: 'activate' | 'reject' | 'retire',
+): Promise<ReviewMemory> {
+  return reviewMemoryResponseSchema.parse(
+    await mutateJson(`/api/v1/review-memories/${memoryId}/review`, 'POST', { action }),
+  ).memory;
+}
+
+export async function updateGitHubPrMemorySource(
+  repositoryId: string,
+  pullNumber: number,
+  sourceId: string,
+  state: 'available' | 'ignored',
+): Promise<void> {
+  await mutateJson(
+    `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources/${sourceId}`,
+    'PATCH',
+    { state },
+  );
+}
+
+export async function loadAdminReviewMemories(
+  signal: AbortSignal,
+  filters: { tenantId?: string; repositoryId?: string; state?: string } = {},
+): Promise<ReviewMemory[]> {
+  const query = new URLSearchParams({ scope: 'collective' });
+  if (filters.tenantId) query.set('tenantId', filters.tenantId);
+  if (filters.repositoryId) query.set('repositoryId', filters.repositoryId);
+  if (filters.state) query.set('state', filters.state);
+  return adminReviewMemoryListSchema.parse(
+    await fetchJson(`/api/v1/admin/review-memories?${query}`, signal),
+  ).items;
+}
+
+export async function reviewCollectiveMemory(
+  memoryId: string,
+  action: 'activate' | 'reject' | 'retire',
+): Promise<ReviewMemory> {
+  return reviewMemoryResponseSchema.parse(
+    await mutateJson(`/api/v1/admin/review-memories/${memoryId}/review`, 'POST', { action }),
+  ).memory;
 }
 
 export async function refreshPull(

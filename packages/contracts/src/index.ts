@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { reviewAnalysisSchema } from './review-analysis.js';
+import { defaultReviewSeverityLevel, reviewSeverityLevelSchema } from './review-severity.js';
+export * from './review-severity.js';
 export * from './review-analysis.js';
+export * from './review-memory.js';
 export * from './report-presentation.js';
+export * from './review-writing.js';
 
 export {
   githubRepositoryExample,
@@ -12,6 +16,19 @@ export {
 export const schemaVersion = 1 as const;
 export const localPasswordMinimumLength = 8;
 export const localPasswordMaximumLength = 128;
+export const personalPromptMaximumLength = 4000;
+export const personalPromptSchema = z
+  .string()
+  .max(personalPromptMaximumLength)
+  .refine((value) => !value.includes('\0'), 'Prompt에 null 문자를 사용할 수 없습니다.')
+  .transform((value) => value.trim());
+export const personalPromptUpdateSchema = z
+  .object({ personalPrompt: personalPromptSchema })
+  .strict();
+export const personalPromptResultSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  personalPrompt: personalPromptSchema,
+});
 
 export const roleSchema = z.enum(['reviewer', 'administrator']);
 export type Role = z.infer<typeof roleSchema>;
@@ -39,6 +56,7 @@ export const profileSchema = userSchema.extend({
   profileEditable: z.boolean(),
   passwordChangeAllowed: z.boolean(),
   passwordChangedAt: z.string().nullable(),
+  personalPrompt: personalPromptSchema.default(''),
 });
 export type Profile = z.infer<typeof profileSchema>;
 
@@ -102,6 +120,7 @@ export const analysisPromptVersionSchema = z.object({
   tenantId: z.string().uuid(),
   version: z.number().int().positive(),
   instructions: z.string(),
+  severityLevel: reviewSeverityLevelSchema.default(defaultReviewSeverityLevel),
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
   active: z.boolean(),
   createdBy: z.object({
@@ -139,6 +158,7 @@ export const analysisProviderModeSchema = z.enum([
 export type AnalysisProviderMode = z.infer<typeof analysisProviderModeSchema>;
 
 export const analysisProviderVersionSchema = z.object({
+  concurrency: z.number().int().min(1).max(4).default(1),
   chatAccountId: z.string().uuid().nullable().default(null),
   reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).nullable().default(null),
   id: z.string().uuid(),
@@ -166,6 +186,7 @@ export const analysisProviderVersionSchema = z.object({
 export type AnalysisProviderVersion = z.infer<typeof analysisProviderVersionSchema>;
 
 export const analysisProviderEffectiveSchema = z.object({
+  concurrency: z.number().int().min(1).max(4).default(1),
   chatAccountId: z.string().uuid().nullable().default(null),
   reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).nullable().default(null),
   source: z.enum(['administration', 'deployment']),
@@ -256,6 +277,7 @@ export const pullRequestSchema = z.object({
   number: z.number().int().positive(),
   title: z.string(),
   state: z.enum(['open', 'closed']),
+  mergedAt: z.string().nullable().optional(),
   draft: z.boolean(),
   author: z.string(),
   htmlUrl: z.string().url(),
@@ -276,6 +298,14 @@ export const pullRequestSummarySchema = pullRequestSchema.extend({
 });
 export type PullRequestSummary = z.infer<typeof pullRequestSummarySchema>;
 
+export const pullRequestStateFilterSchema = z.enum(['open', 'closed', 'all']);
+export type PullRequestStateFilter = z.infer<typeof pullRequestStateFilterSchema>;
+export const pullRequestCountsSchema = z.object({
+  open: z.number().int().nonnegative(),
+  closed: z.number().int().nonnegative(),
+  all: z.number().int().nonnegative(),
+});
+
 export const repositoryListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   items: z.array(repositorySchema),
@@ -286,6 +316,7 @@ export const pullRequestListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   repositoryId: z.string().uuid(),
   items: z.array(pullRequestSummarySchema),
+  counts: pullRequestCountsSchema.optional(),
   nextCursor: z.string().nullable(),
 });
 
@@ -297,6 +328,15 @@ export const pullRequestDetailSchema = pullRequestSchema.extend({
   webBaseUrl: z.string().url(),
 });
 
+export const analysisProgressSchema = z.object({
+  filesProcessed: z.number().int().nonnegative(),
+  filesTotal: z.number().int().nonnegative(),
+  filesReviewed: z.number().int().nonnegative(),
+  filesSkipped: z.number().int().nonnegative(),
+  currentFile: z.string().nullable(),
+});
+export type AnalysisProgress = z.infer<typeof analysisProgressSchema>;
+
 export const analysisListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   items: z.array(
@@ -307,6 +347,7 @@ export const analysisListSchema = z.object({
       state: z.string().nullable(),
       stage: z.string().nullable(),
       progress: z.number().int().nullable(),
+      progressDetail: analysisProgressSchema.nullable().optional(),
       createdAt: z.string().nullable(),
       resolution: z.enum(['exact', 'unresolved']),
       mergeBaseSha: z.string().nullable(),
@@ -314,6 +355,13 @@ export const analysisListSchema = z.object({
       headSha: z.string(),
     }),
   ),
+});
+
+export const analysisStatusSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  repositoryId: z.string().uuid(),
+  pullNumber: z.number().int(),
+  analysis: analysisListSchema.shape.items.element,
 });
 
 export const snapshotFileListSchema = z.object({
@@ -540,8 +588,12 @@ export const chatCitationSchema = z.object({
   evidenceId: z.string().uuid(),
   fileId: z.string().uuid(),
   line: z.number().int().positive().optional(),
+  endLine: z.number().int().positive().optional(),
+  side: z.enum(['mergeBase', 'head']).optional(),
+  path: z.string().optional(),
   label: z.string(),
 });
+export type ChatCitation = z.infer<typeof chatCitationSchema>;
 
 export const chatAccountModelSchema = z.object({
   id: z.string(),
@@ -553,6 +605,18 @@ export const chatAccountModelSchema = z.object({
 export const chatAccountCatalogSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   enabled: z.boolean(),
+  analysisPresets: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        version: z.number().int().positive(),
+        active: z.boolean(),
+        accountId: z.string().uuid(),
+        modelName: z.string(),
+        reasoningEffort: z.string(),
+      }),
+    )
+    .optional(),
   items: z.array(
     z.object({
       id: z.string().uuid(),
@@ -561,6 +625,11 @@ export const chatAccountCatalogSchema = z.object({
       models: z.array(chatAccountModelSchema),
     }),
   ),
+});
+
+export const chatAccountModelDiscoverySchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  items: z.array(chatAccountModelSchema),
 });
 
 export const adminChatAccountListSchema = z.object({
@@ -636,6 +705,11 @@ export const chatMessageSchema = z.object({
   status: z.enum(['pending', 'completed', 'failed']),
   content: z.string(),
   citations: z.array(chatCitationSchema),
+  memoryHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable()
+    .default(null),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
 });
@@ -695,3 +769,4 @@ export function errorEnvelope(
     },
   };
 }
+export * from './chat-run.js';

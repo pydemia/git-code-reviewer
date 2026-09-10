@@ -1,5 +1,6 @@
 import {
   Building2,
+  Brain,
   Check,
   Cpu,
   FileText,
@@ -16,12 +17,18 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { analysisEffortDescription } from './analysis-provider-ui.ts';
 import {
   githubRepositoryExample,
   parseGitHubRepositoryUrl,
   localPasswordMaximumLength,
   localPasswordMinimumLength,
+  defaultReviewSeverityLevel,
+  reviewSeverityLevels,
+  type ReviewSeverityLevel,
 } from '@gcr/contracts';
+import { SeverityLevelField } from './SeverityLevelField';
+import { UserDeleteDialog } from './UserDeleteDialog';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   activateAnalysisProvider,
@@ -29,8 +36,12 @@ import {
   createLocalUser,
   createTenant,
   createChatAccount,
+  discoverChatAccountModels,
   createGitHubConnection,
   deleteAdminRepository,
+  deleteAdminUser,
+  deleteAnalysisProvider,
+  deleteChatAccount,
   registerGitHubRepository,
   loadAdminChatAccounts,
   loadAdminRepositories,
@@ -67,8 +78,10 @@ import {
 } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
 import { AnalysisSkillsPanel } from './AnalysisSkillsPanel.tsx';
+import { AdminMemoryPanel } from './AdminMemoryPanel.tsx';
 
-type AdminTab = 'tenants' | 'users' | 'provider' | 'prompt' | 'skills' | 'chat' | 'github';
+type AdminTab =
+  'tenants' | 'users' | 'provider' | 'prompt' | 'skills' | 'memory' | 'chat' | 'github';
 type TenantForm = {
   id?: string;
   slug: string;
@@ -76,6 +89,7 @@ type TenantForm = {
   enabled: boolean;
 };
 type ProviderDraft = {
+  concurrency: number;
   mode: 'disabled' | 'openai-compatible' | 'chatgpt-account';
   chatAccountId: string;
   reasoningEffort: string;
@@ -123,11 +137,15 @@ export function AdminPage() {
   );
   const [promptData, setPromptData] = useState<AnalysisPromptList | null>(null);
   const [promptDraft, setPromptDraft] = useState('');
+  const [promptSeverity, setPromptSeverity] = useState<ReviewSeverityLevel>(
+    defaultReviewSeverityLevel,
+  );
   const [providerData, setProviderData] = useState<AnalysisProviderSettings | null>(null);
   const [chatAccounts, setChatAccounts] = useState<AdminChatAccount[]>([]);
   const [githubConnections, setGithubConnections] = useState<GitHubConnection[]>([]);
   const [adminRepositories, setAdminRepositories] = useState<AdminRepository[]>([]);
   const [providerDraft, setProviderDraft] = useState<ProviderDraft>({
+    concurrency: 4,
     chatAccountId: '',
     reasoningEffort: '',
     mode: 'disabled',
@@ -139,6 +157,7 @@ export function AdminPage() {
   const [tenantForm, setTenantForm] = useState<TenantForm | null>(null);
   const [userForm, setUserForm] = useState<UserForm | null>(null);
   const [passwordForm, setPasswordForm] = useState<PasswordForm | null>(null);
+  const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
   const [repositoryGrantForm, setRepositoryGrantForm] = useState<RepositoryGrantForm | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -202,14 +221,17 @@ export function AdminPage() {
     if (!selectedTenantId) {
       setPromptData(null);
       setPromptDraft('');
+      setPromptSeverity(defaultReviewSeverityLevel);
       return;
     }
     const controller = new AbortController();
     setPromptData(null);
     void loadAnalysisPrompts(selectedTenantId, controller.signal).then(
       (value) => {
+        if (controller.signal.aborted) return;
         setPromptData(value);
         setPromptDraft(value.active?.instructions ?? '');
+        setPromptSeverity(value.active?.severityLevel ?? defaultReviewSeverityLevel);
       },
       (error: unknown) => {
         if (!controller.signal.aborted) setMessage({ tone: 'error', text: errorMessage(error) });
@@ -289,6 +311,23 @@ export function AdminPage() {
         tone: 'success',
         text: `${repository.owner}/${repository.name}의 review 등록을 삭제했습니다.`,
       });
+      setReloadToken((value) => value + 1);
+      return null;
+    } catch (error) {
+      return errorMessage(error);
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const submitUserDelete = async (confirmation: string): Promise<string | null> => {
+    if (!deleteUser) return '삭제할 사용자를 다시 선택해 주세요.';
+    setBusyKey(`user:delete:${deleteUser.id}`);
+    setMessage(null);
+    try {
+      await deleteAdminUser(deleteUser.id, confirmation);
+      setUsers((current) => current.filter((item) => item.id !== deleteUser.id));
+      setMessage({ tone: 'success', text: `${deleteUser.displayName} 계정을 삭제했습니다.` });
       setReloadToken((value) => value + 1);
       return null;
     } catch (error) {
@@ -382,20 +421,25 @@ export function AdminPage() {
   };
 
   const submitPrompt = async () => {
-    if (!selectedTenantId || !promptDraft.trim()) return;
+    if (!selectedTenantId || promptData?.tenant.id !== selectedTenantId || busyKey) return;
     await runMutation(
       'prompt:save',
-      () => saveAnalysisPrompt(selectedTenantId, promptDraft),
+      () => saveAnalysisPrompt(selectedTenantId, promptDraft, promptSeverity),
       '새 프롬프트 버전을 활성화했습니다.',
     );
   };
 
   const providerInput = (): AnalysisProviderInput =>
     providerDraft.mode === 'disabled'
-      ? { mode: 'disabled', timeoutMs: providerDraft.timeoutMs }
+      ? {
+          mode: 'disabled',
+          timeoutMs: providerDraft.timeoutMs,
+          concurrency: providerDraft.concurrency,
+        }
       : providerDraft.mode === 'chatgpt-account'
         ? {
             mode: 'chatgpt-account',
+            concurrency: providerDraft.concurrency,
             chatAccountId: providerDraft.chatAccountId,
             modelName: providerDraft.modelName,
             reasoningEffort: providerDraft.reasoningEffort,
@@ -403,6 +447,7 @@ export function AdminPage() {
           }
         : {
             mode: 'openai-compatible',
+            concurrency: providerDraft.concurrency,
             endpoint: providerDraft.endpoint,
             modelName: providerDraft.modelName,
             timeoutMs: providerDraft.timeoutMs,
@@ -459,7 +504,7 @@ export function AdminPage() {
             type="button"
             onClick={() => selectTab('provider')}
           >
-            <Cpu size={16} /> 분석 Provider
+            <Cpu size={16} /> 분석 모델
           </button>
           <button
             className={tab === 'prompt' ? 'active' : ''}
@@ -481,6 +526,13 @@ export function AdminPage() {
             onClick={() => selectTab('chat')}
           >
             <MessageSquare size={16} /> ChatGPT accounts
+          </button>
+          <button
+            className={tab === 'memory' ? 'active' : ''}
+            type="button"
+            onClick={() => selectTab('memory')}
+          >
+            <Brain size={16} /> Repository Memory
           </button>
           <button
             className={tab === 'github' ? 'active' : ''}
@@ -563,6 +615,7 @@ export function AdminPage() {
               onResetPassword={(item) =>
                 setPasswordForm({ id: item.id, displayName: item.displayName, password: '' })
               }
+              onDelete={setDeleteUser}
               onManageRepositories={(item) => {
                 const repositoryIds = item.repositoryGrants.map((grant) => grant.repositoryId);
                 setRepositoryGrantForm({
@@ -606,6 +659,22 @@ export function AdminPage() {
                   '선택한 Provider 버전을 활성화했습니다.',
                 )
               }
+              onDelete={(providerId) => {
+                const provider = providerData?.items.find((item) => item.id === providerId);
+                if (
+                  !provider ||
+                  provider.active ||
+                  !window.confirm(
+                    `Provider v${provider.version}을 삭제할까요? 목록에서는 제거되며, 기존 분석과 이미 대기 중인 작업의 설정은 보존됩니다.`,
+                  )
+                )
+                  return;
+                void runMutation(
+                  `provider:delete:${providerId}`,
+                  () => deleteAnalysisProvider(providerId, `v${provider.version}`),
+                  '비활성 Provider를 삭제했습니다.',
+                );
+              }}
               onReset={() => {
                 if (!window.confirm('배포 환경의 Provider 설정으로 되돌릴까요?')) return;
                 void runMutation(
@@ -625,6 +694,8 @@ export function AdminPage() {
               selectedTenantId={selectedTenantId}
               data={promptData}
               draft={promptDraft}
+              severityLevel={promptSeverity}
+              onSeverityChange={setPromptSeverity}
               busyKey={busyKey}
               onTenantChange={selectTenant}
               onDraftChange={setPromptDraft}
@@ -637,7 +708,8 @@ export function AdminPage() {
                 )
               }
               onReset={() => {
-                if (!window.confirm('테넌트 프롬프트를 기본 분석 프롬프트로 되돌릴까요?')) return;
+                if (!window.confirm('추가 지침을 비우고 분석 수준을 moderate로 되돌릴까요?'))
+                  return;
                 void runMutation(
                   'prompt:reset',
                   () => resetAnalysisPrompt(selectedTenantId),
@@ -666,7 +738,25 @@ export function AdminPage() {
                   `ChatGPT account를 ${enabled ? '활성화' : '비활성화'}했습니다.`,
                 )
               }
+              onDelete={(account) => {
+                if (
+                  account.enabled ||
+                  !window.confirm(
+                    `${account.displayName} account를 삭제할까요? 저장된 credential은 삭제되며 복구할 수 없습니다. 기존 분석과 대화 기록은 보존됩니다.`,
+                  )
+                )
+                  return;
+                void runMutation(
+                  `chat-account:delete:${account.id}`,
+                  () => deleteChatAccount(account.id, account.displayName),
+                  '비활성 ChatGPT account와 저장된 credential을 삭제했습니다.',
+                );
+              }}
             />
+          ) : null}
+
+          {tab === 'memory' ? (
+            <AdminMemoryPanel tenantId={selectedTenantId} repositories={adminRepositories} />
           ) : null}
 
           {tab === 'github' ? (
@@ -730,6 +820,16 @@ export function AdminPage() {
           ) : null}
         </main>
       </div>
+
+      {deleteUser ? (
+        <UserDeleteDialog
+          key={deleteUser.id}
+          user={deleteUser}
+          busy={busyKey === `user:delete:${deleteUser.id}`}
+          onClose={() => setDeleteUser(null)}
+          onSubmit={submitUserDelete}
+        />
+      ) : null}
 
       {tenantForm ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setTenantForm(null)}>
@@ -912,7 +1012,7 @@ function TenantPanel({
   );
 }
 
-function UserPanel({
+export function UserPanel({
   currentUserId,
   users,
   tenants,
@@ -925,6 +1025,7 @@ function UserPanel({
   onCreate,
   onEdit,
   onResetPassword,
+  onDelete,
   onManageRepositories,
   onAccessChange,
   onMembershipChange,
@@ -941,6 +1042,7 @@ function UserPanel({
   onCreate: () => void;
   onEdit: (user: AdminUser) => void;
   onResetPassword: (user: AdminUser) => void;
+  onDelete: (user: AdminUser) => void;
   onManageRepositories: (user: AdminUser) => void;
   onAccessChange: (user: AdminUser, enabled: boolean) => void;
   onMembershipChange: (user: AdminUser, enabled: boolean) => void;
@@ -950,7 +1052,9 @@ function UserPanel({
       <div className="admin-title-row">
         <div>
           <p className="eyebrow">Identity access</p>
-          <h1>사용자</h1>
+          <h1 id="admin-users-heading" tabIndex={-1}>
+            사용자
+          </h1>
         </div>
         <button className="command-button primary" type="button" onClick={onCreate}>
           <Plus size={15} /> 사용자 생성
@@ -1052,6 +1156,20 @@ function UserPanel({
                   onClick={() => onResetPassword(item)}
                 >
                   <KeyRound size={14} />
+                </button>
+                <button
+                  className="icon-button surface-icon"
+                  type="button"
+                  title={
+                    item.id === currentUserId
+                      ? '현재 로그인한 계정은 삭제할 수 없습니다.'
+                      : '사용자 삭제'
+                  }
+                  aria-label={`${item.displayName} 삭제`}
+                  disabled={item.id === currentUserId || busyKey !== null}
+                  onClick={() => onDelete(item)}
+                >
+                  <Trash2 size={14} />
                 </button>
               </span>
             </div>
@@ -1350,6 +1468,8 @@ function PromptPanel({
   selectedTenantId,
   data,
   draft,
+  severityLevel,
+  onSeverityChange,
   busyKey,
   onTenantChange,
   onDraftChange,
@@ -1362,6 +1482,8 @@ function PromptPanel({
   selectedTenantId: string;
   data: AnalysisPromptList | null;
   draft: string;
+  severityLevel: ReviewSeverityLevel;
+  onSeverityChange: (value: ReviewSeverityLevel) => void;
   busyKey: string | null;
   onTenantChange: (value: string) => void;
   onDraftChange: (value: string) => void;
@@ -1369,11 +1491,12 @@ function PromptPanel({
   onActivate: (promptId: string) => void;
   onReset: () => void;
 }) {
+  const loading = !data || data.tenant.id !== selectedTenantId;
+  const disabled = loading || busyKey !== null;
   return (
     <section className="admin-section prompt-section">
       <div className="admin-title-row">
         <div>
-          <p className="eyebrow">Analysis policy</p>
           <h1>분석 프롬프트</h1>
         </div>
         <label className="toolbar-select">
@@ -1398,12 +1521,17 @@ function PromptPanel({
         </span>
         <span>{data?.active ? `Active v${data.active.version}` : 'Built-in prompt'}</span>
       </div>
-      <div className="prompt-editor">
+      <div className="prompt-editor" aria-busy={loading}>
+        <SeverityLevelField value={severityLevel} disabled={disabled} onChange={onSeverityChange} />
         <div className="prompt-editor-heading">
-          <strong>추가 분석 지침</strong>
+          <label htmlFor="analysis-prompt-instructions">
+            <strong>추가 분석 지침 · 선택 사항</strong>
+          </label>
           <span>{draft.length.toLocaleString()} / 12,000</span>
         </div>
         <textarea
+          id="analysis-prompt-instructions"
+          disabled={disabled}
           value={draft}
           maxLength={12_000}
           onChange={(event) => onDraftChange(event.target.value)}
@@ -1414,7 +1542,7 @@ function PromptPanel({
             className="command-button"
             type="button"
             onClick={onReset}
-            disabled={!data?.active || busyKey !== null}
+            disabled={!data?.active || disabled}
           >
             <RotateCcw size={15} /> 기본값 복원
           </button>
@@ -1422,7 +1550,7 @@ function PromptPanel({
             className="command-button primary"
             type="button"
             onClick={onSave}
-            disabled={!draft.trim() || busyKey !== null}
+            disabled={disabled}
           >
             <Save size={15} /> 새 버전 저장 및 활성화
           </button>
@@ -1442,7 +1570,11 @@ function PromptPanel({
               </span>
               <time>{formatAdminDate(prompt.createdAt)}</time>
             </div>
-            <pre>{prompt.instructions}</pre>
+            <p className="prompt-version-severity">
+              <strong>{prompt.severityLevel}</strong> —{' '}
+              {reviewSeverityLevels[prompt.severityLevel].description}
+            </p>
+            <pre>{prompt.instructions || '추가 지침 없음'}</pre>
             <div className="prompt-version-footer">
               <span>{prompt.createdBy.displayName}</span>
               <code>{prompt.contentHash.slice(0, 12)}</code>
@@ -1450,7 +1582,7 @@ function PromptPanel({
                 <button
                   className="command-button"
                   type="button"
-                  disabled={busyKey !== null}
+                  disabled={disabled}
                   onClick={() => onActivate(prompt.id)}
                 >
                   <Check size={14} /> 활성화
@@ -1467,7 +1599,7 @@ function PromptPanel({
   );
 }
 
-function ProviderPanel({
+export function ProviderPanel({
   accounts,
   data,
   draft,
@@ -1477,6 +1609,7 @@ function ProviderPanel({
   onSave,
   onActivate,
   onReset,
+  onDelete,
 }: {
   accounts: AdminChatAccount[];
   data: AnalysisProviderSettings | null;
@@ -1487,6 +1620,7 @@ function ProviderPanel({
   onSave: () => void;
   onActivate: (providerId: string) => void;
   onReset: () => void;
+  onDelete?: (providerId: string) => void;
 }) {
   const editable = data?.editable ?? false;
   const availableAccounts = accounts.filter(
@@ -1516,13 +1650,16 @@ function ProviderPanel({
     (draft.mode === 'disabled' ||
       (draft.mode === 'chatgpt-account' ? accountComplete : openAiComplete)) &&
     draft.timeoutMs >= 1_000 &&
-    draft.timeoutMs <= 600_000;
+    draft.timeoutMs <= 600_000 &&
+    Number.isInteger(draft.concurrency) &&
+    draft.concurrency >= 1 &&
+    draft.concurrency <= 4;
 
   return (
     <section className="admin-section provider-section">
       <div className="admin-title-row">
         <div>
-          <h1>분석 Provider</h1>
+          <h1>분석 모델 및 실행 설정</h1>
         </div>
       </div>
 
@@ -1545,13 +1682,13 @@ function ProviderPanel({
               ? 'Credential 설정됨'
               : '별도 credential 없음'}
         </span>
+        <span>파일 병렬 처리 · 최대 {data?.effective.concurrency ?? 1}개</span>
       </div>
 
       <div className="provider-editor">
         <p className="provider-help">
-          Review Chat과 별도로 새 분석에 사용할 account·model·effort를 선택합니다. Worker는
-          repository의 tenant 또는 all 권한이 부여된 account만 사용합니다. 저장한 설정은 새 분석부터
-          적용됩니다. 기존 report를 다시 분석하려면 Workspace에서 새로고침하세요.
+          자동 분석과 수동 재분석에 사용할 Account·Model·Effort를 선택합니다. Review Chat의 선택과는
+          별도입니다. 저장 후 새로 생성되는 분석에 적용되며, 이미 생성된 분석과 Report는 유지합니다.
         </p>
         <div className="provider-mode-control" role="group" aria-label="Provider mode">
           <button
@@ -1621,7 +1758,7 @@ function ProviderPanel({
                 </select>
               </label>
               <label className="field-label">
-                Model
+                분석 Model
                 <select
                   value={draft.modelName}
                   disabled={!editable || !account || busyKey !== null}
@@ -1646,8 +1783,10 @@ function ProviderPanel({
                 </select>
               </label>
               <label className="field-label">
-                Effort
+                Reasoning effort
                 <select
+                  aria-label="Reasoning effort"
+                  aria-describedby="analysis-effort-help"
                   value={draft.reasoningEffort}
                   disabled={!editable || !model || busyKey !== null}
                   onChange={(event) =>
@@ -1661,6 +1800,9 @@ function ProviderPanel({
                     </option>
                   ))}
                 </select>
+                <small id="analysis-effort-help">
+                  {analysisEffortDescription(draft.reasoningEffort)}
+                </small>
               </label>
             </>
           ) : (
@@ -1687,6 +1829,28 @@ function ProviderPanel({
               </label>
             </>
           )}
+          <label className="field-label">
+            파일 병렬 처리 수
+            <select
+              aria-label="파일 병렬 처리 수"
+              aria-describedby="analysis-concurrency-help"
+              value={draft.concurrency}
+              disabled={!editable || draft.mode === 'disabled' || busyKey !== null}
+              onChange={(event) =>
+                onDraftChange({ ...draft, concurrency: Number(event.target.value) })
+              }
+            >
+              {[1, 2, 3, 4].map((count) => (
+                <option key={count} value={count}>
+                  {count === 1 ? '1개 · 순차 처리' : `${count}개 · 병렬 처리`}
+                </option>
+              ))}
+            </select>
+            <small id="analysis-concurrency-help">
+              한 PR의 파일을 동시에 검토합니다. 파일 안의 코드 구간은 순서대로 검토하고 PR 전체
+              Summary는 마지막에 생성합니다.
+            </small>
+          </label>
           <label className="field-label">
             Timeout (ms)
             <input
@@ -1716,6 +1880,19 @@ function ProviderPanel({
             </label>
           ) : null}
         </div>
+
+        {draft.mode === 'chatgpt-account' ? (
+          <p className="provider-help">
+            선택지가 없다면 <a href="/admin?tab=chat">ChatGPT accounts에서 Model·Effort 등록</a>을
+            확인하세요. Account가 지원하고 관리자가 허용한 값만 표시합니다. 분석에는 all 또는 tenant
+            권한이 필요합니다.
+          </p>
+        ) : null}
+        <p className="provider-help">
+          같은 account의 분석 요청은 최대 4개, Review Chat은 별도 1개로 제한합니다. Rate limit 응답
+          시 Retry-After를 따릅니다. 병렬 수를 높여도 파일 수와 요청 제한에 따라 소요 시간은
+          달라집니다.
+        </p>
 
         {draft.mode !== 'chatgpt-account' ? (
           <div className="provider-origin-row">
@@ -1785,6 +1962,7 @@ function ProviderPanel({
               </span>
               <span>{provider.mode}</span>
               <code>{provider.modelName ?? 'disabled'}</code>
+              <span>병렬 {provider.concurrency}개</span>
               {provider.mode === 'chatgpt-account' ? (
                 <span>
                   {accounts.find((item) => item.id === provider.chatAccountId)?.displayName ??
@@ -1806,6 +1984,17 @@ function ProviderPanel({
                   <Check size={14} /> 활성화
                 </button>
               ) : null}
+              {!provider.active && onDelete ? (
+                <button
+                  className="command-button danger"
+                  type="button"
+                  disabled={!editable || busyKey !== null}
+                  aria-label={`Provider v${provider.version} 삭제`}
+                  onClick={() => onDelete(provider.id)}
+                >
+                  <Trash2 size={14} /> 삭제
+                </button>
+              ) : null}
             </div>
           </article>
         ))}
@@ -1817,12 +2006,13 @@ function ProviderPanel({
   );
 }
 
-function ChatAccountPanel({
+export function ChatAccountPanel({
   accounts,
   tenants,
   busyKey,
   onCreate,
   onToggle,
+  onDelete,
 }: {
   accounts: AdminChatAccount[];
   tenants: Tenant[];
@@ -1840,6 +2030,7 @@ function ChatAccountPanel({
     assignments: Array<{ scopeType: string; scopeId: string }>;
   }) => Promise<unknown>;
   onToggle: (accountId: string, enabled: boolean) => Promise<unknown>;
+  onDelete?: (account: AdminChatAccount) => void;
 }) {
   const [displayName, setDisplayName] = useState('');
   const [authJson, setAuthJson] = useState('');
@@ -1848,6 +2039,30 @@ function ChatAccountPanel({
   const [efforts, setEfforts] = useState('medium,high');
   const [defaultEffort, setDefaultEffort] = useState('medium');
   const [tenantId, setTenantId] = useState(tenants[0]?.id ?? '');
+  const [catalog, setCatalog] = useState<Awaited<ReturnType<typeof discoverChatAccountModels>>>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogMessage, setCatalogMessage] = useState('');
+
+  const discoverModels = async () => {
+    setCatalogLoading(true);
+    setCatalogMessage('');
+    setCatalog([]);
+    try {
+      const models = await discoverChatAccountModels(authJson);
+      setCatalog(models);
+      setCatalogMessage(
+        models.length
+          ? `${models.length}개 모델을 조회했습니다. 모델을 선택하세요.`
+          : '사용 가능한 모델이 없습니다. Model ID를 직접 입력할 수 있습니다.',
+      );
+    } catch (error) {
+      setCatalogMessage(
+        error instanceof Error ? error.message : '모델 목록을 조회하지 못했습니다.',
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!tenantId && tenants[0]) setTenantId(tenants[0].id);
@@ -1867,12 +2082,21 @@ function ChatAccountPanel({
       displayName,
       ...(endpoint.trim() ? { endpoint: endpoint.trim() } : {}),
       authJson,
-      models: [{ id: modelName, displayName: modelName, allowedEfforts, defaultEffort }],
+      models: [
+        {
+          id: modelName,
+          displayName: catalog.find((model) => model.id === modelName)?.displayName ?? modelName,
+          allowedEfforts,
+          defaultEffort,
+        },
+      ],
       assignments: tenantId
         ? [{ scopeType: 'tenant', scopeId: tenantId }]
         : [{ scopeType: 'all', scopeId: '*' }],
     });
     setAuthJson('');
+    setCatalog([]);
+    setCatalogMessage('');
   };
 
   return (
@@ -1908,16 +2132,37 @@ function ChatAccountPanel({
             ))}
           </select>
         </label>
-        <label className="field-label">
-          Model ID
+        <div className="field-label">
+          <label htmlFor="chat-account-model-id">Model ID</label>
+          {catalog.length > 0 ? (
+            <select
+              aria-label="조회된 모델 선택"
+              value={catalog.some((model) => model.id === modelName) ? modelName : ''}
+              onChange={(event) => {
+                const model = catalog.find((item) => item.id === event.target.value);
+                if (!model) return;
+                setModelName(model.id);
+                setEfforts(model.allowedEfforts.join(','));
+                setDefaultEffort(model.defaultEffort);
+              }}
+            >
+              <option value="">모델을 선택하세요</option>
+              {catalog.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.displayName} · {model.id}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <input
+            id="chat-account-model-id"
             required
             maxLength={200}
             value={modelName}
             placeholder="Codex에서 사용할 model ID"
             onChange={(event) => setModelName(event.target.value)}
           />
-        </label>
+        </div>
         <label className="field-label">
           허용 effort
           <input required value={efforts} onChange={(event) => setEfforts(event.target.value)} />
@@ -1953,10 +2198,31 @@ function ChatAccountPanel({
             required
             autoComplete="new-password"
             value={authJson}
-            onChange={(event) => setAuthJson(event.target.value)}
+            disabled={catalogLoading}
+            onChange={(event) => {
+              setAuthJson(event.target.value);
+              setCatalog([]);
+              setCatalogMessage('');
+            }}
           />
         </label>
-        <button className="command-button primary" type="submit" disabled={busyKey !== null}>
+        <div className="field-label">
+          <button
+            className="command-button"
+            type="button"
+            disabled={!authJson.trim() || catalogLoading || busyKey !== null}
+            onClick={() => void discoverModels()}
+          >
+            <Search size={15} /> {catalogLoading ? '모델 조회 중…' : '모델 목록 조회'}
+          </button>
+          <small>auth.json을 입력한 뒤 조회하세요. 모델을 선택하면 지원 effort도 채워집니다.</small>
+          {catalogMessage ? <small role="status">{catalogMessage}</small> : null}
+        </div>
+        <button
+          className="command-button primary"
+          type="submit"
+          disabled={busyKey !== null || catalogLoading}
+        >
           <Plus size={15} /> Account 등록
         </button>
       </form>
@@ -1989,6 +2255,17 @@ function ChatAccountPanel({
               >
                 {account.enabled ? '비활성화' : '활성화'}
               </button>
+              {!account.enabled && onDelete ? (
+                <button
+                  className="command-button danger"
+                  type="button"
+                  disabled={busyKey !== null}
+                  aria-label={`${account.displayName} 삭제`}
+                  onClick={() => onDelete(account)}
+                >
+                  <Trash2 size={14} /> 삭제
+                </button>
+              ) : null}
             </div>
           </article>
         ))}
@@ -2784,6 +3061,7 @@ function readTab(): AdminTab {
     value === 'provider' ||
     value === 'prompt' ||
     value === 'skills' ||
+    value === 'memory' ||
     value === 'chat' ||
     value === 'github'
     ? value
@@ -2792,6 +3070,7 @@ function readTab(): AdminTab {
 
 function providerDraftFrom(settings: AnalysisProviderSettings): ProviderDraft {
   return {
+    concurrency: settings.effective.source === 'deployment' ? 4 : settings.effective.concurrency,
     chatAccountId: settings.effective.chatAccountId ?? '',
     reasoningEffort: settings.effective.reasoningEffort ?? '',
     mode: settings.effective.mode,
