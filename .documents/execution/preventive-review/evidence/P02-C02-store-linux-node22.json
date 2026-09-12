@@ -1,0 +1,50 @@
+{
+  "platform": "linux",
+  "node": "v22.23.2",
+  "packageVersion": "0.1.0-alpha.4",
+  "keyStore": "Linux Secret Service",
+  "restoredInNewProcess": true,
+  "concurrentWriters": 8,
+  "committed": 1,
+  "conflicts": 7,
+  "deletionRestoredInNewProcess": true,
+  "syntheticData": true,
+  "modelCalls": 0,
+  "cleanup": "completed",
+  "verification": "installed-artifact",
+  "unavailableWithoutSessionBus": true,
+  "image": "node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "alpine": "3.24.1",
+  "packages": {
+    "dbus": "1.16.2-r2",
+    "gnome-keyring": "50.0-r0",
+    "libsecret": "0.21.7-r0"
+  },
+  "containerCapabilitiesAdded": [
+    "IPC_LOCK"
+  ],
+  "artifacts": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.4",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.4",
+        "file": "gcr-client-contract-0.1.0-alpha.4.tgz",
+        "sha256": "b44cc6f695ebd5ef13c04a974975671cae04a19e7f9ae9b90199fef79a054f7e"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.4",
+        "file": "gcr-client-core-0.1.0-alpha.4.tgz",
+        "sha256": "035f2b3492fff5eb4b621f1a56f0ddd34d25fdcf80fc86a5c3897f1fad7eea3e"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.4",
+        "file": "gcr-client-executors-0.1.0-alpha.4.tgz",
+        "sha256": "0a7e8c9c093fb5e4cc809decc063e0bcc6e0bb35f0f748aa4f2c5e2f019f1bf9"
+      }
+    ]
+  }
+}
