@@ -33,6 +33,7 @@ USER root
 RUN --mount=type=secret,id=build_ca \
   if [ -s /run/secrets/build_ca ]; then export SSL_CERT_FILE=/run/secrets/build_ca; fi \
   && if [ "${REUSE_RUNTIME_BASE}" != "true" ]; then apk add --no-cache git tini; fi \
+  && rm -rf /app \
   && mkdir -p /app /var/lib/git-code-reviewer/artifacts /tmp/git-code-reviewer/workspaces \
   && chown -R node:node /app /var/lib/git-code-reviewer /tmp/git-code-reviewer
 WORKDIR /app
