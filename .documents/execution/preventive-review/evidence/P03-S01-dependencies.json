@@ -1,0 +1,35 @@
+{
+  "phase": "P03-S01",
+  "status": "source-verified",
+  "checkedAt": "2026-09-12T22:39:46.760654+00:00",
+  "node": "22.23.2",
+  "staticVersion": "10.1.3",
+  "vitestVersion": "4.1.11",
+  "tests": {
+    "passed": 734,
+    "failed": 0,
+    "skipped": 0,
+    "files": 98,
+    "database": "owned ephemeral PostgreSQL 17; GCR_TEST_DATABASE_URL set"
+  },
+  "checks": {
+    "build": true,
+    "runtimeTypecheck": true,
+    "newFilesEslint": true,
+    "audit": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0
+    }
+  },
+  "sourceSha256": {
+    "apps/runtime/package.json": "d906ff2bfbc7eb102d45cd12004c787217a32d2f90922ce4a2b3a98fda04ad93",
+    "package.json": "bac5411b5faec5e02669691d2333d9770ebeda3d0b2dab55bde9ae0eef0e5f2b",
+    "pnpm-lock.yaml": "a26166e9fd5b85bee482f416278af75400cb3f31ec1f5fdd520f3bc518d3eb6f",
+    "apps/runtime/src/static-assets.test.ts": "cbcbe51546fea25301fc9bf9a67022affda54b5a69996ff05b81ed6e8b032a45",
+    "scripts/with-test-postgres.mjs": "ad006f8305d71bccf7df14794588a571252efec512703115c087286c2dbb65de"
+  },
+  "deployment": "pending; source proof is not rollout proof"
+}
