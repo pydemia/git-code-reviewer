@@ -4,7 +4,7 @@ export const CLIENT_CONTRACT_VERSION = 1 as const;
 export * from './identity.js';
 export * from './knowledge.js';
 export * from './review.js';
-export { ContractError } from './codec.js';
+export { ContractError, sourcePath } from './codec.js';
 
 export interface ClientPackageInfo {
   readonly name: string;
@@ -14,7 +14,7 @@ export interface ClientPackageInfo {
 
 export const clientContractPackage: ClientPackageInfo = Object.freeze({
   name: '@gcr/client-contract',
-  version: '0.1.0-alpha.4',
+  version: '0.1.0-alpha.5',
   contractVersion: CLIENT_CONTRACT_VERSION,
 });
 export * from './legacy.js';

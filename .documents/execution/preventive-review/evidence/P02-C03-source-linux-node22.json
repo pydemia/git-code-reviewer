@@ -1,0 +1,46 @@
+{
+  "platform": "linux",
+  "arch": "arm64",
+  "node": "v22.23.2",
+  "git": "git version 2.54.0",
+  "packageVersion": "0.1.0-alpha.5",
+  "verification": "installed-artifact",
+  "partialStage": true,
+  "savedWorkingTree": true,
+  "explicitUntracked": true,
+  "rename": true,
+  "deletionBase": true,
+  "privateExclusion": true,
+  "sourceHashVerified": true,
+  "originalIndexBytesAndMtimeUnchanged": true,
+  "originalGitObjectInventoryUnchanged": true,
+  "readsAfterOriginalRepositoryRemoval": true,
+  "syntheticData": true,
+  "modelCalls": 0,
+  "cleanup": "completed",
+  "image": "node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "artifacts": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.5",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.5",
+        "file": "gcr-client-contract-0.1.0-alpha.5.tgz",
+        "sha256": "9c10c321ae46509afd2e70979e86e316738dbefac468963ff8362895f45b6c8b"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.5",
+        "file": "gcr-client-core-0.1.0-alpha.5.tgz",
+        "sha256": "1ae632a66406c73b06b334af25ad0c33349ec15eca063e2e327de571c9fc7993"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.5",
+        "file": "gcr-client-executors-0.1.0-alpha.5.tgz",
+        "sha256": "d7db2e7f2bd97579fb2c90dae87679b3b0d0be54efba1aefc3ea779c512be9f2"
+      }
+    ]
+  }
+}

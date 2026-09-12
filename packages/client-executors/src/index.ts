@@ -2,6 +2,6 @@ import { CLIENT_CONTRACT_VERSION, type ClientPackageInfo } from '@gcr/client-con
 
 export const clientExecutorsPackage: ClientPackageInfo = Object.freeze({
   name: '@gcr/client-executors',
-  version: '0.1.0-alpha.4',
+  version: '0.1.0-alpha.5',
   contractVersion: CLIENT_CONTRACT_VERSION,
 });
