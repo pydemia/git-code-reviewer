@@ -133,6 +133,20 @@ importers:
 
   packages/artifact-store: {}
 
+  packages/client-contract: {}
+
+  packages/client-core:
+    dependencies:
+      '@gcr/client-contract':
+        specifier: workspace:*
+        version: link:../client-contract
+
+  packages/client-executors:
+    dependencies:
+      '@gcr/client-contract':
+        specifier: workspace:*
+        version: link:../client-contract
+
   packages/contracts:
     dependencies:
       zod:
