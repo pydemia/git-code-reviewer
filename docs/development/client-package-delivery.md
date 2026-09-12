@@ -9,7 +9,7 @@ P00-C02 결정. 공통 package의 원본은 GCR이고 CD는 고정 tarball을 �
 세 package는 동일한 `0.1.0-alpha.1`부터 시작한다. 초기 artifact는 package identity만 제공하며 실제 리뷰 기능은 P02에서 구현한다. 이 package의 코드는 CD와 같은 Apache-2.0으로 배포하고 재사용 코드의 원래 notice를 보존한다. 서버 전체의 라이선스를 변경하지 않는다.
 
 - 공통 library: Node `>=18.0.0`, ES2022/ESM. CD의 기존 Node 18 bundle target과 호환한다.
-- Extension: 기존 `engines.vscode=^1.90.0` 유지. P00-C04에서 최소 1.90.2와 설치된 1.135.0의 Extension Host를 각각 검증한다. 이 조합의 실제 runtime version을 실행 기록에 남긴다.
+- Extension: 기존 `engines.vscode=^1.90.0` 유지. P00-C04에서 최소 1.90.2, 설치된 1.135.0과 조회 당시 stable 1.137.0의 Extension Host를 각각 검증했다. 이 조합의 실제 runtime version을 실행 기록에 남긴다.
 - GCR build와 후속 headless CLI: Node `>=22.0.0`. Library compatibility와 독립 실행용 Node 지원 범위를 구분한다.
 
 ## 생성·검증
