@@ -1,5 +1,7 @@
 # @gcr/client-core
 
+`LocalReviewSourcePort(snapshot, policy, budget)` implements the contract's process-local fixed source port for executors. It binds the actual repository/worktree and snapshot to the approved policy, paginates file metadata (at most 100 files per page), reads bounded fixed source/base lines and searches only approved files. Each attempt consumes the shared tool budget; returned UTF-8 JSON consumes transmission bytes. Successful port responses produce hash/byte receipts, which do not by themselves prove model receipt or semantic understanding. The caller reserves a logical executor invocation before running it. With an account CLI, `modelCalls` counts those invocations, not the CLI's internal sampling/HTTP requests.
+
 GCR-owned client logic for extension and headless consumers. The current local storage implementation supports user-owned memory, review-only Skills, review/chat history and retention. The package also captures immutable local Git/source views. Local context and execution policy prepare a bounded standalone review. Model execution and synchronization follow in later P02/P06 commits. Chat persistence here is an archive; interactive execution and checkpoints follow in P08.
 
 The package depends only on the pure client contract and Node built-ins. It does not import VS Code, GCR server/DB packages or Commit Defender source. It targets Node 18 or later with ES2022/ESM.

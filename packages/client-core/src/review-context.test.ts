@@ -21,6 +21,7 @@ import {
   type LocalContextQuery,
 } from './review-context.js';
 import { resolveReviewMode } from './review-mode.js';
+import { LocalReviewSourcePort } from './review-source-port.js';
 import {
   resolveLocalExecutionPolicy,
   reviewBudgetLimits,
@@ -193,6 +194,10 @@ describe('standalone mode and deterministic local context', () => {
       const policy = await policyInput();
       policy.snapshot = other;
       expect(resolveLocalExecutionPolicy(policy).problems[0]?.code).toBe('source-error');
+      const originalPolicy = resolveLocalExecutionPolicy(await policyInput()).policy!;
+      expect(
+        () => new LocalReviewSourcePort(other, originalPolicy, originalPolicy.createRunBudget()),
+      ).toThrow('policy-unavailable');
     } finally {
       other.close();
     }
@@ -485,6 +490,60 @@ describe('standalone mode and deterministic local context', () => {
 });
 
 describe('execution policy and per-run budget', () => {
+  it('serves only approved fixed source/base through the port and records delivered receipts', async () => {
+    const request = await policyInput();
+    request.approval!.allowRelated = false;
+    const policy = resolveLocalExecutionPolicy(request).policy!;
+    const budget = policy.createRunBudget();
+    const port = new LocalReviewSourcePort(snapshot, policy, budget);
+    const listed = JSON.parse(await port.execute('list_files', {}));
+    expect(listed.files.some((file: { path: string }) => file.path === 'caller.py')).toBe(false);
+    await expect(port.execute('read_file', { path: 'caller.py' })).rejects.toThrow(
+      'policy-unavailable',
+    );
+    await expect(port.execute('read_file', { path: '../api.py' })).rejects.toThrow();
+    const source = JSON.parse(await port.execute('read_file', { path: 'api.py', side: 'source' }));
+    const base = JSON.parse(await port.execute('read_file', { path: 'api.py', side: 'base' }));
+    expect(source.text).toContain('return 1');
+    expect(base.text).toContain('return 0');
+    const search = JSON.parse(await port.execute('search_code', { query: 'load' }));
+    expect(search.matches.every((item: { path: string }) => item.path === 'api.py')).toBe(true);
+    expect(search.verifiedCallGraph).toBe(false);
+    await expect(
+      port.execute('read_file', { path: 'api.py', command: 'cat caller.py' }),
+    ).rejects.toThrow('policy-unavailable');
+    expect(port.receipts).toHaveLength(4);
+    expect(budget.used.toolCalls).toBe(7);
+    expect(budget.used.sourceBytes).toBe(
+      port.receipts.reduce((sum, receipt) => sum + receipt.responseBytes, 0),
+    );
+    port.receipts.splice(0);
+    expect(port.receipts).toHaveLength(4);
+    const page = JSON.parse(await port.execute('list_files', { limit: 1 }));
+    expect(page.files).toHaveLength(1);
+    expect(page.nextOffset).toBe(1);
+    const next = JSON.parse(
+      await port.execute('list_files', { offset: page.nextOffset, limit: 1 }),
+    );
+    expect(next.files[0]).not.toEqual(page.files[0]);
+    await expect(port.execute('list_files', { offset: -1 })).rejects.toThrow('policy-unavailable');
+  });
+  it('does not deliver source after the shared transmission budget is consumed', async () => {
+    const policy = resolveLocalExecutionPolicy(await policyInput()).policy!;
+    const budget = policy.createRunBudget();
+    const port = new LocalReviewSourcePort(snapshot, policy, budget);
+    budget.consumeSource(budget.limits.sourceBytes);
+    await expect(port.execute('read_file', { path: 'api.py' })).rejects.toThrow('quota-exceeded');
+    expect(port.receipts).toEqual([]);
+    expect(
+      () =>
+        new LocalReviewSourcePort(
+          snapshot,
+          policy,
+          new ReviewRunBudget(reviewBudgetLimits({ sourceBytes: 1 })),
+        ),
+    ).toThrow('policy-unavailable');
+  });
   it('binds executor and approved source hashes, keeps standalone advisory and exposes only fixed read tools', async () => {
     const request = await policyInput([
       knowledge('skill', {

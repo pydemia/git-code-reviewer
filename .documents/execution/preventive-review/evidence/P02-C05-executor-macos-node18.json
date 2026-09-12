@@ -1,0 +1,99 @@
+{
+  "platform": "darwin",
+  "node": "v18.20.8",
+  "packageVersion": "0.1.0-alpha.7",
+  "syntheticData": true,
+  "model": "gpt-6-astra",
+  "reasoningEffort": "xhigh",
+  "executorInvocations": 3,
+  "sourceHash": "e09892ff19db685ce241b85773d0f8f51798817a8c83f623c56c5936739e9e1e",
+  "contextHash": "017714e461aac3089fb61caa90637d0e32b63da84d3ba273cd04c12ced17f955",
+  "originalRepositoryRemovedBeforeModel": true,
+  "unapprovedAndAbsoluteSourceDenied": true,
+  "actualReadWitnesses": true,
+  "report": {
+    "defect": true,
+    "affectedPath": "cache.py",
+    "line": 5,
+    "missingKey": "b",
+    "explanation": "With a partial cache hit, the early return omits requested uncached keys instead of loading them from the database. caller.py's concrete call now returns {\"a\": 1}, causing batch() to raise KeyError(\"b\"); the base returned both keys and batch() returned 3.",
+    "readWitnesses": [
+      "9664866106b2a04af658cd18b0361175",
+      "65921c78dfc0237a5a29473bc471d6bf",
+      "2738864caf5dfc4357881f96aca93ef8"
+    ],
+    "contextMissing": false
+  },
+  "receipts": [
+    {
+      "sequence": 1,
+      "tool": "list_files",
+      "argumentsHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "responseHash": "c17b93efd4c8d74ae6c6a4a8d9fbab934bc9e6d4c6493aa69aefc832d0ff2305",
+      "responseBytes": 852
+    },
+    {
+      "sequence": 2,
+      "tool": "read_file",
+      "argumentsHash": "46efa6aa5e61e1a707512b1e00ee836b96087d9e7860d7002ce7bdd84b366821",
+      "responseHash": "ba56919aa600a09970312edc309d9f7c7bf609d8d5545e0d380cb229eb6d51df",
+      "responseBytes": 593
+    },
+    {
+      "sequence": 3,
+      "tool": "read_file",
+      "argumentsHash": "ce95ce7b7009047e06ba3b39eb363e2201d5356290d46cc806775f8d13b19b44",
+      "responseHash": "3eef67b951a7ba1843f0ea1efb4fd43ca608c7d1db7d7fa5a72cc3d483bc8564",
+      "responseBytes": 521
+    },
+    {
+      "sequence": 4,
+      "tool": "read_file",
+      "argumentsHash": "c6ab5c3f7cbe3f867b9843fd3a725ba98ad2d540dd36a566eeccc5469fe2e5e8",
+      "responseHash": "0a1f0c6465731aeae7ce6ee08fc72e5231bcb67549e33b5f050b898ebe08ff0e",
+      "responseBytes": 562
+    }
+  ],
+  "completedReviewMs": 27057,
+  "usage": {
+    "inputTokens": 8719,
+    "outputTokens": 308,
+    "cachedInputTokens": 4736
+  },
+  "cancellation": {
+    "activeToolCalls": 1,
+    "elapsedMs": 10165
+  },
+  "timeout": {
+    "activeToolCalls": 1,
+    "elapsedMs": 15425
+  },
+  "outputTokenHardLimitSupported": false,
+  "centralRequests": 0,
+  "cleanup": "completed",
+  "verification": "installed-artifact",
+  "artifacts": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.7",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.7",
+        "file": "gcr-client-contract-0.1.0-alpha.7.tgz",
+        "sha256": "bcc7a1c09fb6f31c81a282b120acf01fde770c2fad1c0feea30aed73d5457277"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.7",
+        "file": "gcr-client-core-0.1.0-alpha.7.tgz",
+        "sha256": "be2db963e566ba0beca162a1d76c725c775718d1f686ca54ee5b3c2b0c688750"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.7",
+        "file": "gcr-client-executors-0.1.0-alpha.7.tgz",
+        "sha256": "00942c86e96d7c4c7265f3ed654e55f4d77a70c3d282fce069d6b87a49e69883"
+      }
+    ]
+  }
+}
