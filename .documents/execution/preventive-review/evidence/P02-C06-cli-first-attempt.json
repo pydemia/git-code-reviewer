@@ -1,0 +1,292 @@
+{
+  "status": "incomplete-attempt",
+  "platform": "darwin",
+  "node": "v25.9.0",
+  "releaseManifest": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.2",
+    "clientVersion": "0.1.0-alpha.8",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.8",
+        "file": "gcr-client-contract-0.1.0-alpha.8.tgz",
+        "sha256": "bc99da29f6d5471dc4853e8838f63a0422fe9afa2fa504b80d7943895ffc2bc7"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.8",
+        "file": "gcr-client-core-0.1.0-alpha.8.tgz",
+        "sha256": "ed19e906be13cc4408ff9f31c4ee93e388883611f58b68123078044c18e2cdf4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.8",
+        "file": "gcr-client-executors-0.1.0-alpha.8.tgz",
+        "sha256": "faebb7565cf0d03ad002d1a18b27a8dce08ed466e22249421ba932f1a6987dc0"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.2",
+        "file": "gcr-cli-0.1.0-alpha.2.tgz",
+        "sha256": "7663c24e553c73660c9933fc588c252f439306dc152deb3ea499cffc6e76debb"
+      }
+    ]
+  },
+  "syntheticData": true,
+  "executorInvocations": 4,
+  "reviewTimeoutMs": 120000,
+  "progress": [
+    {
+      "stage": "review-result",
+      "language": "python",
+      "variant": "defect",
+      "exitCode": 1,
+      "status": "completed",
+      "elapsedMs": 60025
+    },
+    {
+      "stage": "review-result",
+      "language": "python",
+      "variant": "fix",
+      "exitCode": 0,
+      "status": "completed",
+      "elapsedMs": 43748
+    },
+    {
+      "stage": "review-result",
+      "language": "python",
+      "variant": "normal",
+      "exitCode": 0,
+      "status": "completed",
+      "elapsedMs": 42926
+    },
+    {
+      "stage": "review-result",
+      "language": "typescript",
+      "variant": "defect",
+      "exitCode": 2,
+      "status": "failed",
+      "elapsedMs": 122979
+    }
+  ],
+  "successfulFullReportsRetained": false,
+  "timeoutReport": {
+    "contractVersion": 1,
+    "runId": "a473baee-b709-4e08-a005-319ffd7d76cf",
+    "identity": {
+      "client": {
+        "mode": "standalone",
+        "profileId": "cli-smoke-8d5b8f6f-c268-4448-abf2-03cd5b48ec8b",
+        "repositoryKey": "85ec263e2b6d7d9146c65055d99435610ca05bafb45a5dcf1430b9c3982f299d",
+        "worktreeKey": "fc8a3c34a542a464cdae1b7c0dc2414386d637f308edfd30020ec37add35b3d3"
+      },
+      "source": {
+        "kind": "index",
+        "hash": "3ed695d2f7ca348c9c5120076e500b2da4a10fcd32509d91f69ce52f18fc9c39",
+        "objectFormat": "sha1",
+        "baseCommit": "069c7a148051309ad9461155d3c204cb8d625d86",
+        "baseTree": "aa245bc4e8a01538e225666f39b0663758823755",
+        "sourceTree": "e82498c0988e1a2356e0146e9b24554207cf354a"
+      },
+      "context": {
+        "hash": "5a9ac6ed87d58a90bb0343dab09a6e89ba7659cfd16e884f07038af4ce202cfd",
+        "entries": [
+          {
+            "origin": "builtin",
+            "kind": "skill",
+            "id": "gcr-standalone-review",
+            "revision": 1,
+            "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+          }
+        ],
+        "required": [
+          {
+            "kind": "knowledge",
+            "reference": "builtin:gcr-standalone-review",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:3cc2ae5b5767ead7782bdb6678e55a599c79c1c989d2242b98003c95384768e1",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:64b3d5880e0bbf90ebc82ce34112ea0f0cb6f571fcaa7da3ef6a0ee60f82fbd7",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:f39ba258f80796127daee1a60b778e445458b0c986450d872b0c3f5404fcba05",
+            "available": true,
+            "reason": ""
+          }
+        ]
+      },
+      "reviewProfile": {
+        "id": "gcr-standalone-review",
+        "revision": 1,
+        "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+      },
+      "executor": {
+        "id": "codex-account",
+        "version": "0.153.4/gcr-fixed-source-v1",
+        "model": "gpt-6-astra",
+        "configHash": "cacde4d7ad5ec3f6379bede6c69806453c8d3195af8504ee43657dded04743db"
+      },
+      "toolsHash": "ad20f99b4b10844cdddc48acdc714fd29786d9e422b1bfb088d68e1ffc72ecf1"
+    },
+    "status": "failed",
+    "trigger": "manual",
+    "requestedAt": "2026-09-12T19:26:31.921Z",
+    "startedAt": "2026-09-12T19:26:31.921Z",
+    "finishedAt": "2026-09-12T19:28:32.351Z",
+    "durationMs": 120430,
+    "summary": "Review did not complete.",
+    "sourceFiles": [
+      {
+        "path": "caller.ts",
+        "side": "source",
+        "hash": "e45c3d391c63324f72e480864c6bb6e7905b233403b65f7b50f1d20a26144745",
+        "byteLength": 94,
+        "lineCount": 3,
+        "gitBlob": "b1eb6a560e60a980af0463130913950ed2043398"
+      },
+      {
+        "path": "caller.ts",
+        "side": "base",
+        "hash": "e45c3d391c63324f72e480864c6bb6e7905b233403b65f7b50f1d20a26144745",
+        "byteLength": 94,
+        "lineCount": 3,
+        "gitBlob": "b1eb6a560e60a980af0463130913950ed2043398"
+      },
+      {
+        "path": "sum.ts",
+        "side": "source",
+        "hash": "543e498aac6a53dd5223abe170372b2a3751d3bc656462e96af1dc973d764d28",
+        "byteLength": 187,
+        "lineCount": 5,
+        "gitBlob": "4eba31773127edeab1e87f7504c6c6df31d4c854"
+      },
+      {
+        "path": "sum.ts",
+        "side": "base",
+        "hash": "78fd8d0a6388016c8ac5815356fbc20359f450ec28f16c4bbc3501bdc5037ed2",
+        "byteLength": 190,
+        "lineCount": 5,
+        "gitBlob": "98707b8bffdc523bb87b6decac6a9b418cbfda79"
+      }
+    ],
+    "files": [
+      {
+        "source": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "543e498aac6a53dd5223abe170372b2a3751d3bc656462e96af1dc973d764d28",
+          "byteLength": 187,
+          "lineCount": 5,
+          "gitBlob": "4eba31773127edeab1e87f7504c6c6df31d4c854"
+        },
+        "status": "failed",
+        "summary": "Review did not complete."
+      }
+    ],
+    "excluded": [],
+    "problems": [
+      {
+        "code": "timeout",
+        "message": "No complete review is available; inspect the problem code before retrying."
+      }
+    ],
+    "findings": [],
+    "evidence": [
+      {
+        "kind": "source-read",
+        "id": "b91e40cf-0172-43fb-ba0d-be3173397ee6",
+        "sourceHash": "3ed695d2f7ca348c9c5120076e500b2da4a10fcd32509d91f69ce52f18fc9c39",
+        "contextHash": "5a9ac6ed87d58a90bb0343dab09a6e89ba7659cfd16e884f07038af4ce202cfd",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:b91e40cf-0172-43fb-ba0d-be3173397ee6"
+        },
+        "observedAt": "2026-09-12T19:26:44.609Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "543e498aac6a53dd5223abe170372b2a3751d3bc656462e96af1dc973d764d28",
+          "startLine": 1,
+          "endLine": 5
+        },
+        "observation": "Returned excerpt sha256=543e498aac6a53dd5223abe170372b2a3751d3bc656462e96af1dc973d764d28; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "9f77be49-6706-4ac0-99e7-e7dff3e1ae34",
+        "sourceHash": "3ed695d2f7ca348c9c5120076e500b2da4a10fcd32509d91f69ce52f18fc9c39",
+        "contextHash": "5a9ac6ed87d58a90bb0343dab09a6e89ba7659cfd16e884f07038af4ce202cfd",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:9f77be49-6706-4ac0-99e7-e7dff3e1ae34"
+        },
+        "observedAt": "2026-09-12T19:26:47.760Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "base",
+          "hash": "78fd8d0a6388016c8ac5815356fbc20359f450ec28f16c4bbc3501bdc5037ed2",
+          "startLine": 1,
+          "endLine": 5
+        },
+        "observation": "Returned excerpt sha256=78fd8d0a6388016c8ac5815356fbc20359f450ec28f16c4bbc3501bdc5037ed2; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "b1d88f9c-9526-4c4d-96fd-1f32c23e3346",
+        "sourceHash": "3ed695d2f7ca348c9c5120076e500b2da4a10fcd32509d91f69ce52f18fc9c39",
+        "contextHash": "5a9ac6ed87d58a90bb0343dab09a6e89ba7659cfd16e884f07038af4ce202cfd",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:b1d88f9c-9526-4c4d-96fd-1f32c23e3346"
+        },
+        "observedAt": "2026-09-12T19:26:51.697Z",
+        "location": {
+          "path": "caller.ts",
+          "side": "source",
+          "hash": "e45c3d391c63324f72e480864c6bb6e7905b233403b65f7b50f1d20a26144745",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=e45c3d391c63324f72e480864c6bb6e7905b233403b65f7b50f1d20a26144745; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "21ee5705-1631-408b-a2f0-f65de3810f5e",
+        "sourceHash": "3ed695d2f7ca348c9c5120076e500b2da4a10fcd32509d91f69ce52f18fc9c39",
+        "contextHash": "5a9ac6ed87d58a90bb0343dab09a6e89ba7659cfd16e884f07038af4ce202cfd",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:21ee5705-1631-408b-a2f0-f65de3810f5e"
+        },
+        "observedAt": "2026-09-12T19:26:55.625Z",
+        "location": {
+          "path": "caller.ts",
+          "side": "base",
+          "hash": "e45c3d391c63324f72e480864c6bb6e7905b233403b65f7b50f1d20a26144745",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=e45c3d391c63324f72e480864c6bb6e7905b233403b65f7b50f1d20a26144745; truncated=false. Port return only; no test executed."
+      }
+    ],
+    "questions": []
+  },
+  "cleanup": "completed",
+  "note": "The first smoke harness retained full reports only at final success. Its TypeScript defect attempt timed out after the three Python checks passed. Later attempts checkpoint every received/verified case separately."
+}

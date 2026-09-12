@@ -42,6 +42,6 @@ npm run build
 
 CD의 `package.json`은 repository 상대 `file:vendor/...`와 lockfile integrity를 고정한다. 세 artifact를 함께 설치하므로 core/executors의 exact contract dependency가 동일한 root package로 해소된다. CD bundler가 runtime 코드를 VSIX에 포함하고 license/notice도 함께 담는다. 설치 사용자에게 GCR checkout·개발자의 절대 경로·private registry 자격 증명이 필요하지 않다.
 
-Headless 배포는 P02-C06에서 `apps/cli`를 Node 22용 단일 실행 bundle과 license/notice를 가진 `gcr-cli-<version>.tgz`로 만든다. CD의 같은 vendor release 디렉터리에 선택 설치 artifact로 전달하고 `npm install -g ./gcr-cli-<version>.tgz`로 설치한다. CLI 배포물의 생성·설치·실제 실행은 P02-C06의 완료 조건이며 현재 존재한다고 표시하지 않는다.
+Headless 배포는 `pnpm pack:cli --verify`로 `apps/cli`의 Node 22용 단일 실행 bundle과 LICENSE/NOTICE를 가진 `gcr-cli-<version>.tgz`를 만든다. `artifacts/cli/<cli-version>/`에 CLI와 세 library tarball, 전체 hash manifest를 함께 보관한다. CLI에는 runtime npm dependency가 없으므로 `npm install -g --offline --ignore-scripts ./gcr-cli-<version>.tgz`로 단독 설치한다. CLI 내부 `dist/client-packages.json`은 bundle한 library 버전과 hash를 기록한다. 생성 script는 bundle의 모든 library 입력이 해당 tarball 내용과 같은지, runtime import가 Node built-in뿐인지 검사하고 CLI tarball 하나만 설치한 consumer에서 실행한다. CD에는 선택 설치 artifact로 전달할 수 있으며 실제 vendor pin과 extension 통합은 P02-C07에서 기록한다.
 
 Extension Host 검증은 [VS Code 공식 testing 절차](https://code.visualstudio.com/api/working-with-extensions/testing-extension)를 따른다. 1.90.2는 [기존 최소 버전 계열](https://code.visualstudio.com/updates/v1_90)의 patch 버전이다.

@@ -39,6 +39,21 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(tsx@4.23.13)
 
+  apps/cli:
+    devDependencies:
+      '@gcr/client-contract':
+        specifier: workspace:*
+        version: link:../../packages/client-contract
+      '@gcr/client-core':
+        specifier: workspace:*
+        version: link:../../packages/client-core
+      '@gcr/client-executors':
+        specifier: workspace:*
+        version: link:../../packages/client-executors
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+
   apps/runtime:
     dependencies:
       '@fastify/cookie':

@@ -1,0 +1,44 @@
+{
+  "platform": "linux",
+  "node": "v22.23.2",
+  "cliVersion": "0.1.0-alpha.3",
+  "installedCliOnly": true,
+  "network": "none",
+  "help": true,
+  "centralizedUnavailable": true,
+  "missingKeyStore": "credential-unavailable",
+  "plaintextFallback": false,
+  "modelInvocations": 0,
+  "image": "node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "releaseManifest": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.3",
+    "clientVersion": "0.1.0-alpha.9",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.9",
+        "file": "gcr-client-contract-0.1.0-alpha.9.tgz",
+        "sha256": "f58bf7bf8515f5f0d87a6361f18430be2c2af176bf36a7c032f1087e630920fa"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.9",
+        "file": "gcr-client-core-0.1.0-alpha.9.tgz",
+        "sha256": "88d3c4d7b8bcac6ae8ff02b28d56f58f8fcc83e997bea2c50820d460a794bb60"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.9",
+        "file": "gcr-client-executors-0.1.0-alpha.9.tgz",
+        "sha256": "4eb7a6a847e99830205a952692887e0561be6893d3927a251bdef00bda5369c3"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.3",
+        "file": "gcr-cli-0.1.0-alpha.3.tgz",
+        "sha256": "57b76550a8cfb0dcb8c01d9be1580fbb55b9976e4b078c909698d95457763c4c"
+      }
+    ]
+  }
+}

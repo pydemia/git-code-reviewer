@@ -1,0 +1,29 @@
+{
+  "name": "@gcr/cli",
+  "version": "0.1.0-alpha.3",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "bin": {
+    "gcr": "dist/main.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/main.js --metafile=dist/build-inputs.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@gcr/client-contract": "workspace:*",
+    "@gcr/client-core": "workspace:*",
+    "@gcr/client-executors": "workspace:*",
+    "esbuild": "0.28.2"
+  }
+}

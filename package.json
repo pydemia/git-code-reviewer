@@ -21,7 +21,9 @@
     "test:watch": "vitest",
     "typecheck": "pnpm build:packages && pnpm -r typecheck",
     "build:clients": "pnpm --filter @gcr/client-contract build && pnpm --filter @gcr/client-core build && pnpm --filter @gcr/client-executors build",
-    "pack:clients": "node scripts/client-packages.mjs"
+    "pack:clients": "node scripts/client-packages.mjs",
+    "build:cli": "pnpm build:clients && pnpm --filter @gcr/cli build",
+    "pack:cli": "node scripts/cli-package.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

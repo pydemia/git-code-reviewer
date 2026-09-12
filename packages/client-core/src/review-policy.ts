@@ -322,7 +322,7 @@ export function resolveLocalExecutionPolicy(input: ResolvePolicyInput): LocalPol
       revision: builtinReviewSkill.revision,
       hash: builtinReviewSkill.hash,
     };
-    const toolsHash = contentHash({ version: 1, tools: localReviewTools, sources, budgets });
+    const toolsHash = contentHash({ version: 2, tools: localReviewTools, sources, budgets });
     const identity = executionIdentity({
       client,
       source: snapshot,

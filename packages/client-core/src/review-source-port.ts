@@ -1,8 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import {
   sourcePath,
   type FixedSourceToolName,
   type FixedSourceToolPort,
   type SourceReadReceipt,
+  type SourceLocation,
 } from '@gcr/client-contract';
 import { contentHash } from './local-identity.js';
 import {
@@ -12,9 +14,19 @@ import {
 } from './review-policy.js';
 import type { LocalSourceSnapshot } from './source-snapshot.js';
 
+/** A successful port return, not an attestation of model understanding or test execution. */
+export interface LocalSourceReadObservation {
+  id: string;
+  location: SourceLocation;
+  excerptHash: string;
+  truncated: boolean;
+  observedAt: string;
+}
+
 /** The model sees serialized, authorized snapshot data, never a mutable filesystem path. */
 export class LocalReviewSourcePort implements FixedSourceToolPort {
   #receipts: SourceReadReceipt[] = [];
+  #reads: LocalSourceReadObservation[] = [];
   constructor(
     private readonly snapshot: LocalSourceSnapshot,
     private readonly policy: LocalExecutionPolicy,
@@ -33,6 +45,9 @@ export class LocalReviewSourcePort implements FixedSourceToolPort {
   get receipts(): SourceReadReceipt[] {
     return structuredClone(this.#receipts);
   }
+  get reads(): LocalSourceReadObservation[] {
+    return structuredClone(this.#reads);
+  }
   async execute(name: FixedSourceToolName, argumentsValue: unknown): Promise<string> {
     this.policy.requireTool(name);
     this.budget.consumeTool();
@@ -48,6 +63,7 @@ export class LocalReviewSourcePort implements FixedSourceToolPort {
     if (Object.keys(args).some((key) => !allowed.includes(key)))
       throw new ReviewPolicyError('policy-unavailable');
     let response: unknown;
+    let read: LocalSourceReadObservation | undefined;
     if (name === 'list_files') {
       const offset = args.offset ?? 0;
       const limit = args.limit ?? 100;
@@ -83,7 +99,20 @@ export class LocalReviewSourcePort implements FixedSourceToolPort {
         const result = this.snapshot.readLines(file, side, start, end);
         if (result.status !== 'available' || !this.policy.allowSource(result.source))
           throw new ReviewPolicyError('policy-unavailable');
-        response = result;
+        read = {
+          id: randomUUID(),
+          location: {
+            path: file,
+            side,
+            hash: descriptor.hash,
+            startLine: result.startLine,
+            endLine: result.endLine,
+          },
+          excerptHash: result.excerptHash,
+          truncated: result.truncated,
+          observedAt: new Date().toISOString(),
+        };
+        response = { ...result, readId: read.id };
       } else {
         if (typeof args.query !== 'string' || !args.query || args.query.length > 300)
           throw new ReviewPolicyError('policy-unavailable');
@@ -129,6 +158,7 @@ export class LocalReviewSourcePort implements FixedSourceToolPort {
     const text = JSON.stringify(response);
     const bytes = Buffer.byteLength(text);
     this.budget.consumeSource(bytes);
+    if (read) this.#reads.push(read);
     this.#receipts.push({
       sequence: this.#receipts.length + 1,
       tool: name,

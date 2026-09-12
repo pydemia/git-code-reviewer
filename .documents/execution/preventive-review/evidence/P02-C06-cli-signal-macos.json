@@ -1,0 +1,42 @@
+{
+  "platform": "darwin",
+  "cliVersion": "0.1.0-alpha.2",
+  "signal": "SIGINT",
+  "during": "piped JSON input",
+  "status": "cancelled",
+  "exitCode": 2,
+  "stderrEmpty": true,
+  "modelInvocations": 0,
+  "cleanup": "completed",
+  "releaseManifest": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.2",
+    "clientVersion": "0.1.0-alpha.8",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.8",
+        "file": "gcr-client-contract-0.1.0-alpha.8.tgz",
+        "sha256": "bc99da29f6d5471dc4853e8838f63a0422fe9afa2fa504b80d7943895ffc2bc7"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.8",
+        "file": "gcr-client-core-0.1.0-alpha.8.tgz",
+        "sha256": "ed19e906be13cc4408ff9f31c4ee93e388883611f58b68123078044c18e2cdf4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.8",
+        "file": "gcr-client-executors-0.1.0-alpha.8.tgz",
+        "sha256": "faebb7565cf0d03ad002d1a18b27a8dce08ed466e22249421ba932f1a6987dc0"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.2",
+        "file": "gcr-cli-0.1.0-alpha.2.tgz",
+        "sha256": "7663c24e553c73660c9933fc588c252f439306dc152deb3ea499cffc6e76debb"
+      }
+    ]
+  }
+}
