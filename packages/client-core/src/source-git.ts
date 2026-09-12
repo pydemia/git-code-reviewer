@@ -17,6 +17,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SourceCaptureError } from './source-policy.js';
+import { contentHash } from './local-identity.js';
 
 export interface GitEntry {
   mode: string;
@@ -31,6 +32,8 @@ export class SourceGit {
   readonly index: string;
   readonly objectFormat: 'sha1' | 'sha256';
   readonly initialHead: string | null;
+  readonly initialBranch: string | null;
+  readonly repository: { repositoryKey: string; worktreeKey: string };
   private readonly environment: NodeJS.ProcessEnv;
   constructor(
     cwd: string,
@@ -60,7 +63,23 @@ export class SourceGit {
       if (format !== 'sha1' && format !== 'sha256')
         throw new SourceCaptureError('source-unavailable');
       this.objectFormat = format;
+      const common = realpathSync(
+        this.text(['rev-parse', '--path-format=absolute', '--git-common-dir']).trim(),
+      );
+      const directory = realpathSync(
+        this.text(['rev-parse', '--path-format=absolute', '--git-dir']).trim(),
+      );
+      this.repository = {
+        repositoryKey: contentHash({ version: 1, commonDirectory: common }),
+        worktreeKey: contentHash({
+          version: 1,
+          commonDirectory: common,
+          gitDirectory: directory,
+          root: this.root,
+        }),
+      };
       this.initialHead = this.head();
+      this.initialBranch = this.branch();
       const originalIndex = this.text([
         'rev-parse',
         '--path-format=absolute',
@@ -194,6 +213,17 @@ export class SourceGit {
       return this.oid(this.text(['rev-parse', '--verify', `${this.oid(value)}^{commit}`]).trim());
     this.text(['symbolic-ref', '--quiet', 'HEAD']);
     return null;
+  }
+  branch(): string | null {
+    const value = this.text(
+      ['symbolic-ref', '--quiet', 'HEAD'],
+      undefined,
+      undefined,
+      [0, 1],
+    ).trim();
+    if (!value) return null;
+    if (!value.startsWith('refs/heads/')) throw new SourceCaptureError('source-unavailable');
+    return value.slice('refs/heads/'.length);
   }
   tree(oid: string, maxEntries: number): GitTree {
     const tree: GitTree = new Map();

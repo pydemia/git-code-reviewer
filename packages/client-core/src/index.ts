@@ -2,7 +2,7 @@ import { CLIENT_CONTRACT_VERSION, type ClientPackageInfo } from '@gcr/client-con
 
 export const clientCorePackage: ClientPackageInfo = Object.freeze({
   name: '@gcr/client-core',
-  version: '0.1.0-alpha.5',
+  version: '0.1.0-alpha.6',
   contractVersion: CLIENT_CONTRACT_VERSION,
 });
 
@@ -14,3 +14,7 @@ export * from './local-knowledge.js';
 export * from './local-history.js';
 export * from './source-policy.js';
 export * from './source-snapshot.js';
+export * from './builtin-review.js';
+export * from './review-mode.js';
+export * from './review-context.js';
+export * from './review-policy.js';

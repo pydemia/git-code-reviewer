@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { readSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { captureLocalSource } from './source-snapshot.js';
 import { sourcePathPolicy } from './source-policy.js';
 import { SourceGit } from './source-git.js';
@@ -13,6 +13,9 @@ vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return { ...actual, readSync: vi.fn(actual.readSync) };
 });
+// Each capture uses synchronous Git plumbing. Let the test worker deliver its
+// pending RPC updates between fixtures instead of starving them across the file.
+afterEach(() => new Promise<void>((resolve) => setImmediate(resolve)));
 
 function fixture(action: (f: ReturnType<typeof createFixture>) => void, format = 'sha1') {
   const f = createFixture(format);
@@ -503,7 +506,7 @@ describe('immutable local source capture', { timeout: 20_000 }, () => {
           .selected,
       ).toEqual([]);
     }));
-  for (const mutation of ['head', 'ignore'])
+  for (const mutation of ['head', 'ignore', 'branch'])
     it(`refuses a ${mutation} change during capture`, () =>
       fixture((f) => {
         f.write('a.py', 'value = 0\n');
@@ -521,7 +524,10 @@ describe('immutable local source capture', { timeout: 20_000 }, () => {
           if (!changed && args[0][0] === 'cat-file') {
             changed = true;
             if (mutation === 'head') f.git('update-ref', 'HEAD', old);
-            else f.write('.gitignore', 'a.py\n');
+            else if (mutation === 'branch') {
+              f.git('branch', 'same-commit');
+              f.git('symbolic-ref', 'HEAD', 'refs/heads/same-commit');
+            } else f.write('.gitignore', 'a.py\n');
           }
           return result;
         });

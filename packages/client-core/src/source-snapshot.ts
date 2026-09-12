@@ -101,16 +101,22 @@ class LocalSourceSnapshot {
   #limitations: SourceLimitation[];
   #diff: string;
   #headCommit: string | null;
+  #branchName: string | null;
+  #repository: { repositoryKey: string; worktreeKey: string };
   constructor(
     identity: SnapshotIdentity,
+    repository: { repositoryKey: string; worktreeKey: string },
     headCommit: string | null,
+    branchName: string | null,
     files: Map<string, CapturedFile>,
     selected: SourceChange[],
     limitations: SourceLimitation[],
     diff: string,
   ) {
     this.#identity = snapshotIdentity(identity);
+    this.#repository = { ...repository };
     this.#headCommit = headCommit;
+    this.#branchName = branchName;
     this.#files = new Map([...files].map(([id, file]) => [id, structuredClone(file)]));
     this.#selected = structuredClone(selected);
     this.#limitations = structuredClone(limitations);
@@ -126,6 +132,14 @@ class LocalSourceSnapshot {
   get headCommit(): string | null {
     this.open();
     return this.#headCommit;
+  }
+  get repository(): { repositoryKey: string; worktreeKey: string } {
+    this.open();
+    return { ...this.#repository };
+  }
+  get branchName(): string | null {
+    this.open();
+    return this.#branchName;
   }
   get selected(): SourceChange[] {
     this.open();
@@ -537,7 +551,11 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
         throw new SourceCaptureError('snapshot-changed');
       }
     }
-    if (git.head() !== headCommit || checkIgnore() !== frozenIgnore)
+    if (
+      git.head() !== headCommit ||
+      git.branch() !== git.initialBranch ||
+      checkIgnore() !== frozenIgnore
+    )
       throw new SourceCaptureError('snapshot-changed');
     if (workingWrites.length) {
       const names = workingWrites.map(({ body }, index) => {
@@ -670,7 +688,16 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
         diffHash: hash(diff),
       }),
     });
-    return new LocalSourceSnapshot(identity, headCommit, files, selected, limitations, diff);
+    return new LocalSourceSnapshot(
+      identity,
+      git.repository,
+      headCommit,
+      git.initialBranch,
+      files,
+      selected,
+      limitations,
+      diff,
+    );
   } finally {
     git.close();
   }

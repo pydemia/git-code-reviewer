@@ -126,10 +126,8 @@ export class SourceCaptureError extends Error {
   }
 }
 
-/** Deny patterns support *, ?, ** path components and trailing directory /. No negation. */
-export function sourcePathPolicy(
-  patterns: readonly string[] = [],
-): (file: string) => SourceExclusionReason | undefined {
+/** Match the bounded path-pattern subset; a match includes descendants. */
+export function compilePathPatterns(patterns: readonly string[] = []): (file: string) => boolean {
   if (!Array.isArray(patterns) || patterns.length > 128)
     throw new SourceCaptureError('invalid-source-request');
   const matchers = Array.from(patterns, (raw) => {
@@ -185,6 +183,14 @@ export function sourcePathPolicy(
       return positions.size > 0; // A matching directory also excludes descendants.
     };
   });
+  return (file) => matchers.some((match) => match(file));
+}
+
+/** Deny-only source filtering. Patterns cannot override private defaults. */
+export function sourcePathPolicy(
+  patterns: readonly string[] = [],
+): (file: string) => SourceExclusionReason | undefined {
+  const matches = compilePathPatterns(patterns);
   return (file) => {
     try {
       sourcePath(file);
@@ -203,7 +209,7 @@ export function sourcePathPolicy(
       return 'private-data';
     if (parts.some((part) => generated.has(part))) return 'generated';
     if (binary.has(path.posix.extname(name))) return 'binary';
-    if (matchers.some((match) => match(file))) return 'user-excluded';
+    if (matches(file)) return 'user-excluded';
     return undefined;
   };
 }

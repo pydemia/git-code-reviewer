@@ -71,11 +71,15 @@ export class LocalKnowledgeStore {
   }
   async list(): Promise<LocalKnowledge[]> {
     const items: LocalKnowledge[] = [];
+    for await (const item of this.entries()) items.push(item);
+    return items.sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+  }
+  /** Read one authenticated record at a time so context consumers can enforce a scan budget. */
+  async *entries(): AsyncGenerator<LocalKnowledge> {
     for (const id of await this.records.listIds('knowledge')) {
       const item = await this.get(id);
-      if (item) items.push(item);
+      if (item) yield item;
     }
-    return items.sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
   }
   async active(): Promise<LocalKnowledge[]> {
     const now = this.timestamp();
