@@ -9,6 +9,8 @@
 
 로컬 client는 [Commit Defender 재사용 검토](./commit-defender-integration-assessment.md)를 바탕으로 GitHub 2.3.0의 VS Code UI·계정 CLI adapter를 활용하고 공통 client core를 추가하는 방향으로 기획한다. 후속 요구에 따라 `standalone`과 `centralized` 모드, 사용자가 입력하는 중앙 서버 URL, cache 우선·standalone fallback, local memory·Skill 영속 저장을 지원한다. 실제 연결·저장 기능은 구현 전이다.
 
+개발 순서·저장소별 commit·goal 완료 조건은 [사전 예방형 리뷰 플랫폼 구현 계획](./preventive-review-implementation-plan.md)에 정의한다.
+
 ## 1. 제품 목표와 결정
 
 GitHub에서 사람이 확인한 리뷰 판단을 중앙에 축적하고, 개발자가 PR을 올리기 전에 로컬 변경을 리뷰할 때 활용한다. 변경 diff뿐 아니라 base branch의 구현, 현재 코드의 호출부·관련 module, 기존 리뷰와 반박·예외를 함께 읽어 회귀 위험과 설계상의 문제를 판단한다.
