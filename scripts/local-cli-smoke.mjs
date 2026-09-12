@@ -111,11 +111,11 @@ const pyBug =
 const pyNormal =
   'def load(keys: list[str], cache: dict[str, int]) -> dict[str, int]:\n    """Return every requested key; missing keys default to zero."""\n    result = {}\n    for key in keys:\n        result[key] = cache.get(key, 0)\n    return result\n';
 const tsFixed =
-  '/** Sum finite safe integers; the sum is a safe integer. Empty input returns zero. */\nexport function total(items: number[]): number {\n  return items.reduce((sum, item) => sum + item, 0);\n}\n';
+  '/** Sum finite safe integers; the sum is a safe integer. Empty input returns zero. */\nexport function total(items: number[]): number {\n  return Number(items.reduce((sum, item) => sum + BigInt(item), 0n));\n}\n';
 const tsBug =
-  '/** Sum finite safe integers; the sum is a safe integer. Empty input returns zero. */\nexport function total(items: number[]): number {\n  return items.reduce((sum, item) => sum + item);\n}\n';
+  '/** Sum finite safe integers; the sum is a safe integer. Empty input returns zero. */\nexport function total(items: number[]): number {\n  return Number(items.map(BigInt).reduce((sum, item) => sum + item));\n}\n';
 const tsNormal =
-  '/** Sum finite safe integers; the sum is a safe integer. Empty input returns zero. */\nexport function total(items: number[]): number {\n  let sum = 0;\n  for (const item of items) sum += item;\n  return sum;\n}\n';
+  '/** Sum finite safe integers; the sum is a safe integer. Empty input returns zero. */\nexport function total(items: number[]): number {\n  let sum = 0n;\n  for (const item of items) sum += BigInt(item);\n  return Number(sum);\n}\n';
 function observe(file, language) {
   if (language === 'python')
     return JSON.parse(
@@ -194,7 +194,7 @@ try {
         path.join(repo, testFile),
         language === 'python'
           ? 'from cache import load\nfrom caller import render\n\nassert load(["a", "b"], {"a": 1}) == {"a": 1, "b": 0}\nassert load(["a"], {"a": 1}) == {"a": 1}\nassert load([], {}) == {}\nassert render() == 1\n'
-          : 'import assert from "node:assert/strict";\nimport { total } from "./sum.ts";\nimport { renderEmpty } from "./caller.ts";\nassert.equal(total([]), 0);\nassert.equal(total([1, -1, 0]), 0);\nassert.equal(total([Number.MAX_SAFE_INTEGER]), Number.MAX_SAFE_INTEGER);\nassert.equal(renderEmpty(), 0);\n',
+          : 'import assert from "node:assert/strict";\nimport { total } from "./sum.ts";\nimport { renderEmpty } from "./caller.ts";\nassert.equal(total([]), 0);\nassert.equal(total([1, -1, 0]), 0);\nassert.equal(total([Number.MAX_SAFE_INTEGER]), Number.MAX_SAFE_INTEGER);\nassert.equal(total([Number.MAX_SAFE_INTEGER, 2, -2]), Number.MAX_SAFE_INTEGER);\nassert.equal(total([-Number.MAX_SAFE_INTEGER, -2, 2]), -Number.MAX_SAFE_INTEGER);\nassert.equal(renderEmpty(), 0);\n',
       );
       if (language === 'typescript')
         fs.writeFileSync(
