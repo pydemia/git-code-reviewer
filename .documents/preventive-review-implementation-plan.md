@@ -2,7 +2,7 @@
 
 작성일: 2026-09-12
 
-상태: 구현 진행 중. 이 문서는 phase·commit·검증·릴리스 단위를 정의한다. 아래 계획표 자체는 완료 증거가 아니며 실제 변경과 검증은 [phase 실행 기록](./execution/preventive-review/P00.md)에 남긴다. 2026-09-12 사용자의 전체 개발·배포 goal 요청에 따라 현재 세션에서 phase checkpoint를 순차 진행한다.
+상태: 구현 진행 중. 이 문서는 phase·commit·검증·릴리스 단위를 정의한다. 아래 계획표 자체는 완료 증거가 아니며 실제 변경과 검증은 [P00 실행 기록](./execution/preventive-review/P00.md)과 [P01 실행 기록](./execution/preventive-review/P01.md)에 남긴다. 2026-09-12 사용자의 전체 개발·배포 goal 요청에 따라 현재 세션에서 phase checkpoint를 순차 진행한다.
 
 ## 1. 범위와 설계 기준
 
