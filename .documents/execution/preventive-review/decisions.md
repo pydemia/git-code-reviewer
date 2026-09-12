@@ -31,6 +31,8 @@ P00에서는 임시 synthetic Python 파일 두 개만 허용해 실제 source r
 
 SAML 구현 후보는 Fastify에서 직접 사용하는 `@node-saml/node-saml`, IdP는 공식 Keycloak image다. 최종 library/image version·지원/보안 상태·persistent NameID·서명·replay·cookie를 P03-C01의 공식 자료와 실제 PoC로 결정한다. 현재 후보명을 운영 지원 확인이나 SAML 완료로 표시하지 않는다. 공유 PostgreSQL의 별도 DB/role, 기존 사용자 mapping·권한·볼륨·암호화 key 보존은 [설계](../../keycloak-saml-deployment-design.md)를 따른다.
 
+P03-C01에서 Node-SAML `5.1.0`, xml-crypto `6.1.2`, 공식 Keycloak `26.7.3`의 arm64 digest를 [실제 검증 기록](P03.md)에 고정했다. Node 22의 서명 fixture 44개와 Chrome headless의 HTTPS login/SLO·POST cookie·이메일 변경·signing key rotation을 통과했다. Library 기본값에서 빠진 issuer/recipient·Redirect 서명 필수 조건과 metadata binding을 보완한다. 이 단계는 격리된 SP PoC이며 운영 인증·DB replay·Safari·공유 DB·계정 migration은 완료하지 않았다. 기존 `@fastify/static`·Vitest/mocker audit 항목은 다음 서버 배포 전에 수정하고 해당 회귀를 검증한다.
+
 P00에서 실제 조회한 PRISM-DEV release는 namespace `git-code-reviewer`, Helm revision 42, chart `0.10.30`, app `0.8.0-alpha.31`, status `deployed`였다. Server와 Worker deployment는 각각 ready/desired `1/1`이며 image digest는 `sha256:c190547fe932f7b8d8219986260bb7feb6bc76f32889478a61955511f52c4f3d`다. 이 조회는 이번 변경 배포가 아니다. P00의 package·fixture·test tooling은 운영 서비스에 연결하지 않았으므로 실행 image를 바꾸지 않았다.
 
 | 외부 조건                                   | 현재 상태                                                   | 해결 단계·재개 조건                                                                                |

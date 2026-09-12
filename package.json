@@ -23,18 +23,24 @@
     "build:clients": "pnpm --filter @gcr/client-contract build && pnpm --filter @gcr/client-core build && pnpm --filter @gcr/client-executors build",
     "pack:clients": "node scripts/client-packages.mjs",
     "build:cli": "pnpm build:clients && pnpm --filter @gcr/cli build",
-    "pack:cli": "node scripts/cli-package.mjs"
+    "pack:cli": "node scripts/cli-package.mjs",
+    "test:saml-contract": "node scripts/saml-contract-fixtures.mjs",
+    "smoke:saml-contract": "node scripts/saml-contract-smoke.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@node-saml/node-saml": "5.1.0",
     "@types/node": "^24.5.2",
+    "@xmldom/xmldom": "0.9.12",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.21",
     "globals": "^16.4.0",
+    "playwright": "1.63.0",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "xml-crypto": "6.1.2"
   }
 }

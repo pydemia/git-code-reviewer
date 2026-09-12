@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "phase": "P03-C01",
+  "status": "passed",
+  "startedAt": "2026-09-12T22:26:11.085Z",
+  "node": "v25.9.0",
+  "platform": "darwin-arm64",
+  "keycloakVersion": "26.7.3",
+  "keycloakImage": "quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+  "postgresImage": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+  "nodeSaml": "5.1.0",
+  "xmlCrypto": "6.1.2",
+  "checks": [
+    "approved-https-idp-metadata",
+    "sp-metadata-endpoints-persistent-nameid",
+    "node-https-rejects-untrusted-certificate",
+    "signed-redirect-login-real-keycloak",
+    "cross-site-https-post-transaction-cookie",
+    "host-only-secure-httponly-lax-session",
+    "signed-redirect-slo-local-session-cleared",
+    "persistent-nameid-after-email-and-display-name-change",
+    "real-login-and-logout-replay-rejected",
+    "real-idp-signing-key-rotation-overlap",
+    "old-trust-rejects-new-idp-key"
+  ],
+  "limitations": [
+    "isolated PoC, not the application authentication routes",
+    "Chromium headless; Safari and interactive browser operation pending",
+    "test-specific generated TLS leaf SPKI pins; no system trust installation",
+    "in-memory transaction ledger; PostgreSQL cross-replica replay is P03-C02",
+    "ephemeral single identity DB; shared DB ACL and existing-volume migration are P03-C06"
+  ],
+  "cleanup": {
+    "containersRemoved": true,
+    "networkRemoved": true,
+    "temporaryFilesRemoved": true
+  },
+  "sourceSha256": {
+    "saml-contract.mjs": "dba09510bd52b2324fab64b7660188dbaadd1138482a9955beaebd82f347a951",
+    "saml-contract-smoke.mjs": "72f2176b34176a3140fdd5d50feb7465bb43e3aa3a0d33bb340f03b75730a3b2"
+  },
+  "idpMetadataSha256": "d368d5df940e663e86e0170ba11552289c3d831b0113a790c50388078ed47ec1",
+  "browser": {
+    "channel": "chrome",
+    "version": "152.0.7977.84",
+    "headless": true,
+    "ignoreHTTPSErrors": false,
+    "tlsTrust": "exact-generated-leaf-SPKI"
+  },
+  "loginCount": 3,
+  "allCallbacksCrossSite": true,
+  "nameIdStable": true,
+  "signingCertificateCount": 2,
+  "rejectedRequests": [],
+  "finishedAt": "2026-09-12T22:26:39.620Z"
+}
