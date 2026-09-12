@@ -1,0 +1,77 @@
+{
+  "sourceCommit": "aa330327ec2483e9c355628aec1f645bb0f16e4c",
+  "applicationVersion": "0.8.0-alpha.33",
+  "chartVersion": "0.10.31",
+  "imageDigest": "sha256:c1885ba5ac3ec11558865ea143f867ca3af4dc0c41a5ada262ccc292072d3f77",
+  "manifests": [
+    {
+      "digest": "sha256:4ef59d1f285818490205ae35507176564bb9dbdc27bd84733058675a6f0bc45b",
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      }
+    },
+    {
+      "digest": "sha256:28fe83b7a53561337092a70afe193d2f7cdfc424e1e408c0c5dfda67c32b0231",
+      "platform": {
+        "architecture": "unknown",
+        "os": "unknown"
+      }
+    }
+  ],
+  "cleanGitArchive": true,
+  "runtimeSmoke": {
+    "status": "passed",
+    "node": "v22.23.2",
+    "user": 1000,
+    "versions": {
+      "static": "10.1.3",
+      "vitest": "4.1.11"
+    },
+    "packageFolders": [
+      "@fastify+static@10.1.3",
+      "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+      "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+    ],
+    "assets": {
+      "index-DrHUqW4X.js": "d7b05ac7591912fa18d1819a393b7c3e2e815b92a3977e6c5ff3b600efd91cd8",
+      "index-T_jmTDvd.css": "e3dfa4e3389c0f71155cf8ba8cdf23de78c65ae0cc63f6c3006119a04d18e44e"
+    },
+    "artifactChecks": [
+      "no-obsolete-runtime-packages",
+      "no-obsolete-browser-bundles",
+      "public-asset-content-and-cache",
+      "traversal-denied",
+      "no-build-secret"
+    ],
+    "network": "none",
+    "rootFilesystem": "read-only"
+  },
+  "helmDryRun": {
+    "status": "passed",
+    "nonImageValuesHash": "9abc48b9861c0223aec5693151e5fa8b868ea84ab958909a3f5b127384f1ee14",
+    "manifestChangedPaths": [
+      "/ConfigMap/git-code-reviewer/metadata/labels/app.kubernetes.io/version",
+      "/CronJob/git-code-reviewer-retention/metadata/labels/app.kubernetes.io/version",
+      "/CronJob/git-code-reviewer-retention/spec/jobTemplate/spec/template/spec/containers/0/image",
+      "/Deployment/git-code-reviewer-server/metadata/labels/app.kubernetes.io/version",
+      "/Deployment/git-code-reviewer-server/spec/template/metadata/annotations/checksum/config",
+      "/Deployment/git-code-reviewer-server/spec/template/spec/containers/0/image",
+      "/Deployment/git-code-reviewer-server/spec/template/spec/initContainers/0/image",
+      "/Deployment/git-code-reviewer-worker/metadata/labels/app.kubernetes.io/version",
+      "/Deployment/git-code-reviewer-worker/spec/template/spec/containers/0/image",
+      "/Deployment/git-code-reviewer-worker/spec/template/spec/containers/1/image",
+      "/Deployment/git-code-reviewer-worker/spec/template/spec/initContainers/0/image",
+      "/PersistentVolumeClaim/git-code-reviewer-artifacts/metadata/labels/app.kubernetes.io/version",
+      "/Service/git-code-reviewer/metadata/labels/app.kubernetes.io/version",
+      "/ServiceAccount/git-code-reviewer/metadata/labels/app.kubernetes.io/version"
+    ],
+    "chartVersion": "0.10.31",
+    "appVersion": "0.8.0-alpha.33"
+  },
+  "deploymentStatus": "pending",
+  "rejectedImage": {
+    "tag": "0.8.0-alpha.32",
+    "reason": "Previous runtime base retained obsolete dependency folders and web bundles; not deployed."
+  }
+}
