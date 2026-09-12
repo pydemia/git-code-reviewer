@@ -44,3 +44,7 @@ P00에서 실제 조회한 PRISM-DEV release는 namespace `git-code-reviewer`, H
 Publisher 인증 대기는 현재 source 개발·fixture·서버 구현을 막지 않는다. 인증 성공만으로 쓰기 권한이나 업로드 성공을 주장하지 않으며 실제 게시가 남은 상태로 전체 goal을 완료하지 않는다.
 
 Linux 준비 중 새 `node:22-bookworm-slim` pull은 `docker-credential-desktop` 조회에서 완료되지 않았다. 이 검사에서 시작한 Docker CLI와 자식 credential helper만 종료했고 기존에 있던 고정 digest의 `node:22-alpine`을 `--pull never --rm`으로 실행해 Node 22.23.2를 확인했다. 원격 image pull과 기존 local image 실행의 결과를 구분한다. PRISM-DEV의 Linux amd64 배포 검증은 별도 release gate로 유지한다.
+
+## P02-C01 계약 검증용 선행 전달
+
+공통 fixture를 CD projection에서 실제로 소비하도록 `0.1.0-alpha.2`의 contract를 CD devDependency에 먼저 고정한다. P00의 tarball 전달·동일 version 불변·Node 18·Apache-2.0 경계는 유지한다. Core/executors의 기능 통합과 runtime dependency 전환은 P02-C07에 남긴다. 이는 C01의 두 저장소 검증을 위한 전달 순서 조정이며 P02-C07 완료나 신규 backend 활성화를 뜻하지 않는다.

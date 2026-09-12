@@ -1,0 +1,1653 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "sourceText": {
+    "source.ts": "export function load(): number | undefined {\n  return undefined;\n}\n",
+    "caller.ts": "import { load } from './source';\nload().toFixed(0);\n"
+  },
+  "baseText": {
+    "source.ts": "export function load(): number {\n  return 1;\n}\n"
+  },
+  "cases": [
+    {
+      "name": "clean",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-clean",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "completed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "grade": "proficient",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "completed",
+            "summary": "Synthetic source review.",
+            "grade": "proficient"
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [],
+        "findings": [],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "completed",
+        "exitCode": 0,
+        "comments": 0
+      }
+    },
+    {
+      "name": "legacy-verified-advisory",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-legacy-verified-advisory",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "completed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "grade": "proficient",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "completed",
+            "summary": "Synthetic source review.",
+            "grade": "proficient"
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [],
+        "findings": [
+          {
+            "id": "finding-fixture",
+            "title": "Return contract change",
+            "problem": "The caller assumes a number.",
+            "impact": "The changed return value can break the caller.",
+            "recommendation": "Update the caller or retain the value.",
+            "category": "compatibility",
+            "severity": "P3",
+            "outcome": "violation",
+            "confidence": "high",
+            "followUp": "required",
+            "anchor": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "anchorValidation": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "reason": "Imported legacy anchor checks."
+            },
+            "evidenceAssessment": {
+              "level": "unassessed",
+              "rationale": "Legacy verification checked file/line anchors; defect evidence has not been assessed.",
+              "conditions": [],
+              "evidenceIds": [],
+              "counterEvidence": {
+                "status": "not-reviewed",
+                "summary": "",
+                "evidenceIds": []
+              }
+            },
+            "policy": {
+              "enforcement": "advisory"
+            },
+            "legacyVerification": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "originalPriority": "P3"
+            }
+          }
+        ],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "completed",
+        "exitCode": 1,
+        "comments": 1
+      }
+    },
+    {
+      "name": "partial",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-partial",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "partial",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "partial",
+            "summary": "Synthetic source review."
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [
+          {
+            "code": "response-truncated",
+            "message": "Synthetic truncated response."
+          }
+        ],
+        "findings": [
+          {
+            "id": "finding-fixture",
+            "title": "Return contract change",
+            "problem": "The caller assumes a number.",
+            "impact": "The changed return value can break the caller.",
+            "recommendation": "Update the caller or retain the value.",
+            "category": "compatibility",
+            "severity": "P3",
+            "outcome": "violation",
+            "confidence": "high",
+            "followUp": "required",
+            "anchor": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "anchorValidation": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "reason": "Imported legacy anchor checks."
+            },
+            "evidenceAssessment": {
+              "level": "unassessed",
+              "rationale": "Legacy verification checked file/line anchors; defect evidence has not been assessed.",
+              "conditions": [],
+              "evidenceIds": [],
+              "counterEvidence": {
+                "status": "not-reviewed",
+                "summary": "",
+                "evidenceIds": []
+              }
+            },
+            "policy": {
+              "enforcement": "advisory"
+            },
+            "legacyVerification": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "originalPriority": "P3"
+            }
+          }
+        ],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "partial",
+        "exitCode": 2,
+        "comments": 1
+      }
+    },
+    {
+      "name": "failed",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-failed",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "failed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "failed",
+            "summary": "Synthetic source review."
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [
+          {
+            "code": "provider-error",
+            "message": "Synthetic provider failure."
+          }
+        ],
+        "findings": [],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "failed",
+        "exitCode": 2,
+        "comments": 0
+      }
+    },
+    {
+      "name": "cancelled",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-cancelled",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "cancelled",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "partial",
+            "summary": "Synthetic source review."
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [
+          {
+            "code": "cancelled",
+            "message": "Synthetic user cancellation."
+          }
+        ],
+        "findings": [
+          {
+            "id": "finding-fixture",
+            "title": "Return contract change",
+            "problem": "The caller assumes a number.",
+            "impact": "The changed return value can break the caller.",
+            "recommendation": "Update the caller or retain the value.",
+            "category": "compatibility",
+            "severity": "P3",
+            "outcome": "violation",
+            "confidence": "high",
+            "followUp": "required",
+            "anchor": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "anchorValidation": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "reason": "Imported legacy anchor checks."
+            },
+            "evidenceAssessment": {
+              "level": "unassessed",
+              "rationale": "Legacy verification checked file/line anchors; defect evidence has not been assessed.",
+              "conditions": [],
+              "evidenceIds": [],
+              "counterEvidence": {
+                "status": "not-reviewed",
+                "summary": "",
+                "evidenceIds": []
+              }
+            },
+            "policy": {
+              "enforcement": "advisory"
+            },
+            "legacyVerification": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "originalPriority": "P3"
+            }
+          }
+        ],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "cancelled",
+        "exitCode": 2,
+        "comments": 1
+      }
+    },
+    {
+      "name": "needs-context",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-needs-context",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [
+              {
+                "kind": "source",
+                "reference": "consumer-repository",
+                "available": false,
+                "reason": "Missing caller source."
+              }
+            ],
+            "hash": "0e20d83270c57f0267f14ddd3ea914a30aaeaf98717e8d31ddc9f698c789580a"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "needs-context",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "not-run",
+            "summary": "Synthetic source review."
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [
+          {
+            "code": "missing-context",
+            "message": "Caller assumptions are unavailable."
+          }
+        ],
+        "findings": [],
+        "evidence": [],
+        "questions": [
+          {
+            "id": "question-fixture",
+            "prompt": "Is the caller migrated?",
+            "required": true
+          }
+        ]
+      },
+      "expected": {
+        "legacyStatus": "failed",
+        "exitCode": 2,
+        "comments": 0
+      }
+    },
+    {
+      "name": "follow-up-question",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-follow-up-question",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "completed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "grade": "proficient",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "completed",
+            "summary": "Synthetic source review.",
+            "grade": "proficient"
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [],
+        "findings": [],
+        "evidence": [],
+        "questions": [
+          {
+            "id": "question-fixture",
+            "prompt": "Would you like a follow-up explanation?",
+            "required": false
+          }
+        ]
+      },
+      "expected": {
+        "legacyStatus": "completed",
+        "exitCode": 1,
+        "comments": 0
+      }
+    },
+    {
+      "name": "accepted-exception",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-accepted-exception",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "completed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "grade": "proficient",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "completed",
+            "summary": "Synthetic source review.",
+            "grade": "proficient"
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [],
+        "findings": [
+          {
+            "id": "finding-fixture",
+            "title": "Return contract change",
+            "problem": "The caller assumes a number.",
+            "impact": "The changed return value can break the caller.",
+            "recommendation": "Update the caller or retain the value.",
+            "category": "compatibility",
+            "severity": "P3",
+            "outcome": "violation",
+            "confidence": "high",
+            "followUp": "none",
+            "anchor": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "anchorValidation": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "reason": "Imported legacy anchor checks."
+            },
+            "evidenceAssessment": {
+              "level": "unassessed",
+              "rationale": "Legacy verification checked file/line anchors; defect evidence has not been assessed.",
+              "conditions": [],
+              "evidenceIds": [],
+              "counterEvidence": {
+                "status": "not-reviewed",
+                "summary": "",
+                "evidenceIds": []
+              }
+            },
+            "policy": {
+              "enforcement": "advisory",
+              "exceptionId": "exception-fixture"
+            },
+            "legacyVerification": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "originalPriority": "P3"
+            }
+          }
+        ],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "completed",
+        "exitCode": 0,
+        "comments": 1
+      }
+    },
+    {
+      "name": "source-evidence",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-source-evidence",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "completed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "grade": "proficient",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "completed",
+            "summary": "Synthetic source review.",
+            "grade": "proficient"
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [],
+        "findings": [
+          {
+            "id": "finding-fixture",
+            "title": "Return contract change",
+            "problem": "The caller assumes a number.",
+            "impact": "The changed return value can break the caller.",
+            "recommendation": "Update the caller or retain the value.",
+            "category": "compatibility",
+            "severity": "P3",
+            "outcome": "violation",
+            "confidence": "high",
+            "followUp": "required",
+            "anchor": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "anchorValidation": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "reason": "Imported legacy anchor checks."
+            },
+            "evidenceAssessment": {
+              "level": "source-confirmed",
+              "rationale": "Synthetic assessment claim for contract testing.",
+              "conditions": ["A caller dereferences the return value."],
+              "evidenceIds": ["read-source-fixture"],
+              "counterEvidence": {
+                "status": "reviewed",
+                "summary": "Synthetic caller context.",
+                "evidenceIds": ["read-caller-fixture"]
+              }
+            },
+            "policy": {
+              "enforcement": "advisory"
+            }
+          }
+        ],
+        "evidence": [
+          {
+            "kind": "source-read",
+            "id": "read-source-fixture",
+            "sourceHash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82",
+            "contextHash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8",
+            "provenance": {
+              "kind": "client-claim",
+              "producer": "synthetic-fixture",
+              "reference": "read-source-fixture"
+            },
+            "observedAt": "2026-01-01T00:00:00.000Z",
+            "location": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "observation": "Synthetic fixture claim; no actual model read."
+          },
+          {
+            "kind": "source-read",
+            "id": "read-caller-fixture",
+            "sourceHash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82",
+            "contextHash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8",
+            "provenance": {
+              "kind": "client-claim",
+              "producer": "synthetic-fixture",
+              "reference": "read-caller-fixture"
+            },
+            "observedAt": "2026-01-01T00:00:00.000Z",
+            "location": {
+              "path": "caller.ts",
+              "side": "source",
+              "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "observation": "Synthetic fixture claim; no actual model read."
+          }
+        ],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "completed",
+        "exitCode": 1,
+        "comments": 1
+      }
+    },
+    {
+      "name": "test-evidence-claim",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-test-evidence-claim",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "completed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "grade": "proficient",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "completed",
+            "summary": "Synthetic source review.",
+            "grade": "proficient"
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [],
+        "findings": [
+          {
+            "id": "finding-fixture",
+            "title": "Return contract change",
+            "problem": "The caller assumes a number.",
+            "impact": "The changed return value can break the caller.",
+            "recommendation": "Update the caller or retain the value.",
+            "category": "compatibility",
+            "severity": "P3",
+            "outcome": "violation",
+            "confidence": "high",
+            "followUp": "required",
+            "anchor": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "anchorValidation": {
+              "status": "verified",
+              "checks": ["file-present", "head-line-present"],
+              "reason": "Imported legacy anchor checks."
+            },
+            "evidenceAssessment": {
+              "level": "test-confirmed",
+              "rationale": "Synthetic assessment claim for contract testing.",
+              "conditions": ["A caller dereferences the return value."],
+              "evidenceIds": ["test-fixture"],
+              "counterEvidence": {
+                "status": "reviewed",
+                "summary": "Synthetic caller context.",
+                "evidenceIds": ["read-caller-fixture"]
+              }
+            },
+            "policy": {
+              "enforcement": "advisory"
+            }
+          }
+        ],
+        "evidence": [
+          {
+            "kind": "source-read",
+            "id": "read-source-fixture",
+            "sourceHash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82",
+            "contextHash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8",
+            "provenance": {
+              "kind": "client-claim",
+              "producer": "synthetic-fixture",
+              "reference": "read-source-fixture"
+            },
+            "observedAt": "2026-01-01T00:00:00.000Z",
+            "location": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "observation": "Synthetic fixture claim; no actual model read."
+          },
+          {
+            "kind": "source-read",
+            "id": "read-caller-fixture",
+            "sourceHash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82",
+            "contextHash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8",
+            "provenance": {
+              "kind": "client-claim",
+              "producer": "synthetic-fixture",
+              "reference": "read-caller-fixture"
+            },
+            "observedAt": "2026-01-01T00:00:00.000Z",
+            "location": {
+              "path": "caller.ts",
+              "side": "source",
+              "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+              "startLine": 2,
+              "endLine": 2
+            },
+            "observation": "Synthetic fixture claim; no actual model read."
+          },
+          {
+            "kind": "test-execution",
+            "id": "test-fixture",
+            "sourceHash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82",
+            "contextHash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8",
+            "provenance": {
+              "kind": "client-claim",
+              "producer": "synthetic-fixture",
+              "reference": "not-a-real-test-run"
+            },
+            "observedAt": "2026-01-01T00:00:00.000Z",
+            "runnerProfileHash": "939ee934a6d388e74a0493af1be38838800167966ab76da11ac079b05dedf4cb",
+            "environmentHash": "a04dad9b2fe715151335aa3fc190e5404ce42e87d910fc34bb32a4aab5c37e9d",
+            "artifactHash": "1d92d0e5c082d59e665cb9621f7e5fbae7b3bb91bd86214e0c159ed6af2680ae",
+            "result": "confirmed",
+            "inputs": "Synthetic caller",
+            "expected": "number",
+            "actual": "undefined",
+            "comparison": "base-to-source",
+            "baseObservation": "number",
+            "baseSourceHash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "exitCode": 1
+          }
+        ],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "completed",
+        "exitCode": 1,
+        "comments": 1
+      }
+    },
+    {
+      "name": "executor-unavailable",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-executor-unavailable",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "index",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "sourceTree": "472edb86d283e7b3d5c042e27b44aa7a47707eb1",
+            "hash": "c0db575fcf4d733f93d5ed2e81b17829c23f62d565fb7207b7ab9f81dbb17c82"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "unavailable",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "not-run",
+            "summary": "Synthetic source review."
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [
+          {
+            "code": "executor-unavailable",
+            "message": "No configured model executor."
+          }
+        ],
+        "findings": [],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "failed",
+        "exitCode": 2,
+        "comments": 0
+      }
+    },
+    {
+      "name": "working-tree",
+      "report": {
+        "contractVersion": 1,
+        "runId": "fixture-working-tree",
+        "identity": {
+          "client": {
+            "mode": "standalone",
+            "profileId": "fixture-profile",
+            "repositoryKey": "41abe82fceffc7509fcd35d1b9c3ff00f9c7ba4674000ce61c55a2bfb14ebb52",
+            "worktreeKey": "ce359a17413034eb3a7af28d6d6b0c8537c4924ff64b6ea038ad2e67c4efa9fb"
+          },
+          "source": {
+            "kind": "working-tree",
+            "objectFormat": "sha1",
+            "baseCommit": "2b390e0f4050473cd7f0f6acfaa855500bf4f74b",
+            "baseTree": "116711ab54314adbe6903280c32230708453aa55",
+            "hash": "78669f345b60c64949aa6d46387996c5a748cd58a23d9aaf516660f9bd4b4739"
+          },
+          "context": {
+            "entries": [],
+            "required": [],
+            "hash": "ff4950723308b874debe746e32e7869132145b413ef88d2d5036efb745f3fda8"
+          },
+          "reviewProfile": {
+            "id": "fixture-profile",
+            "revision": 1,
+            "hash": "602b182e65f6358b27868103084e62ad8635831641570565c79d8f20d30e2bd9"
+          },
+          "executor": {
+            "id": "fixture-executor",
+            "version": "0",
+            "model": "fixture-model",
+            "configHash": "b0d4913f313bf0e18b6ec2d81d84ff748bdd415a26cb32243978b22b248567bc"
+          },
+          "toolsHash": "302b959c7c07934347379e3b404994d0b7ca709e8462ab8a6d3ba5c35b5d0c43"
+        },
+        "status": "completed",
+        "trigger": "manual",
+        "requestedAt": "2026-01-01T00:00:00.000Z",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "finishedAt": "2026-01-01T00:00:01.000Z",
+        "durationMs": 1000,
+        "summary": "Synthetic contract fixture. No real model or runner was called.",
+        "grade": "proficient",
+        "sourceFiles": [
+          {
+            "path": "source.ts",
+            "side": "source",
+            "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+            "byteLength": 67,
+            "lineCount": 4,
+            "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+          },
+          {
+            "path": "source.ts",
+            "side": "base",
+            "hash": "794a1e020382ed158bf95bc5979a62e475703e23e0ee12c6fd1f61abd16d3f6a",
+            "byteLength": 47,
+            "lineCount": 4,
+            "gitBlob": "872815efe7ff2a7b7e5fbc6e43012b92d8f17da0"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source",
+            "hash": "3ccc6765e9bd1dbda80edd17414ae1d2280dcd36fc937f4c86cc93401d0f8655",
+            "byteLength": 52,
+            "lineCount": 3,
+            "gitBlob": "7650faca70c26210d7d8e68b48db7d9f84b4021c"
+          }
+        ],
+        "files": [
+          {
+            "source": {
+              "path": "source.ts",
+              "side": "source",
+              "hash": "fb603a01e4db084fa47f069c28b7f58cf171b93ae3ee4b0626d9d8ab12caf6e6",
+              "byteLength": 67,
+              "lineCount": 4,
+              "gitBlob": "a83b6ce87db8bd48364b9e4bfc0559870e931969"
+            },
+            "status": "completed",
+            "summary": "Synthetic source review.",
+            "grade": "proficient"
+          }
+        ],
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "private-data"
+          }
+        ],
+        "problems": [],
+        "findings": [],
+        "evidence": [],
+        "questions": []
+      },
+      "expected": {
+        "legacyStatus": "completed",
+        "exitCode": 0,
+        "comments": 0
+      }
+    }
+  ]
+}

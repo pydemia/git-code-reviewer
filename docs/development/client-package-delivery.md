@@ -25,9 +25,11 @@ pnpm pack:clients --verify
 
 ## CD 소비와 실제 설치 위치
 
-P02-C07부터 CD 저장소의 `vscode-extension/vendor/gcr/<version>/`에 생성한 네 파일을 복사하고 hash를 대조한 뒤 소스 변경과 함께 commit한다. 전달 시점의 GCR SHA와 package hash를 CD 검증 기록에 남긴다. 같은 version 디렉터리는 교체하지 않는다.
+P02-C01의 계약 호환성 검사부터 CD 저장소의 `vscode-extension/vendor/gcr/<version>/`에 생성한 네 파일을 복사하고 hash를 대조한 뒤 소스 변경과 함께 commit한다. 전달 시점의 GCR SHA와 package hash를 CD 검증 기록에 남긴다. 같은 version 디렉터리는 교체하지 않는다.
 
-CD의 `vscode-extension`에서 실행할 정확한 설치 형태는 다음과 같다. 아래 `0.1.0-alpha.1`은 최초 artifact의 예시이며 기능 통합 때 실제 고정한 version으로 모두 치환한다.
+P02-C01에서는 contract만 `devDependencies`에 설치해 공통 fixture와 CD production 타입·normalizer의 호환성을 검사한다. 이때 core/executors는 identity만 제공하므로 실행 backend에 연결하지 않는다. 세 tarball과 manifest는 함께 보관하며 vendor/test 자료는 VSIX에서 제외한다. P02-C07에서 실제 구현된 세 package를 runtime dependency로 전환하고 bundle·license 포함 여부를 검증한다.
+
+P02-C07의 CD `vscode-extension`에서 실행할 설치 형태는 다음과 같다. 아래 `0.1.0-alpha.1`은 최초 artifact의 예시이며 기능 통합 때 실제 고정한 version으로 모두 치환한다.
 
 ```sh
 npm install --save-exact --ignore-scripts \
