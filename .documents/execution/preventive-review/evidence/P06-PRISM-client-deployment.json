@@ -1,0 +1,314 @@
+{
+  "phase": "P06",
+  "status": "partial-goal-progress",
+  "verifiedAt": "2026-09-13T21:31:45.753788+00:00",
+  "sourceCommit": "87652e68da1d14c11f20f672d630863887dc5718",
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-13T21:26:56.379753+00:00",
+    "release": {
+      "revision": 54,
+      "updated": "2026-09-14T06:25:40.382075+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.40",
+      "app_version": "0.8.0-alpha.42",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:34c132345ab0707c98ef3c799c7672e6d6114a0882ca086338a43d642b77cc07",
+      "source": "87652e68da1d14c11f20f672d630863887dc5718",
+      "version": "0.8.0-alpha.42",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:65d335e73725c59867f1e94f036c9307c43f92f7ec3e8c270b233f5b89b73fd1"
+        },
+        {
+          "architecture": "unknown",
+          "os": "unknown",
+          "digest": "sha256:8967c764f61d589d8afc885546207514a3f7afbc8893f4055a4237dd5e55e570"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "87652e68da1d14c11f20f672d630863887dc5718",
+        "org.opencontainers.image.version": "0.8.0-alpha.42"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 167,
+        "after": 167,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 159,
+        "after": 159,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 42,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyClientConnectionAndPublicOriginSettingsChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-6799c4b7fb-rw9b9",
+        "imageDigest": "sha256:34c132345ab0707c98ef3c799c7672e6d6114a0882ca086338a43d642b77cc07",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-88799d5c4-8xflh",
+        "imageDigest": "sha256:34c132345ab0707c98ef3c799c7672e6d6114a0882ca086338a43d642b77cc07",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Deployed image/schema/HTTPS assets and anonymous authorization; authenticated criteria workflow verified in the identical compiled image with isolated synthetic data. Client key issuance, configuration export, v2 bearer manifest and revocation verified in the identical compiled image; actual installed CLI over live HTTPS follows separately."
+  },
+  "sourceValidation": {
+    "source": "87652e68da1d14c11f20f672d630863887dc5718",
+    "node": "22.23.2",
+    "postgresAndConfigTests": {
+      "command": "node scripts/with-test-postgres.mjs pnpm exec vitest run apps/runtime/src/auth/client-credentials.integration.test.ts apps/runtime/src/config.test.ts",
+      "passed": 31,
+      "failed": 0
+    },
+    "browserAndPublicCaTests": {
+      "command": "pnpm exec vitest run apps/web/src/client-credentials.browser.test.ts apps/runtime/src/auth/client-connection-ca.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "chrome": true,
+      "fixtureApi": true,
+      "mobileViewport": [
+        390,
+        844
+      ],
+      "screenshotInspected": true
+    },
+    "webAndRuntimeTypecheck": "passed",
+    "focusedEslint": "passed",
+    "helmLint": "passed",
+    "limitations": [
+      "Browser tests use an owned API fixture.",
+      "Encrypted production backup readback verified; restore not executed in this release."
+    ],
+    "initialFailuresResolved": [
+      "Browser fixture repository response lacked nextCursor.",
+      "Ambiguous accessible name between key region and input corrected.",
+      "Mobile common button CSS hid labels; scoped CSS and regression assertion added.",
+      "Image verifier originally expected 401 for a revoked key; corrected to the implemented and integration-tested 403 CLIENT_ACCESS_REVOKED."
+    ]
+  },
+  "registryAttestations": {
+    "status": "passed",
+    "indexDigest": "sha256:34c132345ab0707c98ef3c799c7672e6d6114a0882ca086338a43d642b77cc07",
+    "attestations": [
+      {
+        "digest": "sha256:637d2fff7ad9d6ba114c76cac5e8ea6c7170fca4f4640eaf1c9f9e878450aed3",
+        "predicateType": "https://spdx.dev/Document"
+      },
+      {
+        "digest": "sha256:054b342f7ad624c90ff28486897cf689f13f231ff47fbec9be4382e2ba051dc4",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    ],
+    "tlsVerification": true,
+    "additionalTrust": "existing-corporate-ca-for-this-process-only",
+    "runtime": "v22.23.2"
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:4655460ddd894daf3d2b35bea88b62e6fc618834014811bd76f33616435dd076",
+    "chartSha256": "c0aa9f19cf7aa7c999d0c0b78fea7a4720bcc1eb8be244d4936e4c9e81b034a6"
+  },
+  "imageChecks": [
+    "migration-40-to-42-existing-user-preserved",
+    "full-production-server-registration",
+    "local-password-session-login",
+    "anonymous-criteria-401",
+    "cross-origin-mutation-403",
+    "create-and-read-candidate",
+    "new-immutable-revision",
+    "stale-revision-409",
+    "built-criteria-web-route",
+    "non-root-runtime",
+    "idempotent-generation-queue",
+    "compiled-worker-generation-service",
+    "model-candidate-draft-only",
+    "admin-role-list",
+    "server-key-file-loading",
+    "three-component-publication",
+    "ed25519-signed-manifest",
+    "authenticated-304",
+    "scoped-bundle-download-integrity",
+    "publication-status-api",
+    "public-connection-config",
+    "client-key-issue-bearer-v2-revoke",
+    "old-contract-426"
+  ],
+  "liveInstalledCli": {
+    "requestId": "56f89efb-4054-4c14-a214-42ff0d8df450",
+    "status": "passed",
+    "version": "0.8.0-alpha.42",
+    "cliVersion": "0.1.0-alpha.8",
+    "cliSha256": "b09a22ed237a026e1a39f04bc5adfe51c1fdc4f64ddc81165ff5af0893213296",
+    "checks": [
+      "trusted-https-session-login",
+      "downloaded-public-configuration-matches-independent-CA-and-key",
+      "installed-cli-api-key-connect-with-macos-keychain",
+      "actual-worker-v2-three-component-sync",
+      "installed-cli-central-context-exact-audience",
+      "explicit-offline-signed-cache",
+      "web-revocation-denies-cli-synchronization",
+      "explicit-disconnect-blocks-offline-cache"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "initialConnection": {
+      "exitCode": 2,
+      "errorCode": "unavailable"
+    },
+    "publicationReadinessStatuses": [
+      503,
+      503,
+      503,
+      503,
+      503,
+      503,
+      503,
+      503,
+      503,
+      503,
+      503,
+      200
+    ],
+    "explicitRetryAfterWorkerPublication": true,
+    "ownedKeychainEntriesRemoved": true,
+    "ownedServerRowsRemoved": true,
+    "ownedLocalFilesRemoved": true,
+    "verifiedAt": "2026-09-13T21:29:12.256Z"
+  },
+  "databaseTls": {
+    "verifiedAt": "2026-09-13T21:29:03.998708+00:00",
+    "context": "PRISM-DEV",
+    "namespace": "git-code-reviewer",
+    "server": {
+      "tlsMode": "verify-full",
+      "connection": {
+        "ssl": true,
+        "version": "TLSv1.3"
+      }
+    },
+    "worker": {
+      "tlsMode": "verify-full",
+      "connection": {
+        "ssl": true,
+        "version": "TLSv1.3"
+      }
+    },
+    "status": "passed"
+  },
+  "cleanup": {
+    "ownedUsers": 0,
+    "ownedRepositories": 0,
+    "memoryProjections": 0,
+    "status": "passed",
+    "existingUserAccountGrantMembershipMemoryCredentialRowsUnchanged": true
+  },
+  "backup": {
+    "at": "2026-09-13T21:19:59.017047+00:00",
+    "format": "pg_dump custom / AES-256-GCM",
+    "bytes": 8786149,
+    "plaintextSha256": "ef797d6fa4cb96a5da1e19ce2858facda31b93e547ec4aed1a66a9ec4bb2e9ff",
+    "ciphertextSha256": "642573eae4a7ae85131b04306bc37378d2c08303599a811159bc4f4f4b5e8e6f",
+    "encryptionReadback": true,
+    "restoreExecuted": false,
+    "keySecret": "git-code-reviewer-identity-preparation-backup",
+    "aad": "gcr-p06-client-release-alpha42"
+  },
+  "remaining": [
+    "First-use connection does not wait/retry while the server publishes initial bundles; real CLI succeeded after explicit retry.",
+    "Actual CD VSIX review against PRISM-DEV.",
+    "Periodic synchronization, bounded retry/backoff/jitter/resume, credential renewal and automatic fallback.",
+    "Remote-to-repository mapping, server ordinary/critical release classification and remaining P00-P13 deliverables."
+  ],
+  "artifacts": {
+    "artifacts/operations/P06-client-release/source-validation.json": "ec3b9ae56701dc1ca14bf6f6aa59a773a0d6de6af9dd7168841e9c6893b9ef9f",
+    "artifacts/operations/P06-client-release/registry-image.json": "91228d502fbb664cd2ee57050e0960c144ce5a01bde6e4a799269c6e6fa55ef1",
+    "artifacts/operations/P06-client-release/image-attestations.json": "48fa15d05bbe335c4b127dd82ca552bce614e5fc3d7f5d6d5eb126af51e57057",
+    "artifacts/operations/P06-client-release/image-smoke.json": "fe3f4448227678c19a2fb6f823bb57da8cd4bb5270e92b369c120dbd9a06555a",
+    "artifacts/operations/P06-client-release/preflight.json": "5eba9d0023a2c47b1fd8517feff5a5837127f9f5f0d239a9a6679366f6e60cbe",
+    "artifacts/operations/P06-client-release/chart-readback.json": "60c4ccac382b1c4d10c63d2ec7e83e2751911bdb32c259257f3f544ffecd90fc",
+    "artifacts/operations/P06-client-release/deployment-verification.json": "b33e2f005096142659bb68b30ca41de68edb1e4a75b591e8e6dfc3dc9a1a9b3e",
+    "artifacts/operations/P06-client-release/live-client.json": "ccae3b46bcc91709323ef94418dc13e40ad205a1f550ff7de8fe5838956d6c7b",
+    "artifacts/operations/P06-client-release/database-tls.json": "a0a23447cd6c7ac275f20989a3e8dbff9703b264c68c3deb5682b298ecfdd39f",
+    "artifacts/operations/P06-client-release/post-live-cleanup.json": "6d5520c09642e817484d3392c3681bd0386d6469ce392d87ab72386cc99dfc0c",
+    "artifacts/operations/P06-client-release/live-client.mjs": "9656f7049a604e57e9f60e4cca4e90ca00027b1eb3117878a188c984bcc23064",
+    "artifacts/operations/P06-client-release/before-client-release.aesgcm": "642573eae4a7ae85131b04306bc37378d2c08303599a811159bc4f4f4b5e8e6f"
+  }
+}

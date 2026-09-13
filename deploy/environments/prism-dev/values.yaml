@@ -9,8 +9,8 @@
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.41'
-  digest: 'sha256:aba6f16edf97d06f30bc5b2cbbde32974f83deecd31fcc18d60462760e6cf262'
+  tag: '0.8.0-alpha.42'
+  digest: 'sha256:34c132345ab0707c98ef3c799c7672e6d6114a0882ca086338a43d642b77cc07'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -27,7 +27,7 @@ chatAgent:
 modelAdmission:
   enabled: true
 
-publicBaseUrl: http://pr-review.prism.ai
+publicBaseUrl: https://pr-review.prism.ai
 
 trustedCa:
   existingConfigMap: git-code-reviewer-corporate-ca
