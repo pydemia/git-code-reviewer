@@ -274,12 +274,19 @@ export class CentralConnections {
           status: 'ready' as const,
           snapshotId: snapshot.manifest.payload.snapshotId,
           components: snapshot.manifest.payload.components,
+          lastSynchronizedAt: snapshot.lastSynchronizedAt,
           refreshAfter: snapshot.manifest.payload.refreshAfter,
           offlineValidUntil: snapshot.manifest.payload.offlineValidUntil,
         },
       };
-    } catch {
-      return { ...summary, cache: { status: 'unavailable' as const } };
+    } catch (cause) {
+      return {
+        ...summary,
+        cache: {
+          status: 'unavailable' as const,
+          reason: cause instanceof KnowledgeSyncError ? cause.code : 'local-storage',
+        },
+      };
     }
   }
   async list() {

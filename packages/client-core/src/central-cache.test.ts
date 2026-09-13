@@ -14,7 +14,11 @@ import {
   type LocalScope,
 } from '@gcr/client-contract';
 import { CentralKnowledgeCache, type KnowledgeTransport } from './central-cache.js';
-import { TrustedCentralBinding, normalizeCentralServerUrl } from './central-binding.js';
+import {
+  KnowledgeSyncError,
+  TrustedCentralBinding,
+  normalizeCentralServerUrl,
+} from './central-binding.js';
 import { LocalRecordStore } from './local-records.js';
 import type { LocalKeyStore } from './local-credentials.js';
 import * as privateFiles from './private-files.js';
@@ -492,6 +496,88 @@ describe('encrypted central snapshot synchronization', () => {
       await expect(cache.read()).rejects.toMatchObject({ code: 'cache-unavailable' });
     },
   );
+  it.each(['manifest', 'bundle'] as const)(
+    'persists identity failure from %s and requires authenticated recovery',
+    async (stage) => {
+      const f = await setup();
+      const cache = await f.open();
+      const first = fixture();
+      const pinned = await cache.synchronize(first.transport);
+      const next = fixture(2);
+      const failed = {
+        ...next.transport,
+        [stage]: async () => {
+          throw new KnowledgeSyncError('identity-unavailable', 'Identity unavailable');
+        },
+      };
+      await expect(cache.synchronize(failed)).rejects.toMatchObject({
+        code: 'identity-unavailable',
+      });
+      const reopened = await f.open();
+      for (const instance of [cache, reopened]) {
+        for (const mode of ['online', 'offline'] as const)
+          await expect(instance.read(mode)).rejects.toMatchObject({ code: 'identity-unavailable' });
+        await expect(instance.observeSnapshot(pinned.manifest, 'online')).rejects.toMatchObject({
+          code: 'identity-unavailable',
+        });
+      }
+      await expect(
+        reopened.synchronize({ ...first.transport, manifest: async () => ({ status: 503 }) }),
+      ).rejects.toMatchObject({ code: 'unavailable' });
+      await expect(reopened.read()).rejects.toMatchObject({ code: 'identity-unavailable' });
+      // Another process can recover this scope without deleting or re-entering credentials.
+      await reopened.synchronize(first.transport);
+      expect((await cache.read()).manifest).toEqual(first.signed());
+    },
+  );
+  it('clears an identity barrier on authenticated 304 without extending the lease', async () => {
+    const f = await setup();
+    const cache = await f.open();
+    const data = fixture();
+    const before = await cache.synchronize(data.transport);
+    await expect(
+      cache.synchronize({
+        ...data.transport,
+        manifest: async () => {
+          throw new KnowledgeSyncError('identity-unavailable', 'Identity unavailable');
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'identity-unavailable' });
+    f.advance(1000);
+    const after = await cache.synchronize({
+      ...data.transport,
+      manifest: async () => ({ status: 304 }),
+    });
+    expect(after.lastSynchronizedAt).toBe(start + 1000);
+    expect(after.manifest).toEqual(before.manifest);
+    expect((await (await f.open()).read()).manifest).toEqual(before.manifest);
+  });
+  it('keeps the claim barrier when persisting identity failure runs out of disk space', async () => {
+    const f = await setup();
+    const cache = await f.open();
+    const data = fixture();
+    const pinned = await cache.synchronize(data.transport);
+    await expect(
+      cache.synchronize({
+        ...data.transport,
+        manifest: async () => {
+          vi.spyOn(privateFiles, 'publishImmutable').mockRejectedValue(
+            Object.assign(new Error('Synthetic disk full'), { code: 'ENOSPC' }),
+          );
+          throw new KnowledgeSyncError('identity-unavailable', 'Identity unavailable');
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'identity-unavailable' });
+    await expect(cache.observeSnapshot(pinned.manifest, 'online')).rejects.toMatchObject({
+      code: 'identity-unavailable',
+    });
+    vi.restoreAllMocks();
+    const reopened = await f.open();
+    f.advance(120001);
+    await expect(reopened.read()).rejects.toMatchObject({ code: 'busy' });
+    await reopened.synchronize(fixture(2, start + 120001).transport);
+    expect((await cache.read()).manifest.payload.snapshotId).toBe('snapshot-2');
+  });
   it.each([401, 403, 503] as const)(
     'distinguishes HTTP %s and persists denial across reopen',
     async (status) => {

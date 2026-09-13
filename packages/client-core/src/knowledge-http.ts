@@ -67,11 +67,38 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       req.end();
     });
   }
-  private failure(
+  private async failure(
     response: IncomingMessage,
-  ): Exclude<Awaited<ReturnType<KnowledgeTransport['bundle']>>, { status: 200 }> {
+  ): Promise<Exclude<Awaited<ReturnType<KnowledgeTransport['bundle']>>, { status: 200 }>> {
     const status = response.statusCode ?? 503;
-    response.destroy();
+    if (status === 503) {
+      // Identity freshness failures prohibit cached authorization. Read only the
+      // bounded error code; never retain or expose server messages or bodies.
+      let identityUnavailable = false;
+      try {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of response) {
+          const bytes = Buffer.from(chunk);
+          size += bytes.length;
+          if (size > 32768) throw unavailable();
+          chunks.push(bytes);
+        }
+        const body = JSON.parse(
+          new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)),
+        );
+        identityUnavailable = body?.error?.code === 'IDENTITY_UNAVAILABLE';
+      } catch {
+        // A gateway may return HTML or an empty body for an ordinary outage.
+      } finally {
+        response.destroy();
+      }
+      if (identityUnavailable)
+        throw new KnowledgeSyncError(
+          'identity-unavailable',
+          'Central identity could not be verified.',
+        );
+    } else response.destroy();
     if (
       status === 401 ||
       status === 403 ||
@@ -109,7 +136,7 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
     const route = `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/review-knowledge/manifest?clientContractVersion=2`;
     let response = await this.get(route, signal, etag);
     for (let attempt = 0; response.statusCode === 503 && attempt < retries; attempt++) {
-      response.destroy();
+      await this.failure(response);
       const milliseconds = Math.round(
         Math.min(4000, 1000 * 2 ** attempt) * (0.75 + Math.random() * 0.5),
       );
@@ -143,7 +170,7 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
   async identity(signal: AbortSignal) {
     const response = await this.get('api/v1/client-auth/me', signal);
     if (response.statusCode !== 200) {
-      const failure = this.failure(response);
+      const failure = await this.failure(response);
       throw new KnowledgeSyncError(
         failure.status === 401
           ? 'authentication-required'

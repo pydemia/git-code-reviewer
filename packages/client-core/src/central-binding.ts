@@ -10,6 +10,7 @@ export class KnowledgeSyncError extends Error {
       | 'authentication-required'
       | 'revoked'
       | 'unavailable'
+      | 'identity-unavailable'
       | 'incompatible'
       | 'invalid-manifest'
       | 'invalid-bundle'

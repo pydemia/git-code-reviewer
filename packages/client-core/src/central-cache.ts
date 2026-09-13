@@ -37,6 +37,7 @@ export interface KnowledgeTransport {
 }
 export type CentralKnowledgeSnapshot = {
   generation: number;
+  lastSynchronizedAt: number | null;
   manifest: SignedKnowledgeManifest;
   bundles: Record<Part, ReturnType<typeof centralKnowledgeBundle>>;
 };
@@ -51,6 +52,7 @@ const error = (code: KnowledgeSyncError['code']) =>
       'authentication-required': 'Central authentication is required.',
       revoked: 'Central access has been revoked.',
       unavailable: 'Central synchronization is unavailable.',
+      'identity-unavailable': 'Central identity must be verified before using cached knowledge.',
       incompatible: 'The central contract requires a client upgrade.',
       'invalid-manifest': 'Central manifest verification failed.',
       'invalid-bundle': 'Central bundle verification failed.',
@@ -62,6 +64,7 @@ const error = (code: KnowledgeSyncError['code']) =>
   );
 /** Reads/writes are fenced by encrypted index revisions; central bodies never enter local knowledge/export namespaces. */
 export class CentralKnowledgeCache {
+  private identityUnavailableGeneration: number | undefined;
   private denied: 'disconnected' | 'authentication-required' | 'revoked' | undefined;
   private constructor(
     private readonly records: LocalRecordStore,
@@ -161,10 +164,17 @@ export class CentralKnowledgeCache {
   private async readActive(
     state: State,
     mode: 'online' | 'offline',
+    identityConfirmed = false,
   ): Promise<CentralKnowledgeSnapshot> {
     this.checkEnabled();
     if (state.value.status !== 'enabled')
       throw error(state.value.status === 'disconnected' ? 'disabled' : state.value.status);
+    if (
+      !identityConfirmed &&
+      (this.identityUnavailableGeneration === state.value.generation ||
+        state.value.identityUnavailable)
+    )
+      throw error('identity-unavailable');
     const active = state.value.active;
     if (!active) throw error('cache-unavailable');
     const manifest = this.verify(active.manifest, state.value, mode);
@@ -178,7 +188,12 @@ export class CentralKnowledgeCache {
     if (current.revision !== state.revision) throw error('superseded');
     this.checkEnabled();
     this.verify(manifest, current.value, mode);
-    return { generation: state.value.generation, manifest, bundles };
+    return {
+      generation: state.value.generation,
+      lastSynchronizedAt: state.value.lastSynchronizedAt ?? null,
+      manifest,
+      bundles,
+    };
   }
   private checkEnabled() {
     if (this.denied) throw error(this.denied === 'disconnected' ? 'disabled' : this.denied);
@@ -200,6 +215,11 @@ export class CentralKnowledgeCache {
     this.checkEnabled();
     if (state.value.status !== 'enabled')
       throw error(state.value.status === 'disconnected' ? 'disabled' : state.value.status);
+    if (
+      this.identityUnavailableGeneration === state.value.generation ||
+      state.value.identityUnavailable
+    )
+      throw error('identity-unavailable');
     // Legacy indexes had one high-water mark; retain their conservative floor.
     this.verify(
       manifest,
@@ -310,9 +330,16 @@ export class CentralKnowledgeCache {
       if (response.status !== 200 && response.status !== 304) this.response(response.status);
       state = await this.owned(token, generation);
       if (response.status === 304) {
-        await this.readActive(state, 'online');
+        await this.readActive(state, 'online', true);
         this.check(controller.signal);
-        state = await this.put(state, { ...state.value, observedAt: this.time(), claim: null });
+        state = await this.put(state, {
+          ...state.value,
+          identityUnavailable: false,
+          lastSynchronizedAt: this.time(),
+          observedAt: this.time(),
+          claim: null,
+        });
+        this.identityUnavailableGeneration = undefined;
         return this.readActive(state, 'online');
       }
       const manifest = this.verify(response.manifest, state.value, 'online');
@@ -424,9 +451,12 @@ export class CentralKnowledgeCache {
         ...state.value,
         observedAt: this.time(),
         minimumSequences,
+        identityUnavailable: false,
+        lastSynchronizedAt: this.time(),
         active: { manifest, records: refs },
         claim: null,
       });
+      this.identityUnavailableGeneration = undefined;
       // Inventory predates this claim's downloads. Only superseded immutable bodies
       // are reclaimed; a later owner's newly staged records cannot be in this list.
       await this.purge(inventory.filter((id) => !Object.values(refs).includes(id)));
@@ -459,6 +489,17 @@ export class CentralKnowledgeCache {
               active: null,
             });
             if (inventory) await this.purge(inventory);
+          } else if (cause instanceof KnowledgeSyncError && cause.code === 'identity-unavailable') {
+            this.identityUnavailableGeneration = generation;
+            // Retain the credential and immutable bodies for a later authenticated
+            // retry, but persist a read barrier across processes and restarts.
+            // If this write fails, the existing claim remains a read barrier.
+            await this.put(state, {
+              ...state.value,
+              identityUnavailable: true,
+              observedAt: this.time(),
+              claim: null,
+            });
           } else if (!authorizationUncertain)
             await this.put(state, { ...state.value, claim: null });
         } catch {

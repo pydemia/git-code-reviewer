@@ -1,4 +1,4 @@
-import { choice, id, integer, literal, object, optional, sha256, union } from './codec.js';
+import { boolean, choice, id, integer, literal, object, optional, sha256, union } from './codec.js';
 import { signedKnowledgeManifest } from './knowledge-manifest.js';
 export const knowledgeSequences = object({
   policy: integer(),
@@ -11,6 +11,8 @@ export const centralCacheIndex = object({
   generation: integer(),
   observedAt: integer(),
   status: choice(['enabled', 'disconnected', 'authentication-required', 'revoked']),
+  identityUnavailable: optional(boolean),
+  lastSynchronizedAt: optional(integer()),
   minimumAuthorizationRevision: integer(),
   minimumSequences: knowledgeSequences,
   revocationMinimumSequences: optional(knowledgeSequences),

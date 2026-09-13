@@ -72,6 +72,52 @@ async function certificate(san: string) {
   return { cert: await readFile(cert, 'utf8'), key: await readFile(key, 'utf8') };
 }
 describe('bound central HTTP transport', () => {
+  it.each(['manifest', 'initial', 'bundle', 'identity'] as const)(
+    'preserves identity freshness failure for %s without retrying or exposing server text',
+    async (route) => {
+      let requests = 0;
+      const origin = await listen(
+        httpServer((_req, res) => {
+          requests++;
+          res.writeHead(503);
+          res.end(
+            JSON.stringify({
+              error: { code: 'IDENTITY_UNAVAILABLE', message: 'PRIVATE_SERVER_TEXT' },
+            }),
+          );
+        }),
+      );
+      const client = transport(origin);
+      const request =
+        route === 'identity'
+          ? client.identity(signal())
+          : route === 'bundle'
+            ? client.bundle({
+                snapshotId: 's',
+                bundleId: 'b',
+                component: 'personal',
+                signal: signal(),
+              })
+            : (route === 'initial' ? client.initialPublication() : client).manifest({
+                signal: signal(),
+              });
+      await expect(request).rejects.toMatchObject({ code: 'identity-unavailable' });
+      await expect(request).rejects.not.toThrow('PRIVATE_SERVER_TEXT');
+      expect(requests).toBe(1);
+    },
+  );
+  it.each(['', '<html>gateway unavailable</html>', 'x'.repeat(40000)])(
+    'bounds ordinary gateway error bodies',
+    async (body) => {
+      const origin = await listen(
+        httpServer((_req, res) => {
+          res.writeHead(503);
+          res.end(body);
+        }),
+      );
+      expect(await transport(origin).manifest({ signal: signal() })).toEqual({ status: 503 });
+    },
+  );
   it('waits for initial publication on 503 and rereads the bound credential before retrying', async () => {
     const requests: number[] = [];
     let reads = 0;
