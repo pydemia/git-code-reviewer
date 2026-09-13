@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { localPasswordMinimumLength } from '@gcr/contracts';
+import { validateSamlSettings } from './auth/saml-config.js';
 
 const booleanString = z
   .enum(['true', 'false'])
@@ -25,7 +26,7 @@ const configSchema = z.object({
   MIGRATIONS_DIR: z.string().optional(),
   ARTIFACT_ROOT: z.string().default('/var/lib/git-code-reviewer/artifacts'),
   WORKSPACE_ROOT: z.string().default('/tmp/git-code-reviewer/workspaces'),
-  AUTH_MODE: z.enum(['development', 'local', 'oidc', 'proxy']).default('development'),
+  AUTH_MODE: z.enum(['development', 'local', 'oidc', 'proxy', 'saml']).default('development'),
   AUTHORIZATION_MODE: z.enum(['local', 'cerbos']).default('local'),
   CERBOS_URL: optionalUrl,
   CERBOS_TIMEOUT_MS: z.coerce.number().int().positive().max(10_000).default(2_000),
@@ -93,6 +94,13 @@ const configSchema = z.object({
   OIDC_REDIRECT_URI: optionalUrl,
   OIDC_ADMIN_GROUP: z.string().default('git-code-reviewer-admins'),
   OIDC_ADMIN_ROLE: z.string().default('git-code-reviewer-admin'),
+  SAML_ENTITY_ID: optionalUrl,
+  SAML_IDP_ISSUER: optionalUrl,
+  SAML_IDP_ENTRY_POINT: optionalUrl,
+  SAML_IDP_METADATA_URL: optionalUrl,
+  SAML_IDP_METADATA_FILE: z.string().optional(),
+  SAML_PRIVATE_KEY_FILE: z.string().optional(),
+  SAML_PUBLIC_CERT_FILE: z.string().optional(),
   DEFAULT_TENANT_SLUG: z
     .string()
     .regex(/^[a-z0-9][a-z0-9-]{1,62}$/)
@@ -210,6 +218,7 @@ export function loadConfig(
       'Invalid configuration: proxy identity settings are required for proxy auth mode',
     );
   }
+  if (command === 'serve' && result.data.AUTH_MODE === 'saml') validateSamlSettings(result.data);
   if (
     ['serve', 'worker'].includes(command) &&
     result.data.GITHUB_MODE === 'app' &&

@@ -95,6 +95,12 @@ importers:
       '@gcr/review-contract':
         specifier: workspace:*
         version: link:../../packages/review-contract
+      '@node-saml/node-saml':
+        specifier: 5.1.0
+        version: 5.1.0
+      '@xmldom/xmldom':
+        specifier: 0.9.12
+        version: 0.9.12
       fastify:
         specifier: ^5.6.1
         version: 5.12.1
@@ -104,6 +110,9 @@ importers:
       openid-client:
         specifier: ^6.8.7
         version: 6.8.7
+      xml-crypto:
+        specifier: 6.1.2
+        version: 6.1.2
       zod:
         specifier: ^4.1.11
         version: 4.5.4

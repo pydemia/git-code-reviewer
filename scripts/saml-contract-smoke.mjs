@@ -29,6 +29,7 @@ import {
 import { certificate, consume } from './saml-contract-fixtures.mjs';
 
 const exec = promisify(execFile);
+const applicationMode = process.argv.includes('--application');
 const KC_IMAGE =
   'quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54';
 const PG_IMAGE = 'postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73';
@@ -42,7 +43,7 @@ const names = {
 const ownedContainers = [];
 const evidence = {
   formatVersion: 1,
-  phase: 'P03-C01',
+  phase: applicationMode ? 'P03-C03' : 'P03-C01',
   status: 'running',
   startedAt: new Date().toISOString(),
   node: process.version,
@@ -69,6 +70,7 @@ let browser,
   networkOwned = false,
   stage = 'prepare';
 let config, upstreamPort;
+let applicationHandler;
 const transactions = new Map(),
   sessions = new Map(),
   ledger = new Set();
@@ -77,7 +79,23 @@ const acsReceipts = [],
 let logoutReceipt;
 evidence.sourceSha256 = Object.fromEntries(
   await Promise.all(
-    ['saml-contract.mjs', 'saml-contract-smoke.mjs'].map(async (name) => [
+    [
+      '../apps/runtime/src/auth/saml-protocol.ts',
+      'saml-contract.mjs',
+      'saml-contract-smoke.mjs',
+      ...(applicationMode
+        ? [
+            'saml-application-smoke.mjs',
+            '../apps/runtime/src/auth/saml-routes.ts',
+            '../apps/runtime/src/auth/saml-state.ts',
+            '../apps/runtime/src/auth/saml-config.ts',
+            '../apps/runtime/src/auth/index.ts',
+            '../apps/runtime/src/server.ts',
+            '../apps/web/src/LoginPage.tsx',
+            '../apps/web/src/api.ts',
+          ]
+        : []),
+    ].map(async (name) => [
       name,
       createHash('sha256')
         .update(await readFile(new URL(name, import.meta.url)))
@@ -169,6 +187,7 @@ try {
   const userPassword = randomBytes(24).toString('base64url');
   const tlsOptions = { key: tls.key, cert: tls.cert };
   spServer = https.createServer(tlsOptions, (request, response) => {
+    if (applicationHandler) return applicationHandler(request, response);
     (async () => {
       const url = new URL(request.url, config.entityId);
       if (request.headers.host !== new URL(config.entityId).host) throw new SamlContractError();
@@ -663,6 +682,34 @@ try {
   evidence.nameIdStable = true;
   evidence.signingCertificateCount = config.idpCerts.length;
   evidence.rejectedRequests = rejectedMessages;
+  if (applicationMode) {
+    stage = 'application';
+    const { runApplicationSmoke } = await import('./saml-application-smoke.mjs');
+    evidence.application = await runApplicationSmoke({
+      browser,
+      config,
+      directory,
+      spKeys,
+      metadataXml: rotatedDescriptor.text,
+      identity: first.identity,
+      keycloakUserId: user.id,
+      userPassword,
+      wire(handler) {
+        applicationHandler = handler;
+      },
+      progress(value) {
+        stage = `application:${value}`;
+        console.log(JSON.stringify({ stage }));
+      },
+    });
+    evidence.limitations = [
+      'Chrome headless; native Safari and interactive browser operation remain pending',
+      'test-specific generated TLS leaf SPKI pins; no system trust installation',
+      'fixture-only explicit identity mapping and activation; production provisioning/freshness are P03-C04/C05',
+      'separate disposable app and identity PostgreSQL; shared DB ACL/migration are P03-C06',
+      'local app source plus compiled web assets; deployed image SAML activation is not claimed',
+    ];
+  }
   evidence.status = 'passed';
 } catch (error) {
   evidence.status = 'failed';

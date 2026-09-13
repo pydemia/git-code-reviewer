@@ -7,6 +7,8 @@ import { importSPKI, jwtVerify } from 'jose';
 import * as oidc from 'openid-client';
 import { z } from 'zod';
 import type { AppConfig } from '../config.js';
+import type { SamlProtocolConfig } from './saml-protocol.js';
+import { registerSamlAuthentication, samlPublicRequest } from './saml-routes.js';
 import {
   assertLocalUsername,
   hashLocalPassword,
@@ -41,10 +43,19 @@ const localLoginBody = z.object({
 });
 const unavailablePasswordHash = hashLocalPassword('unavailable local account credential');
 
+export class IdentityUnavailableError extends Error {
+  readonly statusCode = 503;
+  constructor() {
+    super('Identity state is unavailable');
+    this.name = 'IdentityUnavailableError';
+  }
+}
+
 export async function registerAuthentication(
   app: FastifyInstance,
   config: AppConfig,
   database: Database,
+  samlProtocol?: SamlProtocolConfig,
 ): Promise<void> {
   await app.register(cookie, { secret: config.SESSION_SECRET, hook: 'onRequest' });
   app.decorateRequest('user', null);
@@ -100,12 +111,25 @@ export async function registerAuthentication(
       return;
     }
 
+    if (config.AUTH_MODE === 'saml' && samlPublicRequest(request)) return;
     const token = request.cookies[sessionCookie];
     if (!token) return;
-    request.user = await findSessionUser(database, token);
+    if (config.AUTH_MODE === 'saml') {
+      try {
+        request.user = await findSessionUser(database, token, true);
+      } catch {
+        throw new IdentityUnavailableError();
+      }
+    } else request.user = await findSessionUser(database, token);
   });
 
+  const saml =
+    config.AUTH_MODE === 'saml'
+      ? await registerSamlAuthentication(app, config, database, samlProtocol)
+      : undefined;
+
   app.get('/auth/login', async (request, reply) => {
+    if (saml) return saml.startLogin(request, reply);
     if (config.AUTH_MODE === 'development' || config.AUTH_MODE === 'proxy') {
       return reply.redirect(safeReturnTo(request.query));
     }
@@ -140,6 +164,8 @@ export async function registerAuthentication(
   });
 
   app.get('/auth/callback', async (request, reply) => {
+    if (config.AUTH_MODE === 'saml')
+      return reply.code(404).send({ error: 'OIDC callback is unavailable' });
     if (config.AUTH_MODE !== 'oidc') return reply.redirect('/');
     const signedCookie = request.cookies[transactionCookie];
     const transactionId = signedCookie ? request.unsignCookie(signedCookie) : null;
@@ -265,6 +291,7 @@ export async function registerAuthentication(
   });
 
   app.post('/auth/logout', async (request, reply) => {
+    if (saml) return saml.startLogout(request, reply);
     const token = request.cookies[sessionCookie];
     if (token) await database.query('delete from user_sessions where id_hash = $1', [hash(token)]);
     reply.clearCookie(sessionCookie, { path: '/' });
@@ -347,7 +374,12 @@ async function upsertUser(
   });
 }
 
-async function findSessionUser(database: Database, token: string): Promise<AuthUser | null> {
+async function findSessionUser(
+  database: Database,
+  token: string,
+  requireSaml = false,
+): Promise<AuthUser | null> {
+  if (token.length > 512 || (requireSaml && !/^[A-Za-z0-9_-]{43}$/.test(token))) return null;
   const result = await database.query<{
     id: string;
     oidc_subject: string;
@@ -360,10 +392,27 @@ async function findSessionUser(database: Database, token: string): Promise<AuthU
      from users u
      where s.id_hash = $1 and s.expires_at > clock_timestamp() and u.id = s.user_id
        and u.enabled and u.deleted_at is null
+       and (not $2 or s.saml_identity_id is not null)
+       and (s.saml_identity_id is null or exists(
+         select 1 from user_identities i where i.id=s.saml_identity_id and i.user_id=u.id and i.enabled
+         and i.provisioning_state='provisioned' and i.identity_verified_at<=clock_timestamp()
+         and i.security_epoch=s.saml_security_epoch and s.saml_session_not_on_or_after>clock_timestamp()
+         and i.security_checked_at<=clock_timestamp() and i.security_fresh_until>clock_timestamp()))
      returning u.id, u.oidc_subject, u.display_name, u.role, u.groups_json, u.enabled`,
-    [hash(token)],
+    [hash(token), requireSaml],
   );
   const row = result.rows[0];
+  if (!row) {
+    const unavailable = await database.query(
+      `select 1 from user_sessions s join users u on u.id=s.user_id join user_identities i on i.id=s.saml_identity_id and i.user_id=u.id
+       where s.id_hash=$1 and s.expires_at>clock_timestamp() and u.enabled and u.deleted_at is null and i.enabled
+       and i.provisioning_state='provisioned' and i.identity_verified_at<=clock_timestamp()
+       and i.security_epoch=s.saml_security_epoch and s.saml_session_not_on_or_after>clock_timestamp()
+       and (i.security_checked_at is null or i.security_checked_at>clock_timestamp() or i.security_fresh_until<=clock_timestamp())`,
+      [hash(token)],
+    );
+    if (unavailable.rowCount) throw new IdentityUnavailableError();
+  }
   return row
     ? hydrateUser(database, {
         id: row.id,

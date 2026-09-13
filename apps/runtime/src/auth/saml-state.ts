@@ -12,6 +12,7 @@ export type SamlStateErrorCode =
   | 'SAML_MAPPING_CONFLICT'
   | 'SAML_TRANSACTION_INVALID'
   | 'SAML_IDENTITY_UNAVAILABLE'
+  | 'SAML_SECURITY_UNAVAILABLE'
   | 'SAML_REPLAY'
   | 'SAML_STORAGE_UNAVAILABLE';
 
@@ -52,6 +53,11 @@ export interface VerifiedSamlLogin extends SamlIdentity {
   readonly assertionId: string;
   readonly sessionIndex: string;
   readonly sessionExpiresAt: number;
+}
+
+export interface VerifiedSamlLogoutRequest extends SamlIdentity {
+  readonly requestId: string;
+  readonly sessionIndexes: readonly string[];
 }
 
 interface TransactionRow {
@@ -322,15 +328,16 @@ async function transaction(
   key: string,
   browser: SamlBrowserBinding,
   lock: boolean,
+  kind: 'login' | 'logout' = 'login',
 ): Promise<TransactionRow> {
   for (const value of [browser.relayState, browser.browserNonce]) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(value)) fail('SAML_TRANSACTION_INVALID');
   }
   const result = await client.query<TransactionRow>(
     `select id,request_id,return_to,created_at,expires_at from saml_transactions
-     where kind='login' and configuration_key=$1 and relay_state_hash=$2 and browser_nonce_hash=$3
+     where kind=$4 and configuration_key=$1 and relay_state_hash=$2 and browser_nonce_hash=$3
        and consumed_at is null and expires_at>clock_timestamp()${lock ? ' for update' : ''}`,
-    [key, hash(browser.relayState), hash(browser.browserNonce)],
+    [key, hash(browser.relayState), hash(browser.browserNonce), kind],
   );
   if (!result.rows[0]) fail('SAML_TRANSACTION_INVALID');
   return result.rows[0];
@@ -395,14 +402,21 @@ export async function consumeSamlLogin(
       ).rows[0];
       if (!user) fail('SAML_IDENTITY_UNAVAILABLE');
       const active = (
-        await client.query<{ security_epoch: string }>(
-          `select security_epoch from user_identities where id=$1 and identity_key=$2 and enabled
-       and provisioning_state='provisioned' and identity_verified_at<=clock_timestamp()
-       and security_checked_at<=clock_timestamp() and security_fresh_until>clock_timestamp() for update`,
+        await client.query<{ security_epoch: string; fresh: boolean | null }>(
+          `select security_epoch,security_checked_at<=clock_timestamp() and security_fresh_until>clock_timestamp() as fresh
+       from user_identities where id=$1 and identity_key=$2 and enabled
+       and provisioning_state='provisioned' and identity_verified_at<=clock_timestamp() for update`,
           [candidate.id, identity],
         )
       ).rows[0];
       if (!active) fail('SAML_IDENTITY_UNAVAILABLE');
+      if (!active.fresh) fail('SAML_SECURITY_UNAVAILABLE');
+      const revoked = await client.query(
+        `select 1 from saml_session_revocations where identity_id=$1 and session_index_hash=$2
+         and revoked_at >= (select created_at from saml_transactions where id=$3) and expires_at>clock_timestamp()`,
+        [candidate.id, hash(verified.sessionIndex), tx.id],
+      );
+      if (revoked.rowCount) fail('SAML_TRANSACTION_INVALID');
       const now = (await client.query<{ now: Date }>('select clock_timestamp() as now')).rows[0]!
         .now;
       const expiresAt = new Date(Math.min(now.getTime() + sessionMs, verified.sessionExpiresAt));
@@ -477,8 +491,218 @@ export async function pruneSamlState(database: Database, batchSize = 500) {
         order by expires_at limit $1 for update skip locked)`,
         [batchSize],
       );
-      return { transactions: transactions.rowCount ?? 0, messages: messages.rowCount ?? 0 };
+      const revocations = await client.query(
+        `delete from saml_session_revocations where (identity_id,session_index_hash) in
+       (select identity_id,session_index_hash from saml_session_revocations where expires_at<=clock_timestamp()
+        order by expires_at limit $1 for update skip locked)`,
+        [batchSize],
+      );
+      return {
+        transactions: transactions.rowCount ?? 0,
+        messages: messages.rowCount ?? 0,
+        revocations: revocations.rowCount ?? 0,
+      };
     },
     'SAML_STORAGE_UNAVAILABLE',
   );
+}
+
+export async function beginSamlLogout(
+  database: Database,
+  binding: SamlProviderBinding,
+  sessionToken: string,
+) {
+  const key = samlConfigurationKey(binding);
+  if (!/^[A-Za-z0-9_-]{43}$/.test(sessionToken)) return null;
+  const sessionHash = hash(sessionToken);
+  return atomic(
+    database,
+    async (client) => {
+      const candidate = (
+        await client.query<{ user_id: string }>(
+          'select user_id from user_sessions where id_hash=$1 and expires_at>clock_timestamp()',
+          [sessionHash],
+        )
+      ).rows[0];
+      if (!candidate) return null;
+      // Match admin block/delete lock order; logout is allowed for disabled users.
+      await client.query('select id from users where id=$1 for update', [candidate.user_id]);
+      const session = (
+        await client.query<{ saml_identity_id: string | null; saml_session_index: string | null }>(
+          'delete from user_sessions where id_hash=$1 and user_id=$2 returning saml_identity_id,saml_session_index',
+          [sessionHash, candidate.user_id],
+        )
+      ).rows[0];
+      if (!session?.saml_identity_id || !session.saml_session_index) return null;
+      const identity = (
+        await client.query<{
+          name_id: string;
+          name_id_format: typeof persistentNameId;
+          name_qualifier: string | null;
+          sp_name_qualifier: string | null;
+        }>(
+          'select name_id,name_id_format,name_qualifier,sp_name_qualifier from user_identities where id=$1 and user_id=$2 and idp_issuer=$3 and sp_entity_id=$4',
+          [session.saml_identity_id, candidate.user_id, binding.issuer, binding.entityId],
+        )
+      ).rows[0];
+      if (!identity) return null;
+      await revokeSamlSessionIndexes(client, session.saml_identity_id, candidate.user_id, [
+        session.saml_session_index,
+      ]);
+      const requestId = `_${randomBytes(32).toString('hex')}`;
+      const relayState = randomBytes(32).toString('base64url');
+      const browserNonce = randomBytes(32).toString('base64url');
+      const tx = (
+        await client.query<TransactionRow>(
+          `insert into saml_transactions(kind,request_id,configuration_key,relay_state_hash,browser_nonce_hash,return_to,
+       logout_identity_id,logout_session_index,logout_session_hash) values('logout',$1,$2,$3,$4,'/login',$5,$6,$7)
+       returning id,request_id,return_to,created_at,expires_at`,
+          [
+            requestId,
+            key,
+            hash(relayState),
+            hash(browserNonce),
+            session.saml_identity_id,
+            session.saml_session_index,
+            sessionHash,
+          ],
+        )
+      ).rows[0]!;
+      return {
+        requestId,
+        relayState,
+        browserNonce,
+        createdAt: tx.created_at.getTime(),
+        expiresAt: tx.expires_at.getTime(),
+        identity: {
+          issuer: binding.issuer,
+          entityId: binding.entityId,
+          nameID: identity.name_id,
+          nameIDFormat: identity.name_id_format,
+          nameQualifier: identity.name_qualifier,
+          spNameQualifier: identity.sp_name_qualifier,
+          sessionIndex: session.saml_session_index,
+        },
+      };
+    },
+    'SAML_TRANSACTION_INVALID',
+  );
+}
+
+export async function loadSamlLogout(
+  database: Database,
+  binding: SamlProviderBinding,
+  browser: SamlBrowserBinding,
+) {
+  const key = samlConfigurationKey(binding);
+  return atomic(
+    database,
+    async (client) => {
+      const tx = await transaction(client, key, browser, false, 'logout');
+      return {
+        requestId: tx.request_id,
+        createdAt: tx.created_at.getTime(),
+        expiresAt: tx.expires_at.getTime(),
+      };
+    },
+    'SAML_TRANSACTION_INVALID',
+  );
+}
+
+export async function consumeSamlLogout(
+  database: Database,
+  binding: SamlProviderBinding,
+  browser: SamlBrowserBinding,
+  verified: { readonly requestId: string; readonly responseId: string },
+) {
+  const key = samlConfigurationKey(binding);
+  for (const id of [verified.requestId, verified.responseId])
+    if (!/^[_A-Za-z][_A-Za-z0-9.-]{0,255}$/.test(id)) fail('SAML_INVALID_INPUT');
+  return atomic(
+    database,
+    async (client) => {
+      const tx = await transaction(client, key, browser, true, 'logout');
+      if (tx.request_id !== verified.requestId) fail('SAML_TRANSACTION_INVALID');
+      await client.query(
+        "insert into saml_message_consumptions(configuration_key,message_id_hash,kind) values($1,$2,'logout-response')",
+        [key, hash(verified.responseId)],
+      );
+      const result = await client.query(
+        'update saml_transactions set consumed_at=clock_timestamp() where id=$1 and consumed_at is null and expires_at>clock_timestamp() returning id',
+        [tx.id],
+      );
+      if (result.rowCount !== 1) fail('SAML_TRANSACTION_INVALID');
+      return tx.return_to;
+    },
+    'SAML_REPLAY',
+  );
+}
+
+export async function consumeIdpSamlLogout(
+  database: Database,
+  binding: SamlProviderBinding,
+  verified: VerifiedSamlLogoutRequest,
+) {
+  const key = samlConfigurationKey(binding),
+    identity = identityKey(binding, verified);
+  if (
+    !/^[_A-Za-z][_A-Za-z0-9.-]{0,255}$/.test(verified.requestId) ||
+    !Array.isArray(verified.sessionIndexes) ||
+    verified.sessionIndexes.length < 1 ||
+    verified.sessionIndexes.length > 32 ||
+    new Set(verified.sessionIndexes).size !== verified.sessionIndexes.length
+  )
+    fail('SAML_INVALID_INPUT');
+  for (const index of verified.sessionIndexes) text(index, 1024);
+  return atomic(
+    database,
+    async (client) => {
+      const candidate = (
+        await client.query<{ id: string; user_id: string }>(
+          'select id,user_id from user_identities where identity_key=$1',
+          [identity],
+        )
+      ).rows[0];
+      if (!candidate) fail('SAML_IDENTITY_UNAVAILABLE');
+      await client.query('select id from users where id=$1 for update', [candidate.user_id]);
+      const current = await client.query(
+        'select id from user_identities where id=$1 and identity_key=$2 for update',
+        [candidate.id, identity],
+      );
+      if (!current.rowCount) fail('SAML_IDENTITY_UNAVAILABLE');
+      await client.query(
+        "insert into saml_message_consumptions(configuration_key,message_id_hash,kind) values($1,$2,'logout-request')",
+        [key, hash(verified.requestId)],
+      );
+      const deletedSessions = await revokeSamlSessionIndexes(
+        client,
+        candidate.id,
+        candidate.user_id,
+        verified.sessionIndexes,
+      );
+      return { deletedSessions };
+    },
+    'SAML_REPLAY',
+  );
+}
+
+async function revokeSamlSessionIndexes(
+  client: DatabaseClient,
+  identityId: string,
+  userId: string,
+  indexes: readonly string[],
+) {
+  for (const indexHash of indexes.map(hash).sort()) {
+    await client.query(
+      `insert into saml_session_revocations(identity_id,session_index_hash) values($1,$2)
+       on conflict(identity_id,session_index_hash) do update set revoked_at=statement_timestamp(),
+         expires_at=statement_timestamp()+interval '10 minutes'`,
+      [identityId, indexHash],
+    );
+  }
+  const deleted = await client.query(
+    'delete from user_sessions where saml_identity_id=$1 and user_id=$2 and saml_session_index=any($3::text[])',
+    [identityId, userId, indexes],
+  );
+  return deleted.rowCount ?? 0;
 }

@@ -5,7 +5,9 @@ import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import Fastify from 'fastify';
 import { errorEnvelope, schemaVersion } from '@gcr/contracts';
 import { createDatabase, pingDatabase, type Database } from '@gcr/db';
-import { registerAuthentication } from './auth/index.js';
+import { registerAuthentication, IdentityUnavailableError } from './auth/index.js';
+import { isSamlCallback, redactSamlRequestUrl } from './auth/saml-routes.js';
+import { loadSamlProtocolConfig } from './auth/saml-config.js';
 import { ZodError } from 'zod';
 import { GitHubRegistryError } from './services/account-registry.js';
 import type { AppConfig } from './config.js';
@@ -42,9 +44,21 @@ const securityHeaders = {
 };
 
 export async function buildServer(config: AppConfig) {
+  // Resolve trust material before allocating pools/schedulers. A configuration
+  // or IdP metadata failure must not leave a partially initialized server.
+  const samlProtocol =
+    config.AUTH_MODE === 'saml' ? await loadSamlProtocolConfig(config) : undefined;
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
+      serializers: {
+        req: (request) => ({
+          method: request.method,
+          url: redactSamlRequestUrl(request.url),
+          hostname: request.hostname,
+          remoteAddress: request.ip,
+        }),
+      },
       redact: {
         paths: [
           'req.headers.authorization',
@@ -79,9 +93,10 @@ export async function buildServer(config: AppConfig) {
 
   app.addHook('onRequest', async (request, reply) => {
     if (
-      config.NODE_ENV === 'production' &&
+      (config.NODE_ENV === 'production' || config.AUTH_MODE === 'saml') &&
       !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
-      !sameOrigin(request)
+      !(config.AUTH_MODE === 'saml' && isSamlCallback(request)) &&
+      !sameOrigin(request, config)
     ) {
       return reply
         .code(403)
@@ -89,7 +104,7 @@ export async function buildServer(config: AppConfig) {
     }
   });
 
-  await registerAuthentication(app, config, database);
+  await registerAuthentication(app, config, database, samlProtocol);
   await registerWorklistRoutes(app, database, authorization, config);
   await registerProfileRoutes(app, database, config);
   await registerAdminRoutes(app, database, authorization, config);
@@ -119,6 +134,17 @@ export async function buildServer(config: AppConfig) {
   }));
 
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof IdentityUnavailableError)
+      return reply
+        .code(503)
+        .send(
+          errorEnvelope(
+            'IDENTITY_UNAVAILABLE',
+            '인증 상태를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+            request.id,
+            true,
+          ),
+        );
     if (error instanceof GitHubRegistryError) {
       return reply
         .code(error.statusCode)
@@ -253,14 +279,13 @@ async function dependencyHealth(
   }
 }
 
-function sameOrigin(request: import('fastify').FastifyRequest): boolean {
+function sameOrigin(request: import('fastify').FastifyRequest, config: AppConfig): boolean {
   const origin = request.headers.origin;
   if (!origin) return false;
   try {
     const parsed = new URL(origin);
-    const forwardedHost = request.headers['x-forwarded-host'];
-    const expectedHost = typeof forwardedHost === 'string' ? forwardedHost : request.headers.host;
-    return parsed.host === expectedHost && ['http:', 'https:'].includes(parsed.protocol);
+    const expected = new URL(config.PUBLIC_BASE_URL ?? `${request.protocol}://${request.host}`);
+    return origin === parsed.origin && parsed.origin === expected.origin;
   } catch {
     return false;
   }

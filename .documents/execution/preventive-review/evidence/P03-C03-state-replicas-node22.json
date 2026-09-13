@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T00:19:47.355Z",
+  "node": "v22.23.2",
+  "sourceHashes": {
+    "apps/runtime/src/auth/saml-state.ts": "deb043d7c55b56cfd1ceac1c0024bc83ac2896f65e5adc7b525d76b8bfed1225",
+    "apps/runtime/src/auth/saml-state.integration.test.ts": "5c07ce85ad20ec906a2ad7d382d2e070c41f6c108f4ed44ae4f42195b04f4a15",
+    "packages/db/migrations/0032_saml_identity_state.sql": "29490f3ab13dadbf4cc4997e8ef04be3136b3b366e5d2614df27b4788573da74"
+  },
+  "replicas": [
+    {
+      "status": "rejected",
+      "code": "SAML_TRANSACTION_INVALID",
+      "pid": 28026,
+      "backendPid": 147
+    },
+    {
+      "status": "passed",
+      "pid": 28027,
+      "backendPid": 148
+    }
+  ],
+  "messageCollisionReplicas": [
+    {
+      "status": "rejected",
+      "code": "SAML_REPLAY",
+      "pid": 27822,
+      "backendPid": 146
+    },
+    {
+      "status": "passed",
+      "pid": 27823,
+      "backendPid": 145
+    }
+  ],
+  "successfulConsumers": 1,
+  "newSessions": 1,
+  "newConsumedTransactions": 1,
+  "newMessageHashes": 2,
+  "restartReplayRejected": true,
+  "verifierInput": "Synthetic already-verified identity fixture; cryptographic/IdP verification is covered separately by P03-C01."
+}

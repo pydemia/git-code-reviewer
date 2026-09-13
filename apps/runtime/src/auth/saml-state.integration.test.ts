@@ -423,7 +423,11 @@ describe
           [mapped.identityId],
         )
       ).rows;
-      await expect(consume(attempt)).rejects.toMatchObject({ code: 'SAML_IDENTITY_UNAVAILABLE' });
+      await expect(consume(attempt)).rejects.toMatchObject({
+        code: ['stale', 'future-check'].includes(state)
+          ? 'SAML_SECURITY_UNAVAILABLE'
+          : 'SAML_IDENTITY_UNAVAILABLE',
+      });
       expect(await counts()).toEqual(before);
       expect(
         (
@@ -611,7 +615,7 @@ describe
       );
       const before = await counts();
       const pruned = await pruneSamlState(database, 1);
-      expect(pruned).toEqual({ transactions: 1, messages: 1 });
+      expect(pruned).toEqual({ transactions: 1, messages: 1, revocations: 0 });
       expect((await counts()).messages).toBe(before.messages - 1);
       for (const attempt of attempts)
         expect(

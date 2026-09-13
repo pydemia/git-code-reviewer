@@ -76,13 +76,14 @@ export function signedLogin(config, tx, key, cert, changes = {}) {
     expires: instant(240_000),
     subjectExpires: instant(240_000),
     sessionExpires: instant(3_600_000),
+    sessionIndex: 'synthetic-session',
     issued: instant(0),
     nameQualifier: config.idpIssuer,
     spNameQualifier: config.entityId,
     signatureAlgorithm: SHA256,
     ...changes,
   };
-  let xml = `<samlp:Response xmlns:samlp="${NS.protocol}" xmlns:saml="${NS.assertion}" ID="${esc(v.responseId)}" Version="2.0" IssueInstant="${esc(v.issued)}" Destination="${esc(v.destination)}" InResponseTo="${esc(v.requestId)}"><saml:Issuer>${esc(v.responseIssuer)}</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status><saml:Assertion ID="${esc(v.assertionId)}" Version="2.0" IssueInstant="${esc(v.issued)}"><saml:Issuer>${esc(v.issuer)}</saml:Issuer><saml:Subject><saml:NameID Format="${esc(v.nameFormat)}" NameQualifier="${esc(v.nameQualifier)}" SPNameQualifier="${esc(v.spNameQualifier)}">${esc(v.nameID)}</saml:NameID><saml:SubjectConfirmation Method="${esc(v.method)}"><saml:SubjectConfirmationData InResponseTo="${esc(v.subjectRequestId)}" Recipient="${esc(v.recipient)}" NotOnOrAfter="${esc(v.subjectExpires)}"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="${esc(v.notBefore)}" NotOnOrAfter="${esc(v.expires)}"><saml:AudienceRestriction><saml:Audience>${esc(v.audience)}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="${esc(v.issued)}" SessionIndex="synthetic-session" SessionNotOnOrAfter="${esc(v.sessionExpires)}"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion></samlp:Response>`;
+  let xml = `<samlp:Response xmlns:samlp="${NS.protocol}" xmlns:saml="${NS.assertion}" ID="${esc(v.responseId)}" Version="2.0" IssueInstant="${esc(v.issued)}" Destination="${esc(v.destination)}" InResponseTo="${esc(v.requestId)}"><saml:Issuer>${esc(v.responseIssuer)}</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status><saml:Assertion ID="${esc(v.assertionId)}" Version="2.0" IssueInstant="${esc(v.issued)}"><saml:Issuer>${esc(v.issuer)}</saml:Issuer><saml:Subject><saml:NameID Format="${esc(v.nameFormat)}" NameQualifier="${esc(v.nameQualifier)}" SPNameQualifier="${esc(v.spNameQualifier)}">${esc(v.nameID)}</saml:NameID><saml:SubjectConfirmation Method="${esc(v.method)}"><saml:SubjectConfirmationData InResponseTo="${esc(v.subjectRequestId)}" Recipient="${esc(v.recipient)}" NotOnOrAfter="${esc(v.subjectExpires)}"/></saml:SubjectConfirmation></saml:Subject><saml:Conditions NotBefore="${esc(v.notBefore)}" NotOnOrAfter="${esc(v.expires)}"><saml:AudienceRestriction><saml:Audience>${esc(v.audience)}</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AuthnStatement AuthnInstant="${esc(v.issued)}" SessionIndex="${esc(v.sessionIndex)}" SessionNotOnOrAfter="${esc(v.sessionExpires)}"><saml:AuthnContext><saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef></saml:AuthnContext></saml:AuthnStatement></saml:Assertion></samlp:Response>`;
   for (const name of ['Assertion', 'Response']) {
     if (changes[`omit${name}Signature`]) continue;
     const signer = new SignedXml({
@@ -124,6 +125,36 @@ export function signedLogout(config, tx, key, changes = {}) {
     .map(([k, value]) => `${k}=${encodeURIComponent(value)}`)
     .join('&');
   return `${query}&Signature=${encodeURIComponent(sign('RSA-SHA256', Buffer.from(query), key).toString('base64'))}`;
+}
+export function signedLogoutRequest(config, key, changes = {}) {
+  const v = {
+    id: `_${randomBytes(16).toString('hex')}`,
+    destination: config.slo,
+    issuer: config.idpIssuer,
+    issued: instant(0),
+    expires: instant(240_000),
+    nameID: 'synthetic-persistent-id',
+    nameFormat: PERSISTENT,
+    nameQualifier: config.idpIssuer,
+    spNameQualifier: config.entityId,
+    sessionIndexes: ['synthetic-session'],
+    relayState: 'synthetic-idp-relay',
+    ...changes,
+  };
+  const xml = `<samlp:LogoutRequest xmlns:samlp="${NS.protocol}" xmlns:saml="${NS.assertion}" ID="${esc(v.id)}" Version="2.0" IssueInstant="${esc(v.issued)}" NotOnOrAfter="${esc(v.expires)}" Destination="${esc(v.destination)}"><saml:Issuer>${esc(v.issuer)}</saml:Issuer><saml:NameID Format="${esc(v.nameFormat)}" NameQualifier="${esc(v.nameQualifier)}" SPNameQualifier="${esc(v.spNameQualifier)}">${esc(v.nameID)}</saml:NameID>${v.sessionIndexes.map((index) => `<samlp:SessionIndex>${esc(index)}</samlp:SessionIndex>`).join('')}</samlp:LogoutRequest>`;
+  const fields = {
+    SAMLRequest: deflateRawSync(xml).toString('base64'),
+    ...(v.relayState === null ? {} : { RelayState: v.relayState }),
+    SigAlg: SHA256,
+  };
+  const query = Object.entries(fields)
+    .map(([k, value]) => `${k}=${encodeURIComponent(value)}`)
+    .join('&');
+  return `${query}&Signature=${encodeURIComponent(sign('RSA-SHA256', Buffer.from(query), key).toString('base64'))}`;
+}
+
+export function idpMetadata(config, certs) {
+  return `<md:EntityDescriptor xmlns:md="${NS.metadata}" xmlns:ds="${NS.ds}" entityID="${esc(config.idpIssuer)}"><md:IDPSSODescriptor protocolSupportEnumeration="${NS.protocol}">${certs.map((cert) => `<md:KeyDescriptor use="signing"><ds:KeyInfo><ds:X509Data><ds:X509Certificate>${cert.replace(/-----[^-]+-----|\s/g, '')}</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor>`).join('')}<md:SingleSignOnService Binding="${REDIRECT}" Location="${esc(config.entryPoint)}"/><md:SingleLogoutService Binding="${REDIRECT}" Location="${esc(config.entryPoint)}"/></md:IDPSSODescriptor></md:EntityDescriptor>`;
 }
 // Single-process PoC ledger only. P03-C02 replaces this with PostgreSQL atomic
 // transaction + unique-ID consumption; this is not a cross-replica replay proof.
@@ -311,7 +342,11 @@ export async function runFixtures() {
       checkedAt: new Date().toISOString(),
       sourceSha256: Object.fromEntries(
         await Promise.all(
-          ['saml-contract.mjs', 'saml-contract-fixtures.mjs'].map(async (name) => [
+          [
+            '../apps/runtime/src/auth/saml-protocol.ts',
+            'saml-contract.mjs',
+            'saml-contract-fixtures.mjs',
+          ].map(async (name) => [
             name,
             createHash('sha256')
               .update(await readFile(new URL(name, import.meta.url)))

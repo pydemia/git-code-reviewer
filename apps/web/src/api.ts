@@ -127,9 +127,30 @@ export async function loginLocalAccount(
 }
 
 export async function logout(): Promise<void> {
-  const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
-  if (!response.ok && response.status !== 401) throw await requestError(response);
-  window.location.assign('/login');
+  try {
+    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    if (!response.ok && response.status !== 401) throw await requestError(response);
+    if (response.status === 200) {
+      const body: unknown = await response.json();
+      if (
+        typeof body === 'object' &&
+        body !== null &&
+        'redirectTo' in body &&
+        typeof body.redirectTo === 'string'
+      ) {
+        const target = new URL(body.redirectTo);
+        if (target.protocol !== 'https:' || target.username || target.password)
+          throw new Error('로그아웃 주소를 확인할 수 없습니다.');
+        window.location.assign(target.href);
+        return;
+      }
+      throw new Error('로그아웃 응답을 확인할 수 없습니다.');
+    }
+    window.location.assign('/login');
+  } catch {
+    // A failed or lost response does not prove server/IdP session revocation.
+    window.location.assign('/login?logoutFailed=1');
+  }
 }
 
 export async function loadWorklist(
