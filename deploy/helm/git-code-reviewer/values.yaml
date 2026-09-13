@@ -409,6 +409,9 @@ podDisruptionBudget:
 knowledgePublication:
   enabled: false
 
+clientApiKeys:
+  enabled: false
+
 knowledgeDistribution:
   enabled: false
   serverId: ''

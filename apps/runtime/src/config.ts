@@ -87,6 +87,7 @@ const configSchema = z.object({
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
   CREDENTIAL_REGISTRY_ENABLED: booleanString,
   KNOWLEDGE_PUBLICATION_ENABLED: booleanString,
+  CLIENT_API_KEYS_ENABLED: booleanString,
   KNOWLEDGE_DISTRIBUTION_ENABLED: booleanString,
   KNOWLEDGE_SERVER_ID: z.string().uuid().optional(),
   KNOWLEDGE_SIGNING_KEY_ID: z
@@ -227,6 +228,22 @@ export function loadConfig(
     throw Error(
       'Invalid configuration: knowledge distribution requires publication, server ID and signing key settings',
     );
+  if (command === 'serve' && result.data.CLIENT_API_KEYS_ENABLED) {
+    const origin = result.data.PUBLIC_BASE_URL ? new URL(result.data.PUBLIC_BASE_URL) : undefined;
+    const localTest =
+      origin &&
+      result.data.NODE_ENV !== 'production' &&
+      ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname);
+    if (
+      !result.data.KNOWLEDGE_DISTRIBUTION_ENABLED ||
+      !['local', 'saml'].includes(result.data.AUTH_MODE) ||
+      !origin ||
+      (origin.protocol !== 'https:' && !localTest)
+    )
+      throw Error(
+        'Invalid configuration: client API keys require knowledge distribution, local/SAML authentication and an HTTPS public origin',
+      );
+  }
   if (result.data.DATABASE_ISOLATED_ROLES && result.data.DATABASE_TLS_MODE !== 'verify-full')
     throw Error('Invalid configuration: isolated database roles require verify-full TLS');
   if (result.data.DATABASE_TLS_MODE === 'verify-full' && !result.data.DATABASE_TLS_CA_FILE)

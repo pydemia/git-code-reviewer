@@ -21,9 +21,22 @@
     "retention",
     "identity",
     "knowledgePublication",
-    "knowledgeDistribution"
+    "knowledgeDistribution",
+    "clientApiKeys"
   ],
   "properties": {
+    "clientApiKeys": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "knowledgeDistribution": {
       "type": "object",
       "required": [
@@ -895,5 +908,51 @@
         }
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "clientApiKeys": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "auth": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "local",
+                  "saml"
+                ]
+              }
+            }
+          },
+          "knowledgeDistribution": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "knowledgePublication": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "publicBaseUrl": {
+            "pattern": "^https://"
+          }
+        }
+      }
+    }
+  ]
 }

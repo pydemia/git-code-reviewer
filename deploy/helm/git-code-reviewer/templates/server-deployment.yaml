@@ -93,6 +93,8 @@ spec:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }}-identity }
             {{- end }}
           env:
+            - name: CLIENT_API_KEYS_ENABLED
+              value: {{ .Values.clientApiKeys.enabled | quote }}
             {{- if .Values.knowledgeDistribution.enabled }}
             {{- if not .Values.knowledgePublication.enabled }}
             {{- fail "knowledgeDistribution requires knowledgePublication.enabled" }}

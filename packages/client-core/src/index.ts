@@ -23,3 +23,4 @@ export * from './review-runner.js';
 export * from './knowledge-signature.js';
 export * from './central-binding.js';
 export * from './central-cache.js';
+export * from './knowledge-http.js';

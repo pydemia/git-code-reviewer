@@ -75,58 +75,66 @@ export async function registerKnowledgeRoutes(
       throw error;
     });
     const base = '/api/v1/repositories/:repoId/review-knowledge';
-    routes.get(`${base}/manifest`, { preHandler: requireUser }, async (request, reply) => {
-      const { repoId } = repositoryParams.parse(request.params);
-      const activeSigner = await authorize(request, repoId);
-      const query = z.object({ clientContractVersion: z.string() }).strict().parse(request.query);
-      if (query.clientContractVersion !== '1')
-        throw new CriterionError(
-          426,
-          'KNOWLEDGE_CLIENT_UPGRADE_REQUIRED',
-          '지원하지 않는 지식 배포 contract 버전입니다.',
+    routes.get(
+      `${base}/manifest`,
+      { preHandler: requireUser, config: { clientKnowledgeRead: true } },
+      async (request, reply) => {
+        const { repoId } = repositoryParams.parse(request.params);
+        const activeSigner = await authorize(request, repoId);
+        const query = z.object({ clientContractVersion: z.string() }).strict().parse(request.query);
+        if (query.clientContractVersion !== '1')
+          throw new CriterionError(
+            426,
+            'KNOWLEDGE_CLIENT_UPGRADE_REQUIRED',
+            '지원하지 않는 지식 배포 contract 버전입니다.',
+          );
+        const manifest = await issueKnowledgeManifest(
+          database,
+          store,
+          activeSigner,
+          repoId,
+          request.user!.id,
         );
-      const manifest = await issueKnowledgeManifest(
-        database,
-        store,
-        activeSigner,
-        repoId,
-        request.user!.id,
-      );
-      const etag = `"${manifest.manifestHash}"`;
-      reply.header('etag', etag);
-      // Authorization, complete snapshot readiness and artifact integrity precede 304.
-      const condition = request.headers['if-none-match'];
-      if (
-        typeof condition === 'string' &&
-        condition
-          .split(',')
-          .some((item) => item.trim() === '*' || item.trim().replace(/^W\//, '') === etag)
-      )
-        return reply.code(304).send();
-      return manifest;
-    });
-    routes.get(`${base}/bundles/:bundleId`, { preHandler: requireUser }, async (request, reply) => {
-      const { repoId, bundleId } = repositoryParams
-        .extend({ bundleId: z.string().uuid() })
-        .parse(request.params);
-      await authorize(request, repoId);
-      const { snapshotId } = z
-        .object({ snapshotId: z.string().uuid() })
-        .strict()
-        .parse(request.query);
-      const result = await downloadKnowledgeBundle(
-        database,
-        store,
-        repoId,
-        request.user!.id,
-        snapshotId,
-        bundleId,
-      );
-      return reply
-        .type('application/json; charset=utf-8')
-        .header('etag', `"${result.contentHash}"`)
-        .send(result.bytes);
-    });
+        const etag = `"${manifest.manifestHash}"`;
+        reply.header('etag', etag);
+        // Authorization, complete snapshot readiness and artifact integrity precede 304.
+        const condition = request.headers['if-none-match'];
+        if (
+          typeof condition === 'string' &&
+          condition
+            .split(',')
+            .some((item) => item.trim() === '*' || item.trim().replace(/^W\//, '') === etag)
+        )
+          return reply.code(304).send();
+        return manifest;
+      },
+    );
+    routes.get(
+      `${base}/bundles/:bundleId`,
+      { preHandler: requireUser, config: { clientKnowledgeRead: true } },
+      async (request, reply) => {
+        const { repoId, bundleId } = repositoryParams
+          .extend({ bundleId: z.string().uuid() })
+          .parse(request.params);
+        await authorize(request, repoId);
+        const { snapshotId } = z
+          .object({ snapshotId: z.string().uuid() })
+          .strict()
+          .parse(request.query);
+        const result = await downloadKnowledgeBundle(
+          database,
+          store,
+          repoId,
+          request.user!.id,
+          snapshotId,
+          bundleId,
+        );
+        return reply
+          .type('application/json; charset=utf-8')
+          .header('etag', `"${result.contentHash}"`)
+          .send(result.bytes);
+      },
+    );
     routes.get(`${base}/status`, { preHandler: requireUser }, async (request) => {
       const { repoId } = repositoryParams.parse(request.params);
       if (!(await canReadRepository(database, authorization, request, repoId)))

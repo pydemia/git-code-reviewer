@@ -1,0 +1,94 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T19:04:00.289444+00:00",
+  "scope": "P04 scoped API-key backend and P06 actual HTTP transport; no production deployment or installed CD/CLI claim",
+  "sourceParent": "6554e2068d4e475926706f4ab311d8ca829180e1",
+  "sourceHashes": {
+    "apps/runtime/src/auth/client-credentials.ts": "10d922a875ad4c32968e958cfaa607197097f9f6ce164d0a0dbbf22b441aea38",
+    "apps/runtime/src/auth/client-routes.ts": "2eb93e54a99e21b3e09e46cc2e2951c845413602614056c4ba980f26c8d8173d",
+    "apps/runtime/src/auth/client-credentials.integration.test.ts": "eb26c8d550bdb5842fc211fc53d12f8e6032d86d4805aa9823e10d73e4a8cc19",
+    "apps/runtime/src/auth/index.ts": "6499cdb5384b942f3b4fbd21c445104d5301520368d898066501dc723fc42192",
+    "apps/runtime/src/config.ts": "2040a0304569db8bc5b0c4a96eb791588168019c8dc510e4f74748ee4a529c16",
+    "apps/runtime/src/config.test.ts": "0640076a76b4eb6716e546e1eeff032e36d13ce50768ef604b14a71ebaaca09f",
+    "apps/runtime/src/routes/review-knowledge.ts": "719d2a5304b00e31c98bdcb74ac9860f5f8eb226f7f6929d2bc1f0ffa48936a8",
+    "apps/runtime/src/server.ts": "ba6e2c30df7ee9ad0166a09f1f3a849c20a9161c3bf8054dfc9b7cf3543250d5",
+    "packages/db/migrations/0041_client_api_keys.sql": "a66da8f0b7e51c98f1d92c5afec634aee9fc3fb15f9678a9969b70a8ecac3a5b",
+    "packages/client-core/src/knowledge-http.ts": "7e330c3ad3772bdc77a20f96152ef0b02f717fe8fa89ebfb7b1b83ef0977801a",
+    "packages/client-core/src/knowledge-http.test.ts": "18baaa2f580cd6ad9efcf3b96881a37061cc3e2011bd53e51a05e419fb693efc",
+    "packages/client-core/src/index.ts": "4e7a0ecb763921514a01eb5ad59f48b0c7a89cb69dbbce4e66eb38904a07e6c1",
+    "deploy/helm/git-code-reviewer/templates/server-deployment.yaml": "90ee5207119d5ba832494ba9de732e084eaee38dd4b1a2430be8091f23e955a5",
+    "deploy/helm/git-code-reviewer/values.yaml": "c8e2162eb186557dd7a941cc0fd04c71461a34f26055da43cb02ccd3a533fa7a",
+    "deploy/helm/git-code-reviewer/values.schema.json": "20a52fa04f0a7b382dc72c98849a284eb67b1090e724342fe4367c23104cfb78"
+  },
+  "tests": {
+    "serverRegression": {
+      "passed": 121,
+      "failed": 0,
+      "pending": 0,
+      "reportSha256": "ca514573803abdc6299afd397677834428bd42c3948b5a7658a9ee1d3d91702a",
+      "suites": {
+        "config.test.ts": 20,
+        "client-credentials.integration.test.ts": 10,
+        "index.test.ts": 3,
+        "saml-routes.integration.test.ts": 33,
+        "lifecycle.integration.test.ts": 22,
+        "profile.test.ts": 15,
+        "review-knowledge.integration.test.ts": 18
+      }
+    },
+    "transportAndCache": {
+      "passed": 54,
+      "failed": 0,
+      "pending": 0,
+      "reportSha256": "4217a97ab0446eab4b8bfe5766528bd7ac81bdd17de889ddf413f3bbbf7acd09",
+      "suites": {
+        "central-cache.test.ts": 40,
+        "knowledge-http.test.ts": 14
+      }
+    }
+  },
+  "build": {
+    "runtime": "passed",
+    "clientPackages": "passed",
+    "node": "v22.23.2"
+  },
+  "lint": "changed TypeScript and tests passed",
+  "helm": {
+    "result": "passed",
+    "reportSha256": "f3793acbc7c6b934907aaf93d683b36a15b77e6136168a99e1b00945a0e7c61d",
+    "defaultEnabled": false,
+    "verified": [
+      "explicit HTTPS/local/distribution activation",
+      "reject development auth",
+      "reject HTTP public URL",
+      "reject disabled distribution"
+    ]
+  },
+  "verified": [
+    "Actual local password login and scoped key issuance against owned PostgreSQL; raw token returned once and digest stored",
+    "Web CSRF, owner-only key management, tenant/repository scope, no bearer-to-cookie/development fallback",
+    "Only explicit knowledge manifest/bundle and client-me routes accept bearer authentication; model endpoint rejected",
+    "Current membership/grants/user/expiry and existing credential epoch rechecked; microsecond password-change precision retained",
+    "SAML identity-owner composite foreign key, freshness 503 and security epoch 403",
+    "Actual HTTP listener to signed publications to encrypted cache, 304 and revoked-key 403 blocks cache",
+    "HTTPS CA trust and hostname mismatch rejection before credential reaches request handler",
+    "No redirect following, bounded manifest parsing, cancelled/changed binding cannot send a late credential",
+    "Credential-port errors and server error bodies do not enter transport error messages",
+    "Existing signed SAML routes including freshness envelopes, lifecycle/profile and knowledge publication/browser regressions"
+  ],
+  "modelCalls": 0,
+  "reviewFindingsResolved": [
+    "Install shared server error handler before route registration to preserve SAML freshness envelopes",
+    "Retain PostgreSQL microsecond timestamp precision in key password binding",
+    "Validate identity/user association with a composite DB foreign key",
+    "Check credential binding again after asynchronous token lookup and sanitize credential-port errors"
+  ],
+  "limitations": [
+    "API key management UI, OS broker, PKCE/device/refresh families, remote mapping and installed client configuration remain incomplete",
+    "SAML key freshness uses a synthetic persisted identity in this test; actual SAML browser-to-client authorization not claimed",
+    "HTTP sync uses owned local PostgreSQL/listener and synthetic keys, not deployed PRISM-DEV credentials",
+    "Running-review revocation, credential-expiry admission, scheduling and central context/CD UI remain P06 work",
+    "No new image/chart/client artifact has been published; PRISM-DEV remains revision53 alpha.41 with migration40 and client keys disabled",
+    "Entire P00-P13 development/deployment goal remains active"
+  ]
+}

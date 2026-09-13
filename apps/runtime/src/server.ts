@@ -7,6 +7,8 @@ import { errorEnvelope, schemaVersion } from '@gcr/contracts';
 import { pingDatabase, type Database } from '@gcr/db';
 import { openRuntimeDatabase } from './database.js';
 import { registerAuthentication, IdentityUnavailableError } from './auth/index.js';
+import { registerClientCredentialRoutes } from './auth/client-routes.js';
+import { ClientCredentialError } from './auth/client-credentials.js';
 import { isSamlCallback, redactSamlRequestUrl } from './auth/saml-routes.js';
 import { loadSamlProtocolConfig } from './auth/saml-config.js';
 import { ZodError } from 'zod';
@@ -63,7 +65,12 @@ export async function buildServer(
       serializers: {
         req: (request) => ({
           method: request.method,
-          url: redactSamlRequestUrl(request.url),
+          url:
+            request.url.startsWith('/api/v1/client-auth/') ||
+            request.url.startsWith('/api/v1/me/client-credentials') ||
+            request.url.includes('/review-knowledge/')
+              ? request.url.split('?')[0]!
+              : redactSamlRequestUrl(request.url),
           hostname: request.hostname,
           remoteAddress: request.ip,
         }),
@@ -86,86 +93,18 @@ export async function buildServer(
     requestIdHeader: 'x-request-id',
     trustProxy: config.TRUST_PROXY,
   });
-  const database = await openRuntimeDatabase(config, config.DATABASE_POOL_MAX);
-  let knowledgeSigner;
-  try {
-    knowledgeSigner = config.KNOWLEDGE_DISTRIBUTION_ENABLED
-      ? await loadKnowledgeSigner(database, {
-          serverId: config.KNOWLEDGE_SERVER_ID!,
-          keyId: config.KNOWLEDGE_SIGNING_KEY_ID!,
-          keyFile: config.KNOWLEDGE_SIGNING_KEY_FILE!,
-          offlineLeaseSeconds: config.KNOWLEDGE_OFFLINE_LEASE_SECONDS,
-        })
-      : undefined;
-  } catch (error) {
-    await database.end();
-    throw error;
-  }
-  const github = await createGitHubReader(config);
-  const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
-  const chatModel = createChatModel(config);
-  const authorization = new AuthorizationService(config);
-  const eventHub = new EventHub(database);
-  await eventHub.start();
-
-  app.addHook('onRequest', async (_request, reply) => {
-    for (const [name, value] of Object.entries(securityHeaders)) {
-      void reply.header(name, value);
-    }
-  });
-
-  app.addHook('onRequest', async (request, reply) => {
-    if (
-      (config.NODE_ENV === 'production' || config.AUTH_MODE === 'saml') &&
-      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
-      !(config.AUTH_MODE === 'saml' && isSamlCallback(request)) &&
-      !sameOrigin(request, config)
-    ) {
-      return reply
-        .code(403)
-        .send(errorEnvelope('INVALID_ORIGIN', '허용되지 않은 요청입니다.', request.id));
-    }
-  });
-
-  await registerAuthentication(app, config, database, samlProtocol);
-  await registerWorklistRoutes(app, database, authorization, config);
-  await registerProfileRoutes(app, database, config);
-  await registerAdminRoutes(app, database, authorization, config);
-  await registerIdentityAdministrationRoutes(
-    app,
-    database,
-    authorization,
-    config,
-    dependencies.identityAdministration,
-  );
-  await registerAccountRegistryRoutes(app, database, config);
-  await registerSnapshotRoutes(app, database, eventHub, artifacts, authorization);
-  await registerAnalysisRoutes(app, database, eventHub, artifacts, config, authorization);
-  await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel, authorization);
-  await registerChatRunRoutes(app, database, artifacts, config, authorization);
-  await registerReviewMemoryRoutes(app, database, authorization);
-  await registerReviewCriteriaRoutes(app, database, authorization, config);
-  await registerKnowledgeRoutes(app, database, authorization, artifacts, knowledgeSigner);
-
-  app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
-  app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));
-  app.get('/health/ready', async (_request, reply) => {
-    try {
-      const latencyMs = await pingDatabase(database);
-      return { status: 'ok', schemaVersion, database: { status: 'ok', latencyMs } };
-    } catch {
-      return reply.code(503).send({ status: 'degraded', schemaVersion });
-    }
-  });
-  app.get('/health/dependencies', async () => dependencyHealth(database, config, authorization));
-  app.get('/api/v1/system', async () => ({
-    schemaVersion,
-    service: 'git-code-reviewer',
-    version: process.env.APP_VERSION ?? 'development',
-    authMode: config.AUTH_MODE,
-  }));
-
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof ClientCredentialError)
+      return reply
+        .code(error.statusCode)
+        .send(
+          errorEnvelope(
+            error.code,
+            '클라이언트 인증 요청을 처리하지 못했습니다.',
+            request.id,
+            error.statusCode === 503,
+          ),
+        );
     if (error instanceof IdentityUnavailableError)
       return reply
         .code(503)
@@ -213,6 +152,86 @@ export async function buildServer(
       .code(statusCode)
       .send(errorEnvelope('INTERNAL_ERROR', '요청을 처리하지 못했습니다.', request.id, false));
   });
+
+  const database = await openRuntimeDatabase(config, config.DATABASE_POOL_MAX);
+  let knowledgeSigner;
+  try {
+    knowledgeSigner = config.KNOWLEDGE_DISTRIBUTION_ENABLED
+      ? await loadKnowledgeSigner(database, {
+          serverId: config.KNOWLEDGE_SERVER_ID!,
+          keyId: config.KNOWLEDGE_SIGNING_KEY_ID!,
+          keyFile: config.KNOWLEDGE_SIGNING_KEY_FILE!,
+          offlineLeaseSeconds: config.KNOWLEDGE_OFFLINE_LEASE_SECONDS,
+        })
+      : undefined;
+  } catch (error) {
+    await database.end();
+    throw error;
+  }
+  const github = await createGitHubReader(config);
+  const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
+  const chatModel = createChatModel(config);
+  const authorization = new AuthorizationService(config);
+  const eventHub = new EventHub(database);
+  await eventHub.start();
+
+  app.addHook('onRequest', async (_request, reply) => {
+    for (const [name, value] of Object.entries(securityHeaders)) {
+      void reply.header(name, value);
+    }
+  });
+
+  app.addHook('onRequest', async (request, reply) => {
+    if (
+      (config.NODE_ENV === 'production' || config.AUTH_MODE === 'saml') &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
+      !(config.AUTH_MODE === 'saml' && isSamlCallback(request)) &&
+      !sameOrigin(request, config)
+    ) {
+      return reply
+        .code(403)
+        .send(errorEnvelope('INVALID_ORIGIN', '허용되지 않은 요청입니다.', request.id));
+    }
+  });
+
+  await registerAuthentication(app, config, database, samlProtocol);
+  await registerClientCredentialRoutes(app, database, config, authorization);
+  await registerWorklistRoutes(app, database, authorization, config);
+  await registerProfileRoutes(app, database, config);
+  await registerAdminRoutes(app, database, authorization, config);
+  await registerIdentityAdministrationRoutes(
+    app,
+    database,
+    authorization,
+    config,
+    dependencies.identityAdministration,
+  );
+  await registerAccountRegistryRoutes(app, database, config);
+  await registerSnapshotRoutes(app, database, eventHub, artifacts, authorization);
+  await registerAnalysisRoutes(app, database, eventHub, artifacts, config, authorization);
+  await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel, authorization);
+  await registerChatRunRoutes(app, database, artifacts, config, authorization);
+  await registerReviewMemoryRoutes(app, database, authorization);
+  await registerReviewCriteriaRoutes(app, database, authorization, config);
+  await registerKnowledgeRoutes(app, database, authorization, artifacts, knowledgeSigner);
+
+  app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
+  app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));
+  app.get('/health/ready', async (_request, reply) => {
+    try {
+      const latencyMs = await pingDatabase(database);
+      return { status: 'ok', schemaVersion, database: { status: 'ok', latencyMs } };
+    } catch {
+      return reply.code(503).send({ status: 'degraded', schemaVersion });
+    }
+  });
+  app.get('/health/dependencies', async () => dependencyHealth(database, config, authorization));
+  app.get('/api/v1/system', async () => ({
+    schemaVersion,
+    service: 'git-code-reviewer',
+    version: process.env.APP_VERSION ?? 'development',
+    authMode: config.AUTH_MODE,
+  }));
 
   const hasWebAssets = await access(path.join(config.WEB_DIST, 'index.html'))
     .then(() => true)

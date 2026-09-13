@@ -8,6 +8,11 @@ import * as oidc from 'openid-client';
 import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 import type { SamlProtocolConfig } from './saml-protocol.js';
+import {
+  authenticateClientKey,
+  ClientCredentialError,
+  type ClientPrincipal,
+} from './client-credentials.js';
 import { registerSamlAuthentication, samlPublicRequest } from './saml-routes.js';
 import {
   assertLocalUsername,
@@ -30,6 +35,10 @@ export type AuthUser = {
 declare module 'fastify' {
   interface FastifyRequest {
     user: AuthUser | null;
+    clientPrincipal: ClientPrincipal | null;
+  }
+  interface FastifyContextConfig {
+    clientKnowledgeRead?: boolean;
   }
 }
 
@@ -59,6 +68,7 @@ export async function registerAuthentication(
 ): Promise<void> {
   await app.register(cookie, { secret: config.SESSION_SECRET, hook: 'onRequest' });
   app.decorateRequest('user', null);
+  app.decorateRequest('clientPrincipal', null);
 
   if (config.AUTH_MODE === 'local') await bootstrapLocalAccounts(database, config);
 
@@ -67,6 +77,35 @@ export async function registerAuthentication(
 
   app.addHook('preHandler', async (request) => {
     if (request.url.startsWith('/health/')) return;
+    // Bearer credentials never inherit browser/proxy/development authentication.
+    // Only explicitly marked read endpoints accept this credential family.
+    if (
+      request.headers.authorization !== undefined ||
+      request.url.split('?')[0]?.startsWith('/api/v1/client-auth/')
+    ) {
+      if (request.routeOptions.config.clientKnowledgeRead) {
+        if (
+          !config.CLIENT_API_KEYS_ENABLED ||
+          !config.KNOWLEDGE_SERVER_ID ||
+          !['local', 'saml'].includes(config.AUTH_MODE)
+        )
+          throw new ClientCredentialError(503, 'CLIENT_AUTH_DISABLED');
+        const params = request.params as { repoId?: string };
+        request.clientPrincipal = await authenticateClientKey(database, {
+          ...(request.headers.authorization
+            ? { authorization: request.headers.authorization }
+            : {}),
+          serverId: config.KNOWLEDGE_SERVER_ID,
+          ...(typeof request.headers['x-gcr-server-id'] === 'string'
+            ? { requestedServerId: request.headers['x-gcr-server-id'] }
+            : {}),
+          authMode: config.AUTH_MODE,
+          ...(params.repoId ? { repositoryId: params.repoId } : {}),
+        });
+        request.user = request.clientPrincipal.user;
+      }
+      return;
+    }
     if (config.AUTH_MODE === 'development') {
       const user = await upsertUser(
         database,

@@ -9,6 +9,29 @@ const baseEnvironment = {
 };
 
 describe('loadConfig', () => {
+  it('enables client API keys only with explicit distribution, supported auth and a trusted public origin', () => {
+    expect(loadConfig(baseEnvironment).CLIENT_API_KEYS_ENABLED).toBe(false);
+    const settings = {
+      ...baseEnvironment,
+      CLIENT_API_KEYS_ENABLED: 'true',
+      KNOWLEDGE_PUBLICATION_ENABLED: 'true',
+      KNOWLEDGE_DISTRIBUTION_ENABLED: 'true',
+      KNOWLEDGE_SERVER_ID: '57f4d2e2-1c27-462f-a803-02928e771a93',
+      KNOWLEDGE_SIGNING_KEY_ID: 'fixture',
+      KNOWLEDGE_SIGNING_KEY_FILE: '/fixture-key',
+      AUTH_MODE: 'local',
+      PUBLIC_BASE_URL: 'https://gcr.test',
+      LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'fixture',
+      LOCAL_BOOTSTRAP_ADMIN_PASSWORD: 'Synthetic-password-2026!',
+    };
+    expect(loadConfig(settings).CLIENT_API_KEYS_ENABLED).toBe(true);
+    for (const override of [
+      { AUTH_MODE: 'development' },
+      { PUBLIC_BASE_URL: 'http://gcr.test' },
+      { KNOWLEDGE_DISTRIBUTION_ENABLED: 'false' },
+    ])
+      expect(() => loadConfig({ ...settings, ...override })).toThrow('client API keys require');
+  });
   it('requires explicit publication and signing identity only in a distribution server', () => {
     const environment = { ...baseEnvironment, KNOWLEDGE_DISTRIBUTION_ENABLED: 'true' };
     expect(() => loadConfig(environment)).toThrow('knowledge distribution requires');
