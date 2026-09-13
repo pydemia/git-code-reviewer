@@ -2,11 +2,11 @@
 
 공식 Keycloak 26.7.3으로 만든 optimized image를 별도 release로 실행한다. 기존 공유 PostgreSQL의 identity DB를 사용한다. PostgreSQL, realm import, Secret, HTTPRoute는 이 chart가 생성하지 않는다. GCR chart의 `keycloak.enabled`는 false로 유지한다.
 
-현재 상태는 **로컬 명세 검증 단계**다. Published image digest, 실제 CNI·proxy 검증, Keycloak 전체 runtime 검증과 운영 SAML 전환은 아직 완료되지 않았다. [이미지 준비 기록](../../../docs/operations/keycloak-runtime.md)과 [P03 실행 기록](../../../.documents/execution/preventive-review/P03.md)을 함께 확인한다.
+검증한 linux/amd64 optimized image `26.7.3-gcr.1`을 게시했다. 실제 Compose에서 두 replica·반복 구성·교체·DB 재시작 후 계정 보존과 TLS 오류 거부를 확인했다. 이 결과는 Apple Silicon의 amd64 emulation 검증이며 실제 CNI·proxy·앱 SAML 통합과 운영 전환은 남아 있다. [이미지 준비 기록](../../../docs/operations/keycloak-runtime.md)과 [P03 실행 기록](../../../.documents/execution/preventive-review/P03.md)을 함께 확인한다.
 
 ## 준비할 값과 외부 자원
 
-`values.example.yaml`은 설정 형식을 보여 주는 준비용 예시다. `example.test`, `192.0.2.10/32`, selector를 실제 환경 값으로 확인해 바꾼다. Image repository/digest가 비어 있으므로 예시만으로 배포할 수 없다. Chart는 임의의 기본 credential, mutable tag, 평문 public origin, 비어 있는 허용 peer를 받아들이지 않는다.
+`values.example.yaml`은 설정 형식을 보여 주는 준비용 예시다. `example.test`, `192.0.2.10/32`, selector를 실제 환경 값으로 확인해 바꾼다. 예시의 image는 검증한 게시 digest로 고정하고 nodeSelector도 amd64로 제한한다. Hostname·Secret·CA·network peer는 준비용 값이므로 예시만으로 운영에 배포하지 않는다. Chart는 임의의 기본 credential, mutable tag, 평문 public origin, 비어 있는 허용 peer를 받아들이지 않는다.
 
 | 설정                               | 선행 자원·조건                                                                                                                                                 |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |

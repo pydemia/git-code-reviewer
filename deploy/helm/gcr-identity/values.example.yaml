@@ -1,6 +1,11 @@
-# Preparation template, NOT a deployable PRISM overlay. Supply a published image
-# repository/digest and verify every hostname, certificate, selector and CIDR.
+# Preparation template, NOT a deployable PRISM overlay. The verified image is
+# pinned below; verify every hostname, certificate, selector and CIDR.
 # 192.0.2.10 is a documentation address; do not use it as the real proxy source.
+image:
+  repository: docker.io/pydemia/gcr-identity
+  digest: sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9
+nodeSelector:
+  kubernetes.io/arch: amd64
 fullnameOverride: git-code-reviewer-identity
 hostname: https://auth.example.test
 adminHostname: https://git-code-reviewer-identity-admin.git-code-reviewer.svc

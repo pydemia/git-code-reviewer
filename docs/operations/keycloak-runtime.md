@@ -1,6 +1,10 @@
 # Keycloak runtime 이미지
 
-상태: linux/amd64 optimized image `26.7.3-gcr.1`의 로컬 빌드를 완료했다. 두 amd64 Compose 실행은 각각 기반·구성 검사 4개를 통과했으나 replica별 관리 API snapshot에서 30초 timeout으로 중단됐다. 두 번째 실행에서는 양쪽 replica의 현재 2-member mTLS cluster view가 일치한 뒤에도 첫 관리자 사용자 조회(token 발급 포함)가 timeout됐다. Cluster 합류만으로 실패가 해소되지 않았으며 실제 지연 구간은 추가 확인이 필요하다. Image·chart는 아직 게시하지 않았다. [amd64 빌드·실패 기록](../../.documents/execution/preventive-review/evidence/P03-C07-amd64-image.json)을 따른다.
+상태: linux/amd64 optimized image `docker.io/pydemia/gcr-identity:26.7.3-gcr.1`을 게시했다. 실제 Compose 검사 9개와 소유 리소스 정리가 통과한 뒤 registry의 digest·설정을 다시 받아 대조하고 SBOM/provenance blob의 hash를 확인했다. 고정 digest는 `sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9`다. Companion 예시는 이 digest와 amd64 nodeSelector를 사용한다. [최신 게시·검증 기록](../../.documents/execution/preventive-review/evidence/P03-C07-amd64-release.json)을 따른다.
+
+이전 두 amd64 시험은 replica 관리 API 조회에서 timeout됐고 세 번째 시도는 최종 결과 없이 중단됐다. 네 번째 실행에서는 같은 image·30초 요청 제한으로 두 replica 조회, 한 replica 교체 중 로그인, 같은 PostgreSQL 17.11 볼륨 재생성 후 사용자·비밀번호·서명 key·client 보존과 잘못된 DB CA/hostname 거부가 모두 통과했다. DB 연결 6개가 모두 TLS이며 합산 pool 한도 12개 이내였다. Docker 재기동 뒤 성공했지만 이전 실패 원인을 특정한 결과는 아니다. [이전 빌드·실패 기록](../../.documents/execution/preventive-review/evidence/P03-C07-amd64-image.json)은 보존한다.
+
+실제 Keycloak은 Apple Silicon에서 amd64로 실행했고 PostgreSQL·Node는 Docker 기본 platform을 사용했다. 운영 CNI·public proxy·앱 SAML 통합·DNS/TLS/SMTP 전환, 실제 Keycloak DB backup 복원·키/관리자 복구와 운영 배포는 남아 있다. 같은 볼륨의 container 재생성을 backup 복원 증거로 사용하지 않는다.
 
 앞선 arm64 Compose 실행은 [실제 container 검사 9개](../../.documents/execution/preventive-review/evidence/P03-C07-identity-containers.json)를 통과했다. 초기 별도 runtime verifier의 [부분 성공과 실패 기록](../../.documents/execution/preventive-review/evidence/P03-C07-optimized-image.json)은 다른 실행이며 운영 배포 완료를 뜻하지 않는다.
 

@@ -1,0 +1,366 @@
+{
+  "recordedAt": "2026-09-13T14:35:34.613302+00:00",
+  "status": "amd64-image-published-and-readback-verified; companion-chart-publication-pending",
+  "runtime": {
+    "startedAt": "2026-09-13T14:23:21.590Z",
+    "finishedAt": "2026-09-13T14:30:18.284Z",
+    "node": "v22.23.2",
+    "identityPlatform": "linux/amd64",
+    "identityImage": {
+      "id": "sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+      "architecture": "amd64",
+      "os": "linux",
+      "revision": "797aab719717d911db42fb337ce6a38a7fc8d7de"
+    },
+    "postgresVersion": "postgres (PostgreSQL) 17.11",
+    "checks": [
+      "actual-PostgreSQL-17-adapter-file-secret-TLS-and-separated-role-provisioning",
+      "actual-nonroot-Keycloak-file-secrets-readonly-root-and-no-inspect-plaintext",
+      "actual-configurer-apply-repeat-user-key-client-and-password-preservation",
+      "actual-configured-service-account-token-manage-users-and-view-events-only",
+      "two-normal-replicas-without-bootstrap-secrets-preserve-identity-and-credential",
+      "jdbc-ping-two-member-cluster-and-TLS-database-connections-within-two-pool-ceiling",
+      "single-replica-replacement-keeps-peer-serving-the-same-user-password-and-keys",
+      "retained-volume-PostgreSQL-recreation-and-DBA-repeat-preserve-Keycloak-identities",
+      "optimized-Keycloak-startup-rejects-wrong-database-CA-and-hostname"
+    ],
+    "cleanup": true,
+    "clusterAccess": false,
+    "applicationStarted": false,
+    "twoReplicaConnections": [
+      {
+        "datname": "git_code_reviewer_keycloak",
+        "ssl": true,
+        "connections": 6
+      }
+    ],
+    "clusterReadiness": [
+      {
+        "phase": "bootstrap-removed",
+        "milliseconds": 2639,
+        "views": [
+          {
+            "hostname": "a3632978804e",
+            "members": [
+              "4bf16a36409e-39800(v=16.0.14)",
+              "a3632978804e-55684(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": true
+          },
+          {
+            "hostname": "4bf16a36409e",
+            "members": [
+              "4bf16a36409e-39800(v=16.0.14)",
+              "a3632978804e-55684(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": true
+          }
+        ]
+      },
+      {
+        "phase": "single-replica-replaced",
+        "milliseconds": 2756,
+        "views": [
+          {
+            "hostname": "4bf16a36409e",
+            "members": [
+              "4bf16a36409e-39800(v=16.0.14)",
+              "9b32578971cc-17381(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": false
+          },
+          {
+            "hostname": "9b32578971cc",
+            "members": [
+              "4bf16a36409e-39800(v=16.0.14)",
+              "9b32578971cc-17381(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": true
+          }
+        ]
+      },
+      {
+        "phase": "database-container-recreated",
+        "milliseconds": 2586,
+        "views": [
+          {
+            "hostname": "4bf16a36409e",
+            "members": [
+              "4bf16a36409e-17755(v=16.0.14)",
+              "9b32578971cc-55523(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": true
+          },
+          {
+            "hostname": "9b32578971cc",
+            "members": [
+              "4bf16a36409e-17755(v=16.0.14)",
+              "9b32578971cc-55523(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": true
+          }
+        ]
+      }
+    ],
+    "tlsRejections": [
+      {
+        "name": "wrong-ca",
+        "exitCode": 1
+      },
+      {
+        "name": "wrong-hostname",
+        "exitCode": 1
+      }
+    ]
+  },
+  "image": {
+    "status": "passed",
+    "at": "2026-09-13T14:32:51.979358+00:00",
+    "image": "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+    "tag": "docker.io/pydemia/gcr-identity:26.7.3-gcr.1",
+    "sourceCommit": "797aab719717d911db42fb337ce6a38a7fc8d7de",
+    "digest": "sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+    "manifests": [
+      {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "digest": "sha256:e6e41933c72d03e5c86c3bb009df6fb0b6b22d8b3ebfe84e6fc8c898baf4e4c9",
+        "size": 1251,
+        "platform": {
+          "architecture": "amd64",
+          "os": "linux"
+        }
+      },
+      {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "digest": "sha256:5fbe70b94c7b62ba0e8dd233c2be111eb160c0f9ac93c5f4a1384335f099f9d6",
+        "size": 838,
+        "annotations": {
+          "vnd.docker.reference.digest": "sha256:e6e41933c72d03e5c86c3bb009df6fb0b6b22d8b3ebfe84e6fc8c898baf4e4c9",
+          "vnd.docker.reference.type": "attestation-manifest"
+        },
+        "platform": {
+          "architecture": "unknown",
+          "os": "unknown"
+        }
+      }
+    ],
+    "architecture": "amd64",
+    "user": "1000:1000",
+    "labels": {
+      "architecture": "x86_64",
+      "build-date": "2026-08-26T21:13:51Z",
+      "com.redhat.build-host": "",
+      "com.redhat.component": "",
+      "com.redhat.license_terms": "",
+      "cpe": "cpe:/a:redhat:enterprise_linux:9::appstream",
+      "description": "Keycloak Server Image",
+      "distribution-scope": "public",
+      "io.buildah.version": "1.44.0",
+      "io.k8s.description": "Keycloak Server Image",
+      "io.k8s.display-name": "Keycloak Server",
+      "io.openshift.expose-services": "",
+      "io.openshift.tags": "keycloak security identity",
+      "maintainer": "https://www.keycloak.org/",
+      "name": "keycloak",
+      "org.opencontainers.image.base.digest": "sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+      "org.opencontainers.image.base.name": "quay.io/keycloak/keycloak:26.7.3",
+      "org.opencontainers.image.created": "2026-08-31T09:30:14.058Z",
+      "org.opencontainers.image.description": "",
+      "org.opencontainers.image.documentation": "https://www.keycloak.org/documentation",
+      "org.opencontainers.image.licenses": "Apache-2.0",
+      "org.opencontainers.image.revision": "797aab719717d911db42fb337ce6a38a7fc8d7de",
+      "org.opencontainers.image.source": "https://github.com/keycloak-rel/keycloak-rel",
+      "org.opencontainers.image.title": "GCR Identity",
+      "org.opencontainers.image.url": "https://github.com/keycloak-rel/keycloak-rel",
+      "org.opencontainers.image.version": "26.7.3-gcr.1",
+      "release": "",
+      "summary": "Keycloak Server Image",
+      "url": "https://www.keycloak.org/",
+      "vcs-ref": "",
+      "vcs-type": "git",
+      "vendor": "https://www.keycloak.org/",
+      "version": "26.7.3"
+    },
+    "localAndRegistryDigestIdentical": true,
+    "publishedDigestPulledAndConfigCompared": true,
+    "prePublishRuntimeChecks": 9,
+    "runtimeProof": "identity-containers-amd64.json",
+    "temporaryRegistryCredentialsRemoved": true,
+    "existingTagOverwritten": false
+  },
+  "attestations": {
+    "status": "passed",
+    "indexDigest": "sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+    "attestations": [
+      {
+        "digest": "sha256:e73f9d97cf0cc83e906221a069cb087701cbc2f1235f65d63664e56f4543abf5",
+        "predicateType": "https://spdx.dev/Document"
+      },
+      {
+        "digest": "sha256:46b4de45bbe854a3fb09c98d47599cc431f84494c3f54962501e065d02e4e00a",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    ],
+    "tlsVerification": true,
+    "additionalTrust": "existing-corporate-ca-for-this-process-only",
+    "runtime": "v22.23.2"
+  },
+  "chartValidation": {
+    "status": "passed",
+    "startedAt": "2026-09-13T14:33:52.097240+00:00",
+    "finishedAt": "2026-09-13T14:33:56.139267+00:00",
+    "scope": "offline Helm/schema/resource and policy-rule semantics; no runtime/CNI/cluster validation",
+    "checks": [
+      "optimized-runtime-roles-secrets-tls-probes-services-rollout",
+      "ingress-egress-positive-and-negative-peer-matrix",
+      "repeat-install-upgrade-identical-no-bootstrap-or-import-job",
+      "helm-lint-strict",
+      "existing-prism-route-service-contract-realm-resources-only",
+      "optional-bootstrap-outbound-ca-monitoring-and-scoped-smtp",
+      "external-ipv6-database-custom-port-scope",
+      "scale-with-explicit-terminating-allowance-and-lower-pool",
+      "shared-dba-example-matches-identity-database-and-connection-budget",
+      "reject-image.digest-9",
+      "reject-image.digest-10",
+      "reject-image.repository-11",
+      "reject-hostname-12",
+      "reject-hostname-13",
+      "reject-hostname-14",
+      "reject-adminHostname-15",
+      "reject-database.username-16",
+      "reject-database.existingSecret-17",
+      "reject-database.tls.existingConfigMap-18",
+      "reject-database.pool.initial-19",
+      "reject-database.pool.min-20",
+      "reject-database.pool.max-21",
+      "reject-database.budget.peakReplicas-22",
+      "reject-replicas-23",
+      "reject-replicas-24",
+      "reject-tls.existingSecret-25",
+      "reject-bootstrap.existingSecret-26",
+      "reject-fullnameOverride-27",
+      "reject-networkPolicy.proxy.peers-28",
+      "reject-networkPolicy.proxy.trustedAddresses-29",
+      "reject-networkPolicy.proxy.trustedAddresses-30",
+      "reject-networkPolicy.proxy.trustedAddresses-31",
+      "reject-networkPolicy.proxy.trustedAddresses-32",
+      "reject-networkPolicy.adminPeers-33",
+      "reject-networkPolicy.adminPeers-34",
+      "reject-networkPolicy.adminPeers-35",
+      "reject-networkPolicy.databasePeers-36",
+      "reject-networkPolicy.databasePeers-37",
+      "reject-networkPolicy.dnsPeers-38",
+      "reject-networkPolicy.smtp.peers-39",
+      "reject-postgresql-40",
+      "reject-extraEnv-41",
+      "unconfigured-chart-fails-closed",
+      "application-legacy-keycloak-disabled"
+    ],
+    "checkCount": 44,
+    "networkMatrixDecisions": 250,
+    "fixtureImagePublished": false,
+    "clusterChanged": false,
+    "sourceSha256": {
+      "deploy/helm/gcr-identity/.helmignore": "1585a01b3ab89848c1f259a7c766a51237963d270e6a227cdf1c012d11eb0ee2",
+      "deploy/helm/gcr-identity/Chart.yaml": "dde6bb4d04de9f8a78401ec15ee383c458d8e3cc354fceb784e5906fc4940192",
+      "deploy/helm/gcr-identity/README.md": "345b777ba8294c3d49c854bc4dad365591800b11197c6efc0904352b9920c5b3",
+      "deploy/helm/gcr-identity/templates/_helpers.tpl": "faa344bb035fe5e075c860bc8ee7e51882b9003b3a40369336e376c1ceead8e5",
+      "deploy/helm/gcr-identity/templates/deployment.yaml": "814476c910b483a6c3c9f41608c655cf53b28d8311e9a8aca57c910f48a703ca",
+      "deploy/helm/gcr-identity/templates/network-policy.yaml": "c416a45db90acedc8d8c3194534b6a622165716bd60cb1f6d0ac655e924b8937",
+      "deploy/helm/gcr-identity/templates/pod-disruption-budget.yaml": "c6d46ed4283abf7326f8c0ee9d114c40ccc545aba513deabdb38f3662bf8b832",
+      "deploy/helm/gcr-identity/templates/services.yaml": "7fe61944268819304f2248afc0c4e589620279a086cbea62da230bfa5561bbbc",
+      "deploy/helm/gcr-identity/values.example.yaml": "5f8d0a2d34271ba5bdee581b339d985b73be0dc21735cc0b538202ad5a15aa99",
+      "deploy/helm/gcr-identity/values.schema.json": "a0855ebc6dc383a2c23c5e6ae2b1a5801425cba3767aa7cdf96f855e523d4498",
+      "deploy/helm/gcr-identity/values.yaml": "417ee3447cd6136ee60b3dd1e30f0dd068874b52f41bf7d0150f00faa290f8e5",
+      "scripts/verify-identity-chart.py": "0d03ca84dd87cd4131f8e7c7575fccaa4524ca15bc3a8c3d7565bdbdee43cf3e",
+      "deploy/postgres/shared-plan.example.json": "fef79f58f87fff2ae939a13ac5decddf83f1ef10e95e9485b884c9148147fd4f"
+    }
+  },
+  "chartPublication": null,
+  "attempts": [
+    {
+      "attempt": "attempt1",
+      "status": "failed",
+      "checks": 4,
+      "cleanup": true,
+      "startedAt": "2026-09-13T11:43:28.570Z",
+      "finishedAt": "2026-09-13T11:59:33.793Z",
+      "evidenceSha256": "1249db81caa664bd56492d78449f2d4127a7bac340111f3a1b80dbef93a3cb79"
+    },
+    {
+      "attempt": "attempt2",
+      "status": "failed",
+      "checks": 4,
+      "cleanup": true,
+      "startedAt": "2026-09-13T12:05:47.568Z",
+      "finishedAt": "2026-09-13T12:18:35.677Z",
+      "evidenceSha256": "02e64d17e650ecb46726b4308905d80160adb464ce742b25fb04b76c975f146e"
+    },
+    {
+      "recordedAt": "2026-09-13T14:22:34.436223+00:00",
+      "status": "interrupted-without-final-verifier-result",
+      "project": "gcr-identity-07a5600f408a1c5c",
+      "execHandleMissing": true,
+      "verifierProcessAbsent": true,
+      "containers": [
+        {
+          "name": "/gcr-identity-07a5600f408a1c5c-keycloak-1",
+          "status": "exited",
+          "exitCode": 255,
+          "finishedAt": "2026-09-13T14:14:44.349767217Z"
+        },
+        {
+          "name": "/gcr-identity-07a5600f408a1c5c-postgres-1",
+          "status": "exited",
+          "exitCode": 255,
+          "finishedAt": "2026-09-13T14:14:44.349828967Z"
+        }
+      ],
+      "cleanup": true,
+      "temporaryDirectoryAbsent": true
+    },
+    {
+      "attempt": "attempt4",
+      "status": "passed",
+      "checks": 9,
+      "cleanup": true
+    }
+  ],
+  "artifactSha256": {
+    "identity-containers-amd64-attempt4.json": "7c54344a9db787c1c864a0be161c218d4e98c97a0099baaa283a9d631c120f0b",
+    "identity-containers-amd64-attempt4.log": "273fb4f3ec627e098fe5ddfaf003f07bad6c05bae136c368e9cf7cb03d217406",
+    "registry-image.json": "036c534681208f3d12c355005c81823a2e09283a414c12111d7fbfd6f1e37e08",
+    "image-attestations.json": "b1ff52953b6ac26a2b2d4ebaf0bdcd0eadb7bfe390d6069234e8455f7331d7a8",
+    "identity-chart.json": "949d3a500128b0872249341f722da6e31f8b3acc529b9a84ffb06768b6ae95d6"
+  },
+  "sourceSha256": {
+    "compose.identity.yaml": "58ee28c2b81919f4484304c8b52e42174dbeaeae06a4f842c5880f36ee4365c2",
+    "compose.identity.bootstrap.yaml": "687c34ff2621900dd6bd44ad31cf861c9b1337b326094e391aba25cffe08fc27",
+    "deploy/identity/postgres-entrypoint.sh": "932cafd68428c707545535efeae17342a9629abe26f43f78546e718a6f27e8aa",
+    "deploy/identity/keycloak-entrypoint.sh": "d127eace1c1e2a4c2dd5cf8d6150f7363a32c8d685f2cdf3ebef8942c28cf4f8",
+    "deploy/identity/configure.mjs": "df87adbbb3f9c9a67eda8e0d7fa16e9d70cf05163898c9f12536cb1780f412ef",
+    "deploy/identity/configuration.mjs": "cd64ec04c087a073afd5b9992725237e9d87a9c025ccc0d957d279b00da6aa08",
+    "packages/db/dist/provision-cli.js": "afc63d766f825d8b3b164d9743df71784e7ea76001411365968747c6137eff07",
+    "packages/db/dist/shared-postgres.js": "b1bf4f7229fe2d2f7eb938d5bee02ef6d403c378c58102d750dc8edfb32296f2"
+  },
+  "probeSha256": "741d0e576915a7a2e569039c07eb8253600bb2491e82889be3b0c85ff68d54ab",
+  "requestDiagnosticsSha256": "e05399d040aeb29e13a1458d13a99f27f1f95bd066659681c7e713ca438f5b92",
+  "scriptSha256": "bb8837186f02d3aa1b2ae9cf6c330ff5d4b506b4fce5e034d9a272920a692942",
+  "remaining": [
+    "Full application Compose/SAML/browser/proxy integration and CNI enforcement.",
+    "Operational DNS/TLS/SMTP, isolated-role migration, maintenance and staged SAML cutover.",
+    "Identity DB logical restore, realm/SP keys and administrator recovery; app-only native PG recovery is separate.",
+    "Commit Defender native GUI and publication gates; P04-P13 remain."
+  ],
+  "limitations": [
+    "Actual Keycloak linux/amd64 ran under Apple Silicon Docker emulation; PostgreSQL and Node used the Docker default platform.",
+    "Two earlier attempts timed out during replica reads. Docker restart preceded this success; the earlier root cause is not established.",
+    "This verified retained-volume recreation, not backup restoration of the actual Keycloak DB."
+  ]
+}
