@@ -1,0 +1,68 @@
+{
+  "status": "source-and-packed-CLI-verified; extension-delivery-and-real-model-diagnosis-pending",
+  "recordedAt": "2026-09-13T12:27:01.599776+00:00",
+  "change": "Stable invalid-output code with fixed reason messages; unchanged schema, acceptance rules and retry behavior. No provider-body, parser-error, forged path, model name or read ID interpolation. Failed findings, questions and summaries are discarded; actual read evidence remains.",
+  "sourceSha256": {
+    "packages/client-core/src/review-runner.ts": "040efa4fb60b8fcdf4aa85f4f1d89390a9c592219009c680f006970cc82756d7",
+    "packages/client-core/src/review-runner.test.ts": "f88180f56befa97711c27cfb1aa7955b0ad0bf053ff3ace1e319c7ad53bb167b",
+    "packages/client-core/README.md": "545619fb077d575966503f803d0f580954e6cce8ee32b2ac2811ddf50823196b"
+  },
+  "tests": {
+    "node": "22.23.2",
+    "files": 11,
+    "passed": 171,
+    "failed": 0,
+    "command": "pnpm exec vitest run packages/client-contract packages/client-core packages/client-executors apps/cli --maxWorkers=1",
+    "changedRunnerTests": 21,
+    "rejectionCases": 10,
+    "privateSentinelAbsent": true,
+    "eslint": "passed",
+    "clientCoreTypecheck": "passed"
+  },
+  "packaging": {
+    "command": "pnpm pack:cli --verify",
+    "clientConsumerRuntimes": [
+      "18.20.8",
+      "22.23.2"
+    ],
+    "cliConsumerRuntime": "22.23.2",
+    "offlineInstall": true,
+    "bundleInputsMatchTarballs": true,
+    "manifest": {
+      "schemaVersion": 1,
+      "cliVersion": "0.1.0-alpha.4",
+      "clientVersion": "0.1.0-alpha.10",
+      "packages": [
+        {
+          "name": "@gcr/client-contract",
+          "version": "0.1.0-alpha.10",
+          "file": "gcr-client-contract-0.1.0-alpha.10.tgz",
+          "sha256": "ed548b99bda99ab844724622f0eb91c84b1588264915fae86a0ba822ba5cee7e"
+        },
+        {
+          "name": "@gcr/client-core",
+          "version": "0.1.0-alpha.10",
+          "file": "gcr-client-core-0.1.0-alpha.10.tgz",
+          "sha256": "8233e5d2652b5b82a5c85e09bfa9b3174e04f5d65458ec42af25f56f70d6669a"
+        },
+        {
+          "name": "@gcr/client-executors",
+          "version": "0.1.0-alpha.10",
+          "file": "gcr-client-executors-0.1.0-alpha.10.tgz",
+          "sha256": "c26a069a2f9938ecc74778a5be21b4c0af7400b481f416d6d72b70c00da45058"
+        },
+        {
+          "name": "@gcr/cli",
+          "version": "0.1.0-alpha.4",
+          "file": "gcr-cli-0.1.0-alpha.4.tgz",
+          "sha256": "f56e06c0c0dba758026c4278c37de89b36e2b8b7646a951cd9612f81f5ca8257"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Historical real-model invalid-output cause has not been reproduced or fixed.",
+    "Extension consumer delivery, actual model runs and native GUI/release gates need their own evidence.",
+    "No Marketplace or registry publication and no operational GCR image change in this checkpoint."
+  ]
+}

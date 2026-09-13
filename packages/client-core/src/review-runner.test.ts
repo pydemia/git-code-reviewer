@@ -217,35 +217,48 @@ describe('fixed-source review runner', () => {
     expect(report.problems.map((problem) => problem.message).join(' ')).not.toContain('lines were');
   });
   it.each([
-    'forged-read',
-    'unselected-anchor',
-    'out-of-range',
-    'duplicate-file',
-    'test-claim',
-    'wrong-model',
-    'invalid-json',
-  ])('rejects %s without retaining a success claim', async (variant) => {
+    ['forged-read', 'unknown-read-id'],
+    ['duplicate-read', 'duplicate-read-id'],
+    ['unselected-anchor', 'anchor-not-selected'],
+    ['out-of-range', 'anchor-outside-read'],
+    ['duplicate-file', 'duplicate-file'],
+    ['unselected-file', 'unselected-file'],
+    ['test-claim', 'invalid-schema'],
+    ['wrong-model', 'model-mismatch'],
+    ['invalid-json', 'invalid-json'],
+    ['oversized-response', 'response-too-large'],
+  ])('rejects %s with a fixed diagnostic and no response data', async (variant, reason) => {
+    const privateValue = 'private-fixture-output-must-not-appear';
     const report = await run(async (request) => {
       const { response, reads } = await answer(request);
       const finding = defect(reads);
       response.findings.push(finding);
-      if (variant === 'forged-read') finding.readIds = ['invented'];
+      response.summary = privateValue;
+      if (variant === 'forged-read') finding.readIds = [privateValue];
+      if (variant === 'duplicate-read') finding.readIds.push(finding.readIds[0]!);
       if (variant === 'unselected-anchor') finding.anchor.readId = reads[2].readId;
       if (variant === 'out-of-range') finding.anchor.endLine = 999;
       if (variant === 'duplicate-file') response.files.push(response.files[0]!);
+      if (variant === 'unselected-file') response.files[0]!.path = privateValue + '.ts';
       return {
         raw:
           variant === 'invalid-json'
-            ? '{'
-            : JSON.stringify(
-                variant === 'test-claim' ? { ...response, testExecuted: true } : response,
-              ),
-        model: variant === 'wrong-model' ? 'fallback-model' : descriptor.model,
+            ? '{' + privateValue
+            : variant === 'oversized-response'
+              ? privateValue + ' '.repeat(2_000_001)
+              : JSON.stringify(
+                  variant === 'test-claim' ? { ...response, testExecuted: true } : response,
+                ),
+        model: variant === 'wrong-model' ? privateValue : descriptor.model,
       };
     });
     expect(report.status).toBe('failed');
     expect(report.findings).toEqual([]);
     expect(report.problems[0]?.code).toBe('invalid-output');
+    expect(report.problems[0]?.message).toContain(`(${reason})`);
+    expect(JSON.stringify(report)).not.toContain(privateValue);
+    expect(clientReviewReport(report)).toEqual(report);
+    expect(report.evidence).toHaveLength(3);
     expect(reviewExitCode(report)).toBe(2);
   });
   it('keeps conflicting counter-evidence incomplete', async () => {

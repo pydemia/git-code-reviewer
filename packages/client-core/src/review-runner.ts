@@ -41,7 +41,25 @@ export interface RunLocalReviewInput {
   trigger?: ClientReviewReport['trigger'];
 }
 const key = (source: Pick<SourceFile, 'path' | 'side'>) => `${source.side}:${source.path}`;
-const invalid = () => new Error('invalid-output');
+const outputRejections = {
+  'duplicate-read-id': 'The response repeats a source read ID in the same list.',
+  'unknown-read-id': 'The response references a source read that this review did not perform.',
+  'duplicate-file': 'The response contains more than one review for the same selected file.',
+  'unselected-file': 'The response contains a file that was not selected for review.',
+  'truncated-anchor-read': 'A finding is anchored to a truncated source read.',
+  'anchor-not-selected': 'A finding is anchored outside the selected files.',
+  'anchor-outside-read': 'A finding points to lines outside its source read.',
+  'model-mismatch': 'The executor reported a different model than the approved one.',
+  'response-too-large': 'The response exceeds the allowed size.',
+  'invalid-json': 'The response is not valid JSON.',
+  'invalid-schema': 'The response does not match the required review schema.',
+} as const;
+class LocalReviewOutputError extends Error {
+  constructor(readonly reason: keyof typeof outputRejections) {
+    super('invalid-output');
+  }
+}
+const invalid = (reason: keyof typeof outputRejections) => new LocalReviewOutputError(reason);
 
 function coverage(file: SourceFile, reads: LocalSourceReadObservation[]): boolean {
   let next = 1;
@@ -110,10 +128,10 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
     questions: [],
   };
   const resolveReads = (ids: string[]) => {
-    if (new Set(ids).size !== ids.length) throw invalid();
+    if (new Set(ids).size !== ids.length) throw invalid('duplicate-read-id');
     return ids.map((id) => {
       const read = port.reads.find((read) => read.id === id);
-      if (!read) throw invalid();
+      if (!read) throw invalid('unknown-read-id');
       return read;
     });
   };
@@ -142,8 +160,9 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
   const decode = (response: LocalReviewResponse): void => {
     const seen = new Set<string>();
     for (const file of response.files) {
-      if (seen.has(key(file)) || !report.files.some((entry) => key(entry.source) === key(file)))
-        throw invalid();
+      if (seen.has(key(file))) throw invalid('duplicate-file');
+      if (!report.files.some((entry) => key(entry.source) === key(file)))
+        throw invalid('unselected-file');
       seen.add(key(file));
       resolveReads(file.readIds);
     }
@@ -168,15 +187,16 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
     });
     report.findings = response.findings.map((finding): ReviewFinding => {
       const [anchorRead] = resolveReads([finding.anchor.readId]);
+      if (!anchorRead) throw invalid('unknown-read-id');
+      if (anchorRead.truncated) throw invalid('truncated-anchor-read');
+      if (!report.files.some((file) => key(file.source) === key(anchorRead.location)))
+        throw invalid('anchor-not-selected');
       if (
-        !anchorRead ||
-        anchorRead.truncated ||
-        !report.files.some((file) => key(file.source) === key(anchorRead.location)) ||
         finding.anchor.startLine < anchorRead.location.startLine ||
         finding.anchor.endLine > anchorRead.location.endLine ||
         finding.anchor.startLine > finding.anchor.endLine
       )
-        throw invalid();
+        throw invalid('anchor-outside-read');
       const readIds = [...new Set([finding.anchor.readId, ...finding.readIds])];
       resolveReads(finding.readIds);
       resolveReads(finding.counterEvidence.readIds);
@@ -303,13 +323,19 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
     });
     if (input.signal?.aborted) throw new Error('cancelled');
     budget.assertActive();
-    if (result.model !== identity.executor.model || Buffer.byteLength(result.raw) > 2_000_000)
-      throw invalid();
+    if (result.model !== identity.executor.model) throw invalid('model-mismatch');
+    if (Buffer.byteLength(result.raw) > 2_000_000) throw invalid('response-too-large');
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.raw);
+    } catch {
+      throw invalid('invalid-json');
+    }
     let response: LocalReviewResponse;
     try {
-      response = localReviewResponse(JSON.parse(result.raw));
+      response = localReviewResponse(parsed);
     } catch {
-      throw invalid();
+      throw invalid('invalid-schema');
     }
     decode(response);
   } catch (error) {
@@ -345,7 +371,12 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
     report.problems = [
       {
         code: problem,
-        message: 'No complete review is available; inspect the problem code before retrying.',
+        // Use fixed diagnostics only. Provider bodies, parser errors, IDs, paths,
+        // model names and credentials must not be copied into a failed report.
+        message:
+          error instanceof LocalReviewOutputError && problem === 'invalid-output'
+            ? `Review response rejected (${error.reason}): ${outputRejections[error.reason]}`
+            : 'No complete review is available; inspect the problem code before retrying.',
       },
     ];
     report.files = report.files.map((file) => ({
