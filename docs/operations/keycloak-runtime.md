@@ -2,6 +2,8 @@
 
 상태: linux/amd64 optimized image `docker.io/pydemia/gcr-identity:26.7.3-gcr.1`을 게시했다. 실제 Compose 검사 9개와 소유 리소스 정리가 통과한 뒤 registry의 digest·설정을 다시 받아 대조하고 SBOM/provenance blob의 hash를 확인했다. 고정 digest는 `sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9`다. Companion 예시는 이 digest와 amd64 nodeSelector를 사용한다. [최신 게시·검증 기록](../../.documents/execution/preventive-review/evidence/P03-C07-amd64-release.json)을 따른다.
 
+Companion chart `0.1.0`도 `oci://registry-1.docker.io/pydemia/gcr-identity`에 게시했다. Source `ecc88f2`의 chart는 Helm/schema·policy 검사 44개와 strict lint를 통과했고 게시 후 다시 받은 패키지가 원본과 byte 단위로 같다. OCI digest는 `sha256:9af5d5426d5cef9a602dc9e4bd4fb0925445f6a94ee0ff5e62c74e0bf1bb8b54`다. 예시 hostname·Secret·CA·peer는 준비용 값이며 이 패키지를 PRISM-DEV에 배포한 상태는 아니다.
+
 이전 두 amd64 시험은 replica 관리 API 조회에서 timeout됐고 세 번째 시도는 최종 결과 없이 중단됐다. 네 번째 실행에서는 같은 image·30초 요청 제한으로 두 replica 조회, 한 replica 교체 중 로그인, 같은 PostgreSQL 17.11 볼륨 재생성 후 사용자·비밀번호·서명 key·client 보존과 잘못된 DB CA/hostname 거부가 모두 통과했다. DB 연결 6개가 모두 TLS이며 합산 pool 한도 12개 이내였다. Docker 재기동 뒤 성공했지만 이전 실패 원인을 특정한 결과는 아니다. [이전 빌드·실패 기록](../../.documents/execution/preventive-review/evidence/P03-C07-amd64-image.json)은 보존한다.
 
 실제 Keycloak은 Apple Silicon에서 amd64로 실행했고 PostgreSQL·Node는 Docker 기본 platform을 사용했다. 운영 CNI·public proxy·앱 SAML 통합·DNS/TLS/SMTP 전환, 실제 Keycloak DB backup 복원·키/관리자 복구와 운영 배포는 남아 있다. 같은 볼륨의 container 재생성을 backup 복원 증거로 사용하지 않는다.

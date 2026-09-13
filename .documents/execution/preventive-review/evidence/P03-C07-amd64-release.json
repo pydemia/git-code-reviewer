@@ -1,6 +1,6 @@
 {
-  "recordedAt": "2026-09-13T14:35:34.613302+00:00",
-  "status": "amd64-image-published-and-readback-verified; companion-chart-publication-pending",
+  "recordedAt": "2026-09-13T14:38:09.852297+00:00",
+  "status": "amd64-image-and-companion-chart-published-and-readback-verified; operational-SAML-cutover-pending",
   "runtime": {
     "startedAt": "2026-09-13T14:23:21.590Z",
     "finishedAt": "2026-09-13T14:30:18.284Z",
@@ -282,7 +282,21 @@
       "deploy/postgres/shared-plan.example.json": "fef79f58f87fff2ae939a13ac5decddf83f1ef10e95e9485b884c9148147fd4f"
     }
   },
-  "chartPublication": null,
+  "chartPublication": {
+    "status": "passed",
+    "at": "2026-09-13T14:36:38.986419+00:00",
+    "version": "0.1.0",
+    "oci": "oci://registry-1.docker.io/pydemia/gcr-identity",
+    "ociDigest": "sha256:9af5d5426d5cef9a602dc9e4bd4fb0925445f6a94ee0ff5e62c74e0bf1bb8b54",
+    "chartSha256": "a4f655fe77b603237dcb25a0b3b8f94bff52360dde04b58a39a9884c655b1b27",
+    "manifestResourceCount": 6,
+    "exampleUsesPublishedImage": true,
+    "lintStrict": true,
+    "roundTripBytesIdentical": true,
+    "clusterChanged": false,
+    "existingTagOverwritten": false,
+    "temporaryRegistryCredentialsRemoved": true
+  },
   "attempts": [
     {
       "attempt": "attempt1",
@@ -337,7 +351,9 @@
     "identity-containers-amd64-attempt4.log": "273fb4f3ec627e098fe5ddfaf003f07bad6c05bae136c368e9cf7cb03d217406",
     "registry-image.json": "036c534681208f3d12c355005c81823a2e09283a414c12111d7fbfd6f1e37e08",
     "image-attestations.json": "b1ff52953b6ac26a2b2d4ebaf0bdcd0eadb7bfe390d6069234e8455f7331d7a8",
-    "identity-chart.json": "949d3a500128b0872249341f722da6e31f8b3acc529b9a84ffb06768b6ae95d6"
+    "identity-chart.json": "949d3a500128b0872249341f722da6e31f8b3acc529b9a84ffb06768b6ae95d6",
+    "chart-readback.json": "dfab605882421f8ce68517a4fca4a17bd4bfffcc0ade52a1a6d51b454ba92e27",
+    "gcr-identity-0.1.0.tgz": "a4f655fe77b603237dcb25a0b3b8f94bff52360dde04b58a39a9884c655b1b27"
   },
   "sourceSha256": {
     "compose.identity.yaml": "58ee28c2b81919f4484304c8b52e42174dbeaeae06a4f842c5880f36ee4365c2",
@@ -362,5 +378,6 @@
     "Actual Keycloak linux/amd64 ran under Apple Silicon Docker emulation; PostgreSQL and Node used the Docker default platform.",
     "Two earlier attempts timed out during replica reads. Docker restart preceded this success; the earlier root cause is not established.",
     "This verified retained-volume recreation, not backup restoration of the actual Keycloak DB."
-  ]
+  ],
+  "chartSourceCommit": "ecc88f2"
 }
