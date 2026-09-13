@@ -25,6 +25,8 @@ import {
 } from '../services/criterion-generation.js';
 import { AuthorizationService } from '../services/authorization.js';
 import { criteriaHash } from '../services/review-criteria.js';
+import { FilesystemArtifactStore } from '@gcr/artifact-store';
+import { registerKnowledgeRoutes } from './review-knowledge.js';
 import { registerReviewCriteriaRoutes } from './review-criteria.js';
 
 const databaseUrl = process.env.GCR_TEST_DATABASE_URL;
@@ -296,6 +298,14 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       ],
     }));
     await registerReviewCriteriaRoutes(app, database, new AuthorizationService(config), config);
+    await registerKnowledgeRoutes(
+      app,
+      database,
+      new AuthorizationService(config),
+      new FilesystemArtifactStore(
+        path.resolve('artifacts/operations/P05-criteria/unused-status-store'),
+      ),
+    );
     await app.ready();
   }, 30_000);
   afterAll(async () => {

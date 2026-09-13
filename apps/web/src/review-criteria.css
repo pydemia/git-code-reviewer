@@ -282,3 +282,84 @@
 .criteria-generation li > button {
   margin: 8px;
 }
+
+.knowledge-panel {
+  margin: 20px 0;
+  padding: 18px 0;
+  border-top: 1px solid var(--border, #d9dee7);
+}
+.knowledge-panel h2 {
+  font-size: 17px;
+  margin: 8px 0;
+}
+.knowledge-table-wrap {
+  overflow-x: auto;
+}
+.knowledge-table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+}
+.knowledge-table th,
+.knowledge-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border, #d9dee7);
+  vertical-align: top;
+}
+.knowledge-table small {
+  display: block;
+  max-width: 340px;
+}
+.knowledge-table details {
+  border: 0;
+  padding: 0;
+}
+.knowledge-table dd {
+  margin: 3px 0 10px;
+  overflow-wrap: anywhere;
+  max-width: 250px;
+}
+.knowledge-note {
+  font-size: 12px;
+  color: #596779;
+}
+.knowledge-error {
+  color: #a12727;
+}
+.knowledge-memory-list {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.knowledge-memory-list button {
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.knowledge-memory-list button[aria-pressed='true'] {
+  border-color: #4168a5;
+  background: #edf3fb;
+}
+.knowledge-editor {
+  max-width: 840px;
+  border: 1px solid var(--border, #d9dee7);
+  padding: 18px;
+  margin: 16px 0;
+}
+.knowledge-editor > button {
+  margin-top: 14px;
+}
+@media (max-width: 640px) {
+  .knowledge-table th,
+  .knowledge-table td {
+    padding: 10px 5px;
+  }
+  .knowledge-editor {
+    padding: 12px;
+  }
+  .knowledge-table dd {
+    max-width: 135px;
+  }
+}

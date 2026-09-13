@@ -1,6 +1,6 @@
 # 서명된 리뷰 지식 배포
 
-P05-C05/C06의 manifest·다운로드·메모리 배포 승인 API 구현이다. [Bundle 발행](review-knowledge-publication.md)의 migration 0039 다음에 0040을 적용한다. 현재 PRISM-DEV는 alpha.40·migration 38이며 이 변경은 아직 배포하지 않았다. 이전 내용을 높은 sequence로 재발행하는 명시적 rollback, 출처 상세 API, 배포 관리 화면과 client 동기화는 후속 범위다.
+P05-C05/C06의 manifest·다운로드·메모리 배포 승인 API 구현이다. [Bundle 발행](review-knowledge-publication.md)의 migration 0039 다음에 0040을 적용한다. 현재 PRISM-DEV는 alpha.40·migration 38이며 이 변경은 아직 배포하지 않았다. 이전 내용을 높은 sequence로 재발행하는 명시적 rollback, 출처 상세 API와 client 동기화는 후속 범위다. 발행 상태와 메모리 승인 화면의 후속 로컬 구현은 [관리 화면](review-knowledge-management.md)에 기록했다.
 
 ## Manifest와 신뢰
 
@@ -20,7 +20,8 @@ Client-core의 `verifyKnowledgeManifest`는 호출자가 전달한 신뢰 키와
 | --- | --- |
 | `GET /manifest?clientContractVersion=1` | 지원 contract와 권한, 세 component의 최신 발행 및 실제 파일 hash·크기를 확인한 뒤 서명된 조합을 반환한다. |
 | `GET /bundles/:bundleId?snapshotId=:id` | 요청자 소유 snapshot에 들어 있는 bundle만 반환한다. 현재 권한 revision과 세 component의 release ID를 함께 재검증한다. |
-| `GET /status` | 공용 두 scope와 본인 personal scope의 발행 revision·bundle·오류 상태를 반환한다. |
+| `GET /status` | 공용 두 scope와 본인 personal scope의 발행 revision·bundle·오류 상태를 반환한다. 배포가 꺼져 있어도 인가 후 상태 조회는 가능하다. |
+| `GET /memories?cursor=:id` | 본인이 검토 가능한 활성 메모리를 최대 100개씩 반환한다. |
 | `GET /memories/:memoryId/projection` | 현재 원문 fingerprint와 기존 배포 승인 내용을 반환한다. Raw 원문·anchor는 응답에 복사하지 않는다. |
 | `POST /memories/:memoryId/projection` | `expectedFingerprint`와 명시적인 curated `content`를 받아 배포 projection·감사 이력·outbox를 같은 transaction에 저장한다. |
 

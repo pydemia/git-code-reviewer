@@ -22,6 +22,7 @@ import { AppHeader } from './AppHeader.tsx';
 import { CriterionFeedbackPanel, type CriterionMutation } from './CriterionFeedbackPanel.tsx';
 import './review-criteria.css';
 import { CriterionRolesPanel } from './CriterionRolesPanel.tsx';
+import { ReviewKnowledgePanel } from './ReviewKnowledgePanel.tsx';
 import { CriterionGenerationPanel } from './CriterionGenerationPanel.tsx';
 
 const stateLabels = {
@@ -199,6 +200,9 @@ export function ReviewCriteriaPage() {
         {notice ? <p role="status">{notice}</p> : null}
         {loading ? <p role="status">기준을 불러오는 중입니다.</p> : null}
         {!loading && !repositories.length ? <p>접근할 수 있는 저장소가 없습니다.</p> : null}
+        {repositoryId ? (
+          <ReviewKnowledgePanel key={`knowledge:${repositoryId}`} repositoryId={repositoryId} />
+        ) : null}
         {repositoryId && access.delegate ? (
           <CriterionRolesPanel key={`roles:${repositoryId}`} repositoryId={repositoryId} />
         ) : null}
@@ -606,7 +610,10 @@ function CriterionView({
           최초 후보 생성 모델: {detail.generation.modelName} · {detail.generation.reasoningEffort}
         </p>
       ) : null}
-      <p>배포 상태: 미발행. 현재 PR·CLI 리뷰에는 이 기준이 아직 적용되지 않습니다.</p>
+      <p>
+        기준의 활성 상태와 번들 발행은 별개입니다. 현재 발행 버전은 위의 리뷰 지식 배포에서 확인할
+        수 있습니다.
+      </p>
       <p className="criteria-prose">{rule.document.requirement}</p>
       <h3>기준의 이유</h3>
       <p className="criteria-prose">{rule.document.rationale}</p>

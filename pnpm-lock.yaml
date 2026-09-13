@@ -129,6 +129,9 @@ importers:
       '@fontsource-variable/noto-sans-kr':
         specifier: ^5.2.8
         version: 5.3.0
+      '@gcr/client-contract':
+        specifier: workspace:*
+        version: link:../../packages/client-contract
       '@gcr/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

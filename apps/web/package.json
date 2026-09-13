@@ -15,7 +15,8 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "@gcr/client-contract": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.1.16",

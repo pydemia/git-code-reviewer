@@ -869,7 +869,7 @@ export async function waitForSnapshot(
   throw new Error('Snapshot operation timed out');
 }
 
-async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
+export async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(url, { signal, credentials: 'same-origin' });
   if (response.status === 401) {
     window.location.assign(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
@@ -879,7 +879,7 @@ async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
   return response.json();
 }
 
-async function mutateJson(
+export async function mutateJson(
   url: string,
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body?: Record<string, unknown>,

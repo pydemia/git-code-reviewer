@@ -19,6 +19,9 @@ import {
   removeExpiredKnowledgeManifests,
 } from '../services/knowledge-manifest.js';
 import { claimKnowledgePublication, publishKnowledge } from '../services/knowledge-publication.js';
+import { chromium } from 'playwright';
+import { createServer } from '../../../web/src/review-criteria-test-server.js';
+import { registerReviewCriteriaRoutes } from './review-criteria.js';
 import { registerKnowledgeRoutes } from './review-knowledge.js';
 import { loadConfig } from '../config.js';
 import { AuthorizationService } from '../services/authorization.js';
@@ -134,6 +137,33 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     app.addHook('onRequest', async (request) => {
       request.user = actors.get(String(request.headers['x-test-actor'])) ?? null;
     });
+    app.get('/api/v1/me', async (request) => ({ schemaVersion: 1, ...request.user }));
+    app.get('/api/v1/repositories', async () => ({
+      schemaVersion: 1,
+      nextCursor: null,
+      items: [
+        {
+          id: repository,
+          tenantId: tenant,
+          instanceId: instance,
+          owner: 'synthetic',
+          name: 'distribution',
+          githubId: '1',
+          tenantSlug: 'distribution',
+          tenantName: 'Distribution',
+          webBaseUrl: 'https://example.invalid/',
+          lastPolledAt: null,
+          nextPollAt: null,
+          pollOutcome: null,
+          pollError: null,
+        },
+      ],
+    }));
+    await registerReviewCriteriaRoutes(
+      app,
+      db,
+      new AuthorizationService(loadConfig({ DATABASE_URL: local.toString() })),
+    );
     await registerKnowledgeRoutes(
       app,
       db,
@@ -595,6 +625,169 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     }
     await ensureKnowledgeScopes(db, repository, actors.get('alice')!.id);
   });
+  it('reports pending, failure, disabled and unavailable states without inventing client sync', async () => {
+    const scope = (
+      await db.query(
+        "select id from review_knowledge_scopes where repository_id=$1 and component='policy'",
+        [repository],
+      )
+    ).rows[0].id;
+    const read = () => app.inject({ url: `${base()}/status`, headers: headers() });
+    await db.query("select request_review_knowledge($1,'policy',null,'status-test')", [repository]);
+    let response = await read();
+    expect(
+      response.json().components.find((item: { component: string }) => item.component === 'policy')
+        .state,
+    ).toBe('pending');
+    await db.query(
+      "update review_knowledge_scopes set last_error='PUBLICATION_STORAGE_FAILED' where id=$1",
+      [scope],
+    );
+    response = await read();
+    expect(response.json().syncObservation).toBe('unknown');
+    expect(
+      response.json().components.find((item: { component: string }) => item.component === 'policy')
+        .state,
+    ).toBe('failed');
+    await drain();
+    const artifact = (
+      await db.query(
+        'select r.artifact_id from review_knowledge_scopes s join review_knowledge_releases r on r.id=s.current_release_id where s.id=$1',
+        [scope],
+      )
+    ).rows[0].artifact_id;
+    await db.query("update artifacts set state='unavailable' where id=$1", [artifact]);
+    response = await read();
+    expect(
+      response.json().components.find((item: { component: string }) => item.component === 'policy')
+        .state,
+    ).toBe('unavailable');
+    await db.query("update artifacts set state='available' where id=$1", [artifact]);
+    const disabled = Fastify();
+    disabled.addHook('onRequest', async (request) => {
+      request.user = actors.get('alice')!;
+    });
+    await registerKnowledgeRoutes(
+      disabled,
+      db,
+      new AuthorizationService(loadConfig({ DATABASE_URL: url! })),
+      store,
+    );
+    try {
+      const result = await disabled.inject({ url: `${base()}/status` });
+      expect(result.statusCode, result.body).toBe(200);
+      expect(result.json().enabled).toBe(false);
+      expect(
+        result.json().components.every((item: { state: string }) => item.state === 'disabled'),
+      ).toBe(true);
+    } finally {
+      await disabled.close();
+    }
+  });
+  it('lists only memories the current user can curate, with bounded pagination', async () => {
+    const privateId = await memory(actors.get('bob')!.id);
+    const collectiveId = await memory(null);
+    const list = (name: string, cursor = '') =>
+      app.inject({
+        url: `${base()}/memories${cursor ? `?cursor=${cursor}` : ''}`,
+        headers: headers(name),
+      });
+    expect((await list('outsider')).statusCode).toBe(404);
+    expect((await list('alice')).body).not.toContain(privateId);
+    expect((await list('admin')).body).not.toContain(privateId);
+    expect((await list('alice')).body).not.toContain(collectiveId);
+    expect((await list('admin')).body).toContain(collectiveId);
+    for (let i = 0; i < 100; i++) await memory(actors.get('bob')!.id);
+    const first = await list('bob');
+    expect(first.json().items).toHaveLength(100);
+    expect(first.json().nextCursor).toBeTruthy();
+    const second = await list('bob', first.json().nextCursor);
+    expect(second.json().items).toHaveLength(1);
+    expect(second.json().nextCursor).toBeNull();
+    expect(first.body + second.body).not.toContain('RAW_PRIVATE_SOURCE');
+    await drain();
+  });
+  it('approves curated memory in Chrome and shows publication, stale source and mobile status', async () => {
+    const id = await memory(actors.get('alice')!.id);
+    await db.query("update review_memories set summary='Browser publication memory' where id=$1", [
+      id,
+    ]);
+    await drain();
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    const address = app.server.address();
+    if (!address || typeof address === 'string') throw Error('Owned server required');
+    const vite = await createServer({
+      root: path.resolve('apps/web'),
+      server: { host: '127.0.0.1', port: 0, proxy: { '/api': `http://127.0.0.1:${address.port}` } },
+    });
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+    try {
+      await vite.listen();
+      const web = vite.httpServer!.address();
+      if (!web || typeof web === 'string') throw Error('Owned web server required');
+      browser = await chromium.launch({ channel: 'chrome', headless: true });
+      const context = await browser.newContext({
+        viewport: { width: 1360, height: 1050 },
+        extraHTTPHeaders: headers(),
+      });
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(`http://127.0.0.1:${web.port}/review-criteria`);
+      await page.getByRole('heading', { name: '리뷰 지식 배포', exact: true }).waitFor();
+      await page.getByText('클라이언트 동기화: 확인되지 않음.', { exact: false }).waitFor();
+      await page.getByText('메모리 배포 내용 검토·승인', { exact: true }).click();
+      await page.getByRole('button', { name: /Browser publication memory/ }).click();
+      await page.getByLabel('배포 설명', { exact: true }).fill('Browser-approved safe content');
+      await db.query("update review_memories set detail='New private source' where id=$1", [id]);
+      await page.getByRole('button', { name: '배포 내용 승인', exact: true }).click();
+      await page.getByText('활성 메모리와 출처를 다시 확인해 주세요.', { exact: true }).waitFor();
+      expect(await page.getByLabel('배포 설명', { exact: true }).inputValue()).toBe(
+        'Browser-approved safe content',
+      );
+      await page
+        .getByRole('button', { name: '현재 입력을 버리고 최신 상태 불러오기', exact: true })
+        .click();
+      await page.getByLabel('배포 설명', { exact: true }).fill('Browser-approved safe content');
+      await page.getByRole('button', { name: '배포 내용 승인', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      await page
+        .getByText('배포 내용을 승인했습니다. 발행 상태에서 반영 결과를 확인해 주세요.', {
+          exact: true,
+        })
+        .waitFor();
+      await drain();
+      await page.getByRole('button', { name: '배포 상태 새로고침', exact: true }).click();
+      const ownRow = page
+        .getByRole('row')
+        .filter({ has: page.getByRole('rowheader', { name: '내 개인 메모리', exact: true }) });
+      await ownRow.getByText('발행됨', { exact: true }).waitFor();
+      const current = (await manifest()).parsed;
+      const bundle = await download(
+        current.payload.snapshotId,
+        current.payload.components.personal.bundleId,
+      );
+      expect(bundle.body).toContain('Browser-approved safe content');
+      expect(bundle.body).not.toContain('New private source');
+      expect(await page.locator('body').innerText()).not.toContain('RAW_PRIVATE_SOURCE');
+      expect(errors).toEqual([]);
+      if (process.env.GCR_KNOWLEDGE_SCREENSHOT)
+        await page.screenshot({
+          path: process.env.GCR_KNOWLEDGE_SCREENSHOT.replace(/\.png$/, '-desktop.png'),
+          fullPage: true,
+        });
+      await page.setViewportSize({ width: 390, height: 844 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      if (process.env.GCR_KNOWLEDGE_SCREENSHOT)
+        await page.screenshot({ path: process.env.GCR_KNOWLEDGE_SCREENSHOT, fullPage: true });
+      await context.close();
+    } finally {
+      await browser?.close();
+      await vite.close();
+    }
+  }, 60000);
   it('removes scoped manifests and release metadata on repository deletion', async () => {
     expect(
       (

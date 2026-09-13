@@ -1,6 +1,7 @@
+import { readKnowledgeStatus } from '../services/knowledge-status.js';
 import type { Database } from '@gcr/db';
 import type { FilesystemArtifactStore } from '@gcr/artifact-store';
-import { centralMemoryContent, ContractError } from '@gcr/client-contract';
+import { centralMemoryContent, knowledgeMemoryList, ContractError } from '@gcr/client-contract';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { requireUser } from '../auth/index.js';
@@ -45,38 +46,32 @@ export async function registerKnowledgeRoutes(
     });
     routes.setErrorHandler((error, request, reply) => {
       if (error instanceof CriterionError)
-        return reply
-          .code(error.statusCode)
-          .send({
-            error: {
-              code: error.code,
-              message: error.message,
-              requestId: request.id,
-              retryable: [409, 503].includes(error.statusCode),
-            },
-          });
+        return reply.code(error.statusCode).send({
+          error: {
+            code: error.code,
+            message: error.message,
+            requestId: request.id,
+            retryable: [409, 503].includes(error.statusCode),
+          },
+        });
       if (error instanceof ContractError || error instanceof z.ZodError)
-        return reply
-          .code(400)
-          .send({
-            error: {
-              code: 'INVALID_KNOWLEDGE_REQUEST',
-              message: '리뷰 지식 요청 형식을 확인해 주세요.',
-              requestId: request.id,
-              retryable: false,
-            },
-          });
+        return reply.code(400).send({
+          error: {
+            code: 'INVALID_KNOWLEDGE_REQUEST',
+            message: '리뷰 지식 요청 형식을 확인해 주세요.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
       if ((error as { code?: string }).code === '40001')
-        return reply
-          .code(409)
-          .send({
-            error: {
-              code: 'KNOWLEDGE_SNAPSHOT_STALE',
-              message: '권한이 변경됐습니다. 다시 요청해 주세요.',
-              requestId: request.id,
-              retryable: true,
-            },
-          });
+        return reply.code(409).send({
+          error: {
+            code: 'KNOWLEDGE_SNAPSHOT_STALE',
+            message: '권한이 변경됐습니다. 다시 요청해 주세요.',
+            requestId: request.id,
+            retryable: true,
+          },
+        });
       throw error;
     });
     const base = '/api/v1/repositories/:repoId/review-knowledge';
@@ -134,15 +129,46 @@ export async function registerKnowledgeRoutes(
     });
     routes.get(`${base}/status`, { preHandler: requireUser }, async (request) => {
       const { repoId } = repositoryParams.parse(request.params);
-      await authorize(request, repoId);
-      if (!(await knowledgeUserAllowed(database, repoId, request.user!.id, 'reader')))
+      if (!(await canReadRepository(database, authorization, request, repoId)))
         throw criteriaNotFound();
-      const result = await database.query(
-        `select component,requested_revision as "requestedRevision",published_revision as "publishedRevision",release_sequence as "releaseSequence",current_release_id as "bundleId",last_error as "lastError",updated_at as "updatedAt"
-    from review_knowledge_scopes where repository_id=$1 and (component in ('policy','collective') or (component='personal' and owner_user_id=$2)) order by component`,
-        [repoId, request.user!.id],
-      );
-      return { schemaVersion: 1, components: result.rows };
+      return readKnowledgeStatus(database, repoId, request.user!.id, !!signer);
+    });
+    routes.get(`${base}/memories`, { preHandler: requireUser }, async (request) => {
+      const { repoId } = repositoryParams.parse(request.params);
+      await authorize(request, repoId);
+      const { cursor } = z
+        .object({ cursor: z.string().uuid().optional() })
+        .strict()
+        .parse(request.query);
+      const c = await database.connect();
+      try {
+        await c.query('begin isolation level repeatable read read only');
+        if (!(await knowledgeUserAllowed(c, repoId, request.user!.id, 'reader')))
+          throw criteriaNotFound();
+        const collective = await knowledgeUserAllowed(c, repoId, request.user!.id, 'maintainer');
+        const rows = (
+          await c.query(
+            `select m.id,m.summary,m.scope,(m.reviewed_by is not null) as reviewed,p.revision as "projectionRevision"
+          from review_memories m left join review_knowledge_memory_projections p on p.memory_id=m.id
+          where m.repository_id=$1 and m.state='active' and ((m.scope='personal' and m.owner_user_id=$2) or (m.scope='collective' and $3))
+          and ($4::uuid is null or m.id>$4) order by m.id limit 101`,
+            [repoId, request.user!.id, collective, cursor ?? null],
+          )
+        ).rows;
+        const items = rows.slice(0, 100);
+        const result = knowledgeMemoryList({
+          schemaVersion: 1,
+          items,
+          nextCursor: rows.length > 100 ? items[99]!.id : null,
+        });
+        await c.query('commit');
+        return result;
+      } catch (error) {
+        await c.query('rollback');
+        throw error;
+      } finally {
+        c.release();
+      }
     });
     routes.get(
       `${base}/memories/:memoryId/projection`,
