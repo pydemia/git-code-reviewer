@@ -37,5 +37,104 @@
     "version": "0.1.0-alpha.12",
     "sha256": "c60f043b5593d81ece7629d2c7d96d81ba71d55feb798c69f49a0d8d27569467"
   },
-  "deployment": "PRISM-DEV server unchanged; client tarballs verified in clean consumers"
+  "deployment": "PRISM-DEV server unchanged; client tarballs verified in clean consumers",
+  "extension": {
+    "sourceCommit": "504b87cee9258fa3d0fd4d2c14d0cac94ff56555",
+    "tests": {
+      "passed": 145,
+      "failed": 0,
+      "sourceAndTestTypecheck": true
+    },
+    "vsix": {
+      "file": "commit-defender-2.3.0-requests-final.vsix",
+      "sha256": "56fe26e9393fa0378d80fb9bf62e9aacc3a01c41ef73ddafe2f7e87d39673a5e",
+      "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.3.0",
+      "installedFilesMatchVsix": true,
+      "bundles": {
+        "extension.js": "095011056422b411430430fbd337071c39dcfc43a86b7c9ca9c9645bd45e042d",
+        "hook-cli.js": "d1a9316899630a8dbb89c17a9c52f24480eca9137ab40bfca8d2a5ccef89f947",
+        "standalone-review-worker.js": "63d996ea01a63ad67521061e448a36201efb40fc945ae3eaa62c8a5f297bd762"
+      },
+      "existingWindowReload": "not-forced; existing windows need reload to load the installed update"
+    },
+    "realAccount": {
+      "status": "verified",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "xhigh",
+      "workerSha256": "63d996ea01a63ad67521061e448a36201efb40fc945ae3eaa62c8a5f297bd762",
+      "cliSha256": "26667537f55f71e3847416ead4e910206c3d644fb8cdba5159ef9c7e6924a4ff",
+      "reportStatus": "completed",
+      "findings": 1,
+      "sourceReadEvidence": 8,
+      "sourcePaths": [
+        "caller.ts",
+        "package.json",
+        "sum.test.ts",
+        "sum.ts"
+      ],
+      "deduplication": {
+        "freshWorkerReused": true,
+        "installedCliReused": true,
+        "requestGeneration": 1,
+        "modelReviewInvocations": 1
+      },
+      "history": {
+        "cliExactMatch": true,
+        "freshExtensionProcessExactMatch": true
+      },
+      "sourceAndIndexUnchanged": true,
+      "centralRequests": 0,
+      "cleanup": "completed",
+      "finishedAt": "2026-09-13T23:30:27.770Z"
+    },
+    "nativeHosts": [
+      {
+        "status": "passed",
+        "vscode": "1.90.2",
+        "node": "20.9.0",
+        "electron": "29.4.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.3.0",
+        "delivery": "packaged-extension",
+        "commandCount": 22,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      },
+      {
+        "status": "passed",
+        "vscode": "1.137.0",
+        "node": "24.18.1",
+        "electron": "42.10.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.3.0",
+        "delivery": "packaged-extension",
+        "commandCount": 22,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      }
+    ],
+    "modelReviewInvocationsAcrossBothCheckpoints": 2
+  }
 }
