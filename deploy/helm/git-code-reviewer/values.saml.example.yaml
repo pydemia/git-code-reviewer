@@ -3,8 +3,8 @@
 # companion image/runtime and both sides of network policy must be verified.
 image:
   # Verified amd64 runtime including P03-C06 connection isolation.
-  digest: 'sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198'
-  tag: '0.8.0-alpha.38'
+  digest: 'sha256:f8477a2b9f3513ddba25442d34a02abb51837280369d2811f85969663b9f49a2'
+  tag: '0.8.0-alpha.39'
 publicBaseUrl: https://gcr.example.test
 auth:
   mode: saml
