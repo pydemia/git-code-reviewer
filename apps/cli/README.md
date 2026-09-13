@@ -23,7 +23,7 @@ gcr history --cwd /path/to/repo
 
 `review` 호출은 지정한 계정 executor에 해당 profile의 활성 지식과 고정 source/base/관련 파일을 전달하도록 명시적으로 요청하는 동작이다. 전송 경로는 `--allow-path` glob으로 좁힐 수 있다. `--exclude`는 capture에서 제외하며 `--require-source source:caller.py`, `--require-source base:cache.py`, `--require-knowledge ID`로 필수 근거를 지정한다. Repository 파일과 Skill은 tool 권한을 바꾸거나 명령을 실행할 수 없다. 중앙 URL·token·cache를 읽지 않으며 standalone에서 GCR 중앙 요청을 만들지 않는다. 중앙 연결은 아래의 명시적 설정을 사용한다.
 
-현재 실제 모델 adapter는 macOS의 지원 Codex CLI `0.153.4`, `gpt-6-astra`, `xhigh` 조합이다. CLI 경로를 명시하거나 PATH의 `codex`를 사용한다. 특정 앱의 설치 경로를 추정하지 않는다. `status --check-executor --executor-path ...`는 구성과 tool 격리만 검사하며 로그인·quota를 확인하거나 계정 모델을 호출하지 않는다. Linux에서 로컬 저장소와 조회 명령은 사용할 수 있지만 현재 모델 adapter는 unavailable이다. 지원하지 않는 실행 환경에서 다른 모델/provider로 전환하지 않는다.
+현재 실제 모델 adapter는 macOS의 지원 Codex CLI `0.153.4` 또는 `0.154.0`, `gpt-6-astra`, `xhigh` 조합이다. CLI 경로를 명시하거나 PATH의 `codex`를 사용한다. 특정 앱의 설치 경로를 추정하지 않는다. `status --check-executor --executor-path ...`는 구성과 tool 격리만 검사하며 로그인·quota를 확인하거나 계정 모델을 호출하지 않는다. Linux에서 로컬 저장소와 조회 명령은 사용할 수 있지만 현재 모델 adapter는 unavailable이다. 지원하지 않는 실행 환경에서 다른 모델/provider로 전환하지 않는다.
 
 리뷰는 최대 200개의 선택 파일을 한 invocation으로 처리한다. 기본 제한은 120초, source/prompt 전송 1 MiB, tool call 100회다. `--timeout-ms`, `--source-bytes`, `--tool-calls`로 한도를 지정한다. 개별 read는 최대 200줄/24,000자다. 모델이 선택 파일과 base의 전체 범위를 읽고 실제 조회 ID를 응답에 포함해야 파일을 완료로 처리한다. 읽기 누락·필수 질문·반증 충돌·예산 초과는 incomplete다. 생성물·비공개 파일 등 정책상 제외는 보고서에 표시하며 검토한 것으로 세지 않는다. `source-confirmed`는 실제 읽은 source에 대한 모델의 조건·반증 검토이며 실행 재현을 뜻하지 않는다. 이 adapter는 테스트를 실행하지 않는다.
 

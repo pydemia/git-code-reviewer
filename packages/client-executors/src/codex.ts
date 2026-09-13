@@ -68,11 +68,12 @@ class CodexAccountExecutor {
     private readonly catalog: string,
     private readonly configHash: string,
     private readonly environment: NodeJS.ProcessEnv,
+    private readonly cliVersion: string,
   ) {}
   get descriptor() {
     return {
       id: 'codex-account',
-      version: '0.153.4/gcr-fixed-source-v1',
+      version: `${this.cliVersion}/gcr-fixed-source-v1`,
       model: CODEX_REVIEW_MODEL,
       configHash: this.configHash,
       capabilities: {
@@ -196,7 +197,11 @@ export async function prepareCodexAccountExecutor(options: {
       timeoutMs: 5000,
       outputBytes: 4096,
     });
-    if (version.code !== 0 || version.stdout.trim() !== 'codex-cli 0.153.4')
+    const cliVersion = version.stdout.trim().replace(/^codex-cli /, '');
+    if (
+      version.code !== 0 ||
+      !['codex-cli 0.153.4', 'codex-cli 0.154.0'].includes(version.stdout.trim())
+    )
       throw new ExecutorError('executor-unavailable');
     const bundled = await runManagedProcess({
       command,
@@ -219,6 +224,7 @@ export async function prepareCodexAccountExecutor(options: {
         version: 1,
         command,
         fingerprint,
+        cliVersion,
         model: options.model,
         effort: options.reasoningEffort,
         catalogHash: hash(catalog),
@@ -229,7 +235,14 @@ export async function prepareCodexAccountExecutor(options: {
         authHome: environment.CODEX_HOME ?? path.join(os.homedir(), '.codex'),
       }),
     );
-    return new CodexAccountExecutor(command, fingerprint, catalog, configHash, environment);
+    return new CodexAccountExecutor(
+      command,
+      fingerprint,
+      catalog,
+      configHash,
+      environment,
+      cliVersion,
+    );
   } catch (error) {
     if (error instanceof ExecutorError) throw error;
     throw new ExecutorError('executor-unavailable');

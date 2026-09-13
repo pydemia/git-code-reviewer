@@ -25,6 +25,8 @@ import {
 import { executeCli } from './cli.js';
 
 let root: string, repo: string, data: string, configFile: string, server: Server, origin: string;
+const accountModelSmoke = process.env.GCR_CENTRAL_MODEL_SMOKE === '1';
+const policyWitness = `CENTRAL_CENTS_${randomBytes(12).toString('hex')}`;
 const signing = generateKeyPairSync('ed25519');
 const keyId = randomUUID();
 const secret = `gcr_key_${keyId}_${randomBytes(32).toString('base64url')}`;
@@ -115,7 +117,11 @@ function manifest() {
           unit: 'file',
           version: 1,
           enabled: true,
-          instructions: 'CENTRAL_INSTRUCTION: inspect current code and base',
+          instructions:
+            'CENTRAL_INSTRUCTION: inspect current code and base' +
+            (accountModelSmoke
+              ? `\nRepository contract for a.ts: total() receives amounts already in cents and must return their sum in cents. Converting the result to dollars violates the API contract. Cite policy reference ${policyWitness} in a finding about this contract.`
+              : ''),
           markdown: '# Review',
           contentHash: contentHash(`skill-${i}`),
         })),
@@ -151,7 +157,7 @@ function manifest() {
     },
     compatibleClientContracts: { minimum: 2, maximum: 2 },
     issuedAt: new Date(now - 1000).toISOString(),
-    refreshAfter: new Date(now + 240_000).toISOString(),
+    refreshAfter: new Date(now + (accountModelSmoke ? 299_000 : 240_000)).toISOString(),
     offlineValidUntil: new Date(now + 3600_000).toISOString(),
     signingKeyId: 'key',
   };
@@ -201,10 +207,30 @@ beforeAll(async () => {
       },
     );
   git('init', '-b', 'main');
-  fs.writeFileSync(path.join(repo, 'a.ts'), 'export const value = 0;\n');
+  fs.writeFileSync(
+    path.join(repo, 'a.ts'),
+    accountModelSmoke
+      ? 'export function total(amounts: number[]): number {\n  return amounts.reduce((sum, amount) => sum + amount, 0);\n}\n'
+      : 'export const value = 0;\n',
+  );
+  if (accountModelSmoke) {
+    fs.writeFileSync(
+      path.join(repo, 'caller.ts'),
+      "import { total } from './a.js';\n\nexport function invoice() {\n  return { amountCents: total([125, 75]), currency: 'USD' };\n}\n",
+    );
+    fs.writeFileSync(
+      path.join(repo, 'a.test.ts'),
+      "import assert from 'node:assert/strict';\nimport { total } from './a.js';\n\nassert.equal(total([125, 75]), 200);\nassert.equal(total([]), 0);\n",
+    );
+  }
   git('add', '.');
   git('commit', '-m', 'base');
-  fs.writeFileSync(path.join(repo, 'a.ts'), 'export const value = 1;\n');
+  fs.writeFileSync(
+    path.join(repo, 'a.ts'),
+    accountModelSmoke
+      ? 'export function total(amounts: number[]): number {\n  return amounts.reduce((sum, amount) => sum + amount, 0) / 100;\n}\n'
+      : 'export const value = 1;\n',
+  );
   git('add', '.');
   const cert = path.join(root, 'cert.pem'),
     key = path.join(root, 'key.pem'),
@@ -538,9 +564,12 @@ describe.sequential('explicit connected CLI over HTTPS', () => {
   });
 });
 
-it.skipIf(process.env.GCR_CENTRAL_OS_SMOKE !== '1' || process.platform !== 'darwin')(
+it.skipIf(
+  (process.env.GCR_CENTRAL_OS_SMOKE !== '1' && !accountModelSmoke) || process.platform !== 'darwin',
+)(
   'bundled CLI uses macOS Keychain across independent processes',
   async () => {
+    if (accountModelSmoke) expect(process.env.GCR_CODEX_EXECUTABLE).toBeTruthy();
     const profile = 'gcr-os-' + randomUUID();
     const directory = path.join(root, 'os-data');
     let id: string | undefined;
@@ -563,10 +592,13 @@ it.skipIf(process.env.GCR_CENTRAL_OS_SMOKE !== '1' || process.platform !== 'darw
         const chunks: Buffer[] = [];
         child.stdout.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
         child.stderr.resume();
-        const timer = setTimeout(() => {
-          child.kill('SIGKILL');
-          reject(Error('CLI smoke timeout'));
-        }, 60000);
+        const timer = setTimeout(
+          () => {
+            child.kill('SIGKILL');
+            reject(Error('CLI smoke timeout'));
+          },
+          args[0] === 'review' ? 360000 : 60000,
+        );
         child.once('error', () => {
           clearTimeout(timer);
           reject(Error('CLI smoke launch failed'));
@@ -596,6 +628,57 @@ it.skipIf(process.env.GCR_CENTRAL_OS_SMOKE !== '1' || process.platform !== 'darw
       });
       const sync = await run(['central', 'sync', '--mode', 'centralized', '--connection', id]);
       expect(sync.code).toBe(0);
+      if (accountModelSmoke) {
+        const reviewed = await run([
+          'review',
+          '--mode',
+          'centralized',
+          '--connection',
+          id,
+          '--executor-path',
+          process.env.GCR_CODEX_EXECUTABLE!,
+          '--timeout-ms',
+          '240000',
+        ]);
+        // Persist only the public structured report over synthetic source, never CLI/account logs.
+        expect(JSON.stringify(reviewed)).not.toContain(secret);
+        if (process.env.GCR_CENTRAL_MODEL_EVIDENCE)
+          fs.writeFileSync(
+            process.env.GCR_CENTRAL_MODEL_EVIDENCE,
+            JSON.stringify(
+              {
+                syntheticData: true,
+                actualAccountModel: true,
+                model: 'gpt-6-astra',
+                reasoningEffort: 'xhigh',
+                policyWitness,
+                ...reviewed,
+              },
+              null,
+              2,
+            ) + '\n',
+          );
+        // Completed findings requiring follow-up use exit 1; exit 2 means incomplete.
+        expect(reviewed.code, JSON.stringify(reviewed.value)).toBe(1);
+        expect(reviewed.value).toMatchObject({
+          status: 'completed',
+          identity: { client: { mode: 'centralized', audience } },
+        });
+        const findings = reviewed.value.findings as unknown[];
+        expect(findings.length).toBeGreaterThan(0);
+        expect(JSON.stringify(findings)).toContain(policyWitness);
+        expect((reviewed.value.evidence as unknown[]).length).toBeGreaterThanOrEqual(2);
+        const history = await run([
+          'result',
+          String(reviewed.value.runId),
+          '--mode',
+          'centralized',
+          '--connection',
+          id,
+        ]);
+        expect(history.code).toBe(1);
+        expect(history.value).toEqual(reviewed.value);
+      }
       const disconnected = await run([
         'central',
         'disconnect',
@@ -649,5 +732,5 @@ it.skipIf(process.env.GCR_CENTRAL_OS_SMOKE !== '1' || process.platform !== 'darw
       }
     }
   },
-  120000,
+  420000,
 );

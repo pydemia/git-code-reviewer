@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { expect, it } from 'vitest';
@@ -57,4 +57,37 @@ it('rejects a different model or reasoning effort before executing an account co
       reasoningEffort: 'high',
     }),
   ).rejects.toMatchObject({ code: 'executor-unavailable' });
+});
+
+it.skipIf(process.platform !== 'darwin').each([
+  ['codex-cli 0.153.4', true],
+  ['codex-cli 0.154.0', true],
+  ['codex-cli 0.154.1', false],
+  ['codex-cli 0.154.0-preview', false],
+  ['0.154.0', false],
+])('checks the bundled catalog only for verified exact versions: %s', async (version, known) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'gcr-version-fixture-'));
+  try {
+    const command = path.join(root, 'codex');
+    const marker = path.join(root, 'catalog-requested');
+    await writeFile(
+      command,
+      `#!${process.execPath}\nconst fs=require('fs');
+if(process.argv[2]==='--version') console.log(${JSON.stringify(version)});
+else {fs.writeFileSync(${JSON.stringify(marker)},'requested');console.log('{"models":[]}');}\n`,
+    );
+    await chmod(command, 0o700);
+    // A recognized version with an invalid model catalog must still fail closed.
+    await expect(
+      prepareCodexAccountExecutor({
+        executablePath: command,
+        model: 'gpt-6-astra',
+        reasoningEffort: 'xhigh',
+      }),
+    ).rejects.toMatchObject({ code: 'executor-unavailable' });
+    if (known) expect(await readFile(marker, 'utf8')).toBe('requested');
+    else await expect(readFile(marker)).rejects.toMatchObject({ code: 'ENOENT' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
