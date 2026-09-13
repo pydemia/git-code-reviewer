@@ -1,0 +1,106 @@
+{
+  "recordedAt": "2026-09-13T10:31:13.379445+00:00",
+  "checkpoint": "P03-C07 explicit owned realm/client configuration",
+  "baseCommit": "6a926ae47e89cd94e291ded3fb51f6ed15528147",
+  "scope": "source and fixture verification; not C07 completion or operational deployment",
+  "configuration": {
+    "startedAt": "2026-09-13T10:27:26.748Z",
+    "node": "v22.23.2",
+    "checks": [
+      "event-configuration-matches-compiled-security-collector-contract",
+      "inspection-of-missing-realm-performs-no-configuration-write",
+      "fresh-owned-realm-configured-and-enabled-only-after-staged-readback",
+      "repeated-apply-has-zero-writes-and-preserves-users-keys-client-ID-and-secret",
+      "narrow-security-drift-correction-preserves-unrelated-owned-configuration",
+      "twelve-ownership-credential-profile-and-permission-conflicts-refused-before-writes",
+      "lost-client-create-response-resumes-with-same-client-secret-and-no-duplicate",
+      "incomplete-readback-keeps-new-realm-disabled-and-can-resume",
+      "SMTP-password-is-file-input-and-explicit-revision-prevents-repeated-secret-write",
+      "plan-rejects-master-public-admin-HTTP-unowned-fields-and-inline-SMTP-password",
+      "secret-reader-rejects-symlink-world-access-and-oversized-file",
+      "real-HTTPS-bootstrap-token-cache-and-owned-session-logout",
+      "redirect-denied-error-body-redacted-timeout-not-retried-and-bounded-response",
+      "untrusted-admin-TLS-certificate-rejected",
+      "actual-CLI-file-inputs-inspect-apply-repeat-and-HTTPS-readback",
+      "write-trace-excludes-user-credentials-key-generation-import-and-secret-rotation"
+    ],
+    "realKeycloak": false,
+    "smtpDeliveryTested": false,
+    "cleanup": true,
+    "sourceSha256": {
+      "deploy/identity/configuration.mjs": "13b891bcff85cf56c30107b86453eef336b0a6980da91a2d90173202cbb5672c",
+      "deploy/identity/configure.mjs": "df87adbbb3f9c9a67eda8e0d7fa16e9d70cf05163898c9f12536cb1780f412ef",
+      "scripts/verify-identity-configuration.mjs": "f77f6dece7396fdbe8c8578a4fc8c2a538c4a158d632c8012c8bc381c30f355e"
+    },
+    "success": true,
+    "completedAt": "2026-09-13T10:27:28.515Z"
+  },
+  "compose": {
+    "startedAt": "2026-09-13T10:20:05.684Z",
+    "node": "v22.23.2",
+    "checks": [
+      "new-private-directory-distinct-secrets-and-readable-consumer-group",
+      "separate-public-private-and-database-TLS-leaves-signed-by-local-CA",
+      "repeat-preparation-never-overwrites-and-unpinned-images-or-Git-directory-refused",
+      "fresh-plan-omits-legacy-owner-and-preserves-two-database-contract",
+      "one-original-PostgreSQL-service-and-persistent-volume-no-identity-database-volume",
+      "only-loopback-HTTPS-published-inherited-app-and-DB-ports-removed",
+      "development-bypass-build-and-secret-values-absent-from-merged-model",
+      "role-specific-secret-mounts-and-no-CA-key-or-bootstrap-secret-in-normal-runtime",
+      "DB-maintenance-and-migration-bridges-separated-from-identity-admin-peers",
+      "explicit-DBA-inspection-first-two-replicas-verified-TLS-and-worker-drain",
+      "bootstrap-overlay-only-adds-temporary-Keycloak-admin-and-single-replica",
+      "explicit-private-configurer-has-no-DB-or-SP-private-key-and-separates-bootstrap-token-and-SMTP",
+      "custom-HTTPS-port-and-hostnames-consistent-inside-and-outside-network",
+      "changed-Compose-hostnames-require-a-matching-identity-configuration-plan",
+      "four-compiled-runtime-commands-load-rendered-role-TLS-and-SAML-configuration",
+      "entrypoint-shell-syntax"
+    ],
+    "cleanup": true,
+    "startedContainers": 0,
+    "databaseConnected": false,
+    "metadataResponse": "fixture",
+    "realKeycloak": false,
+    "sourceSha256": {
+      "compose.identity.yaml": "50172b54c397693d8d40e6e6c1d9211fccf28900bb693e0c04c9d2111c52808e",
+      "compose.identity.bootstrap.yaml": "687c34ff2621900dd6bd44ad31cf861c9b1337b326094e391aba25cffe08fc27",
+      "compose.identity.smtp.yaml": "1fbf06f5d32f318894a81cf83fd4c53e042e2972183a84c33d1b34a19779886a",
+      "scripts/prepare-identity-compose.mjs": "8fe69c5d9336223568319bc7afccba44c92a6c4101c72a93e774b6477e15990d",
+      "deploy/identity/runtime-entrypoint.sh": "ee16d15e6bead8d93076e0850540512dc73dd45a2b1f65da3b64b6f0ce2b4bae",
+      "deploy/identity/keycloak-entrypoint.sh": "d127eace1c1e2a4c2dd5cf8d6150f7363a32c8d685f2cdf3ebef8942c28cf4f8",
+      "deploy/identity/postgres-entrypoint.sh": "932cafd68428c707545535efeae17342a9629abe26f43f78546e718a6f27e8aa",
+      "deploy/identity/pg_hba.conf": "060500dccda3d140bc392967ec0b3c65256d5d847138d1f84654ac4c4650cd6c",
+      "apps/runtime/dist/config.js": "13b99ec43f315df37fc208fd91e864a8b11501ed9f427e67692fcc39c0c7602b",
+      "apps/runtime/dist/auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a"
+    },
+    "composeVersion": "5.1.1",
+    "success": true,
+    "completedAt": "2026-09-13T10:20:07.083Z"
+  },
+  "additionalInputSha256": {
+    "scripts/verify-identity-compose.mjs": "936e17dce79dfc75c1a2a35977441ae283176c54fb438e1312d1aa2ac3ea2063",
+    "apps/runtime/dist/identity/keycloak-security.js": "13e294ba37cae134d37941068426225f0ba9a04972217473d424fcda30332c61",
+    "scripts/prepare-identity-compose.mjs": "8fe69c5d9336223568319bc7afccba44c92a6c4101c72a93e774b6477e15990d"
+  },
+  "validation": {
+    "eslint": "passed: final changed JS files",
+    "prettier": "passed: final JS, Compose, operation guide and evidence",
+    "runtimeAndSqlSourceChanged": false,
+    "gitDiffCheck": "passed"
+  },
+  "primarySources": [
+    "https://www.keycloak.org/docs-api/26.7.3/rest-api/index.html",
+    "https://raw.githubusercontent.com/keycloak/keycloak/26.7.3/services/src/main/java/org/keycloak/services/resources/admin/ClientResource.java",
+    "https://raw.githubusercontent.com/keycloak/keycloak/26.7.3/services/src/main/java/org/keycloak/protocol/saml/SamlConfigAttributes.java",
+    "https://raw.githubusercontent.com/keycloak/keycloak/26.7.3/server-spi-private/src/main/java/org/keycloak/models/utils/ModelToRepresentation.java"
+  ],
+  "limits": [
+    "Stateful fixture is not a Keycloak implementation or database persistence test",
+    "CLI uses the real HTTPS transport against a fixture Admin API",
+    "No SMTP messages sent and no delivery test",
+    "No Docker services, operational credentials, databases, Helm releases or HTTPRoutes changed",
+    "Maintenance command assumes one operator; no atomic cross-endpoint transaction or CAS",
+    "Actual optimized Keycloak two-replica, management token, SAML and shared PostgreSQL verification remains",
+    "Image publication, production DNS/TLS/SMTP, C06-C08 transition/recovery, Commit Defender native verification/publication, P04-P13 remain"
+  ]
+}

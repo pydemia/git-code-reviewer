@@ -112,6 +112,32 @@ services:
     mem_limit: 256m
     cpus: 1
 
+  identity-configure:
+    <<: *identity-runtime
+    profiles: [identity-ops]
+    entrypoint: ['node', '/run/config/identity/configure.mjs']
+    command: ['--inspect', '/run/config/identity/plan.json']
+    environment:
+      GCR_IDENTITY_CONFIG_CA_FILE: /run/config/ca.crt
+      GCR_IDENTITY_CONFIG_TOKEN_FILE: /run/secrets/configuration-access-token
+      GCR_IDENTITY_CONFIG_PUBLIC_ORIGIN: https://${GCR_PUBLIC_HOST:?set the local GCR hostname}:${GCR_HTTPS_PORT:-8443}
+      GCR_IDENTITY_CONFIG_IDENTITY_ORIGIN: https://${GCR_IDENTITY_HOST:?set the local identity hostname}:${GCR_HTTPS_PORT:-8443}
+      GCR_IDENTITY_CONFIG_ADMIN_ORIGIN: https://keycloak:8443
+    secrets: [configuration-access-token, identity-admin-client-secret, sp-signing-cert]
+    configs:
+      - source: identity-configure-command
+        target: /run/config/identity/configure.mjs
+      - source: identity-configuration-module
+        target: /run/config/identity/configuration.mjs
+      - source: identity-configuration-plan
+        target: /run/config/identity/plan.json
+      - source: identity-ca
+        target: /run/config/ca.crt
+    networks: [identity-admin]
+    restart: 'no'
+    mem_limit: 256m
+    cpus: 1
+
   migrate:
     <<: *identity-runtime
     build: !reset null
@@ -351,6 +377,12 @@ networks:
           gateway: ${GCR_IDENTITY_GATEWAY:-172.29.240.1}
 
 configs:
+  identity-configure-command: { file: ./deploy/identity/configure.mjs }
+  identity-configuration-module: { file: ./deploy/identity/configuration.mjs }
+  identity-configuration-plan:
+    {
+      file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/configuration-plan.json',
+    }
   identity-runtime-entrypoint: { file: ./deploy/identity/runtime-entrypoint.sh }
   identity-keycloak-entrypoint: { file: ./deploy/identity/keycloak-entrypoint.sh }
   postgres-identity-entrypoint: { file: ./deploy/identity/postgres-entrypoint.sh }
@@ -361,6 +393,10 @@ configs:
     { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/database-plan.json' }
 
 secrets:
+  configuration-access-token:
+    {
+      file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/configuration-access-token',
+    }
   dba-password:
     { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/dba-password' }
   app-db-password:

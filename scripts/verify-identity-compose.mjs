@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../apps/runtime/dist/config.js';
 import { loadSamlProtocolConfig } from '../apps/runtime/dist/auth/saml-config.js';
 import { prepareFreshIdentity } from './prepare-identity-compose.mjs';
+import { validateConfiguration } from '../deploy/identity/configuration.mjs';
+import { checkConfigurationOrigins } from '../deploy/identity/configure.mjs';
 
 const execFile = promisify(execFileCallback);
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -145,6 +147,10 @@ try {
   }
   const model = await render();
   const service = model.services;
+  const identityPlan = validateConfiguration(
+    JSON.parse(await readFile(path.join(directory, 'configuration-plan.json'), 'utf8')),
+  );
+  checkConfigurationOrigins(identityPlan, service['identity-configure'].environment);
   const names = (entries = []) => entries.map((entry) => entry.source).sort();
   assert.deepEqual(
     Object.entries(service)
@@ -263,9 +269,51 @@ try {
       'bootstrap-admin-username',
     ].sort(),
   );
-  for (const name of Object.keys(service).filter((name) => name !== 'keycloak'))
+  for (const name of Object.keys(service).filter(
+    (name) => !['keycloak', 'identity-configure'].includes(name),
+  ))
     assert.deepEqual(bootstrap.services[name], service[name]);
   check('bootstrap-overlay-only-adds-temporary-Keycloak-admin-and-single-replica');
+  assert.equal(service['identity-configure'].command[0], '--inspect');
+  assert.deepEqual(service['identity-configure'].profiles, ['identity-ops']);
+  assert.deepEqual(Object.keys(service['identity-configure'].networks), ['identity-admin']);
+  assert.deepEqual(names(service['identity-configure'].secrets), [
+    'configuration-access-token',
+    'identity-admin-client-secret',
+    'sp-signing-cert',
+  ]);
+  assert.deepEqual(names(bootstrap.services['identity-configure'].secrets), [
+    'bootstrap-admin-password',
+    'bootstrap-admin-username',
+    'identity-admin-client-secret',
+    'sp-signing-cert',
+  ]);
+  assert.equal(
+    bootstrap.services['identity-configure'].environment.GCR_IDENTITY_CONFIG_TOKEN_FILE,
+    undefined,
+  );
+  checkConfigurationOrigins(identityPlan, bootstrap.services['identity-configure'].environment);
+  for (const s of Object.values(service)) assert(!s.depends_on?.['identity-configure']);
+  const smtpModel = await render([
+    '-f',
+    'compose.identity.bootstrap.yaml',
+    '-f',
+    'compose.identity.smtp.yaml',
+  ]);
+  assert.deepEqual(
+    names(smtpModel.services['identity-configure'].secrets),
+    [
+      ...names(bootstrap.services['identity-configure'].secrets),
+      'configuration-smtp-password',
+    ].sort(),
+  );
+  assert.equal(
+    smtpModel.services['identity-configure'].environment.GCR_IDENTITY_CONFIG_SMTP_PASSWORD_FILE,
+    '/run/secrets/configuration-smtp-password',
+  );
+  check(
+    'explicit-private-configurer-has-no-DB-or-SP-private-key-and-separates-bootstrap-token-and-SMTP',
+  );
   const custom = await render([], {
     GCR_HTTPS_PORT: '19443',
     GCR_PUBLIC_HOST: 'review.custom.test',
@@ -282,6 +330,12 @@ try {
     'https://login.custom.test:19443/realms/git-code-reviewer',
   );
   check('custom-HTTPS-port-and-hostnames-consistent-inside-and-outside-network');
+  assert.throws(
+    () =>
+      checkConfigurationOrigins(identityPlan, custom.services['identity-configure'].environment),
+    /CONFIGURATION_ORIGIN_MISMATCH/,
+  );
+  check('changed-Compose-hostnames-require-a-matching-identity-configuration-plan');
   for (const [name, runtimeCommand, expectedRole, pool] of [
     ['server', 'serve', 'gcr_app', 6],
     ['worker', 'worker', 'gcr_app', 6],
@@ -331,6 +385,7 @@ try {
   const sources = [
     'compose.identity.yaml',
     'compose.identity.bootstrap.yaml',
+    'compose.identity.smtp.yaml',
     'scripts/prepare-identity-compose.mjs',
     'deploy/identity/runtime-entrypoint.sh',
     'deploy/identity/keycloak-entrypoint.sh',

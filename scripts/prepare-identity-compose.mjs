@@ -1,7 +1,7 @@
 // Generate credentials and a private CA for a NEW local integration environment.
 // Never adopt/reset an existing volume or modify OS trust, DNS, Docker, or auth.
 import { execFile as execFileCallback } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -68,6 +68,22 @@ export async function prepareFreshIdentity(directory, environment = process.env)
     );
     delete plan.legacyOwner;
     await write('database-plan.json', JSON.stringify(plan, null, 2) + '\n', 0o644);
+    await write(
+      'configuration-plan.json',
+      JSON.stringify(
+        {
+          version: 1,
+          configurationId: randomUUID(),
+          realm: 'git-code-reviewer',
+          publicOrigin: `https://${publicHost}:${port}`,
+          identityOrigin: `https://${identityHost}:${port}`,
+          adminOrigin: 'https://keycloak:8443',
+        },
+        null,
+        2,
+      ) + '\n',
+      0o644,
+    );
     await openssl(
       'req',
       '-x509',

@@ -1,6 +1,21 @@
 # Temporary, explicit first bootstrap/recovery overlay. Do not keep this file in
 # normal start commands after replacing the temporary admin with named operators.
 services:
+  identity-configure:
+    environment: !override
+      GCR_IDENTITY_CONFIG_CA_FILE: /run/config/ca.crt
+      GCR_IDENTITY_CONFIG_USERNAME_FILE: /run/secrets/bootstrap-admin-username
+      GCR_IDENTITY_CONFIG_PASSWORD_FILE: /run/secrets/bootstrap-admin-password
+      GCR_IDENTITY_CONFIG_PUBLIC_ORIGIN: https://${GCR_PUBLIC_HOST:?set the local GCR hostname}:${GCR_HTTPS_PORT:-8443}
+      GCR_IDENTITY_CONFIG_IDENTITY_ORIGIN: https://${GCR_IDENTITY_HOST:?set the local identity hostname}:${GCR_HTTPS_PORT:-8443}
+      GCR_IDENTITY_CONFIG_ADMIN_ORIGIN: https://keycloak:8443
+    secrets:
+      !override [
+        bootstrap-admin-username,
+        bootstrap-admin-password,
+        identity-admin-client-secret,
+        sp-signing-cert,
+      ]
   keycloak:
     deploy:
       replicas: 1
