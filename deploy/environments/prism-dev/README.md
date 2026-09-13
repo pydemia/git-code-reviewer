@@ -1,5 +1,7 @@
 # PRISM-DEV 배포
 
+2026-09-14 01:45 KST: GCR alpha.40·chart 0.10.38·Helm revision 52에 모델 리뷰 기준 후보 생성과 역할 위임 화면을 배포했다. 실제 등록 모델로 합성 원문 한 건을 처리하고 임시 데이터를 정리했다. DB verify-full TLS와 local 인증을 유지한다. [배포 증거](../../../.documents/execution/preventive-review/evidence/P05-generation-PRISM-deployment.json)를 참고한다.
+
 2026-09-14: Keycloak을 이 namespace에 별도 Helm release로 배포했다. Identity revision 2이며 GCR·Keycloak DB 연결에 TLS를 적용했다. 실제 앱 SAML 전환은 미완료이고 기존 local 로그인을 유지한다. [배포·검증 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 참고한다.
 
 ## Identity HTTPRoute 준비 (2026-09-13)

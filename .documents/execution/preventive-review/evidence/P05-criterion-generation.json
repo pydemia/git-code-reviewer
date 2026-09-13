@@ -16,13 +16,14 @@
     "apps/web/src/CriterionGenerationPanel.tsx": "b81e3cdde97946f1bbb85a6be3b1fd5b736ee2603137859632ec8010753db517",
     "apps/web/src/CriterionRolesPanel.tsx": "a1c2a7fab50dda3cf84c228d89efaed6776bcba105ac8569ebb9311a457bc07e"
   },
-  "actualProviderVerified": false,
-  "deploymentVerified": false,
+  "actualProviderVerified": true,
+  "deploymentVerified": true,
   "remaining": [
     "immutable bundle publication",
     "signed manifests and leases",
     "authorized distribution API",
     "publication and client status",
     "Commit Defender sync/review"
-  ]
+  ],
+  "deploymentEvidence": "P05-generation-PRISM-deployment.json"
 }
