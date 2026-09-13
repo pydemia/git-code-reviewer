@@ -1,7 +1,7 @@
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.34'
-  digest: 'sha256:b3345ba4e4057ab0311bd0303a6c326c1d56ac4d2b784b578cfd01c48ec1c6a0'
+  tag: '0.8.0-alpha.35'
+  digest: 'sha256:f434a80b6f6aaf2b653057a26b9f19d03964a9f49e9c79a259c1cb8921950403'
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 publicBaseUrl: https://git-code-reviewer.example.internal

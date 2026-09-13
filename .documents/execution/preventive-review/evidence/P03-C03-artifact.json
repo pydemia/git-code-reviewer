@@ -1,0 +1,94 @@
+{
+  "at": "2026-09-13T00:29:31.160750+00:00",
+  "status": "passed",
+  "sourceCommit": "d1f62bfdb6a1212f093fff6c3c00f0a933a739cc",
+  "sourceArchive": "clean git archive",
+  "appVersion": "0.8.0-alpha.35",
+  "chartVersion": "0.10.33",
+  "imageIndexDigest": "sha256:f434a80b6f6aaf2b653057a26b9f19d03964a9f49e9c79a259c1cb8921950403",
+  "platformManifests": [
+    {
+      "architecture": "amd64",
+      "os": "linux",
+      "digest": "sha256:b6937ca1d3069ab567efac4a35d02c95569842ece27a21a3232ffc4d866bd687"
+    },
+    {
+      "architecture": "unknown",
+      "os": "unknown",
+      "digest": "sha256:328aa2e5cc154038076d20ba9dbdae2281e0ac0d0ff02a20d62e225e6505182e"
+    }
+  ],
+  "buildNodeImage": "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "runtimeBase": "docker.io/pydemia/git-code-reviewer@sha256:c1885ba5ac3ec11558865ea143f867ca3af4dc0c41a5ada262ccc292072d3f77",
+  "runtimeSamlValidation": {
+    "status": "passed",
+    "node": "v22.23.2",
+    "compiled": {
+      "auth/saml-state.js": "1d2ee5c3fdb967e1e77a5a5aa179f3bd23ca54302f3ae67c8217d9467641503d",
+      "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+      "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+      "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+      "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+      "config.js": "e98334252a402fb88e773ede64393b5219f7d2a6348246c68a892825e725f954",
+      "server.js": "69a2adfe2ec42dd384de5884c25b50405719aeba79600dba29aa9c1d1ebfc1eb"
+    },
+    "compiledSamlStateSha256": "1d2ee5c3fdb967e1e77a5a5aa179f3bd23ca54302f3ae67c8217d9467641503d",
+    "migrationCount": 33,
+    "migration33Sha256": "c7d2ebe6b3bdc0684ec0f51229a5077b40fdc18eaaaeac58880777124807e33d",
+    "versions": {
+      "@node-saml/node-saml": "5.1.0",
+      "@xmldom/xmldom": "0.9.12",
+      "xml-crypto": "6.1.2"
+    },
+    "checks": [
+      "compiled-image-signed-login",
+      "wrong-request-rejected",
+      "compiled-image-signed-idp-logout",
+      "opaque-relay-parameter-names",
+      "tampered-logout-rejected",
+      "metadata-signing",
+      "runtime-saml-dependencies"
+    ]
+  },
+  "staticValidation": {
+    "status": "passed",
+    "node": "v22.23.2",
+    "user": 1000,
+    "versions": {
+      "static": "10.1.3",
+      "vitest": "4.1.11"
+    },
+    "packageFolders": [
+      "@fastify+static@10.1.3",
+      "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+      "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+    ],
+    "assets": {
+      "index-T_jmTDvd.css": "e3dfa4e3389c0f71155cf8ba8cdf23de78c65ae0cc63f6c3006119a04d18e44e",
+      "index-jmmTaJuT.js": "007d8a62da6d5bf0d841b4c7d0680e4a81fba94e6b77daa911f493a41e7366ae"
+    },
+    "artifactChecks": [
+      "no-obsolete-runtime-packages",
+      "no-obsolete-browser-bundles",
+      "public-asset-content-and-cache",
+      "traversal-denied",
+      "no-build-secret"
+    ],
+    "network": "none",
+    "rootFilesystem": "read-only"
+  },
+  "browserAssetsMatchImage": true,
+  "chartArchiveSha256": "5095ecbb4e32255a70773f9cd8ba5a8f393c4973c4479be565294272ac025da4",
+  "auditVulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "deploymentStatus": "pending; current operating AUTH_MODE remains local",
+  "limitations": [
+    "Native Safari callback remains pending.",
+    "Provisioning, freshness collection, shared database ACL, identity chart and operating SAML transition are P03-C04–C08."
+  ]
+}
