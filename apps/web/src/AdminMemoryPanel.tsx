@@ -70,6 +70,11 @@ export function AdminMemoryPanel({
         서로 다른 사용자 두 명 이상이 승인한 개인 메모리를 검토합니다. 활성화된 집단 메모리는 개인
         메모리보다 먼저 분석에 적용됩니다.
       </p>
+      <p>
+        <a href={`/review-criteria${repositoryId ? `?repositoryId=${repositoryId}` : ''}`}>
+          검토 기준 후보 등록·평가·승인
+        </a>
+      </p>
       <div className="admin-toolbar">
         <label>
           Repository

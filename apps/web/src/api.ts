@@ -1,4 +1,13 @@
 import {
+  criterionListSchema,
+  criterionDetailSchema,
+  criterionSourceListSchema,
+  type CriterionCreate,
+  type CriterionAction,
+  type CriterionEvaluationCreate,
+  type CriterionFeedbackCreate,
+  type CriterionFeedbackResolution,
+  type CriterionExceptionRevoke,
   identityAdministrationCapabilitiesSchema,
   identityOperationListSchema,
   identityOperationResponseSchema,
@@ -91,6 +100,106 @@ export type AnalysisProviderInput = {
 
 export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
   return userSchema.parse(await fetchJson('/api/v1/me', signal));
+}
+
+export async function loadCriteriaRepositories(signal: AbortSignal) {
+  return repositoryListSchema.parse(await fetchJson('/api/v1/repositories', signal)).items;
+}
+export async function loadCriteria(repositoryId: string, signal: AbortSignal) {
+  return criterionListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria`, signal),
+  );
+}
+export async function loadCriterion(repositoryId: string, ruleId: string, signal: AbortSignal) {
+  return criterionDetailSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}`, signal),
+  );
+}
+export async function loadCriterionSources(repositoryId: string, signal: AbortSignal) {
+  return criterionSourceListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/sources`, signal),
+  ).items;
+}
+export async function saveCriterion(
+  repositoryId: string,
+  input: CriterionCreate,
+  previous?: { id: string; version: number },
+) {
+  const base = `/api/v1/repositories/${repositoryId}/review-criteria`;
+  return criterionDetailSchema.parse(
+    await mutateJson(previous ? `${base}/${previous.id}/revisions` : base, 'POST', {
+      ...input,
+      ...(previous ? { expectedVersion: previous.version } : {}),
+    }),
+  );
+}
+export async function saveCriterionEvaluation(
+  repositoryId: string,
+  ruleId: string,
+  input: CriterionEvaluationCreate,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/evaluations`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function applyCriterionAction(
+  repositoryId: string,
+  ruleId: string,
+  input: CriterionAction,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/actions`,
+      'POST',
+      input,
+    ),
+  );
+}
+
+export async function submitCriterionFeedback(
+  repositoryId: string,
+  ruleId: string,
+  input: CriterionFeedbackCreate,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/feedback`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function resolveCriterionFeedback(
+  repositoryId: string,
+  ruleId: string,
+  requestId: string,
+  input: CriterionFeedbackResolution,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/feedback/${requestId}/resolution`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function revokeCriterionException(
+  repositoryId: string,
+  ruleId: string,
+  exceptionId: string,
+  input: CriterionExceptionRevoke,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/exceptions/${exceptionId}/revocation`,
+      'POST',
+      input,
+    ),
+  );
 }
 
 export async function loadProfile(signal: AbortSignal): Promise<Profile> {

@@ -46,6 +46,7 @@ import {
   loadCurrentUser,
 } from './api.ts';
 import { AdminPage } from './AdminPage.tsx';
+import { ReviewCriteriaPage } from './ReviewCriteriaPage.tsx';
 import { AppHeader } from './AppHeader.tsx';
 import { GuidePage } from './GuidePage.tsx';
 import { ProductDocumentPage } from './ProductDocumentPage.tsx';
@@ -112,6 +113,7 @@ export function App() {
   if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/profile') return <ProfilePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;
+  if (window.location.pathname === '/review-criteria') return <ReviewCriteriaPage />;
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
   if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;
   const pullMatch = window.location.pathname.match(/^\/repositories\/([^/]+)\/pulls\/(\d+)$/);

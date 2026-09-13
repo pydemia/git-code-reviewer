@@ -54,6 +54,18 @@ export function AppHeader({
               {user ? (
                 <a
                   className="header-guide-link"
+                  href="/review-criteria"
+                  aria-current={
+                    window.location.pathname === '/review-criteria' ? 'page' : undefined
+                  }
+                >
+                  <ShieldCheck size={15} />
+                  <span>리뷰 기준</span>
+                </a>
+              ) : null}
+              {user ? (
+                <a
+                  className="header-guide-link"
                   href="/guide"
                   aria-current={
                     ['/guide', '/introduction', '/features'].includes(window.location.pathname)
