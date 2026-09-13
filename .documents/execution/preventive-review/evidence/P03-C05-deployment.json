@@ -1,0 +1,397 @@
+{
+  "phase": "P03-C05",
+  "status": "deployed-verified-identity-disabled",
+  "at": "2026-09-13T04:54:43.372011+00:00",
+  "context": "PRISM-DEV",
+  "namespace": "git-code-reviewer",
+  "releaseName": "git-code-reviewer",
+  "release": {
+    "revision": 47,
+    "updated": "2026-09-13T13:47:54.36309+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.35",
+    "app_version": "0.8.0-alpha.37",
+    "description": "Upgrade complete"
+  },
+  "sourceCommit": "bdf1aefd3b99b49981f52d0b5c9859cf903c3115",
+  "releasePinCommit": "af31451a6f208028530f61c6bcb20afee5e1f2bf",
+  "registryImage": {
+    "digest": "sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:d6a11e5b2562431a1c49badda0155f89d11b8d415f6883aa2f2815cf9dd186af"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:74d9d7229ecacd6e7763da040b0613ca5337489f4c4d9c2181a601e6d1f5081b"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "source": "bdf1aefd3b99b49981f52d0b5c9859cf903c3115",
+    "version": "0.8.0-alpha.37",
+    "runtimeImageId": "sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915",
+    "labels": {
+      "org.opencontainers.image.version": "0.8.0-alpha.37",
+      "org.opencontainers.image.revision": "bdf1aefd3b99b49981f52d0b5c9859cf903c3115"
+    }
+  },
+  "chartReadback": {
+    "status": "passed",
+    "ociDigest": "sha256:bf57d89ee35ad463bb485438cd944283885547dce32bf5bcdd0aded302bec89b",
+    "chartSha256": "772e51761c1304fcebe8b9a386ab862ac962cbdd943fd216e35eb942cb12294a"
+  },
+  "runtimeModes": {
+    "server": {
+      "pod": "git-code-reviewer-server-5bf9f6b9d9-pjnj4",
+      "version": "0.8.0-alpha.37",
+      "authMode": "local",
+      "identityAdministrationEnabled": false,
+      "identitySecurityEnabled": false
+    },
+    "worker": {
+      "pod": "git-code-reviewer-worker-6bc77c644-xr9lh",
+      "version": "0.8.0-alpha.37",
+      "authMode": "local",
+      "identityAdministrationEnabled": false,
+      "identitySecurityEnabled": false
+    }
+  },
+  "healthAndRuntime": {
+    "at": "2026-09-13T04:49:24.587691+00:00",
+    "health": {
+      "/health/startup": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1
+        }
+      },
+      "/health/live": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1
+        }
+      },
+      "/health/ready": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1,
+          "database": {
+            "status": "ok",
+            "latencyMs": 1
+          }
+        }
+      },
+      "/health/dependencies": {
+        "status": 200,
+        "body": {
+          "schemaVersion": 1,
+          "status": "ok",
+          "dependencies": {
+            "database": {
+              "status": "ok",
+              "latencyMs": 1
+            },
+            "github": {
+              "status": "ok",
+              "latencyMs": null
+            },
+            "model": {
+              "status": "ok",
+              "latencyMs": null
+            },
+            "authorization": {
+              "status": "disabled",
+              "latencyMs": null
+            }
+          }
+        }
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "body": {
+          "schemaVersion": 1,
+          "service": "git-code-reviewer",
+          "version": "0.8.0-alpha.37",
+          "authMode": "local"
+        }
+      },
+      "/api/v1/me": {
+        "status": 401,
+        "body": null
+      }
+    },
+    "assets": {
+      "index-BWBpY8bo.js": "262328ed10f48680dcf48021c45cb48b09333772711e53430cba0425bb88e456",
+      "index-MAHxlrLj.css": "e5bbfba11ea7fa5f88d256a06c197bd299006e9763472add8effbbe95f23d397"
+    },
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-5bf9f6b9d9-pjnj4",
+        "compiled": {
+          "auth/saml-state.js": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+          "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+          "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+          "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+          "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+          "config.js": "3593d981ada006e896769d9ddfcafcd740e3184fa0d197cbd8bd3c24135651b9",
+          "server.js": "1845a3afd0ac7ef6ffd49c4e2350a55bbc7b4bdceb8e3c93a7f949c4cfeea636",
+          "identity/keycloak-admin.js": "904fcbce5978f9c944f9603880951d4fd349da79f9fbe11db296d0a37c3d6cff",
+          "identity/config.js": "7fd502e01e0577e346a452306e3895d2c1cccdf875b4de8506228a7cafa93d1e",
+          "identity/operations.js": "7411cf0a2f831d5d6a21677d9def31bf6ca5e5ae29042817c5e14f402ea40bcd",
+          "identity/processor.js": "7752fbe5d88b90d42985748be442279a3ac6725fda6623b1c2ee4ad1484c0ccb",
+          "identity/routes.js": "1af59f708b94b36b8a3eccbd85445f50b511bb82fbe2a6ceaf5646da07eb53be",
+          "identity/keycloak-security.js": "13e294ba37cae134d37941068426225f0ba9a04972217473d424fcda30332c61",
+          "identity/security-state.js": "bd1c71ab08507afa415ba2da8fb52c51392436ec35d9993301724c5915e6ca0e",
+          "identity/security-processor.js": "2087a27cbe7befe3d3b466bf2e162bf4d74e25602acf0468e0817392608cf739",
+          "identity/revocation.js": "c0bbad9050bec5c7370641108cd28f8e089b2ed6427c90e3908114814cae9a28",
+          "identity/lifecycle.js": "1867a91fa0171e4478eb7afb2a0ea1ca83b8d08c13159000915704a6e00817dd",
+          "identity/reactivation.js": "6cdc22a554f933aa334f6f680d99c2e242c974b9db7f56eae67b9248505aaf6c",
+          "identity/remote-lease.js": "c11d76ebe99705d0edd06f44350346c6f09f488d7e7ee48f2407dc56ca885810",
+          "routes/admin.js": "6cf909bae73288869bfb176a6742ce0ae2d32e586755c0153780faf17dade298",
+          "jobs/worker.js": "3169691f923e75a197d486169d790dbeb5e64a962649cdb07b3b9e0521a9afe5"
+        },
+        "node": "v22.23.2",
+        "uid": 1000,
+        "version": "0.8.0-alpha.37",
+        "static": "10.1.3",
+        "compiledSamlStateSha256": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+        "folders": [
+          "@fastify+static@10.1.3",
+          "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+          "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+        ],
+        "logCounts": {
+          "warn": 0,
+          "error": 0,
+          "fatal": 0,
+          "unstructured": 0
+        }
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-6bc77c644-xr9lh",
+        "compiled": {
+          "auth/saml-state.js": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+          "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+          "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+          "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+          "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+          "config.js": "3593d981ada006e896769d9ddfcafcd740e3184fa0d197cbd8bd3c24135651b9",
+          "server.js": "1845a3afd0ac7ef6ffd49c4e2350a55bbc7b4bdceb8e3c93a7f949c4cfeea636",
+          "identity/keycloak-admin.js": "904fcbce5978f9c944f9603880951d4fd349da79f9fbe11db296d0a37c3d6cff",
+          "identity/config.js": "7fd502e01e0577e346a452306e3895d2c1cccdf875b4de8506228a7cafa93d1e",
+          "identity/operations.js": "7411cf0a2f831d5d6a21677d9def31bf6ca5e5ae29042817c5e14f402ea40bcd",
+          "identity/processor.js": "7752fbe5d88b90d42985748be442279a3ac6725fda6623b1c2ee4ad1484c0ccb",
+          "identity/routes.js": "1af59f708b94b36b8a3eccbd85445f50b511bb82fbe2a6ceaf5646da07eb53be",
+          "identity/keycloak-security.js": "13e294ba37cae134d37941068426225f0ba9a04972217473d424fcda30332c61",
+          "identity/security-state.js": "bd1c71ab08507afa415ba2da8fb52c51392436ec35d9993301724c5915e6ca0e",
+          "identity/security-processor.js": "2087a27cbe7befe3d3b466bf2e162bf4d74e25602acf0468e0817392608cf739",
+          "identity/revocation.js": "c0bbad9050bec5c7370641108cd28f8e089b2ed6427c90e3908114814cae9a28",
+          "identity/lifecycle.js": "1867a91fa0171e4478eb7afb2a0ea1ca83b8d08c13159000915704a6e00817dd",
+          "identity/reactivation.js": "6cdc22a554f933aa334f6f680d99c2e242c974b9db7f56eae67b9248505aaf6c",
+          "identity/remote-lease.js": "c11d76ebe99705d0edd06f44350346c6f09f488d7e7ee48f2407dc56ca885810",
+          "routes/admin.js": "6cf909bae73288869bfb176a6742ce0ae2d32e586755c0153780faf17dade298",
+          "jobs/worker.js": "3169691f923e75a197d486169d790dbeb5e64a962649cdb07b3b9e0521a9afe5"
+        },
+        "node": "v22.23.2",
+        "uid": 1000,
+        "version": "0.8.0-alpha.37",
+        "static": "10.1.3",
+        "compiledSamlStateSha256": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+        "folders": [
+          "@fastify+static@10.1.3",
+          "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+          "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+        ],
+        "logCounts": {
+          "warn": 0,
+          "error": 0,
+          "fatal": 0,
+          "unstructured": 0
+        }
+      }
+    },
+    "status": "passed"
+  },
+  "browser": {
+    "status": "passed",
+    "at": "2026-09-13T04:50:08.250Z",
+    "browser": "152.0.7977.84",
+    "headless": true,
+    "nativeGui": false,
+    "version": "0.8.0-alpha.37",
+    "authMode": "local",
+    "localLoginVisible": true,
+    "anonymousAdministration": [
+      {
+        "route": "/api/v1/admin/identity/capabilities",
+        "status": 404
+      },
+      {
+        "route": "/api/v1/admin/identity/operations",
+        "status": 404
+      }
+    ],
+    "pageErrors": [],
+    "apiMocks": 0,
+    "credentialsUsed": false
+  },
+  "preservation": {
+    "status": "passed",
+    "at": "2026-09-13T04:50:16.700951+00:00",
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "analysis_runs": {
+        "before": 144,
+        "after": 144,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "reports": {
+        "before": 136,
+        "after": 136,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true,
+        "identical": true
+      }
+    },
+    "legacySessionsPreserved": true,
+    "localCredentialFieldsPreserved": true,
+    "providerPreserved": true,
+    "runtimeMode": {
+      "authMode": "local",
+      "identityAdministrationEnabled": false,
+      "identitySecurityEnabled": false
+    },
+    "identityTablesEmpty": true,
+    "oldMigrationCount": 34,
+    "currentMigrationCount": 36,
+    "oldMigrationChecksumsPreserved": true,
+    "newMigrationChecksums": {
+      "0036_identity_lifecycle_operations.sql": "ec3b9fcdf6ffded032f535439ab9337158c825ef94b71be959b2b9a60339a57f",
+      "0035_identity_security_reconciliation.sql": "4423147a3b32a85339f6600abb733e17f68973e42a8d5b8f1192e9af8a4c916a"
+    },
+    "nonImageValuesHash": "9abc48b9861c0223aec5693151e5fa8b868ea84ab958909a3f5b127384f1ee14",
+    "nonImageComputedValuesHash": "0a0d2d0198cb73312fde4299036bbedd504356b5300a5f4aee348b12dbc31530",
+    "resourceUIDsAndDataPreserved": true,
+    "resourceVersionsChanged": [
+      "configmaps/git-code-reviewer"
+    ],
+    "persistentVolumesPreserved": 2,
+    "scope": "Existing user identity/access fields, record IDs for accounts/analyses/reports, membership/grants/memory ownership, local credential fields and web-session rows; unrelated new records may be appended."
+  },
+  "helmTest": {
+    "status": "passed",
+    "startedLocal": "Sun Sep 13 13:50:04 2026",
+    "completedLocal": "Sun Sep 13 13:50:07 2026",
+    "timezone": "Asia/Seoul",
+    "logSha256": "90a340761d4562641c5331552d23b776cd5b42398779e9ebb375a248a475e5da"
+  },
+  "podsAtVerification": [
+    {
+      "name": "git-code-reviewer-server-5bf9f6b9d9-pjnj4",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "server",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker-6bc77c644-xr9lh",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "source-sandbox",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915"
+        },
+        {
+          "name": "worker",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker-796c48d4f-25qgx",
+      "deleting": "2026-09-13T05:48:43Z",
+      "containers": [
+        {
+          "name": "source-sandbox",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:dcc6f96997acbb9fb34dc80f90a5e2c3829b1825d46918a2e01bb440f4d5601a"
+        },
+        {
+          "name": "worker",
+          "ready": false,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:dcc6f96997acbb9fb34dc80f90a5e2c3829b1825d46918a2e01bb440f4d5601a"
+        }
+      ]
+    }
+  ],
+  "evidenceHashes": {
+    "deployment-smoke.json": "91358db1832f8d31fde4e336b78add28717074a785224c34585be220d9219f6b",
+    "deployed-login-browser.json": "7982765f634e114ca759212761f3229e128788fc83bbe8edb3293db72718f261",
+    "preservation.json": "cf8e547a6727b6299f9184df6ac48167024f46131aee4bcb7b640a241ac9c900",
+    "chart-readback.json": "6a2aae05dd98798717726429be8913fddc94614fb2b67f7869bf81c2f9c2786c",
+    "before-final-snapshot.json": "d3e3c07c04c0304b529eb363ed86d6d4259ab10822d9d08440b44e2677eaa82e",
+    "after-snapshot.json": "f1b7a5b5ae647de85c144fde1f868e5674618d84da16f89ef357598c60ffc76e",
+    "runtime-identity-mode.json": "c5a60ee11ea4c1381f04a3db41c24cdc393f2322308d231deecc89320f177ff0",
+    "preflight.json": "630a617967da9abaa27c90eded61e753b32fb7035d19b67eebef9954b1c2c48e",
+    "image-attestations.json": "49a8c59e5a7c642595b63aa8e37ac955b91675c0c1a1d59f17414cfeeecc1819",
+    "helm-upgrade.log": "40aaf0fb1f64ea7ebb43819ca9087251b739d8408f425a1941120eaa3588ae58"
+  },
+  "limitations": [
+    "Identity administration and security are deliberately disabled; this release does not activate operational SAML or change an operational IdP account.",
+    "Chrome headless validation does not complete native Safari or VS Code checks.",
+    "The previous worker sandbox retains its configured 3600-second termination grace period; no forced deletion or timeout change was performed.",
+    "Shared database, companion configuration, SAML cutover/rollback and P04 client credential issuance/verification remain follow-up work."
+  ]
+}

@@ -1,6 +1,6 @@
 # Identity security reconciliation
 
-P03-C05 개발 기록이다. 현재 PRISM-DEV 배포는 P03-C04의 alpha.36이며 아래 수집기와 lifecycle 구현은 아직 배포하지 않았다. 관리자 차단·재활성화·전체 기기 로그아웃 API와 UI를 추가했으며 최종 검증과 배포를 준비한다. 운영 companion 구성은 C07에서 검증한다.
+P03-C05 개발·운영 계약이다. 2026-09-13에 수집기와 관리자 lifecycle을 alpha.37·chart 0.10.35로 배포했다. 운영은 local 인증이며 조직 계정 관리와 보안 수집은 비활성이다. 운영 companion 구성은 C07에서 검증한다. [배포 기록](identity-security-reconciliation-2026-09-13.md)에 적용 범위와 보존 검사를 정리했다.
 
 ## 이벤트를 읽는 조건
 
@@ -54,6 +54,6 @@ Freshness는 원격 logout acknowledgment, 활성 GCR 사용자·identity, 정�
 
 2026-09-13 13:17:02–13:18:03 KST의 격리 검사에서는 실제 UPDATE·logout 이벤트 확인 뒤 GCR 재활성화, 원격 acknowledgment와 freshness를 확인했다. 별도의 전체 기기 로그아웃 요청은 실제 worker loop에서 처리했으며 DB pool 2개·리뷰 concurrency 1 설정을 사용했다. 이후 compiled lifecycle UI까지 포함한 검증을 추가했다. 최종 결과와 원본 hash는 P03 실행 기록의 후속 evidence에 기록한다.
 
-운영 설정·부하·복구 검증과 배포, native Safari·VS Code 검증은 별도 항목으로 유지한다. Runtime과 migration 배포 시에도 `AUTH_MODE=local`, `IDENTITY_ADMIN_ENABLED=false`, `IDENTITY_SECURITY_ENABLED=false`를 보존한다. 운영 SAML 전환은 C06–C08의 DB·companion·복구 검증 후 별도로 진행한다.
+13:24:00–13:25:30 KST의 최종 격리 검사는 compiled 관리자 화면·실제 HTTP API·Keycloak의 차단·재활성화·전체 기기 로그아웃까지 통과했다. Runtime과 migration을 배포한 13:47:54 KST 이후에도 `AUTH_MODE=local`, `IDENTITY_ADMIN_ENABLED=false`, `IDENTITY_SECURITY_ENABLED=false`를 유지했다. 운영 설정·부하·복구, native Safari·VS Code 검증은 별도 항목으로 남긴다. 운영 SAML 전환은 C06–C08의 DB·companion·복구 검증 후 진행한다.
 
 근거: [Keycloak 26.7.3 Admin REST API](https://www.keycloak.org/docs-api/26.7.3/rest-api/index.html), [JPA security event query](https://github.com/keycloak/keycloak/blob/26.7.3/model/jpa/src/main/java/org/keycloak/events/jpa/JpaEventQuery.java), [SAML SessionIndex 구성](https://github.com/keycloak/keycloak/blob/26.7.3/services/src/main/java/org/keycloak/protocol/saml/SamlSessionUtils.java).
