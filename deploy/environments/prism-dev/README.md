@@ -2,6 +2,12 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-13 조직 계정 관리 코드 배포
+
+11:06:32 KST에 application `0.8.0-alpha.36`, chart `0.10.34`를 Helm revision **46**으로 배포했다. Source `82aa12e`·release pin `d84fb34`를 push하고 적용했다. 조직 계정 관리 API·화면·Worker와 migration 0034를 포함하며 운영 인증은 local, 새 관리 기능은 비활성이다.
+
+전체 914개 테스트와 실제 Keycloak·PostgreSQL·compiled 관리자 화면·격리 SMTP 검증을 통과했다. 배포 후 Server/Worker·health·module/asset hash·Helm test·익명 관리 API 차단, 기존 사용자·권한·memory owner·분석·report·세션·Provider·image 외 설정·Secret·CA·HTTPRoute·PVC/PV 보존을 확인했다. [운영 기록](../../../docs/operations/keycloak-user-administration-2026-09-13.md)에 digest와 한계를 정리했다. Native GUI·freshness/event 수집·공유 DB·운영 SAML 전환은 남아 있다.
+
 ## 2026-09-13 SAML 앱 인증 코드 배포
 
 09:30:10 KST에 application `0.8.0-alpha.35`, chart `0.10.33`을 Helm revision **45**로 배포했다. P03-C03 source `d1f62bf`·release pin `30d63f1`을 push한 뒤 적용했다. SAML login/ACS/metadata/SLO, DB session 검증, LoginPage와 migration 0033을 포함하며 운영 인증은 기존 local mode다.

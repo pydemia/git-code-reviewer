@@ -1,0 +1,436 @@
+{
+  "phase": "P03-C04",
+  "status": "passed",
+  "at": "2026-09-13T02:12:20.323101+00:00",
+  "sourceCommit": "82aa12e19b331ed4120fbe293bbd6a96a4c3855e",
+  "releasePinCommit": "d84fb3494efab6b400301f234f262a16842daebd",
+  "release": {
+    "revision": 46,
+    "updated": "2026-09-13T11:06:32.552032+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.34",
+    "app_version": "0.8.0-alpha.36",
+    "description": "Upgrade complete"
+  },
+  "imageIndexDigest": "sha256:dcc6f96997acbb9fb34dc80f90a5e2c3829b1825d46918a2e01bb440f4d5601a",
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:cb6a6328584f33988181a96a00cd8a4919c4d655cff45e94630004112e6b151c",
+    "chartSha256": "2b14cbf5385e388e65a1939f6ca1d60fcd68e75e96191b5ee9399402fa2e177c"
+  },
+  "preservation": {
+    "status": "passed",
+    "before": "2026-09-13T01:54:25.440300+00:00",
+    "after": "2026-09-13T02:07:45.682759+00:00",
+    "checks": {
+      "database/users": true,
+      "database/chat_accounts": true,
+      "database/analysis_runs": true,
+      "database/reports": true,
+      "database/repository_grants": true,
+      "database/tenant_memberships": true,
+      "database/review_memories": true,
+      "database/legacySessions": true,
+      "database/provider": true,
+      "database/samlBoundSessions": true,
+      "nonImageValuesHash": true,
+      "nonImageComputedValuesHash": true,
+      "existingMigrations": true,
+      "migration34": true,
+      "identityStateEmpty": true,
+      "resource/secrets/git-code-reviewer-auth": true,
+      "resource/secrets/git-code-reviewer-credential-registry": true,
+      "resource/secrets/git-code-reviewer-postgresql-auth": true,
+      "resourceUid/configmaps/git-code-reviewer": true,
+      "resource/configmaps/git-code-reviewer-corporate-ca": true,
+      "resource/httproutes/git-code-reviewer-route": true,
+      "resource/persistentvolumeclaims/data-git-code-reviewer-postgresql-0": true,
+      "resource/persistentvolumeclaims/git-code-reviewer-artifacts": true,
+      "applicationConfigMapData": true
+    },
+    "nonImageValuesHash": "9abc48b9861c0223aec5693151e5fa8b868ea84ab958909a3f5b127384f1ee14",
+    "rows": {
+      "users": {
+        "count": 7,
+        "sha256": "8de337690bef70d4a89f12afc9503facb0a38774b45e2b28db8898480cb8c40a"
+      },
+      "chat_accounts": {
+        "count": 7,
+        "sha256": "732359ffa24e2e25e954c1e51222857203debfb0b2f2f3c44337f5e73033ec18"
+      },
+      "analysis_runs": {
+        "count": 142,
+        "sha256": "6f308dcbf494402ef382ceb8485f6ee5cb5d83858fe1c6eb8a42784b63a790bb"
+      },
+      "reports": {
+        "count": 134,
+        "sha256": "ac8422f5582fd65a83d3879ce5b29058ecb9f33106cd77c9d751cbd008c29619"
+      },
+      "repository_grants": {
+        "count": 2,
+        "sha256": "bc2409a2baec9769dc91a54d9363895224fa116c53fb0da06c06a18c89755d9d"
+      },
+      "tenant_memberships": {
+        "count": 7,
+        "sha256": "708dc8ed69302bda63f095629f122ac89fa14f552c11da07de80184d535c5201"
+      },
+      "review_memories": {
+        "count": 4,
+        "sha256": "31c03aa41d774bafac1bd8ec7d62c9f1a11be96b073fd2bd9b8f9d6e2efa2a1e"
+      },
+      "legacySessions": {
+        "count": 1,
+        "sha256": "83c1fb9e0a88209b7eca90c45932f10dcbf969ee09db11d13775a4297c676d22"
+      },
+      "identityState": {
+        "user_identities": 0,
+        "saml_transactions": 0,
+        "saml_message_consumptions": 0,
+        "saml_session_revocations": 0,
+        "identity_admin_operations": 0,
+        "identity_admin_outbox": 0
+      },
+      "samlBoundSessions": 0,
+      "provider": [
+        {
+          "id": "747dc264-bfcf-4307-8f5f-8d4578d031de",
+          "version": 8,
+          "mode": "chatgpt-account",
+          "model_name": "gpt-5.6-terra",
+          "concurrency": 4,
+          "timeout_ms": 300000,
+          "configuration_hash": "2fdc6d40a3871aaeb3be7174891afee59582c1db4fea7428dddcdd4f064f0041"
+        }
+      ]
+    },
+    "migrations": [
+      {
+        "version": "0001_foundation.sql",
+        "checksum": "d8b22ddf293b824cd7e42a0e7695b4b309a50671b6dd101eecfd4f46029cc983"
+      },
+      {
+        "version": "0002_worklist.sql",
+        "checksum": "03591eff1122ea04d731011df846df70e6814a93d7fdad301191d4796ab08069"
+      },
+      {
+        "version": "0003_snapshot_pipeline.sql",
+        "checksum": "f74a61cc1496cf42cc9350f0d9522fa4f1284131c976b53e1b9cbe0f2c6ef065"
+      },
+      {
+        "version": "0004_review_reports.sql",
+        "checksum": "a61f09e936fd0b23e51dd4fad956638c3f0b78e6a8af9596959d332313d84a07"
+      },
+      {
+        "version": "0005_review_chat.sql",
+        "checksum": "9b6187b34873a53d30ead9bf4b7653ecdf4f7220df2fba5af961c0b0ebb53ccb"
+      },
+      {
+        "version": "0006_artifact_lifecycle.sql",
+        "checksum": "7760cbdb43a722eb56399f8e237306ab96efe6f39bbc03033a59daf0846c4bec"
+      },
+      {
+        "version": "0007_tenancy_authorization_prompts.sql",
+        "checksum": "0dc280265766ff2fe8605e13254144b642053b3b5fa6f11eedf641242f37a266"
+      },
+      {
+        "version": "0008_analysis_provider_administration.sql",
+        "checksum": "e038ef93fc023021d64769ca3f86b8acf17041750d6b547e2c86147c655b2b09"
+      },
+      {
+        "version": "0009_account_and_ghes_registries.sql",
+        "checksum": "cdec5cd1419960dbf97e2a871598d68526c3c6dd6bdfb24ffb52465ebab34293"
+      },
+      {
+        "version": "0010_local_accounts.sql",
+        "checksum": "c77f4704f1a747b6a3ad598f91395734c759dbf08e4a91ea93f65d38fb959b4d"
+      },
+      {
+        "version": "0011_github_review_publication.sql",
+        "checksum": "ffd4cbcdd97e8d49ee2361e625f1e3be787f9d3c1c285267666972ec6923d6e1"
+      },
+      {
+        "version": "0012_repository_deletion.sql",
+        "checksum": "eaace61cffd7c2b0c499cdcc39643699619dcba8597a1366dac09fbb3a90dd5f"
+      },
+      {
+        "version": "0013_analysis_chat_account.sql",
+        "checksum": "a56a5b58ea7a1ffad9eb18ff5363f3af58cfd7bb41f046aa77779d81eea46f8e"
+      },
+      {
+        "version": "0014_analysis_skills.sql",
+        "checksum": "9e785f3269609b80d6f49cd33467aa8b38d206f8580a759e43fdd2e9c0c1b20c"
+      },
+      {
+        "version": "0015_skill_finding_categories.sql",
+        "checksum": "935e6e2f3a84c735e65ec91ecae981ee379a562ed20c65ec65ec7b592f3b6e98"
+      },
+      {
+        "version": "0016_analysis_progress.sql",
+        "checksum": "f3c0f13166f8b4e2dc5e7d1a8c668435b539caa2b12afaa3a08f37bb8fca14f6"
+      },
+      {
+        "version": "0017_analysis_severity.sql",
+        "checksum": "ff540ff7f17c8c2daa6584441840cb8a4b7d25f02a0e079cb895ad002d01aa79"
+      },
+      {
+        "version": "0018_personal_chat_prompt.sql",
+        "checksum": "91859fe9ff95be583810be97360a15111677939b8579a93dc1022e3188a39bc5"
+      },
+      {
+        "version": "0019_user_deletion.sql",
+        "checksum": "27dc261bde47817158cd6b8ed97fee071578870b47486725ee22901b7d9d4061"
+      },
+      {
+        "version": "0020_review_memory.sql",
+        "checksum": "2489b0c6e8f86b6c9668ee218ad7a9b95258f66a9d2e88c64f0f78b2b80a7dd2"
+      },
+      {
+        "version": "0021_review_memory_workflow.sql",
+        "checksum": "c8d8c81d492aa3dc8a74ce40c62046a3b2a15f01a68b949dde32c83f94d2d1bd"
+      },
+      {
+        "version": "0022_github_pr_memory_sources.sql",
+        "checksum": "9445add77724bf5aa699f6ea34a387f8ae203c743b4c0c770e4354e2345ca2a4"
+      },
+      {
+        "version": "0023_chat_memory_context.sql",
+        "checksum": "89480f642698f13b78c46e62e984ce14e9a77214d4fdea310b3f229d66791a35"
+      },
+      {
+        "version": "0024_interactive_chat.sql",
+        "checksum": "89ebef3dc65fd14ec31fc5edd60ab2cdd001ee37f14c3f20616d1969220900c4"
+      },
+      {
+        "version": "0025_model_capacity_window.sql",
+        "checksum": "9e44132348e782938feacaf72eb12c680a66c6a1011031608f166cf8371bc426"
+      },
+      {
+        "version": "0026_model_admission_priority.sql",
+        "checksum": "54eae068ffcb4483b2f1b5b5e031fb64366205540ba85cd9db2c2f121a08bc70"
+      },
+      {
+        "version": "0027_analysis_checkpoints.sql",
+        "checksum": "fb9597f117481b75949dc00bc26446e9be33368dc851cb01fdd25b9f1ef1b733"
+      },
+      {
+        "version": "0028_source_workspace_leases.sql",
+        "checksum": "b4e41621175b033bff5524ca69a42b5fcf54349240cf1c11b53b63c725748557"
+      },
+      {
+        "version": "0029_pull_request_state_sync.sql",
+        "checksum": "52e532efc71df2e6e659aba4cffc64981c0edb135cd6d0eeadbb7e69ee42bddb"
+      },
+      {
+        "version": "0030_parallel_analysis.sql",
+        "checksum": "853739a3bdf8934ef6f3356776392ece299f3addba2655f67c844de4f9a80cb4"
+      },
+      {
+        "version": "0031_registry_deletion.sql",
+        "checksum": "13be3a7770d1e867be93f80471cee7668229b35f98be347a9058caf82db2c601"
+      },
+      {
+        "version": "0032_saml_identity_state.sql",
+        "checksum": "29490f3ab13dadbf4cc4997e8ef04be3136b3b366e5d2614df27b4788573da74"
+      },
+      {
+        "version": "0033_saml_session_revocations.sql",
+        "checksum": "c7d2ebe6b3bdc0684ec0f51229a5077b40fdc18eaaaeac58880777124807e33d"
+      },
+      {
+        "version": "0034_identity_provisioning_operations.sql",
+        "checksum": "06336db10a7835b5ce74cf2a575dc997df2c099b658114b36a57d30cc00c6d40"
+      }
+    ],
+    "configMapDataSha256": "878e4fdaa7fa4e1f9d75283ee2f76203cc4fa210526248b6a3b998648db7fb72",
+    "configMapDataBaseline": "P03-C03 verified deployment data hash; current before/after snapshot covers UID and resourceVersion",
+    "metadataChanges": "Application ConfigMap resourceVersion changed with release metadata; UID and data preserved."
+  },
+  "runtimeModes": {
+    "server": {
+      "authMode": "local",
+      "identityAdministrationEnabled": false
+    },
+    "worker": {
+      "authMode": "local",
+      "identityAdministrationEnabled": false
+    }
+  },
+  "smoke": {
+    "at": "2026-09-13T02:07:44.581619+00:00",
+    "health": {
+      "/health/startup": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1
+        }
+      },
+      "/health/live": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1
+        }
+      },
+      "/health/ready": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1,
+          "database": {
+            "status": "ok",
+            "latencyMs": 1
+          }
+        }
+      },
+      "/health/dependencies": {
+        "status": 200,
+        "body": {
+          "schemaVersion": 1,
+          "status": "ok",
+          "dependencies": {
+            "database": {
+              "status": "ok",
+              "latencyMs": 1
+            },
+            "github": {
+              "status": "ok",
+              "latencyMs": null
+            },
+            "model": {
+              "status": "ok",
+              "latencyMs": null
+            },
+            "authorization": {
+              "status": "disabled",
+              "latencyMs": null
+            }
+          }
+        }
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "body": {
+          "schemaVersion": 1,
+          "service": "git-code-reviewer",
+          "version": "0.8.0-alpha.36",
+          "authMode": "local"
+        }
+      },
+      "/api/v1/me": {
+        "status": 401,
+        "body": null
+      }
+    },
+    "assets": {
+      "index-Bgec2Wa1.js": "a9f66cb141a12209b5a4016b0501ca7e2095acbc70c660dbdb27cc7716d7176b",
+      "index-MAHxlrLj.css": "e5bbfba11ea7fa5f88d256a06c197bd299006e9763472add8effbbe95f23d397"
+    },
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-5bd98586b6-zxs9d",
+        "compiled": {
+          "auth/saml-state.js": "a78a99ac3399a4ce93e5e337117ac912f7d6cb8835e58de2286b47dd185b3d85",
+          "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+          "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+          "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+          "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+          "config.js": "efc8656ccde6be6acb293cf4a35b54da5c6f294b1c469da71c66434932a71565",
+          "server.js": "1845a3afd0ac7ef6ffd49c4e2350a55bbc7b4bdceb8e3c93a7f949c4cfeea636",
+          "identity/keycloak-admin.js": "393fc97679afd66c8b29e447ad5d689795eb8159b5214143b1b861364811785e",
+          "identity/config.js": "ce362c92488caf56bd8ced3f0644acb60925a0e0b43a90ff61db6ce149893955",
+          "identity/operations.js": "db656dd63cc9e3b05fcd5578d8f9bdfbdcd4b400f0898b773af49d1e4a9012d8",
+          "identity/processor.js": "beedc2b20ba720d3a4726e8967cc6e20d443bb7d865fd99f3964a73a714367a5",
+          "identity/routes.js": "0c1aaa8f7fd2c470f3a9a3f0a84b7578924230e83486bd619d6cbfb5beb94bed",
+          "routes/admin.js": "835333b2ed413551aa7a2a82b5d844077649407dbb5e784641f0bb10a7a7e497",
+          "jobs/worker.js": "1499e642d58ab7433f2226cf2d15d27c23cd60612b4bf19e0725b1ca69e1b0c7"
+        },
+        "node": "v22.23.2",
+        "uid": 1000,
+        "version": "0.8.0-alpha.36",
+        "static": "10.1.3",
+        "compiledSamlStateSha256": "a78a99ac3399a4ce93e5e337117ac912f7d6cb8835e58de2286b47dd185b3d85",
+        "folders": [
+          "@fastify+static@10.1.3",
+          "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+          "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+        ],
+        "logCounts": {
+          "warn": 0,
+          "error": 0,
+          "fatal": 0,
+          "unstructured": 0
+        }
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-796c48d4f-25qgx",
+        "compiled": {
+          "auth/saml-state.js": "a78a99ac3399a4ce93e5e337117ac912f7d6cb8835e58de2286b47dd185b3d85",
+          "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+          "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+          "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+          "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+          "config.js": "efc8656ccde6be6acb293cf4a35b54da5c6f294b1c469da71c66434932a71565",
+          "server.js": "1845a3afd0ac7ef6ffd49c4e2350a55bbc7b4bdceb8e3c93a7f949c4cfeea636",
+          "identity/keycloak-admin.js": "393fc97679afd66c8b29e447ad5d689795eb8159b5214143b1b861364811785e",
+          "identity/config.js": "ce362c92488caf56bd8ced3f0644acb60925a0e0b43a90ff61db6ce149893955",
+          "identity/operations.js": "db656dd63cc9e3b05fcd5578d8f9bdfbdcd4b400f0898b773af49d1e4a9012d8",
+          "identity/processor.js": "beedc2b20ba720d3a4726e8967cc6e20d443bb7d865fd99f3964a73a714367a5",
+          "identity/routes.js": "0c1aaa8f7fd2c470f3a9a3f0a84b7578924230e83486bd619d6cbfb5beb94bed",
+          "routes/admin.js": "835333b2ed413551aa7a2a82b5d844077649407dbb5e784641f0bb10a7a7e497",
+          "jobs/worker.js": "1499e642d58ab7433f2226cf2d15d27c23cd60612b4bf19e0725b1ca69e1b0c7"
+        },
+        "node": "v22.23.2",
+        "uid": 1000,
+        "version": "0.8.0-alpha.36",
+        "static": "10.1.3",
+        "compiledSamlStateSha256": "a78a99ac3399a4ce93e5e337117ac912f7d6cb8835e58de2286b47dd185b3d85",
+        "folders": [
+          "@fastify+static@10.1.3",
+          "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+          "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+        ],
+        "logCounts": {
+          "warn": 0,
+          "error": 0,
+          "fatal": 0,
+          "unstructured": 0
+        }
+      }
+    },
+    "status": "passed"
+  },
+  "browser": {
+    "status": "passed",
+    "at": "2026-09-13T02:08:16.071Z",
+    "browser": "152.0.7977.84",
+    "headless": true,
+    "nativeGui": false,
+    "version": "0.8.0-alpha.36",
+    "authMode": "local",
+    "localLoginVisible": true,
+    "anonymousAdministration": [
+      {
+        "route": "/api/v1/admin/identity/capabilities",
+        "status": 404
+      },
+      {
+        "route": "/api/v1/admin/identity/operations",
+        "status": 404
+      }
+    ],
+    "pageErrors": [],
+    "apiMocks": 0,
+    "credentialsUsed": false
+  },
+  "helmTest": {
+    "status": "passed",
+    "log": "NAME: git-code-reviewer\nLAST DEPLOYED: Sun Sep 13 11:06:32 2026\nNAMESPACE: git-code-reviewer\nSTATUS: deployed\nREVISION: 46\nDESCRIPTION: Upgrade complete\nTEST SUITE:     git-code-reviewer-test-connection\nLast Started:   Sun Sep 13 11:07:47 2026\nLast Completed: Sun Sep 13 11:07:50 2026\nPhase:          Succeeded\n\nPOD LOGS: git-code-reviewer-test-connection\nConnecting to git-code-reviewer (10.110.149.228:80)\nremote file exists\n\n"
+  },
+  "limitations": [
+    "AUTH_MODE local; identity administration disabled in server and worker.",
+    "No production user provisioning, invitation, password reset or SAML activation.",
+    "Old worker source sandbox retains its configured 3600 second graceful termination; no force deletion.",
+    "Native Safari/VS Code gates and P03-C05 through C08 remain open."
+  ]
+}
