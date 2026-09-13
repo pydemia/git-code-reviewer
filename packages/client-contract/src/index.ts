@@ -20,3 +20,4 @@ export const clientContractPackage: ClientPackageInfo = Object.freeze({
 export * from './legacy.js';
 export * from './executor.js';
 export * from './local-review-response.js';
+export * from './central-knowledge.js';

@@ -76,6 +76,7 @@ export async function resolveCriterionSources(
   connection: Connection,
   repositoryId: string,
   input: CriterionCreate['decision']['sources'],
+  lock = true,
 ): Promise<Source[]> {
   const result: Source[] = [];
   const seen = new Set<string>();
@@ -102,7 +103,7 @@ export async function resolveCriterionSources(
            concat_ws(E'\n\n', summary, nullif(detail,''), nullif(recommendation,'')) as content,
            summary as label, source_base_sha as "baseSha", source_head_sha as "headSha"
          from review_memories where id = $1 and repository_id = $2 and scope = 'collective'
-           and state in ('candidate','active') for share`,
+           and state in ('candidate','active') ${lock ? 'for share' : ''}`,
             [source.id, repositoryId],
           )
         : await connection.query<Source>(
@@ -110,7 +111,7 @@ export async function resolveCriterionSources(
            left(concat('PR #', p.number, ' · ', m.author_login),500) as label,
            p.base_sha as "baseSha", m.commit_sha as "headSha"
          from github_pr_messages m join pull_requests p on p.id = m.pull_request_id
-         where m.id = $1 and m.repository_id = $2 for share of m, p`,
+         where m.id = $1 and m.repository_id = $2 ${lock ? 'for share of m, p' : ''}`,
             [source.id, repositoryId],
           );
     if (!found.rows[0]) throw criteriaNotFound();

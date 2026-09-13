@@ -36,6 +36,7 @@ data:
   DEFAULT_TENANT_SLUG: {{ .Values.auth.defaultTenantSlug | quote }}
   AUTO_JOIN_DEFAULT_TENANT: {{ .Values.auth.autoJoinDefaultTenant | quote }}
   GITHUB_MODE: {{ .Values.github.mode | quote }}
+  KNOWLEDGE_PUBLICATION_ENABLED: {{ .Values.knowledgePublication.enabled | quote }}
   CREDENTIAL_REGISTRY_ENABLED: {{ .Values.credentialRegistry.enabled | quote }}
   MODEL_MODE: {{ .Values.model.analysis.mode | quote }}
   MODEL_ENDPOINT: {{ .Values.model.analysis.endpoint | quote }}

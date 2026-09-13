@@ -80,6 +80,9 @@ importers:
       '@gcr/artifact-store':
         specifier: workspace:*
         version: link:../../packages/artifact-store
+      '@gcr/client-contract':
+        specifier: workspace:*
+        version: link:../../packages/client-contract
       '@gcr/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

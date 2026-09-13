@@ -26,6 +26,7 @@ import {
 import { processIdentityReactivation } from '../identity/reactivation.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
+import { publishNextKnowledge } from '../services/knowledge-publication.js';
 import { withModelBudget } from '../services/model-admission.js';
 import {
   claimCriterionGeneration,
@@ -107,6 +108,8 @@ export async function runWorker(
     identityConfig && config.IDENTITY_SECURITY_ENABLED
       ? (options.identitySecurity ?? new KeycloakSecurityClient(identityConfig.settings))
       : undefined;
+  let knowledgeRunning = false;
+  let nextKnowledgeAt = 0;
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
@@ -176,6 +179,28 @@ export async function runWorker(
     if (Date.now() - lastRecoveryAt > 10000) {
       await recoverExpiredJobs(database);
       lastRecoveryAt = Date.now();
+    }
+    if (
+      config.KNOWLEDGE_PUBLICATION_ENABLED &&
+      !knowledgeRunning &&
+      Date.now() >= nextKnowledgeAt &&
+      active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY
+    ) {
+      knowledgeRunning = true;
+      const task = publishNextKnowledge(database, artifacts)
+        .then(() => undefined)
+        .catch(() => {
+          health.log.error(
+            { code: 'KNOWLEDGE_PUBLICATION_UNAVAILABLE' },
+            'knowledge publication paused',
+          );
+        })
+        .finally(() => {
+          knowledgeRunning = false;
+          nextKnowledgeAt = Date.now() + 2000;
+          active.delete(task);
+        });
+      active.add(task);
     }
     let claimed = false;
     while (!stopping && active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY) {

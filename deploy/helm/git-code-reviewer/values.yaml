@@ -405,3 +405,6 @@ networkPolicy:
 
 podDisruptionBudget:
   enabled: true
+
+knowledgePublication:
+  enabled: false

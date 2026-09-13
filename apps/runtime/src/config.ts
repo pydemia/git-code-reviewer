@@ -86,6 +86,7 @@ const configSchema = z.object({
   CHAT_HOURLY_LIMIT: z.coerce.number().int().positive().default(30),
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
   CREDENTIAL_REGISTRY_ENABLED: booleanString,
+  KNOWLEDGE_PUBLICATION_ENABLED: booleanString,
   CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
   ANALYSIS_MAX_FILES: z.coerce.number().int().positive().default(500),
   ANALYSIS_MAX_BYTES: z.coerce
