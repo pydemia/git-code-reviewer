@@ -1,0 +1,206 @@
+{
+  "phase": "P06",
+  "status": "partial-goal-progress",
+  "verifiedAt": "2026-09-13T21:50:12.346546+00:00",
+  "sourceCommit": "d744c2829490acc23325764a7d582b2bd21e12b2",
+  "commitDefenderCommit": "341fa00213c6bc49fbe23272c87319397a57de1e",
+  "clientPackageVersion": "0.1.0-alpha.15",
+  "cliVersion": "0.1.0-alpha.9",
+  "sourceValidation": {
+    "status": "passed",
+    "sourceCommit": "d744c2829490acc23325764a7d582b2bd21e12b2",
+    "node": "22.23.2",
+    "regression": {
+      "files": 17,
+      "passed": 295,
+      "skipped": 1,
+      "failed": 0,
+      "command": "pnpm exec vitest run packages/client-contract packages/client-core packages/client-executors apps/cli --maxWorkers=1"
+    },
+    "skippedScope": "Opt-in installed CLI actual-account model smoke; actual installed CLI live HTTPS and packaged CD model run are separate.",
+    "packVerify": "passed",
+    "coreTypecheck": "passed",
+    "focusedEslint": "passed",
+    "transportCases": [
+      "503 initial publication retry with credential reread",
+      "cancellation during backoff",
+      "403 after pending 503 terminates",
+      "401/403/404/409/426/429/500/502/504/307 no retry",
+      "malformed successful response no retry"
+    ],
+    "connectionCases": [
+      "pending until complete signed snapshot",
+      "abort removes pending credential and marks disconnected",
+      "60000ms claim deadline removes credential and does not activate connection"
+    ]
+  },
+  "liveInstalledCli": {
+    "requestId": "f6eae2a1-5ca0-4470-9775-a0908dbf58bb",
+    "status": "passed",
+    "version": "0.8.0-alpha.42",
+    "cliVersion": "0.1.0-alpha.9",
+    "cliSha256": "c7798fe5a531229222610f36f8789a64b3d2747ec384c86a21f83977042479fe",
+    "checks": [
+      "trusted-https-session-login",
+      "downloaded-public-configuration-matches-independent-CA-and-key",
+      "installed-cli-api-key-connect-with-macos-keychain",
+      "actual-worker-v2-three-component-sync",
+      "installed-cli-central-context-exact-audience",
+      "explicit-offline-signed-cache",
+      "web-revocation-denies-cli-synchronization",
+      "explicit-disconnect-blocks-offline-cache"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "initialConnectMilliseconds": 15681,
+    "connectInvocations": 1,
+    "explicitPublicationPolling": false,
+    "ownedKeychainEntriesRemoved": true,
+    "ownedServerRowsRemoved": true,
+    "ownedLocalFilesRemoved": true,
+    "verifiedAt": "2026-09-13T21:40:18.814Z"
+  },
+  "packagedCD": {
+    "orchestration": {
+      "requestId": "5c938939-edba-4b7c-978a-da6ff4e445ba",
+      "status": "passed",
+      "version": "0.8.0-alpha.42",
+      "checks": [
+        "trusted-https-session-login",
+        "downloaded-public-configuration-matches-independent-CA-and-key",
+        "real-server-curated-personal-memory-approved",
+        "packaged-cd-single-connect-first-publication",
+        "actual-astra-xhigh-review-with-approved-central-memory",
+        "exact-central-history-restored",
+        "owned-cd-os-keys-cleaned"
+      ],
+      "syntheticOnly": "Task-owned source and memory; actual PRISM-DEV server and current account executor.",
+      "cdEvidence": "vscode-extension/test-results/P06-prism-account-vsix.json",
+      "cdWorkerSha256": "8fa9d61a5374c523611332219320e624178b296b97bdb34cfe5ab9b8229715f9",
+      "ownedKeychainEntriesRemoved": true,
+      "ownedServerRowsRemoved": true,
+      "ownedLocalFilesRemoved": true,
+      "verifiedAt": "2026-09-13T21:46:16.100Z",
+      "externalModelReviewRuns": 1
+    },
+    "reportStatus": "completed",
+    "findingCount": 1,
+    "sourceReads": 6,
+    "durationMs": 88565,
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "initialConnectMilliseconds": 14031,
+    "connectInvocations": 1,
+    "exactHistoryRestored": true,
+    "testKeysRemoved": true,
+    "artifact": {
+      "vsixSha256": "b3bc15705b2f2cab2d303e2f3837cb472dd33ba3c8574e7ed780fd658f727653",
+      "bundles": {
+        "extension.js": "fd5db5ce856ada518138b8aa02a32a9dcff8d14f78321088e2bae9ddf006c763",
+        "standalone-review-worker.js": "8fa9d61a5374c523611332219320e624178b296b97bdb34cfe5ab9b8229715f9",
+        "hook-cli.js": "9aad1e201e29ed45832d545c2e2e2ba833a8dc4e347dce8598b46ac2e4d3deff"
+      },
+      "status": "passed",
+      "sourceAndVendorExcluded": true
+    },
+    "nativeHosts": [
+      {
+        "status": "passed",
+        "vscode": "1.137.0",
+        "node": "24.18.1",
+        "electron": "42.10.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.3.0",
+        "delivery": "packaged-extension",
+        "commandCount": 22,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      },
+      {
+        "status": "passed",
+        "vscode": "1.90.2",
+        "node": "20.9.0",
+        "electron": "29.4.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.3.0",
+        "delivery": "packaged-extension",
+        "commandCount": 22,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      }
+    ],
+    "evidenceRepository": "commit-defender",
+    "evidencePath": ".documents/execution/preventive-review/evidence/P06-PRISM-initial-publication.json"
+  },
+  "cleanup": {
+    "status": "passed",
+    "releaseRevision": 54,
+    "existingUserAccountGrantMembershipMemoryCredentialRowsUnchanged": true,
+    "helmValuesUnchanged": true,
+    "databaseTlsMode": "verify-full"
+  },
+  "delivery": {
+    "clientPackages": {
+      "schemaVersion": 1,
+      "version": "0.1.0-alpha.15",
+      "packages": [
+        {
+          "name": "@gcr/client-contract",
+          "version": "0.1.0-alpha.15",
+          "file": "gcr-client-contract-0.1.0-alpha.15.tgz",
+          "sha256": "d01ededcd032a91cfad38ab49d1fd47e9e9463e76ce48a4471c7fd9e576dc44d"
+        },
+        {
+          "name": "@gcr/client-core",
+          "version": "0.1.0-alpha.15",
+          "file": "gcr-client-core-0.1.0-alpha.15.tgz",
+          "sha256": "18f892d13e1816d87a1b7b11bf1bc14c3d9f6ad77f03586d46b92c7c44b893df"
+        },
+        {
+          "name": "@gcr/client-executors",
+          "version": "0.1.0-alpha.15",
+          "file": "gcr-client-executors-0.1.0-alpha.15.tgz",
+          "sha256": "35a110c9b987888ceb9ab93a68bd0fb848a4e548e562675725d42d1721a70134"
+        }
+      ]
+    },
+    "cliTarballSha256": "c068b6603ea0fde1dac49b30bc2b7d981ed7f8747eba6effcde75369f6462677",
+    "publicNpmRelease": false,
+    "marketplaceRelease": false,
+    "personalVSCodeInstallationChanged": false
+  },
+  "remaining": [
+    "Periodic synchronization and retry/backoff/jitter/resume outside initial connection.",
+    "Remote-to-repository mapping, automatic fallback, credential renewal and remaining P00-P13 deliverables.",
+    "Model review verified in the packaged native worker; native dialog-driven model review not executed."
+  ],
+  "artifacts": {
+    "artifacts/operations/P06-initial-publication/live-client.json": "265fe3d498135f5bdd69d07f5d61e9b132437579165cddeb25cd7612dec22246",
+    "artifacts/operations/P06-initial-publication/live-cd.json": "c419ef0015c4d93af825895987db4c5bcdeb59bebb7cec8bfcfd9a495c45bd8d",
+    "artifacts/operations/P06-initial-publication/live-client.mjs": "da176b03960e098d7ee507ba26546b1e645abf6229841b2eb356c6824efc8bf9",
+    "artifacts/operations/P06-initial-publication/live-cd.mjs": "88f60189eb74ba0b19e7bf46f538d9118bd8d7671f9063e8ddf46a7d58dbc49f",
+    "artifacts/operations/P06-initial-publication/cleanup.json": "a13998e408473d8c76559646cc226fe92b167322b3f3c9c21e6eb4a8fcb8f03e"
+  }
+}
