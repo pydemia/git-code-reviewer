@@ -20,9 +20,68 @@
     "model",
     "retention",
     "identity",
-    "knowledgePublication"
+    "knowledgePublication",
+    "knowledgeDistribution"
   ],
   "properties": {
+    "knowledgeDistribution": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "serverId",
+        "signingKeyId",
+        "existingSecret",
+        "privateKeyKey",
+        "offlineLeaseSeconds"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "serverId": {
+          "type": "string"
+        },
+        "signingKeyId": {
+          "type": "string"
+        },
+        "existingSecret": {
+          "type": "string"
+        },
+        "privateKeyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "offlineLeaseSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "serverId": {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "signingKeyId": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$"
+              },
+              "existingSecret": {
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
     "knowledgePublication": {
       "type": "object",
       "required": ["enabled"],

@@ -9,6 +9,32 @@ const baseEnvironment = {
 };
 
 describe('loadConfig', () => {
+  it('requires explicit publication and signing identity only in a distribution server', () => {
+    const environment = { ...baseEnvironment, KNOWLEDGE_DISTRIBUTION_ENABLED: 'true' };
+    expect(() => loadConfig(environment)).toThrow('knowledge distribution requires');
+    expect(() => loadConfig(environment, 'worker')).not.toThrow();
+    expect(() => loadConfig(environment, 'migrate')).not.toThrow();
+    const complete = {
+      ...environment,
+      KNOWLEDGE_PUBLICATION_ENABLED: 'true',
+      KNOWLEDGE_SERVER_ID: '57f4d2e2-1c27-462f-a803-02928e771a93',
+      KNOWLEDGE_SIGNING_KEY_ID: 'fixture-1',
+      KNOWLEDGE_SIGNING_KEY_FILE: '/fixture-key',
+    };
+    expect(
+      loadConfig({ ...complete, KNOWLEDGE_OFFLINE_LEASE_SECONDS: '0' })
+        .KNOWLEDGE_OFFLINE_LEASE_SECONDS,
+    ).toBe(0);
+    expect(() => loadConfig({ ...complete, KNOWLEDGE_SERVER_ID: 'invalid' })).toThrow(
+      'KNOWLEDGE_SERVER_ID',
+    );
+    expect(() => loadConfig({ ...complete, KNOWLEDGE_SIGNING_KEY_ID: '../invalid' })).toThrow(
+      'KNOWLEDGE_SIGNING_KEY_ID',
+    );
+    expect(() => loadConfig({ ...complete, KNOWLEDGE_OFFLINE_LEASE_SECONDS: '86401' })).toThrow(
+      'KNOWLEDGE_OFFLINE_LEASE_SECONDS',
+    );
+  });
   it('selects explicit migration credentials and refuses them in application processes', () => {
     const environment = {
       DATABASE_URL: 'postgresql://gcr_app:app-password@database/gcr',

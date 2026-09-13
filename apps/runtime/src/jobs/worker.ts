@@ -26,6 +26,7 @@ import {
 import { processIdentityReactivation } from '../identity/reactivation.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
+import { removeExpiredKnowledgeManifests } from '../services/knowledge-manifest.js';
 import { publishNextKnowledge } from '../services/knowledge-publication.js';
 import { withModelBudget } from '../services/model-admission.js';
 import {
@@ -110,6 +111,7 @@ export async function runWorker(
       : undefined;
   let knowledgeRunning = false;
   let nextKnowledgeAt = 0;
+  let nextManifestCleanupAt = 0;
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
@@ -187,8 +189,13 @@ export async function runWorker(
       active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY
     ) {
       knowledgeRunning = true;
-      const task = publishNextKnowledge(database, artifacts)
-        .then(() => undefined)
+      const task = (async () => {
+        if (Date.now() >= nextManifestCleanupAt) {
+          await removeExpiredKnowledgeManifests(database);
+          nextManifestCleanupAt = Date.now() + 60000;
+        }
+        await publishNextKnowledge(database, artifacts);
+      })()
         .catch(() => {
           health.log.error(
             { code: 'KNOWLEDGE_PUBLICATION_UNAVAILABLE' },

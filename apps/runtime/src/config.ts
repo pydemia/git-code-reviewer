@@ -87,6 +87,14 @@ const configSchema = z.object({
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
   CREDENTIAL_REGISTRY_ENABLED: booleanString,
   KNOWLEDGE_PUBLICATION_ENABLED: booleanString,
+  KNOWLEDGE_DISTRIBUTION_ENABLED: booleanString,
+  KNOWLEDGE_SERVER_ID: z.string().uuid().optional(),
+  KNOWLEDGE_SIGNING_KEY_ID: z
+    .string()
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/)
+    .optional(),
+  KNOWLEDGE_SIGNING_KEY_FILE: z.string().min(1).optional(),
+  KNOWLEDGE_OFFLINE_LEASE_SECONDS: z.coerce.number().int().min(0).max(86400).default(86400),
   CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
   ANALYSIS_MAX_FILES: z.coerce.number().int().positive().default(500),
   ANALYSIS_MAX_BYTES: z.coerce
@@ -208,6 +216,17 @@ export function loadConfig(
     const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Invalid configuration: ${fields}`);
   }
+  if (
+    command === 'serve' &&
+    result.data.KNOWLEDGE_DISTRIBUTION_ENABLED &&
+    (!result.data.KNOWLEDGE_PUBLICATION_ENABLED ||
+      !result.data.KNOWLEDGE_SERVER_ID ||
+      !result.data.KNOWLEDGE_SIGNING_KEY_ID ||
+      !result.data.KNOWLEDGE_SIGNING_KEY_FILE)
+  )
+    throw Error(
+      'Invalid configuration: knowledge distribution requires publication, server ID and signing key settings',
+    );
   if (result.data.DATABASE_ISOLATED_ROLES && result.data.DATABASE_TLS_MODE !== 'verify-full')
     throw Error('Invalid configuration: isolated database roles require verify-full TLS');
   if (result.data.DATABASE_TLS_MODE === 'verify-full' && !result.data.DATABASE_TLS_CA_FILE)

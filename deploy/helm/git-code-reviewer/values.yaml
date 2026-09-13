@@ -408,3 +408,11 @@ podDisruptionBudget:
 
 knowledgePublication:
   enabled: false
+
+knowledgeDistribution:
+  enabled: false
+  serverId: ''
+  signingKeyId: ''
+  existingSecret: ''
+  privateKeyKey: private-key.pem
+  offlineLeaseSeconds: 86400

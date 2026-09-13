@@ -1,6 +1,6 @@
 # 리뷰 지식 bundle 발행
 
-P05-C04의 로컬 구현이다. Migration 0039, 공통 bundle 계약, 메모리 배포 내용 승인, outbox와 worker 발행을 연결했다. 운영 PRISM-DEV는 아직 alpha.40·migration 38이며 이 migration이나 발행 설정을 적용하지 않았다. 서명된 manifest·다운로드 API·발행 관리 화면과 함께 전달할 예정이다.
+P05-C04의 로컬 구현이다. Migration 0039, 공통 bundle 계약, 메모리 배포 내용 승인, outbox와 worker 발행을 연결했다. 운영 PRISM-DEV는 아직 alpha.40·migration 38이며 이 migration이나 발행 설정을 적용하지 않았다. 서명된 manifest·다운로드·메모리 승인 API의 후속 로컬 구현은 [배포 계약](review-knowledge-distribution.md)에 기록했다. 발행 관리 화면과 client 동기화는 남아 있다.
 
 ## 배포 자료
 
@@ -8,7 +8,7 @@ Bundle은 repository별 `policy`, `collective`, 사용자별 `personal`로 분�
 
 Policy에는 현재 유효한 Skill의 markdown·instructions 전체와 `active` 기준의 배포용 문서를 넣는다. 기준의 최신 평가, 고위험 기준의 독립된 지정 owner, 출처의 현재 공용 범위와 원문 snapshot을 다시 확인한다. 미승인 후보·미해결 질문·퇴역·출처가 바뀐 기준은 배포 대상이 아니다. 예외는 철회 여부와 현재 owner 권한을 확인하며 기간·범위를 포함한다. Client가 기간을 적용하도록 시작·만료 시각을 보존한다.
 
-메모리 활성화와 배포 승인은 별개다. `approveKnowledgeMemory`는 호출자가 시작한 transaction에서 활성 메모리를 잠그고 명시적으로 검토한 summary·detail·recommendation·반증·적용 조건·만료 시각을 저장한다. 공용 메모리는 관리자·위임 maintainer, 개인 메모리는 접근 권한이 있는 본인만 승인한다. 관리자도 다른 사람의 개인 메모리를 대신 승인할 수 없다. 이 함수의 웹/API 진입점은 P05-C06/C07에서 연결한다.
+메모리 활성화와 배포 승인은 별개다. `approveKnowledgeMemory`는 호출자가 시작한 transaction에서 활성 메모리를 잠그고 명시적으로 검토한 summary·detail·recommendation·반증·적용 조건·만료 시각을 저장한다. 공용 메모리는 관리자·위임 maintainer, 개인 메모리는 접근 권한이 있는 본인만 승인한다. 관리자도 다른 사람의 개인 메모리를 대신 승인할 수 없다. 이 함수의 API 진입점은 [후속 배포 API](review-knowledge-distribution.md)에 연결했으며 웹 화면은 후속 범위다.
 
 승인은 메모리 내용과 현재 원문을 함께 hash한 fingerprint에 묶인다. 원문 내용이 바뀌거나 삭제·개인 전환·사용자 제외가 발생하면 기존 승인을 재사용하지 않는다. 집단 bundle에는 raw PR/Chat 본문, source_anchor, 기여자 신원과 다른 사용자의 개인 메모리를 직렬화하지 않는다. 승인된 메모리 ID/hash와 base/head SHA만 출처 참조로 제공하며 상세 원문 조회는 별도 인가 API가 필요하다.
 

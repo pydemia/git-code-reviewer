@@ -24,6 +24,8 @@ import { registerIdentityAdministrationRoutes } from './identity/routes.js';
 import type { KeycloakAdminClient } from './identity/keycloak-admin.js';
 import { registerAccountRegistryRoutes } from './routes/account-registry.js';
 import { registerReviewMemoryRoutes } from './routes/review-memory.js';
+import { registerKnowledgeRoutes } from './routes/review-knowledge.js';
+import { loadKnowledgeSigner } from './services/knowledge-manifest.js';
 import { registerReviewCriteriaRoutes } from './routes/review-criteria.js';
 import {
   createGitHubReader,
@@ -85,6 +87,20 @@ export async function buildServer(
     trustProxy: config.TRUST_PROXY,
   });
   const database = await openRuntimeDatabase(config, config.DATABASE_POOL_MAX);
+  let knowledgeSigner;
+  try {
+    knowledgeSigner = config.KNOWLEDGE_DISTRIBUTION_ENABLED
+      ? await loadKnowledgeSigner(database, {
+          serverId: config.KNOWLEDGE_SERVER_ID!,
+          keyId: config.KNOWLEDGE_SIGNING_KEY_ID!,
+          keyFile: config.KNOWLEDGE_SIGNING_KEY_FILE!,
+          offlineLeaseSeconds: config.KNOWLEDGE_OFFLINE_LEASE_SECONDS,
+        })
+      : undefined;
+  } catch (error) {
+    await database.end();
+    throw error;
+  }
   const github = await createGitHubReader(config);
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
   const chatModel = createChatModel(config);
@@ -129,6 +145,7 @@ export async function buildServer(
   await registerChatRunRoutes(app, database, artifacts, config, authorization);
   await registerReviewMemoryRoutes(app, database, authorization);
   await registerReviewCriteriaRoutes(app, database, authorization, config);
+  await registerKnowledgeRoutes(app, database, authorization, artifacts, knowledgeSigner);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));
