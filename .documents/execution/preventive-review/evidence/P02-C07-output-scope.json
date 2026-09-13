@@ -1,6 +1,6 @@
 {
-  "recordedAt": "2026-09-13T12:38:45.031695+00:00",
-  "status": "output-scope-guidance-implemented-and-packed; real-model-recheck-pending",
+  "recordedAt": "2026-09-13T12:51:32.520389+00:00",
+  "status": "source-packed-and-extension-delivered; six-real-fixture-cases-passed; native-GUI-and-public-release-pending",
   "trigger": {
     "consumerRepository": "commit-defender",
     "sourceCommit": "3da1a23",
@@ -71,7 +71,126 @@
     }
   },
   "limitations": [
-    "This prompt clarification does not guarantee compliant model output; runtime rejection remains authoritative.",
-    "Actual model recheck, extension packaging/native GUI and public release remain."
-  ]
+    "Six real fixture cases passed after the correction; this is not a statistical guarantee or proof of every historical invalid-output cause.",
+    "Native GUI, final VSIX installation/verification and Marketplace release remain."
+  ],
+  "extensionRecheck": {
+    "repository": "commit-defender",
+    "commit": "ebd6b28",
+    "packageVersion": "0.1.0-alpha.11",
+    "bundles": {
+      "extension.js": "2bb9e17724deda6c0d4ed3b8e7e3aa7c43d122732c3a748f7b039d0b9187f733",
+      "hook-cli.js": "15f3198658bb8845532b41a22bf1fe9c2653965497a2a5cbd9fec4521e806597",
+      "standalone-review-worker.js": "8c7df3910d229a2756bba50081ddeaa7f4dea622ada24be9ad11bb3d276148fe"
+    },
+    "realModel": {
+      "model": "gpt-6-astra",
+      "reasoningEffort": "xhigh",
+      "workerRunAttempts": 6,
+      "diagnosticWorker": false,
+      "gui": "not-run",
+      "centralRequests": 0,
+      "cleanup": "completed",
+      "installedCliSha256": "e8a617451c8fd3b79aedfa57f1713a4be849c1310ad23fa630f8c76869278a36",
+      "cases": [
+        {
+          "case": "python/defect",
+          "status": "completed",
+          "exitCode": 1,
+          "findings": 1,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "python/fix",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "python/normal",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "typescript/defect",
+          "status": "completed",
+          "exitCode": 1,
+          "findings": 1,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "typescript/fix",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "typescript/normal",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        }
+      ],
+      "evidenceSha256": "35d706159fe8550df8d9d8984ce609bba8f769fc070a3cd6b62c471f8449f84f"
+    }
+  }
 }
