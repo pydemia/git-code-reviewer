@@ -4,6 +4,8 @@ import { samlConfigurationKey } from '../auth/saml-state.js';
 import { validateKeycloakAdminSettings, type KeycloakAdminSettings } from './keycloak-admin.js';
 
 export function identityAdministrationConfig(config: AppConfig) {
+  if (config.IDENTITY_SECURITY_ENABLED && !config.IDENTITY_ADMIN_ENABLED)
+    throw new Error('Invalid configuration: identity security requires identity administration');
   if (!config.IDENTITY_ADMIN_ENABLED) return undefined;
   try {
     const origin = new URL(config.PUBLIC_BASE_URL!);

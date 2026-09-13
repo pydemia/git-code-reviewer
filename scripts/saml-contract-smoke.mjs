@@ -30,7 +30,8 @@ import { certificate, consume } from './saml-contract-fixtures.mjs';
 
 const exec = promisify(execFile);
 const applicationMode = process.argv.includes('--application');
-const adminMode = process.argv.includes('--admin-contract');
+const securityMode = process.argv.includes('--security-contract');
+const adminMode = process.argv.includes('--admin-contract') || securityMode;
 assert(!(applicationMode && adminMode), 'Select one application or administration contract');
 const KC_IMAGE =
   'quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54';
@@ -45,7 +46,7 @@ const names = {
 const ownedContainers = [];
 const evidence = {
   formatVersion: 1,
-  phase: adminMode ? 'P03-C04' : applicationMode ? 'P03-C03' : 'P03-C01',
+  phase: securityMode ? 'P03-C05' : adminMode ? 'P03-C04' : applicationMode ? 'P03-C03' : 'P03-C01',
   status: 'running',
   startedAt: new Date().toISOString(),
   node: process.version,
@@ -89,8 +90,19 @@ evidence.sourceSha256 = Object.fromEntries(
         ? [
             'keycloak-admin-smoke.mjs',
             'identity-application-smoke.mjs',
+            ...(securityMode ? ['keycloak-security-contract.mjs'] : []),
             'identity-smtp-fixture.mjs',
             '../apps/runtime/src/identity/keycloak-admin.ts',
+            ...(securityMode
+              ? [
+                  '../apps/runtime/src/identity/keycloak-security.ts',
+                  '../apps/runtime/src/identity/security-state.ts',
+                  '../apps/runtime/src/identity/security-processor.ts',
+                  '../apps/runtime/src/identity/revocation.ts',
+                  '../apps/runtime/src/auth/saml-state.ts',
+                  '../packages/db/migrations/0035_identity_security_reconciliation.sql',
+                ]
+              : []),
             '../apps/runtime/src/identity/operations.ts',
             '../apps/runtime/src/identity/processor.ts',
             '../apps/runtime/src/identity/routes.ts',
@@ -425,27 +437,38 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   assert(ready, 'Keycloak readiness timed out');
-  const token = await requestIdp('/realms/master/protocol/openid-connect/token', {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    data: new URLSearchParams({
-      grant_type: 'password',
-      client_id: 'admin-cli',
-      username: 'contract-admin',
-      password: adminPassword,
-    }).toString(),
-  });
-  assert.equal(token.status, 200, 'Disposable admin login');
-  const adminToken = JSON.parse(token.text).access_token;
-  const admin = async (route, method = 'GET', data) => {
-    const result = await requestIdp(`/admin/realms${route}`, {
-      method,
-      headers: {
-        authorization: `Bearer ${adminToken}`,
-        ...(data ? { 'content-type': 'application/json' } : {}),
-      },
-      ...(data ? { data: JSON.stringify(data) } : {}),
+  const mintAdminToken = async () => {
+    const token = await requestIdp('/realms/master/protocol/openid-connect/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      data: new URLSearchParams({
+        grant_type: 'password',
+        client_id: 'admin-cli',
+        username: 'contract-admin',
+        password: adminPassword,
+      }).toString(),
     });
+    assert.equal(token.status, 200, 'Disposable admin login');
+    return JSON.parse(token.text).access_token;
+  };
+  let adminToken = await mintAdminToken();
+  const admin = async (route, method = 'GET', data) => {
+    const request = () =>
+      requestIdp(`/admin/realms${route}`, {
+        method,
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+          ...(data ? { 'content-type': 'application/json' } : {}),
+        },
+        ...(data ? { data: JSON.stringify(data) } : {}),
+      });
+    let result = await request();
+    // The disposable bootstrap token can expire during a slow integration run.
+    // Retry only an authentication rejection, never an uncertain accepted write.
+    if (result.status === 401) {
+      adminToken = await mintAdminToken();
+      result = await request();
+    }
     assert(
       result.status >= 200 && result.status < 300,
       `Admin request failed (${method}, ${result.status})`,
@@ -707,6 +730,7 @@ try {
     stage = 'administration';
     const { runKeycloakAdminSmoke } = await import('./keycloak-admin-smoke.mjs');
     evidence.administration = await runKeycloakAdminSmoke({
+      securityMode,
       browser,
       wire(handler) {
         applicationHandler = handler;
@@ -771,6 +795,10 @@ try {
 } catch (error) {
   evidence.status = 'failed';
   evidence.failure = { stage, type: error.name };
+  const failedAdminStatus = /^Admin request failed \((?:GET|POST|PUT), (\d{3})\)$/.exec(
+    error.message ?? '',
+  );
+  if (failedAdminStatus) evidence.failure.adminStatus = Number(failedAdminStatus[1]);
   if (page) {
     try {
       const url = new URL(page.url());

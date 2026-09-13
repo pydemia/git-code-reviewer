@@ -7,6 +7,7 @@ import path from 'node:path';
 import { createDatabase, runMigrations } from '../packages/db/src/index.ts';
 import { requestIdentityProvisioning } from '../apps/runtime/src/identity/operations.ts';
 import { processIdentityOperation } from '../apps/runtime/src/identity/processor.ts';
+import { KeycloakSecurityClient } from '../apps/runtime/src/identity/keycloak-security.ts';
 import {
   KeycloakAdminClient,
   keycloakAppUserAttribute,
@@ -19,6 +20,7 @@ const NODE_IMAGE =
   'node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32';
 
 export async function runKeycloakAdminSmoke({
+  securityMode = false,
   browser,
   wire,
   config,
@@ -450,9 +452,45 @@ export async function runKeycloakAdminSmoke({
         step(`application:${value}`);
       },
     });
+    let security;
+    if (securityMode) {
+      const { runKeycloakSecurityContract } = await import('./keycloak-security-contract.mjs');
+      security = await runKeycloakSecurityContract({
+        admin,
+        requestIdp,
+        realm,
+        clientId,
+        clientSecret,
+        client,
+        management,
+        serviceUser,
+        adapter,
+        userId: created.id,
+        username: plan.username,
+        fixturePassword,
+        login,
+        logout,
+        receipts,
+        securityAdapter: new KeycloakSecurityClient(
+          {
+            issuer: config.idpIssuer,
+            entityId: config.entityId,
+            clientId,
+            clientSecretFile: secretFile,
+          },
+          transport,
+        ),
+        database,
+        binding,
+        progress(value) {
+          step(`security:${value}`);
+        },
+      });
+    }
     return {
       status: 'passed',
       application,
+      ...(security ? { security } : {}),
       checks,
       createRequests,
       emailRequests,

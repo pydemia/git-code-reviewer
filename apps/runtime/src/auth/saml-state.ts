@@ -403,8 +403,12 @@ export async function consumeSamlLogin(
       ).rows[0];
       if (!user) fail('SAML_IDENTITY_UNAVAILABLE');
       const active = (
-        await client.query<{ security_epoch: string; fresh: boolean | null }>(
-          `select security_epoch,security_checked_at<=clock_timestamp() and security_fresh_until>clock_timestamp() as fresh
+        await client.query<{
+          security_epoch: string;
+          fresh: boolean | null;
+          security_login_after: Date | null;
+        }>(
+          `select security_epoch,security_login_after,security_checked_at<=clock_timestamp() and security_fresh_until>clock_timestamp() as fresh
        from user_identities where id=$1 and identity_key=$2 and enabled
        and provisioning_state='provisioned' and identity_verified_at<=clock_timestamp() for update`,
           [candidate.id, identity],
@@ -412,6 +416,14 @@ export async function consumeSamlLogin(
       ).rows[0];
       if (!active) fail('SAML_IDENTITY_UNAVAILABLE');
       if (!active.fresh) fail('SAML_SECURITY_UNAVAILABLE');
+      if (active.security_login_after && tx.created_at <= active.security_login_after)
+        fail('SAML_TRANSACTION_INVALID');
+      const idpRevoked = await client.query(
+        `select 1 from identity_idp_session_revocations where identity_id=$1 and keycloak_session_hash=$2
+         and expires_at>clock_timestamp()`,
+        [candidate.id, hash(verified.sessionIndex.split('::')[0]!)],
+      );
+      if (idpRevoked.rowCount) fail('SAML_TRANSACTION_INVALID');
       const revoked = await client.query(
         `select 1 from saml_session_revocations where identity_id=$1 and session_index_hash=$2
          and revoked_at >= (select created_at from saml_transactions where id=$3) and expires_at>clock_timestamp()`,

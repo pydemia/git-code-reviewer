@@ -15,9 +15,25 @@ const environment = {
 };
 describe('Identity administration opt-in configuration', () => {
   it('is disabled by default and ignores credentials until explicitly enabled', () => {
+    expect(loadConfig({ DATABASE_URL: environment.DATABASE_URL }).IDENTITY_SECURITY_ENABLED).toBe(
+      false,
+    );
     expect(
       identityAdministrationConfig(loadConfig({ DATABASE_URL: environment.DATABASE_URL })),
     ).toBeUndefined();
+  });
+  it('requires the explicit administration connection for security collection', () => {
+    expect(() =>
+      loadConfig({
+        ...environment,
+        IDENTITY_ADMIN_ENABLED: 'false',
+        IDENTITY_SECURITY_ENABLED: 'true',
+      }),
+    ).toThrow('Invalid configuration: identity security requires identity administration');
+    expect(
+      loadConfig({ ...environment, IDENTITY_SECURITY_ENABLED: 'true' }, 'worker')
+        .IDENTITY_SECURITY_ENABLED,
+    ).toBe(true);
   });
   it('allows preprovisioning in local mode and gives the worker no requirement to read SP signing keys', () => {
     for (const command of ['serve', 'worker'] as const) {

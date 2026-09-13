@@ -103,6 +103,7 @@ const configSchema = z.object({
   SAML_PRIVATE_KEY_FILE: z.string().optional(),
   SAML_PUBLIC_CERT_FILE: z.string().optional(),
   IDENTITY_ADMIN_ENABLED: booleanString,
+  IDENTITY_SECURITY_ENABLED: booleanString,
   KEYCLOAK_ADMIN_BASE_URL: optionalUrl,
   KEYCLOAK_ADMIN_CLIENT_ID: z.string().optional(),
   KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: z.string().optional(),

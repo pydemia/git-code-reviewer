@@ -21,6 +21,7 @@ describe('Keycloak realm-scoped administration', () => {
   let calls: Array<{ url: URL; init: RequestInit; body: Record<string, unknown> | null }>,
     request: ReturnType<typeof vi.fn<typeof fetch>>;
   let tokenCount: number, loseCreate: boolean;
+  let serviceAccountIds: Set<string>;
   beforeAll(async () => {
     directory = await mkdtemp(path.join(tmpdir(), 'gcr-keycloak-admin-test-'));
     await writeFile(path.join(directory, 'client-secret'), 'synthetic-client-secret\n', {
@@ -38,6 +39,7 @@ describe('Keycloak realm-scoped administration', () => {
   });
   beforeEach(() => {
     users = new Map();
+    serviceAccountIds = new Set();
     calls = [];
     tokenCount = 0;
     loseCreate = false;
@@ -69,6 +71,19 @@ describe('Keycloak realm-scoped administration', () => {
       const body = options.body === undefined ? null : JSON.parse(String(options.body));
       calls.push({ url, init: options, body });
       if (url.pathname === '/admin/realms/gcr/users' && options.method === 'GET') {
+        if (url.searchParams.has('search')) {
+          expect(url.searchParams.get('max')).toBe('100');
+          expect(url.searchParams.get('briefRepresentation')).toBe('true');
+          return Response.json(
+            [...users.values()]
+              .filter(
+                (user) =>
+                  !serviceAccountIds.has(user.id as string) &&
+                  url.searchParams.get('search') === `"${user.username}"`,
+              )
+              .map(({ id }) => ({ id })),
+          );
+        }
         expect(url.searchParams.get('exact')).toBe('true');
         expect(url.searchParams.get('max')).toBe('2');
         return Response.json(
@@ -100,6 +115,20 @@ describe('Keycloak realm-scoped administration', () => {
     });
   });
   const make = () => new KeycloakAdminClient(settings, request);
+  it('rejects a service account whose direct representation omits its service-account field', async () => {
+    const id = randomUUID();
+    users.set(id, {
+      id,
+      username: 'ordinary-looking-account',
+      enabled: true,
+      email: 'fixture@example.test',
+      attributes: {},
+    });
+    serviceAccountIds.add(id);
+    await expect(make().getUser(id)).rejects.toMatchObject({ code: 'IDENTITY_PROFILE_INVALID' });
+    expect(calls.some((call) => call.url.searchParams.has('search'))).toBe(true);
+    expect(calls.every((call) => call.init.method === 'GET')).toBe(true);
+  });
   it('binds public issuer and internal admin endpoints to the same non-master realm', () => {
     expect(
       validateKeycloakAdminSettings({

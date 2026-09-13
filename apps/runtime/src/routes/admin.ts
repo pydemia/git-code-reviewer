@@ -14,6 +14,7 @@ import { deleteRegistryEntry, registryDeletionMessages } from '../services/regis
 import { requireAdministrator } from '../auth/index.js';
 import { supersedeIdentityOperations } from '../identity/operations.js';
 import { identityAdministrationConfig } from '../identity/config.js';
+import { revokeUserIdentitySecurity } from '../identity/revocation.js';
 import { registerAnalysisSkillRoutes } from './analysis-skills.js';
 import { hasOtherAdministrator, lockUserAdministration } from '../services/user-lifecycle.js';
 import { providerAllowedOrigins, type AppConfig } from '../config.js';
@@ -407,9 +408,9 @@ export async function registerAdminRoutes(
         }
         if (body.enabled === false) {
           await supersedeIdentityOperations(connection, userId);
+          await revokeUserIdentitySecurity(connection, userId, { disableAtIdentityProvider: true });
           await connection.query(
-            `update user_identities set enabled=false,security_epoch=security_epoch+1,
-            security_checked_at=null,security_fresh_until=null,updated_at=clock_timestamp() where user_id=$1`,
+            `update user_identities set enabled=false,updated_at=clock_timestamp() where user_id=$1`,
             [userId],
           );
         }
@@ -509,9 +510,9 @@ export async function registerAdminRoutes(
           [userId],
         );
         await supersedeIdentityOperations(connection, userId);
+        await revokeUserIdentitySecurity(connection, userId, { disableAtIdentityProvider: true });
         await connection.query(
-          `update user_identities set enabled=false,security_epoch=security_epoch+1,
-          security_checked_at=null,security_fresh_until=null,updated_at=clock_timestamp() where user_id=$1`,
+          `update user_identities set enabled=false,updated_at=clock_timestamp() where user_id=$1`,
           [userId],
         );
         await connection.query(

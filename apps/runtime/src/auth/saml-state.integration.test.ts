@@ -374,10 +374,16 @@ describe
       );
       await expect(consume(attempt)).rejects.toMatchObject({ code: 'SAML_TRANSACTION_INVALID' });
       const expired = await pending(mapped.identity);
+      // The durable session gate uses PostgreSQL time. Host/VM clocks can differ
+      // by a few milliseconds, so Date.now()-1 is not a reliably expired fixture.
+      const expiredSessionAt =
+        (
+          await database.query<{ now: Date }>('select clock_timestamp() as now')
+        ).rows[0]!.now.getTime() - 1000;
       await expect(
         consume({
           ...expired,
-          verified: { ...expired.verified, sessionExpiresAt: Date.now() - 1 },
+          verified: { ...expired.verified, sessionExpiresAt: expiredSessionAt },
         }),
       ).rejects.toMatchObject({ code: 'SAML_TRANSACTION_INVALID' });
     });

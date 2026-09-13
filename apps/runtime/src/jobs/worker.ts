@@ -17,6 +17,8 @@ import type { AppConfig } from '../config.js';
 import { identityAdministrationConfig } from '../identity/config.js';
 import { KeycloakAdminClient } from '../identity/keycloak-admin.js';
 import { processIdentityOperation } from '../identity/processor.js';
+import { KeycloakSecurityClient } from '../identity/keycloak-security.js';
+import { reconcileIdentitySecurity } from '../identity/security-processor.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
 import { withModelBudget } from '../services/model-admission.js';
@@ -85,6 +87,12 @@ export async function runWorker(config: AppConfig): Promise<void> {
     : undefined;
   let identityRunning = false,
     nextIdentityAt = 0;
+  const identitySecurity =
+    identityConfig && config.IDENTITY_SECURITY_ENABLED
+      ? new KeycloakSecurityClient(identityConfig.settings)
+      : undefined;
+  let securityRunning = false,
+    nextSecurityAt = 0;
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
@@ -105,6 +113,29 @@ export async function runWorker(config: AppConfig): Promise<void> {
 
   while (!stopping) {
     lastLoopAt = Date.now();
+    if (identityConfig && identitySecurity && !securityRunning && Date.now() >= nextSecurityAt) {
+      securityRunning = true;
+      const securityTask = reconcileIdentitySecurity(
+        database,
+        identityConfig.binding,
+        identitySecurity,
+      )
+        .then(() => {
+          nextSecurityAt = Date.now() + 2000;
+        })
+        .catch(() => {
+          nextSecurityAt = Date.now() + 5000;
+          health.log.error(
+            { code: 'IDENTITY_SECURITY_STORAGE_UNAVAILABLE' },
+            'identity security reconciliation paused',
+          );
+        })
+        .finally(() => {
+          securityRunning = false;
+          active.delete(securityTask);
+        });
+      active.add(securityTask);
+    }
     if (identityConfig && identityAdmin && !identityRunning && Date.now() >= nextIdentityAt) {
       identityRunning = true;
       const identityTask = processIdentityOperation(database, identityConfig.binding, identityAdmin)

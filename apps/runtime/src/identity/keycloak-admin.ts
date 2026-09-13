@@ -168,7 +168,7 @@ export class KeycloakAdminClient {
   private token: { value: string; until: number } | undefined;
   private tokenPending: Promise<string> | undefined;
   constructor(
-    private readonly settings: KeycloakAdminSettings,
+    protected readonly settings: KeycloakAdminSettings,
     private readonly request: typeof fetch = fetch,
   ) {
     this.endpoints = validateKeycloakAdminSettings(settings);
@@ -225,7 +225,12 @@ export class KeycloakAdminClient {
       this.tokenPending = undefined;
     }
   }
-  private async call(
+  protected async freshAccessToken(): Promise<string> {
+    if (this.tokenPending) await this.tokenPending;
+    this.token = undefined;
+    return this.accessToken();
+  }
+  protected async call(
     method: 'GET' | 'POST' | 'PUT',
     route: string,
     body?: unknown,
@@ -290,11 +295,32 @@ export class KeycloakAdminClient {
       throw new KeycloakAdminError('IDENTITY_PROFILE_INVALID');
     return result.data;
   }
+  private async assertHumanAccount(user: KeycloakUser): Promise<void> {
+    // Keycloak 26.7.3 omits serviceAccountClientId from GET /users/{id}.
+    // Its ordinary free-text search excludes service accounts, whereas the
+    // username/exact search includes them. Require positive membership in the
+    // former, never infer an account type from an absent field or username.
+    const value = await this.call(
+      'GET',
+      `/users?${new URLSearchParams({
+        search: `"${user.username}"`,
+        briefRepresentation: 'true',
+        max: '100',
+      })}`,
+    );
+    const result = z
+      .array(z.object({ id: identifier }))
+      .max(100)
+      .safeParse(value);
+    if (!result.success || !result.data.some((entry) => entry.id === user.id))
+      throw new KeycloakAdminError('IDENTITY_PROFILE_INVALID');
+  }
   async getUser(userId: string): Promise<KeycloakUser> {
     if (!identifier.safeParse(userId).success)
       throw new KeycloakAdminError('IDENTITY_PROFILE_INVALID');
     const user = this.user(await this.call('GET', `/users/${userId}`));
     if (user.id !== userId) throw new KeycloakAdminError('IDENTITY_PROFILE_INVALID');
+    await this.assertHumanAccount(user);
     return user;
   }
   private async findUsername(username: string): Promise<KeycloakUser | null> {
@@ -307,6 +333,7 @@ export class KeycloakAdminClient {
     if (!value.length) return null;
     const user = this.user(value[0]);
     if (user.username !== username) throw new KeycloakAdminError('IDENTITY_ACCOUNT_CONFLICT');
+    await this.assertHumanAccount(user);
     return user;
   }
   identity(user: KeycloakUser): SamlIdentity {

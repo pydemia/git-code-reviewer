@@ -5,6 +5,7 @@ import { identityProvisioningRequest, type IdentityProvisioningRequest } from '@
 export { identityProvisioningRequest, type IdentityProvisioningRequest } from '@gcr/contracts';
 import { samlConfigurationKey, type SamlProviderBinding } from '../auth/saml-state.js';
 import { lockUserAdministration } from '../services/user-lifecycle.js';
+import { revokeUserIdentitySecurity } from './revocation.js';
 
 export class IdentityOperationError extends Error {
   constructor(
@@ -166,12 +167,7 @@ export async function requestIdentityProvisioning(
         fail('IDENTITY_OPERATION_CONFLICT');
     } else if (identity) fail('IDENTITY_OPERATION_CONFLICT');
     if (request.kind === 'password-reset') {
-      await client.query('delete from user_sessions where user_id=$1', [userId]);
-      await client.query(
-        `update user_identities set security_epoch=security_epoch+1,
-        security_checked_at=null,security_fresh_until=null,updated_at=clock_timestamp() where user_id=$1`,
-        [userId],
-      );
+      await revokeUserIdentitySecurity(client, userId);
     }
     const operation = (
       await client.query<IdentityOperation>(
