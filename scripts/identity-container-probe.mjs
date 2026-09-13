@@ -6,12 +6,16 @@ import { createHash } from 'node:crypto';
 import { createAdminTransport } from '/run/config/identity/configure.mjs';
 import { desiredConfiguration } from '/run/config/identity/configuration.mjs';
 import { isDeepStrictEqual } from 'node:util';
+import { traceIdentityRequests } from './identity-request-diagnostics.mjs';
 const read = async (name) => (await readFile(name, 'utf8')).trim();
 const plan = JSON.parse(await read('/run/config/identity/plan.json'));
 const ca = await read('/run/config/ca.crt');
 const username = await read('/run/secrets/bootstrap-admin-username');
 const password = await read('/run/secrets/bootstrap-admin-password');
 const userPassword = await read('/run/secrets/fixture-user-password');
+const stopTracing = traceIdentityRequests(plan.adminOrigin, (event) => {
+  process.stderr.write(`Identity request ${JSON.stringify(event)}\n`);
+});
 const admin = createAdminTransport(plan, { ca, username, password });
 const route = '/' + plan.realm;
 const stage = (name) => process.stderr.write(`Identity probe ${process.argv[2]}: ${name}\n`);
@@ -184,5 +188,9 @@ try {
     );
   }
 } finally {
-  await admin.close();
+  try {
+    await admin.close();
+  } finally {
+    stopTracing();
+  }
 }

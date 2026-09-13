@@ -144,6 +144,10 @@ const probeSource = await readFile(
   new URL('./identity-container-probe.mjs', import.meta.url),
   'utf8',
 );
+const diagnosticsSource = await readFile(
+  new URL('./identity-request-diagnostics.mjs', import.meta.url),
+  'utf8',
+);
 async function probe(mode, replica) {
   const address =
     replica?.NetworkSettings.Networks[`${prepared.projectName}_identity-admin`]?.IPAddress;
@@ -168,6 +172,8 @@ async function probe(mode, replica) {
       '--volume',
       `${path.join(parent, 'probe.mjs')}:/run/config/probe.mjs:ro`,
       '--volume',
+      `${path.join(parent, 'identity-request-diagnostics.mjs')}:/run/config/identity-request-diagnostics.mjs:ro`,
+      '--volume',
       `${path.join(directory, 'session-secret')}:/run/secrets/fixture-user-password:ro`,
       'identity-configure',
       '/run/config/probe.mjs',
@@ -187,6 +193,7 @@ try {
     'Set GCR_IDENTITY_IMAGE to a locally available optimized image digest',
   );
   report.probeSha256 = hash(probeSource);
+  report.requestDiagnosticsSha256 = hash(diagnosticsSource);
   report.scriptSha256 = hash(await readFile(new URL(import.meta.url)));
   report.sourceSha256 = {};
   for (const file of [
@@ -239,6 +246,7 @@ try {
     }),
   );
   await writeFile(path.join(parent, 'probe.mjs'), probeSource);
+  await writeFile(path.join(parent, 'identity-request-diagnostics.mjs'), diagnosticsSource);
   base = [
     'compose',
     '--project-name',

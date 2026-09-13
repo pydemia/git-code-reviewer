@@ -39,6 +39,12 @@ Fixture는 공유 DB provisioning과 앱 migration 후 실제 Keycloak schema를
 
 테스트 realm의 password grant client는 credential 보존 확인에만 사용한다. 실제 SAML 브라우저 흐름·public admin 경로 차단·NetworkPolicy·SMTP·부하·운영 복구는 companion/Compose 및 P03-C08의 별도 검증 대상이다. 테스트용 관리자·사용자 인증 요청에는 초기 JVM 준비 시간을 포함해 30초, health 조회에는 5초 제한을 적용한다. 운영 GCR Admin API adapter의 10초 제한을 변경하거나 검증한 결과로 해석하지 않는다. 이 fixture의 성공만으로 운영 SAML 전환이나 C07 전체 완료를 선언하지 않는다.
 
+## AMD64 replica 요청 지연 확인
+
+Compose verifier의 검사 프로세스는 토큰 발급·관리 요청·bootstrap 로그아웃·realm 요청을 고정 이름으로 구분한다. `Identity request` stderr에는 DNS, TCP, TLS, 요청 전송, 응답 header/end와 종료 시점의 경과 시간이 나온다. URL·realm·credential·본문은 기록하지 않는다. 실패한 replica probe의 기존 error 기록에 이 진단이 포함된다. Helper는 검사 container에 read-only로 mount하며 image와 운영 transport는 변경하지 않는다.
+
+`tls-connected`와 `request-sent` 이후 응답 header가 없다면 TLS 연결 이후의 대기라는 사실까지 확인할 수 있다. 이 기록만으로 서버 내부 처리 원인을 단정하지 않는다. Literal IP나 재사용 socket에서는 DNS/TCP/TLS 이벤트 일부가 없을 수 있으므로 이벤트 부재만으로 해당 단계 실패를 판단하지 않는다. 검사 준비·실제 HTTPS fixture 결과와 실제 AMD64 실행을 [별도 기록](../../.documents/execution/preventive-review/evidence/P03-C07-request-diagnostics.json)으로 구분한다. 기존 30초 요청 제한과 image 게시 전 9개 검사·cleanup 조건을 유지한다.
+
 ## PRISM-DEV 선행 조건
 
 2026-09-13 16:58 KST에 현재 Gateway와 로컬 DNS resolver를 읽기 전용으로 확인했다. `envoy-gateway-system/envoy-gateway`에는 HTTP 80, TCP 6333 listener가 있고 HTTPS listener는 없다. `pr-review.prism.ai`는 조회되지만 제안한 `auth.pr-review.prism.ai`는 조회되지 않았다. [사전 점검 기록](../../.documents/execution/preventive-review/evidence/P03-C07-gateway-preflight.json)을 참고한다.

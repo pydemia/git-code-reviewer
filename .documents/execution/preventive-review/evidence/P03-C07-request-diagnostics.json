@@ -1,0 +1,72 @@
+{
+  "recordedAt": "2026-09-13T13:38:33.388384+00:00",
+  "status": "fixture-request-diagnostics-verified; actual-amd64-recheck-pending",
+  "previousImageEvidence": "P03-C07-amd64-image.json",
+  "change": {
+    "scope": "Owned fixture process only; scoped HTTPS instrumentation and read-only helper mount.",
+    "operationClasses": [
+      "bootstrap-token",
+      "admin-request",
+      "bootstrap-logout",
+      "realm-request"
+    ],
+    "fields": [
+      "requestId",
+      "operation",
+      "phase",
+      "elapsedMs",
+      "status",
+      "reused"
+    ],
+    "omitted": [
+      "URL",
+      "hostname",
+      "realm",
+      "headers",
+      "password",
+      "access token",
+      "refresh token",
+      "request body",
+      "response body"
+    ],
+    "output": "Fixed JSON event lines on probe stderr; a failing docker exec retains these in the existing redacted failure report.",
+    "productionRequestTimeoutChanged": false,
+    "productionTransportChanged": false,
+    "tlsVerificationChanged": false,
+    "retryAdded": false
+  },
+  "validation": {
+    "runtime": "v22.23.2",
+    "success": true,
+    "checks": 18,
+    "newChecks": [
+      "request-diagnostics-separate-bootstrap-token-admin-and-logout-with-real-TLS-phases",
+      "request-diagnostics-distinguish-response-stall-from-TLS-failure-without-secrets-or-outcome-changes"
+    ],
+    "cleanup": true,
+    "realHttps": true,
+    "realKeycloak": false,
+    "realAmd64Containers": false,
+    "eslint": "passed",
+    "evidenceSha256": "61fa6c1b4bfdc95c4e3751eacad4b305b093726a1d9f9470955bc7120c69afb0",
+    "logSha256": "61fa6c1b4bfdc95c4e3751eacad4b305b093726a1d9f9470955bc7120c69afb0"
+  },
+  "sourceSha256": {
+    "scripts/identity-request-diagnostics.mjs": "e05399d040aeb29e13a1458d13a99f27f1f95bd066659681c7e713ca438f5b92",
+    "scripts/identity-container-probe.mjs": "741d0e576915a7a2e569039c07eb8253600bb2491e82889be3b0c85ff68d54ab",
+    "scripts/verify-identity-containers.mjs": "bb8837186f02d3aa1b2ae9cf6c330ff5d4b506b4fce5e034d9a272920a692942",
+    "scripts/verify-identity-configuration.mjs": "61858732d78e2872243a1e461fc78938824997c815c6a9531336f64bc478e640"
+  },
+  "runtimePreflight": {
+    "dockerApi": "Loopback HTTP request over the local Docker Unix socket returned no bytes within 5000 ms; curl exited 28.",
+    "dockerPs": "An owned read-only docker ps process remained live for over six minutes and was then explicitly terminated; its exec handle confirmed exit 143.",
+    "containersStarted": false,
+    "dockerSettingsChanged": false,
+    "unrelatedContainersStopped": false
+  },
+  "remaining": [
+    "Revalidate Docker availability and run the instrumented verifier against the same amd64 image.",
+    "Identify the actual delayed phase from the real replica request; current TLS fixture tests do not establish the Keycloak failure cause.",
+    "Complete all nine image checks with owned cleanup before image/chart publication; continue full application and CNI verification."
+  ]
+}

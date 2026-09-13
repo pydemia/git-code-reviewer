@@ -19,6 +19,7 @@ import {
 import { boundedFile, createAdminTransport } from '../deploy/identity/configure.mjs';
 import { requiredSecurityEventTypes } from '../apps/runtime/dist/identity/keycloak-security.js';
 import { prepareFreshIdentity } from './prepare-identity-compose.mjs';
+import { traceIdentityRequests } from './identity-request-diagnostics.mjs';
 
 const execFile = promisify(execFileCallback),
   root = fileURLToPath(new URL('../', import.meta.url));
@@ -34,7 +35,7 @@ const evidence = {
 };
 const check = (name) => evidence.checks.push(name),
   clone = (value) => structuredClone(value);
-let server;
+let server, stopTracing;
 const sockets = new Set();
 
 function fixture() {
@@ -621,6 +622,9 @@ try {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const tlsPlan = { ...plan, adminOrigin: `https://127.0.0.1:${server.address().port}` },
     ca = await readFile(path.join(directory, 'ca.crt'));
+  const originalRequest = https.request;
+  const requestEvents = [];
+  stopTracing = traceIdentityRequests(tlsPlan.adminOrigin, (event) => requestEvents.push(event));
   const transport = createAdminTransport(tlsPlan, {
     ca,
     username: 'bootstrap-fixture',
@@ -640,6 +644,23 @@ try {
     message: 'CONFIGURATION_TRANSPORT_CLOSED',
   });
   check('real-HTTPS-bootstrap-token-cache-and-owned-session-logout');
+  assert.deepEqual(
+    requestEvents.filter((event) => event.phase === 'start').map((event) => event.operation),
+    ['bootstrap-token', 'admin-request', 'admin-request', 'bootstrap-logout'],
+  );
+  const firstRequest = requestEvents.filter((event) => event.requestId === 1);
+  for (const phase of [
+    'tcp-connected',
+    'tls-connected',
+    'request-sent',
+    'response-headers',
+    'response-end',
+  ])
+    assert(
+      firstRequest.some((event) => event.phase === phase),
+      `token request diagnostic ${phase}`,
+    );
+  check('request-diagnostics-separate-bootstrap-token-admin-and-logout-with-real-TLS-phases');
   const tokenTransport = createAdminTransport(tlsPlan, { ca, accessToken, timeoutMs: 100 });
   for (const [variant, code] of [
     ['redirect', 'ADMIN_REQUEST_FAILED'],
@@ -648,10 +669,17 @@ try {
   ]) {
     responseMode = variant;
     const before = requests.length;
+    const eventsBefore = requestEvents.length;
     await assert.rejects(() => tokenTransport('/git-code-reviewer', 'PUT', { enabled: true }), {
       message: code,
     });
     assert.equal(requests.length, before + 1);
+    if (variant === 'timeout') {
+      const attempt = requestEvents.slice(eventsBefore);
+      assert(attempt.some((event) => event.phase === 'tls-connected'));
+      assert(attempt.some((event) => event.phase === 'request-sent'));
+      assert(!attempt.some((event) => event.phase === 'response-headers'));
+    }
   }
   responseMode = 'too-large';
   await assert.rejects(() => tokenTransport('/git-code-reviewer'), /ADMIN_RESPONSE/);
@@ -668,12 +696,47 @@ try {
   await tokenTransport.close();
   assert.equal(requests.filter((item) => item.url.endsWith('/logout')).length, loggedOutBefore);
   check('redirect-denied-error-body-redacted-timeout-not-retried-and-bounded-response');
+  const eventsBeforeTlsFailure = requestEvents.length;
   const untrusted = createAdminTransport(tlsPlan, { ca: spCertificate, accessToken });
   await assert.rejects(() => untrusted('/git-code-reviewer'), {
     message: 'ADMIN_CONNECTION_FAILED',
   });
   await untrusted.close();
+  const failedTlsEvents = requestEvents.slice(eventsBeforeTlsFailure);
+  assert(failedTlsEvents.some((event) => event.phase === 'tcp-connected'));
+  assert(failedTlsEvents.some((event) => event.phase === 'request-error'));
+  assert(!failedTlsEvents.some((event) => event.phase === 'tls-connected'));
   check('untrusted-admin-TLS-certificate-rejected');
+  for (const event of requestEvents) {
+    assert(Number.isSafeInteger(event.requestId) && event.requestId > 0);
+    assert(Number.isSafeInteger(event.elapsedMs) && event.elapsedMs >= 0);
+    assert(
+      Object.keys(event).every((key) =>
+        ['requestId', 'operation', 'phase', 'elapsedMs', 'status', 'reused'].includes(key),
+      ),
+    );
+  }
+  const diagnosticText = JSON.stringify(requestEvents);
+  for (const secret of [clientSecret, accessToken, refreshToken, tlsPlan.adminOrigin, plan.realm])
+    assert(
+      !diagnosticText.includes(secret),
+      'Request diagnostics must omit credentials, URLs and realm data',
+    );
+  evidence.requestDiagnostics = requestEvents;
+  stopTracing();
+  assert.equal(https.request, originalRequest);
+  stopTracing = traceIdentityRequests(tlsPlan.adminOrigin, () => {
+    throw Error('observer failure');
+  });
+  responseMode = 'normal';
+  const observerFailure = createAdminTransport(tlsPlan, { ca, accessToken });
+  assert.equal((await observerFailure('/git-code-reviewer')).realm, plan.realm);
+  await observerFailure.close();
+  stopTracing();
+  assert.equal(https.request, originalRequest);
+  check(
+    'request-diagnostics-distinguish-response-stall-from-TLS-failure-without-secrets-or-outcome-changes',
+  );
   responseMode = 'full';
   const cliPlanPath = path.join(directory, 'cli-plan.json'),
     cliTokenPath = path.join(directory, 'cli-token');
@@ -725,6 +788,7 @@ try {
         'deploy/identity/configuration.mjs',
         'deploy/identity/configure.mjs',
         'scripts/verify-identity-configuration.mjs',
+        'scripts/identity-request-diagnostics.mjs',
       ].map(async (file) => [
         file,
         createHash('sha256')
@@ -739,6 +803,7 @@ try {
   evidence.failure = error.message;
   process.exitCode = 1;
 } finally {
+  stopTracing?.();
   for (const socket of sockets) socket.destroy();
   if (server) await new Promise((resolve) => server.close(resolve));
   await rm(parent, { recursive: true, force: true });
