@@ -2,6 +2,7 @@
 FROM quay.io/keycloak/keycloak:26.7.3@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54 AS builder
 ENV KC_DB=postgres \
     KC_HEALTH_ENABLED=true \
+    KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true \
     KC_METRICS_ENABLED=true
 # Bound build-time JVM allocation independently of the builder host's RAM/CPUs.
 RUN JAVA_OPTS_KC_HEAP="-Xms128m -Xmx768m" \
@@ -11,6 +12,7 @@ FROM quay.io/keycloak/keycloak:26.7.3@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c3
 COPY --from=builder --chown=1000:1000 /opt/keycloak/ /opt/keycloak/
 ENV KC_DB=postgres \
     KC_HEALTH_ENABLED=true \
+    KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true \
     KC_METRICS_ENABLED=true
 ARG REVISION=unreleased
 LABEL org.opencontainers.image.title="GCR Identity" \

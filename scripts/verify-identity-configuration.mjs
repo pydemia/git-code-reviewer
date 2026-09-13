@@ -141,8 +141,14 @@ function fixture() {
       assert.equal(state.events.adminEventsDetailsEnabled, false);
       assert(!getClient(body.clientId));
       const client = { ...clone(body), id: randomUUID(), preservedClientAttribute: true };
-      if (body.serviceAccountsEnabled)
+      if (body.serviceAccountsEnabled) {
         client.user = { id: randomUUID(), enabled: true, serviceAccountClientId: body.clientId };
+        // Real 26.7.3 attaches this scope and does not preserve request ordering.
+        client.defaultClientScopes = [
+          'service_account',
+          ...client.defaultClientScopes.filter((name) => name !== 'service_account'),
+        ];
+      }
       state.clients.push(client);
       if (state.dropClientResponse && body.clientId === administrationClientId) {
         state.dropClientResponse = false;

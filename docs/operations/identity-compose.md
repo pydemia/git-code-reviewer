@@ -2,7 +2,7 @@
 
 `compose.identity.yaml`은 기존 `compose.yaml`에 겹쳐 사용하는 로컬 통합 구성이다. 개발용 자동 인증과 DB·앱 host port를 제거하고 HTTPS proxy, 별도 DB role, optimized Keycloak 2 replica를 연결한다. PostgreSQL 서비스와 논리 volume 이름은 기존 하나를 유지한다. Kubernetes 운영 배포는 [companion chart](../../deploy/helm/gcr-identity/README.md)와 [GCR SAML 설정](saml-web-authentication.md)을 따른다.
 
-Compose 모델, credential/TLS 준비, HTTPS proxy와 명시적 `identity-configure` 작업을 구현했다. 실제 PostgreSQL 기존 볼륨 전환·optimized Keycloak 2 replica·브라우저 SAML 통합 시험과 운영 전환은 남아 있다. 구성 작업의 검증은 상태를 유지하는 API fixture와 실제 Node HTTPS/CLI 범위이며 실제 Keycloak 검증으로 대체하지 않는다.
+Compose 모델, credential/TLS 준비, HTTPS proxy와 명시적 `identity-configure` 작업을 구현했다. 실제 PostgreSQL 17.11·optimized Keycloak 26.7.3 arm64에서 반복 구성, 두 replica와 개별 교체, 같은 volume을 사용한 DB container 재생성, TLS 오류 거부를 검증했다. [검증 기록](../../.documents/execution/preventive-review/evidence/P03-C07-identity-containers.json). GCR image·공개 proxy를 포함한 브라우저 SAML, 기존 운영 볼륨 전환·백업 복원과 운영 배포는 남아 있다.
 
 ## 입력과 이미지
 
@@ -17,6 +17,8 @@ Docker Compose 2.24.4 이상이 필요하다. 기본 mapping/ports 병합이 개
 | `GCR_POSTGRES_IMAGE` | 원래 PostgreSQL 17 data volume과 호환성을 검증한 Docker Official image digest. Alpine/Debian image를 임의 교체하지 않는다.                             |
 
 Entrypoint와 proxy는 checkout 파일을 read-only Compose config로 mount한다. Image 내부 코드와 구분해 검증 기록에 파일 hash를 남긴다. Checkout 변경을 반영할 때는 소비 서비스를 명시적으로 재생성한다.
+
+`KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true`는 optimized image의 빌드 단계에도 지정한다. 실행 단계에만 추가한 image는 Keycloak 26.7.3의 빌드 옵션 불일치 검사에서 종료됐다. Health·metrics·관리 포트 배치를 image와 실행 설정에 함께 고정하며 시작 시 재빌드하지 않는다. [공식 container 빌드 절차](https://www.keycloak.org/server/containers).
 
 새 로컬 환경은 세 image 변수를 검증한 값으로 설정한 뒤 다음 명령으로 준비한다. 이미 존재하는 부모 디렉터리 아래의 새 절대 경로를 지정한다.
 
@@ -111,6 +113,8 @@ docker compose --env-file /absolute/new-identity-directory/compose.env \
 
 새 realm은 비활성으로 생성한다. 정확한 ACS/SLO·persistent NameID·요청/응답/assertion 서명, service account의 `manage-users`/`view-events` role/scope, `ADMIN_EDIT` user profile과 보안 event store를 적용하고 다시 조회한 뒤 활성화한다. 설정이 확인되지 않으면 비활성 상태에 남으며 다음 명시적 실행에서 이어간다. 이미 정상 운영 중인 realm/client가 비활성인 경우 자동으로 재활성화하지 않는다.
 
+관리 client의 기본 client scope는 `basic`, `roles`, `service_account`다. `basic`은 C05 수집기가 확인하는 서비스 계정 `sub` claim을 제공한다. Keycloak 26.7.3이 자동으로 연결하는 `service_account`도 기대 구성에 포함한다. Scope와 URI 집합의 반환 순서는 비교에서 제외하며 추가 항목·누락·잘못된 타입은 여전히 불일치로 처리한다. 관리 role은 `manage-users`와 `view-events`만 부여한다. [해당 버전의 기본 scope 구현](https://raw.githubusercontent.com/keycloak/keycloak/26.7.3/services/src/main/java/org/keycloak/protocol/oidc/OIDCLoginProtocolFactory.java).
+
 기존 realm/client는 관리 표식과 origin/Entity ID가 일치해야 한다. 표식이 없거나 client secret이 다르면 덮어쓰지 않는다. 추가 관리 권한·group·외부 client mapping·custom protocol mapper·사용자가 편집할 수 있는 identity 속성·진행 중 client-secret rotation도 중단 조건이다. 원인을 확인한 뒤 별도 운영 절차로 수정해야 하며 자동 adoption·realm import·user CRUD·key 생성·secret rotation으로 해결하지 않는다.
 
 정상 상태에서 재실행하면 변경 목록이 비어 있다. Secret을 포함하는 쓰기 전에 target realm의 admin event details 비활성을 확인한다. Client secret은 생성 때만 전달하고 재실행 시 기존 값과 비교한다. 모든 변경 후 readback을 검사한다. 여러 관리 작업이나 운영자 변경과 동시에 실행하지 않는다. Keycloak Admin API는 이 작업 전체를 하나의 transaction이나 compare-and-swap으로 묶지 않으므로 유지보수 중 단일 실행자로 사용한다. [26.7.3 Admin API](https://www.keycloak.org/docs-api/26.7.3/rest-api/index.html).
@@ -119,7 +123,7 @@ docker compose --env-file /absolute/new-identity-directory/compose.env \
 
 구성 작업은 CA와 hostname을 검증하는 private HTTPS만 사용하고 redirect를 따르지 않는다. 요청 한도는 30초, 전체 작업 한도는 10분이며 응답은 512 KiB 이하의 JSON만 읽는다. 응답 불명 쓰기는 자동 재전송하지 않는다. 다음 명시적 실행에서 소유 표식·client ID·secret과 현재 상태를 다시 확인한다. 오류·결과에는 비밀번호·token·upstream body를 기록하지 않는다.
 
-구성과 metadata 신뢰, 관리 API 권한의 실제 token, 공유 DB와 proxy를 거친 브라우저 동작을 확인한 뒤 server·worker를 시작한다. 현재 fixture 검증만으로 이 gate를 통과한 것으로 취급하지 않는다.
+구성과 metadata 신뢰, 관리 API 권한의 실제 token, 공유 DB와 proxy를 거친 브라우저 동작을 확인한 뒤 server·worker를 시작한다. 아래 infrastructure 시험은 공개 proxy와 GCR server·worker를 시작하지 않으므로 브라우저 통합 gate가 별도로 필요하다.
 
 명명된 운영자·MFA·복구 경로를 확인하고 임시 관리자를 제거한 뒤 bootstrap 파일 없이 Keycloak을 명시적으로 재생성해 2 replica로 전환한다. 환경 변수만 제거해도 기존 DB의 관리자 계정이 삭제되지는 않는다. 로그인 중 replica 교체·계정/서명 key 보존·SMTP·C08 복구까지 검증해야 전환을 완료할 수 있다.
 
@@ -141,6 +145,8 @@ Compose bridge는 Kubernetes NetworkPolicy의 per-port/CIDR 제한을 제공하�
 
 Keycloak readiness는 관리 port 9000에서 확인한다. Compose는 startup/readiness/liveness를 각각 구현하지 않으며 unhealthy 상태만으로 자동 재시작하지 않는다. 종료 유예는 Keycloak·PostgreSQL·server·proxy 120초, worker 3600초다. Keycloak pool은 replica당 6개, plan은 교체·종료 중인 replica까지 5 × 6 = 30개를 산정한다. App pool은 server·worker당 6개로 기존 role 예산 42 안에 둔다. 증설·연속 교체는 별도 산정해야 한다.
 
+PostgreSQL healthcheck는 TCP listener를 확인한다. 최초 initdb가 사용하는 임시 Unix socket 서버만 열린 상태를 준비 완료로 취급하지 않는다.
+
 ```sh
 node scripts/verify-identity-proxy.mjs
 node scripts/verify-identity-compose.mjs
@@ -150,3 +156,12 @@ node scripts/verify-identity-configuration.mjs
 Node 22와 OpenSSL, Docker Compose, 빌드된 runtime이 필요하다. Proxy 시험은 실제 Node HTTPS listener와 HTTP fixture backend를 사용한다. Compose 시험은 temporary credential/CA로 모델을 render하고 네 command의 compiled config를 읽으며 SAML metadata 응답은 fixture다. Docker 서비스·운영 DB·Keycloak·OS trust를 변경하지 않고 끝나면 임시 private 파일을 제거한다. `GCR_IDENTITY_PROXY_EVIDENCE`, `GCR_IDENTITY_COMPOSE_EVIDENCE`에 새 파일 경로를 지정하면 비밀 원문 없는 JSON을 저장한다.
 
 Configuration 시험은 상태를 유지하는 Admin API fixture로 재실행·중단 복구·쓰기 범위·충돌 거부를 검사한다. 실제 Node HTTPS에서는 TLS 거부·redirect/응답 제한·timeout·bootstrap session 정리와 CLI `inspect/apply`를 확인한다. Keycloak의 sparse representation에 맞춰 비활성 `authorizationServicesEnabled`의 생략을 처리하되 필요한 다른 boolean의 누락은 허용하지 않는다. [해당 버전 응답 생성 코드](https://raw.githubusercontent.com/keycloak/keycloak/26.7.3/server-spi-private/src/main/java/org/keycloak/models/utils/ModelToRepresentation.java). `GCR_IDENTITY_CONFIGURATION_EVIDENCE`에는 새 결과 파일 경로를 지정한다.
+
+실제 Compose infrastructure 시험은 다음처럼 로컬에 있는 optimized image의 digest를 명시해 실행한다.
+
+```sh
+GCR_IDENTITY_IMAGE='<verified-local-repository>@sha256:<digest>' \
+  node scripts/verify-identity-containers.mjs
+```
+
+이 시험은 새 Compose project·PostgreSQL 17 volume·임시 CA/credential을 만들고 실제 adapter·DBA CLI·Keycloak·구성 CLI를 실행한다. 생성한 realm의 계정·비밀번호·서명 key·client ID를 반복 구성, 두 replica 전환과 개별 교체, PostgreSQL container 재생성 전후에 비교한다. 각 replica를 직접 지정해 검사하며 잘못된 DB CA·hostname의 기동 실패도 확인한다. 종료 시 해당 project의 container·network·volume과 private 파일을 제거한다. 인증 관리 작업은 pinned Node 22 image를 사용하고 DBA CLI는 현재 checkout의 빌드 결과를 read-only로 mount한다. GCR server·worker image, 공개 proxy·브라우저 SAML, 기존 운영 볼륨 전환·백업 복원·SMTP 전달 검증은 별도다.

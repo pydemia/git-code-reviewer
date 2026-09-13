@@ -171,6 +171,17 @@ const sameFields = (actual, expected) =>
 function attributes(current, desired) {
   return { ...(current?.attributes ?? {}), ...desired };
 }
+function clientSets(client) {
+  const normalized = { ...client };
+  // Keycloak returns these sets in storage-dependent order. Missing or malformed
+  // fields remain different; only ordering of actual string arrays is ignored.
+  for (const key of ['redirectUris', 'webOrigins', 'defaultClientScopes', 'optionalClientScopes']) {
+    const value = client[key];
+    if (Array.isArray(value) && value.every((item) => typeof item === 'string'))
+      normalized[key] = [...value].sort();
+  }
+  return normalized;
+}
 
 export function desiredConfiguration(plan, spCertificate) {
   const entityId = plan.publicOrigin + '/auth/saml/metadata';
@@ -234,7 +245,9 @@ export function desiredConfiguration(plan, spCertificate) {
       authorizationServicesEnabled: false,
       redirectUris: [],
       webOrigins: [],
-      defaultClientScopes: ['roles'],
+      // basic supplies sub for Admin API identity and the C05 event collector.
+      // 26.7.3 automatically attaches service_account when enabling this flow.
+      defaultClientScopes: ['basic', 'roles', 'service_account'],
       optionalClientScopes: [],
       attributes: owned,
     },
@@ -488,11 +501,11 @@ export async function configureIdentity(
       // server exists. Other required false flags remain strict readbacks.
       if (
         !sameFields(
-          {
+          clientSets({
             ...current,
             authorizationServicesEnabled: current.authorizationServicesEnabled ?? false,
-          },
-          patch,
+          }),
+          clientSets(patch),
         )
       )
         await write(label + '.configure', `${base}/clients/${id(current.id)}`, 'PUT', patch);
