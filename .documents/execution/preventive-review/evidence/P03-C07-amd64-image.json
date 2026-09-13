@@ -1,0 +1,148 @@
+{
+  "status": "amd64-image-built; runtime-validation-incomplete; not-published",
+  "recordedAt": "2026-09-13T12:07:49.562653+00:00",
+  "sourceCommit": "797aab719717d911db42fb337ce6a38a7fc8d7de",
+  "localImage": {
+    "digest": "sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+    "buildMetadataKeys": [
+      "buildx.build.provenance",
+      "buildx.build.ref",
+      "containerimage.descriptor",
+      "containerimage.digest",
+      "image.name"
+    ],
+    "architecture": "amd64",
+    "user": "1000:1000",
+    "entrypoint": [
+      "/opt/keycloak/bin/kc.sh"
+    ],
+    "command": [
+      "start",
+      "--optimized"
+    ],
+    "revision": "797aab719717d911db42fb337ce6a38a7fc8d7de",
+    "version": "26.7.3-gcr.1",
+    "keycloakEnvironment": [
+      "KC_RUN_IN_CONTAINER=true",
+      "KC_DB=postgres",
+      "KC_HEALTH_ENABLED=true",
+      "KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true",
+      "KC_METRICS_ENABLED=true"
+    ],
+    "dockerfileSha256": "9a104d56c4380428c7f28436b12d51ebabaae94e8f19712f4289d6c8a2490b5c"
+  },
+  "build": {
+    "cleanGitArchive": true,
+    "platform": "linux/amd64",
+    "augmentationNetwork": "none",
+    "provenanceRequested": true,
+    "sbomRequested": true,
+    "exitCode": 0,
+    "temporaryRegistryCredentialsRemoved": true,
+    "firstAttempt": "Owned Docker Desktop credential helper was cancelled while resolving the SBOM scanner. The successful attempt used a temporary registry configuration without changing global Docker settings."
+  },
+  "firstRuntimeAttempt": {
+    "startedAt": "2026-09-13T11:43:28.570Z",
+    "finishedAt": "2026-09-13T11:59:33.793Z",
+    "status": "failed",
+    "identityImage": {
+      "id": "sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+      "architecture": "amd64",
+      "os": "linux",
+      "revision": "797aab719717d911db42fb337ce6a38a7fc8d7de"
+    },
+    "scriptSha256": "8a9c3a7cece8b15fa1576cd29cdb7df2e5a7a22ce7f5ede2ed625fe0673e8a72",
+    "probeSha256": "0e579f1ddc7028734a5802c0be55befd52f4627cea5d081c060b83ecabd5035a",
+    "checksPassed": [
+      "actual-PostgreSQL-17-adapter-file-secret-TLS-and-separated-role-provisioning",
+      "actual-nonroot-Keycloak-file-secrets-readonly-root-and-no-inspect-plaintext",
+      "actual-configurer-apply-repeat-user-key-client-and-password-preservation",
+      "actual-configured-service-account-token-manage-users-and-view-events-only"
+    ],
+    "readiness": [
+      {
+        "service": "postgres",
+        "count": 1,
+        "milliseconds": 25051
+      },
+      {
+        "service": "keycloak",
+        "count": 1,
+        "milliseconds": 178399
+      },
+      {
+        "service": "keycloak",
+        "count": 2,
+        "milliseconds": 247781
+      }
+    ],
+    "failedStep": "Replace bootstrap container with two normal replicas on the same database",
+    "failureCode": "ADMIN_REQUEST_TIMEOUT",
+    "requestTimeoutMs": 30000,
+    "configurationConvergedAfterFailure": true,
+    "observations": [
+      "Both normal replicas reported healthy; neither was OOM-killed.",
+      "Captured cluster logs showed singleton views, join exhaustion and merge warnings.",
+      "A replica-specific snapshot timed out; the exact inner Admin API request was not recorded.",
+      "Host swap was 33107.25 MiB during this emulated test. This does not establish the root cause."
+    ],
+    "cleanup": true,
+    "scope": "Four infrastructure/configuration checks passed; two-member convergence, replica replacement, retained-volume restart and negative TLS checks did not complete."
+  },
+  "verifierChanges": {
+    "identityPlatform": "Explicit platform selection and image metadata check, limited to Keycloak service.",
+    "clusterGate": "Require both running replicas to report the same latest member set containing only the current container hostnames in two successive observations, before per-replica requests. Repeat after replacement and DB restart.",
+    "diagnosticStages": "Fixture probe logs only fixed stage names on stderr, so subsequent failures can be located without dumping credentials or response bodies.",
+    "productionRequestTimeoutChanged": false,
+    "startupTimeoutChanged": false,
+    "newClusterConvergenceTimeoutMs": 600000,
+    "retryResult": "pending; the same image was launched with the strengthened verifier. No success is inferred."
+  },
+  "publicTls": {
+    "at": "2026-09-13T11:50:50.243346+00:00",
+    "tlsVerificationEnabled": true,
+    "publicTls": [
+      {
+        "host": "pr-review.prism.ai",
+        "port": 443,
+        "status": "unavailable",
+        "errorType": "ConnectionRefusedError",
+        "error": "[Errno 61] Connection refused"
+      },
+      {
+        "host": "auth.pr-review.prism.ai",
+        "port": 443,
+        "status": "unavailable",
+        "errorType": "ConnectionRefusedError",
+        "error": "[Errno 61] Connection refused"
+      }
+    ],
+    "clusterChanged": false
+  },
+  "published": {
+    "image": false,
+    "chart": false
+  },
+  "operationalChanges": false,
+  "remaining": [
+    "Complete image validation without relaxing the production request deadline; verify native amd64 behavior and CNI before operational deployment.",
+    "Publish a verified image and the companion chart; verify full application SAML/proxy integration.",
+    "Prepare public HTTPS, database role/TLS cutover and C08 mapping/backup/restore.",
+    "Complete Commit Defender native GUI/release gates and P04–P13."
+  ],
+  "artifactSha256": {
+    "build-image.py": "50169cc2be70d5cd7a7b0b20d43ffb00f6db24fde10ab5e1e72f1afb7163e2e7",
+    "build-image-attempt1.log": "eb9441114615c41b09c78011a76430921debc1d6cc3aa969417406f6fa3a080f",
+    "build-image.log": "067f82bca376b6ecaf71de78199b3731163fd3ddef8a3b3ae7060963293e031b",
+    "image-build.json": "6ca0ad00ada07989938e8f950e418596bb9080ff75d94cd46958e9bec3dd5269",
+    "local-image.json": "ac6c22fd35d2f536eed20e6547f5ab81f63e8eccabc033e7e04624cf3d603b3d",
+    "identity-containers-amd64-attempt1.json": "1249db81caa664bd56492d78449f2d4127a7bac340111f3a1b80dbef93a3cb79",
+    "identity-containers-amd64-attempt1.log": "4a1847debfd08875538fbd408c7a417e858c0d933fd45c8148179265dedf46b4",
+    "public-tls-preflight.json": "3044677938808efffa6dec25b4603d98bd7a24c03273784c449a37f2b048c36f",
+    "registry-preflight.json": "6c2dd8094b3ee4305f5fc21c79d2c40f5abbb325a687ec657b1031789815bef1"
+  },
+  "verifierSourceSha256": {
+    "scripts/verify-identity-containers.mjs": "8b1f7c850dcf00b113c81aa07db82d3b3779ca9023bbbca21b8f29b26235093e",
+    "scripts/identity-container-probe.mjs": "a1ad76e2e9bee6f99e1760697bec6dce14fa80c6a592d5daedaeddddee94a444"
+  }
+}

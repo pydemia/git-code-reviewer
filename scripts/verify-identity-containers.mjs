@@ -14,6 +14,7 @@ const exec = promisify(callback);
 const root = fileURLToPath(new URL('../', import.meta.url));
 const parent = await mkdtemp(path.join(tmpdir(), 'gcr-compose-runtime-'));
 const directory = path.join(parent, 'identity');
+const identityPlatform = process.env.GCR_IDENTITY_PLATFORM;
 const images = {
   GCR_RUNTIME_IMAGE: 'node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32',
   GCR_POSTGRES_IMAGE:
@@ -24,6 +25,7 @@ const report = {
   startedAt: new Date().toISOString(),
   node: process.version,
   images,
+  identityPlatform: identityPlatform ?? 'docker-default',
   checks: [],
   cleanup: false,
   clusterAccess: false,
@@ -73,6 +75,55 @@ async function ready(service, count) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
   throw Error(`${service} did not become healthy within 600 seconds`);
+}
+async function clusterReady(replicas, phase) {
+  const started = Date.now();
+  let stableViews = 0;
+  while (Date.now() - started < 600_000) {
+    const views = [];
+    for (const replica of replicas) {
+      const state = await inspect(replica.Id);
+      assert(state.State.Running, 'Keycloak exited before cluster convergence');
+      const text = await logs(replica.Id);
+      const messages = text.split('\n').flatMap((line) => {
+        try {
+          const value = JSON.parse(line);
+          return typeof value.message === 'string' ? [value.message] : [];
+        } catch {
+          return [];
+        }
+      });
+      const latest = messages.filter((message) => message.includes('ISPN000094:')).at(-1);
+      const match = latest?.match(/\((\d+)\) \[([^\]]+)\]$/);
+      views.push({
+        hostname: replica.Config.Hostname,
+        members: match ? match[2].split(', ').sort() : [],
+        count: match ? Number(match[1]) : 0,
+        mtls: messages.some((message) => message.includes('JGroups Encryption enabled (mTLS)')),
+      });
+    }
+    report.lastClusterViews = views;
+    const converged = views.every(
+      (view) =>
+        view.count === replicas.length &&
+        view.members.length === replicas.length &&
+        new Set(view.members).size === replicas.length &&
+        replicas.every(
+          (replica) =>
+            view.members.filter((member) => member.startsWith(replica.Config.Hostname + '-'))
+              .length === 1,
+        ) &&
+        JSON.stringify(view.members) === JSON.stringify(views[0].members),
+    );
+    stableViews = converged ? stableViews + 1 : 0;
+    if (stableViews >= 2) {
+      report.clusterReadiness ??= [];
+      report.clusterReadiness.push({ phase, milliseconds: Date.now() - started, views });
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw Error(`Keycloak replicas did not report the same current-member cluster view: ${phase}`);
 }
 async function configuration(mode) {
   const result = JSON.parse(
@@ -125,6 +176,11 @@ async function probe(mode, replica) {
   );
 }
 try {
+  if (identityPlatform)
+    assert(
+      ['linux/amd64', 'linux/arm64'].includes(identityPlatform),
+      'Unsupported identity platform',
+    );
   assert.match(
     images.GCR_IDENTITY_IMAGE ?? '',
     /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/,
@@ -145,6 +201,17 @@ try {
   ])
     report.sourceSha256[file] = hash(await readFile(path.join(root, file)));
   for (const image of Object.values(images)) await docker(['image', 'inspect', image]);
+  const identityImage = JSON.parse(
+    await docker(['image', 'inspect', images.GCR_IDENTITY_IMAGE]),
+  )[0];
+  report.identityImage = {
+    id: identityImage.Id,
+    architecture: identityImage.Architecture,
+    os: identityImage.Os,
+    revision: identityImage.Config.Labels?.['org.opencontainers.image.revision'],
+  };
+  if (identityPlatform)
+    assert.equal(`${identityImage.Os}/${identityImage.Architecture}`, identityPlatform);
   prepared = await prepareFreshIdentity(directory, images);
   report.project = prepared.projectName;
   report.secretGid = prepared.secretGid;
@@ -160,7 +227,10 @@ try {
           restart: 'no',
           networks: { 'identity-db': { aliases: ['wrong-database-host'] } },
         },
-        keycloak: { restart: 'no' },
+        keycloak: {
+          restart: 'no',
+          ...(identityPlatform ? { platform: identityPlatform } : {}),
+        },
         'identity-db-provision': {
           entrypoint: ['node', '/workspace/packages/db/dist/provision-cli.js'],
           volumes: [`${root}:/workspace:ro`],
@@ -240,6 +310,8 @@ try {
   await compose(true, ['rm', '-f', 'keycloak']);
   await compose(false, ['up', '-d', '--no-deps', '--no-build', '--pull', 'never', 'keycloak']);
   const replicas = await ready('keycloak', 2);
+  progress('Wait for matching current-member cluster views before replica-specific requests');
+  await clusterReady(replicas, 'bootstrap-removed');
   let clusterLogs = '';
   for (const replica of replicas) {
     assert(!replica.Config.Env.some((value) => /BOOTSTRAP_ADMIN/.test(value)));
@@ -281,6 +353,7 @@ try {
   const replaced = await ready('keycloak', 2);
   assert(replaced.some((replica) => replica.Id === replicas[1].Id));
   assert(!replaced.some((replica) => replica.Id === replicas[0].Id));
+  await clusterReady(replaced, 'single-replica-replaced');
   for (const replica of replaced) assert.deepEqual(await probe('snapshot', replica), baseline);
   check('single-replica-replacement-keeps-peer-serving-the-same-user-password-and-keys');
   progress('Stop replicas, repeat DBA provisioning, recreate PostgreSQL on the retained volume');
@@ -292,6 +365,7 @@ try {
   await ready('postgres', 1);
   await compose(false, ['start', 'keycloak']);
   const restarted = await ready('keycloak', 2);
+  await clusterReady(restarted, 'database-container-recreated');
   for (const replica of restarted) assert.deepEqual(await probe('snapshot', replica), baseline);
   assert.equal((await configuration('--inspect')).converged, true);
   check('retained-volume-PostgreSQL-recreation-and-DBA-repeat-preserve-Keycloak-identities');

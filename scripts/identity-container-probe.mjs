@@ -14,6 +14,7 @@ const password = await read('/run/secrets/bootstrap-admin-password');
 const userPassword = await read('/run/secrets/fixture-user-password');
 const admin = createAdminTransport(plan, { ca, username, password });
 const route = '/' + plan.realm;
+const stage = (name) => process.stderr.write(`Identity probe ${process.argv[2]}: ${name}\n`);
 const request = (endpoint, body, token) =>
   new Promise((resolve, reject) => {
     const outgoing = https.request(
@@ -86,9 +87,12 @@ try {
         standardFlowEnabled: false,
       });
     }
+    stage('admin-user-read-including-bootstrap-token');
     const users = await admin(route + '/users?username=fixture-user&exact=true');
     assert.equal(users.length, 1);
+    stage('realm-keys-read');
     const keys = await admin(route + '/keys');
+    stage('realm-clients-read');
     const clients = await admin(route + '/clients');
     const snapshot = {
       user: users[0],
@@ -108,6 +112,7 @@ try {
         .sort((a, b) => a.id.localeCompare(b.id)),
     };
     assert.equal(snapshot.clients.length, 2);
+    stage('retained-user-password-login');
     const auth = await request(
       '/realms/' + plan.realm + '/protocol/openid-connect/token',
       new URLSearchParams({
@@ -119,6 +124,7 @@ try {
     );
     assert.equal(auth.status, 200, 'retained user password');
     const tokens = JSON.parse(auth.data);
+    stage('retained-user-session-logout');
     const logout = await request(
       '/realms/' + plan.realm + '/protocol/openid-connect/logout',
       new URLSearchParams({
@@ -127,6 +133,7 @@ try {
       }),
     );
     assert.equal(logout.status, 204);
+    stage('configured-service-account-token');
     const serviceAuth = await request(
       '/realms/' + plan.realm + '/protocol/openid-connect/token',
       new URLSearchParams({
@@ -139,6 +146,7 @@ try {
     const token = JSON.parse(serviceAuth.data).access_token;
     const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
     const service = clients.find((client) => client.clientId === 'gcr-identity-administration');
+    stage('service-account-subject-read');
     const serviceUser = await admin(route + '/clients/' + service.id + '/service-account-user');
     assert.equal(claims.sub, serviceUser.id, 'service token identifies the C05 security collector');
     assert.equal(claims.iss, plan.identityOrigin + '/realms/' + plan.realm);

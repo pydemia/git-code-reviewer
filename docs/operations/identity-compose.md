@@ -164,4 +164,8 @@ GCR_IDENTITY_IMAGE='<verified-local-repository>@sha256:<digest>' \
   node scripts/verify-identity-containers.mjs
 ```
 
+배포 아키텍처를 지정하려면 `GCR_IDENTITY_PLATFORM=linux/amd64` 또는 `linux/arm64`를 함께 설정한다. 검증기는 로컬 image의 실제 OS/architecture가 지정값과 같은지 확인하고 Keycloak service에만 해당 platform을 적용한다. 결과에는 image ID·source revision·architecture를 기록한다. Apple Silicon에서 amd64 image를 실행한 결과는 amd64 바이너리의 emulation 검증이며 실제 Kubernetes 노드·CNI 검증은 별도로 수행한다.
+
+각 normal replica의 health만으로 두 멤버가 합류했다고 처리하지 않는다. 최신 cluster view의 멤버가 현재 container hostname들과 일치하고 양쪽 view가 같은지 연속 두 번 확인한 뒤 replica별 관리 요청을 시작한다. 개별 replica 교체와 DB container 재생성 후에도 같은 검사를 수행한다. 최대 10분의 cluster 합류 검사이며 production 관리 요청의 30초 제한을 늘리지 않는다. 다음 실패의 위치는 fixture stderr의 고정 단계명으로 구분하며 token·응답 본문은 기록하지 않는다. 이 보완 자체가 앞선 timeout의 원인 해결이나 운영 readiness 검증을 뜻하지 않는다.
+
 이 시험은 새 Compose project·PostgreSQL 17 volume·임시 CA/credential을 만들고 실제 adapter·DBA CLI·Keycloak·구성 CLI를 실행한다. 생성한 realm의 계정·비밀번호·서명 key·client ID를 반복 구성, 두 replica 전환과 개별 교체, PostgreSQL container 재생성 전후에 비교한다. 각 replica를 직접 지정해 검사하며 잘못된 DB CA·hostname의 기동 실패도 확인한다. 종료 시 해당 project의 container·network·volume과 private 파일을 제거한다. 인증 관리 작업은 pinned Node 22 image를 사용하고 DBA CLI는 현재 checkout의 빌드 결과를 read-only로 mount한다. GCR server·worker image, 공개 proxy·브라우저 SAML, 기존 운영 볼륨 전환·백업 복원·SMTP 전달 검증은 별도다.
