@@ -1,0 +1,168 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T16:11:30.758387+00:00",
+  "release": {
+    "revision": 51,
+    "updated": "2026-09-14T01:09:28.478014+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.37",
+    "app_version": "0.8.0-alpha.39",
+    "description": "Upgrade complete"
+  },
+  "image": {
+    "digest": "sha256:f8477a2b9f3513ddba25442d34a02abb51837280369d2811f85969663b9f49a2",
+    "source": "b4ca4cc6911449f6e662131d24efcb424ebb1ed1",
+    "version": "0.8.0-alpha.39",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:3a98c16566f57550e4a3095af210ef391200cd7e9d5dfa9fce3eee97908dab8c"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:12a63dd570ec3c3fe5a4533363b1dcb333d5a307557b40e10f9d69bd2c1e926e"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "labels": {
+      "org.opencontainers.image.revision": "b4ca4cc6911449f6e662131d24efcb424ebb1ed1",
+      "org.opencontainers.image.version": "0.8.0-alpha.39"
+    },
+    "architecture": "amd64"
+  },
+  "tables": {
+    "users": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "chat_accounts": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "analysis_runs": {
+      "before": 157,
+      "after": 157,
+      "existingRowsPreserved": true
+    },
+    "reports": {
+      "before": 149,
+      "after": 149,
+      "existingRowsPreserved": true
+    },
+    "repository_grants": {
+      "before": 2,
+      "after": 2,
+      "existingRowsPreserved": true
+    },
+    "tenant_memberships": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "review_memories": {
+      "before": 4,
+      "after": 4,
+      "existingRowsPreserved": true
+    },
+    "localCredentials": {
+      "before": 6,
+      "after": 6,
+      "existingRowsPreserved": true
+    }
+  },
+  "migrationCount": 37,
+  "oldMigrationChecksumsPreserved": true,
+  "nonImageSettingsPreserved": true,
+  "existingSecretsConfigMapsRoutesPVCsPreserved": true,
+  "endpoints": {
+    "/health/startup": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/live": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/ready": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/system": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+      "status": 401,
+      "tlsVerified": true
+    }
+  },
+  "assetsMatchVerifiedImage": true,
+  "runtime": {
+    "server": {
+      "pod": "git-code-reviewer-server-6cf9ffdc9d-q2cqn",
+      "imageDigest": "sha256:f8477a2b9f3513ddba25442d34a02abb51837280369d2811f85969663b9f49a2",
+      "compiledMatchesImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    },
+    "worker": {
+      "pod": "git-code-reviewer-worker-74bf57bd6f-hvs67",
+      "imageDigest": "sha256:f8477a2b9f3513ddba25442d34a02abb51837280369d2811f85969663b9f49a2",
+      "compiledMatchesImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    }
+  },
+  "identityReady": 2,
+  "scope": "Deployed image/schema/HTTPS assets and anonymous authorization; authenticated criteria workflow verified in the identical compiled image with isolated synthetic data. No live model execution or criteria bundle publication.",
+  "chartReadback": {
+    "status": "passed",
+    "ociDigest": "sha256:3a061c8be68cc7485cb8101015b39b7747798c831d51957a4f1518086a682732",
+    "chartSha256": "fd58319cc8120d33cba16a0e3f32b7fdf6f07399575718afc20d6ab1712e8fbe"
+  },
+  "imageAttestations": {
+    "status": "passed",
+    "indexDigest": "sha256:f8477a2b9f3513ddba25442d34a02abb51837280369d2811f85969663b9f49a2",
+    "attestations": [
+      {
+        "digest": "sha256:68153e6d8dc608410ee25b969507a593517149dcfb546d0f4db883b4f0f22660",
+        "predicateType": "https://spdx.dev/Document"
+      },
+      {
+        "digest": "sha256:e59561dc8afd52015c4e780a960a044a3c3ff046509116b74f72ddd54f5e1e2c",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    ],
+    "tlsVerification": true,
+    "additionalTrust": "existing-corporate-ca-for-this-process-only",
+    "runtime": "v22.23.2"
+  },
+  "compiledImageChecks": [
+    "migration-36-to-37-existing-user-preserved",
+    "full-production-server-registration",
+    "local-password-session-login",
+    "anonymous-criteria-401",
+    "cross-origin-mutation-403",
+    "create-and-read-candidate",
+    "new-immutable-revision",
+    "stale-revision-409",
+    "built-criteria-web-route",
+    "non-root-runtime"
+  ],
+  "helmTest": {
+    "status": "Succeeded",
+    "completedAt": "2026-09-14T01:11:03+09:00"
+  },
+  "sourceCommit": "b4ca4cc6911449f6e662131d24efcb424ebb1ed1",
+  "releasePinCommit": "4230448",
+  "remaining": [
+    "model candidate generation",
+    "role delegation web UI",
+    "signed bundle/manifest publication and download API",
+    "Commit Defender/CLI synchronization and application of central criteria"
+  ]
+}

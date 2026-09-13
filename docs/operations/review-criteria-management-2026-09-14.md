@@ -41,3 +41,10 @@
 최초 브라우저 실패는 기본값이 있는 textarea의 라벨 탐색 문제로 명시적 접근성 이름을 추가했다. 동시 revision 변경의 잘못된 404는 stable rule row를 먼저 잠그도록 수정했다. 저장소 삭제 시 이력 FK의 검사 순서 충돌은 transaction 종료 시 검사하도록 수정했으며 이력 직접 수정·삭제 금지는 유지한다.
 
 이 단계는 기준 관리 기능이다. 모델 후보 자동 생성, 불변 bundle 발행·서명된 manifest·client sync는 미구현이며 `active` 기준도 현재 PR·CLI 리뷰에는 적용되지 않는다. 화면에 미발행 상태를 표시한다. P05 전체 완료와 구분하며 실행 증거는 [P05 검증 기록](../../.documents/execution/preventive-review/evidence/P05-criteria-management.json)을 따른다.
+
+
+## 운영 배포
+
+PRISM-DEV `git-code-reviewer` release 51에 alpha.39·chart 0.10.37을 배포했다. Source `b4ca4cc`, release pin `4230448`이며 image digest는 `sha256:f8477a2b9f3513ddba25442d34a02abb51837280369d2811f85969663b9f49a2`다. 기존 DB/TLS·인증·Secret·PVC 설정을 보존했다. Migration 37개, server·worker Ready, 배포된 코드·정적 파일 대조와 Helm test를 확인했다. [운영 검증 기록](../../.documents/execution/preventive-review/evidence/P05-PRISM-deployment.json)을 참고한다.
+
+새 화면은 `https://pr-review.prism.ai/review-criteria`에서 제공한다. 개발 CA의 브라우저 신뢰 등록 여부는 기존 HTTPS 설정을 따른다. 이 릴리스의 모델 자동 생성·bundle 발행·CLI/CD 적용은 제공하지 않는다.

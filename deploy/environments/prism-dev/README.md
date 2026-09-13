@@ -1,6 +1,6 @@
 # PRISM-DEV 배포
 
-2026-09-14: Keycloak을 이 namespace에 별도 Helm release로 배포했다. Identity revision 2, GCR revision 50이며 GCR·Keycloak DB 연결에 TLS를 적용했다. 실제 앱 SAML 전환은 미완료이고 기존 local 로그인을 유지한다. [배포·검증 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 참고한다.
+2026-09-14: Keycloak을 이 namespace에 별도 Helm release로 배포했다. Identity revision 2이며 GCR·Keycloak DB 연결에 TLS를 적용했다. 실제 앱 SAML 전환은 미완료이고 기존 local 로그인을 유지한다. [배포·검증 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 참고한다.
 
 ## Identity HTTPRoute 준비 (2026-09-13)
 
@@ -14,7 +14,7 @@ Gateway는 새 route를 수락했다(`Accepted=True`). Keycloak Service는 아�
 
 ## C06 runtime 배포 (2026-09-13 20:18 KST)
 
-현재 PRISM-DEV는 `0.8.0-alpha.38`, chart `0.10.36`, Helm revision `48`이다. C06의 분리된 DB role·TLS·migration credential 코드를 포함하며 실제 설정은 local 인증·legacy DB, identity administration/security 비활성을 유지한다.
+현재 PRISM-DEV는 `0.8.0-alpha.39`, chart `0.10.37`, Helm revision `51`, migration 37개다. 리뷰 기준 관리 화면·API를 포함한다. 실제 설정은 local 인증·DB `verify-full`, identity administration/security 비활성이다. Keycloak은 별도 Helm release revision 2로 배포했다. [리뷰 기준 배포 기록](../../../docs/operations/review-criteria-management-2026-09-14.md)을 참고한다.
 
 새 Server/Worker·health·compiled module/asset hash·20:24:50 Helm test·실제 headless 로그인 화면을 확인했다. 사용자 7명·account 7개·분석 153건·report 145건의 기존 데이터, local credential·세션·Provider와 기존 설정·Secret·CA·HTTPRoute·PVC/PV를 보존했다. `--reset-then-reuse-values`로 새 비활성 기본값을 반영했으며 기존 computed 값은 모두 같다. [배포 기록](../../../docs/operations/shared-postgresql-2026-09-13.md)에 digest·검증 범위와 운영 role/TLS·SAML 전환의 남은 조건을 정리했다.
 
