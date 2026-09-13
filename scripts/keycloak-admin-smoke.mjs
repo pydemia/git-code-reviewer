@@ -434,26 +434,19 @@ export async function runKeycloakAdminSmoke({
       'admin-logout-all-removes-idp-sessions',
       'disabled-user-cannot-produce-saml-callback',
     );
-    const { runIdentityApplicationSmoke } = await import('./identity-application-smoke.mjs');
-    const application = await runIdentityApplicationSmoke({
-      browser,
-      wire,
-      config,
-      directory,
-      database,
-      databaseUrl,
-      tenantId,
-      adapter,
-      binding,
-      clientId,
-      secretFile,
-      smtpCount,
-      progress(value) {
-        step(`application:${value}`);
-      },
-    });
     let security;
-    if (securityMode) {
+    const securityAdapter = securityMode
+      ? new KeycloakSecurityClient(
+          {
+            issuer: config.idpIssuer,
+            entityId: config.entityId,
+            clientId,
+            clientSecretFile: secretFile,
+          },
+          transport,
+        )
+      : undefined;
+    const runSecurityValidation = async () => {
       const { runKeycloakSecurityContract } = await import('./keycloak-security-contract.mjs');
       security = await runKeycloakSecurityContract({
         admin,
@@ -471,22 +464,36 @@ export async function runKeycloakAdminSmoke({
         login,
         logout,
         receipts,
-        securityAdapter: new KeycloakSecurityClient(
-          {
-            issuer: config.idpIssuer,
-            entityId: config.entityId,
-            clientId,
-            clientSecretFile: secretFile,
-          },
-          transport,
-        ),
+        securityAdapter,
         database,
+        databaseUrl,
         binding,
         progress(value) {
           step(`security:${value}`);
         },
       });
-    }
+    };
+    const { runIdentityApplicationSmoke } = await import('./identity-application-smoke.mjs');
+    const application = await runIdentityApplicationSmoke({
+      browser,
+      wire,
+      config,
+      directory,
+      database,
+      databaseUrl,
+      tenantId,
+      adapter,
+      binding,
+      clientId,
+      secretFile,
+      smtpCount,
+      securityValidation: securityMode
+        ? { adapter: securityAdapter, run: runSecurityValidation }
+        : undefined,
+      progress(value) {
+        step(`application:${value}`);
+      },
+    });
     return {
       status: 'passed',
       application,

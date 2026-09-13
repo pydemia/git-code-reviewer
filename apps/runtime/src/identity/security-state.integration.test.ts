@@ -411,6 +411,7 @@ describe.skipIf(!databaseUrl).sequential('Identity security PostgreSQL reconcili
     let failLogout = true;
     const adapter = {
       endpoints: reader.endpoints,
+      withRequestGuard: reader.withRequestGuard.bind(reader),
       capture: async (): Promise<SecurityObservation> => ({
         continuity: 'baseline',
         events: [],
@@ -503,6 +504,7 @@ describe.skipIf(!databaseUrl).sequential('Identity security PostgreSQL reconcili
     });
     const adapter = {
       endpoints: reader.endpoints,
+      withRequestGuard: reader.withRequestGuard.bind(reader),
       identity: reader.identity.bind(reader),
       getUser,
       setEnabled: async (_id: string, enabled: boolean) => {

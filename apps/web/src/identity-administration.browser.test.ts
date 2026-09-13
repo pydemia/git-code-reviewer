@@ -66,8 +66,10 @@ describe.sequential('Organization identity administration in Chrome', () => {
             import '/src/styles.css';
             const user = ${JSON.stringify(user)};
             if (new URL(location.href).searchParams.has('mapped')) user.identityState = { provisioningState: 'provisioned', enabled: true };
+            if (new URL(location.href).searchParams.has('disabled')) {user.enabled = false; user.identityState.enabled = false;}
+            const actions = new URL(location.href).searchParams.has('lifecycle') ? ['disable','enable','logout-all'] : undefined;
             createRoot(document.getElementById('root')).render(React.createElement(IdentityAdministrationPanel,
-              {users:[user],tenants:[${JSON.stringify(tenant)}],onChanged:()=>{
+              {users:[user],tenants:[${JSON.stringify(tenant)}],actions,onChanged:()=>{
                 document.documentElement.dataset.identityChanges=String(Number(document.documentElement.dataset.identityChanges ?? 0)+1);
               }}));`;
           },
@@ -259,4 +261,47 @@ describe.sequential('Organization identity administration in Chrome', () => {
     expect(await page.getByText('메일 요청 접수', { exact: true }).count()).toBe(0);
     expect(requests).toEqual([]);
   }, 20_000);
+  it.each([
+    ['disable', '조직 계정 차단'],
+    ['enable', '조직 계정 재활성화'],
+    ['logout-all', '전체 기기 로그아웃'],
+  ])(
+    'requires an explicit target and session confirmation for %s',
+    async (kind, label) => {
+      await page.goto(
+        `${origin}/__identity-fixture?mapped=1&lifecycle=1${kind === 'enable' ? '&disabled=1' : ''}`,
+      );
+      await page.getByRole('button', { name: label, exact: true }).click();
+      const form = page.getByRole('form', { name: label, exact: true });
+      expect(await form.locator('input[type=email],input[type=password]').count()).toBe(0);
+      await form.getByLabel('GCR 사용자').selectOption(user.id);
+      expect(await form.getByRole('button', { name: label, exact: true }).isDisabled()).toBe(true);
+      await form.getByRole('checkbox').check();
+      await form.getByLabel('GCR 사용자').selectOption('');
+      await form.getByLabel('GCR 사용자').selectOption(user.id);
+      expect(await form.getByRole('checkbox').isChecked()).toBe(false);
+      await form.getByRole('checkbox').check();
+      await form.getByRole('button', { name: label, exact: true }).click();
+      await page.getByText(/작업을 접수했습니다/).waitFor();
+      expect(requests).toEqual([
+        {
+          kind,
+          requestId: expect.any(String),
+          target: { kind: 'existing', userId: user.id, expectedSubject: user.subject },
+          revokeAllSessions: true,
+        },
+      ]);
+    },
+    20_000,
+  );
+  it('hides lifecycle controls when the server does not advertise them', async () => {
+    await page.goto(`${origin}/__identity-fixture?mapped=1`);
+    await page.getByRole('button', { name: '조직 계정 생성', exact: true }).waitFor();
+    expect(
+      await page.getByRole('button', { name: '전체 기기 로그아웃', exact: true }).count(),
+    ).toBe(0);
+    expect(
+      await page.getByRole('button', { name: '조직 계정 재활성화', exact: true }).count(),
+    ).toBe(0);
+  });
 });

@@ -99,8 +99,13 @@ evidence.sourceSha256 = Object.fromEntries(
                   '../apps/runtime/src/identity/security-state.ts',
                   '../apps/runtime/src/identity/security-processor.ts',
                   '../apps/runtime/src/identity/revocation.ts',
+                  '../apps/runtime/src/identity/lifecycle.ts',
+                  '../apps/runtime/src/identity/reactivation.ts',
+                  '../apps/runtime/src/identity/remote-lease.ts',
+                  '../apps/runtime/src/jobs/worker.ts',
                   '../apps/runtime/src/auth/saml-state.ts',
                   '../packages/db/migrations/0035_identity_security_reconciliation.sql',
+                  '../packages/db/migrations/0036_identity_lifecycle_operations.sql',
                 ]
               : []),
             '../apps/runtime/src/identity/operations.ts',
@@ -755,12 +760,16 @@ try {
       },
     });
     evidence.limitations = [
-      'compiled administration UI and actual HTTP API use real PostgreSQL and Keycloak; processor is invoked explicitly, worker scheduling is not exercised',
+      securityMode
+        ? 'compiled provisioning and lifecycle UI use real HTTP API, PostgreSQL and Keycloak; UI processors are invoked explicitly, a separate all-device logout exercises the actual worker loop'
+        : 'compiled administration UI and actual HTTP API use real PostgreSQL and Keycloak; processor is invoked explicitly, worker scheduling is not exercised',
       'Chrome headless; native Safari and interactive browser operation remain pending',
       'test-specific generated TLS leaf SPKI pins; no system trust installation',
       'fixture administrator provisions the realm, service-account roles and synthetic test passwords only',
       'private disposable SMTP sink, reserved example.test recipients; no external mail delivery',
-      'security freshness and application-wide revocation remain P03-C05',
+      securityMode
+        ? 'operational SAML activation and P04 client-grant verification remain pending'
+        : 'security freshness and application-wide revocation remain P03-C05',
     ];
   }
   if (applicationMode) {

@@ -115,6 +115,40 @@ describe('Keycloak realm-scoped administration', () => {
     });
   });
   const make = () => new KeycloakAdminClient(settings, request);
+  it('does not begin I/O with an expired operation guard and clears the scoped guard afterward', async () => {
+    const client = make();
+    await expect(
+      client.withRequestGuard(
+        () => {
+          throw Error('lost lease');
+        },
+        () => client.getUser(randomUUID()),
+      ),
+    ).rejects.toThrow('lost lease');
+    expect(request).not.toHaveBeenCalled();
+    const created = await client.ensureCreated(plan);
+    expect(created.id).toBeTruthy();
+  });
+  it('reports an accepted write as unconfirmed if ownership is lost before its response returns', async () => {
+    const client = make();
+    const created = await client.ensureCreated(plan);
+    let held = true;
+    const transport = request.getMockImplementation()!;
+    request.mockImplementation(async (input, init) => {
+      const result = await transport(input, init);
+      if (init?.method === 'PUT') held = false;
+      return result;
+    });
+    await expect(
+      client.withRequestGuard(
+        () => {
+          if (!held) throw new KeycloakAdminError('IDENTITY_ADMIN_UNAVAILABLE', true);
+        },
+        () => client.setEnabled(created.id, true),
+      ),
+    ).rejects.toMatchObject({ code: 'IDENTITY_RESULT_UNCONFIRMED' });
+    expect(users.get(created.id)?.enabled).toBe(true);
+  });
   it('rejects a service account whose direct representation omits its service-account field', async () => {
     const id = randomUUID();
     users.set(id, {

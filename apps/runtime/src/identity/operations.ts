@@ -15,6 +15,8 @@ export class IdentityOperationError extends Error {
       | 'IDENTITY_OPERATION_CONFLICT'
       | 'IDENTITY_OPERATION_NOT_FOUND'
       | 'IDENTITY_OPERATION_LEASE_LOST'
+      | 'IDENTITY_SECURITY_UNAVAILABLE'
+      | 'IDENTITY_LAST_ADMINISTRATOR_REQUIRED'
       | 'IDENTITY_OPERATION_STORAGE_UNAVAILABLE',
   ) {
     super(code);
@@ -29,7 +31,8 @@ export interface IdentityOperation {
   user_id: string | null;
   identity_id: string | null;
   requested_by: string | null;
-  kind: 'create' | 'link' | 'invite' | 'password-reset';
+  kind: 'create' | 'link' | 'invite' | 'password-reset' | 'disable' | 'enable' | 'logout-all';
+  expected_security_epoch: string | null;
   state: 'pending' | 'running' | 'succeeded' | 'failed';
   requested_username: string | null;
   requested_email: string | null;
@@ -210,18 +213,24 @@ export async function requestIdentityProvisioning(
 export async function claimIdentityOperation(
   database: Database,
   binding: SamlProviderBinding,
+  mode: 'provisioning' | 'reactivation' = 'provisioning',
 ): Promise<IdentityOperationClaim | null> {
   samlConfigurationKey(binding);
   return atomic(database, async (client) => {
+    await client.query("select pg_advisory_xact_lock(hashtext('gcr:user-administration'))");
     const operation = (
       await client.query<IdentityOperation>(
         `select operation.* from identity_admin_operations operation
       join identity_admin_outbox outbox on outbox.operation_id=operation.id
-      where operation.idp_issuer=$1 and operation.sp_entity_id=$2 and operation.kind in ('create','link','invite','password-reset')
+      where operation.idp_issuer=$1 and operation.sp_entity_id=$2 and operation.kind=any($3::text[])
         and operation.state in ('pending','running') and outbox.delivered_at is null
         and outbox.available_at<=clock_timestamp() and (outbox.claimed_until is null or outbox.claimed_until<=clock_timestamp())
       order by outbox.available_at,operation.created_at,operation.id for update of outbox skip locked limit 1`,
-        [binding.issuer, binding.entityId],
+        [
+          binding.issuer,
+          binding.entityId,
+          mode === 'reactivation' ? ['enable'] : ['create', 'link', 'invite', 'password-reset'],
+        ],
       )
     ).rows[0];
     if (!operation) return null;
@@ -402,6 +411,7 @@ export async function failIdentityOperation(
 ): Promise<void> {
   if (!/^[A-Z][A-Z0-9_]{0,63}$/.test(errorCode)) fail('IDENTITY_OPERATION_INVALID');
   return atomic(database, async (client) => {
+    await client.query("select pg_advisory_xact_lock(hashtext('gcr:user-administration'))");
     const row = await lockIdentityOperationClaim(client, claim);
     const uncertainMail = row.mail_dispatched_at !== null;
     const retry = retryable && !uncertainMail && claim.attempt < 5;
@@ -445,6 +455,9 @@ export async function retryIdentityOperation(
       )
     ).rows[0];
     if (!row) fail('IDENTITY_OPERATION_NOT_FOUND');
+    // Lifecycle retries require a new authorization against the current epoch.
+    // They are handled by the lifecycle service, never by provisioning retry.
+    if (['disable', 'enable', 'logout-all'].includes(row.kind)) fail('IDENTITY_OPERATION_CONFLICT');
     if (row.state !== 'failed' || row.mail_dispatched_at || !row.user_id)
       fail('IDENTITY_OPERATION_CONFLICT');
     if (row.error_code === 'IDENTITY_ACCESS_CHANGED') fail('IDENTITY_OPERATION_CONFLICT');

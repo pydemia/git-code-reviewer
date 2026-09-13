@@ -4,6 +4,7 @@ import {
   identityOperationResponseSchema,
   identityPreviewSchema,
   type IdentityProvisioningRequest,
+  type IdentityLifecycleRequest,
   defaultReviewSeverityLevel,
   type ReviewSeverityLevel,
   analysisSkillSettingsSchema,
@@ -111,7 +112,9 @@ export async function previewKeycloakIdentity(keycloakUserId: string) {
     await mutateJson('/api/v1/admin/identity/preview', 'POST', { keycloakUserId }),
   );
 }
-export async function requestIdentityOperation(input: IdentityProvisioningRequest) {
+export async function requestIdentityOperation(
+  input: IdentityProvisioningRequest | IdentityLifecycleRequest,
+) {
   return identityOperationResponseSchema.parse(
     await mutateJson('/api/v1/admin/identity/operations', 'POST', input),
   ).operation;

@@ -5,6 +5,7 @@ import {
   type SamlProviderBinding,
 } from '../auth/saml-state.js';
 import { KeycloakAdminClient, KeycloakAdminError, type KeycloakUser } from './keycloak-admin.js';
+import { withIdentityRemoteLease } from './remote-lease.js';
 import {
   beginIdentityMailDispatch,
   claimIdentityOperation,
@@ -24,6 +25,7 @@ export type IdentityAdministration = Pick<
   | 'setEnabled'
   | 'sendActionsEmail'
   | 'logoutAll'
+  | 'withRequestGuard'
 >;
 
 export async function processIdentityOperation(
@@ -36,6 +38,16 @@ export async function processIdentityOperation(
     adapter.endpoints.entityId !== binding.entityId
   )
     throw new IdentityOperationError('IDENTITY_OPERATION_INVALID');
+  const work = await withIdentityRemoteLease(database, binding.issuer, ({ assertHeld }) =>
+    adapter.withRequestGuard(assertHeld, () => processClaim(database, binding, adapter)),
+  );
+  return work.acquired ? work.result : false;
+}
+async function processClaim(
+  database: Database,
+  binding: SamlProviderBinding,
+  adapter: IdentityAdministration,
+): Promise<boolean> {
   const claim = await claimIdentityOperation(database, binding);
   if (!claim) return false;
   try {
@@ -69,7 +81,7 @@ export async function processIdentityOperation(
         email: operation.requested_email,
         displayName: operation.requested_display_name,
       });
-    } else {
+    } else if (operation.kind === 'link') {
       if (!operation.external_user_id)
         throw new IdentityOperationError('IDENTITY_OPERATION_INVALID');
       external = await adapter.getUser(operation.external_user_id);
@@ -79,6 +91,8 @@ export async function processIdentityOperation(
         adapter.identity(external).nameID !== operation.expected_name_id
       )
         throw new KeycloakAdminError('IDENTITY_ACCOUNT_CONFLICT');
+    } else {
+      throw new IdentityOperationError('IDENTITY_OPERATION_INVALID');
     }
     const identity = adapter.identity(external);
     await inspectIdentityOperationClaim(database, claim);

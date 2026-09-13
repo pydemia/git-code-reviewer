@@ -1,4 +1,5 @@
-// Protocol feasibility only: no production freshness is granted by this script.
+// Real protocol and runtime validation in an owned disposable fixture. This
+// script never changes an operational realm or grants operational freshness.
 // All realm changes, tokens, service accounts and target identities are owned by
 // the enclosing disposable Keycloak fixture. Only structural evidence is saved.
 import assert from 'node:assert/strict';
@@ -6,6 +7,14 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { requiredSecurityEventTypes } from '../apps/runtime/src/identity/keycloak-security.ts';
 import { reconcileIdentitySecurity } from '../apps/runtime/src/identity/security-processor.ts';
 import { revokeUserIdentitySecurity } from '../apps/runtime/src/identity/revocation.ts';
+import { requestIdentityLifecycle } from '../apps/runtime/src/identity/lifecycle.ts';
+import { processIdentityReactivation } from '../apps/runtime/src/identity/reactivation.ts';
+import { runWorker } from '../apps/runtime/src/jobs/worker.ts';
+import { loadConfig } from '../apps/runtime/src/config.ts';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createServer } from 'node:net';
 
 export async function runKeycloakSecurityContract({
   admin,
@@ -25,6 +34,7 @@ export async function runKeycloakSecurityContract({
   receipts,
   securityAdapter,
   database,
+  databaseUrl,
   binding,
   progress,
 }) {
@@ -371,6 +381,137 @@ export async function runKeycloakSecurityContract({
   checks.push(
     'explicit-gcr-block-converges-after-direct-keycloak-enable-without-an-endless-logout-loop',
   );
+  progress('verified-reactivation-and-all-device-logout');
+  const actor = (
+    await database.query(
+      `select id from users where enabled and role='administrator' and deleted_at is null order by id limit 1`,
+    )
+  ).rows[0];
+  assert(actor);
+  const subject = (
+    await database.query('select oidc_subject from users where id=$1', [blocked.user_id])
+  ).rows[0].oidc_subject;
+  const lifecycle = (kind) =>
+    requestIdentityLifecycle(database, binding, actor.id, {
+      kind,
+      requestId: randomUUID(),
+      target: { kind: 'existing', userId: blocked.user_id, expectedSubject: subject },
+      revokeAllSessions: true,
+    });
+  const enabled = await lifecycle('enable');
+  assert.equal(await processIdentityReactivation(database, binding, securityAdapter), true);
+  const enabledResult = (
+    await database.query('select state,error_code from identity_admin_operations where id=$1', [
+      enabled.id,
+    ])
+  ).rows[0];
+  assert.equal(
+    enabledResult.state,
+    'succeeded',
+    `reactivation failed: ${enabledResult.error_code}`,
+  );
+  assert.equal((await adapter.getUser(blocked.keycloak_user_id)).enabled, true);
+  const mapping = (await database.query('select * from user_identities where id=$1', [blocked.id]))
+    .rows[0];
+  assert.equal(mapping.enabled, true);
+  assert.equal(mapping.idp_disabled_by_gcr, false);
+  assert.equal(mapping.security_epoch, mapping.security_reconciled_epoch);
+  assert.equal(
+    mapping.security_fresh_until.getTime() - mapping.security_checked_at.getTime(),
+    300_000,
+  );
+  checks.push(
+    'reactivation-acknowledges-exact-own-enable-and-logout-events-before-restoring-app-access',
+  );
+
+  const logoutOperation = await lifecycle('logout-all');
+  const ownedDirectory = await mkdtemp(path.join(tmpdir(), 'gcr-identity-worker-'));
+  const stop = new AbortController();
+  let worker;
+  try {
+    const reservation = createServer();
+    await new Promise((resolve, reject) => {
+      reservation.once('error', reject);
+      reservation.listen(0, '127.0.0.1', resolve);
+    });
+    const healthPort = reservation.address().port;
+    await new Promise((resolve, reject) =>
+      reservation.close((error) => (error ? reject(error) : resolve())),
+    );
+    const workerConfig = loadConfig(
+      {
+        DATABASE_URL: databaseUrl,
+        AUTH_MODE: 'local',
+        LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'owned-worker-admin',
+        LOCAL_BOOTSTRAP_ADMIN_PASSWORD: randomBytes(32).toString('base64url'),
+        HOST: '127.0.0.1',
+        WORKER_HEALTH_PORT: String(healthPort),
+        WORKER_CONCURRENCY: '1',
+        DATABASE_POOL_MAX: '2',
+        GITHUB_MODE: 'fixture',
+        MODEL_MODE: 'disabled',
+        WORKSPACE_ROOT: path.join(ownedDirectory, 'workspaces'),
+        ARTIFACT_ROOT: path.join(ownedDirectory, 'artifacts'),
+        PUBLIC_BASE_URL: new URL(binding.acsUrl).origin,
+        IDENTITY_ADMIN_ENABLED: 'true',
+        IDENTITY_SECURITY_ENABLED: 'true',
+        SAML_IDP_ISSUER: binding.issuer,
+        SAML_ENTITY_ID: binding.entityId,
+        KEYCLOAK_ADMIN_CLIENT_ID: clientId,
+        KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: '/not-used-by-supplied-pinned-adapters',
+      },
+      'worker',
+    );
+    worker = runWorker(workerConfig, {
+      identityAdministration: adapter,
+      identitySecurity: securityAdapter,
+      signal: stop.signal,
+    });
+    let workerFailure;
+    void worker.catch((error) => {
+      workerFailure = error;
+    });
+    const deadline = Date.now() + 45_000;
+    let state,
+      readyChecks = 0;
+    while (Date.now() < deadline) {
+      if (workerFailure) throw workerFailure;
+      const ready = await fetch(`http://127.0.0.1:${healthPort}/health/ready`, {
+        signal: AbortSignal.timeout(2000),
+      })
+        .then((response) => response.status)
+        .catch(() => null);
+      if (ready !== null) {
+        assert.equal(ready, 200);
+        readyChecks++;
+      }
+      state = (
+        await database.query('select state from identity_admin_operations where id=$1', [
+          logoutOperation.id,
+        ])
+      ).rows[0].state;
+      if (state === 'succeeded') break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.equal(state, 'succeeded');
+    assert(readyChecks > 0);
+    assert.equal((await adapter.getUser(blocked.keycloak_user_id)).enabled, true);
+    assert.equal(
+      (await database.query('select enabled from users where id=$1', [blocked.user_id])).rows[0]
+        .enabled,
+      true,
+    );
+    checks.push(
+      'actual-worker-loop-drains-all-device-logout-with-two-db-connections-and-one-review-slot',
+    );
+  } finally {
+    stop.abort();
+    try {
+      if (worker) await worker;
+    } finally {
+      await rm(ownedDirectory, { recursive: true, force: true });
+    }
+  }
   return {
     status: 'passed',
     checks,
@@ -382,6 +523,6 @@ export async function runKeycloakSecurityContract({
     query:
       'epoch milliseconds; one bounded complete batch; timestamp ordering is not an offset cursor',
     eventContinuityImplementation:
-      'production bounded REST observation and durable PostgreSQL collector; explicit processor invocation',
+      'production bounded REST observation and durable PostgreSQL collector; explicit reactivation and actual worker logout scheduling',
   };
 }

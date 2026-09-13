@@ -72,6 +72,7 @@ export interface SecurityObservationLease {
 export async function claimSecurityObservation(
   database: Database,
   binding: SamlProviderBinding,
+  immediate = false,
 ): Promise<SecurityObservationLease | null> {
   const key = samlConfigurationKey(binding),
     id = randomUUID();
@@ -85,9 +86,9 @@ export async function claimSecurityObservation(
       await client.query<Source>(
         `update identity_security_sources
       set lease_id=$2,lease_started_at=clock_timestamp(),lease_until=clock_timestamp()+interval '2 minutes'
-      where configuration_key=$1 and available_at<=clock_timestamp()
+      where configuration_key=$1 and ($3 or available_at<=clock_timestamp())
       and (lease_until is null or lease_until<=clock_timestamp()) returning *`,
-        [key, id],
+        [key, id, immediate],
       )
     ).rows[0];
     if (!row) return null;
@@ -152,113 +153,166 @@ export async function applySecurityObservation(
   lease: SecurityObservationLease,
   observation: SecurityObservation,
 ) {
-  return atomic(database, async (client) => {
-    const source = await lockSource(client, binding, lease);
-    const now = (await client.query<{ now: Date }>('select clock_timestamp() as now')).rows[0]!.now;
-    const checkpoint = observation.checkpoint;
+  return atomic(database, (client) =>
+    applySecurityObservationInTransaction(client, binding, lease, observation),
+  );
+}
+export async function applySecurityObservationInTransaction(
+  client: DatabaseClient,
+  binding: SamlProviderBinding,
+  lease: SecurityObservationLease,
+  observation: SecurityObservation,
+  acknowledge?: {
+    readonly operationId: string;
+    readonly claimId: string;
+    readonly eventIds: readonly string[];
+  },
+) {
+  const source = await lockSource(client, binding, lease);
+  const acknowledged = new Set(acknowledge?.eventIds ?? []);
+  if (acknowledge) {
+    const operation = (
+      await client.query<{ external_user_id: string }>(
+        `select o.external_user_id from identity_admin_operations o
+        join identity_admin_outbox q on q.operation_id=o.id
+        join users actor on actor.id=o.requested_by and actor.enabled and actor.deleted_at is null and actor.role='administrator'
+        join users target on target.id=o.user_id and not target.enabled and target.deleted_at is null and target.oidc_subject=o.expected_subject
+        join user_identities i on i.id=o.identity_id and i.user_id=o.user_id and i.keycloak_user_id=o.external_user_id
+          and i.name_id=o.expected_name_id and i.idp_issuer=o.idp_issuer and i.sp_entity_id=o.sp_entity_id
+          and i.security_epoch=o.expected_security_epoch and not i.enabled and i.idp_disabled_by_gcr and i.provisioning_state='provisioned'
+        where o.id=$1 and o.kind='enable' and o.state='running' and o.idp_issuer=$2 and o.sp_entity_id=$3
+          and q.claimed_by=$4 and q.claimed_until>clock_timestamp() and q.delivered_at is null for update of o`,
+        [acknowledge.operationId, binding.issuer, binding.entityId, acknowledge.claimId],
+      )
+    ).rows[0];
+    const events = observation.events.filter((event) => acknowledged.has(event.id));
     if (
-      !Number.isSafeInteger(checkpoint.observedAt) ||
-      Math.abs(checkpoint.observedAt - source.lease_started_at.getTime()) > 30_000 ||
-      checkpoint.observedAt > now.getTime() + 30_000 ||
-      now.getTime() - checkpoint.observedAt > 120_000 ||
-      (observation.continuity === 'continuous' && !source.observed_at)
+      !operation ||
+      acknowledged.size !== acknowledge.eventIds.length ||
+      events.length !== acknowledged.size ||
+      events.length < 1 ||
+      events.length > 2 ||
+      events.some(
+        (event) =>
+          event.stream !== 'administration' ||
+          !event.ownAdministration ||
+          event.userId !== operation.external_user_id ||
+          !['update-user', 'logout-user'].includes(event.administrationAction ?? ''),
+      ) ||
+      events.filter((event) => event.administrationAction === 'logout-user').length !== 1 ||
+      events.filter((event) => event.administrationAction === 'update-user').length > 1
     )
       return fail('IDENTITY_SECURITY_OBSERVATION_INVALID');
-    const targets = await identities(client, binding);
-    const revoke = new Map<string, boolean>();
-    const newGeneration = observation.continuity !== 'continuous' && source.state !== 'gap';
-    if (newGeneration) for (const identity of targets) revoke.set(identity.user_id, true);
-    for (const event of observation.events) {
-      const inserted = await client.query(
-        `insert into identity_security_event_receipts(
+    const previouslyReceived = await client.query(
+      `select 1 from identity_security_event_receipts
+        where configuration_key=$1 and stream='administration' and event_id_hash=any($2::text[]) limit 1`,
+      [lease.key, [...acknowledged].map(hash)],
+    );
+    if (previouslyReceived.rowCount) return fail('IDENTITY_SECURITY_OBSERVATION_INVALID');
+  }
+  const now = (await client.query<{ now: Date }>('select clock_timestamp() as now')).rows[0]!.now;
+  const checkpoint = observation.checkpoint;
+  if (
+    !Number.isSafeInteger(checkpoint.observedAt) ||
+    Math.abs(checkpoint.observedAt - source.lease_started_at.getTime()) > 30_000 ||
+    checkpoint.observedAt > now.getTime() + 30_000 ||
+    now.getTime() - checkpoint.observedAt > 120_000 ||
+    (observation.continuity === 'continuous' && !source.observed_at)
+  )
+    return fail('IDENTITY_SECURITY_OBSERVATION_INVALID');
+  const targets = await identities(client, binding);
+  const revoke = new Map<string, boolean>();
+  const newGeneration = observation.continuity !== 'continuous' && source.state !== 'gap';
+  if (newGeneration) for (const identity of targets) revoke.set(identity.user_id, true);
+  for (const event of observation.events) {
+    const inserted = await client.query(
+      `insert into identity_security_event_receipts(
         configuration_key,stream,event_id_hash,event_time) values($1,$2,$3,$4)
         on conflict do nothing returning event_id_hash`,
-        [lease.key, event.stream, hash(event.id), event.time],
-      );
-      if (!inserted.rowCount) continue;
-      const affected =
-        event.kind === 'revoke-provider'
-          ? targets
-          : targets.filter((identity) => identity.keycloak_user_id === event.userId);
-      for (const identity of affected) {
-        if (event.kind === 'logout-session') {
-          if (!event.sessionId) return fail('IDENTITY_SECURITY_OBSERVATION_INVALID');
-          await client.query('select id from users where id=$1 for update', [identity.user_id]);
-          await client.query(
-            `insert into identity_idp_session_revocations(identity_id,keycloak_session_hash)
+      [lease.key, event.stream, hash(event.id), event.time],
+    );
+    if (!inserted.rowCount) continue;
+    if (acknowledged.has(event.id)) continue;
+    const affected =
+      event.kind === 'revoke-provider'
+        ? targets
+        : targets.filter((identity) => identity.keycloak_user_id === event.userId);
+    for (const identity of affected) {
+      if (event.kind === 'logout-session') {
+        if (!event.sessionId) return fail('IDENTITY_SECURITY_OBSERVATION_INVALID');
+        await client.query('select id from users where id=$1 for update', [identity.user_id]);
+        await client.query(
+          `insert into identity_idp_session_revocations(identity_id,keycloak_session_hash)
             values($1,$2) on conflict(identity_id,keycloak_session_hash) do update set
             revoked_at=statement_timestamp(),expires_at=statement_timestamp()+interval '10 minutes'`,
-            [identity.id, hash(event.sessionId)],
-          );
-          await client.query(
-            `delete from user_sessions where saml_identity_id=$1
-            and split_part(saml_session_index,'::',1)=$2`,
-            [identity.id, event.sessionId],
-          );
-        } else {
-          revoke.set(
-            identity.user_id,
-            (revoke.get(identity.user_id) ?? false) || !event.remoteLogoutConfirmed,
-          );
-        }
-      }
-    }
-    for (const [userId, requiresRemoteLogout] of [...revoke].sort(([a], [b]) =>
-      a.localeCompare(b),
-    )) {
-      await revokeUserIdentitySecurity(client, userId);
-      if (!requiresRemoteLogout) {
-        const confirmed = targets
-          .filter(
-            (identity) =>
-              identity.user_id === userId &&
-              (!identity.idp_disabled_by_gcr ||
-                identity.security_reconciled_epoch === identity.security_epoch),
-          )
-          .map((identity) => identity.id);
-        // A successful Keycloak /logout event already acknowledges that realm's
-        // logout. Do not enqueue another logout and create an event feedback loop.
-        const acknowledged = await client.query<{ id: string }>(
-          `update user_identities set security_reconciled_epoch=security_epoch,
-          security_login_after=clock_timestamp() where id=any($1::uuid[]) returning id`,
-          [confirmed],
+          [identity.id, hash(event.sessionId)],
         );
         await client.query(
-          'delete from identity_security_logout_outbox where identity_id=any($1::uuid[])',
-          [acknowledged.rows.map((identity) => identity.id)],
+          `delete from user_sessions where saml_identity_id=$1
+            and split_part(saml_session_index,'::',1)=$2`,
+          [identity.id, event.sessionId],
+        );
+      } else {
+        revoke.set(
+          identity.user_id,
+          (revoke.get(identity.user_id) ?? false) || !event.remoteLogoutConfirmed,
         );
       }
     }
-    // Newly provisioned mappings also need a confirmed logout before first use.
-    await client.query(
-      `insert into identity_security_logout_outbox(identity_id,security_epoch,desired_enabled)
+  }
+  for (const [userId, requiresRemoteLogout] of [...revoke].sort(([a], [b]) => a.localeCompare(b))) {
+    await revokeUserIdentitySecurity(client, userId);
+    if (!requiresRemoteLogout) {
+      const confirmed = targets
+        .filter(
+          (identity) =>
+            identity.user_id === userId &&
+            (!identity.idp_disabled_by_gcr ||
+              identity.security_reconciled_epoch === identity.security_epoch),
+        )
+        .map((identity) => identity.id);
+      // A successful Keycloak /logout event already acknowledges that realm's
+      // logout. Do not enqueue another logout and create an event feedback loop.
+      const acknowledged = await client.query<{ id: string }>(
+        `update user_identities set security_reconciled_epoch=security_epoch,
+          security_login_after=clock_timestamp() where id=any($1::uuid[]) returning id`,
+        [confirmed],
+      );
+      await client.query(
+        'delete from identity_security_logout_outbox where identity_id=any($1::uuid[])',
+        [acknowledged.rows.map((identity) => identity.id)],
+      );
+    }
+  }
+  // Newly provisioned mappings also need a confirmed logout before first use.
+  await client.query(
+    `insert into identity_security_logout_outbox(identity_id,security_epoch,desired_enabled)
       select id,security_epoch,case when idp_disabled_by_gcr then false else null end
       from user_identities where idp_issuer=$1 and sp_entity_id=$2
       and provisioning_state='provisioned' and security_reconciled_epoch<security_epoch
       on conflict(identity_id) do nothing`,
-      [binding.issuer, binding.entityId],
-    );
-    await client.query(
-      `update identity_security_sources set state='healthy',generation=generation+$3,
+    [binding.issuer, binding.entityId],
+  );
+  await client.query(
+    `update identity_security_sources set state='healthy',generation=generation+$3,
       realm_id=$4,event_configuration_hash=$5,security_anchor_id=$6,security_anchor_time=$7,
       admin_anchor_id=$8,admin_anchor_time=$9,observed_at=$10,checked_at=lease_started_at,
       lease_id=null,lease_started_at=null,lease_until=null,available_at=clock_timestamp()+interval '15 seconds',
       last_error_code=null,updated_at=clock_timestamp() where configuration_key=$1 and lease_id=$2`,
-      [
-        lease.key,
-        lease.id,
-        newGeneration ? 1 : 0,
-        checkpoint.realmId,
-        checkpoint.configurationHash,
-        checkpoint.security.id,
-        checkpoint.security.time,
-        checkpoint.administration.id,
-        checkpoint.administration.time,
-        new Date(checkpoint.observedAt),
-      ],
-    );
-    return { revokedUsers: revoke.size, checkedAt: source.lease_started_at };
-  });
+    [
+      lease.key,
+      lease.id,
+      newGeneration ? 1 : 0,
+      checkpoint.realmId,
+      checkpoint.configurationHash,
+      checkpoint.security.id,
+      checkpoint.security.time,
+      checkpoint.administration.id,
+      checkpoint.administration.time,
+      new Date(checkpoint.observedAt),
+    ],
+  );
+  return { revokedUsers: revoke.size, checkedAt: source.lease_started_at };
 }
 
 export async function failSecurityObservation(

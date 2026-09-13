@@ -167,11 +167,22 @@ export class KeycloakAdminClient {
   readonly endpoints: ReturnType<typeof validateKeycloakAdminSettings>;
   private token: { value: string; until: number } | undefined;
   private tokenPending: Promise<string> | undefined;
+  private requestGuard: (() => void) | undefined;
   constructor(
     protected readonly settings: KeycloakAdminSettings,
     private readonly request: typeof fetch = fetch,
   ) {
     this.endpoints = validateKeycloakAdminSettings(settings);
+  }
+  async withRequestGuard<T>(guard: () => void, action: () => Promise<T>): Promise<T> {
+    if (this.requestGuard) throw new KeycloakAdminError('IDENTITY_ADMIN_UNAVAILABLE', true);
+    this.requestGuard = guard;
+    try {
+      guard();
+      return await action();
+    } finally {
+      this.requestGuard = undefined;
+    }
   }
   private async accessToken(): Promise<string> {
     if (this.token && this.token.until > Date.now()) return this.token.value;
@@ -179,6 +190,7 @@ export class KeycloakAdminClient {
     this.tokenPending = (async () => {
       try {
         const secret = await secretFile(this.settings.clientSecretFile);
+        this.requestGuard?.();
         const response = await this.request(this.endpoints.tokenUrl, {
           method: 'POST',
           redirect: 'error',
@@ -239,6 +251,7 @@ export class KeycloakAdminClient {
       const token = await this.accessToken();
       let response: Response;
       try {
+        this.requestGuard?.();
         response = await this.request(this.endpoints.adminBaseUrl + route, {
           method,
           redirect: 'error',
@@ -251,6 +264,15 @@ export class KeycloakAdminClient {
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         });
       } catch {
+        throw new KeycloakAdminError(
+          method === 'GET' ? 'IDENTITY_ADMIN_UNAVAILABLE' : 'IDENTITY_RESULT_UNCONFIRMED',
+          method === 'GET',
+        );
+      }
+      try {
+        this.requestGuard?.();
+      } catch {
+        await response.body?.cancel();
         throw new KeycloakAdminError(
           method === 'GET' ? 'IDENTITY_ADMIN_UNAVAILABLE' : 'IDENTITY_RESULT_UNCONFIRMED',
           method === 'GET',

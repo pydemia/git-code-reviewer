@@ -5,6 +5,7 @@ import type {
   IdentityOperationView,
   IdentityPreview,
   IdentityProvisioningRequest,
+  IdentityLifecycleRequest,
 } from '@gcr/contracts';
 import {
   loadIdentityOperations,
@@ -13,12 +14,17 @@ import {
   retryIdentityOperation,
 } from './api.ts';
 
-type Action = 'create' | 'link' | 'invite' | 'password-reset';
+type Action = IdentityProvisioningRequest['kind'] | IdentityLifecycleRequest['kind'];
+type Request = IdentityProvisioningRequest | IdentityLifecycleRequest;
+const defaultActions: Action[] = ['create', 'link', 'invite', 'password-reset'];
 const actionLabel: Record<Action, string> = {
   create: '조직 계정 생성',
   link: '기존 계정 연결',
   invite: '초대 메일',
   'password-reset': '비밀번호 재설정 메일',
+  disable: '조직 계정 차단',
+  enable: '조직 계정 재활성화',
+  'logout-all': '전체 기기 로그아웃',
 };
 const stateLabel = { pending: '대기', running: '처리 중', succeeded: '완료', failed: '실패' };
 const explanation: Record<string, string> = {
@@ -31,6 +37,11 @@ const explanation: Record<string, string> = {
   IDENTITY_ADMIN_CREDENTIAL_INVALID: 'Keycloak 서비스 계정 인증을 확인해 주세요.',
   IDENTITY_ACCESS_CHANGED: '앱 접근 권한이 변경되어 작업을 중단했습니다.',
   IDENTITY_OPERATION_FORBIDDEN: '요청한 관리자의 현재 권한을 확인해 주세요.',
+  IDENTITY_SECURITY_UNAVAILABLE: '보안 이벤트 수집 상태를 확인한 뒤 다시 요청해 주세요.',
+  IDENTITY_OPERATION_CONFLICT:
+    '작업 도중 계정 상태가 달라졌습니다. 현재 상태를 확인한 뒤 다시 요청해 주세요.',
+  IDENTITY_RESULT_UNCONFIRMED:
+    'Keycloak 처리 결과를 확인하지 못했습니다. 앱 접근은 계속 차단됩니다.',
 };
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : '계정 작업을 처리하지 못했습니다.';
@@ -39,10 +50,12 @@ export function IdentityAdministrationPanel({
   users,
   tenants,
   onChanged,
+  actions = defaultActions,
 }: {
   users: AdminUser[];
   tenants: Tenant[];
   onChanged: () => void;
+  actions?: Action[];
 }) {
   const [items, setItems] = useState<IdentityOperationView[]>([]);
   const [error, setError] = useState('');
@@ -58,8 +71,8 @@ export function IdentityAdministrationPanel({
   const [keycloakId, setKeycloakId] = useState('');
   const [preview, setPreview] = useState<IdentityPreview | null>(null);
   const [busy, setBusy] = useState(false);
-  const [submitted, setSubmitted] = useState<IdentityProvisioningRequest | null>(null);
-  const submittedRequest = useRef<IdentityProvisioningRequest | null>(null);
+  const [submitted, setSubmitted] = useState<Request | null>(null);
+  const submittedRequest = useRef<Request | null>(null);
   const [revokeConfirmed, setRevokeConfirmed] = useState(false);
   const previousStates = useRef(new Map<string, string>());
   useEffect(() => {
@@ -106,12 +119,16 @@ export function IdentityAdministrationPanel({
     setKeycloakId('');
   };
   const target = users.find((user) => user.id === targetId);
+  const lifecycle = action === 'disable' || action === 'enable' || action === 'logout-all';
   const eligibleUsers = users.filter((user) =>
-    action === 'invite' || action === 'password-reset'
-      ? user.enabled &&
-        user.identityState?.enabled &&
-        user.identityState.provisioningState === 'provisioned'
-      : !user.identityState,
+    lifecycle
+      ? user.identityState?.provisioningState === 'provisioned' &&
+        (action !== 'enable' || !user.enabled || !user.identityState.enabled)
+      : action === 'invite' || action === 'password-reset'
+        ? user.enabled &&
+          user.identityState?.enabled &&
+          user.identityState.provisioningState === 'provisioned'
+        : !user.identityState,
   );
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -154,6 +171,12 @@ export function IdentityAdministrationPanel({
                 expectedEmail: email,
                 revokeAllSessions: true,
               };
+      } else if (
+        (action === 'disable' || action === 'enable' || action === 'logout-all') &&
+        existing
+      ) {
+        if (!revokeConfirmed) return;
+        input = { kind: action, requestId, target: existing, revokeAllSessions: true };
       } else return;
       submittedRequest.current = input;
       setSubmitted(input);
@@ -218,7 +241,7 @@ export function IdentityAdministrationPanel({
         </button>
       </div>
       <div className="identity-actions">
-        {(['create', 'link', 'invite', 'password-reset'] as const).map((value) => (
+        {actions.map((value) => (
           <button
             key={value}
             type="button"
@@ -244,6 +267,7 @@ export function IdentityAdministrationPanel({
                 onChange={(event) => {
                   const id = event.target.value;
                   setTargetId(id);
+                  setRevokeConfirmed(false);
                   const user = users.find((entry) => entry.id === id);
                   setDisplayName(user?.displayName ?? '');
                   setEmail(items.find((item) => item.userId === id)?.email ?? '');
@@ -287,7 +311,7 @@ export function IdentityAdministrationPanel({
                 </label>
               </>
             ) : null}
-            {action !== 'link' ? (
+            {['create', 'invite', 'password-reset'].includes(action) ? (
               <label>
                 {action === 'invite' || action === 'password-reset'
                   ? '현재 등록된 이메일'
@@ -367,7 +391,7 @@ export function IdentityAdministrationPanel({
               </>
             ) : null}
           </fieldset>
-          {action === 'password-reset' ? (
+          {action === 'password-reset' || lifecycle ? (
             <label className="identity-tenant">
               <input
                 type="checkbox"
@@ -376,7 +400,13 @@ export function IdentityAdministrationPanel({
                 disabled={busy || submitted !== null}
                 onChange={(event) => setRevokeConfirmed(event.target.checked)}
               />
-              이 사용자의 모든 GCR 세션을 종료하고 비밀번호 재설정 메일을 요청합니다.
+              {action === 'disable'
+                ? '앱 접근을 즉시 차단하고 조직 계정을 비활성화하며 모든 로그인 세션을 종료합니다.'
+                : action === 'enable'
+                  ? '기존 로그인 세션을 종료하고, 조직 계정과 보안 이벤트 확인이 끝난 뒤 앱 접근을 다시 허용합니다.'
+                  : action === 'logout-all'
+                    ? '이 사용자의 모든 GCR 세션과 조직 계정의 기기 세션을 종료합니다. 계정 활성 상태는 유지합니다.'
+                    : '이 사용자의 모든 GCR 세션을 종료하고 비밀번호 재설정 메일을 요청합니다.'}
             </label>
           ) : null}
           {submitted ? (
@@ -395,6 +425,7 @@ export function IdentityAdministrationPanel({
                   ((action === 'link' && (!target || !preview)) ||
                     ((action === 'invite' || action === 'password-reset') && !target) ||
                     (action === 'password-reset' && !revokeConfirmed) ||
+                    (lifecycle && (!target || !revokeConfirmed)) ||
                     (action === 'create' && targetId === 'new' && tenantIds.length === 0)))
               }
             >

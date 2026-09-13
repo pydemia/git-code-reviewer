@@ -654,7 +654,12 @@ export function AdminPage() {
           ) : null}
 
           {tab === 'users' && identityCapabilities?.enabled ? (
-            <IdentityAdministrationPanel users={users} tenants={tenants} onChanged={reloadUsers} />
+            <IdentityAdministrationPanel
+              users={users}
+              tenants={tenants}
+              onChanged={reloadUsers}
+              actions={identityCapabilities.actions}
+            />
           ) : null}
 
           {tab === 'provider' ? (

@@ -68,10 +68,22 @@ export const identityProvisioningRequest = z.discriminatedUnion('kind', [
 ]);
 export type IdentityProvisioningRequest = z.infer<typeof identityProvisioningRequest>;
 
+export const identityLifecycleRequest = z
+  .object({
+    kind: z.enum(['disable', 'enable', 'logout-all']),
+    requestId: uuid,
+    target: existingTarget,
+    revokeAllSessions: z.literal(true),
+  })
+  .strict();
+export type IdentityLifecycleRequest = z.infer<typeof identityLifecycleRequest>;
+
 export const identityAdministrationCapabilitiesSchema = z.object({
   enabled: z.boolean(),
   authMode: z.enum(['development', 'local', 'oidc', 'proxy', 'saml']),
-  actions: z.array(z.enum(['create', 'link', 'invite', 'password-reset'])),
+  actions: z.array(
+    z.enum(['create', 'link', 'invite', 'password-reset', 'disable', 'enable', 'logout-all']),
+  ),
 });
 export const identityOperationViewSchema = z.object({
   id: z.string().uuid(),

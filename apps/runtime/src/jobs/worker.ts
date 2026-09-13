@@ -16,9 +16,13 @@ import Fastify from 'fastify';
 import type { AppConfig } from '../config.js';
 import { identityAdministrationConfig } from '../identity/config.js';
 import { KeycloakAdminClient } from '../identity/keycloak-admin.js';
-import { processIdentityOperation } from '../identity/processor.js';
+import { processIdentityOperation, type IdentityAdministration } from '../identity/processor.js';
 import { KeycloakSecurityClient } from '../identity/keycloak-security.js';
-import { reconcileIdentitySecurity } from '../identity/security-processor.js';
+import {
+  reconcileIdentitySecurity,
+  type IdentitySecurityAdministration,
+} from '../identity/security-processor.js';
+import { processIdentityReactivation } from '../identity/reactivation.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
 import { withModelBudget } from '../services/model-admission.js';
@@ -73,7 +77,14 @@ type Logger = {
   error(value: object, message: string): void;
 };
 
-export async function runWorker(config: AppConfig): Promise<void> {
+export async function runWorker(
+  config: AppConfig,
+  options: {
+    readonly identityAdministration?: IdentityAdministration;
+    readonly identitySecurity?: IdentitySecurityAdministration;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<void> {
   await mkdir(config.WORKSPACE_ROOT, { recursive: true });
   await mkdir(config.ARTIFACT_ROOT, { recursive: true });
   const database = createDatabase(config.DATABASE_URL, Math.max(2, config.DATABASE_POOL_MAX));
@@ -83,23 +94,21 @@ export async function runWorker(config: AppConfig): Promise<void> {
   const health = Fastify({ logger: true });
   const identityConfig = identityAdministrationConfig(config);
   const identityAdmin = identityConfig
-    ? new KeycloakAdminClient(identityConfig.settings)
+    ? (options.identityAdministration ?? new KeycloakAdminClient(identityConfig.settings))
     : undefined;
   let identityRunning = false,
     nextIdentityAt = 0;
   const identitySecurity =
     identityConfig && config.IDENTITY_SECURITY_ENABLED
-      ? new KeycloakSecurityClient(identityConfig.settings)
+      ? (options.identitySecurity ?? new KeycloakSecurityClient(identityConfig.settings))
       : undefined;
-  let securityRunning = false,
-    nextSecurityAt = 0;
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
   let preferChat = true;
   let activeBatch = 0;
   let lastRecoveryAt = 0;
-  const shutdown = stopSignal().then(() => {
+  const shutdown = stopSignal(options.signal).then(() => {
     stopping = true;
   });
 
@@ -113,46 +122,37 @@ export async function runWorker(config: AppConfig): Promise<void> {
 
   while (!stopping) {
     lastLoopAt = Date.now();
-    if (identityConfig && identitySecurity && !securityRunning && Date.now() >= nextSecurityAt) {
-      securityRunning = true;
-      const securityTask = reconcileIdentitySecurity(
-        database,
-        identityConfig.binding,
-        identitySecurity,
-      )
-        .then(() => {
-          nextSecurityAt = Date.now() + 2000;
-        })
-        .catch(() => {
-          nextSecurityAt = Date.now() + 5000;
-          health.log.error(
-            { code: 'IDENTITY_SECURITY_STORAGE_UNAVAILABLE' },
-            'identity security reconciliation paused',
-          );
-        })
-        .finally(() => {
-          securityRunning = false;
-          active.delete(securityTask);
-        });
-      active.add(securityTask);
-    }
     if (identityConfig && identityAdmin && !identityRunning && Date.now() >= nextIdentityAt) {
       identityRunning = true;
-      const identityTask = processIdentityOperation(database, identityConfig.binding, identityAdmin)
-        .then((processed) => {
-          nextIdentityAt = Date.now() + (processed ? 0 : 2000);
-        })
-        .catch(() => {
-          nextIdentityAt = Date.now() + 5000;
-          health.log.error(
-            { code: 'IDENTITY_OPERATION_STORAGE_UNAVAILABLE' },
-            'identity administration paused',
-          );
-        })
-        .finally(() => {
-          identityRunning = false;
-          active.delete(identityTask);
-        });
+      // One sequential pass gives provisioning, reactivation and revocation a
+      // turn. Independent timers could repeatedly contend for the realm lease.
+      const identityTask = (async () => {
+        const phases = [
+          () => processIdentityOperation(database, identityConfig.binding, identityAdmin),
+          ...(identitySecurity
+            ? [
+                () =>
+                  processIdentityReactivation(database, identityConfig.binding, identitySecurity),
+                () => reconcileIdentitySecurity(database, identityConfig.binding, identitySecurity),
+              ]
+            : []),
+        ];
+        for (const phase of phases) {
+          if (stopping) break;
+          try {
+            await phase();
+          } catch {
+            health.log.error(
+              { code: 'IDENTITY_RECONCILIATION_UNAVAILABLE' },
+              'identity background phase paused',
+            );
+          }
+        }
+      })().finally(() => {
+        nextIdentityAt = Date.now() + 2000;
+        identityRunning = false;
+        active.delete(identityTask);
+      });
       active.add(identityTask);
     }
     if (Date.now() - lastRecoveryAt > 10000) {
@@ -160,7 +160,7 @@ export async function runWorker(config: AppConfig): Promise<void> {
       lastRecoveryAt = Date.now();
     }
     let claimed = false;
-    while (!stopping && active.size < config.WORKER_CONCURRENCY) {
+    while (!stopping && active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY) {
       const batchAvailable =
         !config.CHAT_AGENT_ENABLED ||
         config.WORKER_CONCURRENCY === 1 ||
@@ -1161,7 +1161,12 @@ function errorMessage(error: unknown): string {
 }
 
 let signalPromise: Promise<void> | undefined;
-function stopSignal(): Promise<void> {
+function stopSignal(signal?: AbortSignal): Promise<void> {
+  if (signal)
+    return new Promise((resolve) => {
+      if (signal.aborted) resolve();
+      else signal.addEventListener('abort', () => resolve(), { once: true });
+    });
   signalPromise ??= new Promise((resolve) => {
     process.once('SIGTERM', resolve);
     process.once('SIGINT', resolve);

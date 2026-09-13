@@ -71,6 +71,8 @@ export interface IdentitySecurityEvent {
   readonly userId?: string;
   readonly sessionId?: string;
   readonly remoteLogoutConfirmed?: boolean;
+  readonly ownAdministration?: true;
+  readonly administrationAction?: 'update-user' | 'logout-user' | 'other';
 }
 export interface SecurityObservation {
   readonly checkpoint: SecurityCheckpoint;
@@ -290,6 +292,13 @@ export class KeycloakSecurityClient extends KeycloakAdminClient {
           stream: 'administration',
           kind: 'revoke-identity',
           userId: target,
+          ...(event.authDetails?.userId === claims.sub ? { ownAdministration: true as const } : {}),
+          administrationAction:
+            event.operationType === 'UPDATE' && event.resourcePath === `users/${target}`
+              ? 'update-user'
+              : event.operationType === 'ACTION' && event.resourcePath === `users/${target}/logout`
+                ? 'logout-user'
+                : 'other',
           ...(event.operationType === 'ACTION' && event.resourcePath === `users/${target}/logout`
             ? { remoteLogoutConfirmed: true }
             : {}),

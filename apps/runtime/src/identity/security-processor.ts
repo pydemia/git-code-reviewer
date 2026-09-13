@@ -2,6 +2,8 @@ import type { Database } from '@gcr/db';
 import type { SamlProviderBinding } from '../auth/saml-state.js';
 import { KeycloakAdminError } from './keycloak-admin.js';
 import { KeycloakSecurityClient, KeycloakSecurityError } from './keycloak-security.js';
+import { withIdentityRemoteLease } from './remote-lease.js';
+import { completeIdentityRevocations } from './lifecycle.js';
 import {
   applySecurityObservation,
   claimIdentitySecurityLogout,
@@ -19,7 +21,7 @@ import {
 
 export type IdentitySecurityAdministration = Pick<
   KeycloakSecurityClient,
-  'endpoints' | 'capture' | 'getUser' | 'identity' | 'logoutAll' | 'setEnabled'
+  'endpoints' | 'capture' | 'getUser' | 'identity' | 'logoutAll' | 'setEnabled' | 'withRequestGuard'
 >;
 const leaseLost = (error: unknown) =>
   error instanceof IdentitySecurityStateError && error.code === 'IDENTITY_SECURITY_LEASE_LOST';
@@ -36,6 +38,16 @@ export async function reconcileIdentitySecurity(
     adapter.endpoints.entityId !== binding.entityId
   )
     throw new IdentitySecurityStateError('IDENTITY_SECURITY_OBSERVATION_INVALID');
+  const work = await withIdentityRemoteLease(database, binding.issuer, ({ assertHeld }) =>
+    adapter.withRequestGuard(assertHeld, () => reconcileClaim(database, binding, adapter)),
+  );
+  return work.acquired ? work.result : { observed: false, loggedOut: false, profilesConfirmed: 0 };
+}
+async function reconcileClaim(
+  database: Database,
+  binding: SamlProviderBinding,
+  adapter: IdentitySecurityAdministration,
+) {
   let observed = false,
     loggedOut = false,
     profilesConfirmed = 0;
@@ -127,5 +139,6 @@ export async function reconcileIdentitySecurity(
     }
   }
   if (observed) await pruneIdentitySecurityState(database);
+  await completeIdentityRevocations(database, binding);
   return { observed, loggedOut, profilesConfirmed };
 }

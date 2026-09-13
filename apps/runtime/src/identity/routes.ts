@@ -1,6 +1,7 @@
 import {
   errorEnvelope,
   identityProvisioningRequest,
+  identityLifecycleRequest,
   schemaVersion,
   type IdentityOperationView,
 } from '@gcr/contracts';
@@ -12,6 +13,7 @@ import { requireAdministrator } from '../auth/index.js';
 import type { AuthorizationService } from '../services/authorization.js';
 import { identityAdministrationConfig } from './config.js';
 import { KeycloakAdminClient, KeycloakAdminError } from './keycloak-admin.js';
+import { requestIdentityLifecycle, retryIdentityReactivation } from './lifecycle.js';
 import {
   IdentityOperationError,
   requestIdentityProvisioning,
@@ -34,6 +36,7 @@ export function identityOperationView(row: IdentityOperation): IdentityOperation
     retryAllowed:
       row.state === 'failed' &&
       !row.mail_dispatched_at &&
+      !['disable', 'logout-all'].includes(row.kind) &&
       row.error_code !== 'IDENTITY_ACCESS_CHANGED',
     mailDelivery: !['invite', 'password-reset'].includes(row.kind)
       ? 'not-requested'
@@ -83,6 +86,8 @@ export async function registerIdentityAdministrationRoutes(
         '다른 계정 작업이 진행 중이거나 요청 상태가 달라졌습니다. 목록을 새로 확인해 주세요.',
       IDENTITY_ADMIN_FORBIDDEN: 'Keycloak 서비스 계정에 사용자 관리 권한이 없습니다.',
       IDENTITY_ADMIN_CREDENTIAL_INVALID: 'Keycloak 서비스 계정 인증을 확인해 주세요.',
+      IDENTITY_SECURITY_UNAVAILABLE: '보안 이벤트 수집 상태를 확인한 뒤 다시 요청해 주세요.',
+      IDENTITY_LAST_ADMINISTRATOR_REQUIRED: '활성 관리자를 한 명 이상 유지해야 합니다.',
     };
     return reply
       .code(unavailable ? 503 : invalid ? 400 : error.code.endsWith('NOT_FOUND') ? 404 : 409)
@@ -105,7 +110,15 @@ export async function registerIdentityAdministrationRoutes(
         schemaVersion,
         enabled: Boolean(settings),
         authMode: config.AUTH_MODE,
-        actions: settings ? ['create', 'link', 'invite', 'password-reset'] : [],
+        actions: settings
+          ? [
+              'create',
+              'link',
+              'invite',
+              'password-reset',
+              ...(config.IDENTITY_SECURITY_ENABLED ? ['disable', 'enable', 'logout-all'] : []),
+            ]
+          : [],
       };
     },
   );
@@ -152,17 +165,24 @@ export async function registerIdentityAdministrationRoutes(
     { preHandler: requireAdministrator },
     async (request, reply) => {
       if (!settings) return hidden(request, reply);
-      const input = identityProvisioningRequest.parse(request.body);
+      const input = z
+        .union([identityProvisioningRequest, identityLifecycleRequest])
+        .parse(request.body);
+      const lifecycle =
+        input.kind === 'disable' || input.kind === 'enable' || input.kind === 'logout-all';
+      if (lifecycle && !config.IDENTITY_SECURITY_ENABLED) return hidden(request, reply);
       const target = input.target.kind === 'new' ? 'new' : input.target.userId;
       if (!(await authorized(request, target === 'new' ? 'create' : 'manage', target)))
         return hidden(request, reply);
       try {
-        const operation = await requestIdentityProvisioning(
-          database,
-          settings.binding,
-          request.user!.id,
-          input,
-        );
+        const operation = lifecycle
+          ? await requestIdentityLifecycle(database, settings.binding, request.user!.id, input)
+          : await requestIdentityProvisioning(
+              database,
+              settings.binding,
+              request.user!.id,
+              identityProvisioningRequest.parse(input),
+            );
         return reply.code(202).send({ schemaVersion, operation: identityOperationView(operation) });
       } catch (error) {
         return handle(error, request, reply);
@@ -177,16 +197,29 @@ export async function registerIdentityAdministrationRoutes(
       const { operationId } = operationParams.parse(request.params);
       z.object({}).strict().parse(request.body);
       const row = (
-        await database.query<{ user_id: string | null }>(
-          `select user_id from identity_admin_operations
+        await database.query<{ user_id: string | null; kind: IdentityOperation['kind'] }>(
+          `select user_id,kind from identity_admin_operations
       where id=$1 and idp_issuer=$2 and sp_entity_id=$3`,
           [operationId, settings.binding.issuer, settings.binding.entityId],
         )
       ).rows[0];
       if (!row?.user_id || !(await authorized(request, 'manage', row.user_id)))
         return hidden(request, reply);
+      if (
+        ['enable', 'disable', 'logout-all'].includes(row.kind) &&
+        !config.IDENTITY_SECURITY_ENABLED
+      )
+        return hidden(request, reply);
       try {
-        await retryIdentityOperation(database, settings.binding, request.user!.id, operationId);
+        if (row.kind === 'enable')
+          await retryIdentityReactivation(
+            database,
+            settings.binding,
+            request.user!.id,
+            operationId,
+          );
+        else
+          await retryIdentityOperation(database, settings.binding, request.user!.id, operationId);
         return reply.code(202).send({ schemaVersion, id: operationId });
       } catch (error) {
         return handle(error, request, reply);

@@ -65,6 +65,7 @@ describe.skipIf(!databaseUrl).sequential('Identity provisioning PostgreSQL opera
     };
     const adapter = {
       endpoints: identityReader.endpoints,
+      withRequestGuard: identityReader.withRequestGuard.bind(identityReader),
       identity: (user: KeycloakUser) => identityReader.identity(user),
       ensureCreated: vi.fn(async (plan: KeycloakCreatePlan) => {
         const existing = [...users.values()].find((user) => user.username === plan.username);

@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../apps/runtime/src/config.ts';
 import { buildServer } from '../apps/runtime/src/server.ts';
 import { processIdentityOperation } from '../apps/runtime/src/identity/processor.ts';
+import { processIdentityReactivation } from '../apps/runtime/src/identity/reactivation.ts';
+import { reconcileIdentitySecurity } from '../apps/runtime/src/identity/security-processor.ts';
 
 export async function runIdentityApplicationSmoke({
   browser,
@@ -22,6 +24,7 @@ export async function runIdentityApplicationSmoke({
   clientId,
   secretFile,
   smtpCount,
+  securityValidation,
   progress,
 }) {
   const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,6 +42,7 @@ export async function runIdentityApplicationSmoke({
     LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'identity-app-admin',
     LOCAL_BOOTSTRAP_ADMIN_PASSWORD: password,
     IDENTITY_ADMIN_ENABLED: 'true',
+    IDENTITY_SECURITY_ENABLED: String(Boolean(securityValidation)),
     SAML_IDP_ISSUER: config.idpIssuer,
     SAML_ENTITY_ID: config.entityId,
     KEYCLOAK_ADMIN_CLIENT_ID: clientId,
@@ -52,7 +56,7 @@ export async function runIdentityApplicationSmoke({
     app = await buildServer(appConfig, { identityAdministration: adapter });
     await app.listen({ host: '127.0.0.1', port: 0 });
     const port = app.server.address().port;
-    wire((request, response) => {
+    const forward = (request, response) => {
       if (request.headers.host !== new URL(origin).host) {
         response.writeHead(400).end();
         return;
@@ -75,7 +79,8 @@ export async function runIdentityApplicationSmoke({
         response.end();
       });
       request.pipe(upstream);
-    });
+    };
+    wire(forward);
     context = await browser.newContext({ ignoreHTTPSErrors: false });
     page = await context.newPage();
     page.on('pageerror', (error) => errors.push(error.name));
@@ -257,6 +262,79 @@ export async function runIdentityApplicationSmoke({
       'production-origin-guard-rejects-injected-cross-origin-operation',
       'realm-account-preview-through-real-authenticated-http',
     );
+    if (securityValidation) {
+      // The protocol fixture owns the same HTTPS listener. Temporarily return
+      // it while validating signed SAML events, then resume the real app route.
+      wire(undefined);
+      try {
+        await securityValidation.run();
+      } finally {
+        wire(forward);
+      }
+      await page.reload();
+      await page.getByRole('heading', { name: '조직 계정 관리', exact: true }).waitFor();
+      const mapped = (
+        await database.query(
+          `select u.id,u.oidc_subject,i.id identity_id,i.keycloak_user_id from users u
+        join user_identities i on i.user_id=u.id where u.id=$1 and u.enabled and i.enabled`,
+          [user.id],
+        )
+      ).rows[0];
+      assert(mapped);
+      for (const [kind, label] of [
+        ['disable', '조직 계정 차단'],
+        ['enable', '조직 계정 재활성화'],
+        ['logout-all', '전체 기기 로그아웃'],
+      ]) {
+        progress(`lifecycle-${kind}`);
+        await panel.getByRole('button', { name: label, exact: true }).click();
+        const lifecycleForm = panel.getByRole('form', { name: label, exact: true });
+        await lifecycleForm.getByLabel(/^GCR 사용자/).selectOption(mapped.id);
+        assert(await lifecycleForm.getByRole('button', { name: label, exact: true }).isDisabled());
+        await lifecycleForm.getByRole('checkbox').check();
+        const accepted = await submit(lifecycleForm, label);
+        if (kind !== 'logout-all')
+          assert.equal(
+            (await database.query('select enabled from users where id=$1', [mapped.id])).rows[0]
+              .enabled,
+            false,
+          );
+        if (kind === 'enable')
+          await processIdentityReactivation(database, binding, securityValidation.adapter);
+        else {
+          const count = Number(
+            (await database.query('select count(*) from user_identities')).rows[0].count,
+          );
+          for (let index = 0; index < count + 3; index++) {
+            await database.query(
+              'update identity_security_sources set available_at=clock_timestamp()',
+            );
+            await reconcileIdentitySecurity(database, binding, securityValidation.adapter);
+          }
+        }
+        const result = (
+          await database.query(
+            'select state,error_code from identity_admin_operations where id=$1',
+            [accepted.id],
+          )
+        ).rows[0];
+        assert.equal(result.state, 'succeeded', `UI ${kind} failed: ${result.error_code}`);
+        assert.equal((await adapter.getUser(mapped.keycloak_user_id)).enabled, kind !== 'disable');
+        assert.equal(
+          (await database.query('select enabled from users where id=$1', [mapped.id])).rows[0]
+            .enabled,
+          kind !== 'disable',
+        );
+        await panel.getByRole('button', { name: '작업 새로고침', exact: true }).click();
+        await panel.getByText(`${label} · 완료`, { exact: true }).first().waitFor();
+        // Reload the real admin response before choosing a newly eligible user.
+        await page.reload();
+        await page.getByRole('heading', { name: '조직 계정 관리', exact: true }).waitFor();
+      }
+      checks.push(
+        'compiled-lifecycle-ui-to-authenticated-api-to-real-keycloak-disable-enable-and-all-device-logout',
+      );
+    }
     assert.deepEqual(errors, []);
     if (process.env.GCR_IDENTITY_APP_SCREENSHOT)
       await page.screenshot({ path: process.env.GCR_IDENTITY_APP_SCREENSHOT, fullPage: true });
