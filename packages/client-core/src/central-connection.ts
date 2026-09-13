@@ -2,6 +2,9 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   centralConnectionInput,
+  fallbackReason,
+  offlineBehavior,
+  type OfflineBehavior,
   centralConnectionRecord,
   centralConnectionReference,
   type CentralConnectionRecord,
@@ -21,6 +24,14 @@ const denied = () =>
     'authentication-required',
     'The selected central connection requires authentication.',
   );
+export class CentralConnectionSetupError extends KnowledgeSyncError {
+  constructor(
+    code: KnowledgeSyncError['code'],
+    readonly connectionId: string,
+  ) {
+    super(code, 'The authenticated connection could not activate its first knowledge snapshot.');
+  }
+}
 type State = { revision: number; value: CentralConnectionRecord };
 /** Explicit repository/profile connections. Tokens live only in the OS credential port. */
 export class CentralConnections {
@@ -135,7 +146,9 @@ export class CentralConnections {
     apiKey: string,
     clientId: 'gcr-cli' | 'commit-defender',
     signal?: AbortSignal,
+    options: { offlineBehavior?: OfflineBehavior } = {},
   ) {
+    const behavior = offlineBehavior(options.offlineBehavior ?? 'pause');
     const config = centralConnectionInput(input);
     validateCentralApiKey(apiKey);
     if (
@@ -197,6 +210,7 @@ export class CentralConnections {
         pem: key.export({ type: 'spki', format: 'pem' }).toString(),
       })),
       ca: config.ca,
+      offlineBehavior: behavior,
       credentialReference: 'gcr-' + randomUUID(),
       keyId: identity.keyId,
       clientId,
@@ -239,6 +253,14 @@ export class CentralConnections {
       } catch {
         /* A secret can remain without an active connection. */
       }
+      if (error instanceof KnowledgeSyncError && !signal?.aborted) {
+        try {
+          fallbackReason(error.code);
+        } catch {
+          throw error;
+        }
+        throw new CentralConnectionSetupError(error.code, value.id);
+      }
       throw error;
     }
   }
@@ -250,6 +272,7 @@ export class CentralConnections {
       status: value.status,
       serverUrl: value.serverUrl,
       audience: value.audience,
+      offlineBehavior: value.offlineBehavior ?? 'pause',
       keyId: value.keyId,
       clientId: value.clientId,
       expiresAt: value.expiresAt,

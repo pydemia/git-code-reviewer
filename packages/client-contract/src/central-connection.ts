@@ -1,5 +1,17 @@
-import { choice, id, list, literal, object, sha256, text, timestamp, union } from './codec.js';
+import {
+  choice,
+  id,
+  list,
+  literal,
+  object,
+  optional,
+  sha256,
+  text,
+  timestamp,
+  union,
+} from './codec.js';
 import { knowledgeAudience } from './knowledge-manifest.js';
+import { offlineBehavior } from './review-execution.js';
 const keys = list(object({ id, pem: text(4096, 1) }), 16, 1);
 export const centralConnectionInput = object({
   serverUrl: text(4096, 1),
@@ -29,6 +41,7 @@ export const centralConnectionRecord = object({
   audience: knowledgeAudience,
   trustedKeys: keys,
   ca: union(text(65536, 1), literal(null)),
+  offlineBehavior: optional(offlineBehavior),
   credentialReference: id,
   keyId: id,
   clientId: choice(['gcr-cli', 'commit-defender']),

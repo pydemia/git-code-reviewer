@@ -13,6 +13,7 @@ export const centralCacheIndex = object({
   status: choice(['enabled', 'disconnected', 'authentication-required', 'revoked']),
   identityUnavailable: optional(boolean),
   lastSynchronizedAt: optional(integer()),
+  lastSyncFailure: optional(union(choice(['unavailable', 'timeout']), literal(null))),
   minimumAuthorizationRevision: integer(),
   minimumSequences: knowledgeSequences,
   revocationMinimumSequences: optional(knowledgeSequences),

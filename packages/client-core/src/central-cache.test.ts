@@ -591,8 +591,12 @@ describe('encrypted central snapshot synchronization', () => {
         code:
           status === 401 ? 'authentication-required' : status === 403 ? 'revoked' : 'unavailable',
       });
-      if (status === 503) expect((await (await f.open()).read()).manifest).toEqual(data.signed());
-      else
+      if (status === 503) {
+        expect((await (await f.open()).read()).manifest).toEqual(data.signed());
+        await expect((await f.open()).read('online')).rejects.toMatchObject({
+          code: 'unavailable',
+        });
+      } else
         await expect((await f.open()).read()).rejects.toMatchObject({
           code: status === 401 ? 'authentication-required' : 'revoked',
         });

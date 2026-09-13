@@ -4,6 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   ContractError,
+  offlineBehavior,
   localKnowledge,
   localScope,
   reviewExitCode,
@@ -21,6 +22,8 @@ import {
   resolveLocalContext,
   resolveCentralContext,
   CentralConnections,
+  CentralConnectionSetupError,
+  resolveReviewExecution,
   KnowledgeSyncError,
   type CentralCredentialStore,
   resolveLocalExecutionPolicy,
@@ -125,6 +128,10 @@ export async function executeCli(
       return Number(value);
     };
     const mode = resolveReviewMode({ mode: string('mode', 'standalone') });
+    const behavior =
+      values['offline-behavior'] === undefined
+        ? undefined
+        : offlineBehavior(string('offline-behavior'));
     const central = mode.mode === 'centralized';
     if (central && command !== 'central' && !string('connection'))
       return {
@@ -141,7 +148,11 @@ export async function executeCli(
         exitCode: 2,
       };
     if (
-      (!central && (command === 'central' || string('connection') || values.offline)) ||
+      (!central &&
+        (command === 'central' ||
+          string('connection') ||
+          values.offline ||
+          values['offline-behavior'])) ||
       (central &&
         !['central', 'status', 'context', 'review', 'history', 'result'].includes(command))
     )
@@ -220,11 +231,13 @@ export async function executeCli(
         return {
           value: await (
             await centralConnections()
-          ).connect(config, secret, 'gcr-cli', dependencies.signal),
+          ).connect(config, secret, 'gcr-cli', dependencies.signal, {
+            offlineBehavior: behavior ?? 'cache-then-standalone',
+          }),
           exitCode: 0,
         };
       }
-      if (string('input') || values['api-key-stdin'])
+      if (string('input') || values['api-key-stdin'] || values['offline-behavior'])
         throw new CliError('usage', 'Only connect accepts configuration and key input.');
       if (action === 'list') {
         if (string('connection'))
@@ -377,8 +390,8 @@ export async function executeCli(
         },
         exitCode: 0,
       };
-    let history: LocalHistoryStore;
-    if (central) {
+    const historyStore = async (isCentral: boolean): Promise<LocalHistoryStore> => {
+      if (!isCentral) return new LocalHistoryStore(await records(repositoryScope!));
       const identity = await (await centralConnections()).historyIdentity(string('connection')!);
       const centralRecords = await LocalRecordStore.open({
         scope: repositoryScope!,
@@ -386,17 +399,44 @@ export async function executeCli(
         ...(dependencies.keys ? { keys: dependencies.keys } : {}),
       });
       opened.push(centralRecords);
-      history = new LocalHistoryStore(centralRecords, undefined, identity.audience);
-    } else history = new LocalHistoryStore(await records(repositoryScope!));
-    if (command === 'result') {
-      const report = await history.getReview(positionals[0]!);
-      if (!report)
-        throw new CliError('not-found', 'Review was not found in this profile and worktree.');
-      return { value: report, exitCode: reviewExitCode(report) };
-    }
-    if (command === 'history')
+      return new LocalHistoryStore(centralRecords, undefined, identity.audience);
+    };
+    if (command === 'result' || command === 'history') {
+      let history: LocalHistoryStore | undefined;
+      let denied: unknown;
+      try {
+        history = await historyStore(central);
+      } catch (cause) {
+        if (
+          !(cause instanceof KnowledgeSyncError) ||
+          !['authentication-required', 'revoked', 'disabled'].includes(cause.code)
+        )
+          throw cause;
+        denied = cause;
+      }
+      const fallbackHistory = central ? await historyStore(false) : undefined;
+      const isFallback = (report: import('@gcr/client-contract').ClientReviewReport) =>
+        report.identity.client.mode === 'standalone' &&
+        report.identity.client.execution?.connectionId === string('connection');
+      if (command === 'result') {
+        let report = await history?.getReview(positionals[0]!);
+        if (!report && fallbackHistory) {
+          const local = await fallbackHistory.getReview(positionals[0]!);
+          if (local && isFallback(local)) report = local;
+        }
+        if (!report) {
+          if (denied) throw denied;
+          throw new CliError('not-found', 'Review was not found in this profile and worktree.');
+        }
+        return { value: report, exitCode: reviewExitCode(report) };
+      }
+      const reports = [
+        ...((await history?.listReviews()) ?? []),
+        ...(fallbackHistory ? (await fallbackHistory.listReviews()).filter(isFallback) : []),
+      ].sort((a, b) => (b.finishedAt ?? '').localeCompare(a.finishedAt ?? ''));
+      if (!reports.length && denied) throw denied;
       return {
-        value: (await history.listReviews()).map((report) => ({
+        value: reports.map((report) => ({
           runId: report.runId,
           status: report.status,
           finishedAt: report.finishedAt,
@@ -404,10 +444,12 @@ export async function executeCli(
           sourceHash: report.identity.source.hash,
           findings: report.findings.length,
           questions: report.questions.length,
+          execution: report.identity.client.execution ?? null,
           exitCode: reviewExitCode(report),
         })),
         exitCode: 0,
       };
+    }
     const kind = string('source', 'index');
     if (kind !== 'index' && kind !== 'working-tree')
       throw new CliError('usage', 'Source must be index or working-tree.');
@@ -435,20 +477,39 @@ export async function executeCli(
         return { side, path: sourcePath(value.slice(index + 1)) };
       }),
     };
-    const connection = central
-      ? await (
-          await centralConnections()
-        ).review(string('connection')!, values.offline ? 'offline' : 'online', dependencies.signal)
+    const connectionStatus = central
+      ? await (await centralConnections()).status(string('connection')!)
       : undefined;
+    if (connectionStatus && connectionStatus.clientId !== 'gcr-cli')
+      throw new KnowledgeSyncError('invalid-binding', 'Choose a GCR CLI connection.');
+    const execution = await resolveReviewExecution({
+      client: client!,
+      configuredMode: mode.mode,
+      offlineBehavior: behavior ?? connectionStatus?.offlineBehavior ?? 'pause',
+      ...(central
+        ? {
+            connectionId: string('connection')!,
+            freshness: values.offline ? ('offline' as const) : ('online' as const),
+            central: async (freshness) =>
+              (await centralConnections()).review(
+                string('connection')!,
+                freshness,
+                dependencies.signal,
+              ),
+          }
+        : {}),
+      ...(dependencies.signal ? { signal: dependencies.signal } : {}),
+    });
+    const connection = execution.central;
     const context = connection
       ? await resolveCentralContext({ ...contextInput, ...connection })
-      : await resolveLocalContext(contextInput);
+      : await resolveLocalContext({ ...contextInput, client: execution.client });
     if (command === 'context')
       return {
         value: {
           status: context.status,
           problems: context.problems,
-          client: context.context?.client ?? client,
+          client: context.context?.client ?? execution.client,
           ...(connection ? { freshness: connection.freshness } : {}),
           source: snapshot.identity,
           selected: snapshot.selected,
@@ -469,6 +530,7 @@ export async function executeCli(
         value: { status: context.status, problems: context.problems, source: snapshot.identity },
         exitCode: 2,
       };
+    const history = await historyStore(execution.client.mode === 'centralized');
     const executor = await prepare();
     const budget = Object.fromEntries(
       [
@@ -559,6 +621,9 @@ export async function executeCli(
     return {
       value: {
         status: error instanceof ExecutorError ? 'unavailable' : 'failed',
+        ...(error instanceof CentralConnectionSetupError
+          ? { connectionId: error.connectionId }
+          : {}),
         error: {
           code: known
             ? error.code

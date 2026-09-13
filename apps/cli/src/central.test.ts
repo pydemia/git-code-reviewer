@@ -77,30 +77,37 @@ const descriptor = {
     outputTokenLimit: false,
   },
 };
-const review: LocalReviewExecutor['review'] = async (request) => {
-  models++;
-  expect(request.prompt).toContain('CENTRAL_INSTRUCTION');
-  const reads = [];
-  for (const side of ['source', 'base'])
-    reads.push(JSON.parse(await request.source.execute('read_file', { path: 'a.ts', side })));
-  return {
-    model: descriptor.model,
-    raw: JSON.stringify({
-      summary: 'Read central policy and fixed source/base',
-      files: [
-        {
-          path: 'a.ts',
-          side: 'source',
-          complete: true,
-          summary: 'Reviewed',
-          readIds: reads.map((r) => r.readId),
-        },
-      ],
-      findings: [],
-      questions: [],
-    }),
+const reviewer =
+  (central: boolean): LocalReviewExecutor['review'] =>
+  async (request) => {
+    models++;
+    if (central) expect(request.prompt).toContain('CENTRAL_INSTRUCTION');
+    else expect(request.prompt).not.toContain('CENTRAL_INSTRUCTION');
+    const reads = [];
+    for (const side of ['source', 'base'])
+      reads.push(JSON.parse(await request.source.execute('read_file', { path: 'a.ts', side })));
+    return {
+      model: descriptor.model,
+      raw: JSON.stringify({
+        summary: central
+          ? 'Read central policy and fixed source/base'
+          : 'Read local knowledge and fixed source/base',
+        files: [
+          {
+            path: 'a.ts',
+            side: 'source',
+            complete: true,
+            summary: 'Reviewed',
+            readIds: reads.map((r) => r.readId),
+          },
+        ],
+        findings: [],
+        questions: [],
+      }),
+    };
   };
-};
+const review = reviewer(true);
+const localReview = reviewer(false);
 function manifest() {
   const common = { schemaVersion: 2 as const, tenantId: 'tenant', repositoryId: 'repo' };
   const b: Record<'policy' | 'collective' | 'personal', CentralKnowledgeBundle> = {
@@ -603,7 +610,16 @@ describe.sequential('explicit connected CLI over HTTPS', () => {
         (await invoke('revoked', ['central', 'sync', ...args('unused', id).slice(1)])).exitCode,
       ).toBe(2);
       const before = models;
-      expect((await invoke('revoked', [...args('review', id), '--offline'])).exitCode).toBe(2);
+      expect(
+        (
+          await invoke('revoked', [
+            ...args('review', id),
+            '--offline',
+            '--offline-behavior',
+            'cache-only',
+          ])
+        ).exitCode,
+      ).toBe(2);
       expect(models).toBe(before);
     } finally {
       status = 200;
@@ -644,10 +660,148 @@ describe.sequential('explicit connected CLI over HTTPS', () => {
     const before = models;
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 7200_001);
     try {
-      expect((await invoke('expiry', [...args('review', id), '--offline'])).exitCode).toBe(2);
+      expect(
+        (
+          await invoke('expiry', [
+            ...args('review', id),
+            '--offline',
+            '--offline-behavior',
+            'cache-only',
+          ])
+        ).exitCode,
+      ).toBe(2);
       expect(models).toBe(before);
     } finally {
       vi.restoreAllMocks();
+    }
+  });
+  test('uses cached central knowledge during outage and stores explicit local fallback separately', async () => {
+    const id = await connect('automatic-fallback');
+    status = 503;
+    try {
+      await invoke('automatic-fallback', ['central', 'sync', ...args('unused', id).slice(1)]);
+      const cached = await invoke('automatic-fallback', args('review', id));
+      expect(cached.exitCode, JSON.stringify(cached.value)).toBe(0);
+      expect(cached.value).toMatchObject({
+        identity: {
+          client: {
+            mode: 'centralized',
+            execution: {
+              configuredMode: 'centralized',
+              effectiveMode: 'centralized',
+              knowledgeSource: 'central-cache',
+              fallbackReason: 'unavailable',
+            },
+          },
+        },
+      });
+      const fallback = await invoke(
+        'automatic-fallback',
+        [...args('review', id), '--offline-behavior', 'standalone'],
+        localReview,
+      );
+      expect(fallback.exitCode, JSON.stringify(fallback.value)).toBe(0);
+      const report = fallback.value as import('@gcr/client-contract').ClientReviewReport;
+      expect(report.identity.client).toMatchObject({
+        mode: 'standalone',
+        execution: {
+          configuredMode: 'centralized',
+          effectiveMode: 'standalone',
+          knowledgeSource: 'local',
+          fallbackReason: 'unavailable',
+          connectionId: id,
+        },
+      });
+      expect(report.identity.context.centralSnapshot).toBeUndefined();
+      expect(report.identity.context.entries.every((entry) => entry.origin !== 'central')).toBe(
+        true,
+      );
+      expect((await invoke('automatic-fallback', ['result', report.runId])).value).toEqual(report);
+      expect(
+        (
+          await invoke('automatic-fallback', [
+            'result',
+            report.runId,
+            ...args('unused', id).slice(1),
+          ])
+        ).value,
+      ).toEqual(report);
+      expect(
+        (await invoke('automatic-fallback', ['history', ...args('unused', id).slice(1)])).value,
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            runId: report.runId,
+            execution: report.identity.client.execution,
+          }),
+        ]),
+      );
+      expect((await invoke('other-profile', ['result', report.runId])).exitCode).toBe(2);
+      const before = models;
+      expect(
+        (await invoke('automatic-fallback', [...args('review', id), '--offline-behavior', 'pause']))
+          .exitCode,
+      ).toBe(2);
+      expect(models).toBe(before);
+    } finally {
+      status = 200;
+    }
+  });
+  test('default confirmed fallback after revocation uses only local knowledge and retains readable local history', async () => {
+    const id = await connect('revoked-fallback');
+    status = 403;
+    try {
+      await invoke('revoked-fallback', ['central', 'sync', ...args('unused', id).slice(1)]);
+      const fallback = await invoke('revoked-fallback', args('review', id), localReview);
+      expect(fallback.exitCode, JSON.stringify(fallback.value)).toBe(0);
+      const report = fallback.value as import('@gcr/client-contract').ClientReviewReport;
+      expect(report.identity.client.execution).toMatchObject({
+        effectiveMode: 'standalone',
+        knowledgeSource: 'local',
+        fallbackReason: 'authentication-required',
+      });
+      expect(report.identity.context.centralSnapshot).toBeUndefined();
+      expect(
+        (await invoke('revoked-fallback', ['result', report.runId, ...args('unused', id).slice(1)]))
+          .value,
+      ).toEqual(report);
+    } finally {
+      status = 200;
+    }
+  });
+  test('first snapshot failure returns the confirmed connection for local fallback without retaining its key', async () => {
+    const before = secrets.size;
+    initialManifestStatuses = [403];
+    try {
+      const connected = await invoke('initial-fallback', [
+        'central',
+        'connect',
+        '--mode',
+        'centralized',
+        '--input',
+        configFile,
+        '--api-key-stdin',
+      ]);
+      expect(connected.exitCode).toBe(2);
+      expect(secrets.size).toBe(before);
+      const id = (connected.value as { connectionId: string }).connectionId;
+      expect(id).toMatch(/^[a-f0-9]{64}$/);
+      const fallback = await invoke('initial-fallback', args('review', id), localReview);
+      expect(fallback.exitCode, JSON.stringify(fallback.value)).toBe(0);
+      expect(fallback.value).toMatchObject({
+        identity: {
+          client: {
+            mode: 'standalone',
+            execution: {
+              connectionId: id,
+              configuredMode: 'centralized',
+              knowledgeSource: 'local',
+            },
+          },
+        },
+      });
+    } finally {
+      initialManifestStatuses = [];
     }
   });
   test('fences concurrent connection registrations without overwriting an active key', async () => {

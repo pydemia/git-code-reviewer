@@ -18,24 +18,34 @@ import {
   unique,
 } from './codec.js';
 
+import { reviewExecution } from './review-execution.js';
+
 export const clientMode = choice(['standalone', 'centralized']);
 export type ClientMode = ReturnType<typeof clientMode>;
 export const centralAudience = object({ serverId: id, tenantId: id, userId: id, repositoryId: id });
 export type CentralAudience = ReturnType<typeof centralAudience>;
-export const clientIdentity = union(
-  object({
-    mode: literal('standalone'),
-    profileId: id,
-    repositoryKey: sha256,
-    worktreeKey: sha256,
-  }),
-  object({
-    mode: literal('centralized'),
-    profileId: id,
-    repositoryKey: sha256,
-    worktreeKey: sha256,
-    audience: centralAudience,
-  }),
+export const clientIdentity = refined(
+  union(
+    object({
+      mode: literal('standalone'),
+      profileId: id,
+      repositoryKey: sha256,
+      worktreeKey: sha256,
+      execution: optional(reviewExecution),
+    }),
+    object({
+      mode: literal('centralized'),
+      profileId: id,
+      repositoryKey: sha256,
+      worktreeKey: sha256,
+      audience: centralAudience,
+      execution: optional(reviewExecution),
+    }),
+  ),
+  (value, at) => {
+    if (value.execution && value.mode !== value.execution.effectiveMode)
+      fail(at, 'client mode differs from effective execution mode');
+  },
 );
 export type ClientIdentity = ReturnType<typeof clientIdentity>;
 

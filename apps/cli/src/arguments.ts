@@ -30,6 +30,9 @@ Common: --cwd <repo> --profile <id> --data-dir <private-directory>
 Knowledge: --scope repository|profile (default repository)
 Central: --mode centralized is required; connect takes its API key from piped stdin.
          context/review --offline uses only an authorized unexpired signed cache.
+         --offline-behavior cache-then-standalone|cache-only|standalone|pause
+         New connections default to cache-then-standalone; older connections retain pause.
+         connect stores this policy; context/review can override it explicitly.
 Snapshot: --source index|working-tree (default index) --base <ref>
           --path <exact-path> (repeatable) --include-untracked <path> (working-tree only)
           --exclude <glob> --require-source <source|base>:<path> --require-knowledge <id>
@@ -57,10 +60,11 @@ const snapshot = [
 const executor = ['executor-path', 'model', 'reasoning-effort'];
 const allowed: Record<string, string[]> = {
   status: ['check-executor', ...executor],
-  central: ['input', 'api-key-stdin'],
-  context: [...snapshot, 'offline'],
+  central: ['input', 'api-key-stdin', 'offline-behavior'],
+  context: [...snapshot, 'offline', 'offline-behavior'],
   review: [
     'offline',
+    'offline-behavior',
     ...snapshot,
     ...executor,
     'allow-path',

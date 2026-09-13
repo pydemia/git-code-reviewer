@@ -175,6 +175,8 @@ export class CentralKnowledgeCache {
         state.value.identityUnavailable)
     )
       throw error('identity-unavailable');
+    if (mode === 'online' && !identityConfirmed && state.value.lastSyncFailure)
+      throw error(state.value.lastSyncFailure);
     const active = state.value.active;
     if (!active) throw error('cache-unavailable');
     const manifest = this.verify(active.manifest, state.value, mode);
@@ -335,6 +337,7 @@ export class CentralKnowledgeCache {
         state = await this.put(state, {
           ...state.value,
           identityUnavailable: false,
+          lastSyncFailure: null,
           lastSynchronizedAt: this.time(),
           observedAt: this.time(),
           claim: null,
@@ -452,6 +455,7 @@ export class CentralKnowledgeCache {
         observedAt: this.time(),
         minimumSequences,
         identityUnavailable: false,
+        lastSyncFailure: null,
         lastSynchronizedAt: this.time(),
         active: { manifest, records: refs },
         claim: null,
@@ -501,7 +505,14 @@ export class CentralKnowledgeCache {
               claim: null,
             });
           } else if (!authorizationUncertain)
-            await this.put(state, { ...state.value, claim: null });
+            await this.put(state, {
+              ...state.value,
+              ...(cause instanceof KnowledgeSyncError &&
+              (cause.code === 'unavailable' || cause.code === 'timeout')
+                ? { lastSyncFailure: cause.code }
+                : {}),
+              claim: null,
+            });
         } catch {
           /* A newer generation owns the index; never overwrite its decision. */
         }
