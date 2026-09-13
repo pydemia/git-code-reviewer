@@ -342,14 +342,17 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
     }
     decode(response);
   } catch (error) {
-    const code =
-      error && typeof error === 'object' && 'code' in error
+    const code = input.signal?.aborted
+      ? input.signal.reason === 'timeout'
+        ? 'timeout'
+        : 'cancelled'
+      : error && typeof error === 'object' && 'code' in error
         ? error.code
         : error instanceof Error
           ? error.message
           : undefined;
     const problem =
-      input.signal?.aborted || code === 'cancelled'
+      code === 'cancelled'
         ? 'cancelled'
         : code === 'timeout'
           ? 'timeout'

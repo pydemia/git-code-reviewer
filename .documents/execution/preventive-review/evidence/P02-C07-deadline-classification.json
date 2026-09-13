@@ -1,0 +1,99 @@
+{
+  "recordedAt": "2026-09-13T13:22:58.955303+00:00",
+  "status": "core-deadline-classification-verified-and-packed; extension-delivery-pending",
+  "change": "An aborted caller signal with the exact reason timeout retains timeout; other caller aborts retain cancelled. Late executor success or error cannot replace that terminal reason.",
+  "packageVersion": "0.1.0-alpha.12",
+  "cliVersion": "0.1.0-alpha.6",
+  "validation": {
+    "runtime": "22.23.2",
+    "before": {
+      "testFiles": 1,
+      "failed": 4,
+      "passed": 25
+    },
+    "after": {
+      "testFiles": 4,
+      "passed": 106,
+      "failed": 0,
+      "files": [
+        "packages/client-core/src/review-runner.test.ts",
+        "packages/client-core/src/local-history.test.ts",
+        "packages/client-contract/src/index.test.ts",
+        "apps/cli/src/cli.test.ts"
+      ]
+    },
+    "eslint": "passed",
+    "packageConsumerRuntimes": [
+      "18.20.8",
+      "22.23.2"
+    ],
+    "cliConsumerRuntime": "22.23.2"
+  },
+  "packManifest": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.6",
+    "clientVersion": "0.1.0-alpha.12",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.12",
+        "file": "gcr-client-contract-0.1.0-alpha.12.tgz",
+        "sha256": "8baae192704cdc4521979cf53ba15d6f43f8070a8e2b942dec4155e1210e0b29"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.12",
+        "file": "gcr-client-core-0.1.0-alpha.12.tgz",
+        "sha256": "6e7d77c0b484c7a56553e531d88faa5cd28d748a64aa76fa3a77a9fab6ec5c4b"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.12",
+        "file": "gcr-client-executors-0.1.0-alpha.12.tgz",
+        "sha256": "d6ec8ee862f0e2d9adafa4c2347f25c4c0c55a141ad8c4acf9b00a84c2585400"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.6",
+        "file": "gcr-cli-0.1.0-alpha.6.tgz",
+        "sha256": "4975fac1d23de34b194290bfad01c4d8b0249acfa8670fa5e1220c4f75f16dfb"
+      }
+    ]
+  },
+  "logs": {
+    "deadline-before.log": "59301429f786e25400d7b97e719761fecbfb44b7ebe902b70c59348169da909f",
+    "deadline-after.log": "0ae78c924d26615d3c3e65ddcc347138c1f2d2fcbb7ccc0061990a235cd56a41",
+    "deadline-regression.log": "53b94a22014aa760d421a22462d0d9ec5e51d79f20c883d49aae9cd783cd6fb2",
+    "deadline-pack.log": "b8fab75761b634841495726e070407305cf6acd52d98e8beb0604a51f2cb3304"
+  },
+  "nativeDiagnosis": {
+    "runId": "e1a58b89-f500-4d24-875d-b5bbec655584",
+    "extensionHostPid": 27179,
+    "runtime": "24.18.1",
+    "observedAt": "2026-09-13T13:13:02.969Z",
+    "activeWorkerTargets": 0,
+    "executionOwners": [
+      {
+        "isRunning": false,
+        "isPreparing": false,
+        "pending": 0,
+        "active": null
+      },
+      {
+        "isRunning": false,
+        "isPreparing": false,
+        "pending": 0,
+        "active": null
+      }
+    ],
+    "hostStatusBar": "CD: Cancelled",
+    "nativeAX": "After native interaction, the status bar, findings tree and history showed the same cancelled report. The previously observed in-progress UI does not prove a worker lifecycle defect.",
+    "inspector": "Only the owned development host was inspected via a random loopback port. Inspector closed and no TCP listener remained.",
+    "workerLifecycleChanged": false
+  },
+  "limitations": [
+    "Native completed real-model review remains unverified.",
+    "Native screenshot and AX observations were not consistently fresh during this session; do not treat screenshots as completed UI validation.",
+    "VSIX installation, Marketplace publication, centralized authentication and later phases remain pending."
+  ]
+}

@@ -200,6 +200,7 @@
     "status": "incomplete",
     "observation": "Native restricted-mode rejection was verified. After a trusted staged run, a cancelled report was persisted at 180350 ms but the native status stayed in progress. Worker exit/cleanup is under investigation; root cause is unproven.",
     "vsixSha256": "6a1ab0e7607b107d2a9d529669e666ca19e13f4741a491ce8b89d5c266fa490f",
-    "published": false
+    "published": false,
+    "followUp": "P02-C07-deadline-classification.json: worker and execution completed; native AX later displayed cancelled. Original observation retained; worker lifecycle defect was not confirmed."
   }
 }

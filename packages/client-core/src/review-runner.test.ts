@@ -316,6 +316,69 @@ describe('fixed-source review runner', () => {
     expect(report.status).toBe('cancelled');
     expect(report.findings).toEqual([]);
   });
+  it('records an expired caller deadline without invoking the executor', async () => {
+    const controller = new AbortController();
+    controller.abort('timeout');
+    let calls = 0;
+    const report = await run(
+      async () => {
+        calls++;
+        throw Error('unexpected');
+      },
+      { signal: controller.signal },
+    );
+    expect(calls).toBe(0);
+    expect(clientReviewReport(report).status).toBe('failed');
+    expect(report.problems[0]?.code).toBe('timeout');
+    expect(report.files.every((file) => file.status === 'not-run')).toBe(true);
+    expect(reviewExitCode(report)).toBe(2);
+  });
+  it.each(['success', 'rejection', 'source-read'] as const)(
+    'retains a caller deadline when the executor settles via %s',
+    async (settlement) => {
+      const controller = new AbortController();
+      const report = await run(
+        async (request) => {
+          const { response, reads } = await answer(request);
+          response.findings.push(defect(reads));
+          controller.abort('timeout');
+          if (settlement === 'rejection') throw Error('private provider cancellation details');
+          if (settlement === 'source-read') await request.source.execute('list_files', {});
+          return { raw: JSON.stringify(response), model: descriptor.model };
+        },
+        { signal: controller.signal },
+      );
+      expect(clientReviewReport(report).status).toBe('failed');
+      expect(report.problems[0]?.code).toBe('timeout');
+      expect(report.files.every((file) => file.status === 'failed')).toBe(true);
+      expect(report.evidence).toHaveLength(3);
+      expect(report.findings).toEqual([]);
+      expect(report.questions).toEqual([]);
+      expect(reviewExitCode(report)).toBe(2);
+      expect(JSON.stringify(report)).not.toContain('private provider');
+    },
+  );
+  it('does not expose arbitrary abort reasons or mistake them for deadlines', async () => {
+    const controller = new AbortController();
+    const report = await run(
+      async () => {
+        controller.abort('private cancellation reason');
+        throw Object.assign(Error('private executor detail'), { code: 'timeout' });
+      },
+      { signal: controller.signal },
+    );
+    expect(report.status).toBe('cancelled');
+    expect(report.problems[0]?.code).toBe('cancelled');
+    expect(JSON.stringify(report)).not.toContain('private');
+  });
+  it('retains an executor deadline without a caller abort', async () => {
+    const report = await run(async () => {
+      throw Object.assign(Error('private executor timeout detail'), { code: 'timeout' });
+    });
+    expect(report.status).toBe('failed');
+    expect(report.problems[0]?.code).toBe('timeout');
+    expect(JSON.stringify(report)).not.toContain('private');
+  });
   it('records tool quota exhaustion even if an executor catches it and claims success', async () => {
     const report = await run(
       async (request) => {
