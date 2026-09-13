@@ -10,6 +10,12 @@ Gateway는 새 route를 수락했다(`Accepted=True`). Keycloak Service는 아�
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## C06 runtime 배포 (2026-09-13 20:18 KST)
+
+현재 PRISM-DEV는 `0.8.0-alpha.38`, chart `0.10.36`, Helm revision `48`이다. C06의 분리된 DB role·TLS·migration credential 코드를 포함하며 실제 설정은 local 인증·legacy DB, identity administration/security 비활성을 유지한다.
+
+새 Server/Worker·health·compiled module/asset hash·20:24:50 Helm test·실제 headless 로그인 화면을 확인했다. 사용자 7명·account 7개·분석 153건·report 145건의 기존 데이터, local credential·세션·Provider와 기존 설정·Secret·CA·HTTPRoute·PVC/PV를 보존했다. `--reset-then-reuse-values`로 새 비활성 기본값을 반영했으며 기존 computed 값은 모두 같다. [배포 기록](../../../docs/operations/shared-postgresql-2026-09-13.md)에 digest·검증 범위와 운영 role/TLS·SAML 전환의 남은 조건을 정리했다.
+
 ## 2026-09-13 보안 이벤트·계정 lifecycle 코드 배포
 
 13:47:54 KST에 application `0.8.0-alpha.37`, chart `0.10.35`를 Helm revision **47**로 배포했다. Source `bdf1aef`·release pin `af31451`을 push하고 적용했다. 보안 이벤트 수집·세션 폐기·freshness·관리자 차단/재활성화/전체 로그아웃과 migration 0035/0036을 포함한다. 운영 인증은 local이며 조직 계정 관리와 보안 수집은 비활성이다.
