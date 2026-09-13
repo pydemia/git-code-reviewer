@@ -1,0 +1,175 @@
+{
+  "checkpoint": "P03-C06 runtime TLS and role-specific migration connections",
+  "status": "source-verified; image/chart publication and operational database cutover pending",
+  "recordedAt": "2026-09-13T06:50:16.121786+00:00",
+  "parentCommit": "af7df5038956e2cb45d3f69a7094190cdf5f8097",
+  "sourceSha256": {
+    "apps/runtime/src/commands.ts": "f13cc0d100a43dcc96a9959fe85a2fb1af755b844de9de5097b2ed66fe7d619f",
+    "apps/runtime/src/config.test.ts": "0bd5e7f079b6a9bdd852ba9382e16651ab94acde7b473cf23d9a5402e08023c4",
+    "apps/runtime/src/config.ts": "57485f3e4ea9111928fdc429dbfa7b9a181ae2fdd69a911ff8bb97bdc663429a",
+    "apps/runtime/src/database.integration.test.ts": "6b9a799def08e674de9f1b0b17fdbb5ce114784a497a7a654fb032e30f318a12",
+    "apps/runtime/src/database.ts": "4f8fc853c520fb628df5c58a50bb099262bfc11176801c7287eb46f4cbf57d77",
+    "apps/runtime/src/index.ts": "7fb312c208dac9247091e42caf8d95bf32db3c0e4e08ba2ca11388a7e005a675",
+    "apps/runtime/src/jobs/worker.ts": "902a4ed5609847104d6f84cc18d153aabbe738b2a0627d0fabf2018be8113f5d",
+    "apps/runtime/src/migration-readiness.ts": "2a31607566e508a0b21f6245557cf0cd441a3e899fc0b40950670c11a0758f78",
+    "apps/runtime/src/server.ts": "821781d75fdc5c78450e325f8c035bab8f33ddb9dd6fd94f4a69ab619a673b7c",
+    "deploy/helm/git-code-reviewer/templates/_helpers.tpl": "9181789e80ee0ee5d4015ffbeac54cff20ba0bc514f7a968f5df7600e5fee84b",
+    "deploy/helm/git-code-reviewer/templates/migration-job.yaml": "0bebe2c88ecac6dad1640ebc967c1c234ef30adec20edab95ba1561c2042bd66",
+    "deploy/helm/git-code-reviewer/templates/server-deployment.yaml": "a0c56751408ecdeeb317eb743653b4d3e2bac8fb17118b5e9d31592320192ab9",
+    "deploy/helm/git-code-reviewer/templates/worker-deployment.yaml": "af05ec3b2ea9ca3cbd86059fa39bf3cb52706c7eff2152c245b99c679216f5ad",
+    "deploy/helm/git-code-reviewer/values.schema.json": "d6a9d6228ed4edfe865f8199f99f93d5596e3bf3abf4c45371cc3c80768b9361",
+    "deploy/helm/git-code-reviewer/values.yaml": "c65a06bc5c4b902cf6756f068356a82bcc9712f794fdb4fa7720d08129748706",
+    "deploy/postgres/isolated-helm.example.yaml": "a60bade122b7f866da6afd28f973aead565c4562f71ebb80a68dfdc40653d804",
+    "packages/db/package.json": "d6a76123a2e96b98351aed7b612de41ca301536ce9256b00e8a67ad3f8ad72c3",
+    "packages/db/src/connection.ts": "ed1a7371a856e7755f8d9dbdf987febbaadbebfd7e3fe0e025752a1b7bedd8eb",
+    "packages/db/src/index.ts": "b754a812f06af18b4c7609d185602658e290b0ce01660e2807a076d8d15ddbd9",
+    "packages/db/src/shared-postgres.ts": "70e750e50ce1a4ee5e85a655150f197cf4246861d254841a6b2338e51de3d555",
+    "pnpm-lock.yaml": "5a47c33776e9307c623e7a5a18fc5ed818a1ca78da609b7f235b133483da364b",
+    "scripts/verify-shared-database-chart.py": "ca5820553b8104d22cb2359f72b5647d7df67ed2ea5029adb542f380bf32ba83"
+  },
+  "validation": {
+    "sourceSuite": {
+      "files": 105,
+      "tests": 940,
+      "passed": 940,
+      "failed": 0,
+      "skipped": 0,
+      "source": "artifacts/operations/P03-C06/connections/source-suite-final.json",
+      "sha256": "1e3a11a83f99fea1657b3aac4b355361d5f80b794daaa0326cd327f13c3a98f0"
+    },
+    "postgres18": {
+      "files": 2,
+      "tests": 22,
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "source": "artifacts/operations/P03-C06/connections/isolation-final-pg18.json",
+      "sha256": "a8e7835bbdd806cbb80269b42709d13daeae2e9667cdda6dd36c7f03d2324a09"
+    },
+    "runs": {
+      "sourceSuite": {
+        "startedAt": "2026-09-13T06:43:47.790218+00:00",
+        "finishedAt": "2026-09-13T06:47:11.416262+00:00",
+        "node": "v22.23.2",
+        "exitCode": 0,
+        "workers": 2,
+        "exclude": "**/dist/**",
+        "compiledRuntimeCommands": true
+      },
+      "postgres18": {
+        "startedAt": "2026-09-13T06:47:38.438357+00:00",
+        "finishedAt": "2026-09-13T06:48:26.584402+00:00",
+        "node": "v22.23.2",
+        "exitCode": 0,
+        "workers": 1,
+        "isolationPostgres18": true,
+        "compiledRuntimeCommands": true
+      }
+    },
+    "postgres17Image": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+    "postgres18Image": "postgres@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2",
+    "compiledDuplicateTestsExcluded": 69,
+    "pgResolvedVersion": "8.23.0",
+    "pgDependencyFloor": "8.23.0",
+    "helm": {
+      "status": "passed",
+      "checks": [
+        "isolated-external-install",
+        "isolated-external-upgrade",
+        "isolated-bundled-install",
+        "isolated-bundled-upgrade",
+        "separate-worker-pool",
+        "sandbox-without-database-secrets",
+        "bundled-service-port",
+        "reject-database.isolated.migratorSecret",
+        "reject-database.tls.mode",
+        "reject-database.tls.existingConfigMap",
+        "reject-database.isolated.host",
+        "reject-keycloak.enabled",
+        "reject-database.isolated.budget.applicationConnectionLimit",
+        "reject-database.isolated.budget.maxConnections",
+        "reject-database.isolated.budget.operatorReserve",
+        "reject-database.isolated.budget.workerPeakReplicas",
+        "reject-server.databasePoolMax",
+        "reject-worker.databasePoolMax",
+        "reject-bootstrap-secret-in-runtime",
+        "reject-bundled-plaintext-backend",
+        "reject-migrator-secret-in-auth-env",
+        "example-overlay-backend-tls-and-hba",
+        "legacy-parity-external-install",
+        "legacy-parity-external-upgrade",
+        "legacy-parity-bundled-install",
+        "legacy-parity-bundled-upgrade"
+      ],
+      "clusterAccess": false,
+      "baseline": "af7df5038956e2cb45d3f69a7094190cdf5f8097"
+    },
+    "helmReportSha256": "3ad5c6f5583b22d29ac0713c3b1d1d653c86424303912a599d5ddbfe6a985228",
+    "workspaceTypecheck": "passed",
+    "workspaceBuild": "passed",
+    "frozenOfflineLockfile": "passed",
+    "changedSourceEslint": "passed",
+    "changedFilePrettier": "passed",
+    "logSha256": {
+      "workspace-typecheck-final.log": "2c4d1c319c71dc7f93a08fac9d1f3a18a772afb2dbef9f090046753eb3f2c13c",
+      "workspace-build-final.log": "abb6e06f095c48c5d1f2695f54b4200e125c0670b407760d551aa068163c9a2d",
+      "frozen-lockfile-final.log": "c756fa5b5a9efbaba092f45bfa37eace0d59cee65b40c0c31da6d2fd1097110d",
+      "changed-lint-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "changed-format-final.log": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+    },
+    "compiledRuntimeSha256": {
+      "apps/runtime/dist/index.js": "728bdd71cc64ec837d6b59639b01b653cc588d9f15eca8f8df6451d1f9d517ce",
+      "apps/runtime/dist/database.js": "d1a7df7dbdcb3569a3685f6f53ac2a8a9c4697cda11d0f7a18000fe5de12712f",
+      "apps/runtime/dist/commands.js": "5e94fd2baf578efaf01cdb2a1499f8f9a470e08ac66eb728ff7bd140e8c482bf",
+      "apps/runtime/dist/migration-readiness.js": "1cae363b2cd3b60bf6c1aa2f87ca04cc061119a78a98844a5ce87f6e8a97f687",
+      "packages/db/dist/connection.js": "020ca381a553e6ac5c0b9364b9c9977b199e4486cb289bdabea4e8825213da1e",
+      "packages/db/dist/shared-postgres.js": "b1bf4f7229fe2d2f7eb938d5bee02ef6d403c378c58102d750dc8edfb32296f2"
+    }
+  },
+  "coverage": [
+    "Separate migration file credential wins over app URL; missing/partial migration settings do not fall back",
+    "App commands reject migration credentials; isolated connections require verified TLS and exact login roles",
+    "Trusted CA and configured DNS/IP SAN verification; wrong CA, wrong hostname and plaintext TCP rejected",
+    "URL SSL/host/user/password/options override rejected without logging credentials",
+    "Every new pool connection checks role attributes, memberships, ownership, cross-DB CONNECT, TLS, app DDL/ledger privileges and per-process connection capacity",
+    "Real migration ledger, checksum mismatch, missing-version deadline and compatible future-version readiness",
+    "Compiled migrate and wait-migrations commands execute as separate Node 22 processes against actual TLS PostgreSQL",
+    "Real server health/API and worker loop use gcr_app TLS; no external model request or message posting",
+    "Helm app/migrator/bootstrap Secret separation, CA wiring, worker pool, install/upgrade jobs, source-sandbox exclusion, budget rejection, backend TLS and HBA example",
+    "All legacy default manifests match af7df50 for external/bundled install and upgrade"
+  ],
+  "initialFailures": [
+    {
+      "source": "tls-runtime-tests-attempt1.json",
+      "reason": "DBA IP TLS verification used localhost fallback; fixed explicit configured host/IP identity verification"
+    },
+    {
+      "source": "tls-runtime-tests-attempt3.json",
+      "reason": "Two added tests were outside their fixture suite; moved inside. Two existing provisioning tests also reached 30s timeout during overlapping validation. Final separated runs passed without increasing timeouts; underlying timing cause not established."
+    },
+    {
+      "source": "helm-contract-final2.log",
+      "reason": "Verifier initially expected a template error for worker pool minimum, but schema rejects earlier. Expected rejection message corrected; final run checks specific failure reasons."
+    }
+  ],
+  "deployment": {
+    "imagePublished": false,
+    "chartPublished": false,
+    "operationalDatabaseChanged": false,
+    "operationalSecretsChanged": false,
+    "lastVerifiedRelease": {
+      "imageVersion": "0.8.0-alpha.37",
+      "chartVersion": "0.10.35",
+      "helmRevision": 47,
+      "authMode": "local"
+    },
+    "stateSource": ".documents/execution/preventive-review/evidence/P03-C05-deployment.json"
+  },
+  "remaining": [
+    "Verify actual operational Bitnami image persisted-volume restart preserves retired legacy login and role ownership/ACL",
+    "Prepare backend TLS/Secret/HBA staging, backup/restore rehearsal and operational role cutover",
+    "Verify real Keycloak data and repeated bootstrap on shared PostgreSQL with companion chart/Compose",
+    "Publish and verify runtime image/chart before deployment",
+    "Complete native VS Code/Safari checks after user unlock and the remaining development phases"
+  ]
+}

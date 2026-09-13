@@ -38,6 +38,7 @@ modelAdmission:
 
 worker:
   replicas: 2
+  databasePoolMax: null # Inherit server.databasePoolMax unless explicitly set.
   concurrency: 2
   healthPort: 4001
   terminationGracePeriodSeconds: 900
@@ -60,6 +61,29 @@ storage:
 database:
   existingSecret: git-code-reviewer-db
   urlKey: DATABASE_URL
+  tls:
+    mode: legacy
+    existingConfigMap: ''
+    key: ca.crt
+  migrationsWaitTimeoutMs: 600000
+  isolated:
+    enabled: false
+    host: '' # Empty uses the bundled PostgreSQL service when enabled.
+    port: 5432
+    name: git_code_reviewer
+    runtimeSecret: ''
+    migratorSecret: ''
+    passwordKey: password
+    budget:
+      serverPeakReplicas: 2
+      workerPeakReplicas: 2
+      applicationConnectionLimit: 42
+      migratorConnectionLimit: 2
+      keycloakConnectionLimit: 30
+      maxConnections: 100
+      reservedConnections: 3
+      otherConnections: 5
+      operatorReserve: 10
 
 # Disabled by default for production installations that use a managed database.
 # When enabled, this dependency replaces database.existingSecret.

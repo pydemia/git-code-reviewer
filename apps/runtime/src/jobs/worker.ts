@@ -4,7 +4,8 @@ import path from 'node:path';
 import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
 import { defaultReviewSeverityLevel, type ReviewSeverityLevel } from '@gcr/contracts';
 import { FilesystemArtifactStore, type ArtifactCommit } from '@gcr/artifact-store';
-import { createDatabase, type Database, type DatabaseClient } from '@gcr/db';
+import type { Database, DatabaseClient } from '@gcr/db';
+import { openRuntimeDatabase } from '../database.js';
 import {
   materializeFixtureSnapshot,
   materializeGitSnapshot,
@@ -87,7 +88,7 @@ export async function runWorker(
 ): Promise<void> {
   await mkdir(config.WORKSPACE_ROOT, { recursive: true });
   await mkdir(config.ARTIFACT_ROOT, { recursive: true });
-  const database = createDatabase(config.DATABASE_URL, Math.max(2, config.DATABASE_POOL_MAX));
+  const database = await openRuntimeDatabase(config, Math.max(2, config.DATABASE_POOL_MAX));
   const github = await createGitHubReader(config);
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
   const executor = `${process.env.HOSTNAME ?? 'local'}:${process.pid}`;

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { loadConfig } from './config.js';
-import { migrate, retention, serve, worker } from './commands.js';
+import { migrate, retention, serve, waitMigrations, worker } from './commands.js';
 
 const command = process.argv[2] ?? 'serve';
 
@@ -14,6 +14,9 @@ try {
       break;
     case 'migrate':
       await migrate(loadConfig(process.env, command));
+      break;
+    case 'wait-migrations':
+      await waitMigrations(loadConfig(process.env, command));
       break;
     case 'retention':
       await retention(loadConfig(process.env, command), process.argv.includes('--reconcile'));

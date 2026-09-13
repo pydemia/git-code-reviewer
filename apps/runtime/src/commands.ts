@@ -1,6 +1,8 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
-import { createDatabase, runMigrations, type DatabaseClient } from '@gcr/db';
+import { runMigrations, type DatabaseClient } from '@gcr/db';
+import { openRuntimeDatabase, runtimeDatabase } from './database.js';
+import { migrationReadiness, waitForDatabaseState } from './migration-readiness.js';
 import type { AppConfig } from './config.js';
 import { runWorker } from './jobs/worker.js';
 import { buildServer } from './server.js';
@@ -12,10 +14,30 @@ export async function serve(config: AppConfig): Promise<void> {
 }
 
 export async function migrate(config: AppConfig): Promise<void> {
-  const database = createDatabase(config.DATABASE_URL, 1);
+  const database = runtimeDatabase(config, 'gcr_migrator', 1);
   try {
+    if (config.DATABASE_ISOLATED_ROLES)
+      await waitForDatabaseState(config.MIGRATIONS_WAIT_TIMEOUT_MS, async () => {
+        const query = { text: 'select 1', query_timeout: 5000 };
+        await database.query(query);
+        return true;
+      });
     await runMigrations(database, config.MIGRATIONS_DIR);
     process.stdout.write('Migrations applied\n');
+  } finally {
+    await database.end();
+  }
+}
+
+export async function waitMigrations(config: AppConfig): Promise<void> {
+  const database = runtimeDatabase(config, 'gcr_app', 1);
+  try {
+    const ready = await migrationReadiness(
+      database,
+      config.MIGRATIONS_DIR ?? '/app/packages/db/migrations',
+    );
+    await waitForDatabaseState(config.MIGRATIONS_WAIT_TIMEOUT_MS, ready);
+    process.stdout.write('Database migrations ready\n');
   } finally {
     await database.end();
   }
@@ -26,7 +48,7 @@ export async function worker(config: AppConfig): Promise<void> {
 }
 
 export async function retention(config: AppConfig, reconcile: boolean): Promise<void> {
-  const database = createDatabase(config.DATABASE_URL, 2);
+  const database = await openRuntimeDatabase(config, 2);
   const connection = await database.connect();
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
   const lockId = 746_278_433;

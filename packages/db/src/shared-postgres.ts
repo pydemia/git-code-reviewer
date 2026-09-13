@@ -1,5 +1,7 @@
 import { createHash, createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
+import { checkServerIdentity } from 'node:tls';
+import { secureDatabaseUrl } from './connection.js';
 
 const roles = ['gcr_app', 'gcr_migrator', 'gcr_keycloak'] as const;
 type Role = (typeof roles)[number];
@@ -101,8 +103,26 @@ function marker(plan: SharedPostgresPlan): string {
 }
 
 async function connect(config: pg.PoolConfig): Promise<pg.Client> {
+  const options = { ...config };
+  if (config.ssl) {
+    const hostname = (
+      config.connectionString ? secureDatabaseUrl(config.connectionString).hostname : config.host
+    )?.replace(/^\[|\]$/g, '');
+    const ssl = typeof config.ssl === 'object' ? config.ssl : {};
+    requireState(
+      hostname && ssl.rejectUnauthorized !== false,
+      'DBA TLS requires a verified server hostname',
+    );
+    options.ssl = {
+      ...ssl,
+      rejectUnauthorized: true,
+      checkServerIdentity: (_name, certificate) =>
+        checkServerIdentity(hostname, certificate) ??
+        ssl.checkServerIdentity?.(hostname, certificate),
+    };
+  }
   const client = new pg.Client({
-    ...config,
+    ...options,
     connectionTimeoutMillis: 5_000,
     application_name: 'gcr-db-provision',
     statement_timeout: 30_000,

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { z } from 'zod';
 import { localPasswordMinimumLength } from '@gcr/contracts';
 import { validateSamlSettings } from './auth/saml-config.js';
@@ -23,6 +24,10 @@ const configSchema = z.object({
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
   DATABASE_URL: z.string().min(1),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
+  DATABASE_ISOLATED_ROLES: booleanString,
+  DATABASE_TLS_MODE: z.enum(['legacy', 'verify-full']).default('legacy'),
+  DATABASE_TLS_CA_FILE: z.string().min(1).optional(),
+  MIGRATIONS_WAIT_TIMEOUT_MS: z.coerce.number().int().min(100).max(900_000).default(600_000),
   WEB_DIST: z.string().default('/app/apps/web/dist'),
   MIGRATIONS_DIR: z.string().optional(),
   ARTIFACT_ROOT: z.string().default('/var/lib/git-code-reviewer/artifacts'),
@@ -126,42 +131,94 @@ const configSchema = z.object({
 
 export type AppConfig = z.infer<typeof configSchema>;
 
-function withDatabaseUrl(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (environment.DATABASE_URL) return environment;
+export type RuntimeCommand = 'serve' | 'worker' | 'migrate' | 'retention' | 'wait-migrations';
 
-  const host = environment.DATABASE_HOST;
-  const port = environment.DATABASE_PORT;
-  const database = environment.DATABASE_NAME;
-  const username = environment.DATABASE_USER;
-  const passwordFile = environment.DATABASE_PASSWORD_FILE;
-  if (!host || !port || !database || !username || !passwordFile) return environment;
+function withDatabaseUrl(
+  environment: NodeJS.ProcessEnv,
+  command: RuntimeCommand,
+): NodeJS.ProcessEnv {
+  const migrationConfigured = Object.keys(environment).some(
+    (key) => key.startsWith('MIGRATION_DATABASE_') && environment[key],
+  );
+  if (command !== 'migrate' && migrationConfigured)
+    throw Error('Invalid configuration: migration credentials are only valid for migrate');
+  if (
+    command === 'migrate' &&
+    environment.DATABASE_ISOLATED_ROLES === 'true' &&
+    !migrationConfigured
+  )
+    throw Error('Invalid configuration: MIGRATION_DATABASE connection settings are required');
+  const prefix = command === 'migrate' && migrationConfigured ? 'MIGRATION_DATABASE_' : 'DATABASE_';
+  const selected = {
+    ...environment,
+    DATABASE_TLS_MODE: environment[`${prefix}TLS_MODE`] ?? environment.DATABASE_TLS_MODE,
+    DATABASE_TLS_CA_FILE: environment[`${prefix}TLS_CA_FILE`] ?? environment.DATABASE_TLS_CA_FILE,
+  };
+  const connectionString = environment[`${prefix}URL`];
+  const host = environment[`${prefix}HOST`];
+  const port = environment[`${prefix}PORT`];
+  const database = environment[`${prefix}NAME`];
+  const username = environment[`${prefix}USER`];
+  const passwordFile = environment[`${prefix}PASSWORD_FILE`];
+  const components = [host, port, database, username, passwordFile];
+  if (connectionString) {
+    if (environment.DATABASE_ISOLATED_ROLES === 'true' && components.some(Boolean))
+      throw Error('Invalid configuration: use a database URL or connection components, not both');
+    return { ...selected, DATABASE_URL: connectionString };
+  }
+  if (!components.every(Boolean)) {
+    if (prefix === 'MIGRATION_DATABASE_')
+      throw Error('Invalid configuration: incomplete MIGRATION_DATABASE connection settings');
+    return selected;
+  }
 
   let password: string;
   try {
-    password = readFileSync(passwordFile, 'utf8').trim();
+    password = readFileSync(passwordFile!, 'utf8').trim();
   } catch {
-    throw new Error('Invalid configuration: DATABASE_PASSWORD_FILE');
+    throw new Error(`Invalid configuration: ${prefix}PASSWORD_FILE`);
   }
-  if (!password) throw new Error('Invalid configuration: DATABASE_PASSWORD_FILE');
+  if (!password) throw new Error(`Invalid configuration: ${prefix}PASSWORD_FILE`);
 
-  const url = new URL('postgresql://localhost');
-  url.hostname = host;
-  url.port = port;
-  url.username = username;
+  const portNumber = Number(port);
+  if (!Number.isSafeInteger(portNumber) || portNumber < 1 || portNumber > 65535)
+    throw Error(`Invalid configuration: ${prefix}PORT`);
+  let url: URL;
+  try {
+    if (/[\s/@?#%]/.test(host!)) throw Error();
+    const hostname = isIP(host!) === 6 ? `[${host}]` : host!;
+    url = new URL(`postgresql://${hostname}:${portNumber}/`);
+    if (url.hostname !== hostname) throw Error();
+  } catch {
+    throw Error(`Invalid configuration: ${prefix}HOST`);
+  }
+  url.username = username!;
   url.password = password;
-  url.pathname = `/${database}`;
-  return { ...environment, DATABASE_URL: url.toString() };
+  url.pathname = `/${encodeURIComponent(database!)}`;
+  return { ...selected, DATABASE_URL: url.toString() };
 }
 
 export function loadConfig(
   environment: NodeJS.ProcessEnv = process.env,
-  command: 'serve' | 'worker' | 'migrate' | 'retention' = 'serve',
+  command: RuntimeCommand = 'serve',
 ): AppConfig {
-  const result = configSchema.safeParse(withDatabaseUrl(environment));
+  const result = configSchema.safeParse(withDatabaseUrl(environment, command));
   if (!result.success) {
     const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Invalid configuration: ${fields}`);
   }
+  if (result.data.DATABASE_ISOLATED_ROLES && result.data.DATABASE_TLS_MODE !== 'verify-full')
+    throw Error('Invalid configuration: isolated database roles require verify-full TLS');
+  if (result.data.DATABASE_TLS_MODE === 'verify-full' && !result.data.DATABASE_TLS_CA_FILE)
+    throw Error('Invalid configuration: DATABASE_TLS_CA_FILE is required for verify-full TLS');
+  if (
+    result.data.DATABASE_ISOLATED_ROLES &&
+    ['serve', 'worker'].includes(command) &&
+    result.data.DATABASE_POOL_MAX < 2
+  )
+    throw Error(
+      'Invalid configuration: isolated server/worker DATABASE_POOL_MAX must be at least 2',
+    );
   if (command === 'serve' || command === 'worker') identityAdministrationConfig(result.data);
   if (result.data.RETENTION_CHAT_DAYS > result.data.RETENTION_REPORT_DAYS) {
     throw new Error(

@@ -2,7 +2,7 @@
 
 P03-C06의 DBA provisioning 도구다. 단일 PostgreSQL cluster에 GCR과 Keycloak DB를 분리한다. 기존 볼륨에서도 명시적으로 실행하며 image entrypoint의 최초 초기화에 의존하지 않는다. 이 도구를 앱 시작 시 자동 실행하지 않는다.
 
-현재 checkpoint는 도구와 격리 검증이다. Runtime의 TLS 연결 설정, 서버·워커/retention과 migration의 Secret 분리, Compose overlay·companion chart 연결, 운영 DB 전환과 복구 검증은 후속 작업이다. PRISM-DEV에 이 도구를 적용한 상태가 아니다.
+DBA 도구와 runtime의 TLS·역할 검사, 서버·워커/retention과 migration의 Secret 분리를 구현했다. Compose overlay·companion chart 연결, 운영 DB 전환과 복구 검증은 남아 있다. PRISM-DEV에 이 도구를 적용한 상태가 아니다.
 
 ## 권한 계약
 
@@ -57,6 +57,36 @@ node packages/db/dist/provision-cli.js --apply deploy/postgres/shared-plan.examp
 예시 plan을 환경에 맞게 복사·수정해 사용한다. 명령은 위 표의 환경과 Secret 파일이 이미 준비된 상태를 전제로 한다. 예시 파일에 비밀번호를 넣지 않는다. DBA Secret은 서버·워커·Keycloak Pod에 mount하지 않는다.
 
 평문 연결은 격리된 loopback fixture에 한해 `GCR_DBA_ALLOW_LOOPBACK_PLAINTEXT=true`로 명시할 수 있다. Host가 `127.0.0.1`, `::1`, `localhost`일 때만 허용한다. Cluster 서비스 hostname에는 이 예외가 적용되지 않는다.
+
+## Runtime 연결과 migration 대기
+
+`DATABASE_ISOLATED_ROLES=true`이면 서버·워커·retention·`wait-migrations`는 `gcr_app`, `migrate`는 `gcr_migrator`로 접속한다. `migrate`에는 `MIGRATION_DATABASE_URL` 또는 `MIGRATION_DATABASE_HOST/PORT/NAME/USER/PASSWORD_FILE`을 별도로 전달한다. 설정이 없거나 불완전하면 앱 credential로 대체하지 않는다. 앱 command에 `MIGRATION_DATABASE_*`를 전달해도 시작을 거부한다.
+
+TLS는 `DATABASE_TLS_MODE=verify-full`과 `DATABASE_TLS_CA_FILE`로 설정한다. Migrator만 다른 CA가 필요하면 `MIGRATION_DATABASE_TLS_CA_FILE`로 지정할 수 있다. CA chain과 설정한 DNS hostname 또는 IP SAN을 모두 검사한다. 연결 URL의 `sslmode`, `sslrootcert`, `host`, `user`, `password` 같은 override를 허용하지 않는다. 격리 모드 URL은 `application_name`만 추가할 수 있다. `DATABASE_TLS_MODE=legacy`·역할 분리 비활성 기본값은 기존 연결 방식을 유지한다.
+
+Pool이 새 연결을 앱에 넘기기 전에 실제 session/current role, TLS, DB·schema 소유권, role 속성·membership, 다른 DB의 CONNECT, parameter 권한과 앱의 DDL·migration ledger 쓰기 권한을 검사한다. 검사 실패 연결은 폐기한다. 실제 role의 connection limit이 그 프로세스의 pool보다 작아도 시작하지 않는다. 이미 열린 연결의 권한을 주기적으로 감사하는 기능은 아니므로 운영 중 권한 변경은 별도 DBA 절차로 관리한다.
+
+`wait-migrations`는 배포 image의 SQL 파일 이름·SHA-256과 ledger를 조회한다. 누락된 migration은 기본 10분 동안 기다리고 기존 checksum이 바뀌면 즉시 실패한다. 구 image가 rolling upgrade 중 재시작할 수 있도록 더 높은 version의 ledger row는 허용한다. SQL의 하위 호환성을 대신 검증하지는 않는다. 제한 시간은 `MIGRATIONS_WAIT_TIMEOUT_MS`로 100–900000ms 사이에서 지정한다. DB 연결·조회에 걸린 제한 시간만큼 최종 종료가 늦어질 수 있다.
+
+CA와 비밀번호 파일은 프로세스 시작 시 읽는다. Secret/ConfigMap 내용만 변경해도 기존 pool이 새 값을 읽지는 않는다. 교체 후 서버·워커를 정상 종료 유예를 지켜 재시작하고 신규 migration/retention Job도 새 값을 읽는지 확인한다.
+
+## Helm 적용 순서
+
+[격리 overlay 예시](../../deploy/postgres/isolated-helm.example.yaml)는 기존 환경 values 위에 적용하는 DB 설정이다. Runtime Secret, migrator Secret, PostgreSQL bootstrap Secret과 TLS private-key Secret을 분리하며 앱에는 CA ConfigMap만 mount한다. 예시의 HBA는 Unix socket 연결과 SCRAM으로 인증하는 TLS TCP 연결을 허용하고 평문 TCP를 거부한다. 기존 bootstrap 설정과 PVC는 유지한다. 인증서 SAN에는 실제로 접속할 서비스 이름을 포함해야 한다.
+
+역할 분리 모드에서는 Deployment init container가 앱 credential로 `wait-migrations`만 실행한다. 전용 migration Job에만 migrator Secret을 mount한다. 외부 PostgreSQL은 `pre-install,pre-upgrade`, 번들 PostgreSQL upgrade는 `pre-upgrade` hook을 사용한다. 번들 최초 install의 Job은 PostgreSQL과 함께 생성되는 일반 Job이며 미리 준비한 DBA provisioning을 기다릴 수 있다. 최초 설치에도 별도 DBA provisioning 실행이 필요하다.
+
+기존 번들 DB를 전환할 때는 **백엔드 TLS 준비와 역할 전환을 한 Helm upgrade에 몰아넣지 않는다**. `pre-upgrade` migration은 PostgreSQL StatefulSet 갱신보다 먼저 실행되므로 아직 TLS가 없는 DB에는 새 TLS credential로 연결할 수 없다.
+
+1. Backup과 복구 검증 후 기존 앱 설정을 유지한 채 PostgreSQL 인증서를 설치하고 TLS를 활성화한다. 이 단계에는 기존 평문 앱 접속이 계속 필요할 수 있다. 실제 TLS·SAN 검증을 통과한 뒤 앱 연결을 verify-full로 전환한다.
+2. Maintenance에서 모든 앱·worker drain·retention·migration·Keycloak 연결을 닫고 별도 DBA로 inspect/apply를 실행한다. 기존 값과 새 비밀번호 파일·plan이 일치하는지 확인한다.
+3. Backend HBA의 평문 접속 거부를 확인한 뒤 역할별 Secret과 격리 overlay로 앱을 올린다. Migration Job·앱 대기·서버·워커·retention과 데이터 보존을 검증한다.
+
+예시는 이 최종 상태를 나타내며 전환 자체를 자동화하지 않는다. 운영에 쓰는 Bitnami image의 persisted-volume 재시작이 퇴역한 login을 다시 활성화하거나 소유권·권한을 바꾸지 않는지도 전환 전에 검사해야 한다. 이 checkpoint의 격리 테스트는 공식 PostgreSQL image를 사용하며 그 Bitnami 동작을 증명하지 않는다.
+
+Chart는 Secret 재사용·누락된 CA·비활성 번들 TLS·너무 작은 pool·rollout peak 누락·합산 connection 한도 초과를 거부한다. Worker pool은 `worker.databasePoolMax`로 지정하거나 서버 값을 상속한다. 두 Deployment는 격리 모드에서 `maxSurge: 1`, `maxUnavailable: 0`을 사용한다. 종료 유예 중인 worker가 여럿이면 실제 peak에 맞춰 budget을 늘리거나 이전 worker 종료를 기다린다.
+
+오프라인 연결 명세 검증은 Helm과 Python 3·PyYAML이 필요하다. `python3 scripts/verify-shared-database-chart.py --baseline af7df5038956e2cb45d3f69a7094190cdf5f8097`은 Secret/CA·역할·pool·hook 배치와 기존 비활성 기본값의 명세 보존을 검사한다. Cluster에는 접속하지 않는다.
 
 ## 재실행과 중간 실패
 

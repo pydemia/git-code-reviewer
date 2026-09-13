@@ -4,7 +4,8 @@ import fastifyStatic from '@fastify/static';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import Fastify from 'fastify';
 import { errorEnvelope, schemaVersion } from '@gcr/contracts';
-import { createDatabase, pingDatabase, type Database } from '@gcr/db';
+import { pingDatabase, type Database } from '@gcr/db';
+import { openRuntimeDatabase } from './database.js';
 import { registerAuthentication, IdentityUnavailableError } from './auth/index.js';
 import { isSamlCallback, redactSamlRequestUrl } from './auth/saml-routes.js';
 import { loadSamlProtocolConfig } from './auth/saml-config.js';
@@ -82,7 +83,7 @@ export async function buildServer(
     requestIdHeader: 'x-request-id',
     trustProxy: config.TRUST_PROXY,
   });
-  const database = createDatabase(config.DATABASE_URL, config.DATABASE_POOL_MAX);
+  const database = await openRuntimeDatabase(config, config.DATABASE_POOL_MAX);
   const github = await createGitHubReader(config);
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
   const chatModel = createChatModel(config);

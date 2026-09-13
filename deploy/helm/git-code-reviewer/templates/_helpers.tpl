@@ -71,8 +71,41 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end }}
 
+{{- define "git-code-reviewer.isolatedDatabaseEnv" -}}
+{{- $root := .root -}}
+{{- $db := $root.Values.database.isolated -}}
+{{- $prefix := ternary "MIGRATION_DATABASE" "DATABASE" .migration -}}
+- name: {{ $prefix }}_HOST
+  value: {{ default (include "git-code-reviewer.postgresql.fullname" $root) $db.host | quote }}
+- name: {{ $prefix }}_PORT
+  value: {{ ternary $root.Values.postgresql.primary.service.ports.postgresql $db.port (and $root.Values.postgresql.enabled (not $db.host)) | quote }}
+- name: {{ $prefix }}_NAME
+  value: {{ $db.name | quote }}
+- name: {{ $prefix }}_USER
+  value: {{ ternary "gcr_migrator" "gcr_app" .migration | quote }}
+- name: {{ $prefix }}_PASSWORD_FILE
+  value: /run/secrets/database/password
+- name: DATABASE_ISOLATED_ROLES
+  value: 'true'
+- name: MIGRATIONS_WAIT_TIMEOUT_MS
+  value: {{ $root.Values.database.migrationsWaitTimeoutMs | quote }}
+{{- end }}
+
+{{- define "git-code-reviewer.databaseTlsEnv" -}}
+{{- $tls := default dict .Values.database.tls -}}
+{{- if eq (default "legacy" $tls.mode) "verify-full" }}
+- name: DATABASE_TLS_MODE
+  value: verify-full
+- name: DATABASE_TLS_CA_FILE
+  value: /run/config/database-tls/ca.crt
+{{- end }}
+{{- end }}
+
 {{- define "git-code-reviewer.databaseEnv" -}}
-{{- if .Values.postgresql.enabled }}
+{{- $isolated := default dict .Values.database.isolated -}}
+{{- if $isolated.enabled }}
+{{- include "git-code-reviewer.isolatedDatabaseEnv" (dict "root" . "migration" false) }}
+{{- else if .Values.postgresql.enabled }}
 - name: DATABASE_HOST
   value: {{ include "git-code-reviewer.postgresql.fullname" . | quote }}
 - name: DATABASE_PORT
@@ -90,29 +123,79 @@ app.kubernetes.io/instance: {{ .Release.Name }}
       name: {{ .Values.database.existingSecret }}
       key: {{ .Values.database.urlKey }}
 {{- end }}
+{{ include "git-code-reviewer.databaseTlsEnv" . }}
+{{- end }}
+
+{{- define "git-code-reviewer.migrationDatabaseEnv" -}}
+{{- $isolated := default dict .Values.database.isolated -}}
+{{- if $isolated.enabled }}
+{{ include "git-code-reviewer.isolatedDatabaseEnv" (dict "root" . "migration" true) }}
+{{ include "git-code-reviewer.databaseTlsEnv" . }}
+{{- else }}
+{{ include "git-code-reviewer.databaseEnv" . }}
+{{- end }}
 {{- end }}
 
 {{- define "git-code-reviewer.databaseVolumeMount" -}}
-{{- if .Values.postgresql.enabled }}
+{{- $isolated := default dict .Values.database.isolated -}}
+{{- $tls := default dict .Values.database.tls -}}
+{{- if or .Values.postgresql.enabled $isolated.enabled }}
 - { name: database-password, mountPath: /run/secrets/database, readOnly: true }
+{{- end }}
+{{- if eq (default "legacy" $tls.mode) "verify-full" }}
+- { name: database-tls, mountPath: /run/config/database-tls, readOnly: true }
+{{- end }}
+{{- end }}
+
+{{- define "git-code-reviewer.databaseTlsVolume" -}}
+{{- $tls := default dict .Values.database.tls -}}
+{{- if eq (default "legacy" $tls.mode) "verify-full" }}
+- name: database-tls
+  configMap:
+    name: {{ $tls.existingConfigMap }}
+    items:
+      - { key: {{ $tls.key }}, path: ca.crt }
 {{- end }}
 {{- end }}
 
 {{- define "git-code-reviewer.databaseVolume" -}}
-{{- if .Values.postgresql.enabled }}
+{{- $isolated := default dict .Values.database.isolated -}}
+{{- if $isolated.enabled }}
+- name: database-password
+  secret:
+    secretName: {{ $isolated.runtimeSecret }}
+    items:
+      - { key: {{ $isolated.passwordKey }}, path: password }
+{{- else if .Values.postgresql.enabled }}
 - name: database-password
   secret:
     secretName: {{ include "git-code-reviewer.postgresql.secretName" . }}
     items:
       - { key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey }}, path: password }
 {{- end }}
+{{ include "git-code-reviewer.databaseTlsVolume" . }}
+{{- end }}
+
+{{- define "git-code-reviewer.migrationDatabaseVolume" -}}
+{{- $isolated := default dict .Values.database.isolated -}}
+{{- if $isolated.enabled }}
+- name: database-password
+  secret:
+    secretName: {{ $isolated.migratorSecret }}
+    items:
+      - { key: {{ $isolated.passwordKey }}, path: password }
+{{ include "git-code-reviewer.databaseTlsVolume" . }}
+{{- else }}
+{{ include "git-code-reviewer.databaseVolume" . }}
+{{- end }}
 {{- end }}
 
 {{- define "git-code-reviewer.migrationInitContainer" -}}
-- name: migrate
+{{- $isolated := default dict .Values.database.isolated -}}
+- name: {{ ternary "wait-migrations" "migrate" (default false $isolated.enabled) }}
   image: {{ include "git-code-reviewer.image" . | quote }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
-  args: ["migrate"]
+  args: [{{ ternary "wait-migrations" "migrate" (default false $isolated.enabled) | quote }}]
   env:
     {{- include "git-code-reviewer.databaseEnv" . | nindent 4 }}
   securityContext:
@@ -125,6 +208,57 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "git-code-reviewer.validate" -}}
+{{- $isolated := default dict .Values.database.isolated -}}
+{{- $tls := default dict .Values.database.tls -}}
+{{- if and (eq (default "legacy" $tls.mode) "verify-full") (or (not $tls.existingConfigMap) (not $tls.key)) -}}
+{{- fail "database verify-full TLS requires a CA ConfigMap and key" -}}
+{{- end -}}
+{{- $postgresTls := default dict .Values.postgresql.tls -}}
+{{- if and .Values.postgresql.enabled (eq (default "legacy" $tls.mode) "verify-full") (not $postgresTls.enabled) -}}
+{{- fail "database verify-full TLS requires postgresql.tls.enabled for bundled PostgreSQL" -}}
+{{- end -}}
+{{- if $isolated.enabled -}}
+{{- if or (not $isolated.runtimeSecret) (not $isolated.migratorSecret) (eq $isolated.runtimeSecret $isolated.migratorSecret) -}}
+{{- fail "isolated database roles require distinct runtime and migrator Secrets" -}}
+{{- end -}}
+{{- range $secret := .Values.secrets -}}
+{{- if eq $secret $isolated.migratorSecret -}}
+{{- fail "the migrator Secret must not be referenced by application services" -}}
+{{- end -}}
+{{- end -}}
+{{- if ne (default "legacy" $tls.mode) "verify-full" -}}
+{{- fail "isolated database roles require database.tls.mode=verify-full" -}}
+{{- end -}}
+{{- if and (not .Values.postgresql.enabled) (not $isolated.host) -}}
+{{- fail "isolated external PostgreSQL requires database.isolated.host" -}}
+{{- end -}}
+{{- if .Values.keycloak.enabled -}}
+{{- fail "isolated shared PostgreSQL requires the legacy keycloak dependency to remain disabled" -}}
+{{- end -}}
+{{- if and .Values.postgresql.enabled (ne .Values.postgresql.auth.database $isolated.name) -}}
+{{- fail "isolated database name must match the existing bundled PostgreSQL database" -}}
+{{- end -}}
+{{- if and .Values.postgresql.enabled (or (eq $isolated.runtimeSecret (include "git-code-reviewer.postgresql.secretName" .)) (eq $isolated.migratorSecret (include "git-code-reviewer.postgresql.secretName" .))) -}}
+{{- fail "runtime/migrator Secrets must be separate from the PostgreSQL bootstrap Secret" -}}
+{{- end -}}
+{{- $budget := $isolated.budget -}}
+{{- $workerPool := int (default .Values.server.databasePoolMax .Values.worker.databasePoolMax) -}}
+{{- if or (lt (int .Values.server.databasePoolMax) 2) (lt $workerPool 2) -}}
+{{- fail "isolated server and worker pools must each allow at least two connections" -}}
+{{- end -}}
+{{- if or (lt (int $budget.serverPeakReplicas) (add (int .Values.server.replicas) 1)) (lt (int $budget.workerPeakReplicas) (add (int .Values.worker.replicas) 1)) -}}
+{{- fail "database peak replica budgets must include rolling replacements and any draining pods" -}}
+{{- end -}}
+{{- $appConnections := add (mul (int $budget.serverPeakReplicas) (int .Values.server.databasePoolMax)) (mul (int $budget.workerPeakReplicas) $workerPool) 2 -}}
+{{- if gt $appConnections (int $budget.applicationConnectionLimit) -}}
+{{- fail "server/worker peak pools plus retention exceed the gcr_app connection budget" -}}
+{{- end -}}
+{{- $total := add (int $budget.applicationConnectionLimit) (int $budget.migratorConnectionLimit) (int $budget.keycloakConnectionLimit) (int $budget.otherConnections) (int $budget.operatorReserve) (int $budget.reservedConnections) -}}
+{{- if or (lt (int $budget.operatorReserve) 2) (gt $total (int $budget.maxConnections)) -}}
+{{- fail "shared PostgreSQL connection budgets exceed the server limit or lack operator reserve" -}}
+{{- end -}}
+{{- end -}}
+
 {{- if gt (int .Values.retention.chatDays) (int .Values.retention.reportDays) -}}
 {{- fail "retention.chatDays must not exceed retention.reportDays" -}}
 {{- end -}}
@@ -155,7 +289,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and (eq .Values.model.chat.mode "chatgpt-account") (or (not .Values.model.chat.name) (not .Values.secrets.chatgptAccount) (not .Values.model.chat.account.authFileKey) (not .Values.model.chat.account.bootstrapRevision) (not .Values.model.chat.account.home)) -}}
 {{- fail "ChatGPT account mode requires an explicit model name, auth Secret, bootstrap revision, auth file key, and account home" -}}
 {{- end -}}
-{{- if and (not .Values.postgresql.enabled) (not .Values.database.existingSecret) -}}
+{{- if and (not $isolated.enabled) (not .Values.postgresql.enabled) (not .Values.database.existingSecret) -}}
 {{- fail "database.existingSecret is required when postgresql.enabled is false" -}}
 {{- end -}}
 {{- if and .Values.postgresql.enabled (or (not .Values.postgresql.auth.username) (not .Values.postgresql.auth.database)) -}}

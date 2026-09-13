@@ -1,3 +1,4 @@
+{{- $isolated := default dict .Values.database.isolated -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,6 +7,11 @@ metadata:
     {{- include "git-code-reviewer.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker
 spec:
+  {{- if $isolated.enabled }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  {{- end }}
   replicas: {{ .Values.worker.replicas }}
   selector:
     matchLabels:
@@ -16,6 +22,10 @@ spec:
       labels:
         {{- include "git-code-reviewer.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: worker
+      {{- if $isolated.enabled }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+      {{- end }}
     spec:
       serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
       automountServiceAccountToken: false
@@ -29,7 +39,7 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
         seccompProfile: { type: RuntimeDefault }
-      {{- if .Values.postgresql.enabled }}
+      {{- if or .Values.postgresql.enabled $isolated.enabled }}
       initContainers:
         {{- include "git-code-reviewer.migrationInitContainer" . | nindent 8 }}
       {{- end }}
@@ -42,6 +52,10 @@ spec:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
           env:
             {{- include "git-code-reviewer.databaseEnv" . | nindent 12 }}
+            {{- if .Values.worker.databasePoolMax }}
+            - name: DATABASE_POOL_MAX
+              value: {{ .Values.worker.databasePoolMax | quote }}
+            {{- end }}
             {{- if .Values.credentialRegistry.enabled }}
             - name: CREDENTIAL_ENCRYPTION_KEY
               valueFrom:

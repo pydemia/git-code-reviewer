@@ -1,3 +1,4 @@
+{{- $isolated := default dict .Values.database.isolated -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,6 +7,11 @@ metadata:
     {{- include "git-code-reviewer.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
 spec:
+  {{- if $isolated.enabled }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  {{- end }}
   replicas: {{ .Values.server.replicas }}
   selector:
     matchLabels:
@@ -30,9 +36,9 @@ spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.postgresql.enabled (eq .Values.model.chat.mode "chatgpt-account") }}
+      {{- if or .Values.postgresql.enabled $isolated.enabled (eq .Values.model.chat.mode "chatgpt-account") }}
       initContainers:
-        {{- if .Values.postgresql.enabled }}
+        {{- if or .Values.postgresql.enabled $isolated.enabled }}
         {{- include "git-code-reviewer.migrationInitContainer" . | nindent 8 }}
         {{- end }}
         {{- if eq .Values.model.chat.mode "chatgpt-account" }}

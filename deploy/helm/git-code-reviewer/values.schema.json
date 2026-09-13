@@ -74,6 +74,7 @@
         "resources"
       ],
       "properties": {
+        "databasePoolMax": { "type": ["integer", "null"], "minimum": 2 },
         "replicas": { "type": "integer", "minimum": 1 },
         "concurrency": { "type": "integer", "minimum": 1 },
         "healthPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
@@ -115,8 +116,126 @@
       "type": "object",
       "required": ["existingSecret", "urlKey"],
       "properties": {
-        "existingSecret": { "type": "string" },
-        "urlKey": { "type": "string", "minLength": 1 }
+        "existingSecret": {
+          "type": "string"
+        },
+        "urlKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tls": {
+          "type": "object",
+          "required": ["mode", "existingConfigMap", "key"],
+          "properties": {
+            "mode": {
+              "enum": ["legacy", "verify-full"]
+            },
+            "existingConfigMap": {
+              "type": "string"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "migrationsWaitTimeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 900000
+        },
+        "isolated": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "host",
+            "port",
+            "name",
+            "runtimeSecret",
+            "migratorSecret",
+            "passwordKey",
+            "budget"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "runtimeSecret": {
+              "type": "string"
+            },
+            "migratorSecret": {
+              "type": "string"
+            },
+            "passwordKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "budget": {
+              "type": "object",
+              "required": [
+                "serverPeakReplicas",
+                "workerPeakReplicas",
+                "applicationConnectionLimit",
+                "migratorConnectionLimit",
+                "keycloakConnectionLimit",
+                "maxConnections",
+                "reservedConnections",
+                "otherConnections",
+                "operatorReserve"
+              ],
+              "properties": {
+                "serverPeakReplicas": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "workerPeakReplicas": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "applicationConnectionLimit": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "migratorConnectionLimit": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "keycloakConnectionLimit": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "maxConnections": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "reservedConnections": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "otherConnections": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "operatorReserve": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
       }
     },
     "postgresql": {
