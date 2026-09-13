@@ -2,6 +2,11 @@ import {
   criterionListSchema,
   criterionDetailSchema,
   criterionSourceListSchema,
+  criterionRoleListSchema,
+  criterionGenerationSchema,
+  criterionGenerationListSchema,
+  type CriterionRoleAssignment,
+  type CriterionGenerationCreate,
   type CriterionCreate,
   type CriterionAction,
   type CriterionEvaluationCreate,
@@ -198,6 +203,41 @@ export async function revokeCriterionException(
       `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/exceptions/${exceptionId}/revocation`,
       'POST',
       input,
+    ),
+  );
+}
+
+export async function loadCriterionRoles(repositoryId: string, signal: AbortSignal) {
+  return criterionRoleListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/roles`, signal),
+  );
+}
+export async function assignCriterionRole(repositoryId: string, input: CriterionRoleAssignment) {
+  await mutateJson(`/api/v1/repositories/${repositoryId}/review-criteria/roles`, 'PUT', input);
+}
+export async function loadCriterionGenerations(repositoryId: string, signal: AbortSignal) {
+  return criterionGenerationListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/generations`, signal),
+  );
+}
+export async function requestCriterionGeneration(
+  repositoryId: string,
+  input: CriterionGenerationCreate,
+) {
+  return criterionGenerationSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/generations`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function cancelCriterionGeneration(repositoryId: string, generationId: string) {
+  return criterionGenerationSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/generations/${generationId}/cancel`,
+      'POST',
+      {},
     ),
   );
 }

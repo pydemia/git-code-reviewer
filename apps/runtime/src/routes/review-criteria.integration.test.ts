@@ -8,6 +8,8 @@ import {
   criterionDetailSchema,
   criterionListSchema,
   criterionSourceListSchema,
+  criterionGenerationListSchema,
+  criterionRoleListSchema,
   type CriterionDetail,
 } from '@gcr/contracts';
 import { ZodError } from 'zod';
@@ -15,7 +17,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chromium } from 'playwright';
 import { createServer } from '../../../web/src/review-criteria-test-server.js';
 import type { AuthUser } from '../auth/index.js';
-import { loadConfig } from '../config.js';
+import { loadConfig, type AppConfig } from '../config.js';
+import {
+  claimCriterionGeneration,
+  executeCriterionGeneration,
+  type CriterionModelResolver,
+} from '../services/criterion-generation.js';
 import { AuthorizationService } from '../services/authorization.js';
 import { criteriaHash } from '../services/review-criteria.js';
 import { registerReviewCriteriaRoutes } from './review-criteria.js';
@@ -79,6 +86,8 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
   const schema = `gcr_criteria_test_${randomUUID().replaceAll('-', '')}`;
   const actors = new Map<string, AuthUser>();
   let root: Database, database: Database, app: FastifyInstance;
+  let config: AppConfig;
+  let modelAccountId: string;
   let tenantId: string,
     repositoryId: string,
     otherRepositoryId: string,
@@ -213,6 +222,27 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       if (scope === 'personal') personalMemoryId = id;
       else collectiveMemoryId = id;
     }
+    modelAccountId = (
+      await database.query(
+        `insert into chat_accounts(display_name,provider_type,credential_ciphertext,credential_iv,credential_auth_tag,credential_fingerprint,created_by)
+      values('Synthetic criteria model','chatgpt-account',$1,$1,$1,$2,$3) returning id`,
+        [Buffer.from('synthetic-not-used'), 'b'.repeat(64), actors.get('admin')!.id],
+      )
+    ).rows[0].id;
+    await database.query(
+      "insert into chat_account_assignments(account_id,scope_type,scope_id,created_by) values($1,'all','*',$2)",
+      [modelAccountId, actors.get('admin')!.id],
+    );
+    await database.query(
+      "insert into chat_account_models(account_id,model_id,display_name,allowed_efforts,default_effort) values($1,'synthetic-model','Synthetic model',array['xhigh'],'xhigh')",
+      [modelAccountId],
+    );
+    config = loadConfig({
+      DATABASE_URL: url.toString(),
+      AUTH_MODE: 'development',
+      CREDENTIAL_REGISTRY_ENABLED: 'true',
+      CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
+    });
     app = Fastify();
     app.addHook('onRequest', async (request) => {
       request.user = actors.get(String(request.headers['x-test-actor'])) ?? null;
@@ -225,6 +255,25 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
     // Only bootstrap identity/catalog are synthetic. Browser mutations use the
     // production criteria routes, services, migrations and a real PostgreSQL DB.
     app.get('/api/v1/me', async (request) => ({ schemaVersion: 1, ...request.user }));
+    app.get('/api/v1/chat-accounts', async () => ({
+      schemaVersion: 1,
+      enabled: true,
+      items: [
+        {
+          id: modelAccountId,
+          displayName: 'Synthetic criteria model',
+          health: 'ready',
+          models: [
+            {
+              id: 'synthetic-model',
+              displayName: 'Synthetic model',
+              allowedEfforts: ['xhigh'],
+              defaultEffort: 'xhigh',
+            },
+          ],
+        },
+      ],
+    }));
     app.get('/api/v1/repositories', async () => ({
       schemaVersion: 1,
       nextCursor: null,
@@ -246,13 +295,7 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
         },
       ],
     }));
-    await registerReviewCriteriaRoutes(
-      app,
-      database,
-      new AuthorizationService(
-        loadConfig({ DATABASE_URL: url.toString(), AUTH_MODE: 'development' }),
-      ),
-    );
+    await registerReviewCriteriaRoutes(app, database, new AuthorizationService(config), config);
     await app.ready();
   }, 30_000);
   afterAll(async () => {
@@ -765,6 +808,249 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       ).rowCount,
     ).toBe(0);
   });
+  const generationInput = () => ({
+    requestId: randomUUID(),
+    accountId: modelAccountId,
+    modelName: 'synthetic-model',
+    reasoningEffort: 'xhigh',
+    focus: '테넌트 캐시 분리 조건을 정리해 주세요.',
+    sources: fixture().decision.sources,
+  });
+  const generation = async (input = generationInput(), actor = 'maintainer') =>
+    app.inject({
+      method: 'POST',
+      url: `${base()}/generations`,
+      headers: headers(actor),
+      payload: input,
+    });
+  const generationState = async (id: string) =>
+    criterionGenerationListSchema
+      .parse((await app.inject({ url: `${base()}/generations`, headers: headers() })).json())
+      .items.find((item) => item.id === id)!;
+  const generated = () => {
+    const input = fixture();
+    return JSON.stringify({
+      document: input.document,
+      decision: { outcome: input.decision.outcome, reasoning: input.decision.reasoning },
+    });
+  };
+  const resolver =
+    (
+      turn: NonNullable<import('../services/chat-model.js').ChatModel['turn']>,
+    ): CriterionModelResolver =>
+    async () => ({
+      accountId: modelAccountId,
+      accountName: 'Synthetic criteria model',
+      modelName: 'synthetic-model',
+      modelDisplayName: 'Synthetic model',
+      reasoningEffort: 'xhigh',
+      credentialVersion: 1,
+      model: {
+        name: 'synthetic-model',
+        generate: async () => {
+          throw Error('Unexpected legacy call');
+        },
+        turn,
+      },
+    });
+  const modelResult = (content = generated()) => ({ content, output: [], calls: [], usage: null });
+  it('enqueues a model request once, claims it once, and creates only an unevaluated model candidate', async () => {
+    const input = generationInput();
+    expect((await generation(input, 'reader')).statusCode).toBe(403);
+    expect((await generation(input, 'outsider')).statusCode).toBe(404);
+    expect((await generation({ ...input, accountId: randomUUID() })).statusCode).toBe(403);
+    const requests = await Promise.all([generation(input), generation(input)]);
+    expect(requests.map((item) => item.statusCode)).toEqual([202, 202]);
+    expect((await generation({ ...input, focus: 'changed' })).statusCode).toBe(409);
+    expect((await generation()).statusCode).toBe(409);
+    const claims = await Promise.all([
+      claimCriterionGeneration(database, 'one'),
+      claimCriterionGeneration(database, 'two'),
+    ]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    let calls = 0;
+    await executeCriterionGeneration(
+      database,
+      config,
+      claims.find(Boolean)!,
+      resolver(async (request) => {
+        calls++;
+        expect(request.tools).toEqual([]);
+        expect(request.reasoningEffort).toBe('xhigh');
+        expect(JSON.stringify(request.input)).not.toContain('personal source');
+        return modelResult();
+      }),
+    );
+    const state = await generationState(input.requestId);
+    expect(state.state).toBe('completed');
+    expect(calls).toBe(1);
+    const detail = criterionDetailSchema.parse(
+      (await app.inject({ url: `${base()}/${state.ruleId}`, headers: headers() })).json(),
+    );
+    expect(detail.criterion).toMatchObject({ state: 'draft', origin: 'model-candidate' });
+    expect(detail.evaluations).toHaveLength(0);
+    expect(detail.generation?.modelName).toBe('synthetic-model');
+    expect((await action(detail, 'evaluate')).statusCode).toBe(409);
+    expect((await generation(input)).statusCode).toBe(202);
+    expect(await claimCriterionGeneration(database, 'again')).toBeNull();
+    expect(calls).toBe(1);
+    const other = criterionGenerationListSchema.parse(
+      (await app.inject({ url: `${base()}/generations`, headers: headers('admin') })).json(),
+    );
+    expect(other.items).toHaveLength(0);
+  });
+  it('rejects personal source inputs and discards generation when source or management access changes', async () => {
+    const privateInput = {
+      ...generationInput(),
+      sources: [{ kind: 'memory', id: personalMemoryId, contentHash: 'a'.repeat(64) }],
+    };
+    expect((await generation(privateInput)).statusCode).toBe(404);
+    const input = {
+      ...generationInput(),
+      sources: [{ kind: 'memory', id: collectiveMemoryId, contentHash: 'c'.repeat(64) }],
+    };
+    // Earlier source-version test changed this fixture's current hash.
+    const hash = (
+      await database.query('select content_hash from review_memories where id=$1', [
+        collectiveMemoryId,
+      ])
+    ).rows[0].content_hash;
+    input.sources[0]!.contentHash = hash;
+    expect((await generation(input)).statusCode).toBe(202);
+    const run = (await claimCriterionGeneration(database, 'source-change'))!;
+    await executeCriterionGeneration(
+      database,
+      config,
+      run,
+      resolver(async () => {
+        await database.query('update review_memories set content_hash=$2 where id=$1', [
+          collectiveMemoryId,
+          'd'.repeat(64),
+        ]);
+        return modelResult();
+      }),
+    );
+    expect(await generationState(input.requestId)).toMatchObject({
+      state: 'failed',
+      ruleId: null,
+      errorCode: 'GENERATION_SOURCE_CHANGED',
+    });
+    await database.query('update review_memories set content_hash=$2 where id=$1', [
+      collectiveMemoryId,
+      hash,
+    ]);
+    const revoked = generationInput();
+    expect((await generation(revoked)).statusCode).toBe(202);
+    const claimed = (await claimCriterionGeneration(database, 'revocation'))!;
+    await executeCriterionGeneration(
+      database,
+      config,
+      claimed,
+      resolver(async () => {
+        await database.query(
+          "delete from review_criteria_roles where repository_id=$1 and user_id=$2 and role='maintainer'",
+          [repositoryId, actors.get('maintainer')!.id],
+        );
+        return modelResult();
+      }),
+    );
+    await database.query(
+      "insert into review_criteria_roles(repository_id,user_id,role,granted_by) values($1,$2,'maintainer',$3)",
+      [repositoryId, actors.get('maintainer')!.id, actors.get('admin')!.id],
+    );
+    expect(await generationState(revoked.requestId)).toMatchObject({
+      state: 'failed',
+      ruleId: null,
+      errorCode: 'GENERATION_ACCESS_REVOKED',
+    });
+  });
+  it('keeps malformed and lost model results out of criteria and never automatically replays them', async () => {
+    for (const content of [
+      'not JSON',
+      JSON.stringify({ ...JSON.parse(generated()), approved: true }),
+    ]) {
+      const input = generationInput();
+      expect((await generation(input)).statusCode).toBe(202);
+      await executeCriterionGeneration(
+        database,
+        config,
+        (await claimCriterionGeneration(database, 'invalid'))!,
+        resolver(async () => modelResult(content)),
+      );
+      expect(await generationState(input.requestId)).toMatchObject({
+        state: 'failed',
+        ruleId: null,
+        errorCode: 'MODEL_OUTPUT_INVALID',
+      });
+    }
+    const input = generationInput();
+    await generation(input);
+    const lost = (await claimCriterionGeneration(database, 'lost'))!;
+    await database.query(
+      "update review_criterion_generations set deadline_at=clock_timestamp()-interval '1 second' where id=$1",
+      [input.requestId],
+    );
+    expect(await claimCriterionGeneration(database, 'replacement')).toBeNull();
+    let calls = 0;
+    await executeCriterionGeneration(
+      database,
+      config,
+      lost,
+      resolver(async () => {
+        calls++;
+        return modelResult();
+      }),
+    );
+    expect(calls).toBe(0);
+    expect(await generationState(input.requestId)).toMatchObject({
+      state: 'uncertain',
+      ruleId: null,
+      errorCode: 'EXECUTION_LOST',
+    });
+  });
+  it('cancels queued and in-flight requests without creating a candidate and exposes delegated roles only to admins', async () => {
+    expect((await app.inject({ url: `${base()}/roles`, headers: headers() })).statusCode).toBe(403);
+    const roles = criterionRoleListSchema.parse(
+      (await app.inject({ url: `${base()}/roles`, headers: headers('admin') })).json(),
+    );
+    expect(roles.users.find((user) => user.id === actors.get('maintainer')!.id)?.roles).toContain(
+      'maintainer',
+    );
+    expect(roles.users.some((user) => user.id === actors.get('outsider')!.id)).toBe(false);
+    const input = generationInput();
+    await generation(input);
+    const cancel = () =>
+      app.inject({
+        method: 'POST',
+        url: `${base()}/generations/${input.requestId}/cancel`,
+        headers: headers(),
+        payload: {},
+      });
+    expect((await cancel()).statusCode).toBe(200);
+    expect(await claimCriterionGeneration(database, 'cancelled')).toBeNull();
+    const running = generationInput();
+    await generation(running);
+    const run = (await claimCriterionGeneration(database, 'cancel-running'))!;
+    await executeCriterionGeneration(
+      database,
+      config,
+      run,
+      resolver(async () => {
+        const response = await app.inject({
+          method: 'POST',
+          url: `${base()}/generations/${running.requestId}/cancel`,
+          headers: headers(),
+          payload: {},
+        });
+        expect(response.statusCode).toBe(200);
+        return modelResult();
+      }),
+    );
+    expect(await generationState(running.requestId)).toMatchObject({
+      state: 'cancelled',
+      ruleId: null,
+    });
+  });
   it('creates, evaluates, activates, edits and retires a criterion through Chrome and the real API', async () => {
     await app.listen({ host: '127.0.0.1', port: 0 });
     const address = app.server.address();
@@ -787,6 +1073,55 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       const page = await context.newPage();
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(`http://127.0.0.1:${webAddress.port}/review-criteria`);
+      await page.getByText('원문에서 모델 후보 생성', { exact: true }).click();
+      await page.getByLabel('모델 계정', { exact: true }).selectOption(modelAccountId);
+      await page.getByLabel('후보 생성 모델', { exact: true }).selectOption('synthetic-model');
+      await page.getByLabel('검토 초점', { exact: true }).fill('Synthetic browser generation.');
+      await page
+        .getByLabel('모델에 전달할 수동 원문', { exact: true })
+        .fill('Synthetic source: cache key must contain tenant.');
+      await page.getByRole('button', { name: '후보 생성 요청', exact: true }).click();
+      await page.getByText('대기 중', { exact: true }).waitFor();
+      const previousCandidates = await page
+        .getByRole('button', { name: '생성한 후보 보기', exact: true })
+        .count();
+      const generatedRun = await claimCriterionGeneration(database, 'browser');
+      expect(generatedRun).not.toBeNull();
+      const generatedBody = JSON.parse(generated());
+      generatedBody.document.title = '모델 생성 브라우저 기준';
+      await executeCriterionGeneration(
+        database,
+        config,
+        generatedRun!,
+        resolver(async () => modelResult(JSON.stringify(generatedBody))),
+      );
+      expect(await generationState(generatedRun!.id)).toMatchObject({ state: 'completed' });
+      await expect
+        .poll(() => page.getByRole('button', { name: '생성한 후보 보기', exact: true }).count(), {
+          timeout: 10000,
+        })
+        .toBe(previousCandidates + 1);
+      await page.getByRole('button', { name: '생성한 후보 보기', exact: true }).first().click();
+      await page.getByRole('heading', { name: '모델 생성 브라우저 기준', exact: true }).waitFor();
+      await page
+        .getByText('최초 후보 생성 모델: synthetic-model · xhigh', { exact: true })
+        .waitFor();
+      await context.setExtraHTTPHeaders(headers('admin'));
+      await page.reload();
+      await page.getByText('저장소 유지관리자·책임자 지정', { exact: true }).click();
+      const readerRole = page.getByRole('checkbox', { name: 'reader 유지관리자', exact: true });
+      const grantResponse = page.waitForResponse(
+        (response) => response.url().endsWith('/roles') && response.request().method() === 'PUT',
+      );
+      await readerRole.check();
+      expect((await grantResponse).status()).toBe(200);
+      const revokeResponse = page.waitForResponse(
+        (response) => response.url().endsWith('/roles') && response.request().method() === 'PUT',
+      );
+      await readerRole.uncheck();
+      expect((await revokeResponse).status()).toBe(200);
+      await context.setExtraHTTPHeaders(headers());
+      await page.reload();
       await page.getByRole('button', { name: '후보 등록', exact: true }).click();
       await page.getByLabel('제목', { exact: true }).fill('브라우저 검증: 테넌트 캐시');
       await page.getByLabel('주제 키').fill('cache.browser');

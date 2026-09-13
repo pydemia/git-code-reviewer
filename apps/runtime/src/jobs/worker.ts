@@ -27,6 +27,10 @@ import { processIdentityReactivation } from '../identity/reactivation.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
 import { withModelBudget } from '../services/model-admission.js';
+import {
+  claimCriterionGeneration,
+  executeCriterionGeneration,
+} from '../services/criterion-generation.js';
 import { assertJobLease, checkpointReviewModel } from '../services/analysis-checkpoint.js';
 import { recoverExpiredJobs } from './recovery.js';
 import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
@@ -107,6 +111,19 @@ export async function runWorker(
   let stopping = false;
   const active = new Set<Promise<void>>();
   let preferChat = true;
+  let preferCriteria = true;
+  const startCriteria = async () => {
+    if (!config.CREDENTIAL_REGISTRY_ENABLED) return false;
+    const run = await claimCriterionGeneration(database, executor);
+    if (!run) return false;
+    const task = executeCriterionGeneration(database, config, run).catch(() =>
+      health.log.error({ generationId: run.id }, 'criterion generation failed'),
+    );
+    active.add(task);
+    void task.finally(() => active.delete(task));
+    preferCriteria = false;
+    return true;
+  };
   let activeBatch = 0;
   let lastRecoveryAt = 0;
   const shutdown = stopSignal(options.signal).then(() => {
@@ -162,6 +179,10 @@ export async function runWorker(
     }
     let claimed = false;
     while (!stopping && active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY) {
+      if (preferCriteria && (await startCriteria())) {
+        claimed = true;
+        continue;
+      }
       const batchAvailable =
         !config.CHAT_AGENT_ENABLED ||
         config.WORKER_CONCURRENCY === 1 ||
@@ -171,6 +192,7 @@ export async function runWorker(
         const run = await claimAgentRun(database, executor);
         if (run) {
           preferChat = false;
+          preferCriteria = true;
           claimed = true;
           const task = executeAgentRun(database, config, run).catch(() =>
             health.log.error({ runId: run.id }, 'chat run failed'),
@@ -181,7 +203,14 @@ export async function runWorker(
         }
       }
       const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
-      if (!job) break;
+      if (!job) {
+        if (await startCriteria()) {
+          claimed = true;
+          continue;
+        }
+        break;
+      }
+      preferCriteria = true;
       preferChat = true;
       claimed = true;
       const task = executeJob(

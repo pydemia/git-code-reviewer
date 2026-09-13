@@ -128,7 +128,7 @@ export async function buildServer(
   await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel, authorization);
   await registerChatRunRoutes(app, database, artifacts, config, authorization);
   await registerReviewMemoryRoutes(app, database, authorization);
-  await registerReviewCriteriaRoutes(app, database, authorization);
+  await registerReviewCriteriaRoutes(app, database, authorization, config);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));

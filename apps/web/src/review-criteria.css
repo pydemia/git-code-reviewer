@@ -244,3 +244,41 @@
 .criteria-feedback .criteria-actions {
   margin-top: 12px;
 }
+
+.criteria-roles,
+.criteria-generation {
+  margin-bottom: 20px;
+}
+.criteria-roles ul,
+.criteria-generation > ul {
+  list-style: none;
+  padding: 0;
+}
+.criteria-roles li,
+.criteria-generation li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, #d9dee7);
+}
+.criteria-roles li > small,
+.criteria-generation li > small {
+  display: block;
+  margin: 6px 0;
+}
+.criteria-roles li fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.criteria-page .criteria-role-choice {
+  display: flex;
+  align-items: center;
+}
+.criteria-page .criteria-role-choice input {
+  width: auto;
+}
+.criteria-generation form > button {
+  margin: 12px 8px 8px 0;
+}
+.criteria-generation li > button {
+  margin: 8px;
+}

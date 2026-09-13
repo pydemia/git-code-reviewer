@@ -3,10 +3,11 @@ import {
   criterionRevisionCreateSchema,
   criterionEvaluationCreateSchema,
   criterionActionSchema,
-  criterionRoleSchema,
   criterionFeedbackCreateSchema,
   criterionFeedbackResolutionSchema,
   criterionExceptionRevokeSchema,
+  criterionRoleAssignmentSchema,
+  criterionGenerationCreateSchema,
 } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -29,17 +30,22 @@ import {
   revokeCriterionException,
 } from '../services/review-criteria.js';
 import { canReadRepository } from './worklist.js';
+import type { AppConfig } from '../config.js';
+import { listAvailableChatAccounts } from '../services/account-registry.js';
+import {
+  enqueueCriterionGeneration,
+  generationSelection,
+} from '../services/criterion-generation.js';
 
 const repositoryParams = z.object({ repoId: z.string().uuid() });
 const ruleParams = repositoryParams.extend({ ruleId: z.string().uuid() });
-const delegationSchema = z
-  .object({ userId: z.string().uuid(), role: criterionRoleSchema, enabled: z.boolean() })
-  .strict();
+const delegationSchema = criterionRoleAssignmentSchema;
 
 export async function registerReviewCriteriaRoutes(
   app: FastifyInstance,
   database: Database,
   authorization: AuthorizationService,
+  config?: AppConfig,
 ) {
   const capabilities = async (request: FastifyRequest, repositoryId: string) => {
     if (!(await canReadRepository(database, authorization, request, repositoryId)))
@@ -119,10 +125,15 @@ export async function registerReviewCriteriaRoutes(
          where e.rule_id = $1 order by e.created_at desc, e.id`,
         [ruleId],
       );
+      const generation = await connection.query(
+        `select ${generationSelection} from review_criterion_generations where rule_id=$1 and state='completed' limit 1`,
+        [ruleId],
+      );
       await connection.query('commit');
       return {
         schemaVersion: 1,
         criterion: rule.rows[0],
+        generation: generation.rows[0] ?? null,
         capabilities: access,
         feedback: feedback.rows,
         exceptions: exceptions.rows,
@@ -300,6 +311,79 @@ export async function registerReviewCriteriaRoutes(
           );
           return ruleId;
         });
+      },
+    );
+    routes.get(`${base}/roles`, { preHandler: requireUser }, async (request) => {
+      const { repoId } = repositoryParams.parse(request.params);
+      requirePermission((await capabilities(request, repoId)).delegate);
+      const result = await database.query(
+        `with candidates as (
+        select u.id,u.display_name as "displayName",(u.enabled and u.deleted_at is null and (u.role='administrator' or (
+          exists(select 1 from tenant_memberships m where m.user_id=u.id and m.tenant_id=r.tenant_id and m.enabled)
+          and exists(select 1 from repository_grants g where g.repository_id=r.id and (g.subject_or_group=u.oidc_subject or g.subject_or_group in (select 'group:'||value from jsonb_array_elements_text(u.groups_json))))))) as eligible,
+          array(select role from review_criteria_roles where repository_id=r.id and user_id=u.id order by role) as roles
+        from users u cross join repositories r where r.id=$1)
+        select * from candidates where eligible or cardinality(roles)>0 order by "displayName",id`,
+        [repoId],
+      );
+      return { schemaVersion: 1, users: result.rows };
+    });
+    routes.get(`${base}/generations`, { preHandler: requireUser }, async (request) => {
+      const { repoId } = repositoryParams.parse(request.params);
+      requirePermission((await capabilities(request, repoId)).manage);
+      const result = await database.query(
+        `select ${generationSelection} from review_criterion_generations where repository_id=$1 and owner_user_id=$2 order by created_at desc,id desc limit 20`,
+        [repoId, request.user!.id],
+      );
+      return {
+        schemaVersion: 1,
+        enabled: config?.CREDENTIAL_REGISTRY_ENABLED === true,
+        items: result.rows,
+      };
+    });
+    routes.post(`${base}/generations`, { preHandler: requireUser }, async (request, reply) => {
+      const { repoId } = repositoryParams.parse(request.params);
+      requirePermission((await capabilities(request, repoId)).manage);
+      if (!config?.CREDENTIAL_REGISTRY_ENABLED)
+        throw new CriterionError(503, 'GENERATION_DISABLED', '등록된 모델 계정이 필요합니다.');
+      const input = criterionGenerationCreateSchema.parse(request.body);
+      const accounts = await listAvailableChatAccounts(database, request.user!.id);
+      const model = accounts
+        .find((account) => account.id === input.accountId)
+        ?.models.find((model) => model.id === input.modelName);
+      if (!model?.allowedEfforts.includes(input.reasoningEffort))
+        throw new CriterionError(
+          403,
+          'GENERATION_MODEL_UNAVAILABLE',
+          '이 모델 계정을 사용할 수 없습니다.',
+        );
+      const id = await enqueueCriterionGeneration(database, repoId, request.user!.id, input);
+      const result = await database.query(
+        `select ${generationSelection} from review_criterion_generations where id=$1`,
+        [id],
+      );
+      return reply.code(202).send(result.rows[0]);
+    });
+    routes.post(
+      `${base}/generations/:generationId/cancel`,
+      { preHandler: requireUser },
+      async (request) => {
+        const { repoId, generationId } = repositoryParams
+          .extend({ generationId: z.string().uuid() })
+          .parse(request.params);
+        requirePermission((await capabilities(request, repoId)).manage);
+        const result = await database.query(
+          `update review_criterion_generations set state='cancelled',error_code=null,updated_at=clock_timestamp()
+        where id=$1 and repository_id=$2 and owner_user_id=$3 and state in ('queued','running') returning ${generationSelection}`,
+          [generationId, repoId, request.user!.id],
+        );
+        if (!result.rowCount)
+          throw new CriterionError(
+            409,
+            'GENERATION_NOT_ACTIVE',
+            '취소할 수 있는 진행 중 요청이 없습니다.',
+          );
+        return result.rows[0];
       },
     );
     routes.put(`${base}/roles`, { preHandler: requireUser }, async (request) => {

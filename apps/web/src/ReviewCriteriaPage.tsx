@@ -21,6 +21,8 @@ import {
 import { AppHeader } from './AppHeader.tsx';
 import { CriterionFeedbackPanel, type CriterionMutation } from './CriterionFeedbackPanel.tsx';
 import './review-criteria.css';
+import { CriterionRolesPanel } from './CriterionRolesPanel.tsx';
+import { CriterionGenerationPanel } from './CriterionGenerationPanel.tsx';
 
 const stateLabels = {
   draft: '후보',
@@ -121,7 +123,15 @@ export function ReviewCriteriaPage() {
     setNotice('');
     try {
       const next = await loadCriterion(repositoryId, ruleId, new AbortController().signal);
-      if (current === generation.current) setDetail(next);
+      if (current === generation.current) {
+        setDetail(next);
+        setAccess(next.capabilities);
+        setItems((previous) =>
+          previous.some((item) => item.id === next.criterion.id)
+            ? previous.map((item) => (item.id === next.criterion.id ? next.criterion : item))
+            : [next.criterion, ...previous].slice(0, 100),
+        );
+      }
     } catch (cause) {
       if (current === generation.current) setError(message(cause));
     }
@@ -189,6 +199,17 @@ export function ReviewCriteriaPage() {
         {notice ? <p role="status">{notice}</p> : null}
         {loading ? <p role="status">기준을 불러오는 중입니다.</p> : null}
         {!loading && !repositories.length ? <p>접근할 수 있는 저장소가 없습니다.</p> : null}
+        {repositoryId && access.delegate ? (
+          <CriterionRolesPanel key={`roles:${repositoryId}`} repositoryId={repositoryId} />
+        ) : null}
+        {repositoryId && access.manage ? (
+          <CriterionGenerationPanel
+            key={`generation:${repositoryId}`}
+            repositoryId={repositoryId}
+            sources={sources}
+            onOpen={(id) => void open(id)}
+          />
+        ) : null}
         {repositoryId ? (
           <div className="criteria-workspace">
             <aside className="criteria-list" aria-label="리뷰 기준 목록">
@@ -580,6 +601,11 @@ function CriterionView({
           </button>
         ) : null}
       </header>
+      {detail.generation ? (
+        <p>
+          최초 후보 생성 모델: {detail.generation.modelName} · {detail.generation.reasoningEffort}
+        </p>
+      ) : null}
       <p>배포 상태: 미발행. 현재 PR·CLI 리뷰에는 이 기준이 아직 적용되지 않습니다.</p>
       <p className="criteria-prose">{rule.document.requirement}</p>
       <h3>기준의 이유</h3>

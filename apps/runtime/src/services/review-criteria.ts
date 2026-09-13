@@ -72,7 +72,7 @@ export async function listCriterionSources(
   return result.rows.map((row) => criterionSourceSchema.parse(row));
 }
 
-async function resolveSources(
+export async function resolveCriterionSources(
   connection: Connection,
   repositoryId: string,
   input: CriterionCreate['decision']['sources'],
@@ -131,7 +131,7 @@ async function insertRevision(
   actorId: string,
   input: CriterionCreate,
 ) {
-  const sources = await resolveSources(connection, repositoryId, input.decision.sources);
+  const sources = await resolveCriterionSources(connection, repositoryId, input.decision.sources);
   const sourceHash = criteriaHash(sources);
   const document = criterionDocumentSchema.parse(input.document);
   const decisionId = randomUUID();

@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T16:38:17.321381+00:00",
+  "scope": "P05-C02-b/C03-b local implementation; synthetic provider, real PostgreSQL and Chrome",
+  "tests": {
+    "passed": 30,
+    "failed": 0,
+    "reportSha256": "a61a42a339b0062d36a6c84ab0e918c46e7940d5f59178beeef971dba2ec93e8"
+  },
+  "build": "pnpm build and final runtime/web build passed",
+  "lint": "changed TypeScript and TSX files passed",
+  "sourceHashes": {
+    "apps/runtime/src/services/criterion-generation.ts": "9fc21f02e812bed160ed3fbad1dd0a9a683d09dd98c4a9e84561e5f727b57a98",
+    "packages/db/migrations/0038_criterion_generation.sql": "1d3cdb8f552401710841c4a7d28e89ccc7b73ba3f42cdd8be81cc06bc1d32899",
+    "apps/runtime/src/routes/review-criteria.integration.test.ts": "a0a21795c3a696f1a0e359dabcd30a02294504d7d9092c2e5e61ed159f705a87",
+    "apps/web/src/CriterionGenerationPanel.tsx": "b81e3cdde97946f1bbb85a6be3b1fd5b736ee2603137859632ec8010753db517",
+    "apps/web/src/CriterionRolesPanel.tsx": "a1c2a7fab50dda3cf84c228d89efaed6776bcba105ac8569ebb9311a457bc07e"
+  },
+  "actualProviderVerified": false,
+  "deploymentVerified": false,
+  "remaining": [
+    "immutable bundle publication",
+    "signed manifests and leases",
+    "authorized distribution API",
+    "publication and client status",
+    "Commit Defender sync/review"
+  ]
+}

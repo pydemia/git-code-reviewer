@@ -30,9 +30,9 @@
 | `POST /:ruleId/feedback` | 일반 사용자의 정정·예외 요청 |
 | `POST /:ruleId/feedback/:requestId/resolution` | 접수·예외 승인·거절 |
 | `POST /:ruleId/exceptions/:exceptionId/revocation` | 예외 철회 |
-| `PUT /roles` | 관리자의 저장소별 역할 위임·철회 |
+| `GET /roles`, `PUT /roles` | 관리자의 저장소별 역할 위임·철회 |
 
-위임 body는 `{ userId, role, enabled }`이며 role은 `maintainer`, `security-owner`, `domain-owner` 중 하나다. 대상 계정의 tenant·직접 또는 그룹 repository grant를 확인한다. 관리자라는 이유만으로 지정 owner 자격을 부여하지 않는다. 역할 위임 웹 화면은 아직 없다.
+위임 body는 `{ userId, role, enabled }`이며 role은 `maintainer`, `security-owner`, `domain-owner` 중 하나다. 대상 계정의 tenant·직접 또는 그룹 repository grant를 확인한다. 관리자라는 이유만으로 지정 owner 자격을 부여하지 않는다. 관리자는 화면에서 저장소 유지관리자·보안 책임자·도메인 책임자를 지정하거나 회수할 수 있다. 접근 권한을 잃은 기존 지정자는 회수만 허용한다.
 
 ## 검증과 남은 범위
 
@@ -40,7 +40,7 @@
 
 최초 브라우저 실패는 기본값이 있는 textarea의 라벨 탐색 문제로 명시적 접근성 이름을 추가했다. 동시 revision 변경의 잘못된 404는 stable rule row를 먼저 잠그도록 수정했다. 저장소 삭제 시 이력 FK의 검사 순서 충돌은 transaction 종료 시 검사하도록 수정했으며 이력 직접 수정·삭제 금지는 유지한다.
 
-이 단계는 기준 관리 기능이다. 모델 후보 자동 생성, 불변 bundle 발행·서명된 manifest·client sync는 미구현이며 `active` 기준도 현재 PR·CLI 리뷰에는 적용되지 않는다. 화면에 미발행 상태를 표시한다. P05 전체 완료와 구분하며 실행 증거는 [P05 검증 기록](../../.documents/execution/preventive-review/evidence/P05-criteria-management.json)을 따른다.
+이 단계는 기준 관리 기능이다. 불변 bundle 발행·서명된 manifest·client sync는 미구현이며 `active` 기준도 현재 PR·CLI 리뷰에는 적용되지 않는다. 화면에 미발행 상태를 표시한다. P05 전체 완료와 구분하며 실행 증거는 [P05 검증 기록](../../.documents/execution/preventive-review/evidence/P05-criteria-management.json)을 따른다.
 
 
 ## 운영 배포
@@ -48,3 +48,14 @@
 PRISM-DEV `git-code-reviewer` release 51에 alpha.39·chart 0.10.37을 배포했다. Source `b4ca4cc`, release pin `4230448`이며 image digest는 `sha256:f8477a2b9f3513ddba25442d34a02abb51837280369d2811f85969663b9f49a2`다. 기존 DB/TLS·인증·Secret·PVC 설정을 보존했다. Migration 37개, server·worker Ready, 배포된 코드·정적 파일 대조와 Helm test를 확인했다. [운영 검증 기록](../../.documents/execution/preventive-review/evidence/P05-PRISM-deployment.json)을 참고한다.
 
 새 화면은 `https://pr-review.prism.ai/review-criteria`에서 제공한다. 개발 CA의 브라우저 신뢰 등록 여부는 기존 HTTPS 설정을 따른다. 이 릴리스의 모델 자동 생성·bundle 발행·CLI/CD 적용은 제공하지 않는다.
+
+
+## 모델 후보 생성·역할 위임 후속 변경
+
+기존 등록 모델 계정에서 사용할 계정·모델·추론 수준을 선택하고 검토 초점과 최대 6개 원문을 지정해 후보 생성을 요청한다. `CREDENTIAL_REGISTRY_ENABLED`가 활성화되어야 한다. 선택한 공용 원문 snapshot과 수동 기록만 전송하며 모델에 도구를 제공하지 않는다. 원문의 명령, 모델이 제안한 출처 ID·평가·승인 상태는 받지 않는다. 결과는 항상 `model-candidate` 출처의 `draft`이고 평가와 승인은 기존 절차를 따른다. 수정 이후에도 모델 정보는 최초 후보 생성 정보로 표시한다.
+
+`POST /generations` body는 `{ requestId, accountId, modelName, reasoningEffort, focus, sources }`다. 동일 요청 ID·입력은 다시 접수해도 새 실행을 만들지 않는다. `GET /generations`는 요청자 본인의 최근 20개 상태를 반환하고 `POST /generations/:generationId/cancel`로 대기·실행 중 요청을 취소한다. UI가 접수 응답을 확인하지 못하면 같은 요청을 확인할 수 있다.
+
+Migration `0038_criterion_generation.sql`에 영속 요청 큐를 추가했다. Worker는 기존 동시 실행 한도와 모델 admission을 재사용한다. 사용자당 한 요청만 진행하며 모델 호출은 120초로 제한한다. 3분 실행 기한을 넘긴 요청은 `uncertain`으로 종료하고 자동 재호출하지 않는다. 기존 계정의 401 credential refresh 재시도 1회만 허용하며 이 호출도 admission에 포함한다. 모델 결과를 저장하기 전에 저장소·유지관리·모델 계정 접근과 원문 hash를 다시 확인한다. 취소된 실행의 늦은 결과는 저장하지 않는다.
+
+2026-09-14 후속 통합 검사 30개가 통과했다. 합성 provider를 사용한 요청 중복·claim 경합·원문 변경·권한 회수·형식 오류·실행 유실·취소와 Chrome 후보 생성·조회·역할 부여/회수를 포함한다. 모델 원문 변경 오류를 구체화했고 역할 checkbox는 저장 중 상태를 표시한 뒤 서버 결과를 반영한다. 전체 build, 변경 파일 lint와 이후 runtime/web build도 통과했다. 이 로컬 결과는 실제 provider 호출이나 운영 배포 완료 증거가 아니다. [후속 증거](../../.documents/execution/preventive-review/evidence/P05-criterion-generation.json)를 따른다.

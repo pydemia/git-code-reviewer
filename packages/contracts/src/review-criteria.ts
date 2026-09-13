@@ -153,6 +153,60 @@ export type CriterionFeedbackCreate = z.infer<typeof criterionFeedbackCreateSche
 export type CriterionFeedbackResolution = z.infer<typeof criterionFeedbackResolutionSchema>;
 export type CriterionExceptionRevoke = z.infer<typeof criterionExceptionRevokeSchema>;
 
+export const criterionRoleAssignmentSchema = z
+  .object({
+    userId: z.string().uuid(),
+    role: criterionRoleSchema,
+    enabled: z.boolean(),
+  })
+  .strict();
+export const criterionRoleListSchema = z.object({
+  schemaVersion: z.literal(1),
+  users: z.array(
+    z.object({
+      id: z.string().uuid(),
+      displayName: z.string(),
+      eligible: z.boolean(),
+      roles: z.array(criterionRoleSchema),
+    }),
+  ),
+});
+export type CriterionRoleAssignment = z.infer<typeof criterionRoleAssignmentSchema>;
+export const criterionGenerationCreateSchema = z
+  .object({
+    requestId: z.string().uuid(),
+    accountId: z.string().uuid(),
+    modelName: text(200),
+    reasoningEffort: text(40),
+    sources: z.array(criterionSourceInputSchema).min(1).max(6),
+    focus: text(2000),
+  })
+  .strict();
+export const criterionGeneratedDocumentSchema = z
+  .object({
+    document: criterionDocumentSchema,
+    decision: z.object({ outcome: reviewDecisionOutcomeSchema, reasoning: text(4000) }).strict(),
+  })
+  .strict();
+export const criterionGenerationSchema = z.object({
+  id: z.string().uuid(),
+  repositoryId: z.string().uuid(),
+  state: z.enum(['queued', 'running', 'completed', 'failed', 'uncertain', 'cancelled']),
+  modelName: z.string(),
+  reasoningEffort: z.string(),
+  ruleId: z.string().uuid().nullable(),
+  errorCode: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export const criterionGenerationListSchema = z.object({
+  schemaVersion: z.literal(1),
+  enabled: z.boolean(),
+  items: z.array(criterionGenerationSchema),
+});
+export type CriterionGenerationCreate = z.infer<typeof criterionGenerationCreateSchema>;
+export type CriterionGeneration = z.infer<typeof criterionGenerationSchema>;
+
 export const criterionSummarySchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
@@ -180,6 +234,7 @@ export const criterionListSchema = z.object({
 export const criterionDetailSchema = z.object({
   schemaVersion: z.literal(1),
   criterion: criterionSummarySchema,
+  generation: criterionGenerationSchema.nullable().default(null),
   capabilities: criterionCapabilitiesSchema,
   feedback: z.array(
     z.object({
