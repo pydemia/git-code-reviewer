@@ -1,0 +1,397 @@
+# Local integration overlay; requires Docker Compose >= 2.24.4.
+# Read docs/operations/identity-compose.md before using an existing data volume.
+# DBA provisioning and realm configuration are explicit maintenance operations.
+x-identity-runtime: &identity-runtime
+  image: ${GCR_RUNTIME_IMAGE:?set a verified current runtime image digest}
+  pull_policy: if_not_present
+  entrypoint: ['/bin/sh', '/run/config/runtime-entrypoint.sh']
+  user: '1000:1000'
+  group_add: ['${GCR_SECRET_GID:?set the prepared secret file group}']
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  read_only: true
+  tmpfs: ['/tmp:uid=1000,gid=1000,mode=1770,size=128m']
+
+x-identity-environment: &identity-environment
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  NODE_EXTRA_CA_CERTS: /run/config/ca.crt
+  PUBLIC_BASE_URL: https://${GCR_PUBLIC_HOST:?set the local GCR hostname}:${GCR_HTTPS_PORT:-8443}
+  AUTH_MODE: saml
+  AUTHORIZATION_MODE: local
+  AUTO_JOIN_DEFAULT_TENANT: 'false'
+  DATABASE_ISOLATED_ROLES: 'true'
+  DATABASE_TLS_MODE: verify-full
+  DATABASE_TLS_CA_FILE: /run/config/ca.crt
+  DATABASE_HOST: postgres
+  DATABASE_PORT: '5432'
+  DATABASE_NAME: git_code_reviewer
+  DATABASE_USER: gcr_app
+  DATABASE_PASSWORD_FILE: /run/secrets/app-db-password
+  DATABASE_POOL_MAX: '6'
+  SAML_IDP_ISSUER: https://${GCR_IDENTITY_HOST:?set the local identity hostname}:${GCR_HTTPS_PORT:-8443}/realms/git-code-reviewer
+  SAML_ENTITY_ID: https://${GCR_PUBLIC_HOST:?set the local GCR hostname}:${GCR_HTTPS_PORT:-8443}/auth/saml/metadata
+  IDENTITY_ADMIN_ENABLED: 'true'
+  IDENTITY_SECURITY_ENABLED: 'true'
+  KEYCLOAK_ADMIN_BASE_URL: https://keycloak:8443/admin/realms/git-code-reviewer
+  KEYCLOAK_ADMIN_CLIENT_ID: gcr-identity-administration
+  KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: /run/secrets/identity-admin-client-secret
+  ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts
+  WORKSPACE_ROOT: /tmp/git-code-reviewer/workspaces
+  GITHUB_MODE: registry
+  MODEL_MODE: disabled
+  CHAT_MODEL_MODE: disabled
+  CREDENTIAL_REGISTRY_ENABLED: 'true'
+  MODEL_ADMIN_ENABLED: 'true'
+  CHAT_AGENT_ENABLED: 'false'
+  MODEL_ADMISSION_ENABLED: 'true'
+  GIT_SANDBOX_SOCKET: /tmp/git-code-reviewer/workspaces/sandbox.sock
+  WORKER_CONCURRENCY: '2'
+
+services:
+  postgres:
+    image: ${GCR_POSTGRES_IMAGE:?set the approved original PostgreSQL image digest}
+    pull_policy: if_not_present
+    entrypoint: ['/bin/sh', '/run/config/postgres/entrypoint.sh']
+    user: '0:0'
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    tmpfs: ['/tmp:mode=1777,size=128m', '/var/run/postgresql:mode=3775,size=16m']
+    environment: !override
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${GCR_DBA_USER:?set a separate DBA role; existing volumes need prior preparation}
+      POSTGRES_PASSWORD_FILE: /run/secrets/dba-password
+      PGDATA: /var/lib/postgresql/data
+      GCR_POSTGRES_MAJOR: '17'
+    ports: !reset []
+    volumes: !override
+      - git-code-reviewer-postgres:/var/lib/postgresql/data
+    secrets: [dba-password, postgres-tls-cert, postgres-tls-key]
+    configs:
+      - source: postgres-identity-entrypoint
+        target: /run/config/postgres/entrypoint.sh
+      - source: postgres-identity-hba
+        target: /run/config/postgres/pg_hba.conf
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    networks: !override [app-db, migration-db, identity-db, dba-db]
+    restart: unless-stopped
+    stop_grace_period: 120s
+    mem_limit: 1g
+    cpus: 2
+
+  identity-db-provision:
+    <<: *identity-runtime
+    profiles: [identity-ops]
+    entrypoint: ['node', '/app/packages/db/dist/provision-cli.js']
+    command: ['--inspect', '/run/config/database/plan.json']
+    environment:
+      GCR_DBA_HOST: postgres
+      GCR_DBA_PORT: '5432'
+      GCR_DBA_DATABASE: postgres
+      GCR_DBA_USER: ${GCR_DBA_USER:?set a separate DBA role}
+      GCR_DBA_PASSWORD_FILE: /run/secrets/dba-password
+      GCR_DBA_CA_FILE: /run/config/ca.crt
+      GCR_APP_PASSWORD_FILE: /run/secrets/app-db-password
+      GCR_MIGRATOR_PASSWORD_FILE: /run/secrets/migrator-db-password
+      GCR_KEYCLOAK_PASSWORD_FILE: /run/secrets/keycloak-db-password
+    secrets: [dba-password, app-db-password, migrator-db-password, keycloak-db-password]
+    configs:
+      - source: identity-ca
+        target: /run/config/ca.crt
+      - source: identity-database-plan
+        target: /run/config/database/plan.json
+    networks: [dba-db]
+    restart: 'no'
+    mem_limit: 256m
+    cpus: 1
+
+  migrate:
+    <<: *identity-runtime
+    build: !reset null
+    environment: !override
+      NODE_ENV: production
+      AUTH_MODE: local
+      DATABASE_ISOLATED_ROLES: 'true'
+      MIGRATION_DATABASE_HOST: postgres
+      MIGRATION_DATABASE_PORT: '5432'
+      MIGRATION_DATABASE_NAME: git_code_reviewer
+      MIGRATION_DATABASE_USER: gcr_migrator
+      MIGRATION_DATABASE_PASSWORD_FILE: /run/secrets/migrator-db-password
+      MIGRATION_DATABASE_TLS_MODE: verify-full
+      MIGRATION_DATABASE_TLS_CA_FILE: /run/config/ca.crt
+      DATABASE_POOL_MAX: '2'
+    volumes: !reset []
+    secrets: [migrator-db-password]
+    configs:
+      - source: identity-runtime-entrypoint
+        target: /run/config/runtime-entrypoint.sh
+      - source: identity-ca
+        target: /run/config/ca.crt
+    networks: !override [migration-db]
+    mem_limit: 512m
+    cpus: 1
+
+  server:
+    <<: *identity-runtime
+    environment: !override
+      <<: *identity-environment
+      SAML_IDP_ENTRY_POINT: https://${GCR_IDENTITY_HOST:?set the local identity hostname}:${GCR_HTTPS_PORT:-8443}/realms/git-code-reviewer/protocol/saml
+      SAML_IDP_METADATA_URL: https://${GCR_IDENTITY_HOST:?set the local identity hostname}:${GCR_HTTPS_PORT:-8443}/realms/git-code-reviewer/protocol/saml/descriptor
+      SAML_PRIVATE_KEY_FILE: /run/secrets/sp-signing-key
+      SAML_PUBLIC_CERT_FILE: /run/secrets/sp-signing-cert
+    ports: !reset []
+    secrets:
+      [
+        app-db-password,
+        session-secret,
+        credential-encryption-key,
+        identity-admin-client-secret,
+        sp-signing-key,
+        sp-signing-cert,
+      ]
+    configs:
+      - source: identity-runtime-entrypoint
+        target: /run/config/runtime-entrypoint.sh
+      - source: identity-ca
+        target: /run/config/ca.crt
+    networks: !override [app-db, application, identity-admin, application-egress]
+    stop_grace_period: 120s
+    mem_limit: 768m
+    cpus: 1
+
+  worker:
+    <<: *identity-runtime
+    environment: !override
+      <<: *identity-environment
+    secrets: [app-db-password, credential-encryption-key, identity-admin-client-secret]
+    configs:
+      - source: identity-runtime-entrypoint
+        target: /run/config/runtime-entrypoint.sh
+      - source: identity-ca
+        target: /run/config/ca.crt
+    networks: !override [app-db, application, identity-admin, application-egress]
+    stop_grace_period: 3600s
+    mem_limit: 1g
+    cpus: 2
+
+  retention:
+    <<: *identity-runtime
+    profiles: [identity-ops]
+    command: [retention]
+    environment:
+      NODE_ENV: production
+      AUTH_MODE: local
+      DATABASE_ISOLATED_ROLES: 'true'
+      DATABASE_TLS_MODE: verify-full
+      DATABASE_TLS_CA_FILE: /run/config/ca.crt
+      DATABASE_HOST: postgres
+      DATABASE_PORT: '5432'
+      DATABASE_NAME: git_code_reviewer
+      DATABASE_USER: gcr_app
+      DATABASE_PASSWORD_FILE: /run/secrets/app-db-password
+      DATABASE_POOL_MAX: '2'
+      ARTIFACT_ROOT: /var/lib/git-code-reviewer/artifacts
+    secrets: [app-db-password]
+    configs:
+      - source: identity-runtime-entrypoint
+        target: /run/config/runtime-entrypoint.sh
+      - source: identity-ca
+        target: /run/config/ca.crt
+    volumes: [git-code-reviewer-artifacts:/var/lib/git-code-reviewer/artifacts]
+    networks: [app-db]
+    restart: 'no'
+    mem_limit: 256m
+    cpus: 1
+
+  keycloak:
+    image: ${GCR_IDENTITY_IMAGE:?set the verified optimized Keycloak image digest}
+    pull_policy: if_not_present
+    entrypoint: ['/bin/bash', '/run/config/keycloak-entrypoint.sh']
+    user: '1000:1000'
+    group_add: ['${GCR_SECRET_GID:?set the prepared secret file group}']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    tmpfs:
+      [
+        '/tmp:uid=1000,gid=1000,mode=1770,size=128m',
+        '/opt/keycloak/data:uid=1000,gid=1000,mode=0770,size=256m',
+      ]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_PORT: '5432'
+      KC_DB_URL_DATABASE: git_code_reviewer_keycloak
+      KC_DB_USERNAME: gcr_keycloak
+      KC_DB_TLS_MODE: verify-server
+      KC_DB_TLS_TRUST_STORE_FILE: /run/config/ca.crt
+      KC_DB_POOL_INITIAL_SIZE: '1'
+      KC_DB_POOL_MIN_SIZE: '1'
+      KC_DB_POOL_MAX_SIZE: '6'
+      KC_HOSTNAME: https://${GCR_IDENTITY_HOST:?set the local identity hostname}:${GCR_HTTPS_PORT:-8443}
+      KC_HOSTNAME_ADMIN: https://keycloak:8443
+      KC_HOSTNAME_STRICT: 'true'
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'false'
+      KC_HOSTNAME_DEBUG: 'false'
+      KC_HTTP_ENABLED: 'true'
+      KC_HTTP_PORT: '8080'
+      KC_HTTPS_PORT: '8443'
+      KC_HTTPS_CERTIFICATE_FILE: /run/secrets/keycloak-tls-cert
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /run/secrets/keycloak-tls-key
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY_TRUSTED_ADDRESSES: ${GCR_PROXY_IDENTITY_IP:-172.29.240.2}
+      KC_HTTP_MANAGEMENT_SCHEME: http
+      KC_HTTP_MANAGEMENT_PORT: '9000'
+      KC_HTTP_MANAGEMENT_HEALTH_ENABLED: 'true'
+      KC_HEALTH_ENABLED: 'true'
+      KC_METRICS_ENABLED: 'true'
+      KC_SERVER_ASYNC_BOOTSTRAP: 'false'
+      KC_CACHE_STACK: jdbc-ping
+      KC_CACHE_EMBEDDED_MTLS_ENABLED: 'true'
+      KC_CACHE_EMBEDDED_NETWORK_BIND_PORT: '7800'
+      KC_SHUTDOWN_DELAY: 10s
+      KC_SHUTDOWN_TIMEOUT: 60s
+      KC_LOG_CONSOLE_OUTPUT: json
+      KC_HTTP_ACCESS_LOG_ENABLED: 'false'
+      KC_TLS_HOSTNAME_VERIFIER: DEFAULT
+      KC_TRUSTSTORE_KUBERNETES_ENABLED: 'false'
+      KC_TRUSTSTORE_PATHS: /run/config/ca.crt
+      JAVA_OPTS_KC_HEAP: '-Xms128m -Xmx768m'
+      JAVA_OPTS_APPEND: '-XX:ActiveProcessorCount=2'
+    secrets: [keycloak-db-password, keycloak-tls-cert, keycloak-tls-key]
+    configs:
+      - source: identity-keycloak-entrypoint
+        target: /run/config/keycloak-entrypoint.sh
+      - source: identity-ca
+        target: /run/config/ca.crt
+    networks: [identity-db, identity-public, identity-admin, identity-egress]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          '/bin/bash',
+          '-ec',
+          'exec 3<>/dev/tcp/127.0.0.1/9000; printf "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3; IFS= read -r -t 4 line <&3; [[ "$$line" == *" 200 "* ]]',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 600s
+    deploy:
+      replicas: 2
+    restart: unless-stopped
+    stop_grace_period: 120s
+    mem_limit: 2g
+    cpus: 2
+
+  identity-proxy:
+    <<: *identity-runtime
+    entrypoint: ['/sbin/tini', '--', 'node', '/run/config/https-proxy.mjs']
+    command: []
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/config/ca.crt
+      GCR_PUBLIC_HOST: ${GCR_PUBLIC_HOST:?set the local GCR hostname}
+      GCR_IDENTITY_HOST: ${GCR_IDENTITY_HOST:?set the local identity hostname}
+      GCR_IDENTITY_REALM: git-code-reviewer
+      GCR_HTTPS_PORT: ${GCR_HTTPS_PORT:-8443}
+    ports: ['127.0.0.1:${GCR_HTTPS_PORT:-8443}:${GCR_HTTPS_PORT:-8443}']
+    secrets: [proxy-tls-cert, proxy-tls-key]
+    configs:
+      - source: identity-https-proxy
+        target: /run/config/https-proxy.mjs
+      - source: identity-ca
+        target: /run/config/ca.crt
+    networks:
+      application:
+        aliases:
+          [
+            '${GCR_PUBLIC_HOST:?set the local GCR hostname}',
+            '${GCR_IDENTITY_HOST:?set the local identity hostname}',
+          ]
+      identity-public:
+        ipv4_address: ${GCR_PROXY_IDENTITY_IP:-172.29.240.2}
+    healthcheck:
+      test: ['CMD', 'node', '/run/config/https-proxy.mjs', '--healthcheck']
+      interval: 10s
+      timeout: 6s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 120s
+    mem_limit: 128m
+    cpus: 1
+
+  source-sandbox:
+    image: ${GCR_RUNTIME_IMAGE:?set the verified current runtime image digest}
+    pull_policy: if_not_present
+
+networks:
+  app-db: { internal: true }
+  migration-db: { internal: true }
+  identity-db: { internal: true }
+  dba-db: { internal: true }
+  application: { internal: true }
+  identity-admin: { internal: true }
+  # These bridges allow approved provider/SMTP destinations. Compose does not
+  # implement Kubernetes per-port/CIDR egress policies; apply host controls.
+  application-egress: {}
+  identity-egress: {}
+  identity-public:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${GCR_IDENTITY_SUBNET:-172.29.240.0/27}
+          ip_range: ${GCR_IDENTITY_IP_RANGE:-172.29.240.16/28}
+          gateway: ${GCR_IDENTITY_GATEWAY:-172.29.240.1}
+
+configs:
+  identity-runtime-entrypoint: { file: ./deploy/identity/runtime-entrypoint.sh }
+  identity-keycloak-entrypoint: { file: ./deploy/identity/keycloak-entrypoint.sh }
+  postgres-identity-entrypoint: { file: ./deploy/identity/postgres-entrypoint.sh }
+  postgres-identity-hba: { file: ./deploy/identity/pg_hba.conf }
+  identity-https-proxy: { file: ./deploy/identity/https-proxy.mjs }
+  identity-ca: { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/ca.crt' }
+  identity-database-plan:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/database-plan.json' }
+
+secrets:
+  dba-password:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/dba-password' }
+  app-db-password:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/app-db-password' }
+  migrator-db-password:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/migrator-db-password' }
+  keycloak-db-password:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/keycloak-db-password' }
+  session-secret:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/session-secret' }
+  credential-encryption-key:
+    {
+      file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/credential-encryption-key',
+    }
+  identity-admin-client-secret:
+    {
+      file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/identity-admin-client-secret',
+    }
+  sp-signing-key:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/sp-signing-key' }
+  sp-signing-cert:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/sp-signing-cert' }
+  proxy-tls-key:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/proxy-tls-key' }
+  proxy-tls-cert:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/proxy-tls-cert' }
+  keycloak-tls-key:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/keycloak-tls-key' }
+  keycloak-tls-cert:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/keycloak-tls-cert' }
+  postgres-tls-key:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/postgres-tls-key' }
+  postgres-tls-cert:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/postgres-tls-cert' }

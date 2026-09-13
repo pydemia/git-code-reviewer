@@ -100,7 +100,7 @@ Database 생성은 transaction 안에서 수행할 수 없으므로 여러 DB의
 
 ## Connection budget
 
-예시 plan은 server 2 × 10 + worker 2 × 10 + retention 2 = `gcr_app` 42개, migration 2개, Keycloak 3 × 10 = 30개를 산정한다. Replica 수에는 rollout surge와 종료 유예 중인 프로세스를 포함한다. 연속 배포로 기존 worker가 더 많이 남으면 plan도 다시 산정해야 한다.
+예시 plan은 server 2 × 10 + worker 2 × 10 + retention 2 = `gcr_app` 42개, migration 2개, Keycloak 5 × 6 = 30개를 산정한다. Replica 수에는 rollout surge와 종료 유예 중인 프로세스를 포함한다. 연속 배포로 기존 worker가 더 많이 남으면 plan도 다시 산정해야 한다.
 
 여기에 별도 연결 5개와 운영 여유 10개를 더해 89개다. 이 값은 운영 측정값이 아니다. 도구는 실제 `max_connections`에서 PostgreSQL 자체 reserved connection을 뺀 한도와 비교하고 초과하면 적용하지 않는다. 산정한 role별 합계를 `CONNECTION LIMIT`로 설정한다. 각 앱의 pool·replica 설정은 배포 구성에도 동일하게 반영해야 한다. 이 도구만으로 Kubernetes replica 수를 제한하지는 않는다.
 

@@ -2,6 +2,8 @@
 
 상태: ARM64 local image build 완료, runtime 전체 검증 미완료. [실행 기록](../../.documents/execution/preventive-review/evidence/P03-C07-optimized-image.json)의 부분 성공과 실패 시도를 구분한다. Registry 게시·운영 배포를 진행할 수 있는 완료 상태는 아니다.
 
+[Local Compose overlay](identity-compose.md)는 별도 entrypoint·file secret·TLS proxy를 연결한다. Compose 명세와 Node proxy 검증 범위를 실제 Keycloak 기동·운영 배포와 구분한다.
+
 `deploy/identity/Dockerfile`은 SAML contract에서 선택한 공식 Keycloak 26.7.3 index digest를 고정한다. PostgreSQL, health, metrics를 build 단계에서 활성화하고 최종 image는 `start --optimized`로 실행한다. Runtime에서 augmentation을 수행하거나 realm을 자동 import하지 않는다.
 
 Build context는 `deploy/identity`이며 Dockerfile 외의 파일을 제외한다. DB 비밀번호, bootstrap 관리자 credential, TLS private key, realm export를 image에 넣지 않는다. Build JVM heap은 768 MiB, 사용 processor 수는 2로 제한한다. 이 설정은 build 명령에만 적용되며 runtime JVM 크기를 고정하지 않는다. [공식 optimized container 절차](https://www.keycloak.org/server/containers)를 따르되 upstream index를 tag와 함께 고정한다.

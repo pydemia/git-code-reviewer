@@ -8,7 +8,10 @@ export default tseslint.config(
   { ignores: ['**/dist/**', '**/coverage/**', 'test-results/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  { files: ['deploy/sandbox/*.mjs', 'scripts/*.mjs'], languageOptions: { globals: globals.node } },
+  {
+    files: ['deploy/sandbox/*.mjs', 'deploy/identity/*.mjs', 'scripts/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

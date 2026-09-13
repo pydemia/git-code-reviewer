@@ -1,0 +1,21 @@
+# Temporary, explicit first bootstrap/recovery overlay. Do not keep this file in
+# normal start commands after replacing the temporary admin with named operators.
+services:
+  keycloak:
+    deploy:
+      replicas: 1
+    environment:
+      GCR_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/bootstrap-admin-password
+    secrets:
+      - bootstrap-admin-password
+      - bootstrap-admin-username
+
+secrets:
+  bootstrap-admin-password:
+    {
+      file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/bootstrap-admin-password',
+    }
+  bootstrap-admin-username:
+    {
+      file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/bootstrap-admin-username',
+    }
