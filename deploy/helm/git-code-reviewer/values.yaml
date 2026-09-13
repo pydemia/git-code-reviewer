@@ -301,11 +301,39 @@ auth:
   local:
     adminDisplayName: 시스템 관리자
     reviewerDisplayName: 일반 사용자
+  saml:
+    # Companion Keycloak realm issuer. SSO/metadata paths are derived from it.
+    idpIssuer: ''
+    entityId: '' # Defaults to PUBLIC_BASE_URL/auth/saml/metadata.
+    signingSecret: '' # Server-only SP signing key/certificate, not the IdP TLS key.
+    privateKeyKey: tls.key
+    publicCertKey: tls.crt
+    sessionSecretKey: SESSION_SECRET # Read only this key from secrets.auth in SAML mode.
+    metadataConfigMap: '' # Optional approved metadata pin; otherwise fetch its HTTPS URL.
+    metadataKey: metadata.xml
+    configurationRevision: '1' # Change after replacing external SP key/metadata.
   proxyPublicKeyKey: PROXY_IDENTITY_PUBLIC_KEY
   adminRole: git-code-reviewer-admin
   adminGroup: git-code-reviewer-admins
   defaultTenantSlug: default
   autoJoinDefaultTenant: false
+
+# May be enabled under local auth to provision/link accounts before SAML cutover.
+# Credentials are mounted only in server and worker, never in init/migrator/retention.
+identity:
+  adminEnabled: false
+  securityEnabled: false
+  adminBaseUrl: '' # Private HTTPS /admin/realms/<same realm as auth.saml.idpIssuer>.
+  clientId: '' # Realm service account; never master/admin-cli credentials.
+  existingSecret: ''
+  clientSecretKey: client-secret
+  configurationRevision: '1' # Change after rotating the service-account Secret.
+  networkPolicy:
+    # Explicit {namespace, podLabels} or {cidr}; peer-side policies must also allow traffic.
+    publicPeers: [] # HTTPS metadata and machine-token requests to public issuer.
+    publicPort: 443
+    adminPeers: [] # Companion Pod port 8443, not its Service port 443.
+    adminPort: 8443
 
 authorization:
   mode: local

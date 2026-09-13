@@ -208,6 +208,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "git-code-reviewer.validate" -}}
+{{- include "git-code-reviewer.identity.validate" . -}}
 {{- $isolated := default dict .Values.database.isolated -}}
 {{- $tls := default dict .Values.database.tls -}}
 {{- if and (eq (default "legacy" $tls.mode) "verify-full") (or (not $tls.existingConfigMap) (not $tls.key)) -}}

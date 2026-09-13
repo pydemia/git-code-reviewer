@@ -1,0 +1,81 @@
+# Preparation template, NOT a deployment-ready PRISM configuration.
+# DNS/TLS, approved metadata and Secret contents, shared DB provisioning,
+# companion image/runtime and both sides of network policy must be verified.
+image:
+  # Publish the current runtime source (including P03-C06 connection isolation).
+  # The chart's legacy alpha.37 default predates that code. Set a verified new pin.
+  digest: ''
+  tag: ''
+publicBaseUrl: https://gcr.example.test
+auth:
+  mode: saml
+  autoJoinDefaultTenant: false
+  saml:
+    idpIssuer: https://auth.example.test/realms/git-code-reviewer
+    signingSecret: git-code-reviewer-saml-sp
+    metadataConfigMap: git-code-reviewer-saml-metadata
+identity:
+  adminEnabled: true
+  securityEnabled: true
+  adminBaseUrl: https://git-code-reviewer-identity-admin.git-code-reviewer.svc/admin/realms/git-code-reviewer
+  clientId: gcr-identity-admin
+  existingSecret: git-code-reviewer-identity-admin-client
+  networkPolicy:
+    publicPeers:
+      - cidr: 192.0.2.20/32 # Documentation address; replace with actual HTTPS proxy destination.
+    adminPeers:
+      - namespace: git-code-reviewer
+        podLabels:
+          app.kubernetes.io/name: gcr-identity
+          app.kubernetes.io/instance: git-code-reviewer-identity
+trustedCa:
+  # Bundle retains existing enterprise CAs and adds approved IdP/private API CAs.
+  existingConfigMap: git-code-reviewer-runtime-ca
+database:
+  tls:
+    mode: verify-full
+    existingConfigMap: git-code-reviewer-postgresql-ca
+  isolated:
+    enabled: true
+    host: git-code-reviewer-postgresql.git-code-reviewer.svc
+    runtimeSecret: git-code-reviewer-db-app
+    migratorSecret: git-code-reviewer-db-migrator
+    budget:
+      # Each component allows one desired + one surge + one terminating Pod.
+      # 3 * 6 + 3 * 6 + retention 2 = 38 <= the existing gcr_app role limit 42.
+      serverPeakReplicas: 3
+      workerPeakReplicas: 3
+server:
+  replicas: 1
+  databasePoolMax: 6
+worker:
+  replicas: 1
+  databasePoolMax: 6
+keycloak:
+  enabled: false
+postgresql:
+  enabled: false # Connects to the existing instance; creates no additional PostgreSQL.
+networkPolicy:
+  enabled: true
+  serverIngressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: envoy-gateway-system
+      podSelector:
+        matchLabels:
+          gateway.envoyproxy.io/owning-gateway-name: envoy-gateway
+          gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
+  additionalEgress:
+    # Existing app/worker/migrator/retention DB access. Admin API access is generated
+    # separately for server/worker by identity-network-policy.yaml.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: git-code-reviewer
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: git-code-reviewer
+      ports:
+        - protocol: TCP
+          port: 5432

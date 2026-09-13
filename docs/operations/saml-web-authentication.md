@@ -18,7 +18,43 @@ P03-C03은 앱의 SAML 경로와 세션 검증을 제공한다. 운영 PRISM-DEV
 
 Metadata URL은 file mode에서도 승인된 원본을 식별하는 설정으로 요구한다. 파일이 지정됐으면 네트워크 장애의 fallback으로 사용하지 않고 그 파일만 검증한다. 파일이 없으면 startup 때 URL을 조회하며 10초 timeout·128 KiB 한도를 적용한다. Issuer·Redirect SSO/SLO endpoint·유효한 RSA signing certificate가 계약과 맞아야 한다. 응답 안에 들어 있는 임의의 인증서를 신뢰하지 않는다. 이 commit에는 실행 중 자동 metadata refresh가 없으므로 키 overlap을 포함한 metadata 갱신·restart 절차는 C07/C08에서 검증해야 한다.
 
-Serve process에만 SP key·metadata가 필요하다. Worker·migration·retention command는 이 파일을 요구하지 않는다. Helm/Compose의 SAML 설정과 Secret mount는 P03-C07의 범위다.
+Serve process에만 SP key·metadata가 필요하다. Worker·migration·retention command는 이 파일을 요구하지 않는다. Helm 연결은 아래 절차로 준비한다. Compose overlay와 실제 운영 전환은 아직 미완료다.
+
+## Helm 설정과 전환 준비
+
+[SAML values 예시](../../deploy/helm/git-code-reviewer/values.saml.example.yaml)는 같은 공유 PostgreSQL과 [identity companion](../../deploy/helm/gcr-identity/README.md)을 연결하는 준비용 overlay다. Chart의 현재 alpha.37 image 기본값은 P03-C06 연결 격리 코드보다 이전 버전이다. 현재 runtime source를 빌드·검증·게시한 새 digest를 지정해야 한다. 예시에는 digest를 비워 둬 그대로 설치할 수 없으며 실제 DNS·TLS·Secret·DB·CNI 검증을 대신하지 않는다. 기존 bundled PostgreSQL release를 외부 DB 예시로 전환해 삭제하지 않도록 환경별 기존 values와 자원 소유권을 보존한다.
+
+`auth.saml.idpIssuer`에서 Keycloak의 `/protocol/saml`과 `/protocol/saml/descriptor`를 파생한다. SP Entity ID는 `publicBaseUrl` + `/auth/saml/metadata`가 기본이며 같은 public origin의 URL로 명시적으로 고정할 수 있다. HTTPS origin·realm·관리 API path를 검증하고 master realm·기본 port 443의 중복 표기·dot path·query·userinfo를 허용하지 않는다. Public origin은 끝의 `/` 한 개를 허용한다. Metadata ConfigMap을 지정하면 승인한 파일만 사용하고, 비워 두면 승인한 URL에서 조회한다.
+
+| 설정                                                | 소비 범위                                                                                                                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.saml.signingSecret`의 private key/certificate | Server만 `/run/secrets/saml-sp`에 read-only mount. TLS 인증서·IdP key·서비스 계정 Secret과 분리한다.                                                                                                       |
+| `auth.saml.metadataConfigMap`                       | 선택한 metadata pin을 server에만 mount. `metadataKey`는 원본 ConfigMap key를 지정한다.                                                                                                                     |
+| `secrets.auth`의 `auth.saml.sessionSecretKey`       | SAML server는 이 key만 `SESSION_SECRET`으로 참조한다. Auth Secret 전체를 envFrom으로 가져오지 않는다.                                                                                                      |
+| `identity.existingSecret`의 `clientSecretKey`       | Server와 worker에만 `/run/secrets/identity-admin/client-secret`으로 mount. GCR app·DB·migrator Secret과 이름을 공유하지 않는다.                                                                            |
+| `<release>-identity` ConfigMap                      | Server와 worker만 소비한다. Issuer·Entity ID·관리 URL/client ID·관리/수집 flags를 담고 credential 원문은 담지 않는다.                                                                                      |
+| `trustedCa.existingConfigMap`                       | 기존 Node CA bundle 설정을 재사용한다. 사내 Git/model CA를 유지하면서 public IdP·private 관리 API의 승인 CA를 포함한다. 비워 두면 Node의 기본 trust를 사용한다. DB CA는 별도 `database.tls` 설정을 따른다. |
+
+Migration Job·migration wait init·retention·source-sandbox container에는 새 identity ConfigMap, SP key, 관리 credential을 전달하지 않는다. Source-sandbox sidecar는 worker와 네트워크 namespace를 공유하므로 NetworkPolicy로 같은 Pod 내부의 두 container를 구분하지 못한다. Credential/mount 분리와 source sandbox 실행 제한을 별도로 유지한다.
+
+Local 로그인 상태에서 `identity.adminEnabled=true`, `identity.securityEnabled=false`로 계정 생성·명시적 연결을 먼저 준비할 수 있다. 이때 server/worker에는 identity 관리 설정만 필요하고 SP key·metadata는 mount하지 않는다. 계정 mapping과 보안 이벤트 수집을 검증한 뒤 security를 활성화한다. `auth.mode=saml`은 admin/security 둘 다 true, 공유 DB 격리·verify-full TLS, legacy Keycloak dependency off, NetworkPolicy on, `autoJoinDefaultTenant=false`를 요구한다. Local credential 종료와 복구 검증은 P03-C08의 별도 단계다.
+
+Identity를 활성화할 때는 server/worker 각각 desired·surge·terminating Pod를 포함해 `peakReplicas >= 2 * replicas + 1`을 요구한다. 예시는 server/worker 각 1 replica·pool 6, 각 peak 3으로 `18 + 18 + retention 2 = 38`을 기존 `gcr_app` 한도 42 안에 둔다. 실제 운영 replica·drain 시간·부하를 유지하면서 예산을 다시 계산하고, 이전 terminating Pod가 남은 상태에서 rollout을 겹치지 않는다. 이 allowance가 controller의 절대 Pod 수 상한은 아니다. DB role 한도나 전체 인스턴스 예산을 values만으로 바꿀 수 없다.
+
+`identity.adminBaseUrl`은 public issuer와 다른 private HTTPS origin의 `/admin/realms/<동일 realm>`이다. Token 요청은 계속 public issuer의 `/protocol/openid-connect/token`으로 나간다. 따라서 server와 worker 모두 public issuer HTTPS와 private admin API에 접근할 수 있어야 한다. Realm의 최소 권한 service account를 사용하며 `admin-cli`나 master 관리자 credential을 넣지 않는다.
+
+`identity.networkPolicy.publicPeers/publicPort`와 `adminPeers/adminPort`는 server/worker 전용 egress를 만든다. Companion Service 443의 Pod target은 8443이므로 adminPort 기본값은 8443이다. 실제 Gateway·외부 TLS proxy의 주소/target port와 CNI의 NAT 처리를 확인한다. 상대편 ingress도 허용해야 하며 DNS 확인은 Pod 안에서 수행한다. 기존 `networkPolicy.additionalEgress`나 별도 정책이 넓은 접근을 허용하면 정책은 합산된다. Admin API를 공통 egress에 넣으면 migrator/retention에도 접근이 열릴 수 있으므로 전체 렌더 결과를 함께 검토한다.
+
+외부 관리 credential/CA를 교체한 뒤에는 `identity.configurationRevision`을 바꿔 server/worker를 재시작한다. SP key/metadata만 바꾸면 `auth.saml.configurationRevision`으로 server만 재시작한다. Metadata는 시작 시 읽으므로 ConfigMap 내용 변경만으로 현재 프로세스의 신뢰 키가 바뀌지 않는다. 서명 키 overlap·철회·credential 폐기·중단된 요청 처리는 실제 Keycloak 검증과 함께 수행한다.
+
+```sh
+pnpm --filter @gcr/runtime build
+# Node 22가 기본 node가 아니면 GCR_VERIFY_NODE에 해당 executable 경로를 지정한다.
+python -B scripts/verify-saml-chart.py --baseline 5b694de
+python -B scripts/verify-shared-database-chart.py --baseline 5b694de
+```
+
+검증은 manifest와 허용/거부 규칙, compiled 설정 로더·SP key/certificate·승인 metadata 로딩을 확인한다. SAML URL 응답은 fixture이며 실제 HTTPS 신뢰·IdP·DB 접속·browser login·CNI를 증명하지 않는다. 현재는 이미지/Helm 게시·Compose·운영 계정 mapping/복구·SAML 전환 전 단계다.
 
 ## 인증 경로와 실패 처리
 

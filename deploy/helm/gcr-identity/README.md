@@ -38,7 +38,7 @@ Release 이름을 `git-code-reviewer-identity`로 하거나 예시의 `fullnameO
 
 Public proxy는 TLS를 종료하고 `X-Forwarded-*`를 실제 요청 값으로 덮어써야 한다. `trustedAddresses`에는 proxy에서 Pod로 연결할 때 관찰한 source IP/CIDR를 넣는다. 공개 VIP나 모든 Pod CIDR를 근거 없이 신뢰 주소로 사용하지 않는다. HTTP 8080은 그 proxy와의 private hop에 한해 활성화한다. [Keycloak reverse proxy 문서](https://www.keycloak.org/server/reverseproxy)의 전달 헤더·경로 통제를 실제 Gateway에서 확인해야 한다.
 
-GCR에는 `KEYCLOAK_ADMIN_BASE_URL=<adminHostname>/admin/realms/git-code-reviewer`와 CA trust, realm 범위의 최소 권한 client credential이 필요하다. 현재 adapter의 token URL·SAML metadata는 **public issuer**를 사용하므로 server/worker가 `hostname`의 HTTPS에도 연결되어야 한다. Identity ingress 허용만으로 GCR egress가 열리지는 않는다. GCR chart의 SAML Secret/CA·server/worker egress 연결은 C07의 다음 통합 단계다.
+GCR에는 `KEYCLOAK_ADMIN_BASE_URL=<adminHostname>/admin/realms/git-code-reviewer`와 CA trust, realm 범위의 최소 권한 client credential이 필요하다. 현재 adapter의 token URL·SAML metadata는 **public issuer**를 사용하므로 server/worker가 `hostname`의 HTTPS에도 연결되어야 한다. Identity ingress 허용만으로 GCR egress가 열리지는 않는다. [GCR SAML Helm 설정](../../../docs/operations/saml-web-authentication.md#helm-설정과-전환-준비)은 해당 Secret/CA·server/worker egress를 연결한다. 두 chart의 실제 배포·통합 검증은 남아 있다.
 
 관리 Service는 private REST API 경로를 제공한다. 운영자의 브라우저 Admin Console은 private DNS/VPN과 master realm 로그인 경로를 별도로 검증해야 한다. Public route가 master realm을 막는 상태에서 `adminHostname`만 설정해 Admin Console 로그인이 완료된다고 가정하지 않는다.
 

@@ -22,9 +22,13 @@ spec:
       labels:
         {{- include "git-code-reviewer.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: worker
-      {{- if $isolated.enabled }}
+      {{- if or $isolated.enabled .Values.identity.adminEnabled }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+        {{- if .Values.identity.adminEnabled }}
+        checksum/identity: {{ include (print $.Template.BasePath "/identity-config-map.yaml") . | sha256sum }}
+        gcr.io/identity-revision: {{ .Values.identity.configurationRevision | quote }}
+        {{- end }}
       {{- end }}
     spec:
       serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
@@ -50,8 +54,12 @@ spec:
           args: ["worker"]
           envFrom:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
+            {{- if .Values.identity.adminEnabled }}
+            - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }}-identity }
+            {{- end }}
           env:
             {{- include "git-code-reviewer.databaseEnv" . | nindent 12 }}
+            {{- include "git-code-reviewer.identity.env" (dict "root" . "server" false) | nindent 12 }}
             {{- if .Values.worker.databasePoolMax }}
             - name: DATABASE_POOL_MAX
               value: {{ .Values.worker.databasePoolMax | quote }}
@@ -113,6 +121,7 @@ spec:
             - { name: workspace, mountPath: /tmp/git-code-reviewer/workspaces }
             - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts }
             {{- include "git-code-reviewer.databaseVolumeMount" . | nindent 12 }}
+            {{- include "git-code-reviewer.identity.mounts" (dict "root" . "server" false) | nindent 12 }}
             {{- if eq .Values.github.mode "app" }}
             - { name: github-app, mountPath: /run/secrets/github-app, readOnly: true }
             {{- end }}
@@ -155,6 +164,7 @@ spec:
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
         {{- include "git-code-reviewer.databaseVolume" . | nindent 8 }}
+        {{- include "git-code-reviewer.identity.volumes" (dict "root" . "server" false) | nindent 8 }}
         - name: artifacts
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}
