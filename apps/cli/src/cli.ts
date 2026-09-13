@@ -19,6 +19,9 @@ import {
   LocalKnowledgeStore,
   LocalRecordStore,
   LocalStoreError,
+  ReviewRequests,
+  ReviewRequestError,
+  executeReviewRequest,
   resolveLocalContext,
   resolveCentralContext,
   CentralConnections,
@@ -390,6 +393,19 @@ export async function executeCli(
         },
         exitCode: 0,
       };
+    const requestStorage = {
+      scope: repositoryScope!,
+      dataDirectory,
+      ...(dependencies.keys ? { keys: dependencies.keys } : {}),
+    };
+    if (command === 'requests') {
+      const requests = await ReviewRequests.open(requestStorage);
+      try {
+        return { value: await requests.list(), exitCode: 0 };
+      } finally {
+        requests.close();
+      }
+    }
     const historyStore = async (isCentral: boolean): Promise<LocalHistoryStore> => {
       if (!isCentral) return new LocalHistoryStore(await records(repositoryScope!));
       const identity = await (await centralConnections()).historyIdentity(string('connection')!);
@@ -564,42 +580,59 @@ export async function executeCli(
         },
         exitCode: 2,
       };
-    const report = await runLocalReview({
-      snapshot,
-      context: context.context,
-      policy: resolution.policy,
-      executor,
+    let retentionPending = false;
+    const result = await executeReviewRequest({
+      storage: requestStorage,
+      identity: resolution.policy.identity,
+      retryFinished: values['retry-finished'] === true,
       ...(dependencies.signal ? { signal: dependencies.signal } : {}),
+      assertValid: async () => {
+        if ((await context.context.observeCentralSnapshot()) !== 'current')
+          throw new ReviewRequestError('request-invalid');
+      },
+      loadReport: (id) => history.getReview(id),
+      saveReport: async (report) => {
+        const saved = await history.saveReview(report);
+        retentionPending = saved.retentionPending;
+      },
+      run: (signal) =>
+        runLocalReview({
+          snapshot: snapshot!,
+          context: context.context,
+          policy: resolution.policy,
+          executor,
+          signal,
+        }),
     });
-    try {
-      const saved = await history.saveReview(report);
-      return {
-        value: report,
-        exitCode: reviewExitCode(report),
-        ...(saved.retentionPending
-          ? {
-              diagnostics: [
-                {
-                  code: 'retention-pending',
-                  message: 'Review was saved; retention cleanup remains pending.',
-                },
-              ],
-            }
-          : {}),
-      };
-    } catch {
-      return {
-        value: report,
-        exitCode: 2,
-        diagnostics: [
-          {
-            code: 'history-save-failed',
-            message:
-              'The displayed report could not be confirmed in encrypted history. Keep stdout if needed; run result to check before retrying.',
-          },
-        ],
-      };
-    }
+    const diagnostics = [];
+    if (!result.persisted)
+      diagnostics.push({
+        code: 'history-save-failed',
+        message:
+          'The displayed report could not be confirmed in encrypted history. Keep stdout if needed; run result to check before retrying.',
+      });
+    else if (!result.recorded)
+      diagnostics.push({
+        code: 'request-completion-unconfirmed',
+        message:
+          'The report was saved, but request completion could not be confirmed. Inspect requests and result before retrying.',
+      });
+    if (retentionPending)
+      diagnostics.push({
+        code: 'retention-pending',
+        message: 'Review was saved; retention cleanup remains pending.',
+      });
+    if (result.reused)
+      diagnostics.push({
+        code: 'review-reused',
+        message:
+          'Reused the saved review for identical source, context and executor settings. No model review was started.',
+      });
+    return {
+      value: result.report,
+      exitCode: result.persisted && result.recorded ? reviewExitCode(result.report) : 2,
+      ...(diagnostics.length ? { diagnostics } : {}),
+    };
   } catch (error) {
     if (dependencies.signal?.aborted)
       return {
@@ -615,6 +648,7 @@ export async function executeCli(
     const known =
       error instanceof CliError ||
       error instanceof LocalStoreError ||
+      error instanceof ReviewRequestError ||
       error instanceof ExecutorError ||
       error instanceof SourceCaptureError ||
       error instanceof KnowledgeSyncError;

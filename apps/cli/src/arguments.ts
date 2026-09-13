@@ -16,6 +16,7 @@ Commands:
   status [--check-executor]            Local identity and supported capabilities
   context                              Fixed snapshot and active knowledge selection
   review                               Review and save an encrypted terminal report
+  requests                             Inspect durable review ownership and outcomes
   result <run-id>                       Read a saved report (same review exit code)
   history                              List saved review summaries
   memory|skill list|show <id>
@@ -37,6 +38,7 @@ Snapshot: --source index|working-tree (default index) --base <ref>
           --path <exact-path> (repeatable) --include-untracked <path> (working-tree only)
           --exclude <glob> --require-source <source|base>:<path> --require-knowledge <id>
 Review: --executor-path <codex-binary> --model gpt-6-astra --reasoning-effort xhigh
+        --retry-finished (explicitly rerun a saved terminal review)
         --allow-path <glob> (default **; includes fixed base and related files)
         --timeout-ms <1..600000> --source-bytes <1..33554432> --tool-calls <1..1000>
 
@@ -65,6 +67,7 @@ const allowed: Record<string, string[]> = {
   review: [
     'offline',
     'offline-behavior',
+    'retry-finished',
     ...snapshot,
     ...executor,
     'allow-path',
@@ -72,6 +75,7 @@ const allowed: Record<string, string[]> = {
     'source-bytes',
     'tool-calls',
   ],
+  requests: [],
   result: [],
   history: [],
   memory: ['scope', 'input', 'output', 'revision'],
@@ -85,7 +89,14 @@ const multiple = new Set([
   'require-knowledge',
   'allow-path',
 ]);
-const boolean = new Set(['json', 'help', 'check-executor', 'api-key-stdin', 'offline']);
+const boolean = new Set([
+  'json',
+  'help',
+  'check-executor',
+  'api-key-stdin',
+  'offline',
+  'retry-finished',
+]);
 export function argumentsFor(argv: string[]) {
   if (!argv.length || argv[0] === '--help' || argv[0] === 'help')
     return { command: 'help', positionals: [], values: {} };

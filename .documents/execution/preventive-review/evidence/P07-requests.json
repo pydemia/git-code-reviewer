@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": "P07 shared request ownership and CLI integration",
+  "scope": "Partial P07; automatic triggers and headless service remain unimplemented",
+  "tests": {
+    "files": 20,
+    "passed": 349,
+    "skipped": 1,
+    "model": "synthetic",
+    "processCrash": "separate Node child terminated with SIGKILL; expired running lease fenced"
+  },
+  "clientPackages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.18",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.18",
+        "file": "gcr-client-contract-0.1.0-alpha.18.tgz",
+        "sha256": "955fe4c0e6616d52e9d5dc280039075920eae330c6fdc93ea5cb8cebad24e413"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.18",
+        "file": "gcr-client-core-0.1.0-alpha.18.tgz",
+        "sha256": "e42d7ef2ccbb1f44ba24980241aa3d9289b4f2d0ff9795f2acd1f874815b5469"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.18",
+        "file": "gcr-client-executors-0.1.0-alpha.18.tgz",
+        "sha256": "99d8a7a49fb39fb6c03b6c6325afd2855bbe0dee418066c9a4b6244fe32096a7"
+      }
+    ]
+  },
+  "cli": {
+    "version": "0.1.0-alpha.12",
+    "sha256": "c60f043b5593d81ece7629d2c7d96d81ba71d55feb798c69f49a0d8d27569467"
+  },
+  "deployment": "PRISM-DEV server unchanged; client tarballs verified in clean consumers"
+}

@@ -229,8 +229,15 @@ describe('standalone CLI assembly', () => {
     expect((await cli(['history'])).value).toMatchObject([
       { runId: report.runId, status: 'completed', exitCode: 1 },
     ]);
+    const repeat = await cli(['review']);
+    expect(repeat.value).toEqual(report);
+    expect(repeat.diagnostics).toContainEqual(expect.objectContaining({ code: 'review-reused' }));
+    const requests = await cli(['requests']);
+    expect(requests.value).toMatchObject([
+      { state: 'finished', reasons: ['manual'], resultId: report.runId },
+    ]);
     expect(modelCalls).toBe(1);
-  });
+  }, 20000);
   it('does not describe an unavailable executor as a completed or clean review', async () => {
     const result = await executeCli(
       ['review', '--cwd', repo, '--data-dir', data, '--profile', 'cli-test'],
