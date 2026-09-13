@@ -1,0 +1,198 @@
+{
+  "phase": "P03-C05",
+  "status": "image-published-chart-prepared-deployment-pending",
+  "at": "2026-09-13T04:47:25.805011+00:00",
+  "sourceCommit": "bdf1aefd3b99b49981f52d0b5c9859cf903c3115",
+  "version": "0.8.0-alpha.37",
+  "chartVersion": "0.10.35",
+  "image": {
+    "digest": "sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:d6a11e5b2562431a1c49badda0155f89d11b8d415f6883aa2f2815cf9dd186af"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:74d9d7229ecacd6e7763da040b0613ca5337489f4c4d9c2181a601e6d1f5081b"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "source": "bdf1aefd3b99b49981f52d0b5c9859cf903c3115",
+    "version": "0.8.0-alpha.37",
+    "runtimeImageId": "sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915",
+    "labels": {
+      "org.opencontainers.image.version": "0.8.0-alpha.37",
+      "org.opencontainers.image.revision": "bdf1aefd3b99b49981f52d0b5c9859cf903c3115"
+    }
+  },
+  "attestations": {
+    "status": "passed",
+    "indexDigest": "sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915",
+    "attestations": [
+      {
+        "digest": "sha256:bcf1d167aefcc315fa81363a138782bbc9fb6a0dcc6c9b93c9b89c585e2570d1",
+        "predicateType": "https://spdx.dev/Document"
+      },
+      {
+        "digest": "sha256:128b5e5c978c259d01b1d3ff59595f0cb7cb761e8d7f9a8558c7bb90095a67a7",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    ],
+    "tlsVerification": true,
+    "additionalTrust": "existing-corporate-ca-for-this-process-only",
+    "runtime": "v22.23.2"
+  },
+  "build": {
+    "cleanGitArchive": true,
+    "exitCode": 0,
+    "nodeImage": "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+    "runtimeBase": "docker.io/pydemia/git-code-reviewer@sha256:c1885ba5ac3ec11558865ea143f867ca3af4dc0c41a5ada262ccc292072d3f77",
+    "clearedRuntimeAppDirectory": true,
+    "ownedTemporaryBuildAndRegistryDirectoriesRemoved": true
+  },
+  "runtimeImage": {
+    "status": "passed",
+    "node": "v22.23.2",
+    "user": 1000,
+    "versions": {
+      "static": "10.1.3",
+      "vitest": "4.1.11"
+    },
+    "packageFolders": [
+      "@fastify+static@10.1.3",
+      "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+      "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+    ],
+    "assets": {
+      "index-BWBpY8bo.js": "262328ed10f48680dcf48021c45cb48b09333772711e53430cba0425bb88e456",
+      "index-MAHxlrLj.css": "e5bbfba11ea7fa5f88d256a06c197bd299006e9763472add8effbbe95f23d397"
+    },
+    "artifactChecks": [
+      "no-obsolete-runtime-packages",
+      "no-obsolete-browser-bundles",
+      "public-asset-content-and-cache",
+      "traversal-denied",
+      "no-build-secret"
+    ],
+    "network": "none",
+    "rootFilesystem": "read-only"
+  },
+  "compiledIdentityImage": {
+    "status": "passed",
+    "node": "v22.23.2",
+    "compiled": {
+      "auth/saml-state.js": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+      "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+      "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+      "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+      "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+      "config.js": "3593d981ada006e896769d9ddfcafcd740e3184fa0d197cbd8bd3c24135651b9",
+      "server.js": "1845a3afd0ac7ef6ffd49c4e2350a55bbc7b4bdceb8e3c93a7f949c4cfeea636",
+      "identity/keycloak-admin.js": "904fcbce5978f9c944f9603880951d4fd349da79f9fbe11db296d0a37c3d6cff",
+      "identity/config.js": "7fd502e01e0577e346a452306e3895d2c1cccdf875b4de8506228a7cafa93d1e",
+      "identity/operations.js": "7411cf0a2f831d5d6a21677d9def31bf6ca5e5ae29042817c5e14f402ea40bcd",
+      "identity/processor.js": "7752fbe5d88b90d42985748be442279a3ac6725fda6623b1c2ee4ad1484c0ccb",
+      "identity/routes.js": "1af59f708b94b36b8a3eccbd85445f50b511bb82fbe2a6ceaf5646da07eb53be",
+      "identity/keycloak-security.js": "13e294ba37cae134d37941068426225f0ba9a04972217473d424fcda30332c61",
+      "identity/security-state.js": "bd1c71ab08507afa415ba2da8fb52c51392436ec35d9993301724c5915e6ca0e",
+      "identity/security-processor.js": "2087a27cbe7befe3d3b466bf2e162bf4d74e25602acf0468e0817392608cf739",
+      "identity/revocation.js": "c0bbad9050bec5c7370641108cd28f8e089b2ed6427c90e3908114814cae9a28",
+      "identity/lifecycle.js": "1867a91fa0171e4478eb7afb2a0ea1ca83b8d08c13159000915704a6e00817dd",
+      "identity/reactivation.js": "6cdc22a554f933aa334f6f680d99c2e242c974b9db7f56eae67b9248505aaf6c",
+      "identity/remote-lease.js": "c11d76ebe99705d0edd06f44350346c6f09f488d7e7ee48f2407dc56ca885810",
+      "routes/admin.js": "6cf909bae73288869bfb176a6742ce0ae2d32e586755c0153780faf17dade298",
+      "jobs/worker.js": "3169691f923e75a197d486169d790dbeb5e64a962649cdb07b3b9e0521a9afe5"
+    },
+    "compiledSamlStateSha256": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+    "migrationCount": 36,
+    "migration33Sha256": "c7d2ebe6b3bdc0684ec0f51229a5077b40fdc18eaaaeac58880777124807e33d",
+    "migrationHashes": {
+      "0001_foundation.sql": "d8b22ddf293b824cd7e42a0e7695b4b309a50671b6dd101eecfd4f46029cc983",
+      "0002_worklist.sql": "03591eff1122ea04d731011df846df70e6814a93d7fdad301191d4796ab08069",
+      "0003_snapshot_pipeline.sql": "f74a61cc1496cf42cc9350f0d9522fa4f1284131c976b53e1b9cbe0f2c6ef065",
+      "0004_review_reports.sql": "a61f09e936fd0b23e51dd4fad956638c3f0b78e6a8af9596959d332313d84a07",
+      "0005_review_chat.sql": "9b6187b34873a53d30ead9bf4b7653ecdf4f7220df2fba5af961c0b0ebb53ccb",
+      "0006_artifact_lifecycle.sql": "7760cbdb43a722eb56399f8e237306ab96efe6f39bbc03033a59daf0846c4bec",
+      "0007_tenancy_authorization_prompts.sql": "0dc280265766ff2fe8605e13254144b642053b3b5fa6f11eedf641242f37a266",
+      "0008_analysis_provider_administration.sql": "e038ef93fc023021d64769ca3f86b8acf17041750d6b547e2c86147c655b2b09",
+      "0009_account_and_ghes_registries.sql": "cdec5cd1419960dbf97e2a871598d68526c3c6dd6bdfb24ffb52465ebab34293",
+      "0010_local_accounts.sql": "c77f4704f1a747b6a3ad598f91395734c759dbf08e4a91ea93f65d38fb959b4d",
+      "0011_github_review_publication.sql": "ffd4cbcdd97e8d49ee2361e625f1e3be787f9d3c1c285267666972ec6923d6e1",
+      "0012_repository_deletion.sql": "eaace61cffd7c2b0c499cdcc39643699619dcba8597a1366dac09fbb3a90dd5f",
+      "0013_analysis_chat_account.sql": "a56a5b58ea7a1ffad9eb18ff5363f3af58cfd7bb41f046aa77779d81eea46f8e",
+      "0014_analysis_skills.sql": "9e785f3269609b80d6f49cd33467aa8b38d206f8580a759e43fdd2e9c0c1b20c",
+      "0015_skill_finding_categories.sql": "935e6e2f3a84c735e65ec91ecae981ee379a562ed20c65ec65ec7b592f3b6e98",
+      "0016_analysis_progress.sql": "f3c0f13166f8b4e2dc5e7d1a8c668435b539caa2b12afaa3a08f37bb8fca14f6",
+      "0017_analysis_severity.sql": "ff540ff7f17c8c2daa6584441840cb8a4b7d25f02a0e079cb895ad002d01aa79",
+      "0018_personal_chat_prompt.sql": "91859fe9ff95be583810be97360a15111677939b8579a93dc1022e3188a39bc5",
+      "0019_user_deletion.sql": "27dc261bde47817158cd6b8ed97fee071578870b47486725ee22901b7d9d4061",
+      "0020_review_memory.sql": "2489b0c6e8f86b6c9668ee218ad7a9b95258f66a9d2e88c64f0f78b2b80a7dd2",
+      "0021_review_memory_workflow.sql": "c8d8c81d492aa3dc8a74ce40c62046a3b2a15f01a68b949dde32c83f94d2d1bd",
+      "0022_github_pr_memory_sources.sql": "9445add77724bf5aa699f6ea34a387f8ae203c743b4c0c770e4354e2345ca2a4",
+      "0023_chat_memory_context.sql": "89480f642698f13b78c46e62e984ce14e9a77214d4fdea310b3f229d66791a35",
+      "0024_interactive_chat.sql": "89ebef3dc65fd14ec31fc5edd60ab2cdd001ee37f14c3f20616d1969220900c4",
+      "0025_model_capacity_window.sql": "9e44132348e782938feacaf72eb12c680a66c6a1011031608f166cf8371bc426",
+      "0026_model_admission_priority.sql": "54eae068ffcb4483b2f1b5b5e031fb64366205540ba85cd9db2c2f121a08bc70",
+      "0027_analysis_checkpoints.sql": "fb9597f117481b75949dc00bc26446e9be33368dc851cb01fdd25b9f1ef1b733",
+      "0028_source_workspace_leases.sql": "b4e41621175b033bff5524ca69a42b5fcf54349240cf1c11b53b63c725748557",
+      "0029_pull_request_state_sync.sql": "52e532efc71df2e6e659aba4cffc64981c0edb135cd6d0eeadbb7e69ee42bddb",
+      "0030_parallel_analysis.sql": "853739a3bdf8934ef6f3356776392ece299f3addba2655f67c844de4f9a80cb4",
+      "0031_registry_deletion.sql": "13be3a7770d1e867be93f80471cee7668229b35f98be347a9058caf82db2c601",
+      "0032_saml_identity_state.sql": "29490f3ab13dadbf4cc4997e8ef04be3136b3b366e5d2614df27b4788573da74",
+      "0033_saml_session_revocations.sql": "c7d2ebe6b3bdc0684ec0f51229a5077b40fdc18eaaaeac58880777124807e33d",
+      "0034_identity_provisioning_operations.sql": "06336db10a7835b5ce74cf2a575dc997df2c099b658114b36a57d30cc00c6d40",
+      "0035_identity_security_reconciliation.sql": "4423147a3b32a85339f6600abb733e17f68973e42a8d5b8f1192e9af8a4c916a",
+      "0036_identity_lifecycle_operations.sql": "ec3b9fcdf6ffded032f535439ab9337158c825ef94b71be959b2b9a60339a57f"
+    },
+    "versions": {
+      "@node-saml/node-saml": "5.1.0",
+      "@xmldom/xmldom": "0.9.12",
+      "xml-crypto": "6.1.2"
+    },
+    "checks": [
+      "compiled-image-signed-login",
+      "wrong-request-rejected",
+      "compiled-image-signed-idp-logout",
+      "opaque-relay-parameter-names",
+      "tampered-logout-rejected",
+      "metadata-signing",
+      "runtime-saml-dependencies",
+      "identity-disabled-default",
+      "compiled-nameid-binding",
+      "bootstrap-admin-client-rejected",
+      "reset-revocation-confirmation-required",
+      "lifecycle-revocation-confirmation-required",
+      "security-disabled-default",
+      "compiled-reactivation-module",
+      "lost-remote-lease-prevents-io"
+    ]
+  },
+  "helmLint": "passed",
+  "serverDryRun": {
+    "status": "passed",
+    "at": "2026-09-13T04:41:48.909620+00:00",
+    "baseRevision": 46,
+    "chart": "0.10.35",
+    "version": "0.8.0-alpha.37",
+    "image": "docker.io/pydemia/git-code-reviewer@sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915",
+    "serverDryRun": true,
+    "nonImageValuesHash": "9abc48b9861c0223aec5693151e5fa8b868ea84ab958909a3f5b127384f1ee14",
+    "manifestResourceCount": 13,
+    "unchangedApplicationConfigData": true,
+    "onlyReleaseLabelsImageAndConfigChecksumChanged": true,
+    "chartSha256": "772e51761c1304fcebe8b9a386ab862ac962cbdd943fd216e35eb942cb12294a"
+  },
+  "chartArchiveSha256": "772e51761c1304fcebe8b9a386ab862ac962cbdd943fd216e35eb942cb12294a",
+  "baseline": {
+    "helmRevision": 46,
+    "version": "0.8.0-alpha.36",
+    "migrations": 34,
+    "authMode": "local",
+    "identityAdministrationEnabled": false,
+    "identitySecurityEnabled": false
+  },
+  "deployment": "pending; preserve local authentication and disabled identity flags; apply additive migrations 0035 and 0036"
+}
