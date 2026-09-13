@@ -1,6 +1,6 @@
 # Keycloak runtime 이미지
 
-상태: linux/amd64 optimized image `26.7.3-gcr.1`의 로컬 빌드를 완료했다. 첫 amd64 Compose 실행은 기반·구성 검사 4개를 통과했으나 replica별 관리 API snapshot에서 30초 timeout으로 중단됐다. Image·chart는 아직 게시하지 않았다. [amd64 빌드·실패 기록](../../.documents/execution/preventive-review/evidence/P03-C07-amd64-image.json)을 따른다.
+상태: linux/amd64 optimized image `26.7.3-gcr.1`의 로컬 빌드를 완료했다. 두 amd64 Compose 실행은 각각 기반·구성 검사 4개를 통과했으나 replica별 관리 API snapshot에서 30초 timeout으로 중단됐다. 두 번째 실행에서는 양쪽 replica의 현재 2-member mTLS cluster view가 일치한 뒤에도 첫 관리자 사용자 조회(token 발급 포함)가 timeout됐다. Cluster 합류만으로 실패가 해소되지 않았으며 실제 지연 구간은 추가 확인이 필요하다. Image·chart는 아직 게시하지 않았다. [amd64 빌드·실패 기록](../../.documents/execution/preventive-review/evidence/P03-C07-amd64-image.json)을 따른다.
 
 앞선 arm64 Compose 실행은 [실제 container 검사 9개](../../.documents/execution/preventive-review/evidence/P03-C07-identity-containers.json)를 통과했다. 초기 별도 runtime verifier의 [부분 성공과 실패 기록](../../.documents/execution/preventive-review/evidence/P03-C07-optimized-image.json)은 다른 실행이며 운영 배포 완료를 뜻하지 않는다.
 

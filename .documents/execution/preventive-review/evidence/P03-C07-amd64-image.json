@@ -1,6 +1,6 @@
 {
   "status": "amd64-image-built; runtime-validation-incomplete; not-published",
-  "recordedAt": "2026-09-13T12:07:49.562653+00:00",
+  "recordedAt": "2026-09-13T12:30:05.642600+00:00",
   "sourceCommit": "797aab719717d911db42fb337ce6a38a7fc8d7de",
   "localImage": {
     "digest": "sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
@@ -96,7 +96,7 @@
     "productionRequestTimeoutChanged": false,
     "startupTimeoutChanged": false,
     "newClusterConvergenceTimeoutMs": 600000,
-    "retryResult": "pending; the same image was launched with the strengthened verifier. No success is inferred."
+    "retryResult": "failed after 4 infrastructure/configuration checks and matching current two-member cluster views; admin-user-read-including-bootstrap-token timed out; cleanup completed"
   },
   "publicTls": {
     "at": "2026-09-13T11:50:50.243346+00:00",
@@ -144,5 +144,95 @@
   "verifierSourceSha256": {
     "scripts/verify-identity-containers.mjs": "8b1f7c850dcf00b113c81aa07db82d3b3779ca9023bbbca21b8f29b26235093e",
     "scripts/identity-container-probe.mjs": "a1ad76e2e9bee6f99e1760697bec6dce14fa80c6a592d5daedaeddddee94a444"
+  },
+  "secondRuntimeAttempt": {
+    "startedAt": "2026-09-13T12:05:47.568Z",
+    "finishedAt": "2026-09-13T12:18:35.677Z",
+    "status": "failed",
+    "identityImage": {
+      "id": "sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+      "architecture": "amd64",
+      "os": "linux",
+      "revision": "797aab719717d911db42fb337ce6a38a7fc8d7de"
+    },
+    "scriptSha256": "8b1f7c850dcf00b113c81aa07db82d3b3779ca9023bbbca21b8f29b26235093e",
+    "probeSha256": "a1ad76e2e9bee6f99e1760697bec6dce14fa80c6a592d5daedaeddddee94a444",
+    "readiness": [
+      {
+        "service": "postgres",
+        "count": 1,
+        "milliseconds": 13997
+      },
+      {
+        "service": "keycloak",
+        "count": 1,
+        "milliseconds": 158824
+      },
+      {
+        "service": "keycloak",
+        "count": 2,
+        "milliseconds": 179799
+      }
+    ],
+    "lastClusterViews": [
+      {
+        "hostname": "6badec4bcfb9",
+        "members": [
+          "3dbfb37b3aae-28401(v=16.0.14)",
+          "6badec4bcfb9-23716(v=16.0.14)"
+        ],
+        "count": 2,
+        "mtls": true
+      },
+      {
+        "hostname": "3dbfb37b3aae",
+        "members": [
+          "3dbfb37b3aae-28401(v=16.0.14)",
+          "6badec4bcfb9-23716(v=16.0.14)"
+        ],
+        "count": 2,
+        "mtls": true
+      }
+    ],
+    "clusterReadiness": [
+      {
+        "phase": "bootstrap-removed",
+        "milliseconds": 3053,
+        "views": [
+          {
+            "hostname": "6badec4bcfb9",
+            "members": [
+              "3dbfb37b3aae-28401(v=16.0.14)",
+              "6badec4bcfb9-23716(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": true
+          },
+          {
+            "hostname": "3dbfb37b3aae",
+            "members": [
+              "3dbfb37b3aae-28401(v=16.0.14)",
+              "6badec4bcfb9-23716(v=16.0.14)"
+            ],
+            "count": 2,
+            "mtls": true
+          }
+        ]
+      }
+    ],
+    "cleanup": true,
+    "checksPassed": [
+      "actual-PostgreSQL-17-adapter-file-secret-TLS-and-separated-role-provisioning",
+      "actual-nonroot-Keycloak-file-secrets-readonly-root-and-no-inspect-plaintext",
+      "actual-configurer-apply-repeat-user-key-client-and-password-preservation",
+      "actual-configured-service-account-token-manage-users-and-view-events-only"
+    ],
+    "failureCode": "ADMIN_REQUEST_TIMEOUT",
+    "failedProbeStage": "admin-user-read-including-bootstrap-token",
+    "requestTimeoutMs": 30000,
+    "configurationConvergedAfterFailure": true,
+    "rawEvidenceSha256": "02e64d17e650ecb46726b4308905d80160adb464ce742b25fb04b76c975f146e",
+    "scope": "Both replicas reported matching current two-member mTLS views before the snapshot. The first admin-user read including token acquisition timed out. This does not distinguish token acquisition from user read or DNS/TCP/TLS/server processing, and does not prove emulation is the cause.",
+    "postCleanupInspection": "No containers, networks or volumes with the owned Compose project label remained."
   }
 }
