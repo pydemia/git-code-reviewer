@@ -1,8 +1,10 @@
 # PRISM-DEV 배포
 
+2026-09-14: Keycloak을 이 namespace에 별도 Helm release로 배포했다. Identity revision 2, GCR revision 50이며 GCR·Keycloak DB 연결에 TLS를 적용했다. 실제 앱 SAML 전환은 미완료이고 기존 local 로그인을 유지한다. [배포·검증 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 참고한다.
+
 ## Identity HTTPRoute 준비 (2026-09-13)
 
-사용자 요청으로 `identity-httproute.yaml`을 PRISM-DEV에 적용했다. `auth.pr-review.prism.ai`의 `/realms/git-code-reviewer`, `/resources`만 `git-code-reviewer-identity:80`으로 연결한다. `/admin`, `/realms/master`, health·metrics는 이 route에 포함하지 않는다. Companion 배포는 이 Service 이름·port 계약을 제공해야 한다.
+사용자 요청으로 2026-09-13 `identity-httproute.yaml`을 PRISM-DEV에 적용했다. 최초에는 `auth.pr-review.prism.ai`의 `/realms/git-code-reviewer`, `/resources`를 `git-code-reviewer-identity:80`으로 연결하도록 준비했다. 2026-09-14 HTTPS 배포 후 이 HTTPRoute는 해당 경로를 HTTPS로 redirect하며 실제 backend 연결은 `identity-https-routes.yaml`에서 담당한다. `/admin`, `/realms/master`, health·metrics는 공개 route에 포함하지 않는다.
 
 Gateway는 새 route를 수락했다(`Accepted=True`). Keycloak Service는 아직 배포되지 않아 `ResolvedRefs=False / BackendNotFound`이며 realm 요청은 현재 HTTP 500이다. `/admin/`은 404, 기존 GCR `/health/ready`는 200을 확인했다. 이번 cluster 변경은 새 HTTPRoute 하나이며 기존 앱 HTTPRoute·Gateway listener는 변경하지 않았다. [적용 기록](../../../.documents/execution/preventive-review/evidence/P03-C07-identity-route.json)에 상태를 남겼다.
 

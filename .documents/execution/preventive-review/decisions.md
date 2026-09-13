@@ -1,5 +1,15 @@
 # 사전 예방형 리뷰 개발 결정
 
+## 실제 Keycloak 배포 요청 — 2026-09-14
+
+사용자가 로컬 Docker 테스트와 실제 namespace 상태의 차이를 확인한 뒤 PRISM-DEV `git-code-reviewer` namespace에 Keycloak을 Helm으로 배포하도록 요청했다. 이어 DB에도 TLS를 적용하도록 명시했다. P05 초안을 보존하고 이 배포를 우선했다. Identity release 2와 GCR release 50으로 실제 Keycloak·realm·SAML client, HTTPS와 GCR/Keycloak DB TLS를 구성했다. 기존 GCR `AUTH_MODE=local`과 업무 데이터를 유지했다. 실제 GCR SAML 로그인 전환과 관리자·SMTP 설정은 완료하지 않았다. [배포 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 기준으로 후속 검증하며 준비 환경의 성공을 운영 로그인 성공으로 계산하지 않는다.
+
+## 주요 기능 우선순위 변경 — 2026-09-13
+
+사용자가 P00–P03 사전 작업과 로그인 검증에 집중된 진행을 지적하고 주요 기능을 우선하도록 요청했다. 남은 인증 통합 초안은 ignored `artifacts/operations/P03-C07-deferred/`에 보존하고 추가 검증 실행을 멈췄다. 해당 초안은 실행 검증하지 않았다.
+
+P05 리뷰 기준 후보 등록·출처·평가·승인·revision 관리부터 구현한다. 기존 웹 session과 repository 인가는 재사용한다. 이어서 CD·CLI 동기화, 자동 리뷰, 리뷰 대화/MCP를 진행한다. 실제 client 연결에는 P04 credential을, SAML 운영 전환에는 P03의 미완료 검증을 적용한다. 전체 P00–P13 goal과 배포 범위는 유지한다.
+
 2026-09-12, P00-C05. 전체 구현 계획의 범위는 유지하며 아래 결정으로 P01/P02를 시작한다. 실제 상태와 검증은 각 phase 실행 기록을 따른다.
 
 ## 실행·package·client 설정

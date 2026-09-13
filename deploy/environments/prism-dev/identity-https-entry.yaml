@@ -1,0 +1,23 @@
+# The shared Envoy LoadBalancer has no assigned external address. Expose only
+# its GCR HTTPS listener on the node address already used in local /etc/hosts.
+# Existing HTTP and Qdrant service ports remain untouched.
+apiVersion: v1
+kind: Service
+metadata:
+  name: git-code-reviewer-https-entry
+  namespace: envoy-gateway-system
+  labels:
+    gcr.io/operation: prism-gcr-identity-20260914
+spec:
+  type: ClusterIP
+  externalIPs: [10.250.107.189]
+  ports:
+    - name: https
+      port: 443
+      targetPort: 10443
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: envoy
+    app.kubernetes.io/component: proxy
+    gateway.envoyproxy.io/owning-gateway-name: envoy-gateway
+    gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system

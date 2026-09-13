@@ -1,0 +1,88 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: git-code-reviewer-identity-configure
+  namespace: git-code-reviewer
+  labels:
+    gcr.io/operation: prism-gcr-identity-20260914
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        gcr.io/identity-operator: 'true'
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: configure
+          image: docker.io/pydemia/git-code-reviewer@sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198
+          command: [node, /work/configure.mjs, --apply, /work/plan.json]
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: '1', memory: 256Mi }
+          env:
+            - name: GCR_IDENTITY_CONFIG_CA_FILE
+              value: /ca/ca.crt
+            - name: GCR_IDENTITY_CONFIG_SP_CERT_FILE
+              value: /sp/tls.crt
+            - name: GCR_IDENTITY_CONFIG_CLIENT_SECRET_FILE
+              value: /administration/client-secret
+            - name: GCR_IDENTITY_CONFIG_USERNAME_FILE
+              value: /bootstrap/username
+            - name: GCR_IDENTITY_CONFIG_PASSWORD_FILE
+              value: /bootstrap/password
+          volumeMounts:
+            - {
+                name: configuration,
+                mountPath: /work/configure.mjs,
+                subPath: configure.mjs,
+                readOnly: true,
+              }
+            - {
+                name: configuration,
+                mountPath: /work/configuration.mjs,
+                subPath: configuration.mjs,
+                readOnly: true,
+              }
+            - {
+                name: configuration,
+                mountPath: /work/plan.json,
+                subPath: plan.json,
+                readOnly: true,
+              }
+            - { name: ca, mountPath: /ca/ca.crt, subPath: ca.crt, readOnly: true }
+            - { name: sp, mountPath: /sp/tls.crt, subPath: tls.crt, readOnly: true }
+            - {
+                name: administration,
+                mountPath: /administration/client-secret,
+                subPath: client-secret,
+                readOnly: true,
+              }
+            - { name: bootstrap, mountPath: /bootstrap/username, subPath: username, readOnly: true }
+            - { name: bootstrap, mountPath: /bootstrap/password, subPath: password, readOnly: true }
+      volumes:
+        - name: configuration
+          configMap: { name: git-code-reviewer-identity-configuration }
+        - name: ca
+          configMap: { name: git-code-reviewer-identity-ca }
+        - name: sp
+          secret:
+            secretName: git-code-reviewer-saml-sp
+            items: [{ key: tls.crt, path: tls.crt }]
+            defaultMode: 0440
+        - name: administration
+          secret: { secretName: git-code-reviewer-identity-administration, defaultMode: 0440 }
+        - name: bootstrap
+          secret: { secretName: git-code-reviewer-identity-bootstrap, defaultMode: 0440 }

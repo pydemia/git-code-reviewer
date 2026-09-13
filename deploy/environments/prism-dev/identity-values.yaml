@@ -1,0 +1,49 @@
+# PRISM-DEV companion release. Secrets and the development CA are provisioned
+# separately; private key material must never be committed in this overlay.
+fullnameOverride: git-code-reviewer-identity
+image:
+  repository: docker.io/pydemia/gcr-identity
+  digest: sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9
+nodeSelector:
+  kubernetes.io/arch: amd64
+hostname: https://auth.pr-review.prism.ai
+adminHostname: https://git-code-reviewer-identity-admin.git-code-reviewer.svc
+tls:
+  existingSecret: git-code-reviewer-identity-tls
+database:
+  host: git-code-reviewer-postgresql.git-code-reviewer.svc
+  name: git_code_reviewer_keycloak
+  username: gcr_keycloak
+  existingSecret: git-code-reviewer-db-keycloak
+  tls:
+    existingConfigMap: git-code-reviewer-postgresql-ca
+bootstrap:
+  existingSecret: ''
+configurationRevision: '2'
+networkPolicy:
+  proxy:
+    trustedAddresses: [192.168.139.32/32]
+    peers:
+      - namespace: envoy-gateway-system
+        podLabels:
+          gateway.envoyproxy.io/owning-gateway-name: envoy-gateway
+          gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
+  adminPeers:
+    - namespace: git-code-reviewer
+      podLabels:
+        app.kubernetes.io/name: git-code-reviewer
+        app.kubernetes.io/instance: git-code-reviewer
+        app.kubernetes.io/component: server
+    - namespace: git-code-reviewer
+      podLabels:
+        app.kubernetes.io/name: git-code-reviewer
+        app.kubernetes.io/instance: git-code-reviewer
+        app.kubernetes.io/component: worker
+    - namespace: git-code-reviewer
+      podLabels:
+        gcr.io/identity-operator: 'true'
+  databasePeers:
+    - namespace: git-code-reviewer
+      podLabels:
+        app.kubernetes.io/name: postgresql
+        app.kubernetes.io/instance: git-code-reviewer
