@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { Database, DatabaseClient } from '@gcr/db';
 import { z } from 'zod';
+import { clientCredentialInputSchema } from '@gcr/contracts';
 import type { AuthUser } from './index.js';
 import { knowledgeUserAllowed } from '../services/knowledge-projection.js';
 
@@ -17,20 +18,7 @@ const fail = (status: ClientCredentialError['statusCode'], code: string): never 
   throw new ClientCredentialError(status, code);
 };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-export const clientKeyInput = z
-  .object({
-    name: z.string().trim().min(1).max(100),
-    clientId: z.enum(['commit-defender', 'gcr-cli']),
-    tenantId: z.string().uuid(),
-    repositoryIds: z
-      .array(z.string().uuid())
-      .min(1)
-      .max(100)
-      .refine((ids) => new Set(ids).size === ids.length),
-    scopes: z.tuple([z.literal('knowledge:read')]).default(['knowledge:read']),
-    lifetimeDays: z.number().int().min(1).max(90).default(30),
-  })
-  .strict();
+export const clientKeyInput = clientCredentialInputSchema;
 type Row = {
   id: string;
   user_id: string;

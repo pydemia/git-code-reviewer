@@ -181,7 +181,7 @@ describe
       );
       await registerAuthentication(app, config, db);
       const authorization = new AuthorizationService(config);
-      await registerClientCredentialRoutes(app, db, config, authorization);
+      await registerClientCredentialRoutes(app, db, config, authorization, signer);
       await registerKnowledgeRoutes(app, db, authorization, store, signer);
       app.post('/api/v1/model-fixture', { preHandler: requireUser }, async () => ({
         executed: true,
@@ -209,6 +209,39 @@ describe
         await root.end();
       }
       if (directory) await rm(directory, { recursive: true, force: true });
+    });
+    it('exports a pinned public connection only for the authenticated web user and authorized repository', async () => {
+      const url = `/api/v1/me/client-connection-config?repositoryId=${repo}`;
+      const response = await app.inject({ url, headers: { ...web(), host: 'attacker.invalid' } });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+      expect(response.json()).toEqual({
+        serverUrl: config.PUBLIC_BASE_URL,
+        serverId,
+        tenantId: tenant,
+        repositoryId: repo,
+        trustedKeys: [
+          {
+            id: signer.keyId,
+            pem: pair.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+          },
+        ],
+        ca: null,
+      });
+      expect(response.body).not.toContain('PRIVATE KEY');
+      expect((await app.inject({ url })).statusCode).toBe(401);
+      expect((await app.inject({ url, headers: web('outsider') })).statusCode).toBe(403);
+      const key = await issue();
+      expect((await app.inject({ url, headers: auth(key.token) })).statusCode).toBe(401);
+      expect(
+        (await app.inject({ url: `${url}&tenantId=${otherTenant}`, headers: web() })).statusCode,
+      ).toBe(400);
+      await db.query('update repositories set enabled=false where id=$1', [repo]);
+      try {
+        expect((await app.inject({ url, headers: web() })).statusCode).toBe(403);
+      } finally {
+        await db.query('update repositories set enabled=true where id=$1', [repo]);
+      }
     });
     it('advertises only the implemented key flow and returns a secret once without storing or listing it', async () => {
       expect((await app.inject('/api/v1/client-auth/config')).json().methods).toEqual(['api-key']);

@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { changeOwnPassword, loadProfile, updateProfile, type Profile } from './api.ts';
 import { AppHeader } from './AppHeader.tsx';
 import { PersonalPromptForm } from './PersonalPromptForm.tsx';
+import { ClientCredentialsPanel } from './ClientCredentialsPanel.tsx';
 
 type Notice = { tone: 'success' | 'error'; text: string };
 
@@ -100,7 +101,9 @@ export function ProfilePage() {
       <main className="profile-main">
         <header className="profile-heading">
           <h1>내 프로필</h1>
-          <p>계정 정보, Review Chat의 개인 Prompt와 로그인 비밀번호를 관리합니다.</p>
+          <p>
+            계정 정보, 클라이언트 연결, Review Chat의 개인 Prompt와 로그인 비밀번호를 관리합니다.
+          </p>
         </header>
 
         {loadFailed ? (
@@ -203,6 +206,8 @@ export function ProfilePage() {
               </section>
 
               <PersonalPromptForm key={profile.id} initialPrompt={profile.personalPrompt} />
+
+              <ClientCredentialsPanel key={`client-${profile.id}`} />
 
               <section className="profile-section" aria-labelledby="profile-password-title">
                 <div className="profile-section-heading">

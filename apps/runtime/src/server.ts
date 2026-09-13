@@ -195,7 +195,7 @@ export async function buildServer(
   });
 
   await registerAuthentication(app, config, database, samlProtocol);
-  await registerClientCredentialRoutes(app, database, config, authorization);
+  await registerClientCredentialRoutes(app, database, config, authorization, knowledgeSigner);
   await registerWorklistRoutes(app, database, authorization, config);
   await registerProfileRoutes(app, database, config);
   await registerAdminRoutes(app, database, authorization, config);

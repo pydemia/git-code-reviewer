@@ -88,6 +88,7 @@ const configSchema = z.object({
   CREDENTIAL_REGISTRY_ENABLED: booleanString,
   KNOWLEDGE_PUBLICATION_ENABLED: booleanString,
   CLIENT_API_KEYS_ENABLED: booleanString,
+  CLIENT_CONNECTION_CA_FILE: z.string().min(1).optional(),
   KNOWLEDGE_DISTRIBUTION_ENABLED: booleanString,
   KNOWLEDGE_SERVER_ID: z.string().uuid().optional(),
   KNOWLEDGE_SIGNING_KEY_ID: z

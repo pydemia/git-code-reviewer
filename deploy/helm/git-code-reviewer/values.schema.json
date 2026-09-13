@@ -34,6 +34,15 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "connectionCa": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["existingConfigMap", "key"],
+          "properties": {
+            "existingConfigMap": { "type": "string" },
+            "key": { "type": "string", "minLength": 1 }
+          }
         }
       }
     },

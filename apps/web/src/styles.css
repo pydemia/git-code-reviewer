@@ -5565,3 +5565,55 @@ body.workspace-resizing:has(.resize-bottom) {
 .analysis-progress-banner small {
   overflow-wrap: anywhere;
 }
+.client-credentials fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.client-credentials legend {
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.client-credentials select {
+  width: 100%;
+  min-width: 0;
+}
+.client-credentials .field-label {
+  margin-bottom: 12px;
+}
+.client-credentials .profile-actions {
+  flex-wrap: wrap;
+}
+.client-credentials .command-button {
+  width: auto;
+  min-height: 36px;
+  padding: 7px 11px;
+  font-size: 12px;
+}
+.client-key-issued {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.client-credentials-list-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.client-credentials-list {
+  list-style: none;
+  padding: 0;
+}
+.client-credentials-list > li {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}

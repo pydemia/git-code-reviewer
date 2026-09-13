@@ -1,0 +1,7 @@
+# PRISM-DEV HTTPS endpoint and its explicit public development CA.
+publicBaseUrl: https://pr-review.prism.ai
+clientApiKeys:
+  enabled: true
+  connectionCa:
+    existingConfigMap: git-code-reviewer-identity-ca
+    key: ca.crt

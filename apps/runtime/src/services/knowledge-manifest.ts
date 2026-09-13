@@ -27,6 +27,7 @@ const unavailable = (code = 'KNOWLEDGE_PENDING') =>
 export class KnowledgeSigner {
   readonly #key: KeyObject;
   readonly publicKeyHash: string;
+  readonly publicKeyPem: string;
   constructor(
     readonly serverId: string,
     readonly keyId: string,
@@ -42,9 +43,10 @@ export class KnowledgeSigner {
       offlineLeaseSeconds > 86400
     )
       throw Error('Invalid knowledge signing configuration');
-    this.publicKeyHash = digest(
-      createPublicKey(this.#key).export({ type: 'spki', format: 'pem' }).toString(),
-    );
+    this.publicKeyPem = createPublicKey(this.#key)
+      .export({ type: 'spki', format: 'pem' })
+      .toString();
+    this.publicKeyHash = digest(this.publicKeyPem);
   }
   sign(payload: KnowledgeManifestPayload): SignedKnowledgeManifest {
     const parsed = knowledgeManifestPayload(payload);

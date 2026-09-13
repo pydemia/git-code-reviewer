@@ -411,6 +411,10 @@ knowledgePublication:
 
 clientApiKeys:
   enabled: false
+  # Public CA for clients connecting to PUBLIC_BASE_URL; unrelated to database TLS.
+  connectionCa:
+    existingConfigMap: ''
+    key: ca.crt
 
 knowledgeDistribution:
   enabled: false
