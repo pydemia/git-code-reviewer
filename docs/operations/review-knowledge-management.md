@@ -12,4 +12,4 @@
 
 검증은 격리 PostgreSQL, 실제 파일 저장, Chrome과 합성 메모리로 수행했다. 권한별 목록·pagination, 발행 실패·artifact unavailable·disabled 상태, source 변경 후 입력 보존·재확인·키보드 승인, 다운로드 결과, 데스크톱·390px 모바일 화면을 확인했다. 첫 화면 재검증에서 최신 상태 요청 직후 이전 form에 입력할 수 있는 짧은 구간을 발견해 동기적으로 편집기를 비우도록 수정했다. 수정 후 배포 API/화면 18개 검사가 통과했다. 앞선 전체 관련 suite 118개와 build/lint 기록은 [검증 증거](../../.documents/execution/preventive-review/evidence/P05-knowledge-management.json)에 있다.
 
-이 문서는 로컬 구현 기록이다. PRISM-DEV 배포 증거는 별도로 남긴다. 명시적 높은 sequence rollback, repository remote resolve·출처 상세 API, client 인증·원자적 cache·sync와 상태 보고는 이 변경으로 완료되지 않는다.
+[PRISM-DEV alpha.41 배포 기록](review-knowledge-deployment-2026-09-14.md)에 실제 worker 발행·서명·자료 보존 증거를 남겼다. 명시적 높은 sequence rollback, repository remote resolve·출처 상세 API, client 인증·원자적 cache·sync와 상태 보고는 이 변경으로 완료되지 않는다.

@@ -1,6 +1,6 @@
 # 서명된 리뷰 지식 배포
 
-P05-C05/C06의 manifest·다운로드·메모리 배포 승인 API 구현이다. [Bundle 발행](review-knowledge-publication.md)의 migration 0039 다음에 0040을 적용한다. 현재 PRISM-DEV는 alpha.40·migration 38이며 이 변경은 아직 배포하지 않았다. 이전 내용을 높은 sequence로 재발행하는 명시적 rollback, 출처 상세 API와 client 동기화는 후속 범위다. 발행 상태와 메모리 승인 화면의 후속 로컬 구현은 [관리 화면](review-knowledge-management.md)에 기록했다.
+P05-C05/C06의 manifest·다운로드·메모리 배포 승인 API 구현이다. [Bundle 발행](review-knowledge-publication.md)의 migration 0039 다음에 0040을 적용한다. PRISM-DEV에는 [alpha.41·migration 40](review-knowledge-deployment-2026-09-14.md)으로 배포했다. 이전 내용을 높은 sequence로 재발행하는 명시적 rollback, 출처 상세 API와 client 동기화는 후속 범위다. 발행 상태와 메모리 승인 화면의 후속 로컬 구현은 [관리 화면](review-knowledge-management.md)에 기록했다.
 
 ## Manifest와 신뢰
 

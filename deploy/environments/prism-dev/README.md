@@ -1,6 +1,6 @@
 # PRISM-DEV 배포
 
-2026-09-14 01:45 KST: GCR alpha.40·chart 0.10.38·Helm revision 52에 모델 리뷰 기준 후보 생성과 역할 위임 화면을 배포했다. 실제 등록 모델로 합성 원문 한 건을 처리하고 임시 데이터를 정리했다. DB verify-full TLS와 local 인증을 유지한다. [배포 증거](../../../.documents/execution/preventive-review/evidence/P05-generation-PRISM-deployment.json)를 참고한다.
+2026-09-14 03:05 KST: GCR alpha.41·chart 0.10.39·Helm revision 53에 지식 bundle 발행·서명·다운로드와 메모리 배포 승인/상태 화면을 배포했다. 실제 worker 발행과 별도 공개키 서명 검증을 수행하고 임시 자료를 정리했다. DB verify-full TLS와 local 인증을 유지한다. [배포 증거](../../../.documents/execution/preventive-review/evidence/P05-knowledge-PRISM-deployment.json)를 참고한다.
 
 2026-09-14: Keycloak을 이 namespace에 별도 Helm release로 배포했다. Identity revision 2이며 GCR·Keycloak DB 연결에 TLS를 적용했다. 실제 앱 SAML 전환은 미완료이고 기존 local 로그인을 유지한다. [배포·검증 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 참고한다.
 
@@ -735,3 +735,5 @@ Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb
 배포 직전 분석 1건이 실행 중이었다. Worker의 기존 900초 종료 유예와 진행 중 작업 완료 대기를 유지했으며 강제 삭제하지 않았다. 운영 사용자를 삭제하거나 개인 Prompt·credential 내용을 읽지 않았다. 실제 모델·Chat·PR 게시를 검증용으로 별도 요청하지 않았고 기존 polling·queue 실행은 유지했다. 로그인 후 live Browser E2E는 수행하지 않았으며 [합성 Browser와 DB integration 검증](../../../.documents/verification-user-deletion-2026-09-08.md)과 배포 검증을 구분한다.
 
 16:08 KST 확인 시 기존 Worker `git-code-reviewer-worker-76779559d4-6ljqx`는 아직 Terminating 상태다. 해당 job은 15:58:51 시작했고 heartbeat는 16:07:51까지 갱신됐으며 outcome/error_code는 NULL이다. Pod 삭제 확인을 위한 45초 대기 두 번은 timeout됐지만 신규 deployment의 rollout·health는 통과했다. 새 Server·Worker는 1/1 Ready·restart 0회이며 기존 Worker만 분석을 마무리한 후 회수될 예정이다.
+
+지식 배포 설정은 [knowledge-publication-values.yaml](knowledge-publication-values.yaml)에 있다. 재설치 시 같은 server ID와 Secret의 Ed25519 key를 유지해야 한다. 공개키만 Git에 보관한다. 클라이언트는 서버 응답의 공개키를 자동 신뢰하지 않고 사전에 등록한 신뢰 키를 사용해야 한다.
