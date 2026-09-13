@@ -23,3 +23,4 @@ export * from './local-review-response.js';
 export * from './central-knowledge.js';
 export * from './knowledge-manifest.js';
 export * from './knowledge-management.js';
+export * from './central-cache.js';
