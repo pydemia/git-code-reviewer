@@ -31,6 +31,17 @@ worker:
   databasePoolMax: 10
 postgresql:
   enabled: true
+  # Validated operational PostgreSQL 18.6 image (linux/amd64).
+  image:
+    registry: registry-1.docker.io
+    repository: bitnami/postgresql
+    digest: sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204
+  # Reuse its verified cp/chmod utilities for the non-root TLS copy init.
+  volumePermissions:
+    image:
+      registry: registry-1.docker.io
+      repository: bitnami/postgresql
+      digest: sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204
   # Keep existing bootstrap settings and PVC. These are not application logins.
   auth:
     username: git_code_reviewer

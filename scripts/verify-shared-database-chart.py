@@ -148,7 +148,12 @@ def main():
     configuration = resource(example, 'ConfigMap', '-postgresql-configuration')['data']
     assert 'hostnossl all all 0.0.0.0/0 reject' in configuration['pg_hba.conf']
     assert 'hostssl all all ::0/0 scram-sha-256' in configuration['pg_hba.conf']
-    checks.append('example-overlay-backend-tls-and-hba')
+    postgres = pod(resource(example, 'StatefulSet', '-postgresql'))
+    copy = next(container for container in postgres['initContainers'] if container['name'] == 'copy-certs')
+    assert copy['image'] == postgres['containers'][0]['image']
+    assert copy['image'] == 'registry-1.docker.io/bitnami/postgresql@sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204'
+    assert copy['securityContext']['runAsUser'] == 1001 and copy['securityContext']['readOnlyRootFilesystem']
+    checks.append('example-overlay-backend-tls-hba-and-pinned-init-image')
     if args.baseline:
         with tempfile.TemporaryDirectory(prefix='gcr-helm-db-baseline-') as directory:
             result = subprocess.run(['git', 'archive', '--format=tar', args.baseline, 'deploy/helm/git-code-reviewer'], cwd=ROOT, capture_output=True, check=True)

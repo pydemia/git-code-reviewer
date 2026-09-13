@@ -82,7 +82,7 @@ CA와 비밀번호 파일은 프로세스 시작 시 읽는다. Secret/ConfigMap
 2. Maintenance에서 모든 앱·worker drain·retention·migration·Keycloak 연결을 닫고 별도 DBA로 inspect/apply를 실행한다. 기존 값과 새 비밀번호 파일·plan이 일치하는지 확인한다.
 3. Backend HBA의 평문 접속 거부를 확인한 뒤 역할별 Secret과 격리 overlay로 앱을 올린다. Migration Job·앱 대기·서버·워커·retention과 데이터 보존을 검증한다.
 
-예시는 이 최종 상태를 나타내며 전환 자체를 자동화하지 않는다. 운영에 쓰는 Bitnami image의 persisted-volume 재시작이 퇴역한 login을 다시 활성화하거나 소유권·권한을 바꾸지 않는지도 전환 전에 검사해야 한다. 이 checkpoint의 격리 테스트는 공식 PostgreSQL image를 사용하며 그 Bitnami 동작을 증명하지 않는다.
+예시는 이 최종 상태를 나타내며 전환 자체를 자동화하지 않는다. 운영 image의 persisted-volume 검증 범위와 재현 명령은 아래 절을 따른다. 다른 PostgreSQL image·시작 옵션·사용자 init script를 적용하면 같은 검증을 다시 수행해야 한다.
 
 Chart는 Secret 재사용·누락된 CA·비활성 번들 TLS·너무 작은 pool·rollout peak 누락·합산 connection 한도 초과를 거부한다. Worker pool은 `worker.databasePoolMax`로 지정하거나 서버 값을 상속한다. 두 Deployment는 격리 모드에서 `maxSurge: 1`, `maxUnavailable: 0`을 사용한다. 종료 유예 중인 worker가 여럿이면 실제 peak에 맞춰 budget을 늘리거나 이전 worker 종료를 기다린다.
 
@@ -105,3 +105,21 @@ Database 생성은 transaction 안에서 수행할 수 없으므로 여러 DB의
 여기에 별도 연결 5개와 운영 여유 10개를 더해 89개다. 이 값은 운영 측정값이 아니다. 도구는 실제 `max_connections`에서 PostgreSQL 자체 reserved connection을 뺀 한도와 비교하고 초과하면 적용하지 않는다. 산정한 role별 합계를 `CONNECTION LIMIT`로 설정한다. 각 앱의 pool·replica 설정은 배포 구성에도 동일하게 반영해야 한다. 이 도구만으로 Kubernetes replica 수를 제한하지는 않는다.
 
 DB 분리는 CPU·메모리·I/O·디스크·장애를 물리적으로 격리하지 않는다. 별도 DB restore와 같은 cluster 내 복구 연습은 P03-C08에서 수행한다.
+
+## 운영 PostgreSQL image의 볼륨 재사용 검증
+
+`scripts/verify-postgres-persistence.mjs`는 PRISM-DEV에서 사용하는 PostgreSQL 18.6 amd64 image `sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204`를 실제로 실행한다. 운영 Pod에서 별도로 읽은 시작 스크립트와 로컬 검증 결과의 스크립트 SHA-256이 일치하는지 확인했다. Cluster DB·PVC·Secret에는 접근하지 않고 UUID label이 붙은 로컬 Docker volume과 컨테이너만 만들고 제거한다.
+
+빈 앱 DB와 기존 migration·사용자·metadata가 있는 DB를 각각 검사한다. 기존 DB는 평문 연결에서 시작해 같은 볼륨을 TLS 설정의 새 컨테이너에 연결한다. 이후 빌드된 DBA CLI로 inspect/apply, migrator로 migration, 앱/identity 권한으로 조회·접속 거부 검사를 수행한다. 컨테이너를 다시 제거·생성하고 provisioning도 재실행한 뒤 데이터, role/password verifier, membership, DB/schema 소유권·권한이 유지되는지 비교한다. Secret이나 verifier 원문은 결과에 저장하지 않는다.
+
+서버와 인증서 복사용 init은 UID/GID 1001, 읽기 전용 root filesystem과 capability 제거 조건에서 실행한다. Docker volume 소유권 준비만 root로 수행해 Kubernetes fsGroup을 대신한다. 비어 있는 volume을 재사용할 때 Docker의 자동 image 내용 복사가 이 소유권을 덮어쓰지 않도록 `volume-nocopy`를 사용한다. ACL의 null 값은 PostgreSQL 기본 ACL로 정규화하며 재생성될 수 있는 default-ACL catalog OID는 권한 비교에 포함하지 않는다.
+
+DB 본체와 `copy-certs` init은 [격리 overlay](../../deploy/postgres/isolated-helm.example.yaml)에서 같은 검증된 digest를 사용한다. 이 pin은 amd64 대상으로 확인한 값이다. 다른 architecture에는 해당 platform에서 검증한 digest를 지정한다. 하위 chart 기본값의 `latest`를 TLS init에 그대로 사용하지 않는다.
+
+```sh
+pnpm --filter @gcr/db build
+docker pull --platform linux/amd64 registry-1.docker.io/bitnami/postgresql@sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204
+node scripts/verify-postgres-persistence.mjs > persistence-result.json
+```
+
+이 검사는 Node 22·Docker·OpenSSL을 사용한다. 성공은 `status: passed`와 `ownedResourcesRemoved: true`로 확인한다. Identity DB의 row는 합성 fixture이므로 실제 Keycloak realm·사용자·서명 키의 재시작·복원 증거와 구분한다. 운영 storage driver의 동작이나 backup 복구를 대신 검증하지 않는다.
