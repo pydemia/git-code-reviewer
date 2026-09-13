@@ -1,5 +1,6 @@
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { centralCredentialIdentity } from '@gcr/client-contract';
 import type { IncomingMessage } from 'node:http';
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
 import type { KnowledgeTransport } from './central-cache.js';
@@ -113,6 +114,37 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       const text = bytes.toString('utf8');
       if (!Buffer.from(text).equals(bytes)) throw unavailable();
       return { status: 200, manifest: JSON.parse(text) };
+    } catch {
+      throw unavailable();
+    } finally {
+      response.destroy();
+    }
+  }
+  async identity(signal: AbortSignal) {
+    const response = await this.get('api/v1/client-auth/me', signal);
+    if (response.statusCode !== 200) {
+      const failure = this.failure(response);
+      throw new KnowledgeSyncError(
+        failure.status === 401
+          ? 'authentication-required'
+          : failure.status === 403
+            ? 'revoked'
+            : 'unavailable',
+        'Central identity could not be verified.',
+      );
+    }
+    try {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of response) {
+        const bytes = Buffer.from(chunk);
+        size += bytes.length;
+        if (size > 32768) throw unavailable();
+        chunks.push(bytes);
+      }
+      return centralCredentialIdentity(
+        JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))),
+      );
     } catch {
       throw unavailable();
     } finally {

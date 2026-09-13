@@ -11,6 +11,8 @@ export class CliError extends Error {
 export const help = `Usage: gcr <command> [options]
 
 Commands:
+  central connect --input <config.json> --api-key-stdin
+  central list|status|sync|disconnect  Explicit central connection management
   status [--check-executor]            Local identity and supported capabilities
   context                              Fixed snapshot and active knowledge selection
   review                               Review and save an encrypted terminal report
@@ -24,8 +26,10 @@ Commands:
   memory|skill export <id> --output <new-file>
 
 Common: --cwd <repo> --profile <id> --data-dir <private-directory>
-        --mode standalone|centralized (centralized is unavailable) --json
+        --mode standalone|centralized --connection <id> --json
 Knowledge: --scope repository|profile (default repository)
+Central: --mode centralized is required; connect takes its API key from piped stdin.
+         context/review --offline uses only an authorized unexpired signed cache.
 Snapshot: --source index|working-tree (default index) --base <ref>
           --path <exact-path> (repeatable) --include-untracked <path> (working-tree only)
           --exclude <glob> --require-source <source|base>:<path> --require-knowledge <id>
@@ -34,12 +38,13 @@ Review: --executor-path <codex-binary> --model gpt-6-astra --reasoning-effort xh
         --timeout-ms <1..600000> --source-bytes <1..33554432> --tool-calls <1..1000>
 
 review explicitly permits the selected account executor to read the approved fixed
-repository snapshot and active local knowledge. No central server is contacted.
+repository snapshot and selected knowledge. Standalone never contacts a central server.
+Centralized requires an explicit connection ID and may synchronize before review.
 Results are JSON; diagnostics go to stderr. Exit 0: complete/no follow-up;
 1: complete/findings or optional questions; 2: incomplete, unavailable or command error.
 create/import starts a candidate; activate is a separate explicit action.
 `;
-const common = ['cwd', 'profile', 'data-dir', 'mode', 'json', 'help'];
+const common = ['cwd', 'profile', 'data-dir', 'mode', 'connection', 'json', 'help'];
 const snapshot = [
   'source',
   'base',
@@ -52,8 +57,17 @@ const snapshot = [
 const executor = ['executor-path', 'model', 'reasoning-effort'];
 const allowed: Record<string, string[]> = {
   status: ['check-executor', ...executor],
-  context: snapshot,
-  review: [...snapshot, ...executor, 'allow-path', 'timeout-ms', 'source-bytes', 'tool-calls'],
+  central: ['input', 'api-key-stdin'],
+  context: [...snapshot, 'offline'],
+  review: [
+    'offline',
+    ...snapshot,
+    ...executor,
+    'allow-path',
+    'timeout-ms',
+    'source-bytes',
+    'tool-calls',
+  ],
   result: [],
   history: [],
   memory: ['scope', 'input', 'output', 'revision'],
@@ -67,7 +81,7 @@ const multiple = new Set([
   'require-knowledge',
   'allow-path',
 ]);
-const boolean = new Set(['json', 'help', 'check-executor']);
+const boolean = new Set(['json', 'help', 'check-executor', 'api-key-stdin', 'offline']);
 export function argumentsFor(argv: string[]) {
   if (!argv.length || argv[0] === '--help' || argv[0] === 'help')
     return { command: 'help', positionals: [], values: {} };

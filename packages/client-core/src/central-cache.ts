@@ -223,6 +223,10 @@ export class CentralKnowledgeCache {
       ? ('updated' as const)
       : ('current' as const);
   }
+  async connectionState() {
+    const state = await this.state();
+    return { generation: state.value.generation, status: state.value.status };
+  }
   private async owned(token: string, generation: number): Promise<State> {
     const state = await this.state();
     if (

@@ -69,6 +69,7 @@ class LocalReviewContext {
       cache: CentralKnowledgeCache;
       manifest: SignedKnowledgeManifest;
       mode: 'online' | 'offline';
+      assertConnection?: () => Promise<void>;
     },
   ) {
     this.#data = structuredClone(data);
@@ -78,6 +79,7 @@ class LocalReviewContext {
   }
   async observeCentralSnapshot(): Promise<'current' | 'updated' | 'pending'> {
     if (!this.authority) return 'current';
+    await this.authority.assertConnection?.();
     if (this.#data.validUntil && this.#data.validUntil <= new Date().toISOString())
       throw Error('central-context-expired');
     return this.authority.cache.observeSnapshot(this.authority.manifest, this.authority.mode);
@@ -417,6 +419,7 @@ export async function resolveCentralContext(
   input: Omit<LocalContextQuery, 'settings'> & {
     cache: CentralKnowledgeCache;
     freshness: 'online' | 'offline';
+    assertConnection?: () => Promise<void>;
   },
 ): Promise<LocalContextResolution> {
   try {
@@ -436,6 +439,7 @@ export async function resolveCentralContext(
       canonicalJson(client.audience) !== canonicalJson(input.cache.binding.audience)
     )
       throw Error('central-context-scope');
+    await input.assertConnection?.();
     const pinned = await input.cache.read(input.freshness);
     const local = await resolveLocalContext({
       ...input,
@@ -555,7 +559,12 @@ export async function resolveCentralContext(
           validUntil,
           central,
         },
-        { cache: input.cache, manifest: pinned.manifest, mode: input.freshness },
+        {
+          cache: input.cache,
+          manifest: pinned.manifest,
+          mode: input.freshness,
+          ...(input.assertConnection ? { assertConnection: input.assertConnection } : {}),
+        },
       ),
     };
   } catch {

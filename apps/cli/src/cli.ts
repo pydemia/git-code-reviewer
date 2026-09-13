@@ -19,11 +19,16 @@ import {
   LocalRecordStore,
   LocalStoreError,
   resolveLocalContext,
+  resolveCentralContext,
+  CentralConnections,
+  KnowledgeSyncError,
+  type CentralCredentialStore,
   resolveLocalExecutionPolicy,
   resolveReviewMode,
   runLocalReview,
   SourceCaptureError,
   type LocalKeyStore,
+  type LocalContextQuery,
   type LocalKnowledgeDraft,
   type LocalKnowledgeEdit,
   type LocalReviewExecutor,
@@ -36,6 +41,7 @@ interface CliDependencies {
   cwd?: string;
   signal?: AbortSignal;
   keys?: LocalKeyStore;
+  credentials?: CentralCredentialStore;
   prepareExecutor?:
     | typeof prepareCodexAccountExecutor
     | ((
@@ -90,7 +96,7 @@ export async function executeCli(
   argv: string[],
   dependencies: CliDependencies = {},
 ): Promise<CliResult> {
-  const opened: LocalRecordStore[] = [];
+  const opened: Array<{ close(): void }> = [];
   let snapshot: LocalSourceSnapshot | undefined;
   try {
     if (dependencies.signal?.aborted)
@@ -119,7 +125,30 @@ export async function executeCli(
       return Number(value);
     };
     const mode = resolveReviewMode({ mode: string('mode', 'standalone') });
-    if (!mode.supported) return { value: { status: 'unavailable', ...mode }, exitCode: 2 };
+    const central = mode.mode === 'centralized';
+    if (central && command !== 'central' && !string('connection'))
+      return {
+        value: {
+          status: 'unavailable',
+          ...mode,
+          problems: [
+            {
+              code: 'policy-unavailable',
+              message: 'Centralized review requires an explicit --connection ID.',
+            },
+          ],
+        },
+        exitCode: 2,
+      };
+    if (
+      (!central && (command === 'central' || string('connection') || values.offline)) ||
+      (central &&
+        !['central', 'status', 'context', 'review', 'history', 'result'].includes(command))
+    )
+      throw new CliError(
+        'usage',
+        'Central operations require --mode centralized and a supported central command.',
+      );
     const cwd = path.resolve(string('cwd', dependencies.cwd ?? process.cwd())!);
     const profileId = string('profile', 'default')!;
     const dataDirectory = path.resolve(string('data-dir', defaultLocalDataDirectory())!);
@@ -152,6 +181,65 @@ export async function executeCli(
       stores.set(scope.kind, value);
       return value;
     };
+    let connections: CentralConnections | undefined;
+    const centralConnections = async () => {
+      if (!connections) {
+        connections = await CentralConnections.open({
+          scope: repositoryScope!,
+          dataDirectory,
+          ...(dependencies.keys ? { keys: dependencies.keys } : {}),
+          ...(dependencies.credentials ? { credentials: dependencies.credentials } : {}),
+        });
+        opened.push(connections);
+      }
+      return connections;
+    };
+    if (command === 'central') {
+      const [action, ...extra] = positionals;
+      if (
+        extra.length ||
+        !['connect', 'list', 'status', 'sync', 'disconnect'].includes(action ?? '')
+      )
+        throw new CliError('usage', 'Unknown central action.');
+      if (action === 'connect') {
+        const input = string('input');
+        if (
+          !input ||
+          input === '-' ||
+          !values['api-key-stdin'] ||
+          string('connection') ||
+          !dependencies.readStdin
+        )
+          throw new CliError(
+            'usage',
+            'Connect requires a public configuration file and --api-key-stdin.',
+          );
+        const config = await jsonInput(input);
+        const secret = (await dependencies.readStdin()).trim();
+        if (secret.length > 256) throw new CliError('invalid-input', 'Invalid API key input.');
+        return {
+          value: await (
+            await centralConnections()
+          ).connect(config, secret, 'gcr-cli', dependencies.signal),
+          exitCode: 0,
+        };
+      }
+      if (string('input') || values['api-key-stdin'])
+        throw new CliError('usage', 'Only connect accepts configuration and key input.');
+      if (action === 'list') {
+        if (string('connection'))
+          throw new CliError('usage', 'List does not accept a connection ID.');
+        return { value: await (await centralConnections()).list(), exitCode: 0 };
+      }
+      const id = string('connection');
+      if (!id) throw new CliError('usage', 'Specify --connection for this action.');
+      const manager = await centralConnections();
+      if (action === 'disconnect') return { value: await manager.disconnect(id), exitCode: 0 };
+      if (action === 'sync')
+        return { value: await manager.synchronize(id, dependencies.signal), exitCode: 0 };
+      const status = await manager.status(id);
+      return { value: status, exitCode: status.cache.status === 'ready' ? 0 : 2 };
+    }
     const prepare = () =>
       (dependencies.prepareExecutor ?? prepareCodexAccountExecutor)({
         ...(string('executor-path') ? { executablePath: string('executor-path')! } : {}),
@@ -261,6 +349,19 @@ export async function executeCli(
     }
     if (positionals.length !== (command === 'result' ? 1 : 0))
       throw new CliError('usage', 'Unexpected positional arguments.');
+    if (command === 'status' && central) {
+      const status = await (await centralConnections()).status(string('connection')!);
+      return {
+        value: {
+          ...status,
+          mode: 'centralized',
+          executor: values['check-executor']
+            ? (await prepare()).descriptor
+            : { status: 'not-checked' },
+        },
+        exitCode: status.cache.status === 'ready' ? 0 : 2,
+      };
+    }
     if (command === 'status')
       return {
         value: {
@@ -276,7 +377,17 @@ export async function executeCli(
         },
         exitCode: 0,
       };
-    const history = new LocalHistoryStore(await records(repositoryScope!));
+    let history: LocalHistoryStore;
+    if (central) {
+      const identity = await (await centralConnections()).historyIdentity(string('connection')!);
+      const centralRecords = await LocalRecordStore.open({
+        scope: repositoryScope!,
+        dataDirectory: path.join(dataDirectory, 'central-review-history', identity.id),
+        ...(dependencies.keys ? { keys: dependencies.keys } : {}),
+      });
+      opened.push(centralRecords);
+      history = new LocalHistoryStore(centralRecords, undefined, identity.audience);
+    } else history = new LocalHistoryStore(await records(repositoryScope!));
     if (command === 'result') {
       const report = await history.getReview(positionals[0]!);
       if (!report)
@@ -308,7 +419,7 @@ export async function executeCli(
       includeUntracked: many('include-untracked'),
       excludePatterns: many('exclude'),
     });
-    const context = await resolveLocalContext({
+    const contextInput: LocalContextQuery = {
       client: client!,
       snapshot,
       stores: [
@@ -323,13 +434,22 @@ export async function executeCli(
           throw new CliError('usage', 'Required source must use source:path or base:path.');
         return { side, path: sourcePath(value.slice(index + 1)) };
       }),
-    });
+    };
+    const connection = central
+      ? await (
+          await centralConnections()
+        ).review(string('connection')!, values.offline ? 'offline' : 'online', dependencies.signal)
+      : undefined;
+    const context = connection
+      ? await resolveCentralContext({ ...contextInput, ...connection })
+      : await resolveLocalContext(contextInput);
     if (command === 'context')
       return {
         value: {
           status: context.status,
           problems: context.problems,
-          client,
+          client: context.context?.client ?? client,
+          ...(connection ? { freshness: connection.freshness } : {}),
           source: snapshot.identity,
           selected: snapshot.selected,
           sourceFiles: snapshot.sourceFiles,
@@ -363,7 +483,7 @@ export async function executeCli(
       executor: executor.descriptor,
       workspaceTrusted: true,
       approval: {
-        client: client!,
+        client: context.context.client,
         executor: executor.descriptor,
         sourceHash: snapshot.identity.hash,
         paths: many('allow-path').length ? many('allow-path') : ['**'],
@@ -434,7 +554,8 @@ export async function executeCli(
       error instanceof CliError ||
       error instanceof LocalStoreError ||
       error instanceof ExecutorError ||
-      error instanceof SourceCaptureError;
+      error instanceof SourceCaptureError ||
+      error instanceof KnowledgeSyncError;
     return {
       value: {
         status: error instanceof ExecutorError ? 'unavailable' : 'failed',

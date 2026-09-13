@@ -156,3 +156,94 @@ export class PlatformLocalKeyStore implements LocalKeyStore {
       throw unavailable();
   }
 }
+
+/** API keys use a distinct OS credential namespace; they never enter settings or model credentials. */
+export interface CentralCredentialStore {
+  read(reference: string): Promise<string | undefined>;
+  write(reference: string, secret: string): Promise<void>;
+  remove(reference: string): Promise<void>;
+}
+export function validateCentralApiKey(value: string): string {
+  if (
+    !/^gcr_key_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_[A-Za-z0-9_-]{43}$/.test(
+      value,
+    )
+  )
+    throw unavailable();
+  return value;
+}
+export class PlatformCentralCredentialStore implements CentralCredentialStore {
+  private readonly service = 'com.commitdefender.central-auth.v1';
+  constructor(
+    private readonly platform: NodeJS.Platform = process.platform,
+    private readonly command: CredentialCommand = run,
+  ) {
+    if (!['darwin', 'linux'].includes(platform)) throw unavailable();
+  }
+  private invoke(operation: 'read' | 'write' | 'remove', reference: string, secret?: string) {
+    token(reference);
+    if (secret !== undefined) validateCentralApiKey(secret);
+    if (this.platform === 'darwin') {
+      if (operation === 'write')
+        return this.command(
+          '/usr/bin/security',
+          ['-i'],
+          `add-generic-password -a ${reference} -s ${this.service} -w ${secret}\n`,
+        );
+      return this.command('/usr/bin/security', [
+        operation === 'read' ? 'find-generic-password' : 'delete-generic-password',
+        '-a',
+        reference,
+        '-s',
+        this.service,
+        ...(operation === 'read' ? ['-w'] : []),
+      ]);
+    }
+    return this.command(
+      '/usr/bin/secret-tool',
+      [
+        operation === 'read' ? 'lookup' : operation === 'remove' ? 'clear' : 'store',
+        ...(operation === 'write' ? ['--label=Commit Defender central API key'] : []),
+        'service',
+        this.service,
+        'account',
+        reference,
+      ],
+      secret,
+    );
+  }
+  async read(reference: string) {
+    const result = await this.invoke('read', reference);
+    if (
+      (this.platform === 'darwin' && result.code === 44) ||
+      (this.platform === 'linux' &&
+        result.code === 1 &&
+        !result.stderr.trim() &&
+        !result.stdout.trim())
+    )
+      return undefined;
+    if (result.code !== 0) throw unavailable();
+    return validateCentralApiKey(result.stdout.trim());
+  }
+  async write(reference: string, secret: string) {
+    if (
+      (await this.invoke('write', reference, secret)).code !== 0 ||
+      (await this.read(reference)) !== secret
+    )
+      throw unavailable();
+  }
+  async remove(reference: string) {
+    const result = await this.invoke('remove', reference);
+    if (
+      result.code !== 0 &&
+      !(this.platform === 'darwin' && result.code === 44) &&
+      !(
+        this.platform === 'linux' &&
+        result.code === 1 &&
+        !result.stderr.trim() &&
+        !result.stdout.trim()
+      )
+    )
+      throw unavailable();
+  }
+}

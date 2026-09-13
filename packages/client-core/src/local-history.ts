@@ -1,6 +1,8 @@
 import {
   clientReviewReport,
   localScope,
+  knowledgeAudience,
+  type KnowledgeAudience,
   type ClientReviewReport,
   type LocalScope,
 } from '@gcr/client-contract';
@@ -121,10 +123,14 @@ export function localChatArchive(value: unknown): LocalChatArchive {
 
 /** Persistence and retention only. Interactive execution/checkpoints are implemented in P08. */
 export class LocalHistoryStore {
+  private readonly audience?: KnowledgeAudience;
   constructor(
     private readonly records: LocalRecordStore,
     private readonly now: () => Date = () => new Date(),
-  ) {}
+    audience?: KnowledgeAudience,
+  ) {
+    if (audience) this.audience = Object.freeze(knowledgeAudience(audience));
+  }
   async getRetention(): Promise<{ revision: number; policy: HistoryRetention }> {
     const stored = await this.records.read('settings', 'history-retention');
     if (!stored) return { revision: 0, policy: retention(DEFAULT_HISTORY_RETENTION) };
@@ -148,7 +154,10 @@ export class LocalHistoryStore {
     const client = report.identity.client;
     if (
       scope.kind !== 'repository' ||
-      client.mode !== 'standalone' ||
+      (this.audience
+        ? client.mode !== 'centralized' ||
+          canonicalJson(client.audience) !== canonicalJson(this.audience)
+        : client.mode !== 'standalone') ||
       client.profileId !== scope.profileId ||
       client.repositoryKey !== scope.repositoryKey ||
       client.worktreeKey !== scope.worktreeKey ||

@@ -1,4 +1,4 @@
-# GCR standalone CLI
+# GCR CLI
 
 Node.js 22 이상의 headless client다. 설치본은 `@gcr/client-contract`, `@gcr/client-core`, `@gcr/client-executors`의 정확한 버전을 실행 파일 하나에 bundle한다. Runtime npm dependency가 없으며 서버·VS Code·sibling source checkout이 필요하지 않다.
 
@@ -21,7 +21,7 @@ gcr history --cwd /path/to/repo
 
 기본 source는 실제 Git index다. 저장된 working tree는 `--source working-tree`로 선택한다. `--base main`은 capture 시점 HEAD와 지정 ref의 merge-base를 고정한다. `--path`는 exact path이며 반복할 수 있다. Untracked 파일은 working-tree mode에서 `--include-untracked`로 명시해야 한다. `context`는 모델 호출 없이 snapshot·선택 지식의 hash와 제외 사유를 확인한다. 지식 본문은 `memory show` 또는 `skill show`로 조회한다.
 
-`review` 호출은 지정한 계정 executor에 해당 profile의 활성 지식과 고정 source/base/관련 파일을 전달하도록 명시적으로 요청하는 동작이다. 전송 경로는 `--allow-path` glob으로 좁힐 수 있다. `--exclude`는 capture에서 제외하며 `--require-source source:caller.py`, `--require-source base:cache.py`, `--require-knowledge ID`로 필수 근거를 지정한다. Repository 파일과 Skill은 tool 권한을 바꾸거나 명령을 실행할 수 없다. 중앙 URL·token·cache를 읽지 않으며 standalone에서 GCR 중앙 요청을 만들지 않는다. `--mode centralized`는 현재 unavailable이다.
+`review` 호출은 지정한 계정 executor에 해당 profile의 활성 지식과 고정 source/base/관련 파일을 전달하도록 명시적으로 요청하는 동작이다. 전송 경로는 `--allow-path` glob으로 좁힐 수 있다. `--exclude`는 capture에서 제외하며 `--require-source source:caller.py`, `--require-source base:cache.py`, `--require-knowledge ID`로 필수 근거를 지정한다. Repository 파일과 Skill은 tool 권한을 바꾸거나 명령을 실행할 수 없다. 중앙 URL·token·cache를 읽지 않으며 standalone에서 GCR 중앙 요청을 만들지 않는다. 중앙 연결은 아래의 명시적 설정을 사용한다.
 
 현재 실제 모델 adapter는 macOS의 지원 Codex CLI `0.153.4`, `gpt-6-astra`, `xhigh` 조합이다. CLI 경로를 명시하거나 PATH의 `codex`를 사용한다. 특정 앱의 설치 경로를 추정하지 않는다. `status --check-executor --executor-path ...`는 구성과 tool 격리만 검사하며 로그인·quota를 확인하거나 계정 모델을 호출하지 않는다. Linux에서 로컬 저장소와 조회 명령은 사용할 수 있지만 현재 모델 adapter는 unavailable이다. 지원하지 않는 실행 환경에서 다른 모델/provider로 전환하지 않는다.
 
@@ -68,3 +68,44 @@ gcr memory delete ID --revision 5
 `changes.json`에는 바꿀 필드만 넣는다. `expiresAt`은 UTC ISO timestamp이며 edit의 `null`은 기존 만료일을 제거한다. Create/import는 항상 candidate다. 활성화는 별도 명령이고 revision이 바뀌면 stale 편집·활성화·삭제를 거부한다. 모든 명령의 `memory`를 `skill`로 바꾸면 review-only Skill을 관리한다. 본문으로 실행 가능한 Skill을 등록할 수 없다.
 
 `--input -`은 최대 2 MB의 UTF-8 JSON stdin을 받는다. 본문을 명령 인수나 repository 설정에 저장할 필요가 없다. Export는 사용자가 지정한 새 파일에만 평문 JSON을 0600으로 만들고 기존 파일을 덮어쓰지 않는다. Import는 원본 hash를 검증하고 새 ID·현재 scope·candidate 상태를 부여한다. 기본 리뷰 이력은 90일/1,000개이며 개인 지식의 활성화·삭제와 독립적이다.
+
+## 중앙 연결과 리뷰
+
+중앙 서버의 v2 지식 API와 `gcr-cli`용 `knowledge:read` API key가 필요하다. 현재 운영 alpha.41의 v1 API에는 연결할 수 없다. 서버 v2 배포·API key 기능 활성화는 별도 배포 단계다. SAML 웹 로그인 cookie나 모델 제공자의 credential을 API key로 사용하지 않는다.
+
+서버 관리자에게 확인한 URL·server ID·tenant/repository ID와 별도로 받은 Ed25519 공개키로 JSON 설정 파일을 작성한다. 사용자 ID는 key의 `/client-auth/me` 응답으로 확인하며 응답의 repository scope·client ID·만료일과 서명된 manifest audience를 검증한다. 저장소 자동 검색이나 remote 이름 추정은 하지 않는다. 아래는 필드 형식이며 PEM에는 실제 공개키가 필요하다.
+
+```json
+{
+  "serverUrl": "https://gcr.example.com/",
+  "serverId": "server-id",
+  "tenantId": "tenant-id",
+  "repositoryId": "repository-id",
+  "trustedKeys": [{ "id": "signing-key-id", "pem": "PUBLIC_KEY_PEM" }],
+  "ca": null
+}
+```
+
+`ca: null`은 시스템 TLS 신뢰 저장소를 사용한다. 사설 CA 환경은 CA PEM을 넣는다. HTTPS 인증서·hostname 검증과 서명 key pin 검증을 모두 수행하며 redirect·HTTP·인증서 검증 생략은 지원하지 않는다. 설정에는 token이나 private key를 넣지 않는다.
+
+```sh
+# key를 보안 입력 도구에서 stdin으로 전달한다. 아래 명령의 인수에는 key가 없다.
+gcr central connect --mode centralized --input /private/config/connection.json --api-key-stdin --cwd /path/to/repo
+# 반환된 연결 ID를 명시적으로 선택한다.
+gcr central list --mode centralized --cwd /path/to/repo
+gcr central status --mode centralized --connection CONNECTION_ID --cwd /path/to/repo
+gcr central sync --mode centralized --connection CONNECTION_ID --cwd /path/to/repo
+gcr context --mode centralized --connection CONNECTION_ID --cwd /path/to/repo
+gcr review --mode centralized --connection CONNECTION_ID --cwd /path/to/repo --executor-path /path/to/supported/codex
+gcr history --mode centralized --connection CONNECTION_ID --cwd /path/to/repo
+gcr result RUN_ID --mode centralized --connection CONNECTION_ID --cwd /path/to/repo
+gcr central disconnect --mode centralized --connection CONNECTION_ID --cwd /path/to/repo
+```
+
+Key 입력은 piped stdin만 받으며 terminal의 평문 입력이나 `--api-key` 인수, key 파일 옵션은 제공하지 않는다. macOS Keychain 또는 Linux Secret Service의 `com.commitdefender.central-auth.v1` namespace에 저장한다. 연결 설정에는 credential reference와 만료일만 넣고 별도 OS key로 암호화한다. 등록·조회·동기화는 모델을 호출하지 않는다. 같은 profile/worktree/audience의 key를 교체하려면 먼저 disconnect한 뒤 connect한다. 이전 연결 revision으로 실행하던 리뷰는 재연결 후에도 계속 사용할 수 없다.
+
+연결 ID만 알고 있어도 중앙 모드로 전환되지는 않는다. `--mode centralized`와 ID를 함께 지정해야 한다. 온라인 context/review는 현재 signed cache의 refresh 시각이 지났거나 cache가 없으면 동기화를 요청한다. `--offline`은 네트워크를 사용하지 않고 유효한 signed lease와 아직 만료되지 않은 key, 연결 상태를 검사한다. 정상 서버 장애 후에는 명시적으로 `--offline`을 선택할 수 있다. 401/403을 확인한 연결은 offline에서도 사용할 수 없다. 자동 fallback·주기 동기화·재접속 backoff는 아직 제공하지 않는다.
+
+중앙 리뷰도 선택한 executor·source 전송 범위·예산을 적용한다. 결과는 `central-review-history/<binding ID>` 아래에 암호화하고 정확한 audience를 검증한다. Standalone 이력 조회에 중앙 결과를 섞지 않는다. 연결 해제는 local memory/Skill과 기존 리뷰 이력을 삭제하지 않으며, 중앙 이력 조회에는 해당 연결의 유효한 인증 상태가 필요하다. Key의 서버 측 폐기는 GCR 관리 화면/API에서 별도로 수행한다. 정리 실패는 반환한 `cacheCleanupPending`·`credentialCleanupPending`으로 확인한다.
+
+CLI 연결과 macOS Keychain은 별도 프로세스로 검증했다. Linux Secret Service adapter의 명령 계약은 테스트했으나 실제 Linux 보안 저장소·중앙 모델 리뷰 검증을 완료한 것은 아니다. 기본 PATH의 Codex가 지원 버전과 다르면 executor를 unavailable로 처리한다. 특정 버전을 이유 없이 허용하거나 다른 계정/provider로 바꾸지 않는다.

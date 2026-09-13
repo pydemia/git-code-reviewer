@@ -1,0 +1,126 @@
+{
+  "checkpoint": "P06 explicit central CLI, OS API key and audience-bound encrypted history",
+  "verifiedAt": "2026-09-13T20:02:46.436372+00:00",
+  "status": "passed",
+  "baseCommit": "36ea354c3758c292fe7534e5f6334bbd7e68b426",
+  "reports": [
+    {
+      "path": "artifacts/operations/P06-connected-client-final.json",
+      "sha256": "3379a31347abc764fb2b4a2f134869a68da4f3295bb9c363630c04e925ca5474",
+      "passed": 273,
+      "skipped": 1,
+      "failed": 0
+    },
+    {
+      "path": "artifacts/operations/P06-central-cli-installed-keychain.json",
+      "sha256": "a830695b1f459ac853947b321ddfbf70595d27a6be00675e10900dfccab3c9b9",
+      "passed": 1,
+      "skipped": 10,
+      "failed": 0
+    }
+  ],
+  "uniquePassedTests": 274,
+  "artifacts": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.7",
+    "clientVersion": "0.1.0-alpha.13",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.13",
+        "file": "gcr-client-contract-0.1.0-alpha.13.tgz",
+        "sha256": "a94f715c82d309c8b8156dd53242cfec095df91cc8a08dd6931e28854d11db2b"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.13",
+        "file": "gcr-client-core-0.1.0-alpha.13.tgz",
+        "sha256": "973f038481250a2d03a3d937902785b3da734be7b322b666d18cc3c99f933425"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.13",
+        "file": "gcr-client-executors-0.1.0-alpha.13.tgz",
+        "sha256": "4544138bec46970cfc12b27a05008dadc086ebead2b356a4929ebd531a371e20"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.7",
+        "file": "gcr-cli-0.1.0-alpha.7.tgz",
+        "sha256": "f88ead6159b29387742a84111c45d793bab73dffcf9a5c4697ad2d9b858d7caf"
+      }
+    ]
+  },
+  "installedEntrySha256": "8724399c73a50e1f614ab112b07c36fbb8576324c4b516c055c3c98cb4eb6662",
+  "builds": [
+    "pnpm build:cli passed",
+    "pnpm pack:cli --verify passed: offline clean consumers and exact package hashes",
+    "pnpm --filter @gcr/runtime build passed"
+  ],
+  "lint": "eslint all modified/new TypeScript passed",
+  "externalModelCalls": 0,
+  "actualOsVerification": {
+    "platform": "macOS",
+    "store": "Keychain",
+    "entry": "tarball installed in a clean local consumer",
+    "flow": [
+      "connect in one process with key on stdin",
+      "context in another process reading OS key and encrypted cache",
+      "explicit sync",
+      "disconnect",
+      "offline context rejected after disconnect"
+    ],
+    "testKeysRemoved": true,
+    "sourceEqualsInstalledAndPackedEntry": true
+  },
+  "sourceHashes": {
+    ".documents/execution/preventive-review/P06.md": "5ca39db07070eb908963c6785656c67bbc5362f6e74591d817ecc254e7c6984f",
+    "apps/cli/README.md": "893ba13900e2c1b815ebd0c523228071d470a6fd252afdcb26be6d2f34b35e04",
+    "apps/cli/package.json": "28dd4db18f6f93cf6c3605276cf6c0579eea9bc006f9e933c0d7a6e5c5f7d38c",
+    "apps/cli/src/arguments.ts": "acb07344d04c20354d4348d04da27142cec396398b1a4efac1c7fbe0a26f1860",
+    "apps/cli/src/central.test.ts": "d91305827462f543048bdcfff04314bff29a774d6375edcd441a87da9264554e",
+    "apps/cli/src/cli.ts": "59e977c9235c28533629d817995a421ce23b76a5a61e0a59ad83080ff0598be1",
+    "packages/client-contract/package.json": "6e957412fe586124bb9d9a4c57e7158eff99bd05a5e963595fa2af2b39379ee7",
+    "packages/client-contract/src/central-connection.ts": "0d9e20eb54caf55d2215a76e2e66d9a62ff9edc689a4f5e504f1912b0796196c",
+    "packages/client-contract/src/index.ts": "d33aa7695e7504dc0502199622b1e22927c1a9e4e3016b66e67503c5786967a5",
+    "packages/client-core/README.md": "0e73a83c490633211a0643d081df2803c55860568e1736d80e9a12f503034a25",
+    "packages/client-core/package.json": "84239d629015aac6e82e749447a7e20cc8f0f0929b0a84c8c4d1c10b5498a444",
+    "packages/client-core/src/central-cache.ts": "97884537658ab2c89ff1256dcb9c6f0b605972b2923950cd3f2ff777850c8b3a",
+    "packages/client-core/src/central-connection.ts": "e931d46d2d8cbfe86691ad60ece3daabad67a83cec3553440c0a2a90576da52d",
+    "packages/client-core/src/central-credentials.test.ts": "18de671ca3f4db08a3a135539dceb27849a258e8859dff851c78036f7634033e",
+    "packages/client-core/src/index.ts": "fe1a8d3776839a82b53b5f2e4238ba5064522132e085c7fcd5567cc5d2447cf9",
+    "packages/client-core/src/knowledge-http.ts": "785dae2aa2b361314f8ffd0d240a6ac8d55c7a80c6a30a765c2459958090282b",
+    "packages/client-core/src/local-credentials.ts": "5199911f4f7141fe2039b7e8a80f1eeafd6dc3b9fac9593cb0e08469e1c7000f",
+    "packages/client-core/src/local-history.ts": "362fb6dee3dc3736bd3719ca60e3cca69d705ae62dbb395ad4b70f19c9b215ea",
+    "packages/client-core/src/review-context.ts": "6c07ccd41ec43c3acdc74518a88b5d0fa2b9490ce84b6b177fa369b999278b8c",
+    "packages/client-executors/package.json": "d4526d85f1ef51f6c05178ed08a033263e7de6c622d6927f3354811d307e9f6e",
+    "packages/client-executors/src/index.ts": "ef709ffa265c9eaa4c33b5c587d433b3c3eb9259a08e2fc80c646114c4ca76c0"
+  },
+  "coverage": [
+    "HTTPS certificate and Ed25519 pin validation with real loopback HTTPS fixture",
+    "Server-derived user identity, exact repository/client audience and key expiry",
+    "Concurrent connection CAS, separate credentials and no token in disk records/status output",
+    "Explicit mode/ID; standalone and offline no central network requests",
+    "Central review uses actual Git index/base source tools with a synthetic executor",
+    "Server 503 and explicit offline review; confirmed 403 blocks offline model invocation",
+    "Disconnect/reconnect fences a running review even for the same binding",
+    "Central history retained in separate encrypted namespace; standalone cannot query it",
+    "Real macOS Keychain registration/readback/cleanup across installed CLI processes",
+    "Linux credential adapter stdin/namespace contract tested with injected command port"
+  ],
+  "limitations": [
+    "PRISM-DEV still requires v2/API-key deployment before this CLI can connect; no production modifications in this checkpoint",
+    "No CD connection UI/worker integration or public client/Marketplace publication yet",
+    "PATH Codex is 0.154.0; current adapter accepts only previously verified 0.153.4; installed executor probe correctly returned unavailable with no model call",
+    "Real account-model connected review and actual Linux Secret Service/review remain incomplete",
+    "Manual explicit repository mapping only; automatic remote resolution, periodic sync/backoff and automatic fallback remain incomplete",
+    "PKCE/device/refresh-token flows and web API-key management UI remain incomplete",
+    "Entire P00-P13 development/deployment goal remains active"
+  ],
+  "supersededAttempts": [
+    "P06-connected-cli-tests.json: new test file was missing a closing delimiter; fixed",
+    "P06-connected-cli-tests-v2.json: TLS/filesystem scenarios needed bounded integration timeouts, and central history admission was incomplete",
+    "P06-connected-cli-tests-v3.json: exposed standalone-only history rejection; implemented an explicitly audience-bound separate central history store",
+    "P06-connected-cli-tests-v4.json passed before final artifact version and extended expiry/installed-process verification"
+  ]
+}
