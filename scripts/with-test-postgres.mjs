@@ -56,7 +56,17 @@ try {
   for (let attempt = 0; attempt < 30 && !interrupted; attempt++) {
     try {
       ready = (
-        await docker(['exec', name, 'pg_isready', '-U', 'gcr_test', '-d', 'gcr_test'])
+        await docker([
+          'exec',
+          name,
+          'pg_isready',
+          '-h',
+          '127.0.0.1',
+          '-U',
+          'gcr_test',
+          '-d',
+          'gcr_test',
+        ])
       ).includes('accepting connections');
     } catch {
       /* initialization */

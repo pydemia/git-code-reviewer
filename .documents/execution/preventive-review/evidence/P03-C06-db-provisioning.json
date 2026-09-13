@@ -1,0 +1,176 @@
+{
+  "checkpoint": "P03-C06 shared PostgreSQL provisioning",
+  "status": "source-verified; runtime/TLS/Helm integration and deployment pending",
+  "recordedAt": "2026-09-13T05:35:42.866373+00:00",
+  "parentCommit": "91d6ca2de49896b23e1bd5aa692d388d138ed7c5",
+  "sourceSha256": {
+    "packages/db/src/index.ts": "da2f89f5accde63c10c886c7504eee1f432f60410a9d601e5fed3b8fb7749888",
+    "packages/db/src/shared-postgres.ts": "4ac30aaa4e98b0344b07f179419305032b5fb440be5284fef09939cf8c3b5a94",
+    "packages/db/src/provision-cli.ts": "94e22399f6b401fbf7053715f174f7ef456500b7e9d21fe67b75ff6434ff7640",
+    "packages/db/src/shared-postgres.integration.test.ts": "810483fa4710f67b5204cfbd8715ecde75f80b98daee2f1718bfc4dbf8df71c0",
+    "scripts/with-test-postgres.mjs": "9bf02f5b48aab54b007f6caa87382a96f19869917095af5714b54f5a3b0b89cb",
+    "deploy/postgres/shared-plan.example.json": "49427a28322c4329ec92c0ad9b5a66b508b8a90bb709b206c312af7554c2d6f8"
+  },
+  "validation": {
+    "sourceSuite": {
+      "tests": 928,
+      "files": 104,
+      "failed": 0,
+      "skipped": 0,
+      "workers": 2,
+      "compiledDuplicateTestsExcluded": 69,
+      "source": "artifacts/operations/P03-C06/source-tests-attempt2.json"
+    },
+    "postgres17IsolationTests": 14,
+    "postgres18IsolationTests": 14,
+    "postgres17Image": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+    "postgres18Image": "postgres@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2",
+    "postgresVersions": [
+      "17.11",
+      "18.6"
+    ],
+    "compiledCliEmpty": {
+      "status": "passed",
+      "startedAt": "2026-09-13T05:29:09.228Z",
+      "finishedAt": "2026-09-13T05:29:11.142Z",
+      "inspectThenApplyTwice": true
+    },
+    "compiledCliExisting": {
+      "status": "passed",
+      "startedAt": "2026-09-13T05:34:19.521Z",
+      "finishedAt": "2026-09-13T05:34:25.016Z",
+      "before": {
+        "users": {
+          "count": 1,
+          "sha256": "a7d45cad8e75a236b9f64b177d675e4293b3198d484e48b41174c97dd34a0a56"
+        },
+        "service_metadata": {
+          "count": 2,
+          "sha256": "9f74b8de56f464462bdada6572e7e5fe7bcb2fe9c23a8b3c7b9601c7186b10b4"
+        },
+        "schema_migrations": {
+          "count": 36,
+          "sha256": "67569d903584d9ac3fcdd2fdfb7b34bf6144e6ed657996ea48799f26f734de38"
+        }
+      },
+      "afterFirstApplyAndRerun": [
+        {
+          "users": {
+            "count": 1,
+            "sha256": "a7d45cad8e75a236b9f64b177d675e4293b3198d484e48b41174c97dd34a0a56"
+          },
+          "service_metadata": {
+            "count": 2,
+            "sha256": "9f74b8de56f464462bdada6572e7e5fe7bcb2fe9c23a8b3c7b9601c7186b10b4"
+          },
+          "schema_migrations": {
+            "count": 36,
+            "sha256": "67569d903584d9ac3fcdd2fdfb7b34bf6144e6ed657996ea48799f26f734de38"
+          }
+        },
+        {
+          "users": {
+            "count": 1,
+            "sha256": "a7d45cad8e75a236b9f64b177d675e4293b3198d484e48b41174c97dd34a0a56"
+          },
+          "service_metadata": {
+            "count": 2,
+            "sha256": "9f74b8de56f464462bdada6572e7e5fe7bcb2fe9c23a8b3c7b9601c7186b10b4"
+          },
+          "schema_migrations": {
+            "count": 36,
+            "sha256": "67569d903584d9ac3fcdd2fdfb7b34bf6144e6ed657996ea48799f26f734de38"
+          }
+        }
+      ],
+      "compiledAndSourceHashes": {
+        "packages/db/dist/provision-cli.js": "afc63d766f825d8b3b164d9743df71784e7ea76001411365968747c6137eff07",
+        "packages/db/dist/shared-postgres.js": "3dec48002b9a53fb70ee3244b05fc9ad2a1f5a0e7995918994cf32d8c0f3f821",
+        "packages/db/src/provision-cli.ts": "94e22399f6b401fbf7053715f174f7ef456500b7e9d21fe67b75ff6434ff7640",
+        "packages/db/src/shared-postgres.ts": "4ac30aaa4e98b0344b07f179419305032b5fb440be5284fef09939cf8c3b5a94"
+      }
+    },
+    "typecheck": "entire workspace passed; includes package build",
+    "lint": "changed TypeScript and fixture wrapper passed",
+    "format": "changed source, wrapper and public operational documents passed",
+    "fixtureContainersRemoved": true,
+    "privateCliFilesRemoved": true,
+    "firstRegressionAttempt": {
+      "successful": false,
+      "assertionsPassed": 991,
+      "assertionsFailed": 0,
+      "skipped": 6,
+      "failedSuites": 3,
+      "causeObserved": "10-second setup/cleanup hook timeouts in existing Chrome, personal-prompt and source-workspace suites; an independent PostgreSQL 18 check overlapped this run",
+      "followup": "Ran all source tests separately with two workers and unchanged hook limits; passed. This does not prove the underlying timing issue fixed."
+    },
+    "initialImplementationCorrections": [
+      "TCP readiness instead of the PostgreSQL entrypoint temporary Unix-socket server",
+      "Accept the implicit pg_database_owner ACL principal",
+      "Qualify pg_namespace.oid in the default-ACL query"
+    ]
+  },
+  "operationalObservation": {
+    "at": "2026-09-13T05:02:32.730137+00:00",
+    "server": {
+      "current_user": "git_code_reviewer",
+      "current_database": "git_code_reviewer",
+      "version": "18.6",
+      "max_connections": "100",
+      "superuser_reserved_connections": "3",
+      "reserved_connections": "0",
+      "tls": false
+    },
+    "roles": [
+      {
+        "rolname": "git_code_reviewer",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": true,
+        "rolcanlogin": true,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1
+      },
+      {
+        "rolname": "postgres",
+        "rolsuper": true,
+        "rolinherit": true,
+        "rolcreaterole": true,
+        "rolcreatedb": true,
+        "rolcanlogin": true,
+        "rolreplication": true,
+        "rolbypassrls": true,
+        "rolconnlimit": -1
+      }
+    ],
+    "mutationPerformed": false,
+    "deploymentUnchangedByThisCheckpoint": {
+      "application": "0.8.0-alpha.37",
+      "chart": "0.10.35",
+      "helmRevision": 47,
+      "authMode": "local"
+    }
+  },
+  "remaining": [
+    "Runtime database TLS verification and CA configuration",
+    "Separate runtime/migrator credentials and Helm/Compose mounts",
+    "Replica/pool budgets wired to deployment settings",
+    "Actual Keycloak database migration and preserved realm/user verification",
+    "Operational backup/restore rehearsal and role/TLS cutover",
+    "P03-C07/C08 and native GUI checks; remaining P04-P13"
+  ],
+  "evidenceSha256": {
+    "artifacts/operations/P03-C06/source-tests-attempt1.json": "f3a47f100b45aa914b7a6d4436993a631f373d290811be9e276756676ce915d1",
+    "artifacts/operations/P03-C06/source-tests-attempt2.json": "493d79abe311a2358e8bdbd2eb3b7633ce242d3b6895908f5a7760a2ddd890bb",
+    "artifacts/operations/P03-C06/provisioning-pg18-attempt3.json": "ae83ff8faa45f329d91aa1c6528cd2880bc7f13ca592016dd3dae1aedf5932b1",
+    "artifacts/operations/P03-C06/compiled-cli-smoke.json": "d1aa13696e97f728594f6ae2d24b94f64f51f570329c724f253b7ff9fe2cd501",
+    "artifacts/operations/P03-C06/compiled-existing-cli-smoke.json": "ed09c1decc378ae66c3e554c34b9c3f71f5f3cfc4b50f18fb793f66d119e2782",
+    "artifacts/operations/P03-C06/database-metadata-before.json": "b488599e937b6e0c65418c5ab09fe4b511572e6ce01bfcf480ce0d16d92f101c",
+    "artifacts/operations/P03-C06/postgres18-index-verified.json": "a76aaddbff767196246adc27e4baa8c102f1b7cffb3e5120b856da4aba474bcb",
+    "artifacts/operations/P03-C06/typecheck-all-attempt1.log": "f07662be37a3abd4158481b62bf0be0dbb03442ea6a1b572f70aac27d5c2cfa5",
+    "artifacts/operations/P03-C06/lint-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifacts/operations/P03-C06/format-check-final.log": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20"
+  }
+}

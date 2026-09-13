@@ -4,6 +4,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import pg from 'pg';
 
+export {
+  inspectSharedPostgres,
+  provisionSharedPostgres,
+  SharedPostgresError,
+} from './shared-postgres.js';
+export type { SharedPostgresOptions, SharedPostgresPlan } from './shared-postgres.js';
+
 const { Pool } = pg;
 const migrationLockId = 746_278_431;
 
