@@ -1,0 +1,91 @@
+{
+  "recordedAt": "2026-09-13T08:07:48.231307+00:00",
+  "context": "PRISM-DEV",
+  "namespace": "git-code-reviewer",
+  "resource": "git-code-reviewer-identity-route",
+  "generation": 1,
+  "spec": {
+    "hostnames": [
+      "auth.pr-review.prism.ai"
+    ],
+    "parentRefs": [
+      {
+        "group": "gateway.networking.k8s.io",
+        "kind": "Gateway",
+        "name": "envoy-gateway",
+        "namespace": "envoy-gateway-system",
+        "sectionName": "http"
+      }
+    ],
+    "rules": [
+      {
+        "backendRefs": [
+          {
+            "group": "",
+            "kind": "Service",
+            "name": "git-code-reviewer-identity",
+            "port": 80,
+            "weight": 1
+          }
+        ],
+        "matches": [
+          {
+            "path": {
+              "type": "PathPrefix",
+              "value": "/realms/git-code-reviewer"
+            }
+          },
+          {
+            "path": {
+              "type": "PathPrefix",
+              "value": "/resources"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "conditions": [
+    {
+      "lastTransitionTime": "2026-09-13T08:06:52Z",
+      "message": "Route is accepted",
+      "observedGeneration": 1,
+      "reason": "Accepted",
+      "status": "True",
+      "type": "Accepted"
+    },
+    {
+      "lastTransitionTime": "2026-09-13T08:06:52Z",
+      "message": "Failed to process route rule 0 backendRef 0: service git-code-reviewer/git-code-reviewer-identity not found.",
+      "observedGeneration": 1,
+      "reason": "BackendNotFound",
+      "status": "False",
+      "type": "ResolvedRefs"
+    }
+  ],
+  "backendServiceDeployed": false,
+  "mutations": [
+    "Created HTTPRoute git-code-reviewer/git-code-reviewer-identity-route"
+  ],
+  "dnsResolved": true,
+  "http": {
+    "http://auth.pr-review.prism.ai/realms/git-code-reviewer": 500,
+    "http://auth.pr-review.prism.ai/admin/": 404,
+    "http://pr-review.prism.ai/health/ready": 200
+  },
+  "existingApplicationRoute": {
+    "generation": 2,
+    "hostnames": [
+      "pr-review.prism.ai"
+    ],
+    "backend": [
+      {
+        "group": "",
+        "kind": "Service",
+        "name": "git-code-reviewer",
+        "port": 80,
+        "weight": 1
+      }
+    ]
+  }
+}

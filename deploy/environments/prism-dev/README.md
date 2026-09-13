@@ -1,5 +1,13 @@
 # PRISM-DEV 배포
 
+## Identity HTTPRoute 준비 (2026-09-13)
+
+사용자 요청으로 `identity-httproute.yaml`을 PRISM-DEV에 적용했다. `auth.pr-review.prism.ai`의 `/realms/git-code-reviewer`, `/resources`만 `git-code-reviewer-identity:80`으로 연결한다. `/admin`, `/realms/master`, health·metrics는 이 route에 포함하지 않는다. Companion 배포는 이 Service 이름·port 계약을 제공해야 한다.
+
+Gateway는 새 route를 수락했다(`Accepted=True`). Keycloak Service는 아직 배포되지 않아 `ResolvedRefs=False / BackendNotFound`이며 realm 요청은 현재 HTTP 500이다. `/admin/`은 404, 기존 GCR `/health/ready`는 200을 확인했다. 이번 cluster 변경은 새 HTTPRoute 하나이며 기존 앱 HTTPRoute·Gateway listener는 변경하지 않았다. [적용 기록](../../../.documents/execution/preventive-review/evidence/P03-C07-identity-route.json)에 상태를 남겼다.
+
+사용자가 Mac의 `/etc/hosts`에 추가한 인증 hostname은 로컬에서 조회된다. 이 변경으로 pod의 이름 조회와 HTTPS 설정까지 준비됐다고 판단하지 않는다. 기존 동작을 보존하며 companion·서버 측 연결·TLS를 별도로 준비한다.
+
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
 ## 2026-09-13 보안 이벤트·계정 lifecycle 코드 배포
