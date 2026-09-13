@@ -156,10 +156,17 @@ async function run(
 }
 describe('fixed-source review runner', () => {
   it('requires full source/base and required caller acknowledgments for a completed review', async () => {
-    const report = await run(async (request) => ({
-      raw: JSON.stringify((await answer(request)).response),
-      model: descriptor.model,
-    }));
+    const report = await run(async (request) => {
+      const data = JSON.parse(request.prompt.split('\n\n').at(-1)!);
+      expect(data.outputFiles).toEqual([{ path: 'cache.py', side: 'source' }]);
+      expect(
+        data.requiredSources.some((source: { path: string }) => source.path === 'caller.py'),
+      ).toBe(true);
+      return {
+        raw: JSON.stringify((await answer(request)).response),
+        model: descriptor.model,
+      };
+    });
     expect(clientReviewReport(report).status).toBe('completed');
     expect(reviewExitCode(report)).toBe(0);
     expect(report.evidence).toHaveLength(3);
@@ -223,6 +230,8 @@ describe('fixed-source review runner', () => {
     ['out-of-range', 'anchor-outside-read'],
     ['duplicate-file', 'duplicate-file'],
     ['unselected-file', 'unselected-file'],
+    ['related-file', 'unselected-file'],
+    ['base-file', 'unselected-file'],
     ['test-claim', 'invalid-schema'],
     ['wrong-model', 'model-mismatch'],
     ['invalid-json', 'invalid-json'],
@@ -240,6 +249,14 @@ describe('fixed-source review runner', () => {
       if (variant === 'out-of-range') finding.anchor.endLine = 999;
       if (variant === 'duplicate-file') response.files.push(response.files[0]!);
       if (variant === 'unselected-file') response.files[0]!.path = privateValue + '.ts';
+      if (variant === 'related-file')
+        response.files.push({
+          ...response.files[0]!,
+          path: 'caller.py',
+          readIds: [reads[2].readId],
+        });
+      if (variant === 'base-file')
+        response.files.push({ ...response.files[0]!, side: 'base', readIds: [reads[1].readId] });
       return {
         raw:
           variant === 'invalid-json'

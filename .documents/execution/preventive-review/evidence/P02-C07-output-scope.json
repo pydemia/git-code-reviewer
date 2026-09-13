@@ -1,0 +1,77 @@
+{
+  "recordedAt": "2026-09-13T12:38:45.031695+00:00",
+  "status": "output-scope-guidance-implemented-and-packed; real-model-recheck-pending",
+  "trigger": {
+    "consumerRepository": "commit-defender",
+    "sourceCommit": "3da1a23",
+    "evidence": "P02-C07-worker-output-scope-failure.json",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "normal": "completed",
+    "defect": "invalid-output/unselected-file",
+    "rawResponseRetained": false,
+    "interpretation": "A response file had an unselected path/side; its exact value was not retained. Historical failures may have other causes."
+  },
+  "change": {
+    "outputFiles": "Trusted application supplies the exact selected path/side pairs as opaque data in the existing prompt.",
+    "supportingReads": "Explicit instructions keep base, caller and test reads as supporting evidence; availability and reading do not select them as output files.",
+    "decoderChanged": false,
+    "schemaChanged": false,
+    "retryAdded": false,
+    "modelFallbackAdded": false
+  },
+  "sourceSha256": {
+    "packages/client-core/src/review-runner.ts": "db8c42ea91d3a347fed7076dcc484f46cd5666fd93d7603b6fa04d79267b4d8a",
+    "packages/client-core/src/review-runner.test.ts": "9add14272d3b7fed6cf85712bad096d782aa7b0eb3b6b3421ceb619952cecec6",
+    "packages/client-core/README.md": "09a907cb42674ef25d7c808f71efe235bec65f3cf23c7fe6e8bc6a4e0ada8a31"
+  },
+  "validation": {
+    "runtime": "22.23.2",
+    "testFiles": 2,
+    "testsPassed": 31,
+    "testsFailed": 0,
+    "legitimateCallerAndBaseReadCannotAddOutputFile": true,
+    "fullSupportingReadAcknowledgementStillRequired": true,
+    "eslint": "passed",
+    "packedConsumerRuntimes": [
+      "18.20.8",
+      "22.23.2"
+    ],
+    "cliRuntime": "22.23.2",
+    "packManifest": {
+      "schemaVersion": 1,
+      "cliVersion": "0.1.0-alpha.5",
+      "clientVersion": "0.1.0-alpha.11",
+      "packages": [
+        {
+          "name": "@gcr/client-contract",
+          "version": "0.1.0-alpha.11",
+          "file": "gcr-client-contract-0.1.0-alpha.11.tgz",
+          "sha256": "28775b39abcecf816fc95dd1b5c0e28796479f0255d0c447a03b78edbba6f67c"
+        },
+        {
+          "name": "@gcr/client-core",
+          "version": "0.1.0-alpha.11",
+          "file": "gcr-client-core-0.1.0-alpha.11.tgz",
+          "sha256": "b48927d536f30871bc2b331bc50e08a0aa84682098d1d7efc0d0b777df802e17"
+        },
+        {
+          "name": "@gcr/client-executors",
+          "version": "0.1.0-alpha.11",
+          "file": "gcr-client-executors-0.1.0-alpha.11.tgz",
+          "sha256": "e7f2c725eb58fd4504a9111749e34685d6aa7e57cdbe6697058f32bcf3f2dec5"
+        },
+        {
+          "name": "@gcr/cli",
+          "version": "0.1.0-alpha.5",
+          "file": "gcr-cli-0.1.0-alpha.5.tgz",
+          "sha256": "08e06b5e3c3d3d73e2ba2e4611b691b5036eca5e22bc4985fd5c3997c99f3ee8"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "This prompt clarification does not guarantee compliant model output; runtime rejection remains authoritative.",
+    "Actual model recheck, extension packaging/native GUI and public release remain."
+  ]
+}
