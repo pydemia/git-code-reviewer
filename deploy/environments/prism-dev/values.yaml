@@ -9,8 +9,8 @@
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.40'
-  digest: 'sha256:875b28b201b1aeb72b1a10f1f99ad675b0c5e8b89d9074e1342b19751ea30e76'
+  tag: '0.8.0-alpha.41'
+  digest: 'sha256:aba6f16edf97d06f30bc5b2cbbde32974f83deecd31fcc18d60462760e6cf262'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

@@ -1,0 +1,10 @@
+# PRISM-DEV 지식 발행·서명 API. Private key는 아래 기존 Secret에만 보관한다.
+knowledgePublication:
+  enabled: true
+knowledgeDistribution:
+  enabled: true
+  serverId: 06cba99b-d58c-438c-a9c1-9a7c6c340477
+  signingKeyId: prism-dev-20260914-01
+  existingSecret: git-code-reviewer-knowledge-signing-v1
+  privateKeyKey: private-key.pem
+  offlineLeaseSeconds: 86400
