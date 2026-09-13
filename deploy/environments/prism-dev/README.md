@@ -2,6 +2,12 @@
 
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
 
+## 2026-09-13 SAML 앱 인증 코드 배포
+
+09:30:10 KST에 application `0.8.0-alpha.35`, chart `0.10.33`을 Helm revision **45**로 배포했다. P03-C03 source `d1f62bf`·release pin `30d63f1`을 push한 뒤 적용했다. SAML login/ACS/metadata/SLO, DB session 검증, LoginPage와 migration 0033을 포함하며 운영 인증은 기존 local mode다.
+
+전체 테스트 861개, 실제 Keycloak/Chrome 앱 로그인·로그아웃, build·typecheck·lint·audit·게시 image 검증을 통과했다. 배포 후 Server/Worker·health·gateway asset hash·09:31:24 Helm test와 local 로그인 화면을 확인했다. 기존 사용자·권한·memory owner·분석·report·local session·Provider·image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다. Native Safari와 계정 provisioning·freshness 수집·공유 DB·운영 SAML 전환은 미완료다. [배포 기록](../../../docs/operations/saml-web-authentication-2026-09-13.md)에 digest와 범위를 정리했다.
+
 ## 2026-09-13 SAML DB 기반 배포
 
 08:28:45 KST에 application `0.8.0-alpha.34`, chart `0.10.32`를 Helm revision **44**로 배포했다. P03-C02 source `b24ebe2`·release pin `4137629` push 후 신원 연결·일회성 로그인 상태·SessionIndex·freshness·관리 outbox의 migration 0032를 적용했다. 운영 인증은 local mode다.
