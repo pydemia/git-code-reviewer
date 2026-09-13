@@ -172,7 +172,7 @@ function fixture(version = 1, now = start, revoke = false) {
       collectiveMinimumSequence: 1,
       personalMinimumSequence: revoke ? version : 1,
     },
-    compatibleClientContracts: { minimum: 1, maximum: 1 },
+    compatibleClientContracts: { minimum: 2, maximum: 2 },
     issuedAt: new Date(now).toISOString(),
     refreshAfter: new Date(now + 300000).toISOString(),
     offlineValidUntil: new Date(now + 86400000).toISOString(),

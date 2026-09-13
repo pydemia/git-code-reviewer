@@ -91,7 +91,7 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
     signal,
   }: Parameters<KnowledgeTransport['manifest']>[0]): ReturnType<KnowledgeTransport['manifest']> {
     const response = await this.get(
-      `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/review-knowledge/manifest?clientContractVersion=1`,
+      `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/review-knowledge/manifest?clientContractVersion=2`,
       signal,
       etag,
     );

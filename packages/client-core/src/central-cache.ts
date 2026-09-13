@@ -83,6 +83,9 @@ export class CentralKnowledgeCache {
     });
     return new CentralKnowledgeCache(records, options.binding, options.now ?? Date.now);
   }
+  get scope() {
+    return structuredClone(this.records.scope);
+  }
   close() {
     this.records.close();
   }
@@ -104,6 +107,7 @@ export class CentralKnowledgeCache {
           status: 'enabled',
           minimumAuthorizationRevision: 0,
           minimumSequences: { policy: 0, collective: 0, personal: 0 },
+          revocationMinimumSequences: { policy: 0, collective: 0, personal: 0 },
           claim: null,
           active: null,
         });
@@ -188,6 +192,36 @@ export class CentralKnowledgeCache {
     // execution lease permits takeover, never offline authorization by itself.
     if (state.value.claim) throw error('busy');
     return this.readActive(state, mode);
+  }
+  /** Checks a pinned running review without replacing its bodies with a newer snapshot. */
+  async observeSnapshot(manifest: SignedKnowledgeManifest, mode: 'online' | 'offline') {
+    this.checkEnabled();
+    const state = await this.state();
+    this.checkEnabled();
+    if (state.value.status !== 'enabled')
+      throw error(state.value.status === 'disconnected' ? 'disabled' : state.value.status);
+    // Legacy indexes had one high-water mark; retain their conservative floor.
+    this.verify(
+      manifest,
+      {
+        ...state.value,
+        minimumSequences: state.value.revocationMinimumSequences ?? state.value.minimumSequences,
+      },
+      mode,
+    );
+    if (state.value.claim) {
+      if (state.value.claim.deadline <= this.time()) throw error('cache-unavailable');
+      return 'pending' as const;
+    }
+    if (!state.value.active) throw error('cache-unavailable');
+    const latest = this.verify(state.value.active.manifest, state.value, mode);
+    return parts.some(
+      (part) =>
+        latest.payload.components[part].contentHash !==
+        manifest.payload.components[part].contentHash,
+    )
+      ? ('updated' as const)
+      : ('current' as const);
   }
   private async owned(token: string, generation: number): Promise<State> {
     const state = await this.state();
@@ -281,9 +315,17 @@ export class CentralKnowledgeCache {
       // Persist explicit revocation floors before any downloads. A failed download
       // must not make a now-revoked previous snapshot usable as offline fallback.
       const floors = { ...state.value.minimumSequences };
+      const revocationFloors = {
+        ...(state.value.revocationMinimumSequences ?? state.value.minimumSequences),
+      };
       for (const part of parts)
         floors[part] = Math.max(
           floors[part],
+          manifest.payload.revocations[`${part}MinimumSequence`],
+        );
+      for (const part of parts)
+        revocationFloors[part] = Math.max(
+          revocationFloors[part],
           manifest.payload.revocations[`${part}MinimumSequence`],
         );
       authorizationUncertain = true;
@@ -292,6 +334,7 @@ export class CentralKnowledgeCache {
         observedAt: this.time(),
         minimumAuthorizationRevision: manifest.payload.authorizationRevision,
         minimumSequences: floors,
+        revocationMinimumSequences: revocationFloors,
       });
       authorizationUncertain = false;
       const refs = {} as Record<Part, string>;

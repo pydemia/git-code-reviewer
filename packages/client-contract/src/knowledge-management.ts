@@ -17,7 +17,7 @@ const nullableTime = union(timestamp, literal(null));
 export const knowledgePublicationStatus = object({
   schemaVersion: literal(1),
   enabled: boolean,
-  compatibleClientContracts: object({ minimum: literal(1), maximum: literal(1) }),
+  compatibleClientContracts: object({ minimum: integer(1), maximum: integer(1) }),
   syncObservation: literal('unknown'),
   components: list(
     object({

@@ -7,6 +7,7 @@ import {
   list,
   literal,
   object,
+  optional,
   refined,
   sha256,
   text,
@@ -56,6 +57,7 @@ export const centralMemoryContent = object({
 export type CentralMemoryContent = ReturnType<typeof centralMemoryContent>;
 const memory = object({
   id,
+  aggregationKey: optional(sha256),
   revision: integer(1),
   contentHash: sha256,
   sourceRevision: integer(1),
@@ -100,7 +102,8 @@ const skill = object({
   markdown: text(20000, 1),
   contentHash: sha256,
 });
-const common = { schemaVersion: literal(1), tenantId: id, repositoryId: id };
+export const KNOWLEDGE_CLIENT_CONTRACT_VERSION = 2;
+const common = { schemaVersion: union(literal(1), literal(2)), tenantId: id, repositoryId: id };
 export const centralKnowledgeBundle = refined(
   union(
     object({
@@ -129,15 +132,30 @@ export const centralKnowledgeBundle = refined(
         value.criteria.map((x) => x.id),
         at,
       );
+      for (const criterion of value.criteria) {
+        unique(
+          criterion.exceptions.map((x) => x.id),
+          at,
+        );
+        for (const exception of criterion.exceptions)
+          if (exception.startsAt >= exception.expiresAt) fail(at, 'invalid exception interval');
+      }
       unique(
         value.skills.skills.map((x) => x.name),
         at,
       );
-    } else
+    } else {
       unique(
         value.memories.map((x) => x.id),
         at,
       );
+      for (const memory of value.memories) {
+        if (value.schemaVersion === 2 && !memory.aggregationKey)
+          fail(at, 'v2 memory requires aggregation identity');
+        if (value.schemaVersion === 1 && memory.aggregationKey)
+          fail(at, 'v1 memory cannot contain v2 metadata');
+      }
+    }
   },
 );
 export type CentralKnowledgeBundle = ReturnType<typeof centralKnowledgeBundle>;

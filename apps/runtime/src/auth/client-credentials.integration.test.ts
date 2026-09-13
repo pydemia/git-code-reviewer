@@ -77,7 +77,7 @@ describe
     const me = (token: string) =>
       app.inject({ url: '/api/v1/client-auth/me', headers: auth(token) });
     const manifestPath = (id = repo) =>
-      `/api/v1/repositories/${id}/review-knowledge/manifest?clientContractVersion=1`;
+      `/api/v1/repositories/${id}/review-knowledge/manifest?clientContractVersion=2`;
     async function drain() {
       for (let i = 0; i < 40; i++) {
         const claim = await claimKnowledgePublication(db);

@@ -54,7 +54,7 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
   const base = () => `/api/v1/repositories/${repository}/review-knowledge`;
   const getManifest = (name = 'alice', etag?: string) =>
     app.inject({
-      url: `${base()}/manifest?clientContractVersion=1`,
+      url: `${base()}/manifest?clientContractVersion=2`,
       headers: { ...headers(name), ...(etag ? { 'if-none-match': etag } : {}) },
     });
   const manifest = async (name = 'alice') => {
@@ -183,16 +183,21 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
   });
   it('requires authentication, explicit supported contract and complete publication before signing', async () => {
     expect(
-      (await app.inject({ url: `${base()}/manifest?clientContractVersion=1` })).statusCode,
+      (await app.inject({ url: `${base()}/manifest?clientContractVersion=2` })).statusCode,
     ).toBe(401);
     expect((await getManifest('outsider')).statusCode).toBe(404);
     expect((await app.inject({ url: `${base()}/manifest`, headers: headers() })).statusCode).toBe(
       400,
     );
-    expect(
-      (await app.inject({ url: `${base()}/manifest?clientContractVersion=2`, headers: headers() }))
-        .statusCode,
-    ).toBe(426);
+    for (const version of [1, 3])
+      expect(
+        (
+          await app.inject({
+            url: `${base()}/manifest?clientContractVersion=${version}`,
+            headers: headers(),
+          })
+        ).statusCode,
+      ).toBe(426);
     expect((await getManifest()).statusCode).toBe(503);
     await drain();
     const { parsed } = await manifest();
@@ -266,12 +271,12 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     );
     try {
       const first = await authenticated.inject({
-        url: `${base()}/manifest?clientContractVersion=1`,
+        url: `${base()}/manifest?clientContractVersion=2`,
       });
       expect(first.statusCode, first.body).toBe(200);
       const payload = signedKnowledgeManifest(first.json()).payload;
       const again = await authenticated.inject({
-        url: `${base()}/manifest?clientContractVersion=1`,
+        url: `${base()}/manifest?clientContractVersion=2`,
         headers: { 'if-none-match': String(first.headers.etag) },
       });
       expect(again.statusCode, again.body).toBe(304);
@@ -305,7 +310,7 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     );
     try {
       expect(
-        (await authenticated.inject({ url: `${base()}/manifest?clientContractVersion=1` }))
+        (await authenticated.inject({ url: `${base()}/manifest?clientContractVersion=2` }))
           .statusCode,
       ).toBe(401);
       const login = await authenticated.inject({
@@ -318,14 +323,14 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
       expect(
         (
           await authenticated.inject({
-            url: `${base()}/manifest?clientContractVersion=1`,
+            url: `${base()}/manifest?clientContractVersion=2`,
             headers: { cookie },
           })
         ).statusCode,
       ).toBe(503);
       await drain();
       const first = await authenticated.inject({
-        url: `${base()}/manifest?clientContractVersion=1`,
+        url: `${base()}/manifest?clientContractVersion=2`,
         headers: { cookie },
       });
       expect(first.statusCode, first.body).toBe(200);
@@ -333,7 +338,7 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
       expect(
         (
           await authenticated.inject({
-            url: `${base()}/manifest?clientContractVersion=1`,
+            url: `${base()}/manifest?clientContractVersion=2`,
             headers: { cookie, 'if-none-match': String(first.headers.etag) },
           })
         ).statusCode,
@@ -618,7 +623,7 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     );
     try {
       expect(
-        (await disabled.inject({ url: `${base()}/manifest?clientContractVersion=1` })).statusCode,
+        (await disabled.inject({ url: `${base()}/manifest?clientContractVersion=2` })).statusCode,
       ).toBe(503);
     } finally {
       await disabled.close();

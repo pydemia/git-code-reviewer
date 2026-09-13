@@ -24,13 +24,15 @@ export const knowledgeManifestPayload = refined(
       collectiveMinimumSequence: integer(1),
       personalMinimumSequence: integer(1),
     }),
-    compatibleClientContracts: object({ minimum: literal(1), maximum: literal(1) }),
+    compatibleClientContracts: object({ minimum: integer(1), maximum: integer(1) }),
     issuedAt: timestamp,
     refreshAfter: timestamp,
     offlineValidUntil: timestamp,
     signingKeyId: id,
   }),
   (value, at) => {
+    if (value.compatibleClientContracts.minimum > value.compatibleClientContracts.maximum)
+      fail(at, 'invalid client compatibility range');
     const issued = Date.parse(value.issuedAt),
       refresh = Date.parse(value.refreshAfter),
       offline = Date.parse(value.offlineValidUntil);

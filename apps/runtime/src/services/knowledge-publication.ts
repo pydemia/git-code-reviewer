@@ -76,7 +76,7 @@ export async function publishKnowledge(database: Database, store: Store, claim: 
     const artifact = (
       await connection.query<{ id: string; checksum: string; byte_size: string; scope_id: string }>(
         `insert into artifacts(scope_type,scope_id,artifact_type,version,checksum,byte_size,locator)
-      values('review-knowledge',$1,$2,1,$2,$3,$4) on conflict(locator) do update set state='available',last_error=null,last_verified_at=clock_timestamp()
+      values('review-knowledge',$1,$2,2,$2,$3,$4) on conflict(locator) do update set state='available',last_error=null,last_verified_at=clock_timestamp()
       returning id,checksum,byte_size,scope_id`,
         [claim.id, checksum, byteSize, locator],
       )

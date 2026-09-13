@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -295,6 +295,77 @@ describe.skipIf(!url).sequential('immutable knowledge publication', () => {
         'f'.repeat(64),
       ]),
     ).rejects.toMatchObject({ code: '23514' });
+  });
+  it('republishes v1 scopes on upgrade and prevents an old worker acknowledging them', async () => {
+    const repository = await repo();
+    const result = await publish(repository);
+    const c = await db.connect();
+    try {
+      await c.query('begin');
+      // Recreate the pre-upgrade catalog for this owned test scope. Roll back all DDL below.
+      await c.query('drop trigger review_knowledge_v2_publication on review_knowledge_scopes');
+      await c.query('drop function require_review_knowledge_v2()');
+      await c.query(
+        'update artifacts set version=1 where id=(select artifact_id from review_knowledge_releases where id=$1)',
+        [result.row.current_release_id],
+      );
+      await c.query(
+        await readFile('packages/db/migrations/0042_knowledge_precedence_contract.sql', 'utf8'),
+      );
+      const scope = (
+        await c.query('select * from review_knowledge_scopes where id=$1', [result.row.id])
+      ).rows[0];
+      expect(Number(scope.requested_revision)).toBeGreaterThan(Number(scope.published_revision));
+      expect(scope.current_release_id).toBe(result.row.current_release_id);
+      expect(
+        (
+          await c.query(
+            'select reason from review_knowledge_outbox where scope_id=$1 order by revision desc limit 1',
+            [scope.id],
+          )
+        ).rows[0].reason,
+      ).toBe('contract.v2');
+      await c.query('savepoint old_worker');
+      await expect(
+        c.query(
+          'update review_knowledge_scopes set published_revision=requested_revision where id=$1',
+          [scope.id],
+        ),
+      ).rejects.toThrow('requires a v2 worker');
+      await c.query('rollback to savepoint old_worker');
+      expect(
+        (
+          await c.query('select count(*)::int as n from review_knowledge_releases where id=$1', [
+            result.row.current_release_id,
+          ])
+        ).rows[0].n,
+      ).toBe(1);
+    } finally {
+      await c.query('rollback');
+      c.release();
+    }
+  });
+  it('approves grouping identity with projection content and requires reapproval after a grouping change', async () => {
+    const repository = await repo();
+    const id = await memory(repository, alice);
+    await approve(repository, id, alice);
+    const initial = await publish(repository, 'personal', alice);
+    if (initial.bundle.component !== 'personal') throw Error('fixture');
+    expect(initial.bundle.schemaVersion).toBe(2);
+    expect(initial.bundle.memories[0]!.aggregationKey).toBe(hash(id));
+    const { contentHash, ...published } = initial.bundle.memories[0]!;
+    expect(hash(canonicalKnowledgeJson(published))).toBe(contentHash);
+    await db.query('update review_memories set aggregation_key=$2 where id=$1', [
+      id,
+      hash('changed-group'),
+    ]);
+    const stale = await publish(repository, 'personal', alice);
+    expect(stale.bundle.component === 'personal' && stale.bundle.memories).toEqual([]);
+    await approve(repository, id, alice);
+    const approved = await publish(repository, 'personal', alice);
+    expect(
+      approved.bundle.component === 'personal' && approved.bundle.memories[0]!.aggregationKey,
+    ).toBe(hash('changed-group'));
   });
   it('requires separate memory projection approval and never mixes personal scopes', async () => {
     const repository = await repo();

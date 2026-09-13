@@ -82,7 +82,7 @@ export async function registerKnowledgeRoutes(
         const { repoId } = repositoryParams.parse(request.params);
         const activeSigner = await authorize(request, repoId);
         const query = z.object({ clientContractVersion: z.string() }).strict().parse(request.query);
-        if (query.clientContractVersion !== '1')
+        if (query.clientContractVersion !== '2')
           throw new CriterionError(
             426,
             'KNOWLEDGE_CLIENT_UPGRADE_REQUIRED',

@@ -267,9 +267,12 @@ export function resolveLocalExecutionPolicy(input: ResolvePolicyInput): LocalPol
     if (context.validUntil && context.validUntil <= now)
       return unavailable(
         'missing-context',
-        'Selected local knowledge expired before execution. Resolve context again.',
+        'Selected review context expired before execution. Resolve context again.',
       );
-    if (context.knowledge.length && approval.allowKnowledge !== true)
+    if (
+      (context.knowledge.length || context.central?.items.length) &&
+      approval.allowKnowledge !== true
+    )
       return unavailable(
         'policy-unavailable',
         'Sending the selected local knowledge to this executor is not approved.',

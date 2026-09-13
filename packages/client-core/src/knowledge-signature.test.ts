@@ -27,7 +27,7 @@ const payload = (): KnowledgeManifestPayload => ({
     collectiveMinimumSequence: 3,
     personalMinimumSequence: 3,
   },
-  compatibleClientContracts: { minimum: 1, maximum: 1 },
+  compatibleClientContracts: { minimum: 2, maximum: 2 },
   issuedAt: new Date(now).toISOString(),
   refreshAfter: new Date(now + 300000).toISOString(),
   offlineValidUntil: new Date(now + 86400000).toISOString(),
@@ -52,6 +52,22 @@ const options = () => ({
   mode: 'online' as const,
 });
 describe('pinned knowledge manifest verification', () => {
+  it('negotiates explicit v2 compatibility and permits legacy verification only when requested', () => {
+    const legacy = signed({ ...payload(), compatibleClientContracts: { minimum: 1, maximum: 1 } });
+    expect(() => verifyKnowledgeManifest(legacy, options())).toThrow('Incompatible');
+    expect(() =>
+      verifyKnowledgeManifest(legacy, { ...options(), clientContractVersion: 1 }),
+    ).not.toThrow();
+    expect(() =>
+      verifyKnowledgeManifest(signed(), { ...options(), clientContractVersion: 1 }),
+    ).toThrow('Incompatible');
+    expect(() =>
+      verifyKnowledgeManifest(
+        signed({ ...payload(), compatibleClientContracts: { minimum: 3, maximum: 2 } }),
+        options(),
+      ),
+    ).toThrow('compatibility range');
+  });
   it('accepts authenticated canonical content and explicit offline leases', () => {
     expect(verifyKnowledgeManifest(signed(), options()).payload.audience).toEqual(audience);
     expect(() =>

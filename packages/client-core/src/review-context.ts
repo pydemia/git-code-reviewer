@@ -1,4 +1,5 @@
-import path from 'node:path';
+import { sourceLanguage } from './source-language.js';
+export { sourceLanguage } from './source-language.js';
 import {
   clientIdentity,
   contextIdentity,
@@ -8,7 +9,10 @@ import {
   type ContextIdentity,
   type LocalKnowledge,
   type SourceFile,
+  type SignedKnowledgeManifest,
 } from '@gcr/client-contract';
+import { CentralKnowledgeCache } from './central-cache.js';
+import { selectCentralKnowledge, type CentralSelection } from './central-selection.js';
 import { builtinReviewSkill } from './builtin-review.js';
 import { canonicalJson, contentHash } from './local-identity.js';
 import { compilePathPatterns } from './source-policy.js';
@@ -55,11 +59,28 @@ interface ContextData {
   omissions: KnowledgeOmission[];
   sources: ContextSourceRequirement[];
   validUntil: string | null;
+  central?: CentralSelection;
 }
 class LocalReviewContext {
   #data: ContextData;
-  constructor(data: ContextData) {
+  constructor(
+    data: ContextData,
+    private readonly authority?: {
+      cache: CentralKnowledgeCache;
+      manifest: SignedKnowledgeManifest;
+      mode: 'online' | 'offline';
+    },
+  ) {
     this.#data = structuredClone(data);
+  }
+  get central(): CentralSelection | null {
+    return this.#data.central ? structuredClone(this.#data.central) : null;
+  }
+  async observeCentralSnapshot(): Promise<'current' | 'updated' | 'pending'> {
+    if (!this.authority) return 'current';
+    if (this.#data.validUntil && this.#data.validUntil <= new Date().toISOString())
+      throw Error('central-context-expired');
+    return this.authority.cache.observeSnapshot(this.authority.manifest, this.authority.mode);
   }
   get client(): ClientIdentity {
     return structuredClone(this.#data.client);
@@ -100,49 +121,6 @@ const bounded = (value: number | undefined, fallback: number, maximum: number): 
     throw Error('invalid-context-budget');
   return value;
 };
-const languages: Readonly<Record<string, string>> = {
-  '.py': 'python',
-  '.pyi': 'python',
-  '.ts': 'typescript',
-  '.tsx': 'typescript',
-  '.mts': 'typescript',
-  '.cts': 'typescript',
-  '.js': 'javascript',
-  '.jsx': 'javascript',
-  '.mjs': 'javascript',
-  '.cjs': 'javascript',
-  '.rs': 'rust',
-  '.go': 'go',
-  '.java': 'java',
-  '.kt': 'kotlin',
-  '.kts': 'kotlin',
-  '.swift': 'swift',
-  '.c': 'c',
-  '.h': 'c',
-  '.cpp': 'cpp',
-  '.hpp': 'cpp',
-  '.cc': 'cpp',
-  '.cs': 'csharp',
-  '.rb': 'ruby',
-  '.php': 'php',
-  '.sh': 'shell',
-  '.bash': 'shell',
-  '.zsh': 'shell',
-  '.sql': 'sql',
-  '.json': 'json',
-  '.yaml': 'yaml',
-  '.yml': 'yaml',
-  '.toml': 'toml',
-  '.html': 'html',
-  '.css': 'css',
-  '.vue': 'vue',
-  '.svelte': 'svelte',
-  '.md': 'markdown',
-};
-export function sourceLanguage(file: string): string | undefined {
-  sourcePath(file);
-  return languages[path.posix.extname(file).toLowerCase()];
-}
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 function inScope(item: LocalKnowledge, client: ClientIdentity): boolean {
   return (
@@ -428,6 +406,165 @@ export async function resolveLocalContext(
         {
           code: 'missing-context',
           message: 'Local review context could not be validated or loaded.',
+        },
+      ],
+    };
+  }
+}
+
+/** Explicit central resolution; local-only hosts never discover or read this cache. */
+export async function resolveCentralContext(
+  input: Omit<LocalContextQuery, 'settings'> & {
+    cache: CentralKnowledgeCache;
+    freshness: 'online' | 'offline';
+  },
+): Promise<LocalContextResolution> {
+  try {
+    const client = clientIdentity(input.client);
+    if (
+      client.mode !== 'centralized' ||
+      !(input.cache instanceof CentralKnowledgeCache) ||
+      !['online', 'offline'].includes(input.freshness)
+    )
+      throw Error('invalid-central-context');
+    const scope = input.cache.scope;
+    if (
+      scope.kind !== 'repository' ||
+      scope.profileId !== client.profileId ||
+      scope.repositoryKey !== client.repositoryKey ||
+      scope.worktreeKey !== client.worktreeKey ||
+      canonicalJson(client.audience) !== canonicalJson(input.cache.binding.audience)
+    )
+      throw Error('central-context-scope');
+    const pinned = await input.cache.read(input.freshness);
+    const local = await resolveLocalContext({
+      ...input,
+      client: {
+        mode: 'standalone',
+        profileId: client.profileId,
+        repositoryKey: client.repositoryKey,
+        worktreeKey: client.worktreeKey,
+      },
+    });
+    if (local.status === 'unavailable') return local;
+    const ctx = local.context;
+    const limit = bounded(input.knowledgeBytes, 65_536, 1_048_576);
+    const builtinBytes = ctx.builtin ? Buffer.byteLength(canonicalJson(ctx.builtin)) : 0;
+    const requiredIds = new Set(input.requiredKnowledgeIds ?? []);
+    const localItems = ctx.knowledge;
+    const requiredLocalBytes = localItems
+      .filter((item) => requiredIds.has(item.id))
+      .reduce((sum, item) => sum + Buffer.byteLength(canonicalJson(item)), 0);
+    const selected = input.snapshot.selected.flatMap((file) => {
+      const read = input.snapshot.readFile(file.path, file.side);
+      return read.status === 'available' ? [read] : [];
+    });
+    const central = selectCentralKnowledge({
+      bundles: pinned.bundles,
+      selected,
+      branch: input.snapshot.branchName,
+      now: (input.now ?? new Date()).toISOString(),
+      byteLimit: Math.max(0, limit - builtinBytes - requiredLocalBytes),
+    });
+    let bytes = builtinBytes + central.bytes;
+    const knowledge: LocalKnowledge[] = [];
+    const omissions = ctx.omissions;
+    for (const item of localItems) {
+      const size = Buffer.byteLength(canonicalJson(item));
+      if (bytes + size > limit) omissions.push({ id: item.id, reason: 'budget' });
+      else {
+        knowledge.push(item);
+        bytes += size;
+      }
+    }
+    omissions.sort((a, b) => compare(a.id, b.id));
+    const required = [
+      ...ctx.identity.required.map((item) => {
+        if (item.kind !== 'knowledge' || !item.reference.startsWith('knowledge:')) return item;
+        const available = knowledge.some((k) => knowledgeReference(k.id) === item.reference);
+        return {
+          ...item,
+          available,
+          reason: available
+            ? ''
+            : item.reason || 'Required local knowledge exceeds the context budget.',
+        };
+      }),
+      ...central.required,
+    ];
+    const centralSnapshot = {
+      id: pinned.manifest.payload.snapshotId,
+      hash: pinned.manifest.manifestHash,
+      audience: client.audience,
+      authorizationRevision: String(pinned.manifest.payload.authorizationRevision),
+      offlineValidUntil: pinned.manifest.payload.offlineValidUntil,
+    };
+    const entries = [
+      ...ctx.identity.entries.filter(
+        (e) => e.origin !== 'local' || knowledge.some((k) => k.id === e.id),
+      ),
+      ...central.entries,
+    ];
+    const identity = contextIdentity({
+      entries,
+      required,
+      centralSnapshot,
+      hash: contentHash({
+        version: 2,
+        client,
+        sourceHash: ctx.sourceHash,
+        localContextHash: ctx.identity.hash,
+        entries,
+        required,
+        centralSnapshot,
+        central,
+        omissions,
+      }),
+    });
+    const problems = [...local.problems];
+    if (central.required.some((item) => !item.available))
+      problems.push({
+        code: 'missing-context',
+        message:
+          'Required central review instructions are unavailable or exceed the context budget.',
+      });
+    const validUntil = [
+      ctx.validUntil,
+      central.validUntil,
+      input.freshness === 'online'
+        ? pinned.manifest.payload.refreshAfter
+        : pinned.manifest.payload.offlineValidUntil,
+    ]
+      .filter((v): v is string => v !== null)
+      .sort()[0]!;
+    if ((await input.cache.observeSnapshot(pinned.manifest, input.freshness)) !== 'current')
+      throw Error('central-context-changed');
+    return {
+      status: problems.length ? 'needs-context' : 'ready',
+      problems,
+      context: new LocalReviewContext(
+        {
+          client,
+          sourceHash: ctx.sourceHash,
+          identity,
+          knowledge,
+          builtin: ctx.builtin,
+          bytes,
+          omissions,
+          sources: ctx.sources,
+          validUntil,
+          central,
+        },
+        { cache: input.cache, manifest: pinned.manifest, mode: input.freshness },
+      ),
+    };
+  } catch {
+    return {
+      status: 'unavailable',
+      problems: [
+        {
+          code: 'missing-context',
+          message: 'A complete authorized central review context could not be validated or loaded.',
         },
       ],
     };

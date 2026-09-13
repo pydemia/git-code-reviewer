@@ -64,7 +64,7 @@ export async function readKnowledgeStatus(
     const result = knowledgePublicationStatus({
       schemaVersion: 1,
       enabled,
-      compatibleClientContracts: { minimum: 1, maximum: 1 },
+      compatibleClientContracts: { minimum: 2, maximum: 2 },
       syncObservation: 'unknown',
       components,
     });

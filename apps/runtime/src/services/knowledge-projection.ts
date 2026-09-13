@@ -42,6 +42,7 @@ export function memoryPublicationFingerprint(memory: ReviewMemoryRecord) {
     filePaths: memory.filePaths,
     symbols: memory.symbols,
     contentHash: memory.contentHash,
+    aggregationKey: memory.aggregationKey,
     sourceKind: memory.sourceKind,
     sourceFindingId: memory.sourceFindingId,
     sourceChatMessageId: memory.sourceChatMessageId,
@@ -177,7 +178,7 @@ export async function projectKnowledge(connection: Connection, scope: KnowledgeS
       '배포 범위 접근 권한이 없습니다.',
     );
   const base = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     tenantId: repo.tenant_id,
     repositoryId: scope.repository_id,
     component: scope.component,
@@ -222,6 +223,7 @@ export async function projectKnowledge(connection: Connection, scope: KnowledgeS
       // Expiry stays in the immutable component; consumers apply the time bound.
       const value = {
         id: memory.id,
+        aggregationKey: memory.aggregationKey,
         revision: approval.revision,
         sourceRevision: memory.revision,
         sourceContentHash: memory.contentHash,

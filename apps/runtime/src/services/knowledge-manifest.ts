@@ -147,6 +147,7 @@ type PublishedComponent = {
   requested_revision: string;
   published_revision: string;
   artifact_state: string;
+  artifact_version: number;
   tenant_id: string;
   owner_user_id: string | null;
 };
@@ -157,7 +158,7 @@ async function coherentComponents(
 ) {
   const rows = (
     await c.query<PublishedComponent>(
-      `select s.component,s.current_release_id,s.release_sequence,s.requested_revision,s.published_revision,s.owner_user_id,r.content_hash,r.byte_size,a.locator,a.state as artifact_state,repo.tenant_id
+      `select s.component,s.current_release_id,s.release_sequence,s.requested_revision,s.published_revision,s.owner_user_id,r.content_hash,r.byte_size,a.locator,a.state as artifact_state,a.version as artifact_version,repo.tenant_id
  from review_knowledge_scopes s join repositories repo on repo.id=s.repository_id
  left join review_knowledge_releases r on r.id=s.current_release_id left join artifacts a on a.id=r.artifact_id
  where s.repository_id=$1 and (s.component in ('policy','collective') or (s.component='personal' and s.owner_user_id=$2)) order by s.component`,
@@ -171,7 +172,8 @@ async function coherentComponents(
       (x) =>
         !x.current_release_id ||
         x.requested_revision !== x.published_revision ||
-        x.artifact_state !== 'available',
+        x.artifact_state !== 'available' ||
+        x.artifact_version !== 2,
     )
   )
     throw unavailable();
@@ -238,6 +240,7 @@ export async function issueKnowledgeManifest(
         keyId: signer.keyId,
         keyHash: signer.publicKeyHash,
         leaseSeconds: signer.offlineLeaseSeconds,
+        clientContractVersion: 2,
       }),
     );
     const cached = (
@@ -262,7 +265,7 @@ export async function issueKnowledgeManifest(
         collectiveMinimumSequence: components.collective.releaseSequence,
         personalMinimumSequence: components.personal.releaseSequence,
       },
-      compatibleClientContracts: { minimum: 1, maximum: 1 },
+      compatibleClientContracts: { minimum: 2, maximum: 2 },
       issuedAt: now.toISOString(),
       refreshAfter: new Date(now.getTime() + 300000).toISOString(),
       offlineValidUntil: new Date(now.getTime() + signer.offlineLeaseSeconds * 1000).toISOString(),

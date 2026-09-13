@@ -1,0 +1,45 @@
+import path from 'node:path';
+import { sourcePath } from '@gcr/client-contract';
+const languages: Readonly<Record<string, string>> = {
+  '.py': 'python',
+  '.pyi': 'python',
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.mts': 'typescript',
+  '.cts': 'typescript',
+  '.js': 'javascript',
+  '.jsx': 'javascript',
+  '.mjs': 'javascript',
+  '.cjs': 'javascript',
+  '.rs': 'rust',
+  '.go': 'go',
+  '.java': 'java',
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  '.swift': 'swift',
+  '.c': 'c',
+  '.h': 'c',
+  '.cpp': 'cpp',
+  '.hpp': 'cpp',
+  '.cc': 'cpp',
+  '.cs': 'csharp',
+  '.rb': 'ruby',
+  '.php': 'php',
+  '.sh': 'shell',
+  '.bash': 'shell',
+  '.zsh': 'shell',
+  '.sql': 'sql',
+  '.json': 'json',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.toml': 'toml',
+  '.html': 'html',
+  '.css': 'css',
+  '.vue': 'vue',
+  '.svelte': 'svelte',
+  '.md': 'markdown',
+};
+export function sourceLanguage(file: string): string | undefined {
+  sourcePath(file);
+  return languages[path.posix.extname(file).toLowerCase()];
+}

@@ -105,7 +105,7 @@ describe('bound central HTTP transport', () => {
     });
     expect(await client.manifest({ signal: signal(), etag: '"known"' })).toEqual({ status: 304 });
     expect(requests[0]).toEqual({
-      url: '/base/api/v1/repositories/repo/review-knowledge/manifest?clientContractVersion=1',
+      url: '/base/api/v1/repositories/repo/review-knowledge/manifest?clientContractVersion=2',
       authorization: `Bearer ${token}`,
       cookie: undefined,
       server: 'server',

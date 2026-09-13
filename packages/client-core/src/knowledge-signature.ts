@@ -4,6 +4,7 @@ import {
   canonicalKnowledgeJson,
   knowledgeAudience,
   KNOWLEDGE_SIGNATURE_CONTEXT,
+  KNOWLEDGE_CLIENT_CONTRACT_VERSION,
   type KnowledgeAudience,
   type SignedKnowledgeManifest,
 } from '@gcr/client-contract';
@@ -15,11 +16,19 @@ export function verifyKnowledgeManifest(
     now: number;
     mode: 'online' | 'offline';
     minimumAuthorizationRevision?: number;
+    clientContractVersion?: number;
     minimumSequences?: Partial<Record<'policy' | 'collective' | 'personal', number>>;
   },
 ): SignedKnowledgeManifest {
   const manifest = signedKnowledgeManifest(value);
   const payload = manifest.payload;
+  const version = options.clientContractVersion ?? KNOWLEDGE_CLIENT_CONTRACT_VERSION;
+  if (
+    !Number.isSafeInteger(version) ||
+    version < payload.compatibleClientContracts.minimum ||
+    version > payload.compatibleClientContracts.maximum
+  )
+    throw Error('Incompatible knowledge client contract');
   if (
     canonicalKnowledgeJson(payload.audience) !==
     canonicalKnowledgeJson(knowledgeAudience(options.audience))
