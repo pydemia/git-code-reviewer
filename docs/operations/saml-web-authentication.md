@@ -22,7 +22,7 @@ Serve process에만 SP key·metadata가 필요하다. Worker·migration·retenti
 
 ## Helm 설정과 전환 준비
 
-[SAML values 예시](../../deploy/helm/git-code-reviewer/values.saml.example.yaml)는 같은 공유 PostgreSQL과 [identity companion](../../deploy/helm/gcr-identity/README.md)을 연결하는 준비용 overlay다. Chart의 현재 alpha.37 image 기본값은 P03-C06 연결 격리 코드보다 이전 버전이다. 현재 runtime source를 빌드·검증·게시한 새 digest를 지정해야 한다. 예시에는 digest를 비워 둬 그대로 설치할 수 없으며 실제 DNS·TLS·Secret·DB·CNI 검증을 대신하지 않는다. 기존 bundled PostgreSQL release를 외부 DB 예시로 전환해 삭제하지 않도록 환경별 기존 values와 자원 소유권을 보존한다.
+[SAML values 예시](../../deploy/helm/git-code-reviewer/values.saml.example.yaml)는 같은 공유 PostgreSQL과 [identity companion](../../deploy/helm/gcr-identity/README.md)을 연결하는 준비용 overlay다. P03-C06 연결 격리 코드와 compiled SAML 검사를 통과한 amd64 `alpha.38` image digest를 고정했다. 관리 client ID는 구성 도구의 `gcr-identity-administration`과 같다. DNS·TLS·Secret·DB·CNI 값과 실제 연동은 환경별로 검증해야 한다. 기존 bundled PostgreSQL release를 외부 DB 예시로 전환해 삭제하지 않도록 기존 values와 자원 소유권을 보존한다.
 
 `auth.saml.idpIssuer`에서 Keycloak의 `/protocol/saml`과 `/protocol/saml/descriptor`를 파생한다. SP Entity ID는 `publicBaseUrl` + `/auth/saml/metadata`가 기본이며 같은 public origin의 URL로 명시적으로 고정할 수 있다. HTTPS origin·realm·관리 API path를 검증하고 master realm·기본 port 443의 중복 표기·dot path·query·userinfo를 허용하지 않는다. Public origin은 끝의 `/` 한 개를 허용한다. Metadata ConfigMap을 지정하면 승인한 파일만 사용하고, 비워 두면 승인한 URL에서 조회한다.
 
@@ -54,7 +54,7 @@ python -B scripts/verify-saml-chart.py --baseline 5b694de
 python -B scripts/verify-shared-database-chart.py --baseline 5b694de
 ```
 
-검증은 manifest와 허용/거부 규칙, compiled 설정 로더·SP key/certificate·승인 metadata 로딩을 확인한다. SAML URL 응답은 fixture이며 실제 HTTPS 신뢰·IdP·DB 접속·browser login·CNI를 증명하지 않는다. 현재는 이미지/Helm 게시·Compose·운영 계정 mapping/복구·SAML 전환 전 단계다.
+검증은 manifest와 허용/거부 규칙, compiled 설정 로더·SP key/certificate·승인 metadata 로딩을 확인한다. SAML URL 응답은 fixture이며 실제 HTTPS 신뢰·IdP·DB 접속·browser login·CNI를 증명하지 않는다. 별도 실제 Compose infrastructure 검증과 runtime image 게시를 마쳤으며 운영 계정 mapping/복구·SAML 전환은 남아 있다.
 
 ## 인증 경로와 실패 처리
 

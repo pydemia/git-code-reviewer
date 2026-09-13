@@ -2,10 +2,9 @@
 # DNS/TLS, approved metadata and Secret contents, shared DB provisioning,
 # companion image/runtime and both sides of network policy must be verified.
 image:
-  # Publish the current runtime source (including P03-C06 connection isolation).
-  # The chart's legacy alpha.37 default predates that code. Set a verified new pin.
-  digest: ''
-  tag: ''
+  # Verified amd64 runtime including P03-C06 connection isolation.
+  digest: 'sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198'
+  tag: '0.8.0-alpha.38'
 publicBaseUrl: https://gcr.example.test
 auth:
   mode: saml
@@ -18,7 +17,7 @@ identity:
   adminEnabled: true
   securityEnabled: true
   adminBaseUrl: https://git-code-reviewer-identity-admin.git-code-reviewer.svc/admin/realms/git-code-reviewer
-  clientId: gcr-identity-admin
+  clientId: gcr-identity-administration
   existingSecret: git-code-reviewer-identity-admin-client
   networkPolicy:
     publicPeers:

@@ -220,7 +220,7 @@ PRISM-DEV의 outbound HTTPS는 `SK holdings C&C` TLS inspection CA로 다시 서
 
 아래 namespace·Secret·CA 생성은 최초 설치 절차다. 재배포에서는 기존 Secret과 CA를 유지하고 `helm upgrade`와 검증만 수행한다. 특히 PostgreSQL password와 credential encryption key를 다시 생성하면 기존 데이터나 등록 credential을 사용할 수 없게 된다.
 
-사용자 요청에 따라 기능·설정 변경을 commit·push하면 PRISM-DEV 배포와 검증도 함께 수행한다. 재배포는 현재 release의 `--reuse-values`에 새 image tag·digest만 지정해 관리자가 변경한 운영 설정을 보존한다. 배포 결과만 기록하는 후속 documentation commit에는 image rebuild·재배포가 필요하지 않다.
+사용자 요청에 따라 기능·설정 변경을 commit·push하면 PRISM-DEV 배포와 검증도 함께 수행한다. 재배포는 현재 release의 사용자 설정과 새 image tag·digest를 사용한다. Chart 0.10.36 전환에서는 새 `identity`·`auth.saml` schema 기본값이 필요해 `--reset-then-reuse-values`를 사용한다. 기존 `--reuse-values`는 해당 항목 누락으로 server dry-run에서 거부됐다. 적용 전 manifest를 비교하고 적용 후 기존 computed value가 모두 보존됐는지 확인한다. 배포 결과만 기록하는 후속 documentation commit에는 image rebuild·재배포가 필요하지 않다.
 
 ```bash
 kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
