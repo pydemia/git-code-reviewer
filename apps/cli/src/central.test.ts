@@ -60,6 +60,8 @@ let calls = 0,
   models = 0,
   status = 200,
   wrongIdentity = false;
+let initialManifestStatuses: number[] = [];
+let onInitialManifest: (() => void) | undefined;
 let config: Record<string, unknown>;
 const descriptor = {
   id: 'synthetic',
@@ -271,6 +273,12 @@ beforeAll(async () => {
       return;
     }
     expect(req.headers.cookie).toBeUndefined();
+    if (req.url?.includes('/review-knowledge/manifest') && initialManifestStatuses.length) {
+      res.writeHead(initialManifestStatuses.shift()!);
+      res.end('{}');
+      onInitialManifest?.();
+      return;
+    }
     if (status !== 200) {
       res.statusCode = status;
       res.end('{}');
@@ -361,6 +369,104 @@ const args = (command: string, id: string) => [
 ];
 const test = (name: string, fn: () => Promise<void>) => it(name, fn, 30000);
 describe.sequential('explicit connected CLI over HTTPS', () => {
+  test('waits for initial publication and activates only the complete signed cache', async () => {
+    initialManifestStatuses = [503];
+    let observed!: () => void;
+    const initial = new Promise<void>((resolve) => {
+      observed = resolve;
+    });
+    onInitialManifest = observed;
+    try {
+      const pending = connect('first-publication');
+      await initial;
+      const list = await invoke('first-publication', ['central', 'list', '--mode', 'centralized']);
+      expect(list.value).toEqual([expect.objectContaining({ status: 'pending' })]);
+      const id = await pending;
+      expect((await invoke('first-publication', args('context', id))).value).toMatchObject({
+        status: 'ready',
+      });
+    } finally {
+      initialManifestStatuses = [];
+      onInitialManifest = undefined;
+    }
+  });
+  test('cancels initial publication without leaving a usable connection or credential', async () => {
+    const before = secrets.size;
+    const controller = new AbortController();
+    initialManifestStatuses = [503];
+    onInitialManifest = () => controller.abort();
+    try {
+      const result = await executeCli(
+        [
+          'central',
+          'connect',
+          '--mode',
+          'centralized',
+          '--input',
+          configFile,
+          '--api-key-stdin',
+          '--cwd',
+          repo,
+          '--profile',
+          'cancel-publication',
+          '--data-dir',
+          data,
+        ],
+        {
+          keys,
+          credentials,
+          readStdin: async () => secret,
+          signal: controller.signal,
+        },
+      );
+      expect(result.exitCode).toBe(2);
+      expect(result.value).toMatchObject({ status: 'cancelled' });
+      expect(secrets.size).toBe(before);
+      const list = await invoke('cancel-publication', ['central', 'list', '--mode', 'centralized']);
+      expect(list.value).toEqual([expect.objectContaining({ status: 'disconnected' })]);
+    } finally {
+      initialManifestStatuses = [];
+      onInitialManifest = undefined;
+    }
+  });
+  test('bounds the initial publication claim to sixty seconds and removes its credential on timeout', async () => {
+    const before = secrets.size;
+    initialManifestStatuses = [503];
+    let observed!: () => void;
+    const initial = new Promise<void>((resolve) => {
+      observed = resolve;
+    });
+    onInitialManifest = observed;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const pending = invoke('publication-timeout', [
+        'central',
+        'connect',
+        '--mode',
+        'centralized',
+        '--input',
+        configFile,
+        '--api-key-stdin',
+      ]);
+      await initial;
+      await vi.advanceTimersByTimeAsync(60000);
+      const result = await pending;
+      expect(result.exitCode).toBe(2);
+      expect(result.value).toMatchObject({ error: { code: 'timeout' } });
+      expect(secrets.size).toBe(before);
+      const list = await invoke('publication-timeout', [
+        'central',
+        'list',
+        '--mode',
+        'centralized',
+      ]);
+      expect(list.value).toEqual([expect.objectContaining({ status: 'disconnected' })]);
+    } finally {
+      vi.useRealTimers();
+      initialManifestStatuses = [];
+      onInitialManifest = undefined;
+    }
+  });
   test('connects, synchronizes and executes a central review through real source/base tools', async () => {
     const id = await connect('review');
     const before = models;

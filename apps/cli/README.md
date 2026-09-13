@@ -104,6 +104,8 @@ gcr central disconnect --mode centralized --connection CONNECTION_ID --cwd /path
 
 Key 입력은 piped stdin만 받으며 terminal의 평문 입력이나 `--api-key` 인수, key 파일 옵션은 제공하지 않는다. macOS Keychain 또는 Linux Secret Service의 `com.commitdefender.central-auth.v1` namespace에 저장한다. 연결 설정에는 credential reference와 만료일만 넣고 별도 OS key로 암호화한다. 등록·조회·동기화는 모델을 호출하지 않는다. 같은 profile/worktree/audience의 key를 교체하려면 먼저 disconnect한 뒤 connect한다. 이전 연결 revision으로 실행하던 리뷰는 재연결 후에도 계속 사용할 수 없다.
 
+신규 저장소의 초기 지식 발행이 진행 중이면 connect가 HTTP 503 응답에 한해 간격을 늘려 재시도한다. 최초 지식 동기화는 최대 60초이며 Ctrl+C로 취소할 수 있다. 서명된 세 component의 검증이 끝나야 연결이 활성화된다. 인증 거부, TLS 오류, 리다이렉트, 잘못된 응답은 재시도하지 않는다. 실패·취소·시간 초과 시 등록 중인 key를 정리하고 연결을 비활성화한다. 이후 수동 sync나 리뷰의 동기화에 이 초기 대기를 적용하지 않는다.
+
 연결 ID만 알고 있어도 중앙 모드로 전환되지는 않는다. `--mode centralized`와 ID를 함께 지정해야 한다. 온라인 context/review는 현재 signed cache의 refresh 시각이 지났거나 cache가 없으면 동기화를 요청한다. `--offline`은 네트워크를 사용하지 않고 유효한 signed lease와 아직 만료되지 않은 key, 연결 상태를 검사한다. 정상 서버 장애 후에는 명시적으로 `--offline`을 선택할 수 있다. 401/403을 확인한 연결은 offline에서도 사용할 수 없다. 자동 fallback·주기 동기화·재접속 backoff는 아직 제공하지 않는다.
 
 중앙 리뷰도 선택한 executor·source 전송 범위·예산을 적용한다. 결과는 `central-review-history/<binding ID>` 아래에 암호화하고 정확한 audience를 검증한다. Standalone 이력 조회에 중앙 결과를 섞지 않는다. 연결 해제는 local memory/Skill과 기존 리뷰 이력을 삭제하지 않으며, 중앙 이력 조회에는 해당 연결의 유효한 인증 상태가 필요하다. Key의 서버 측 폐기는 GCR 관리 화면/API에서 별도로 수행한다. 정리 실패는 반환한 `cacheCleanupPending`·`credentialCleanupPending`으로 확인한다.

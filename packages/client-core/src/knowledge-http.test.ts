@@ -72,6 +72,94 @@ async function certificate(san: string) {
   return { cert: await readFile(cert, 'utf8'), key: await readFile(key, 'utf8') };
 }
 describe('bound central HTTP transport', () => {
+  it('waits for initial publication on 503 and rereads the bound credential before retrying', async () => {
+    const requests: number[] = [];
+    let reads = 0;
+    const origin = await listen(
+      httpServer((_req, res) => {
+        requests.push(Date.now());
+        res.writeHead(requests.length === 1 ? 503 : 200);
+        res.end(requests.length === 1 ? '{}' : '{"ready":true}');
+      }),
+    );
+    const b = binding(origin);
+    const client = new KnowledgeHttpTransport(b, {
+      bindingId: b.id,
+      readToken: async () => {
+        reads++;
+        return token;
+      },
+    });
+    expect(await client.initialPublication().manifest({ signal: signal() })).toEqual({
+      status: 200,
+      manifest: { ready: true },
+    });
+    expect(requests).toHaveLength(2);
+    expect(requests[1]! - requests[0]!).toBeGreaterThanOrEqual(700);
+    expect(reads).toBe(2);
+  }, 10000);
+  it('cancels initial publication backoff before another request', async () => {
+    let requests = 0;
+    const controller = new AbortController();
+    const origin = await listen(
+      httpServer((_req, res) => {
+        requests++;
+        res.writeHead(503);
+        res.end('{}');
+        setTimeout(() => controller.abort(), 30);
+      }),
+    );
+    const started = Date.now();
+    await expect(
+      transport(origin).initialPublication().manifest({ signal: controller.signal }),
+    ).rejects.toBeDefined();
+    expect(Date.now() - started).toBeLessThan(700);
+    expect(requests).toBe(1);
+  });
+  it('stops when access is revoked during initial publication', async () => {
+    let requests = 0;
+    const origin = await listen(
+      httpServer((_req, res) => {
+        requests++;
+        res.writeHead(requests === 1 ? 503 : 403);
+        res.end('{}');
+      }),
+    );
+    expect(await transport(origin).initialPublication().manifest({ signal: signal() })).toEqual({
+      status: 403,
+    });
+    expect(requests).toBe(2);
+  }, 10000);
+  it.each([401, 403, 404, 409, 426, 429, 500, 502, 504, 307])(
+    'does not retry HTTP %s during initial publication',
+    async (status) => {
+      let requests = 0;
+      const origin = await listen(
+        httpServer((_req, res) => {
+          requests++;
+          res.writeHead(status, { location: '/elsewhere' });
+          res.end('{}');
+        }),
+      );
+      expect(await transport(origin).initialPublication().manifest({ signal: signal() })).toEqual({
+        status: status === 307 ? 503 : status,
+      });
+      expect(requests).toBe(1);
+    },
+  );
+  it('does not retry malformed successful responses', async () => {
+    let requests = 0;
+    const origin = await listen(
+      httpServer((_req, res) => {
+        requests++;
+        res.end('not-json');
+      }),
+    );
+    await expect(
+      transport(origin).initialPublication().manifest({ signal: signal() }),
+    ).rejects.toMatchObject({ code: 'unavailable' });
+    expect(requests).toBe(1);
+  });
   it('preserves base paths, sends only the explicitly bound bearer and supports conditional requests', async () => {
     const requests: {
       url?: string;

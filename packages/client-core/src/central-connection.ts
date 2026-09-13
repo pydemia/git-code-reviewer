@@ -210,7 +210,10 @@ export class CentralConnections {
       const cache = await this.cache(value);
       const current = await cache.connectionState();
       if (current.status !== 'enabled') await cache.resume(current.generation);
-      await cache.synchronize(this.transport(state, true), signal ? { signal } : {});
+      await cache.synchronize(this.transport(state, true).initialPublication(), {
+        ...(signal ? { signal } : {}),
+        timeoutMs: 60000,
+      });
       await this.assert(state, true);
       await this.records.write(
         'settings',

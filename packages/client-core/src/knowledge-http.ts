@@ -1,5 +1,6 @@
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { setTimeout as delay } from 'node:timers/promises';
 import { centralCredentialIdentity } from '@gcr/client-contract';
 import type { IncomingMessage } from 'node:http';
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
@@ -87,15 +88,34 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
     // Redirects are never followed, even within the same origin.
     return { status: 503 };
   }
-  async manifest({
-    etag,
-    signal,
-  }: Parameters<KnowledgeTransport['manifest']>[0]): ReturnType<KnowledgeTransport['manifest']> {
-    const response = await this.get(
-      `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/review-knowledge/manifest?clientContractVersion=2`,
-      signal,
-      etag,
-    );
+  /** Initial publication can take a worker cycle. Retry only an actual HTTP 503,
+   * never redirects, network/TLS errors, rejected credentials or malformed data.
+   * The cache supplies the overall abort deadline and keeps its claim throughout. */
+  initialPublication(): KnowledgeTransport {
+    return {
+      manifest: (request) => this.readManifest(request, 15),
+      bundle: (request) => this.bundle(request),
+    };
+  }
+  manifest(
+    request: Parameters<KnowledgeTransport['manifest']>[0],
+  ): ReturnType<KnowledgeTransport['manifest']> {
+    return this.readManifest(request, 0);
+  }
+  private async readManifest(
+    { etag, signal }: Parameters<KnowledgeTransport['manifest']>[0],
+    retries: number,
+  ): ReturnType<KnowledgeTransport['manifest']> {
+    const route = `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/review-knowledge/manifest?clientContractVersion=2`;
+    let response = await this.get(route, signal, etag);
+    for (let attempt = 0; response.statusCode === 503 && attempt < retries; attempt++) {
+      response.destroy();
+      const milliseconds = Math.round(
+        Math.min(4000, 1000 * 2 ** attempt) * (0.75 + Math.random() * 0.5),
+      );
+      await delay(milliseconds, undefined, { signal });
+      response = await this.get(route, signal, etag);
+    }
     if (response.statusCode === 304) {
       response.destroy();
       return { status: 304 };
