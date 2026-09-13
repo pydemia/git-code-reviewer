@@ -7,7 +7,7 @@
     { "name": "worker_including_drain", "role": "gcr_app", "replicas": 2, "max": 10 },
     { "name": "retention", "role": "gcr_app", "replicas": 1, "max": 2 },
     { "name": "migration", "role": "gcr_migrator", "replicas": 1, "max": 2 },
-    { "name": "keycloak_including_surge", "role": "gcr_keycloak", "replicas": 3, "max": 10 }
+    { "name": "keycloak_including_drain", "role": "gcr_keycloak", "replicas": 5, "max": 6 }
   ],
   "otherConnections": 5,
   "operatorReserve": 10

@@ -1,0 +1,67 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gcr-identity.fullname" . }}
+  labels:
+    {{- include "gcr-identity.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "gcr-identity.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- include "gcr-identity.peers" .Values.networkPolicy.proxy.peers | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        {{- include "gcr-identity.peers" .Values.networkPolicy.adminPeers | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: 8443
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "gcr-identity.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 7800
+        - protocol: TCP
+          port: 57800
+    {{- with .Values.networkPolicy.monitoringPeers }}
+    - from:
+        {{- include "gcr-identity.peers" . | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: 9000
+    {{- end }}
+  egress:
+    - to:
+        {{- include "gcr-identity.peers" .Values.networkPolicy.databasePeers | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.database.port }}
+    - to:
+        {{- include "gcr-identity.peers" .Values.networkPolicy.dnsPeers | nindent 8 }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "gcr-identity.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 7800
+        - protocol: TCP
+          port: 57800
+    {{- with .Values.networkPolicy.smtp.peers }}
+    - to:
+        {{- include "gcr-identity.peers" . | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.networkPolicy.smtp.port }}
+    {{- end }}

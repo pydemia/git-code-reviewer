@@ -1,0 +1,37 @@
+# Preparation template, NOT a deployable PRISM overlay. Supply a published image
+# repository/digest and verify every hostname, certificate, selector and CIDR.
+# 192.0.2.10 is a documentation address; do not use it as the real proxy source.
+fullnameOverride: git-code-reviewer-identity
+hostname: https://auth.example.test
+adminHostname: https://git-code-reviewer-identity-admin.git-code-reviewer.svc
+tls:
+  existingSecret: git-code-reviewer-identity-tls
+database:
+  host: git-code-reviewer-postgresql.git-code-reviewer.svc
+  existingSecret: git-code-reviewer-db-keycloak
+  tls:
+    existingConfigMap: git-code-reviewer-postgresql-ca
+networkPolicy:
+  proxy:
+    trustedAddresses: [192.0.2.10/32]
+    peers:
+      - namespace: envoy-gateway-system
+        podLabels:
+          gateway.envoyproxy.io/owning-gateway-name: envoy-gateway
+          gateway.envoyproxy.io/owning-gateway-namespace: envoy-gateway-system
+  adminPeers:
+    - namespace: git-code-reviewer
+      podLabels:
+        app.kubernetes.io/name: git-code-reviewer
+        app.kubernetes.io/instance: git-code-reviewer
+        app.kubernetes.io/component: server
+    - namespace: git-code-reviewer
+      podLabels:
+        app.kubernetes.io/name: git-code-reviewer
+        app.kubernetes.io/instance: git-code-reviewer
+        app.kubernetes.io/component: worker
+  databasePeers:
+    - namespace: git-code-reviewer
+      podLabels:
+        app.kubernetes.io/name: postgresql
+        app.kubernetes.io/instance: git-code-reviewer

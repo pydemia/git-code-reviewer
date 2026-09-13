@@ -1,0 +1,160 @@
+{
+  "checkpoint": "P03-C07 companion Helm chart, local source only",
+  "sourceBase": "ce8d997c977175e1c3c179f5b06f3080f470cab6",
+  "offlineVerification": {
+    "status": "passed",
+    "startedAt": "2026-09-13T08:38:04.580569+00:00",
+    "finishedAt": "2026-09-13T08:38:10.458126+00:00",
+    "scope": "offline Helm/schema/resource and policy-rule semantics; no runtime/CNI/cluster validation",
+    "checks": [
+      "optimized-runtime-roles-secrets-tls-probes-services-rollout",
+      "ingress-egress-positive-and-negative-peer-matrix",
+      "repeat-install-upgrade-identical-no-bootstrap-or-import-job",
+      "helm-lint-strict",
+      "existing-prism-route-service-contract-realm-resources-only",
+      "optional-bootstrap-outbound-ca-monitoring-and-scoped-smtp",
+      "external-ipv6-database-custom-port-scope",
+      "scale-with-explicit-terminating-allowance-and-lower-pool",
+      "shared-dba-example-matches-identity-database-and-connection-budget",
+      "reject-image.digest-9",
+      "reject-image.digest-10",
+      "reject-image.repository-11",
+      "reject-hostname-12",
+      "reject-hostname-13",
+      "reject-hostname-14",
+      "reject-adminHostname-15",
+      "reject-database.username-16",
+      "reject-database.existingSecret-17",
+      "reject-database.tls.existingConfigMap-18",
+      "reject-database.pool.initial-19",
+      "reject-database.pool.min-20",
+      "reject-database.pool.max-21",
+      "reject-database.budget.peakReplicas-22",
+      "reject-replicas-23",
+      "reject-replicas-24",
+      "reject-tls.existingSecret-25",
+      "reject-bootstrap.existingSecret-26",
+      "reject-fullnameOverride-27",
+      "reject-networkPolicy.proxy.peers-28",
+      "reject-networkPolicy.proxy.trustedAddresses-29",
+      "reject-networkPolicy.proxy.trustedAddresses-30",
+      "reject-networkPolicy.proxy.trustedAddresses-31",
+      "reject-networkPolicy.proxy.trustedAddresses-32",
+      "reject-networkPolicy.adminPeers-33",
+      "reject-networkPolicy.adminPeers-34",
+      "reject-networkPolicy.adminPeers-35",
+      "reject-networkPolicy.databasePeers-36",
+      "reject-networkPolicy.databasePeers-37",
+      "reject-networkPolicy.dnsPeers-38",
+      "reject-networkPolicy.smtp.peers-39",
+      "reject-postgresql-40",
+      "reject-extraEnv-41",
+      "unconfigured-chart-fails-closed",
+      "application-legacy-keycloak-disabled"
+    ],
+    "checkCount": 44,
+    "networkMatrixDecisions": 250,
+    "fixtureImagePublished": false,
+    "clusterChanged": false,
+    "sourceSha256": {
+      "deploy/helm/gcr-identity/.helmignore": "1585a01b3ab89848c1f259a7c766a51237963d270e6a227cdf1c012d11eb0ee2",
+      "deploy/helm/gcr-identity/Chart.yaml": "dde6bb4d04de9f8a78401ec15ee383c458d8e3cc354fceb784e5906fc4940192",
+      "deploy/helm/gcr-identity/README.md": "618e301b2ad8fe1bc370fb1d1b4216698d2fb0a2e17afdc6d15566c44e1dbd8d",
+      "deploy/helm/gcr-identity/templates/_helpers.tpl": "faa344bb035fe5e075c860bc8ee7e51882b9003b3a40369336e376c1ceead8e5",
+      "deploy/helm/gcr-identity/templates/deployment.yaml": "814476c910b483a6c3c9f41608c655cf53b28d8311e9a8aca57c910f48a703ca",
+      "deploy/helm/gcr-identity/templates/network-policy.yaml": "c416a45db90acedc8d8c3194534b6a622165716bd60cb1f6d0ac655e924b8937",
+      "deploy/helm/gcr-identity/templates/pod-disruption-budget.yaml": "c6d46ed4283abf7326f8c0ee9d114c40ccc545aba513deabdb38f3662bf8b832",
+      "deploy/helm/gcr-identity/templates/services.yaml": "7fe61944268819304f2248afc0c4e589620279a086cbea62da230bfa5561bbbc",
+      "deploy/helm/gcr-identity/values.example.yaml": "ca9157d18b557df2c81de14385cf919cb09143c917d88d92535afac904e8aa02",
+      "deploy/helm/gcr-identity/values.schema.json": "a0855ebc6dc383a2c23c5e6ae2b1a5801425cba3767aa7cdf96f855e523d4498",
+      "deploy/helm/gcr-identity/values.yaml": "417ee3447cd6136ee60b3dd1e30f0dd068874b52f41bf7d0150f00faa290f8e5",
+      "scripts/verify-identity-chart.py": "0d03ca84dd87cd4131f8e7c7575fccaa4524ca15bc3a8c3d7565bdbdee43cf3e",
+      "deploy/postgres/shared-plan.example.json": "fef79f58f87fff2ae939a13ac5decddf83f1ef10e95e9485b884c9148147fd4f"
+    }
+  },
+  "serverDryRun": {
+    "status": "passed",
+    "startedAt": "2026-09-13T08:37:12.116681+00:00",
+    "finishedAt": "2026-09-13T08:37:15.359961+00:00",
+    "context": "PRISM-DEV",
+    "strictValidation": true,
+    "resourceCount": 6,
+    "output": [
+      "networkpolicy.networking.k8s.io/git-code-reviewer-identity created (server dry run)",
+      "poddisruptionbudget.policy/git-code-reviewer-identity created (server dry run)",
+      "service/git-code-reviewer-identity created (server dry run)",
+      "service/git-code-reviewer-identity-admin created (server dry run)",
+      "service/git-code-reviewer-identity-management created (server dry run)",
+      "deployment.apps/git-code-reviewer-identity created (server dry run)"
+    ],
+    "serverVersion": "v1.35.1",
+    "clientVersion": "v1.35.3",
+    "renderSha256": "892b193e219671d3713debaa2940e9c13c151fa3a023bd553da57279d4f5b002",
+    "persistentCompanionResourceCount": 0
+  },
+  "identityRoute": {
+    "name": "git-code-reviewer-identity-route",
+    "generation": 1,
+    "conditions": [
+      {
+        "type": "Accepted",
+        "status": "True",
+        "reason": "Accepted"
+      },
+      {
+        "type": "ResolvedRefs",
+        "status": "False",
+        "reason": "BackendNotFound"
+      }
+    ]
+  },
+  "defaults": {
+    "replicas": 2,
+    "surge": 1,
+    "terminatingReplicaAllowance": 2,
+    "peakReplicas": 5,
+    "pool": {
+      "min": 1,
+      "initial": 1,
+      "max": 6
+    },
+    "roleConnectionLimit": 30,
+    "requiresSequentialRollouts": true,
+    "hardPodCountLimit": false
+  },
+  "iterationNotes": [
+    "Initial verifier assumed dotted Helm 3 error paths; Helm 4 returned JSON Pointer paths. Cause matching now accepts both.",
+    "Image repository schema rejects URL schemes in addition to requiring a digest.",
+    "DBA example now describes five identity replicas at six connections; role allowance remains thirty."
+  ],
+  "scope": {
+    "runtimeSourceChanged": false,
+    "sqlChanged": false,
+    "applicationChartChanged": false,
+    "databaseInstanceCreated": false,
+    "clusterMutated": false,
+    "imagePublished": false,
+    "nativeUiVerified": false
+  },
+  "remaining": [
+    "Actual optimized-image runtime verification, two-replica realm/user/signing-key preservation and replacement",
+    "Runtime test of rendered chart and CNI/proxy path/header enforcement",
+    "Published amd64 image and chart",
+    "Compose identity overlay and GCR SAML Helm Secret/CA/egress integration",
+    "Operational DNS/TLS/SMTP, database TLS/role cutover and SAML migration",
+    "P03-C08 backup/restore/key rotation/operator recovery",
+    "Commit Defender native UI and release gates, P04-P13"
+  ],
+  "localRuntimeRetry": {
+    "attempted": false,
+    "reason": "High local load and swap pressure were observed; unrelated workloads were left untouched. Offline chart work proceeded.",
+    "observedAtMinute": "2026-09-13T17:33+09:00",
+    "loadAverage": [
+      85.19,
+      83.75,
+      65.87
+    ],
+    "swapUsedMiB": 28611.12
+  },
+  "documentationLinksChecked": true
+}

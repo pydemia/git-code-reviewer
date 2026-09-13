@@ -1,0 +1,66 @@
+# Required environment inputs intentionally have no deployable defaults.
+# See README.md. This chart creates neither PostgreSQL nor credentials nor routes.
+fullnameOverride: ''
+image:
+  repository: ''
+  digest: '' # Published optimized image digest, not the upstream unbuilt image.
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+replicas: 2
+hostname: '' # Public HTTPS origin; no path, query or credentials.
+adminHostname: '' # Private HTTPS origin; certificate must cover this hostname.
+tls:
+  existingSecret: '' # kubernetes.io/tls: tls.crt and tls.key
+outboundTrust:
+  existingConfigMap: '' # Optional private HTTPS/SMTP CA bundle, never a private key.
+  key: ca.crt
+database:
+  host: ''
+  port: 5432
+  name: git_code_reviewer_keycloak
+  username: gcr_keycloak
+  existingSecret: ''
+  passwordKey: password
+  tls:
+    existingConfigMap: ''
+    key: ca.crt
+  pool:
+    initial: 1
+    min: 1
+    max: 6
+  budget:
+    # A single rollout: 2 desired + 1 surge + 2 terminating Pods.
+    # Do not overlap rollouts. This is an allowance, not a controller hard cap.
+    peakReplicas: 5
+    connectionLimit: 30 # Must agree with the DBA provisioning plan and actual role.
+bootstrap:
+  existingSecret: '' # Optional initial-install/recovery-only temporary administrator.
+  usernameKey: username
+  passwordKey: password
+# Rotate external Secret/CA objects and change this value to request a rollout.
+configurationRevision: '1'
+resources:
+  requests:
+    cpu: '1'
+    memory: 1Gi
+  limits:
+    cpu: '2'
+    memory: 2Gi
+nodeSelector: {}
+tolerations: []
+networkPolicy:
+  # Peers are either {namespace, podLabels} or {cidr}. Pod selectors always bind
+  # to one namespace; an empty selector or an all-address CIDR is rejected.
+  proxy:
+    peers: []
+    trustedAddresses: [] # Actual proxy source IPs/CIDRs; not the public VIP.
+  adminPeers: [] # GCR server + worker, plus explicitly authorized operator Pods.
+  monitoringPeers: [] # Optional management port 9000; probes use the node path.
+  databasePeers: []
+  dnsPeers:
+    - namespace: kube-system
+      podLabels:
+        k8s-app: kube-dns
+  smtp:
+    peers: [] # Empty denies SMTP; configure before testing invitations/reset mail.
+    port: 587

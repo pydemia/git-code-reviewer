@@ -1,0 +1,255 @@
+{{- include "gcr-identity.validate" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gcr-identity.fullname" . }}
+  labels:
+    {{- include "gcr-identity.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 3
+  minReadySeconds: 15
+  progressDeadlineSeconds: 900
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "gcr-identity.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "gcr-identity.labels" . | nindent 8 }}
+      annotations:
+        gcr.io/configuration-revision: {{ .Values.configurationRevision | quote }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    {{- include "gcr-identity.selectorLabels" . | nindent 20 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "gcr-identity.selectorLabels" . | nindent 14 }}
+      containers:
+        - name: keycloak
+          image: {{ printf "%s@%s" .Values.image.repository .Values.image.digest | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [/opt/keycloak/bin/kc.sh]
+          args: [start, --optimized]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: https
+              containerPort: 8443
+            - name: management
+              containerPort: 9000
+            - name: cache
+              containerPort: 7800
+            - name: cache-fd
+              containerPort: 57800
+          env:
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL_HOST
+              value: {{ .Values.database.host | quote }}
+            - name: KC_DB_URL_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: KC_DB_URL_DATABASE
+              value: {{ .Values.database.name | quote }}
+            - name: KC_DB_USERNAME
+              value: {{ .Values.database.username | quote }}
+            - name: KCRAW_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.passwordKey }}
+            - name: KC_DB_TLS_MODE
+              value: verify-server
+            - name: KC_DB_TLS_TRUST_STORE_FILE
+              value: /run/config/database/ca.crt
+            - name: KC_DB_POOL_INITIAL_SIZE
+              value: {{ .Values.database.pool.initial | quote }}
+            - name: KC_DB_POOL_MIN_SIZE
+              value: {{ .Values.database.pool.min | quote }}
+            - name: KC_DB_POOL_MAX_SIZE
+              value: {{ .Values.database.pool.max | quote }}
+            - name: KC_HOSTNAME
+              value: {{ .Values.hostname | quote }}
+            - name: KC_HOSTNAME_ADMIN
+              value: {{ .Values.adminHostname | quote }}
+            - name: KC_HOSTNAME_STRICT
+              value: 'true'
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: 'false'
+            - name: KC_HOSTNAME_DEBUG
+              value: 'false'
+            - name: KC_HTTP_ENABLED
+              value: 'true'
+            - name: KC_HTTP_PORT
+              value: '8080'
+            - name: KC_HTTPS_PORT
+              value: '8443'
+            - name: KC_HTTPS_CERTIFICATE_FILE
+              value: /run/secrets/https/tls.crt
+            - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+              value: /run/secrets/https/tls.key
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            - name: KC_PROXY_TRUSTED_ADDRESSES
+              value: {{ join "," .Values.networkPolicy.proxy.trustedAddresses | quote }}
+            - name: KC_HTTP_MANAGEMENT_SCHEME
+              value: http
+            - name: KC_HTTP_MANAGEMENT_PORT
+              value: '9000'
+            - name: KC_HTTP_MANAGEMENT_HEALTH_ENABLED
+              value: 'true'
+            - name: KC_HEALTH_ENABLED
+              value: 'true'
+            - name: KC_METRICS_ENABLED
+              value: 'true'
+            - name: KC_SERVER_ASYNC_BOOTSTRAP
+              value: 'false'
+            - name: KC_CACHE_STACK
+              value: jdbc-ping
+            - name: KC_CACHE_EMBEDDED_MTLS_ENABLED
+              value: 'true'
+            - name: KC_CACHE_EMBEDDED_NETWORK_BIND_PORT
+              value: '7800'
+            - name: KC_SHUTDOWN_DELAY
+              value: 10s
+            - name: KC_SHUTDOWN_TIMEOUT
+              value: 60s
+            - name: KC_LOG_CONSOLE_OUTPUT
+              value: json
+            - name: KC_HTTP_ACCESS_LOG_ENABLED
+              value: 'false'
+            - name: KC_TLS_HOSTNAME_VERIFIER
+              value: DEFAULT
+            - name: KC_TRUSTSTORE_KUBERNETES_ENABLED
+              value: 'false'
+            {{- if .Values.outboundTrust.existingConfigMap }}
+            - name: KC_TRUSTSTORE_PATHS
+              value: /run/config/outbound/ca.crt
+            {{- end }}
+            {{- if .Values.bootstrap.existingSecret }}
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.bootstrap.existingSecret }}
+                  key: {{ .Values.bootstrap.usernameKey }}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.bootstrap.existingSecret }}
+                  key: {{ .Values.bootstrap.passwordKey }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/started
+              port: management
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /opt/keycloak/data
+            - name: https
+              mountPath: /run/secrets/https
+              readOnly: true
+            - name: database-ca
+              mountPath: /run/config/database
+              readOnly: true
+            {{- if .Values.outboundTrust.existingConfigMap }}
+            - name: outbound-ca
+              mountPath: /run/config/outbound
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: data
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: https
+          secret:
+            secretName: {{ .Values.tls.existingSecret }}
+            defaultMode: 0440
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+        - name: database-ca
+          configMap:
+            name: {{ .Values.database.tls.existingConfigMap }}
+            defaultMode: 0444
+            items:
+              - key: {{ .Values.database.tls.key }}
+                path: ca.crt
+        {{- if .Values.outboundTrust.existingConfigMap }}
+        - name: outbound-ca
+          configMap:
+            name: {{ .Values.outboundTrust.existingConfigMap }}
+            defaultMode: 0444
+            items:
+              - key: {{ .Values.outboundTrust.key }}
+                path: ca.crt
+        {{- end }}
