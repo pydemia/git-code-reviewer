@@ -1,0 +1,82 @@
+{
+  "recordedAt": "2026-09-13T08:11:59.169665+00:00",
+  "status": "image-built-runtime-validation-incomplete",
+  "baseCommit": "653d245",
+  "upstream": "quay.io/keycloak/keycloak:26.7.3@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+  "localImage": "gcr-identity:26.7.3-gcr.1-local",
+  "localImageId": "sha256:fab47bfa83410a3325a32db519d75d82df20279981a1d371bee14a91a3771102",
+  "architecture": "arm64",
+  "dockerfileSha256": "f70fc915bb47aa03c3034f9e97bbf55a36ae00fcb7601d5fc5bbb52a21adaf48",
+  "scriptSha256": "bbcae5e551a5a51712dd25bd115a1adddfaa3a1b8998d6489c27c709585f110e",
+  "build": {
+    "status": "passed",
+    "network": "none",
+    "buildHeapMiB": 768,
+    "buildProcessorCount": 2,
+    "artifact": "artifacts/operations/P03-C07/build-arm64-bounded.log",
+    "sha256": "9c04aaeb0c7fa34937ab1d918284175bdd7929790d51b4cc0fc27b76750e5f4b",
+    "initialAttempt": "interrupted during augmentation before applying explicit build heap/CPU bounds"
+  },
+  "attempts": [
+    {
+      "artifact": "artifacts/operations/P03-C07/runtime-attempt1.json",
+      "sha256": "ff2216e81018b0096deddac780016b8e0594b1587aa96b8c28c77194bdf439be",
+      "startedAt": "2026-09-13T07:51:09.128Z",
+      "finishedAt": "2026-09-13T07:54:52.856Z",
+      "scriptSha256": "b53c6530797fde8e90f48d22dea41ffce545a2fae7be40a4c1a83c308f68ed64",
+      "status": "failed",
+      "lastStep": "Bootstrap optimized non-root Keycloak against its isolated TLS database",
+      "error": "The operation was aborted",
+      "checks": [
+        "Optimized image starts as UID/GID 1000 with read-only root and verified database TLS",
+        "KCRAW_DB_PASSWORD preserves literal property-expression characters"
+      ],
+      "ownedResourcesRemoved": true
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/runtime-attempt2.json",
+      "sha256": "519cbf1586edf658253ec497b272481ffd3cccf212f55d2576bd5b97aa711c48",
+      "startedAt": "2026-09-13T07:56:24.411Z",
+      "finishedAt": "2026-09-13T08:01:20.167Z",
+      "scriptSha256": "ede499acab5de90666e8759172b92d65c57732b03bf5e423a82bc0c9a4a0c4d4",
+      "status": "failed",
+      "lastStep": "Bootstrap optimized non-root Keycloak against its isolated TLS database",
+      "error": "Keycloak did not become ready within the fixture startup boundary",
+      "checks": [],
+      "ownedResourcesRemoved": true
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/runtime-attempt3.json",
+      "sha256": "7f7a567c0014aafba82e9a435a529c50dca92af139305fc8cb7d99a15ffe4e36",
+      "startedAt": "2026-09-13T08:04:52.011Z",
+      "finishedAt": "2026-09-13T08:07:34.659Z",
+      "scriptSha256": "bbcae5e551a5a51712dd25bd115a1adddfaa3a1b8998d6489c27c709585f110e",
+      "status": "failed",
+      "lastStep": "Create owned TLS PostgreSQL and dedicated roles",
+      "error": "PostgreSQL TCP and verified TLS startup",
+      "checks": [],
+      "ownedResourcesRemoved": true
+    }
+  ],
+  "observations": [
+    "Attempt 1 initialized real Keycloak 26.7.3 and PostgreSQL 18.6 schemas with 36 application migrations; database and cluster readiness reached UP.",
+    "Attempt 1 used UID/GID 1000, read-only root, isolated gcr_keycloak role and verified database TLS; a literal ${...}$ database password worked.",
+    "Attempt 1 then exceeded the fixture administration HTTP request timeout of 5 seconds.",
+    "Attempt 2 used 30 seconds for fixture administration, but did not reach readiness within its then iteration-based startup boundary.",
+    "Attempt 3 selected the documented 2 GiB production memory recommendation and a 600-second Keycloak startup boundary, but PostgreSQL itself did not finish initdb within its existing startup boundary. Keycloak was not launched in attempt 3.",
+    "At 17:10 KST the 16 GiB Mac reported 27073.44 MiB swap used and load averages 20.80/39.58/49.37. This is execution-environment evidence, not an isolated root-cause determination."
+  ],
+  "remaining": [
+    "Complete runtime verification, including two replicas, credential/key preservation, repeat DBA apply and TLS negative cases.",
+    "Build and verify the deployment architecture, publish an immutable registry image.",
+    "Companion chart, Compose overlay, public routing/NetworkPolicy and operational recovery."
+  ],
+  "scope": {
+    "runtimeSourceChanged": false,
+    "sqlChanged": false,
+    "imagePublished": false,
+    "helmReleaseChanged": false,
+    "nativeUiVerified": false,
+    "separateHttpRouteEvidence": "P03-C07-identity-route.json"
+  }
+}
