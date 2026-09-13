@@ -29,7 +29,9 @@ import {
 } from '@gcr/contracts';
 import { SeverityLevelField } from './SeverityLevelField';
 import { UserDeleteDialog } from './UserDeleteDialog';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { IdentityAdministrationCapabilities } from '@gcr/contracts';
+import { IdentityAdministrationPanel } from './IdentityAdministrationPanel';
 import {
   activateAnalysisProvider,
   activateAnalysisPrompt,
@@ -49,6 +51,7 @@ import {
   pollAdminRepository,
   loadAdminTenants,
   loadAdminUsers,
+  loadIdentityAdministration,
   loadAnalysisProvider,
   loadAnalysisPrompts,
   loadCurrentUser,
@@ -132,6 +135,9 @@ export function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [identityCapabilities, setIdentityCapabilities] =
+    useState<IdentityAdministrationCapabilities | null>(null);
+  const reloadUsers = useCallback(() => setReloadToken((value) => value + 1), []);
   const [selectedTenantId, setSelectedTenantId] = useState(
     () => window.localStorage.getItem(ADMIN_TENANT_STORAGE_KEY) ?? '',
   );
@@ -175,6 +181,7 @@ export function AdminPage() {
       loadAdminChatAccounts(controller.signal),
       loadGitHubConnections(controller.signal),
       loadAdminRepositories(controller.signal),
+      loadIdentityAdministration(controller.signal),
     ]).then(
       ([
         currentUser,
@@ -184,6 +191,7 @@ export function AdminPage() {
         accountItems,
         connectionItems,
         repositories,
+        identity,
       ]) => {
         if (currentUser.role !== 'administrator') {
           window.location.replace('/');
@@ -192,6 +200,7 @@ export function AdminPage() {
         setUser(currentUser);
         setTenants(tenantItems);
         setUsers(userItems);
+        setIdentityCapabilities(identity);
         setProviderData(providerSettings);
         setProviderDraft(providerDraftFrom(providerSettings));
         setChatAccounts(accountItems);
@@ -580,6 +589,7 @@ export function AdminPage() {
 
           {tab === 'users' ? (
             <UserPanel
+              localAccountsAllowed={identityCapabilities?.authMode === 'local'}
               currentUserId={user?.id ?? ''}
               users={visibleUsers}
               tenants={tenants}
@@ -641,6 +651,10 @@ export function AdminPage() {
                 )
               }
             />
+          ) : null}
+
+          {tab === 'users' && identityCapabilities?.enabled ? (
+            <IdentityAdministrationPanel users={users} tenants={tenants} onChanged={reloadUsers} />
           ) : null}
 
           {tab === 'provider' ? (
@@ -1013,6 +1027,7 @@ function TenantPanel({
 }
 
 export function UserPanel({
+  localAccountsAllowed = true,
   currentUserId,
   users,
   tenants,
@@ -1030,6 +1045,7 @@ export function UserPanel({
   onAccessChange,
   onMembershipChange,
 }: {
+  localAccountsAllowed?: boolean;
   currentUserId: string;
   users: AdminUser[];
   tenants: Tenant[];
@@ -1056,9 +1072,11 @@ export function UserPanel({
             사용자
           </h1>
         </div>
-        <button className="command-button primary" type="button" onClick={onCreate}>
-          <Plus size={15} /> 사용자 생성
-        </button>
+        {localAccountsAllowed ? (
+          <button className="command-button primary" type="button" onClick={onCreate}>
+            <Plus size={15} /> 사용자 생성
+          </button>
+        ) : null}
       </div>
       <div className="admin-toolbar">
         <label className="toolbar-search">
@@ -1142,7 +1160,7 @@ export function UserPanel({
                   type="button"
                   title="사용자 편집"
                   aria-label={`${item.displayName} 편집`}
-                  disabled={item.identityType !== 'local'}
+                  disabled={item.identityType === 'external'}
                   onClick={() => onEdit(item)}
                 >
                   <Pencil size={14} />
@@ -1152,7 +1170,7 @@ export function UserPanel({
                   type="button"
                   title="비밀번호 재설정"
                   aria-label={`${item.displayName} 비밀번호 재설정`}
-                  disabled={item.identityType !== 'local'}
+                  disabled={!localAccountsAllowed || item.identityType !== 'local'}
                   onClick={() => onResetPassword(item)}
                 >
                   <KeyRound size={14} />

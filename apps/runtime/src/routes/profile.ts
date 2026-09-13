@@ -236,11 +236,19 @@ function profileView(
     role: user.role,
     enabled: user.enabled,
     tenants: user.tenants,
-    identityType: local ? ('local' as const) : ('external' as const),
-    username: credential?.username ?? null,
+    identityType:
+      config.AUTH_MODE === 'saml'
+        ? ('saml' as const)
+        : local
+          ? ('local' as const)
+          : ('external' as const),
+    username: config.AUTH_MODE === 'saml' ? null : (credential?.username ?? null),
     profileEditable: local && config.AUTH_MODE === 'local',
     passwordChangeAllowed: local && config.AUTH_MODE === 'local',
-    passwordChangedAt: credential ? new Date(credential.passwordChangedAt).toISOString() : null,
+    passwordChangedAt:
+      credential && config.AUTH_MODE === 'local'
+        ? new Date(credential.passwordChangedAt).toISOString()
+        : null,
     personalPrompt,
   };
 }

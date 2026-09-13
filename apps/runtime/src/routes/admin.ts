@@ -12,6 +12,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { deleteRegistryEntry, registryDeletionMessages } from '../services/registry-deletion.js';
 import { requireAdministrator } from '../auth/index.js';
+import { supersedeIdentityOperations } from '../identity/operations.js';
+import { identityAdministrationConfig } from '../identity/config.js';
 import { registerAnalysisSkillRoutes } from './analysis-skills.js';
 import { hasOtherAdministrator, lockUserAdministration } from '../services/user-lifecycle.js';
 import { providerAllowedOrigins, type AppConfig } from '../config.js';
@@ -123,6 +125,7 @@ export async function registerAdminRoutes(
   authorization: AuthorizationService,
   config: AppConfig,
 ) {
+  const identityAdministration = identityAdministrationConfig(config);
   await registerAnalysisSkillRoutes(app, database, authorization);
   app.get('/api/v1/admin/tenants', { preHandler: requireAdministrator }, async (request, reply) => {
     if (!(await allowed(authorization, request, 'view', { kind: 'tenant', id: 'all' }))) {
@@ -209,7 +212,10 @@ export async function registerAdminRoutes(
               app_user.display_name as "displayName", app_user.role, app_user.enabled,
               app_user.groups_json as groups,
               credential.username,
-              case when credential.user_id is not null then 'local' else 'external' end as "identityType",
+              case when $1='saml' then 'saml' when credential.user_id is not null then 'local' else 'external' end as "identityType",
+              (select jsonb_build_object('provisioningState', identity.provisioning_state, 'enabled', identity.enabled)
+               from user_identities identity where identity.user_id=app_user.id and identity.idp_issuer=$2
+                 and identity.sp_entity_id=$3) as "identityState",
               coalesce((select jsonb_agg(jsonb_build_object(
                 'repositoryId', grant_row.repository_id,
                 'role', grant_row.role
@@ -230,6 +236,11 @@ export async function registerAdminRoutes(
        where app_user.deleted_at is null
        group by app_user.id, credential.user_id, credential.username
        order by app_user.display_name, app_user.id`,
+      [
+        config.AUTH_MODE,
+        identityAdministration?.binding.issuer ?? null,
+        identityAdministration?.binding.entityId ?? null,
+      ],
     );
     return { schemaVersion, items: result.rows };
   });
@@ -239,11 +250,7 @@ export async function registerAdminRoutes(
       return hiddenNotFound(request, reply);
     }
     if (config.AUTH_MODE !== 'local') {
-      return localAccountBadRequest(
-        request,
-        reply,
-        '현재 인증 mode에서는 Identity Provider에서 사용자를 생성해야 합니다.',
-      );
+      return localAccountBadRequest(request, reply, '조직 계정 관리에서 사용자를 생성해 주세요.');
     }
     const body = userCreateBody.parse(request.body);
     let username: string;
@@ -354,6 +361,26 @@ export async function registerAdminRoutes(
           await connection.query('rollback');
           return hiddenNotFound(request, reply);
         }
+        if (body.enabled === true) {
+          const identity = await connection.query(
+            `select 1 from users where id=$1 and not enabled and (
+              exists(select 1 from user_identities where user_id=$1) or
+              exists(select 1 from identity_admin_operations where user_id=$1
+                and state in ('pending','running') and idp_issuer is not null))`,
+            [userId],
+          );
+          if (identity.rowCount) {
+            await connection.query('rollback');
+            return reply.code(409).send({
+              error: {
+                code: 'IDENTITY_ENABLE_REQUIRES_CONFIRMATION',
+                message: '조직 계정은 Keycloak 상태 확인 후 다시 활성화해야 합니다.',
+                requestId: request.id,
+                retryable: false,
+              },
+            });
+          }
+        }
         if (
           (body.enabled === false || body.role === 'reviewer') &&
           !(await hasOtherAdministrator(connection, userId))
@@ -377,6 +404,14 @@ export async function registerAdminRoutes(
         if (!result.rowCount) {
           await connection.query('rollback');
           return hiddenNotFound(request, reply);
+        }
+        if (body.enabled === false) {
+          await supersedeIdentityOperations(connection, userId);
+          await connection.query(
+            `update user_identities set enabled=false,security_epoch=security_epoch+1,
+            security_checked_at=null,security_fresh_until=null,updated_at=clock_timestamp() where user_id=$1`,
+            [userId],
+          );
         }
         if (body.enabled === false || (body.role !== undefined && userId !== request.user!.id))
           await connection.query('delete from user_sessions where user_id = $1', [userId]);
@@ -473,6 +508,12 @@ export async function registerAdminRoutes(
            where contributor_user_id = $1`,
           [userId],
         );
+        await supersedeIdentityOperations(connection, userId);
+        await connection.query(
+          `update user_identities set enabled=false,security_epoch=security_epoch+1,
+          security_checked_at=null,security_fresh_until=null,updated_at=clock_timestamp() where user_id=$1`,
+          [userId],
+        );
         await connection.query(
           `update users set deleted_at = clock_timestamp(), enabled = false, personal_prompt = '',
            groups_json = '[]'::jsonb, updated_at = clock_timestamp() where id = $1`,
@@ -509,6 +550,12 @@ export async function registerAdminRoutes(
     '/api/v1/admin/users/:userId/password',
     { preHandler: requireAdministrator },
     async (request, reply) => {
+      if (config.AUTH_MODE !== 'local')
+        return localAccountBadRequest(
+          request,
+          reply,
+          '조직 계정 비밀번호는 Keycloak에서 변경합니다.',
+        );
       const { userId } = userParams.parse(request.params);
       if (!(await allowed(authorization, request, 'update', { kind: 'user', id: userId }))) {
         return hiddenNotFound(request, reply);

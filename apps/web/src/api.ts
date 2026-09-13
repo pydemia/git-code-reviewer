@@ -1,4 +1,9 @@
 import {
+  identityAdministrationCapabilitiesSchema,
+  identityOperationListSchema,
+  identityOperationResponseSchema,
+  identityPreviewSchema,
+  type IdentityProvisioningRequest,
   defaultReviewSeverityLevel,
   type ReviewSeverityLevel,
   analysisSkillSettingsSchema,
@@ -89,6 +94,30 @@ export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
 
 export async function loadProfile(signal: AbortSignal): Promise<Profile> {
   return profileSchema.parse(await fetchJson('/api/v1/profile', signal));
+}
+
+export async function loadIdentityAdministration(signal: AbortSignal) {
+  return identityAdministrationCapabilitiesSchema.parse(
+    await fetchJson('/api/v1/admin/identity/capabilities', signal),
+  );
+}
+export async function loadIdentityOperations(signal: AbortSignal) {
+  return identityOperationListSchema.parse(
+    await fetchJson('/api/v1/admin/identity/operations', signal),
+  ).items;
+}
+export async function previewKeycloakIdentity(keycloakUserId: string) {
+  return identityPreviewSchema.parse(
+    await mutateJson('/api/v1/admin/identity/preview', 'POST', { keycloakUserId }),
+  );
+}
+export async function requestIdentityOperation(input: IdentityProvisioningRequest) {
+  return identityOperationResponseSchema.parse(
+    await mutateJson('/api/v1/admin/identity/operations', 'POST', input),
+  ).operation;
+}
+export async function retryIdentityOperation(operationId: string) {
+  await mutateJson(`/api/v1/admin/identity/operations/${operationId}/retry`, 'POST', {});
 }
 
 export async function updateProfile(displayName: string): Promise<Profile> {

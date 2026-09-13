@@ -124,7 +124,11 @@ export function ProfilePage() {
                 </span>
                 <span>
                   <ShieldCheck size={13} />
-                  {profile.identityType === 'local' ? 'Local account' : 'External identity'}
+                  {profile.identityType === 'saml'
+                    ? '조직 계정'
+                    : profile.identityType === 'local'
+                      ? 'Local account'
+                      : 'External identity'}
                 </span>
               </div>
               <div className="profile-tenants">

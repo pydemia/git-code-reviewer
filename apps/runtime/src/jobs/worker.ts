@@ -14,6 +14,9 @@ import { GitHubRequestError, type GitHubReader } from '@gcr/github';
 import type { RelationshipGraph, ReviewReport } from '@gcr/review-contract';
 import Fastify from 'fastify';
 import type { AppConfig } from '../config.js';
+import { identityAdministrationConfig } from '../identity/config.js';
+import { KeycloakAdminClient } from '../identity/keycloak-admin.js';
+import { processIdentityOperation } from '../identity/processor.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
 import { withModelBudget } from '../services/model-admission.js';
@@ -76,6 +79,12 @@ export async function runWorker(config: AppConfig): Promise<void> {
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
   const executor = `${process.env.HOSTNAME ?? 'local'}:${process.pid}`;
   const health = Fastify({ logger: true });
+  const identityConfig = identityAdministrationConfig(config);
+  const identityAdmin = identityConfig
+    ? new KeycloakAdminClient(identityConfig.settings)
+    : undefined;
+  let identityRunning = false,
+    nextIdentityAt = 0;
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
@@ -96,6 +105,25 @@ export async function runWorker(config: AppConfig): Promise<void> {
 
   while (!stopping) {
     lastLoopAt = Date.now();
+    if (identityConfig && identityAdmin && !identityRunning && Date.now() >= nextIdentityAt) {
+      identityRunning = true;
+      const identityTask = processIdentityOperation(database, identityConfig.binding, identityAdmin)
+        .then((processed) => {
+          nextIdentityAt = Date.now() + (processed ? 0 : 2000);
+        })
+        .catch(() => {
+          nextIdentityAt = Date.now() + 5000;
+          health.log.error(
+            { code: 'IDENTITY_OPERATION_STORAGE_UNAVAILABLE' },
+            'identity administration paused',
+          );
+        })
+        .finally(() => {
+          identityRunning = false;
+          active.delete(identityTask);
+        });
+      active.add(identityTask);
+    }
     if (Date.now() - lastRecoveryAt > 10000) {
       await recoverExpiredJobs(database);
       lastRecoveryAt = Date.now();

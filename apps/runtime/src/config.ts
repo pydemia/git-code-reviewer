@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { localPasswordMinimumLength } from '@gcr/contracts';
 import { validateSamlSettings } from './auth/saml-config.js';
+import { identityAdministrationConfig } from './identity/config.js';
 
 const booleanString = z
   .enum(['true', 'false'])
@@ -101,6 +102,10 @@ const configSchema = z.object({
   SAML_IDP_METADATA_FILE: z.string().optional(),
   SAML_PRIVATE_KEY_FILE: z.string().optional(),
   SAML_PUBLIC_CERT_FILE: z.string().optional(),
+  IDENTITY_ADMIN_ENABLED: booleanString,
+  KEYCLOAK_ADMIN_BASE_URL: optionalUrl,
+  KEYCLOAK_ADMIN_CLIENT_ID: z.string().optional(),
+  KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: z.string().optional(),
   DEFAULT_TENANT_SLUG: z
     .string()
     .regex(/^[a-z0-9][a-z0-9-]{1,62}$/)
@@ -156,6 +161,7 @@ export function loadConfig(
     const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Invalid configuration: ${fields}`);
   }
+  if (command === 'serve' || command === 'worker') identityAdministrationConfig(result.data);
   if (result.data.RETENTION_CHAT_DAYS > result.data.RETENTION_REPORT_DAYS) {
     throw new Error(
       'Invalid configuration: RETENTION_CHAT_DAYS must not exceed RETENTION_REPORT_DAYS',

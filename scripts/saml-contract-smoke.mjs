@@ -30,6 +30,8 @@ import { certificate, consume } from './saml-contract-fixtures.mjs';
 
 const exec = promisify(execFile);
 const applicationMode = process.argv.includes('--application');
+const adminMode = process.argv.includes('--admin-contract');
+assert(!(applicationMode && adminMode), 'Select one application or administration contract');
 const KC_IMAGE =
   'quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54';
 const PG_IMAGE = 'postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73';
@@ -43,7 +45,7 @@ const names = {
 const ownedContainers = [];
 const evidence = {
   formatVersion: 1,
-  phase: applicationMode ? 'P03-C03' : 'P03-C01',
+  phase: adminMode ? 'P03-C04' : applicationMode ? 'P03-C03' : 'P03-C01',
   status: 'running',
   startedAt: new Date().toISOString(),
   node: process.version,
@@ -83,6 +85,25 @@ evidence.sourceSha256 = Object.fromEntries(
       '../apps/runtime/src/auth/saml-protocol.ts',
       'saml-contract.mjs',
       'saml-contract-smoke.mjs',
+      ...(adminMode
+        ? [
+            'keycloak-admin-smoke.mjs',
+            'identity-application-smoke.mjs',
+            'identity-smtp-fixture.mjs',
+            '../apps/runtime/src/identity/keycloak-admin.ts',
+            '../apps/runtime/src/identity/operations.ts',
+            '../apps/runtime/src/identity/processor.ts',
+            '../apps/runtime/src/identity/routes.ts',
+            '../apps/runtime/src/identity/config.ts',
+            '../apps/runtime/src/server.ts',
+            '../apps/runtime/src/routes/admin.ts',
+            '../apps/web/src/AdminPage.tsx',
+            '../apps/web/src/IdentityAdministrationPanel.tsx',
+            '../apps/web/src/api.ts',
+            '../packages/contracts/src/identity-admin.ts',
+            '../packages/db/migrations/0034_identity_provisioning_operations.sql',
+          ]
+        : []),
       ...(applicationMode
         ? [
             'saml-application-smoke.mjs',
@@ -545,14 +566,14 @@ try {
     await close(wrongTlsServer);
   }
   page = await context.newPage();
-  const login = async () => {
+  const login = async (username = 'contract-user', password = userPassword) => {
     const operation = stage;
     stage = `${operation}:navigate`;
     await page.goto(`${spOrigin}/auth/saml/login`);
     stage = `${operation}:username`;
-    await page.locator('input[name="username"]').fill('contract-user');
+    await page.locator('input[name="username"]').fill(username);
     stage = `${operation}:password`;
-    await page.locator('input[name="password"]').fill(userPassword);
+    await page.locator('input[name="password"]').fill(password);
     stage = `${operation}:submit`;
     await page.locator('button[type="submit"], input[type="submit"]').click();
     stage = `${operation}:callback`;
@@ -682,6 +703,42 @@ try {
   evidence.nameIdStable = true;
   evidence.signingCertificateCount = config.idpCerts.length;
   evidence.rejectedRequests = rejectedMessages;
+  if (adminMode) {
+    stage = 'administration';
+    const { runKeycloakAdminSmoke } = await import('./keycloak-admin-smoke.mjs');
+    evidence.administration = await runKeycloakAdminSmoke({
+      browser,
+      wire(handler) {
+        applicationHandler = handler;
+      },
+      config,
+      directory,
+      realm,
+      admin,
+      requestIdp,
+      login,
+      logout,
+      receipts: acsReceipts,
+      page,
+      docker,
+      network: names.network,
+      ownContainer(name) {
+        ownedContainers.push(name);
+      },
+      progress(value) {
+        stage = `administration:${value}`;
+        console.log(JSON.stringify({ stage }));
+      },
+    });
+    evidence.limitations = [
+      'compiled administration UI and actual HTTP API use real PostgreSQL and Keycloak; processor is invoked explicitly, worker scheduling is not exercised',
+      'Chrome headless; native Safari and interactive browser operation remain pending',
+      'test-specific generated TLS leaf SPKI pins; no system trust installation',
+      'fixture administrator provisions the realm, service-account roles and synthetic test passwords only',
+      'private disposable SMTP sink, reserved example.test recipients; no external mail delivery',
+      'security freshness and application-wide revocation remain P03-C05',
+    ];
+  }
   if (applicationMode) {
     stage = 'application';
     const { runApplicationSmoke } = await import('./saml-application-smoke.mjs');

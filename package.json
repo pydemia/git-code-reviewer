@@ -26,7 +26,8 @@
     "pack:cli": "node scripts/cli-package.mjs",
     "test:saml-contract": "pnpm --filter @gcr/runtime exec tsx ../../scripts/saml-contract-fixtures.mjs",
     "smoke:saml-contract": "pnpm --filter @gcr/runtime exec tsx ../../scripts/saml-contract-smoke.mjs",
-    "smoke:saml-application": "node scripts/with-test-postgres.mjs pnpm --filter @gcr/runtime exec tsx ../../scripts/saml-contract-smoke.mjs --application"
+    "smoke:saml-application": "node scripts/with-test-postgres.mjs pnpm --filter @gcr/runtime exec tsx ../../scripts/saml-contract-smoke.mjs --application",
+    "smoke:keycloak-admin": "node scripts/with-test-postgres.mjs pnpm --filter @gcr/runtime exec tsx ../../scripts/saml-contract-smoke.mjs --admin-contract"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

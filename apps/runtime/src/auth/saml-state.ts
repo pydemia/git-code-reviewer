@@ -224,6 +224,7 @@ export async function linkExistingSamlIdentity(
   return atomic(
     database,
     async (client) => {
+      await client.query("select pg_advisory_xact_lock(hashtext('gcr:user-administration'))");
       const users = (
         await client.query<{
           id: string;

@@ -19,6 +19,8 @@ import { registerChatRunRoutes } from './routes/chat-runs.js';
 import { registerWorklistRoutes } from './routes/worklist.js';
 import { registerProfileRoutes } from './routes/profile.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerIdentityAdministrationRoutes } from './identity/routes.js';
+import type { KeycloakAdminClient } from './identity/keycloak-admin.js';
 import { registerAccountRegistryRoutes } from './routes/account-registry.js';
 import { registerReviewMemoryRoutes } from './routes/review-memory.js';
 import {
@@ -43,7 +45,10 @@ const securityHeaders = {
   'x-frame-options': 'DENY',
 };
 
-export async function buildServer(config: AppConfig) {
+export async function buildServer(
+  config: AppConfig,
+  dependencies: { identityAdministration?: KeycloakAdminClient } = {},
+) {
   // Resolve trust material before allocating pools/schedulers. A configuration
   // or IdP metadata failure must not leave a partially initialized server.
   const samlProtocol =
@@ -108,6 +113,13 @@ export async function buildServer(config: AppConfig) {
   await registerWorklistRoutes(app, database, authorization, config);
   await registerProfileRoutes(app, database, config);
   await registerAdminRoutes(app, database, authorization, config);
+  await registerIdentityAdministrationRoutes(
+    app,
+    database,
+    authorization,
+    config,
+    dependencies.identityAdministration,
+  );
   await registerAccountRegistryRoutes(app, database, config);
   await registerSnapshotRoutes(app, database, eventHub, artifacts, authorization);
   await registerAnalysisRoutes(app, database, eventHub, artifacts, config, authorization);

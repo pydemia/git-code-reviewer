@@ -3235,6 +3235,73 @@ body.workspace-resizing:has(.resize-bottom) {
   min-width: 0;
 }
 
+.identity-administration {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.identity-administration h2,
+.identity-administration h3 {
+  margin: 0 0 10px;
+}
+.identity-administration p {
+  line-height: 1.6;
+}
+.identity-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.identity-form {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  max-width: 680px;
+}
+.identity-form > label {
+  display: grid;
+  gap: 6px;
+}
+.identity-form input:not([type='checkbox']),
+.identity-form select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.identity-tenant {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 16px 8px 0;
+}
+.identity-operation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.identity-operation > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.identity-operation p {
+  margin: 0;
+}
+.identity-administration [role='alert'] {
+  color: var(--danger, #a52a2a);
+}
+
 .structured-report {
   min-width: 0;
   color: var(--text);

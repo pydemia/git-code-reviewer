@@ -51,7 +51,7 @@ export const userSchema = z.object({
 export type User = z.infer<typeof userSchema>;
 
 export const profileSchema = userSchema.extend({
-  identityType: z.enum(['local', 'external']),
+  identityType: z.enum(['local', 'external', 'saml']),
   username: z.string().nullable(),
   profileEditable: z.boolean(),
   passwordChangeAllowed: z.boolean(),
@@ -88,7 +88,14 @@ export const adminUserSchema = z.object({
   displayName: z.string(),
   role: roleSchema,
   enabled: z.boolean(),
-  identityType: z.enum(['local', 'external']),
+  identityType: z.enum(['local', 'external', 'saml']),
+  identityState: z
+    .object({
+      provisioningState: z.enum(['pending', 'provisioned', 'failed']),
+      enabled: z.boolean(),
+    })
+    .nullable()
+    .optional(),
   username: z.string().nullable(),
   groups: z.array(z.string()),
   memberships: z.array(
@@ -770,3 +777,5 @@ export function errorEnvelope(
   };
 }
 export * from './chat-run.js';
+
+export * from './identity-admin.js';
