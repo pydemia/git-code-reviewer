@@ -5,6 +5,7 @@ import {
   knowledgeAudience,
   KNOWLEDGE_SIGNATURE_CONTEXT,
   KNOWLEDGE_CLIENT_CONTRACT_VERSION,
+  KNOWLEDGE_CLIENT_CONTRACT_MINIMUM,
   type KnowledgeAudience,
   type SignedKnowledgeManifest,
 } from '@gcr/client-contract';
@@ -22,9 +23,12 @@ export function verifyKnowledgeManifest(
 ): SignedKnowledgeManifest {
   const manifest = signedKnowledgeManifest(value);
   const payload = manifest.payload;
-  const version = options.clientContractVersion ?? KNOWLEDGE_CLIENT_CONTRACT_VERSION;
+  const version =
+    options.clientContractVersion ??
+    Math.min(KNOWLEDGE_CLIENT_CONTRACT_VERSION, payload.compatibleClientContracts.maximum);
   if (
     !Number.isSafeInteger(version) ||
+    (options.clientContractVersion === undefined && version < KNOWLEDGE_CLIENT_CONTRACT_MINIMUM) ||
     version < payload.compatibleClientContracts.minimum ||
     version > payload.compatibleClientContracts.maximum
   )

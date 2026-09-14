@@ -165,9 +165,18 @@
   margin: 3px 8px 0 0;
 }
 .criteria-source-choice small,
+.criteria-source-option small,
 .criteria-source small {
   display: block;
   margin-top: 6px;
+}
+.criteria-source-option {
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.criteria-source-option pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .criteria-error {
   padding: 12px;

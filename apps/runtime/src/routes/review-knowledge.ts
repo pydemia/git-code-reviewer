@@ -82,7 +82,7 @@ export async function registerKnowledgeRoutes(
         const { repoId } = repositoryParams.parse(request.params);
         const activeSigner = await authorize(request, repoId);
         const query = z.object({ clientContractVersion: z.string() }).strict().parse(request.query);
-        if (query.clientContractVersion !== '2')
+        if (!['2', '3'].includes(query.clientContractVersion))
           throw new CriterionError(
             426,
             'KNOWLEDGE_CLIENT_UPGRADE_REQUIRED',
@@ -94,6 +94,7 @@ export async function registerKnowledgeRoutes(
           activeSigner,
           repoId,
           request.user!.id,
+          Number(query.clientContractVersion),
         );
         const etag = `"${manifest.manifestHash}"`;
         reply.header('etag', etag);

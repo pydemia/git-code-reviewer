@@ -204,6 +204,7 @@ export async function issueKnowledgeManifest(
   signer: KnowledgeSigner,
   repositoryId: string,
   userId: string,
+  clientContractVersion = 2,
 ) {
   await ensureKnowledgeScopes(database, repositoryId, userId);
   const c = await database.connect();
@@ -212,11 +213,27 @@ export async function issueKnowledgeManifest(
     const revision = await authorizationRevision(c, repositoryId, userId);
     await c.query('select pg_advisory_xact_lock_shared(746278433)');
     const rows = await coherentComponents(c, repositoryId, userId);
+    let minimumClientContract = 2;
     for (const row of rows) {
       const info = await store.inspect(row.locator);
       if (!info.exists || info.checksum !== row.content_hash || info.byteSize !== row.byte_size)
         throw unavailable('KNOWLEDGE_ARTIFACT_UNAVAILABLE');
+      const bytes = await store.readText(row.locator);
+      if (digest(bytes) !== row.content_hash || Buffer.byteLength(bytes) !== row.byte_size)
+        throw unavailable('KNOWLEDGE_ARTIFACT_UNAVAILABLE');
+      const bundle = centralKnowledgeBundle(JSON.parse(bytes));
+      const sources =
+        bundle.component === 'policy'
+          ? bundle.criteria.flatMap((criterion) => criterion.decision.sources)
+          : bundle.memories.flatMap((memory) => memory.sources);
+      if (sources.some((source) => source.kind === 'snapshot-change')) minimumClientContract = 3;
     }
+    if (![2, 3].includes(clientContractVersion) || clientContractVersion < minimumClientContract)
+      throw new CriterionError(
+        426,
+        'KNOWLEDGE_CLIENT_UPGRADE_REQUIRED',
+        '코드 변경 출처를 지원하는 클라이언트로 업데이트해 주세요.',
+      );
     const components = Object.fromEntries(
       rows.map((row) => [
         row.component,
@@ -242,7 +259,7 @@ export async function issueKnowledgeManifest(
         keyId: signer.keyId,
         keyHash: signer.publicKeyHash,
         leaseSeconds: signer.offlineLeaseSeconds,
-        clientContractVersion: 2,
+        compatibleClientContracts: { minimum: minimumClientContract, maximum: 3 },
       }),
     );
     const cached = (
@@ -267,7 +284,7 @@ export async function issueKnowledgeManifest(
         collectiveMinimumSequence: components.collective.releaseSequence,
         personalMinimumSequence: components.personal.releaseSequence,
       },
-      compatibleClientContracts: { minimum: 2, maximum: 2 },
+      compatibleClientContracts: { minimum: minimumClientContract, maximum: 3 },
       issuedAt: now.toISOString(),
       refreshAfter: new Date(now.getTime() + 300000).toISOString(),
       offlineValidUntil: new Date(now.getTime() + signer.offlineLeaseSeconds * 1000).toISOString(),

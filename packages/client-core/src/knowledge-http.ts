@@ -6,6 +6,7 @@ import {
   centralRepositoryIdentity,
   reviewSubmissionReceipt,
   reviewSubmissionStatus,
+  KNOWLEDGE_CLIENT_CONTRACT_VERSION,
 } from '@gcr/client-contract';
 import { contentHash } from './local-identity.js';
 import type { IncomingMessage } from 'node:http';
@@ -139,8 +140,16 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
     { etag, signal }: Parameters<KnowledgeTransport['manifest']>[0],
     retries: number,
   ): ReturnType<KnowledgeTransport['manifest']> {
-    const route = `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/review-knowledge/manifest?clientContractVersion=2`;
+    const base = `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/review-knowledge/manifest?clientContractVersion=`;
+    let route = base + KNOWLEDGE_CLIENT_CONTRACT_VERSION;
     let response = await this.get(route, signal, etag);
+    // Older central servers only advertise v2. Negotiate that supported read
+    // protocol once on an explicit version rejection, never on auth/network errors.
+    if (response.statusCode === 426) {
+      response.destroy();
+      route = base + '2';
+      response = await this.get(route, signal, etag);
+    }
     for (let attempt = 0; response.statusCode === 503 && attempt < retries; attempt++) {
       await this.failure(response);
       const milliseconds = Math.round(

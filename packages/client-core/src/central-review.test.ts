@@ -87,7 +87,13 @@ function bundles(): Record<'policy' | 'collective' | 'personal', CentralKnowledg
           decision: {
             id: 'decision',
             outcome: 'design-decision',
-            sources: [{ kind: 'manual', id: 'manual', contentHash: contentHash('manual') }],
+            sources: [
+              {
+                kind: 'snapshot-change',
+                id: 'central-code-ref',
+                contentHash: contentHash('central-code-ref'),
+              },
+            ],
           },
           exceptions: [],
         },

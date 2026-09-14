@@ -12,6 +12,7 @@ import {
 } from '@gcr/contracts';
 import type { DatabaseClient } from '@gcr/db';
 import type { z } from 'zod';
+import { listSnapshotChangeSources } from './criterion-code-sources.js';
 
 type Connection = Pick<DatabaseClient, 'query'>;
 type Source = z.infer<typeof criterionSourceSchema>;
@@ -53,11 +54,14 @@ export const criterionJoins = `from review_rules r join repositories repo on rep
   join review_decisions decision on decision.id = rev.decision_id`;
 
 function withObservedHash<
-  T extends { observationHash?: string | null | undefined; discussion?: unknown },
+  T extends { observationHash?: string | null | undefined; discussion?: unknown; content: string },
 >(source: T) {
   const { observationHash, discussion, ...rest } = source;
   return {
     ...rest,
+    // Preserve existing non-code source normalization. Diff sources bypass this
+    // helper because their leading/trailing whitespace is part of the evidence.
+    content: source.content.trim(),
     ...(observationHash ? { observationHash } : {}),
     ...(discussion ? { discussion } : {}),
   };
@@ -80,7 +84,10 @@ export async function listCriterionSources(
      order by kind, id limit 200`,
     [repositoryId],
   );
-  return result.rows.map((row) => criterionSourceSchema.parse(withObservedHash(row)));
+  return [
+    ...(await listSnapshotChangeSources(connection, repositoryId)),
+    ...result.rows.map((row) => criterionSourceSchema.parse(withObservedHash(row))),
+  ];
 }
 
 export async function resolveCriterionSources(
@@ -107,6 +114,14 @@ export async function resolveCriterionSources(
     const key = `${source.kind}:${source.id}`;
     if (seen.has(key)) throw conflict('같은 출처를 중복해서 연결할 수 없습니다.');
     seen.add(key);
+    if (source.kind === 'snapshot-change') {
+      const found = (await listSnapshotChangeSources(connection, repositoryId, source.id, lock))[0];
+      if (!found) throw criteriaNotFound();
+      if (found.contentHash !== source.contentHash)
+        throw conflict('코드 변경 출처가 달라졌습니다. 출처를 다시 조회해 주세요.');
+      result.push(found);
+      continue;
+    }
     const found =
       source.kind === 'memory'
         ? await connection.query<Source>(

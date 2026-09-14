@@ -26,6 +26,9 @@ export const criterionStateSchema = z.enum(['draft', 'evaluated', 'shadow', 'act
 export const criterionSourceInputSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('memory'), id: z.string().uuid(), contentHash: hash }).strict(),
   z
+    .object({ kind: z.literal('snapshot-change'), id: z.string().uuid(), contentHash: hash })
+    .strict(),
+  z
     .object({
       kind: z.literal('github-pr-message'),
       id: z.string().uuid(),
@@ -35,17 +38,36 @@ export const criterionSourceInputSchema = z.discriminatedUnion('kind', [
     .strict(),
   z.object({ kind: z.literal('manual'), content: text(8000) }).strict(),
 ]);
+export const criterionCodeChangeSchema = z
+  .object({
+    snapshotId: z.string().uuid(),
+    pullRequestNumber: z.number().int().positive(),
+    path: z.string().min(1).max(4096),
+    previousPath: z.string().min(1).max(4096).nullable(),
+    status: z.enum(['added', 'modified', 'deleted', 'renamed']),
+    baseSha: z.string().regex(/^[a-f0-9]{40}$/i),
+    headSha: z.string().regex(/^[a-f0-9]{40}$/i),
+    mergeBaseSha: z.string().regex(/^[a-f0-9]{40}$/i),
+    evidenceKind: z.literal('diff-hunks'),
+    validation: z.literal('not-observed'),
+  })
+  .strict();
 export const criterionSourceSchema = z
   .object({
-    kind: z.enum(['memory', 'github-pr-message', 'manual']),
+    kind: z.enum(['memory', 'github-pr-message', 'snapshot-change', 'manual']),
     id: z.string().uuid().nullable(),
     contentHash: hash,
-    content: text(12000),
+    content: z
+      .string()
+      .min(1)
+      .max(12000)
+      .refine((value) => value.trim().length > 0),
     label: text(500),
     baseSha: z.string().nullable(),
     headSha: z.string().nullable(),
     observationHash: hash.optional(),
     discussion: githubPrMessageProvenanceSchema.optional(),
+    codeChange: criterionCodeChangeSchema.optional(),
   })
   .strict();
 

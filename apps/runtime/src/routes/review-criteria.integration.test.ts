@@ -26,7 +26,11 @@ import {
   type CriterionModelResolver,
 } from '../services/criterion-generation.js';
 import { AuthorizationService } from '../services/authorization.js';
-import { criteriaHash } from '../services/review-criteria.js';
+import { criteriaHash, resolveCriterionSources } from '../services/review-criteria.js';
+import {
+  captureSnapshotChangeSource,
+  listSnapshotChangeSources,
+} from '../services/criterion-code-sources.js';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { registerKnowledgeRoutes } from './review-knowledge.js';
 import { registerReviewCriteriaRoutes } from './review-criteria.js';
@@ -1163,6 +1167,227 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       },
     });
   const modelResult = (content = generated()) => ({ content, output: [], calls: [], usage: null });
+  let nextCodePr = 9000;
+  const codeSource = async (
+    options: {
+      repository?: string;
+      content?: string;
+      status?: string;
+      resolution?: string;
+      capture?: boolean;
+    } = {},
+  ) => {
+    const number = ++nextCodePr;
+    const pr = (
+      await database.query(
+        `insert into pull_requests(repository_id,github_id,number,title,state,author_login,html_url,base_ref,base_sha,head_ref,head_sha,github_updated_at)
+      values($1,$2::bigint,$2::integer,'Code evidence','open','fixture','https://example.invalid/pr','main',$3,'branch',$4,clock_timestamp()) returning id`,
+        [options.repository ?? repositoryId, number, 'a'.repeat(40), 'b'.repeat(40)],
+      )
+    ).rows[0].id;
+    const request = (
+      await database.query(
+        'insert into snapshot_requests(pull_request_id,base_sha,head_sha) values($1,$2,$3) returning id',
+        [pr, 'a'.repeat(40), 'b'.repeat(40)],
+      )
+    ).rows[0].id;
+    const snapshot = (
+      await database.query(
+        "insert into snapshots(request_id,version,merge_base_sha,resolution,policy_version) values($1,1,$2,$3,'test') returning id",
+        [request, 'c'.repeat(40), options.resolution ?? 'exact'],
+      )
+    ).rows[0].id;
+    const file = (
+      await database.query(
+        "insert into snapshot_files(snapshot_id,path,previous_path,status) values($1,'cache.py','old-cache.py',$2) returning id",
+        [snapshot, options.status ?? 'renamed'],
+      )
+    ).rows[0].id;
+    const content =
+      options.content ??
+      'diff --git a/old-cache.py b/cache.py\n@@ -1 +1 @@\n-cache[key]\n+cache[(tenant, key)]\n';
+    if (options.capture !== false) await captureSnapshotChangeSource(database, file, content);
+    return {
+      file,
+      pr,
+      request,
+      snapshot,
+      content,
+      number,
+      source: (
+        await listSnapshotChangeSources(database, options.repository ?? repositoryId, file)
+      )[0],
+    };
+  };
+  it('pins central code changes with discussion sources and keeps the snapshot when the PR advances', async () => {
+    const item = await codeSource();
+    expect(item.source!.content).toBe(item.content);
+    expect(item.source!.codeChange).toMatchObject({
+      baseSha: 'a'.repeat(40),
+      mergeBaseSha: 'c'.repeat(40),
+      headSha: 'b'.repeat(40),
+      validation: 'not-observed',
+      previousPath: 'old-cache.py',
+    });
+    const sources = criterionSourceListSchema.parse(
+      (await app.inject({ url: base() + '/sources', headers: headers() })).json(),
+    );
+    expect(sources.items.find((source) => source.id === item.file)).toEqual(item.source);
+    const input = fixture();
+    input.decision.sources = [
+      { kind: 'snapshot-change', id: item.file, contentHash: item.source!.contentHash },
+      ...input.decision.sources,
+    ];
+    const detail = await create(input);
+    expect(detail.revisions[0]!.decision.sources[0]).toEqual(item.source);
+    expect((await action(detail, 'activate')).statusCode).toBe(409);
+    await database.query('update pull_requests set head_sha=$2,base_sha=$3 where id=$1', [
+      item.pr,
+      'd'.repeat(40),
+      'e'.repeat(40),
+    ]);
+    expect(await resolveCriterionSources(database, repositoryId, input.decision.sources)).toEqual(
+      detail.revisions[0]!.decision.sources,
+    );
+    const wrongHash = {
+      ...input,
+      decision: {
+        ...input.decision,
+        sources: [{ kind: 'snapshot-change', id: item.file, contentHash: '0'.repeat(64) }],
+      },
+    };
+    expect(
+      (await app.inject({ method: 'POST', url: base(), headers: headers(), payload: wrongHash }))
+        .statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: base(),
+          headers: headers('outsider'),
+          payload: input,
+        })
+      ).statusCode,
+    ).toBe(404);
+    const other = await codeSource({ repository: otherRepositoryId });
+    input.decision.sources = [
+      { kind: 'snapshot-change', id: other.file, contentHash: other.source!.contentHash },
+    ];
+    expect(
+      (await app.inject({ method: 'POST', url: base(), headers: headers(), payload: input }))
+        .statusCode,
+    ).toBe(404);
+    await database.query('update snapshot_requests set head_sha=$2 where id=$1', [
+      item.request,
+      'f'.repeat(40),
+    ]);
+    expect(await listSnapshotChangeSources(database, repositoryId, item.file)).toEqual([]);
+    await database.query('update snapshot_requests set head_sha=$2 where id=$1', [
+      item.request,
+      'b'.repeat(40),
+    ]);
+    await database.query(
+      "update snapshot_change_sources set content=content||'tampered' where file_id=$1",
+      [item.file],
+    );
+    expect(await listSnapshotChangeSources(database, repositoryId, item.file)).toEqual([]);
+    await database.query('delete from pull_requests where id=$1', [item.pr]);
+    expect(
+      (await database.query('select * from snapshot_change_sources where file_id=$1', [item.file]))
+        .rowCount,
+    ).toBe(0);
+  });
+  it('does not manufacture evidence for binary, large, empty, unresolved or legacy snapshots', async () => {
+    for (const options of [
+      { status: 'binary' },
+      { content: 'x'.repeat(12001) },
+      { content: '  ' },
+      { resolution: 'unresolved' },
+      { capture: false },
+    ]) {
+      const item = await codeSource(options);
+      expect(item.source).toBeUndefined();
+    }
+    for (const status of ['added', 'deleted']) {
+      const item = await codeSource({ status });
+      expect(item.source!.codeChange!.status).toBe(status);
+    }
+  });
+  it('supplies pinned changes and contrary discussion to generation and stops on source removal', async () => {
+    const item = await codeSource();
+    const discussionBody =
+      'Keep tenant in cache key; verify the calling endpoint before deciding this is fixed.';
+    const discussionHash = createHash('sha256').update(discussionBody).digest('hex');
+    const discussionId = (
+      await database.query(
+        "insert into github_pr_messages(tenant_id,repository_id,pull_request_id,github_id,kind,author_login,body,content_hash,html_url,github_created_at,github_updated_at) values($1,$2,$3,1,'issue-comment','fixture',$4,$5,'https://example.invalid/comment/1',clock_timestamp(),clock_timestamp()) returning id",
+        [tenantId, repositoryId, item.pr, discussionBody, discussionHash],
+      )
+    ).rows[0].id;
+
+    const input = generationInput();
+    input.sources = [
+      { kind: 'snapshot-change', id: item.file, contentHash: item.source!.contentHash },
+      {
+        kind: 'manual',
+        content:
+          'A different endpoint already scopes cache by tenant. This discussion does not prove the selected code was tested.',
+      },
+    ];
+    input.sources.push({
+      kind: 'github-pr-message',
+      id: discussionId,
+      contentHash: discussionHash,
+    });
+    expect((await generation(input)).statusCode).toBe(202);
+    const run = await claimCriterionGeneration(database, 'code-evidence');
+    expect(run).not.toBeNull();
+    await executeCriterionGeneration(
+      database,
+      config,
+      run!,
+      resolver(async (request) => {
+        const payload = JSON.parse(String(request.input[0]!.content));
+        expect(payload.sources[0]).toEqual(item.source);
+        expect(payload.sources[1].content).toContain('different endpoint');
+        expect(payload.sources[2]).toMatchObject({
+          kind: 'github-pr-message',
+          id: discussionId,
+          content: discussionBody,
+        });
+        expect(request.instructions).toContain('다른 endpoint');
+        expect(request.instructions).toContain('mergeBaseSha');
+        return modelResult();
+      }),
+    );
+    const state = await generationState(input.requestId);
+    expect(state.state).toBe('completed');
+    const detail = criterionDetailSchema.parse(
+      (await app.inject({ url: base() + '/' + state.ruleId, headers: headers() })).json(),
+    );
+    expect(detail.revisions[0]!.decision.sources[0]).toEqual(item.source);
+    expect(detail.criterion.state).toBe('draft');
+    const again = { ...input, requestId: randomUUID() };
+    expect((await generation(again)).statusCode).toBe(202);
+    const next = await claimCriterionGeneration(database, 'removed-code');
+    await database.query('delete from snapshot_change_sources where file_id=$1', [item.file]);
+    let calls = 0;
+    await executeCriterionGeneration(
+      database,
+      config,
+      next!,
+      resolver(async () => {
+        calls++;
+        return modelResult();
+      }),
+    );
+    expect(calls).toBe(0);
+    expect(await generationState(again.requestId)).toMatchObject({
+      state: 'failed',
+      errorCode: 'GENERATION_SOURCE_CHANGED',
+    });
+  });
   it('enqueues a model request once, claims it once, and creates only an unevaluated model candidate', async () => {
     const input = generationInput();
     expect((await generation(input, 'reader')).statusCode).toBe(403);
@@ -1381,6 +1606,10 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       });
       const page = await context.newPage();
       page.on('pageerror', (error) => errors.push(error.message));
+      const browserCode = await codeSource({
+        content:
+          'diff --git a/cache.py b/cache.py\n@@ -1 +1 @@\n-cache[key]\n+cache[(tenant,key)] // <script>window.codeExecuted=true</script>\n',
+      });
       const intake = await submitted('judgment');
       await page.goto(`http://127.0.0.1:${webAddress.port}/review-criteria`);
       const submissions = page.getByRole('region', { name: '클라이언트 리뷰 제출', exact: true });
@@ -1421,6 +1650,26 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       await page.getByLabel('모델 계정', { exact: true }).selectOption(modelAccountId);
       await page.getByLabel('후보 생성 모델', { exact: true }).selectOption('synthetic-model');
       await page.getByLabel('검토 초점', { exact: true }).fill('Synthetic browser generation.');
+      const generator = page.locator('.criteria-generation');
+      await generator.getByText('PR 논의·코드 변경·집단 메모리 선택', { exact: true }).click();
+      const codeChoice = generator
+        .locator('.criteria-source-option')
+        .filter({ hasText: `PR #${browserCode.number}` });
+      await codeChoice.getByRole('checkbox').check();
+      await codeChoice.getByText('변경 diff 확인', { exact: true }).click();
+      expect(await codeChoice.locator('pre').textContent()).toBe(browserCode.content);
+      expect(await page.evaluate(() => Reflect.get(window, 'codeExecuted'))).toBeUndefined();
+      const codeProof = path.resolve('artifacts/operations/P12-code-decisions');
+      await mkdir(codeProof, { recursive: true });
+      for (const width of [1360, 420]) {
+        await page.setViewportSize({ width, height: 1050 });
+        expect(
+          await codeChoice.evaluate((element) => element.scrollWidth <= element.clientWidth),
+        ).toBe(true);
+        await codeChoice.screenshot({ path: path.join(codeProof, `source-${width}.png`) });
+      }
+      await page.setViewportSize({ width: 1360, height: 1050 });
+
       await page
         .getByLabel('모델에 전달할 수동 원문', { exact: true })
         .fill('Synthetic source: cache key must contain tenant.');
@@ -1431,6 +1680,7 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
         .count();
       const generatedRun = await claimCriterionGeneration(database, 'browser');
       expect(generatedRun).not.toBeNull();
+      expect(generatedRun!.sources).toContainEqual(browserCode.source);
       const generatedBody = JSON.parse(generated());
       generatedBody.document.title = '모델 생성 브라우저 기준';
       await executeCriterionGeneration(

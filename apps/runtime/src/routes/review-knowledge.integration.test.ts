@@ -189,7 +189,7 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     expect((await app.inject({ url: `${base()}/manifest`, headers: headers() })).statusCode).toBe(
       400,
     );
-    for (const version of [1, 3])
+    for (const version of [1, 4])
       expect(
         (
           await app.inject({
@@ -202,6 +202,10 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     await drain();
     const { parsed } = await manifest();
     expect(parsed.payload.components.personal.releaseSequence).toBe(1);
+    expect(
+      (await app.inject({ url: `${base()}/manifest?clientContractVersion=3`, headers: headers() }))
+        .statusCode,
+    ).toBe(200);
   });
   it('signs scoped manifests, caches fresh recipes and downloads verifiable immutable components', async () => {
     const { result, parsed } = await manifest();

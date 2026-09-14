@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { captureSnapshotChangeSource } from '../services/criterion-code-sources.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
@@ -531,6 +532,7 @@ async function persistMaterialization(
           artifactId,
         ],
       );
+      await captureSnapshotChangeSource(connection, fileArtifact.id, fileArtifact.file.patch);
     }
     await connection.query(`update snapshot_requests set state = 'materialized' where id = $1`, [
       snapshotRequestId,

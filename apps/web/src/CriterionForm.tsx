@@ -1,3 +1,4 @@
+import { CriterionSourcePicker } from './CriterionSourcePicker.tsx';
 import { useState, type FormEvent } from 'react';
 import { criterionCreateSchema, type CriterionCreate, type CriterionDetail } from '@gcr/contracts';
 import type { loadCriterionSources } from './api.ts';
@@ -203,32 +204,15 @@ export function CriterionForm({
             ))}
           </div>
         </details>
-        <details>
-          <summary>기존 PR 논의·집단 메모리에서 출처 선택</summary>
-          {sources.length ? (
-            sources.map((source) => (
-              <label className="criteria-source-choice" key={`${source.kind}:${source.id}`}>
-                <input
-                  type="checkbox"
-                  checked={selectedSources.includes(`${source.kind}:${source.id}`)}
-                  onChange={(event) =>
-                    setSelectedSources((previous) =>
-                      event.target.checked
-                        ? [...previous, `${source.kind}:${source.id}`]
-                        : previous.filter((key) => key !== `${source.kind}:${source.id}`),
-                    )
-                  }
-                />
-                <span>
-                  {source.label}
-                  <small>{source.content.slice(0, 240)}</small>
-                </span>
-              </label>
-            ))
-          ) : (
-            <p>연결할 수 있는 출처가 없습니다.</p>
-          )}
-        </details>
+        <CriterionSourcePicker
+          sources={sources}
+          selected={selectedSources}
+          onToggle={(key, checked) =>
+            setSelectedSources((previous) =>
+              checked ? [...previous, key] : previous.filter((value) => value !== key),
+            )
+          }
+        />
         <label>
           수동 검토 기록
           <textarea

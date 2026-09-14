@@ -1,3 +1,4 @@
+import { CriterionSourcePicker } from './CriterionSourcePicker.tsx';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   criterionGenerationCreateSchema,
@@ -219,28 +220,15 @@ export function CriterionGenerationPanel({
               placeholder="예: 테넌트 격리 조건과 호출부의 반증을 기준으로 정리"
             />
           </label>
-          <details>
-            <summary>기존 PR 논의·집단 메모리 선택</summary>
-            {sources.map((source) => (
-              <label className="criteria-source-choice" key={`${source.kind}:${source.id}`}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(`${source.kind}:${source.id}`)}
-                  onChange={(event) =>
-                    setSelected((previous) =>
-                      event.target.checked
-                        ? [...previous, `${source.kind}:${source.id}`]
-                        : previous.filter((key) => key !== `${source.kind}:${source.id}`),
-                    )
-                  }
-                />
-                <span>
-                  {source.label}
-                  <small>{source.content.slice(0, 240)}</small>
-                </span>
-              </label>
-            ))}
-          </details>
+          <CriterionSourcePicker
+            sources={sources}
+            selected={selected}
+            onToggle={(key, checked) =>
+              setSelected((previous) =>
+                checked ? [...previous, key] : previous.filter((value) => value !== key),
+              )
+            }
+          />
           <label>
             모델에 전달할 수동 원문
             <textarea aria-label="모델에 전달할 수동 원문" name="source" maxLength={8000} />

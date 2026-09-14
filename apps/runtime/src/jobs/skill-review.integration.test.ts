@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { listSnapshotChangeSources } from '../services/criterion-code-sources.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -173,6 +174,27 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     if (directory) await rm(directory, { recursive: true, force: true });
   });
 
+  it('captures criterion code sources from the materialized snapshot and its exact patch artifacts', async () => {
+    const repository = (
+      await database.query(
+        'select p.repository_id from snapshots s join snapshot_requests r on r.id=s.request_id join pull_requests p on p.id=r.pull_request_id where s.id=$1',
+        [snapshotId],
+      )
+    ).rows[0].repository_id;
+    const sources = await listSnapshotChangeSources(database, repository);
+    expect(sources.length).toBeGreaterThan(0);
+    for (const source of sources) {
+      expect(source.codeChange!.snapshotId).toBe(snapshotId);
+      const artifact = (
+        await database.query(
+          'select a.locator from snapshot_files f join artifacts a on a.id=f.patch_artifact_id where f.id=$1',
+          [source.id],
+        )
+      ).rows[0];
+      expect(source.content).toBe(await artifacts.readText(artifact.locator));
+      expect(source.codeChange!.validation).toBe('not-observed');
+    }
+  });
   it('stores the exact administrator bundle/hash when materialization creates the queued analysis', async () => {
     const run = (await database.query('select * from analysis_runs where id = $1', [analysisId]))
       .rows[0];

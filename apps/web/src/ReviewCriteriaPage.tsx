@@ -1,3 +1,4 @@
+import { CriterionSourceEvidence } from './CriterionSourceEvidence.tsx';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   criterionEvaluationCreateSchema,
@@ -522,7 +523,7 @@ function CriterionView({
               <h4>{source.label}</h4>
               <pre>{source.content}</pre>
               <small>Source SHA-256 {source.contentHash}</small>
-              {source.headSha ? <small>Commit {source.headSha}</small> : null}
+              <CriterionSourceEvidence source={source} />
             </div>
           ))}
         </details>

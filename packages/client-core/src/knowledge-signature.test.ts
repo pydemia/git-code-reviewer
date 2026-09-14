@@ -55,6 +55,12 @@ describe('pinned knowledge manifest verification', () => {
   it('negotiates explicit v2 compatibility and permits legacy verification only when requested', () => {
     const legacy = signed({ ...payload(), compatibleClientContracts: { minimum: 1, maximum: 1 } });
     expect(() => verifyKnowledgeManifest(legacy, options())).toThrow('Incompatible');
+    const code = signed({ ...payload(), compatibleClientContracts: { minimum: 3, maximum: 3 } });
+    expect(() => verifyKnowledgeManifest(code, options())).not.toThrow();
+    expect(() => verifyKnowledgeManifest(code, { ...options(), clientContractVersion: 2 })).toThrow(
+      'Incompatible',
+    );
+
     expect(() =>
       verifyKnowledgeManifest(legacy, { ...options(), clientContractVersion: 1 }),
     ).not.toThrow();

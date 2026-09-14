@@ -176,7 +176,7 @@ describe('bound central HTTP transport', () => {
     });
     expect(requests).toBe(2);
   }, 10000);
-  it.each([401, 403, 404, 409, 426, 429, 500, 502, 504, 307])(
+  it.each([401, 403, 404, 409, 429, 500, 502, 504, 307])(
     'does not retry HTTP %s during initial publication',
     async (status) => {
       let requests = 0;
@@ -193,6 +193,24 @@ describe('bound central HTTP transport', () => {
       expect(requests).toBe(1);
     },
   );
+  it('stops when both supported knowledge versions are explicitly rejected', async () => {
+    const requests: string[] = [];
+    const origin = await listen(
+      httpServer((req, res) => {
+        requests.push(req.url!);
+        res.writeHead(426);
+        res.end();
+      }),
+    );
+    expect(await transport(origin).initialPublication().manifest({ signal: signal() })).toEqual({
+      status: 426,
+    });
+    expect(
+      requests.map((url) =>
+        new URL(url, 'http://localhost').searchParams.get('clientContractVersion'),
+      ),
+    ).toEqual(['3', '2']);
+  });
   it('does not retry malformed successful responses', async () => {
     let requests = 0;
     const origin = await listen(
@@ -239,13 +257,49 @@ describe('bound central HTTP transport', () => {
     });
     expect(await client.manifest({ signal: signal(), etag: '"known"' })).toEqual({ status: 304 });
     expect(requests[0]).toEqual({
-      url: '/base/api/v1/repositories/repo/review-knowledge/manifest?clientContractVersion=2',
+      url: '/base/api/v1/repositories/repo/review-knowledge/manifest?clientContractVersion=3',
       authorization: `Bearer ${token}`,
       cookie: undefined,
       server: 'server',
       etag: undefined,
     });
     expect(requests[1]?.etag).toBe('"known"');
+  });
+  it('negotiates v2 once with older servers only after an explicit version rejection', async () => {
+    const requests: string[] = [];
+    const origin = await listen(
+      httpServer((req, res) => {
+        requests.push(req.url!);
+        if (req.url!.endsWith('clientContractVersion=3')) {
+          res.writeHead(426);
+          res.end();
+        } else {
+          res.writeHead(200);
+          res.end('{"legacy":true}');
+        }
+      }),
+    );
+    expect(await transport(origin).manifest({ signal: signal() })).toEqual({
+      status: 200,
+      manifest: { legacy: true },
+    });
+    expect(
+      requests.map((url) =>
+        new URL(url, 'http://localhost').searchParams.get('clientContractVersion'),
+      ),
+    ).toEqual(['3', '2']);
+    for (const status of [401, 403, 503]) {
+      let calls = 0;
+      const target = await listen(
+        httpServer((_req, res) => {
+          calls++;
+          res.writeHead(status);
+          res.end();
+        }),
+      );
+      await transport(target).manifest({ signal: signal() });
+      expect(calls).toBe(1);
+    }
   });
   it('does not follow redirects or send a credential to their destination', async () => {
     let calls = 0;

@@ -41,7 +41,7 @@ export const centralCriterionDocument = object({
   reviewAfter: nullableTime,
 });
 const sourceReference = object({
-  kind: choice(['memory', 'github-pr-message', 'manual']),
+  kind: choice(['memory', 'github-pr-message', 'snapshot-change', 'manual']),
   id: nullableId,
   contentHash: sha256,
 });
@@ -102,7 +102,8 @@ const skill = object({
   markdown: text(20000, 1),
   contentHash: sha256,
 });
-export const KNOWLEDGE_CLIENT_CONTRACT_VERSION = 2;
+export const KNOWLEDGE_CLIENT_CONTRACT_VERSION = 3;
+export const KNOWLEDGE_CLIENT_CONTRACT_MINIMUM = 2;
 const common = { schemaVersion: union(literal(1), literal(2)), tenantId: id, repositoryId: id };
 export const centralKnowledgeBundle = refined(
   union(

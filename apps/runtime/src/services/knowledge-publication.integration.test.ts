@@ -1,4 +1,13 @@
-import { randomUUID, createHash } from 'node:crypto';
+import {
+  captureSnapshotChangeSource,
+  listSnapshotChangeSources,
+} from './criterion-code-sources.js';
+import { randomUUID, createHash, generateKeyPairSync } from 'node:crypto';
+import {
+  KnowledgeSigner,
+  bindKnowledgeSigner,
+  issueKnowledgeManifest,
+} from './knowledge-manifest.js';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -597,6 +606,83 @@ describe.skipIf(!url).sequential('immutable knowledge publication', () => {
     expect(after.row.last_error).toBe('PUBLICATION_INVALID');
     expect(after.row.requested_revision).not.toBe(after.row.published_revision);
   }, 30000);
+  it('publishes only approved criteria from pinned code and withdraws unavailable code on the next release', async () => {
+    const repository = await repo();
+    const pr = (
+      await db.query(
+        "insert into pull_requests(repository_id,github_id,number,title,state,author_login,html_url,base_ref,base_sha,head_ref,head_sha,github_updated_at) values($1,1,1,'Synthetic','open','fixture','https://example.invalid/pr/1','main',$2,'feature',$3,clock_timestamp()) returning id",
+        [repository, 'a'.repeat(40), 'b'.repeat(40)],
+      )
+    ).rows[0].id;
+    const request = (
+      await db.query(
+        'insert into snapshot_requests(pull_request_id,base_sha,head_sha) values($1,$2,$3) returning id',
+        [pr, 'a'.repeat(40), 'b'.repeat(40)],
+      )
+    ).rows[0].id;
+    const snapshot = (
+      await db.query(
+        "insert into snapshots(request_id,version,merge_base_sha,resolution,policy_version) values($1,1,$2,'exact','test') returning id",
+        [request, 'c'.repeat(40)],
+      )
+    ).rows[0].id;
+    const file = (
+      await db.query(
+        "insert into snapshot_files(snapshot_id,path,status) values($1,'PRIVATE_SOURCE_PATH.py','modified') returning id",
+        [snapshot],
+      )
+    ).rows[0].id;
+    await captureSnapshotChangeSource(
+      db,
+      file,
+      '@@ -1 +1 @@\n-PRIVATE_ORIGINAL_CODE\n+PRIVATE_MODIFIED_CODE\n',
+    );
+    const source = (await listSnapshotChangeSources(db, repository, file))[0]!;
+    const input = candidate();
+    input.decision.sources = [
+      { kind: 'snapshot-change', id: file, contentHash: source.contentHash },
+    ];
+    await txn((c) => createCriterion(c, repository, admin, input));
+    const draft = await publish(repository);
+    expect(draft.bundle.component === 'policy' && draft.bundle.criteria).toEqual([]);
+    const criterion = await activate(repository, input);
+    const initial = await publish(repository);
+    expect(
+      initial.bundle.component === 'policy' && initial.bundle.criteria.map((item) => item.id),
+    ).toContain(criterion);
+    for (const privateValue of [
+      'PRIVATE_ORIGINAL_CODE',
+      'PRIVATE_MODIFIED_CODE',
+      'PRIVATE_SOURCE_PATH.py',
+    ])
+      expect(initial.bytes).not.toContain(privateValue);
+    expect(
+      initial.bundle.component === 'policy' && initial.bundle.criteria[0]!.decision.sources,
+    ).toEqual([{ kind: 'snapshot-change', id: file, contentHash: source.contentHash }]);
+
+    const signing = new KnowledgeSigner(
+      randomUUID(),
+      'code-key',
+      generateKeyPairSync('ed25519').privateKey,
+      3600,
+    );
+    await bindKnowledgeSigner(db, signing);
+    await publish(repository, 'collective');
+    await publish(repository, 'personal', admin);
+    await expect(
+      issueKnowledgeManifest(db, store, signing, repository, admin, 2),
+    ).rejects.toMatchObject({ statusCode: 426, code: 'KNOWLEDGE_CLIENT_UPGRADE_REQUIRED' });
+    const manifest = await issueKnowledgeManifest(db, store, signing, repository, admin, 3);
+    expect(manifest.payload.compatibleClientContracts).toEqual({ minimum: 3, maximum: 3 });
+    await expect(
+      issueKnowledgeManifest(db, store, signing, repository, admin, 2),
+    ).rejects.toMatchObject({ statusCode: 426 });
+    await db.query('delete from snapshot_change_sources where file_id=$1', [file]);
+    const withdrawn = await publish(repository);
+    expect(withdrawn.bundle.component === 'policy' && withdrawn.bundle.criteria).toEqual([]);
+    expect(withdrawn.row.release_sequence).toBeGreaterThan(initial.row.release_sequence);
+    expect(await store.readText(initial.row.locator)).toBe(initial.bytes);
+  });
   it('withdraws a criterion when its observed review state changes without a body edit', async () => {
     const repository = await repo();
     const pr = (
