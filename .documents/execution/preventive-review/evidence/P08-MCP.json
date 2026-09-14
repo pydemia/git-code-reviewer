@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "phase": "P08-C04",
+  "status": "partial",
+  "sourceCommit": "911ec67995e3ae817c9a72934493b369b41aa462",
+  "implementationCommit": "8e2d5aea9f788befe0168cd3c1584d4d7f35a208",
+  "cli": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.21",
+    "clientVersion": "0.1.0-alpha.25",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-contract-0.1.0-alpha.25.tgz",
+        "sha256": "821011063529946b1b1052ce4d667d354d2c6c9795d0fc6a052c7a7c9b590c1e"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-core-0.1.0-alpha.25.tgz",
+        "sha256": "e4a102a347f0ab9d7e39b3bbef9f1238ccc21beee23e59330e760083c848b818"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-executors-0.1.0-alpha.25.tgz",
+        "sha256": "8e62814f95ad93e4fd6c69767450186c71c75a8ebea390d91ff0ffc70eb4c096"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.21",
+        "file": "gcr-cli-0.1.0-alpha.21.tgz",
+        "sha256": "a4e40a1e1b0067a317f49e98090b50cf7b1428754204117d6a0753068c7c85f8"
+      }
+    ]
+  },
+  "validation": {
+    "cliRegression": {
+      "files": 4,
+      "passed": 36,
+      "optInModelSkipped": 1
+    },
+    "typecheck": "passed",
+    "lint": "passed",
+    "node22PackageVerification": "passed",
+    "finalAlpha21HostChecks": {
+      "status": "passed",
+      "cliSha256": "df76295267e22b79c6b552090713be334a88d29a2519b2fe9fa071a76452586c",
+      "profile": "gcr-mcp-a370f596-190d-4caf-bd90-990e570736db",
+      "syntheticOnly": true,
+      "checks": [
+        "inspector-2.6.0-installed-stdio-tools-list",
+        "official-sdk-1.30.0-reconnect-fixed-source-context-rule",
+        "outside-snapshot-path-rejected",
+        "alpha21-requirement-descriptions-and-explicit-source-reference"
+      ],
+      "externalModelCalls": 0,
+      "ownedKeychainEntriesRemoved": true,
+      "ownedFilesRemoved": true,
+      "verifiedAt": "2026-09-14T05:05:36.031Z"
+    },
+    "codexHostOnAlpha20": {
+      "status": "passed",
+      "cliSha256": "a96367035f5bdf24815d07519c086f07cd79da307215fbd45b3e8e553aea034c",
+      "profile": "gcr-mcp-9f98345e-d67d-4820-86c5-7ea5b3ba2955",
+      "syntheticOnly": true,
+      "checks": [
+        "codex-0.154.0-real-host-MCP-prepare-context-source-rule"
+      ],
+      "externalModelCalls": 1,
+      "codexHost": {
+        "version": "codex-cli 0.154.0",
+        "calls": [
+          {
+            "tool": "gcr_status",
+            "status": "completed",
+            "error": null
+          },
+          {
+            "tool": "gcr_prepare_review",
+            "status": "failed",
+            "error": null
+          },
+          {
+            "tool": "gcr_prepare_review",
+            "status": "failed",
+            "error": null
+          },
+          {
+            "tool": "gcr_prepare_review",
+            "status": "completed",
+            "error": null
+          },
+          {
+            "tool": "gcr_get_rule",
+            "status": "completed",
+            "error": null
+          },
+          {
+            "tool": "gcr_read_source",
+            "status": "completed",
+            "error": null
+          },
+          {
+            "tool": "gcr_get_context",
+            "status": "completed",
+            "error": null
+          }
+        ]
+      },
+      "ownedKeychainEntriesRemoved": true,
+      "ownedFilesRemoved": true,
+      "verifiedAt": "2026-09-14T05:02:57.718Z"
+    },
+    "codexHostSourceReview": {
+      "sourceHash": "51703e7b921dcaca68e4278cd629db5f38b8951d8cd42f9dfad8583d803f401a",
+      "contextHash": "4c01baa3eb1500396894658f34ea1cbb4e4e199cb142851bed93c12fbd57481b",
+      "sourceReadPath": "total.ts",
+      "finalResponse": "준비된 소스 해시는 `51703e7b921dcaca68e4278cd629db5f38b8951d8cd42f9dfad8583d803f401a`입니다.\n\n`total.ts:3`의 `/ 100`이 센트 합계를 달러 단위로 바꾸어 “입출력은 정수 센트”라는 계약을 위반합니다. 코드상 `[150, 75]`는 `225` 대신 `2.25`를 반환하므로 `/ 100`을 제거해야 합니다.\n\n요청하신 gcr 호출을 완료했으며 셸 실행, 파일 수정, executor 리뷰, 제출은 하지 않았습니다.",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "xhigh",
+      "shellCalls": 0
+    },
+    "executorMcpReviewOnAlpha20": {
+      "status": "tool-error",
+      "successVerified": false,
+      "exactTerminalReason": "Initial verifier truncated the returned report before its status/problems; exact reason is not preserved.",
+      "startedAt": "2026-09-14T04:50:37.624Z",
+      "finishedAt": "2026-09-14T05:00:50.263Z",
+      "externalModelCalls": 1,
+      "fixtureCleanup": true
+    },
+    "totalExternalModelCalls": 2
+  },
+  "completed": [
+    "Prepared encrypted source and current authorization/context check",
+    "CLI public submission preview and explicit queue/send workflow",
+    "Stdio protocol lifecycle, bounded messages and request cancellation",
+    "Installed Inspector and SDK connections/reconnection",
+    "Real Codex host source/context/rule calls and defect reasoning"
+  ],
+  "pending": [
+    "Successful gcr_review_changes actual executor result and saved-result readback over MCP",
+    "CLI/MCP conversation turn integration",
+    "P08-C05 feedback confirmation UI and approval/publication/resync",
+    "P08-C06 Skill and remaining P00-P13 completion gates"
+  ],
+  "delivery": {
+    "globalCliReplaced": false,
+    "userMcpConfigurationChanged": false,
+    "userVsCodeChanged": false,
+    "prismDeploymentChanged": false
+  },
+  "evidenceFiles": [
+    {
+      "path": "artifacts/operations/P08-mcp-release/host-verification.json",
+      "sha256": "369f5625d167afb06b84d8bdb8030bd8892efcebcc5f50f85f7a2b10bcfc30b4"
+    },
+    {
+      "path": "artifacts/operations/P08-mcp-release/codex-host-only/host-verification.json",
+      "sha256": "918185b6e14384e92717fa3310647fa8b51161d66f6122394add135d7775a07a"
+    },
+    {
+      "path": "artifacts/operations/P08-mcp-release/codex-host-only/codex-host.jsonl",
+      "sha256": "68cd09117c5563028d4225817116826927fc13d240cc425b70d70ab88c3671c3"
+    },
+    {
+      "path": "artifacts/operations/P08-mcp-release/alpha21/host-verification.json",
+      "sha256": "d34f492d548046855baf12d9216b25d28e04d55218a291501def43386b39396b"
+    },
+    {
+      "path": "artifacts/operations/P08-mcp-cli-regression-final.log",
+      "sha256": "6da4724ef58cc6ea432794169b30b07f567379b372cac3260f4d2247f5ef6127"
+    },
+    {
+      "path": "artifacts/operations/P08-mcp-package21.log",
+      "sha256": "01c8a7719d3cf0f454915c726ea89bf5078db7a577a94a222bff03bc0f95698b"
+    }
+  ]
+}
