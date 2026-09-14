@@ -1,0 +1,68 @@
+{
+  "recordedAt": "2026-09-14T13:00:56.808289+00:00",
+  "phase": "P10",
+  "scope": "Repository job admission/status/cancel/result and encrypted content retention; no model execution worker",
+  "files": {
+    "packages/db/migrations/0047_client_review_jobs.sql": "6911a224d0db604254ec6b602384e2e788ce06d73dbd108a7a1c0cb399c80440",
+    "apps/runtime/src/services/remote-review-jobs.ts": "ea8cba6a9eaf843d672a70ea269cb21a7da906367bdedc0c11e658fff9e5ad16",
+    "apps/runtime/src/routes/remote-reviews.ts": "468f2ed31f7415414ca0a91ce15f7ed9ef00997603758344b50be9e2def15668",
+    "apps/runtime/src/routes/remote-reviews.integration.test.ts": "dab1c315d8b4c52d1060310c2e5c3650e3bc197f85f09a56b04cb01fe8037d02",
+    "apps/runtime/src/config.ts": "2911898b77fa66a3eb9c9c05d15e1c59a2363b8a5d59930e046051b9b026eeb3",
+    "apps/runtime/src/config.test.ts": "e948eacd2db5da4bc58271ea3d5e15a02784283de5e5fb2ea4924d6fe8d3f55d",
+    "apps/runtime/src/server.ts": "97063e93a8792869bcfe8a2eb8ef30e987fe08807883157b83736b0f308015db",
+    "apps/runtime/src/jobs/worker.ts": "ed9ee215e9701bf7aa337990d045eee22d1a5eee79ef24024a7bddae7e98859c",
+    "apps/runtime/src/commands.ts": "83e96447b2b685c351add1f5a9e5017baa24c7b451f660c047bdba8090f1d1f0",
+    "apps/runtime/src/services/account-registry.ts": "fec318fc60b9e57ba1699e61631fa987499c299916dc2b4e99ade47bb4b10f7a",
+    "apps/runtime/package.json": "2781b4a32ad8dc11b72d4050b50504247b7fcd07433240222930f450263b1193",
+    "pnpm-lock.yaml": "3b3bf8f160425940ecb323aff2e0c20e11cc69f0c6053811aa380a61617073aa",
+    "Dockerfile": "87bc7d31b194e9f2054176747b8f18b02abe84bfdccdad7624fe1df9ffd9e8ca"
+  },
+  "verification": {
+    "testsPassed": 52,
+    "testsFailed": 0,
+    "jobApiTests": 16,
+    "existingClientCredentialAndSubmissionTests": 15,
+    "configTests": 21,
+    "actualModelCalls": 0,
+    "actualHttpLostAcknowledgement": {
+      "transport": "loopback TCP HTTP",
+      "cutoff": "Database transaction committed; onSend held before receipt transmission; native fetch aborted",
+      "recovery": "GET original client request ID then identical POST returned existing receipt",
+      "jobs": 1,
+      "reservedMaximumModelCalls": 2
+    },
+    "runtimeBuild": "passed",
+    "changedSourceAndTestTypes": "passed",
+    "changedSourceLint": "passed"
+  },
+  "database": {
+    "startedAt": "2026-09-14T13:00:21.906Z",
+    "backend": "native-postgresql",
+    "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+    "cleanup": true,
+    "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+    "commandExitCode": 0,
+    "finishedAt": "2026-09-14T13:00:28.946Z"
+  },
+  "logs": {
+    "gcr-p10-jobs-verified-tests.log": "92af52366086cbf6dd3610ba4756aaba725a4637d994c869af1249ec47c0d213",
+    "gcr-p10-jobs-verified-postgres.json": "befcce66d41f1590f72cfe11c9e5c9116b5e66202dbd7c450957cb77c3604041"
+  },
+  "scopeLimits": [
+    "Completed result endpoint tested with a synthetic encrypted report; model account credentials deliberately unusable and never decrypted by admission.",
+    "Retention helper exercised against actual PostgreSQL. Worker periodic hook prepared in code; no production rollout or live worker lifecycle claim.",
+    "Docker image build and PRISM Helm deployment not performed; existing Docker I/O issue not reclassified as resolved."
+  ],
+  "deployment": {
+    "performed": false,
+    "newAdmissionDefault": "disabled",
+    "clientVersionUnchanged": true
+  },
+  "remaining": [
+    "Central execution worker with current initiating-key and model-account authorization checks",
+    "Provider execution via shared model admission, checkpoints and cancellation",
+    "Client remote executor with safe unknown/lost-response handling",
+    "CD selection and explicit source/budget approval UI",
+    "Actual central model review, packaged clients, container/Helm verification and rollout"
+  ]
+}

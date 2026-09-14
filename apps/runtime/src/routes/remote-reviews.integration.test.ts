@@ -1,0 +1,676 @@
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import path from 'node:path';
+import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createDatabase, runMigrations, type Database } from '@gcr/db';
+import { clientReviewReport, type RemoteReviewPayload } from '@gcr/client-contract';
+import { canonicalJson, contentHash } from '@gcr/client-core';
+import { loadConfig, type AppConfig } from '../config.js';
+import { registerAuthentication, type AuthUser } from '../auth/index.js';
+import { registerMutationOriginGuard } from '../auth/mutation-origin.js';
+import { issueClientKey } from '../auth/client-credentials.js';
+import { AuthorizationService } from '../services/authorization.js';
+import { decryptCredential, encryptCredential } from '../services/credential-crypto.js';
+import {
+  expireRemoteReviewJobs,
+  remoteReviewEncryptionPurpose,
+} from '../services/remote-review-jobs.js';
+import { registerRemoteReviewRoutes } from './remote-reviews.js';
+
+const databaseUrl = process.env.GCR_TEST_DATABASE_URL;
+const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission', () => {
+  const schema = `gcr_remote_${randomUUID().replaceAll('-', '')}`;
+  const serverId = randomUUID(),
+    encryptionKey = randomBytes(32).toString('base64');
+  let root: Database, db: Database, app: ReturnType<typeof Fastify>, config: AppConfig;
+  let tenant: string, repo: string, otherRepo: string, account: string;
+  let authorization: AuthorizationService;
+  let beforeAdmission: (() => Promise<void>) | undefined;
+  let origin: string;
+  let holdReceipt: (() => Promise<void>) | undefined;
+  const users = new Map<string, { user: AuthUser; session: string }>();
+  const base = () => `/api/v1/repositories/${repo}/remote-reviews`;
+  const headers = (token: string) => ({
+    authorization: `Bearer ${token}`,
+    'x-gcr-server-id': serverId,
+  });
+  const key = async (
+    name = 'alice',
+    scopes = ['knowledge:read', 'ai:invoke'],
+    repository = repo,
+  ) => {
+    const actor = users.get(name)!;
+    return issueClientKey(db, {
+      user: actor.user,
+      sessionToken: actor.session,
+      serverId,
+      authMode: 'local',
+      requestId: randomUUID(),
+      input: {
+        name: 'Synthetic fixture',
+        clientId: 'commit-defender',
+        tenantId: tenant,
+        repositoryIds: [repository],
+        scopes,
+        lifetimeDays: 30,
+      },
+    });
+  };
+  const input = (name = 'alice', repository = repo) => {
+    const text = 'export const reviewed = "synthetic-source-only";\n';
+    const payload: RemoteReviewPayload = {
+      schemaVersion: 1,
+      requestId: randomUUID(),
+      executor: 'central',
+      clientId: 'commit-defender',
+      audience: {
+        serverId,
+        tenantId: tenant,
+        repositoryId: repository,
+        userId: users.get(name)!.user.id,
+      },
+      client: {
+        mode: 'standalone',
+        profileId: 'test',
+        repositoryKey: 'a'.repeat(64),
+        worktreeKey: 'b'.repeat(64),
+      },
+      model: { accountId: account, name: 'gpt-6-astra', reasoningEffort: 'xhigh' },
+      source: {
+        provenance: 'client-captured',
+        snapshot: {
+          kind: 'working-tree',
+          hash: 'c'.repeat(64),
+          objectFormat: 'sha1',
+          baseCommit: null,
+          baseTree: 'd'.repeat(40),
+        },
+        files: [
+          {
+            metadata: {
+              path: 'app.ts',
+              side: 'source',
+              hash: hash(text),
+              byteLength: Buffer.byteLength(text),
+              lineCount: 2,
+            },
+            text,
+          },
+        ],
+        selected: [{ path: 'app.ts', side: 'source' }],
+      },
+      context: { provenance: 'client-supplied', documents: [] },
+      budget: {
+        modelCalls: 2,
+        durationMs: 120000,
+        sourceBytes: 1048576,
+        toolCalls: 100,
+        outputTokensPerCall: 4096,
+      },
+      retention: { sourceSeconds: 3600, resultSeconds: 86400 },
+    };
+    return {
+      payload,
+      approval: { payloadHash: contentHash(payload), approvedAt: new Date().toISOString() },
+    };
+  };
+  const approve = (value: ReturnType<typeof input>) => {
+    value.approval.payloadHash = contentHash(value.payload);
+    return value;
+  };
+  const submit = (token: string, body = input(), repository = repo) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/repositories/${repository}/remote-reviews`,
+      headers: headers(token),
+      payload: body,
+    });
+  const get = (token: string, value: ReturnType<typeof input>, kind = 'status') =>
+    app.inject({
+      url: `${base()}/${value.payload.requestId}/${kind}`,
+      headers: headers(token),
+    });
+  const cancel = (token: string, value: ReturnType<typeof input>) =>
+    app.inject({
+      method: 'POST',
+      url: `${base()}/${value.payload.requestId}/cancel`,
+      headers: headers(token),
+      payload: {
+        schemaVersion: 1,
+        requestId: value.payload.requestId,
+        payloadHash: value.approval.payloadHash,
+      },
+    });
+  beforeAll(async () => {
+    const url = new URL(databaseUrl!);
+    if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
+      throw Error('Owned local fixture only');
+    root = createDatabase(url.href);
+    await root.query(`create schema ${schema}`);
+    url.searchParams.set('options', `-c search_path=${schema}`);
+    db = createDatabase(url.href);
+    await runMigrations(db, path.resolve('packages/db/migrations'));
+    config = loadConfig({
+      DATABASE_URL: url.href,
+      NODE_ENV: 'test',
+      AUTH_MODE: 'local',
+      PUBLIC_BASE_URL: 'http://127.0.0.1',
+      CLIENT_API_KEYS_ENABLED: 'true',
+      KNOWLEDGE_PUBLICATION_ENABLED: 'true',
+      KNOWLEDGE_DISTRIBUTION_ENABLED: 'true',
+      KNOWLEDGE_SERVER_ID: serverId,
+      KNOWLEDGE_SIGNING_KEY_ID: 'fixture',
+      KNOWLEDGE_SIGNING_KEY_FILE: '/synthetic-not-read',
+      LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'fixture-admin',
+      LOCAL_BOOTSTRAP_ADMIN_PASSWORD: 'Synthetic-password-2026!',
+      CREDENTIAL_REGISTRY_ENABLED: 'true',
+      CREDENTIAL_ENCRYPTION_KEY: encryptionKey,
+      MODEL_ADMISSION_ENABLED: 'true',
+      REMOTE_REVIEWS_ENABLED: 'true',
+    });
+    tenant = (
+      await db.query(
+        "insert into tenants(slug,display_name) values('remote-test','Remote test') returning id",
+      )
+    ).rows[0].id;
+    const instance = (
+      await db.query(
+        "insert into github_instances(name,api_base_url,web_base_url) values('fixture','https://fixture.invalid/api','https://fixture.invalid') returning id",
+      )
+    ).rows[0].id;
+    const repository = async (id: string) =>
+      (
+        await db.query(
+          "insert into repositories(tenant_id,instance_id,github_id,installation_id,owner,name,polling_enabled) values($1,$2,$3::bigint,'1','fixture',$3::text,false) returning id",
+          [tenant, instance, id],
+        )
+      ).rows[0].id;
+    repo = await repository('1');
+    otherRepo = await repository('2');
+    for (const name of ['alice', 'bob']) {
+      const subject = `local:${name}`;
+      const id = (
+        await db.query(
+          "insert into users(oidc_subject,display_name,role) values($1,$1,'reviewer') returning id",
+          [subject],
+        )
+      ).rows[0].id;
+      await db.query('insert into tenant_memberships(tenant_id,user_id) values($1,$2)', [
+        tenant,
+        id,
+      ]);
+      for (const repository of [repo, otherRepo])
+        await db.query(
+          "insert into repository_grants(repository_id,subject_or_group,role) values($1,$2,'reviewer')",
+          [repository, subject],
+        );
+      await db.query(
+        'insert into local_credentials(user_id,username,password_hash) values($1,$2,$3)',
+        [id, name, 'unused-synthetic-hash'],
+      );
+      const session = randomBytes(32).toString('base64url');
+      await db.query(
+        "insert into user_sessions(id_hash,user_id,expires_at) values($1,$2,clock_timestamp()+interval '1 hour')",
+        [hash(session), id],
+      );
+      users.set(name, {
+        session,
+        user: {
+          id,
+          subject,
+          displayName: name,
+          role: 'reviewer',
+          groups: [],
+          enabled: true,
+          tenantIds: [tenant],
+          tenants: [],
+        },
+      });
+    }
+    const encrypted = encryptCredential(
+      'synthetic-account-never-used-for-model',
+      encryptionKey,
+      'fixture',
+    );
+    account = (
+      await db.query(
+        `insert into chat_accounts(display_name,provider_type,credential_ciphertext,credential_iv,credential_auth_tag,credential_fingerprint,created_by)
+      values('Fixture central account','chatgpt-account',$1,$2,$3,$4,$5) returning id`,
+        [
+          encrypted.credentialCiphertext,
+          encrypted.credentialIv,
+          encrypted.credentialAuthTag,
+          hash('fixture'),
+          users.get('alice')!.user.id,
+        ],
+      )
+    ).rows[0].id;
+    await db.query(
+      "insert into chat_account_models(account_id,model_id,display_name,allowed_efforts,default_effort) values($1,'gpt-6-astra','Astra',array['high','xhigh'],'xhigh')",
+      [account],
+    );
+    for (const actor of users.values())
+      await db.query(
+        "insert into chat_account_assignments(account_id,scope_type,scope_id,created_by) values($1,'user',($2::uuid)::text,$2::uuid)",
+        [account, actor.user.id],
+      );
+    app = Fastify();
+    app.addHook(
+      'onSend',
+      async (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
+        if (
+          request.method === 'POST' &&
+          request.url.endsWith('/remote-reviews') &&
+          reply.statusCode === 201 &&
+          holdReceipt
+        ) {
+          const wait = holdReceipt;
+          holdReceipt = undefined;
+          await wait();
+        }
+        return payload;
+      },
+    );
+    registerMutationOriginGuard(app, { ...config, NODE_ENV: 'production' });
+    await registerAuthentication(app, config, db);
+    app.addHook('preHandler', async (request: FastifyRequest) => {
+      if (request.method === 'POST' && request.url.endsWith('/remote-reviews') && beforeAdmission) {
+        const action = beforeAdmission;
+        beforeAdmission = undefined;
+        await action();
+      }
+    });
+    authorization = new AuthorizationService(config);
+    await registerRemoteReviewRoutes(app, db, config, authorization);
+    origin = await app.listen({ host: '127.0.0.1', port: 0 });
+  }, 30000);
+  beforeEach(async () => {
+    beforeAdmission = undefined;
+    holdReceipt = undefined;
+    await db.query('delete from client_review_jobs');
+    await db.query('delete from client_api_keys');
+    config.REMOTE_REVIEWS_ENABLED = true;
+    config.REMOTE_REVIEW_USER_HOURLY_CALLS = 60;
+    config.REMOTE_REVIEW_REPOSITORY_HOURLY_CALLS = 300;
+    await db.query('update chat_account_assignments set enabled=true');
+    await db.query('update chat_accounts set enabled=true,deleted_at=null');
+    await db.query('update chat_account_models set enabled=true');
+  });
+  afterAll(async () => {
+    await app?.close();
+    await db?.end();
+    if (root) {
+      await root.query(`drop schema ${schema} cascade`);
+      await root.end();
+    }
+  });
+  it('stores encrypted source once and recovers a lost acknowledgement by client request ID after key rotation', async () => {
+    const first = await key(),
+      body = input();
+    const response = await submit(first.token, body);
+    expect(response.statusCode, response.body).toBe(201);
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    const row = (await db.query('select * from client_review_jobs')).rows[0];
+    expect(JSON.stringify(row)).not.toContain('synthetic-source-only');
+    expect(JSON.stringify(row)).not.toContain(first.token);
+    const decoded = decryptCredential(
+      {
+        credentialCiphertext: row.source_ciphertext,
+        credentialIv: row.source_iv,
+        credentialAuthTag: row.source_tag,
+      },
+      encryptionKey,
+      remoteReviewEncryptionPurpose(row.id, row.payload_hash, 'source'),
+    );
+    expect(JSON.parse(decoded)).toEqual(body.payload);
+    expect(response.body).not.toContain('credential');
+    expect(response.body).not.toContain('synthetic-source-only');
+    await db.query('update client_api_keys set revoked_at=clock_timestamp() where id=$1', [
+      first.id,
+    ]);
+    const replacement = await key();
+    expect((await get(replacement.token, body)).json()).toEqual(response.json());
+    body.approval.approvedAt = '2020-01-01T00:00:00.000Z';
+    const retry = await submit(replacement.token, body);
+    expect(retry.statusCode, retry.body).toBe(200);
+    expect(retry.json()).toEqual(response.json());
+    expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('1');
+    expect(
+      (await db.query("select count(*) from audit_events where action='remote-review.submit'"))
+        .rows[0].count,
+    ).toBe('1');
+  });
+  it('rejects reusing a request ID for changed source, model, account or budget', async () => {
+    const auth = await key(),
+      body = input();
+    expect((await submit(auth.token, body)).statusCode).toBe(201);
+    for (const field of ['source', 'model', 'account', 'budget']) {
+      const changed = structuredClone(body);
+      if (field === 'source') changed.payload.source.snapshot.hash = 'e'.repeat(64);
+      if (field === 'model') changed.payload.model.reasoningEffort = 'high';
+      if (field === 'account') changed.payload.model.accountId = randomUUID();
+      if (field === 'budget') changed.payload.budget.modelCalls++;
+      expect((await submit(auth.token, approve(changed))).statusCode).toBe(409);
+    }
+  });
+  it('recovers a committed job after the native HTTP caller disconnects before receiving its receipt', async () => {
+    const auth = await key(),
+      body = input(),
+      controller = new AbortController();
+    let accepted!: () => void, release!: () => void;
+    const committed = new Promise<void>((resolve) => {
+      accepted = resolve;
+    });
+    const sending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    holdReceipt = async () => {
+      accepted();
+      await sending;
+    };
+    try {
+      const disconnected = fetch(`${origin}${base()}`, {
+        method: 'POST',
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(3000)]),
+        headers: { ...headers(auth.token), 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(
+        () => false,
+        () => true,
+      );
+      await Promise.race([
+        committed,
+        disconnected.then(() => {
+          throw Error('Request did not reach receipt barrier');
+        }),
+      ]);
+      controller.abort();
+      expect(await disconnected).toBe(true);
+      release();
+      const status = await fetch(`${origin}${base()}/${body.payload.requestId}/status`, {
+        headers: headers(auth.token),
+      });
+      expect(status.status).toBe(200);
+      expect(((await status.json()) as { state: string }).state).toBe('queued');
+      const retry = await fetch(`${origin}${base()}`, {
+        method: 'POST',
+        headers: { ...headers(auth.token), 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      expect(retry.status).toBe(200);
+      await retry.arrayBuffer();
+      expect(
+        (
+          await db.query(
+            'select count(*),sum(reserved_model_calls) as calls from client_review_jobs',
+          )
+        ).rows[0],
+      ).toEqual({ count: '1', calls: '2' });
+    } finally {
+      controller.abort();
+      release();
+    }
+  });
+  it('does not double reserve simultaneous identical submissions', async () => {
+    const auth = await key(),
+      body = input();
+    const responses = await Promise.all([submit(auth.token, body), submit(auth.token, body)]);
+    expect(responses.map((response) => response.statusCode)).toContain(201);
+    expect(responses.every((response) => [200, 201, 409].includes(response.statusCode))).toBe(true);
+    expect((await submit(auth.token, body)).statusCode).toBe(200);
+    const row = (
+      await db.query('select count(*),sum(reserved_model_calls) as calls from client_review_jobs')
+    ).rows[0];
+    expect(row).toEqual({ count: '1', calls: '2' });
+  });
+  it('enforces scope, current repository access, owner, audience and client boundaries on actual routes', async () => {
+    const auth = await key(),
+      readOnly = await key('alice', ['knowledge:read']),
+      bob = await key('bob'),
+      body = input();
+    expect((await submit(readOnly.token, body)).statusCode).toBe(403);
+    expect((await submit(auth.token, body)).statusCode).toBe(201);
+    expect((await get(readOnly.token, body)).statusCode).toBe(200);
+    expect((await get(bob.token, body)).statusCode).toBe(404);
+    expect((await cancel(bob.token, body)).statusCode).toBe(404);
+    expect((await cancel(readOnly.token, body)).statusCode).toBe(403);
+    const changed = input();
+    changed.payload.audience.userId = users.get('bob')!.user.id;
+    expect((await submit(auth.token, approve(changed))).statusCode).toBe(403);
+    const other = await key('alice', ['knowledge:read', 'ai:invoke'], otherRepo);
+    expect((await submit(other.token, input('alice', otherRepo))).statusCode).toBe(403);
+    await db.query(
+      "update repository_grants set role='viewer' where repository_id=$1 and subject_or_group=$2",
+      [repo, users.get('alice')!.user.subject],
+    );
+    try {
+      expect((await submit(auth.token, input())).statusCode).toBe(403);
+    } finally {
+      await db.query(
+        "update repository_grants set role='reviewer' where repository_id=$1 and subject_or_group=$2",
+        [repo, users.get('alice')!.user.subject],
+      );
+    }
+  });
+  it('checks account/model grants at admission without decrypting or invoking the account', async () => {
+    const auth = await key();
+    for (const table of ['chat_account_assignments', 'chat_accounts', 'chat_account_models']) {
+      await db.query(`update ${table} set enabled=false`);
+      expect((await submit(auth.token)).statusCode).toBe(403);
+      await db.query(`update ${table} set enabled=true`);
+    }
+    const unsupported = input();
+    unsupported.payload.model.reasoningEffort = 'low';
+    expect((await submit(auth.token, approve(unsupported))).statusCode).toBe(403);
+    expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('0');
+  });
+  it('rechecks the actual key inside the write transaction after initial HTTP authentication', async () => {
+    const auth = await key();
+    beforeAdmission = async () => {
+      await db.query('update client_api_keys set revoked_at=clock_timestamp() where id=$1', [
+        auth.id,
+      ]);
+    };
+    const response = await submit(auth.token);
+    expect(response.statusCode, response.body).toBe(403);
+    expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('0');
+  });
+  it('requires an affirmative external authorization decision and fails closed on backend failure', async () => {
+    const auth = await key();
+    const decision = vi.spyOn(authorization, 'isAllowed').mockResolvedValue(false);
+    try {
+      expect((await submit(auth.token)).statusCode).toBe(403);
+      expect(decision.mock.calls[0]![1]).toBe('chat');
+      decision.mockRejectedValue(Error('synthetic-private-backend-diagnostic'));
+      const response = await submit(auth.token);
+      expect(response.statusCode).toBe(503);
+      expect(response.body).not.toContain('synthetic-private');
+      expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('0');
+    } finally {
+      decision.mockRestore();
+    }
+  });
+  it('rejects stale approval, modified bytes, oversized uploads and hostile browser origin', async () => {
+    const auth = await key(),
+      stale = input();
+    stale.approval.approvedAt = '2020-01-01T00:00:00.000Z';
+    expect((await submit(auth.token, stale)).statusCode).toBe(409);
+    const tampered = input();
+    tampered.payload.source.files[0]!.text += 'modified';
+    expect((await submit(auth.token, tampered)).statusCode).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: base(),
+          headers: { ...headers(auth.token), 'content-type': 'application/json' },
+          payload: JSON.stringify({ oversized: 'a'.repeat(9 * 1024 * 1024) }),
+        })
+      ).statusCode,
+    ).toBe(413);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: base(),
+          headers: { ...headers(auth.token), origin: 'https://attacker.invalid' },
+          payload: input(),
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('0');
+  });
+  it('reserves a user budget across keys and repositories without refunding cancellation or charging retries', async () => {
+    config.REMOTE_REVIEW_USER_HOURLY_CALLS = 2;
+    const first = await key(),
+      second = await key(),
+      elsewhere = await key('alice', ['knowledge:read', 'ai:invoke'], otherRepo),
+      body = input();
+    expect((await submit(first.token, body)).statusCode).toBe(201);
+    expect((await submit(second.token, body)).statusCode).toBe(200);
+    expect((await cancel(first.token, body)).json().state).toBe('cancelled');
+    expect((await submit(second.token)).statusCode).toBe(429);
+    expect((await submit(elsewhere.token, input('alice', otherRepo), otherRepo)).statusCode).toBe(
+      429,
+    );
+  });
+  it('reserves a repository budget across users and caps active jobs', async () => {
+    const alice = await key(),
+      bob = await key('bob');
+    config.REMOTE_REVIEW_REPOSITORY_HOURLY_CALLS = 2;
+    expect((await submit(alice.token)).statusCode).toBe(201);
+    expect((await submit(bob.token, input('bob'))).statusCode).toBe(429);
+    config.REMOTE_REVIEW_REPOSITORY_HOURLY_CALLS = 300;
+    for (let count = 1; count < 4; count++)
+      expect((await submit(alice.token)).statusCode).toBe(201);
+    expect((await submit(alice.token)).statusCode).toBe(429);
+  });
+  it('cancels a queued job idempotently, erases source, and preserves the replay fence', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    await expect(
+      db.query("update client_review_jobs set state='failed',reason=null"),
+    ).rejects.toMatchObject({ code: '23514' });
+    expect((await get(auth.token, body, 'result')).statusCode).toBe(409);
+    const changed = structuredClone(body);
+    changed.approval.payloadHash = '0'.repeat(64);
+    expect((await cancel(auth.token, changed)).statusCode).toBe(409);
+    const response = await cancel(auth.token, body);
+    expect(response.json().state).toBe('cancelled');
+    expect((await cancel(auth.token, body)).json()).toEqual(response.json());
+    expect((await submit(auth.token, body)).json().state).toBe('cancelled');
+    const row = (
+      await db.query('select source_ciphertext,source_iv,source_tag from client_review_jobs')
+    ).rows[0];
+    expect(Object.values(row)).toEqual([null, null, null]);
+  });
+  it('keeps running cancellation pending and marks lost execution uncertain when source expires', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    await db.query("update client_review_jobs set state='running'");
+    expect((await cancel(auth.token, body)).json().state).toBe('cancel-requested');
+    await db.query(
+      "update client_review_jobs set received_at=clock_timestamp()-interval '2 hours',source_expires_at=clock_timestamp()-interval '1 hour'",
+    );
+    expect(await expireRemoteReviewJobs(db)).toBe(1);
+    const receipt = (await get(auth.token, body)).json();
+    expect(receipt.state).toBe('uncertain');
+    expect(receipt.reason).toBe('execution-lost');
+    expect((await submit(auth.token, body)).json().state).toBe('uncertain');
+  });
+  it('expires queued source and retains only the receipt without allowing re-enqueue', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    await db.query(
+      "update client_review_jobs set received_at=clock_timestamp()-interval '2 hours',source_expires_at=clock_timestamp()-interval '1 hour'",
+    );
+    expect((await get(auth.token, body)).json().state).toBe('expired');
+    expect(
+      (await db.query('select source_ciphertext from client_review_jobs')).rows[0]
+        .source_ciphertext,
+    ).toBe(null);
+    expect((await submit(auth.token, body)).json().state).toBe('expired');
+  });
+  it('allows receipt recovery and cancellation when new central admission is disabled', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    config.REMOTE_REVIEWS_ENABLED = false;
+    expect((await submit(auth.token)).statusCode).toBe(503);
+    expect((await submit(auth.token, body)).statusCode).toBe(200);
+    expect((await get(auth.token, body)).statusCode).toBe(200);
+    expect((await cancel(auth.token, body)).json().state).toBe('cancelled');
+  });
+  it('decrypts a completed fixture report, detects substitution and purges expired results', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    const row = (await db.query('select * from client_review_jobs')).rows[0];
+    const source = body.payload.source.files[0]!.metadata,
+      at = new Date().toISOString();
+    const report = clientReviewReport({
+      contractVersion: 1,
+      runId: randomUUID(),
+      identity: {
+        client: body.payload.client,
+        source: body.payload.source.snapshot,
+        context: { hash: contentHash(body.payload.context), entries: [], required: [] },
+        reviewProfile: { id: 'fixture', revision: 1, hash: hash('profile') },
+        executor: {
+          id: 'central',
+          version: 'fixture',
+          model: 'gpt-6-astra',
+          configHash: hash('executor'),
+        },
+        toolsHash: hash('tools'),
+      },
+      status: 'completed',
+      trigger: 'manual',
+      requestedAt: at,
+      startedAt: at,
+      finishedAt: at,
+      durationMs: 0,
+      summary: 'Synthetic result fixture',
+      sourceFiles: [source],
+      files: [{ source, status: 'completed', summary: 'Synthetic coverage' }],
+      excluded: [],
+      problems: [],
+      findings: [],
+      evidence: [],
+      questions: [],
+    });
+    const encrypted = encryptCredential(
+      canonicalJson(report),
+      encryptionKey,
+      remoteReviewEncryptionPurpose(row.id, row.payload_hash, 'result'),
+    );
+    await db.query(
+      "update client_review_jobs set state='completed',report_hash=$1,result_ciphertext=$2,result_iv=$3,result_tag=$4,source_ciphertext=null,source_iv=null,source_tag=null",
+      [
+        contentHash(report),
+        encrypted.credentialCiphertext,
+        encrypted.credentialIv,
+        encrypted.credentialAuthTag,
+      ],
+    );
+    const result = await get(auth.token, body, 'result');
+    expect(result.statusCode, result.body).toBe(200);
+    expect(result.json().report).toEqual(report);
+    await db.query('update client_review_jobs set report_hash=$1', ['0'.repeat(64)]);
+    expect((await get(auth.token, body, 'result')).statusCode).toBe(503);
+    await db.query(
+      "update client_review_jobs set received_at=clock_timestamp()-interval '3 hours',source_expires_at=clock_timestamp()-interval '2 hours',result_expires_at=clock_timestamp()-interval '1 hour'",
+    );
+    expect(await expireRemoteReviewJobs(db)).toBe(1);
+    expect((await get(auth.token, body, 'result')).statusCode).toBe(410);
+    expect((await get(auth.token, body)).json().reason).toBe('result-expired');
+    expect(
+      (await db.query('select result_ciphertext,result_iv,result_tag from client_review_jobs'))
+        .rows[0],
+    ).toEqual({ result_ciphertext: null, result_iv: null, result_tag: null });
+  });
+});

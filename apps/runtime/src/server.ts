@@ -28,6 +28,7 @@ import type { KeycloakAdminClient } from './identity/keycloak-admin.js';
 import { registerAccountRegistryRoutes } from './routes/account-registry.js';
 import { registerReviewMemoryRoutes } from './routes/review-memory.js';
 import { registerReviewSubmissionRoutes } from './routes/review-submissions.js';
+import { registerRemoteReviewRoutes } from './routes/remote-reviews.js';
 import { registerKnowledgeRoutes } from './routes/review-knowledge.js';
 import { loadKnowledgeSigner } from './services/knowledge-manifest.js';
 import { registerReviewCriteriaRoutes } from './routes/review-criteria.js';
@@ -206,6 +207,7 @@ export async function buildServer(
   await registerReviewCriteriaRoutes(app, database, authorization, config);
   await registerKnowledgeRoutes(app, database, authorization, artifacts, knowledgeSigner);
   await registerReviewSubmissionRoutes(app, database, config, authorization);
+  await registerRemoteReviewRoutes(app, database, config, authorization);
 
   app.get('/health/startup', async () => ({ status: 'ok', schemaVersion }));
   app.get('/health/live', async () => ({ status: 'ok', schemaVersion }));

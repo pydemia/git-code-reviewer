@@ -17,6 +17,7 @@
     "@gcr/analysis-engine": "workspace:*",
     "@gcr/artifact-store": "workspace:*",
     "@gcr/client-contract": "workspace:*",
+    "@gcr/client-core": "workspace:*",
     "@gcr/contracts": "workspace:*",
     "@gcr/db": "workspace:*",
     "@gcr/git-engine": "workspace:*",

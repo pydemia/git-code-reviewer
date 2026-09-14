@@ -88,6 +88,9 @@ const configSchema = z.object({
   CREDENTIAL_REGISTRY_ENABLED: booleanString,
   KNOWLEDGE_PUBLICATION_ENABLED: booleanString,
   CLIENT_API_KEYS_ENABLED: booleanString,
+  REMOTE_REVIEWS_ENABLED: booleanString,
+  REMOTE_REVIEW_USER_HOURLY_CALLS: z.coerce.number().int().min(1).max(10000).default(60),
+  REMOTE_REVIEW_REPOSITORY_HOURLY_CALLS: z.coerce.number().int().min(1).max(100000).default(300),
   CLIENT_CONNECTION_CA_FILE: z.string().min(1).optional(),
   KNOWLEDGE_DISTRIBUTION_ENABLED: booleanString,
   KNOWLEDGE_SERVER_ID: z.string().uuid().optional(),
@@ -245,6 +248,19 @@ export function loadConfig(
         'Invalid configuration: client API keys require knowledge distribution, local/SAML authentication and an HTTPS public origin',
       );
   }
+  if (
+    ['serve', 'worker'].includes(command) &&
+    result.data.REMOTE_REVIEWS_ENABLED &&
+    (!result.data.CLIENT_API_KEYS_ENABLED ||
+      !result.data.KNOWLEDGE_SERVER_ID ||
+      !['local', 'saml'].includes(result.data.AUTH_MODE) ||
+      !result.data.CREDENTIAL_REGISTRY_ENABLED ||
+      !result.data.MODEL_ADMISSION_ENABLED ||
+      !validEncryptionKey(result.data.CREDENTIAL_ENCRYPTION_KEY))
+  )
+    throw Error(
+      'Invalid configuration: remote reviews require client keys, server identity, local/SAML authentication, encrypted account registry and model admission',
+    );
   if (result.data.DATABASE_ISOLATED_ROLES && result.data.DATABASE_TLS_MODE !== 'verify-full')
     throw Error('Invalid configuration: isolated database roles require verify-full TLS');
   if (result.data.DATABASE_TLS_MODE === 'verify-full' && !result.data.DATABASE_TLS_CA_FILE)

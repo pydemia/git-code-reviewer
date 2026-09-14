@@ -52,6 +52,9 @@ COPY --from=build --chown=node:node /app/apps/runtime/dist ./apps/runtime/dist
 COPY --from=build --chown=node:node /app/apps/web/dist ./apps/web/dist
 COPY --from=build --chown=node:node /app/packages/client-contract/package.json ./packages/client-contract/package.json
 COPY --from=build --chown=node:node /app/packages/client-contract/dist ./packages/client-contract/dist
+COPY --from=build --chown=node:node /app/packages/client-core/package.json ./packages/client-core/package.json
+COPY --from=build --chown=node:node /app/packages/client-core/node_modules ./packages/client-core/node_modules
+COPY --from=build --chown=node:node /app/packages/client-core/dist ./packages/client-core/dist
 COPY --from=build --chown=node:node /app/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=build --chown=node:node /app/packages/contracts/node_modules ./packages/contracts/node_modules
 COPY --from=build --chown=node:node /app/packages/contracts/dist ./packages/contracts/dist
