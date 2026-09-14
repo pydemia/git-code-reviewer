@@ -5,7 +5,7 @@ import { readSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { captureLocalSource } from './source-snapshot.js';
+import { captureLocalSource, restoreLocalSource } from './source-snapshot.js';
 import { sourcePathPolicy } from './source-policy.js';
 import { SourceGit } from './source-git.js';
 
@@ -691,6 +691,63 @@ describe('exact committed source for push reviews', () => {
         } finally {
           captured.close();
         }
+      }),
+    20000,
+  );
+});
+
+describe('durable fixed source payloads', () => {
+  it(
+    'restores exact reads after the original repository and temporary index are gone',
+    () =>
+      fixture((f) => {
+        f.write('a.ts', 'export const before=1;\n');
+        f.commit();
+        f.write('a.ts', 'export const after=2;\n');
+        f.git('add', '.');
+        const source = captureLocalSource({ cwd: f.repo, kind: 'index' }),
+          frozen = source.freeze(),
+          expected = source.identity;
+        source.close();
+        fs.rmSync(f.repo, { recursive: true, force: true });
+        const restored = restoreLocalSource(JSON.parse(JSON.stringify(frozen)));
+        try {
+          expect(restored.identity).toEqual(expected);
+          expect(restored.readFile('a.ts')).toMatchObject({
+            status: 'available',
+            text: 'export const after=2;\n',
+          });
+          expect(restored.readFile('a.ts', 'base')).toMatchObject({
+            text: 'export const before=1;\n',
+          });
+          expect(restored.freeze()).toEqual(frozen);
+        } finally {
+          restored.close();
+        }
+      }),
+    20000,
+  );
+  it(
+    'rejects changed source bytes, patches and selected paths before restoring a payload',
+    () =>
+      fixture((f) => {
+        f.write('a.ts', 'export const before=1;\n');
+        f.commit();
+        f.write('a.ts', 'export const after=2;\n');
+        f.git('add', '.');
+        const source = captureLocalSource({ cwd: f.repo, kind: 'index' });
+        const frozen = source.freeze();
+        source.close();
+        const corrupt = structuredClone(frozen);
+        corrupt.files[0]!.text += 'tampered';
+        expect(() => restoreLocalSource(corrupt)).toThrow();
+        expect(() => restoreLocalSource({ ...frozen, diff: frozen.diff + 'tampered' })).toThrow();
+        expect(() =>
+          restoreLocalSource({
+            ...frozen,
+            selected: [{ path: '../private', side: 'source', status: 'M' }],
+          }),
+        ).toThrow();
       }),
     20000,
   );

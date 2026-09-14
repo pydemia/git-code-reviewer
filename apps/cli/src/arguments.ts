@@ -17,6 +17,11 @@ Commands:
   context                              Fixed snapshot and active knowledge selection
   review                               Review and save an encrypted terminal report
   push-review                          Review every ref from pre-push stdin (foreground)
+  service start|run|status|stop          Manage the profile's independent local service
+  service allow|revoke|registrations    Explicit worktree trigger/model authorization
+  service job|cancel --id <receipt-id> Inspect or cancel an asynchronous request
+  enqueue                              Capture source and return a durable service receipt
+  enqueue-push                         Capture every pre-push ref and enqueue fixed source
   requests                             Inspect durable review ownership and outcomes
   result <run-id>                       Read a saved report (same review exit code)
   history                              List saved review summaries
@@ -42,9 +47,12 @@ Snapshot: --source index|working-tree|commit-tree (default index) --base <ref>
           --exclude <glob> --require-source <source|base>:<path> --require-knowledge <id>
 Review: --executor-path <codex-binary> --model gpt-6-astra --reasoning-effort xhigh
         --retry-finished (explicitly rerun a saved terminal review)
-        --trigger manual|commit|push (default manual; records the invocation reason)
+        --trigger manual|work_completed|save|stage|commit|push (default manual)
         --allow-path <glob> (default **; includes fixed base and related files)
         --timeout-ms <1..600000> --source-bytes <1..33554432> --tool-calls <1..1000>
+Service: allow requires explicit --trigger values (repeatable; replaces previous grants).
+         enqueue/enqueue-push use registered settings and accept --request-id <UUID>.
+         Exit 0 from enqueue confirms durable receipt, not review completion.
 
 review explicitly permits the selected account executor to read the approved fixed
 repository snapshot and selected knowledge. Standalone never contacts a central server.
@@ -97,6 +105,28 @@ const allowed: Record<string, string[]> = {
     'source-bytes',
     'tool-calls',
   ],
+  service: [
+    'trigger',
+    ...executor,
+    'exclude',
+    'allow-path',
+    'timeout-ms',
+    'source-bytes',
+    'tool-calls',
+    'id',
+  ],
+  enqueue: [
+    'trigger',
+    'request-id',
+    'source',
+    'index-file',
+    'source-commit',
+    'base-commit',
+    'target-branch',
+    'path',
+    'include-untracked',
+  ],
+  'enqueue-push': ['request-id'],
   requests: [],
   result: [],
   history: [],
@@ -130,7 +160,9 @@ export function argumentsFor(argv: string[]) {
       name,
       {
         type: boolean.has(name) ? ('boolean' as const) : ('string' as const),
-        ...(multiple.has(name) ? { multiple: true } : {}),
+        ...(multiple.has(name) || (command === 'service' && name === 'trigger')
+          ? { multiple: true }
+          : {}),
       },
     ]),
   );

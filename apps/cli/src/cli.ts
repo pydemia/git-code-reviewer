@@ -8,11 +8,15 @@ import {
   localKnowledge,
   localScope,
   reviewExitCode,
+  reviewTrigger,
   sourcePath,
   type LocalScope,
 } from '@gcr/client-contract';
 import {
   captureLocalSource,
+  restoreLocalSource,
+  LocalServiceError,
+  type FrozenLocalSource,
   resolvePrePush,
   defaultLocalDataDirectory,
   discoverLocalIdentity,
@@ -43,8 +47,9 @@ import {
 } from '@gcr/client-core';
 import { ExecutorError, prepareCodexAccountExecutor } from '@gcr/client-executors';
 import { argumentsFor, CliError, help } from './arguments.js';
+import { executeServiceCommand } from './service.js';
 
-interface CliDependencies {
+export interface CliDependencies {
   cwd?: string;
   signal?: AbortSignal;
   keys?: LocalKeyStore;
@@ -55,6 +60,9 @@ interface CliDependencies {
         options: Parameters<typeof prepareCodexAccountExecutor>[0],
       ) => Promise<LocalReviewExecutor>);
   readStdin?: () => Promise<string>;
+  /** Trusted service assembly ports; never selectable through CLI arguments. */
+  frozenSource?: FrozenLocalSource;
+  entrypoint?: string;
 }
 export interface CliResult {
   value: unknown;
@@ -116,6 +124,12 @@ export async function executeCli(
       };
     const { command, values, positionals } = argumentsFor(argv);
     if (command === 'help' || values.help) return { value: help, exitCode: 0, text: true };
+    if (['service', 'enqueue', 'enqueue-push'].includes(command))
+      return await executeServiceCommand(
+        { command, values, positionals },
+        dependencies,
+        executeCli,
+      );
     const string = (name: string, fallback?: string): string | undefined => {
       const value = values[name];
       if (value === undefined) return fallback;
@@ -530,33 +544,44 @@ export async function executeCli(
     const kind = string('source', 'index');
     if (kind !== 'index' && kind !== 'working-tree' && kind !== 'commit-tree')
       throw new CliError('usage', 'Source must be index, working-tree or commit-tree.');
-    const trigger = string('trigger', 'manual');
-    if (!['manual', 'commit', 'push'].includes(trigger!))
-      throw new CliError('usage', 'Unsupported review trigger.');
+    const trigger = reviewTrigger(string('trigger', 'manual'));
     if (string('index-file') && kind !== 'index')
       throw new CliError('usage', 'An alternate index requires index source.');
     if (
       (trigger === 'commit' && kind !== 'index') ||
-      (trigger === 'push' && kind !== 'commit-tree')
+      (trigger === 'push' && kind !== 'commit-tree') ||
+      (trigger === 'stage' && kind !== 'index') ||
+      (trigger === 'save' && kind !== 'working-tree')
     )
       throw new CliError(
         'usage',
         'Commit reviews require index source; push reviews require exact commit-tree source.',
       );
-    snapshot = captureLocalSource({
-      cwd,
-      kind,
-      ...(string('base') ? { baseRef: string('base')! } : {}),
-      ...(string('source-commit') ? { sourceCommit: string('source-commit')! } : {}),
-      ...(string('base-commit')
-        ? { baseCommit: string('base-commit') === 'empty' ? null : string('base-commit')! }
-        : {}),
-      ...(string('target-branch') ? { targetBranch: string('target-branch')! } : {}),
-      ...(string('index-file') ? { indexFile: string('index-file')! } : {}),
-      ...(many('path').length ? { paths: many('path') } : {}),
-      includeUntracked: many('include-untracked'),
-      excludePatterns: many('exclude'),
-    });
+    snapshot = dependencies.frozenSource
+      ? restoreLocalSource(dependencies.frozenSource)
+      : captureLocalSource({
+          cwd,
+          kind,
+          ...(string('base') ? { baseRef: string('base')! } : {}),
+          ...(string('source-commit') ? { sourceCommit: string('source-commit')! } : {}),
+          ...(string('base-commit')
+            ? { baseCommit: string('base-commit') === 'empty' ? null : string('base-commit')! }
+            : {}),
+          ...(string('target-branch') ? { targetBranch: string('target-branch')! } : {}),
+          ...(string('index-file') ? { indexFile: string('index-file')! } : {}),
+          ...(many('path').length ? { paths: many('path') } : {}),
+          includeUntracked: many('include-untracked'),
+          excludePatterns: many('exclude'),
+        });
+    if (
+      snapshot.identity.kind !== kind ||
+      snapshot.repository.repositoryKey !== client!.repositoryKey ||
+      snapshot.repository.worktreeKey !== client!.worktreeKey
+    )
+      throw new CliError(
+        'source-scope-mismatch',
+        'The stored source does not match this repository and worktree.',
+      );
     const contextInput: LocalContextQuery = {
       client: client!,
       snapshot,
@@ -664,7 +689,7 @@ export async function executeCli(
     const result = await executeReviewRequest({
       storage: requestStorage,
       identity: resolution.policy.identity,
-      reason: trigger as 'manual' | 'commit' | 'push',
+      reason: trigger,
       retryFinished: values['retry-finished'] === true,
       ...(dependencies.signal ? { signal: dependencies.signal } : {}),
       assertValid: async () => {
@@ -682,7 +707,7 @@ export async function executeCli(
           context: context.context,
           policy: resolution.policy,
           executor,
-          trigger: trigger as 'manual' | 'commit' | 'push',
+          trigger,
           signal,
         }),
     });
@@ -729,6 +754,7 @@ export async function executeCli(
       };
     const known =
       error instanceof CliError ||
+      error instanceof LocalServiceError ||
       error instanceof LocalStoreError ||
       error instanceof ReviewRequestError ||
       error instanceof ExecutorError ||

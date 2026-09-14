@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { executeCli } from './cli.js';
+import { fileURLToPath } from 'node:url';
 
 const controller = new AbortController();
 const cancel = () => {
@@ -14,6 +15,7 @@ process.stdout.on('error', () => {
 });
 const result = await executeCli(process.argv.slice(2), {
   signal: controller.signal,
+  entrypoint: fileURLToPath(import.meta.url),
   readStdin: async () => {
     if (process.stdin.isTTY) throw new Error('stdin-required');
     const chunks: Buffer[] = [];

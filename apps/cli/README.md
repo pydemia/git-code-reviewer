@@ -126,6 +126,35 @@ gcr review --source commit-tree --source-commit <full-new-oid> --base-commit <fu
 
 Use `--base-commit empty` for a declared empty base and `--target-branch <branch>` to select branch-scoped knowledge. `--base <ref>` retains its existing merge-base semantics for index/working-tree reviews and cannot be combined with commit-tree capture.
 
-These commands wait for the review and retain normal review exit codes (0 complete/no follow-up, 1 findings/questions, 2 incomplete/error). They are not the asynchronous advisory hook adapter. Do not install them directly as a pre-commit/pre-push hook unless you intend their waiting and exit behavior. The independent service, default advisory enqueue, and managed hook installation are separate integration work.
+These commands wait for the review and retain normal review exit codes (0 complete/no follow-up, 1 findings/questions, 2 incomplete/error). Do not install them directly as a pre-commit/pre-push hook unless you intend their waiting and exit behavior. The service commands below provide asynchronous enqueue; managed hook installation remains separate integration work.
 
 The input format follows [Git's pre-push contract](https://git-scm.com/docs/githooks#_pre_push). `scripts/verify-hook-reviews.mjs` verifies a packaged CLI using temporary foreground advisory adapters, a partial commit and a local bare remote, with an explicitly supplied Codex executable. It does not install hooks into the user's repository.
+
+## 독립 백그라운드 리뷰 서비스
+
+```sh
+gcr service start --profile default
+gcr service allow --cwd /path/to/repo --trigger commit --trigger push \
+  --executor-path /absolute/path/to/codex --model gpt-6-astra --reasoning-effort xhigh
+gcr enqueue --cwd /path/to/repo --trigger commit
+# 실제 pre-push hook의 stdin을 그대로 전달한다.
+gcr enqueue-push --cwd /path/to/repo
+gcr service status
+gcr service job --id RECEIPT_ID
+gcr result RUN_ID --cwd /path/to/repo
+gcr service cancel --id RECEIPT_ID
+gcr service revoke --cwd /path/to/repo
+gcr service stop
+```
+
+`start`는 현재 Node와 설치된 CLI 진입점으로 별도 프로세스를 시작한다. 같은 profile·data directory의 서비스가 살아 있으면 기존 PID를 반환한다. `run`은 foreground 실행이며 Ctrl+C/SIGTERM으로 종료한다. 시작한 서비스는 CLI나 hook 종료 후에도 동작하지만 OS 로그인 자동 시작이나 종료 후 자동 재기동은 아직 제공하지 않는다. 시작 관측 시간이 초과되면 `status`로 기존 프로세스 상태를 확인한다.
+
+신규 서비스는 어떤 저장소의 자동 리뷰도 허용하지 않는다. `allow`가 지정한 worktree의 trigger 목록과 실행 설정을 암호화해 저장한다. 다시 `allow`하면 목록 전체를 교체하며 실행 중인 이전 등록은 취소하고 대기 요청은 폐기한다. `revoke`는 허용 목록을 비운다. 저장소 설정 파일이나 enqueue 호출자는 모델·계정·전송 범위를 변경할 수 없다. 중앙 모드는 `allow --mode centralized --connection ID`로 명시하며 실행 시 현재 연결과 지식을 확인한다.
+
+`enqueue`는 호출 시점 source/base와 관련 파일을 고정하고 암호화한 payload의 저장을 확인한 뒤 receipt를 반환한다. Commit의 임시 index가 이후 삭제돼도 고정 바이트로 실행한다. `enqueue-push`는 stdin의 모든 ref를 먼저 해석하고 ref별 receipt 또는 unsupported/삭제/변경 없음 상태를 남긴다. 접수의 `exit 0`과 `reviewCompletion: not-awaited`는 리뷰 완료를 뜻하지 않는다. 완료 상태와 `runId`는 `service job`에서 확인한다. 서비스 없음·등록되지 않은 trigger·저장 실패는 exit 2다. Git 진행을 보장하는 advisory hook은 이 종료 코드와 Git 정책을 별도로 처리해야 한다.
+
+`--request-id UUID`는 응답 유실 시 같은 입력의 접수를 식별한다. 같은 UUID에 다른 입력을 보내면 거부한다. 서로 다른 receipt의 모델 실행은 기존 공통 요청 기록이 전체 source/context/executor identity로 중복을 판단한다. 프로세스 재시작 시 queued 요청은 복원하지만 이미 running이던 요청은 interrupted로 남기고 자동 재호출하지 않는다. `cancel`로 queued/interrupted payload를 정리할 수 있다. 실행 중 취소는 terminal 보고서를 만든 뒤 결과 상태를 기록한다.
+
+IPC는 macOS/Linux의 사용자 전용 Unix socket(0600, 상위 디렉터리 0700)을 사용하며 TCP port를 열지 않는다. Windows는 지원하지 않는다. Payload는 최대 8 MiB이며 queued/running/interrupted 합계 64개까지 받는다. 모델 시간·source·tool 제한은 등록한 리뷰별 설정이다. 사용자 전체 호출/token 예산, headless 파일 감시, 중단 요청의 결과 대조 UI, receipt 보존 기간과 managed hook 설치는 남아 있다. Linux IPC 지원이 Linux 모델 executor 검증을 뜻하지는 않는다.
+
+`scripts/verify-service-reviews.mjs`는 명시한 설치 artifact·현재 Codex 실행 파일로 임시 저장소의 commit/push를 검증한다. `GCR_SERVICE_CONSUMER`, `GCR_SERVICE_CODEX`, `GCR_SERVICE_EVIDENCE`에 절대 경로를 지정해야 하며 실제 모델을 호출한다. 사용자 저장소의 hook이나 전역 CLI는 변경하지 않는다.

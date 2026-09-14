@@ -14,10 +14,11 @@ import {
   snapshotIdentity,
   sourceFile,
   sourcePath,
+  sourceExclusionReason,
   type SnapshotIdentity,
   type SourceFile,
 } from '@gcr/client-contract';
-import { contentHash } from './local-identity.js';
+import { canonicalJson, contentHash } from './local-identity.js';
 import {
   SourceCaptureError,
   sourcePathPolicy,
@@ -42,6 +43,19 @@ interface CapturedFile {
   source: SourceFile;
   text: string;
   mode: string;
+}
+export interface FrozenLocalSource {
+  formatVersion: 1;
+  identity: SnapshotIdentity;
+  repository: { repositoryKey: string; worktreeKey: string };
+  headCommit: string | null;
+  branchName: string | null;
+  sourceTree: string;
+  excludePatterns: string[];
+  files: CapturedFile[];
+  selected: SourceChange[];
+  limitations: SourceLimitation[];
+  diff: string;
 }
 export type FixedSourceRead =
   | { status: 'available'; source: SourceFile; text: string }
@@ -117,6 +131,8 @@ class LocalSourceSnapshot {
     selected: SourceChange[],
     limitations: SourceLimitation[],
     diff: string,
+    private readonly captureTree: string,
+    private readonly excludePatterns: string[],
   ) {
     this.#identity = snapshotIdentity(identity);
     this.#repository = { ...repository };
@@ -161,6 +177,24 @@ class LocalSourceSnapshot {
   get diff(): string {
     this.open();
     return this.#diff;
+  }
+  freeze(): FrozenLocalSource {
+    this.open();
+    const value: FrozenLocalSource = {
+      formatVersion: 1,
+      identity: this.identity,
+      repository: this.repository,
+      headCommit: this.headCommit,
+      branchName: this.branchName,
+      sourceTree: this.captureTree,
+      excludePatterns: [...this.excludePatterns],
+      files: [...this.#files.values()].map((file) => structuredClone(file)),
+      selected: this.selected,
+      limitations: this.limitations,
+      diff: this.diff,
+    };
+    canonicalJson(value, 8 * 1024 * 1024);
+    return value;
   }
   readFile(file: string, side: Side = 'source'): FixedSourceRead {
     this.open();
@@ -256,6 +290,123 @@ class LocalSourceSnapshot {
   }
 }
 export type { LocalSourceSnapshot };
+
+/** Restore owned, encrypted source bytes without consulting Git or the checkout. */
+export function restoreLocalSource(input: unknown): LocalSourceSnapshot {
+  const value = JSON.parse(canonicalJson(input, 8 * 1024 * 1024)) as FrozenLocalSource;
+  const invalid = () => {
+    throw new SourceCaptureError('invalid-source-request');
+  };
+  if (
+    !value ||
+    value.formatVersion !== 1 ||
+    !value.repository ||
+    !Array.isArray(value.files) ||
+    !Array.isArray(value.selected) ||
+    !Array.isArray(value.limitations) ||
+    !Array.isArray(value.excludePatterns) ||
+    typeof value.diff !== 'string'
+  )
+    invalid();
+  const identity = snapshotIdentity(value.identity);
+  const oid = identity.objectFormat === 'sha1' ? /^[a-f0-9]{40}$/ : /^[a-f0-9]{64}$/;
+  if (
+    !oid.test(value.sourceTree) ||
+    !(value.headCommit === null || oid.test(value.headCommit)) ||
+    !(
+      value.branchName === null ||
+      (typeof value.branchName === 'string' && value.branchName.length <= 1024)
+    ) ||
+    !/^[a-f0-9]{64}$/.test(value.repository.repositoryKey) ||
+    !/^[a-f0-9]{64}$/.test(value.repository.worktreeKey) ||
+    value.files.length > 20000 ||
+    value.selected.length > 10000 ||
+    value.limitations.length > 100000
+  )
+    invalid();
+  if (
+    ('sourceTree' in identity && identity.sourceTree !== value.sourceTree) ||
+    (identity.kind === 'commit-tree' && identity.sourceCommit !== value.headCommit)
+  )
+    invalid();
+  const policy = sourcePathPolicy(value.excludePatterns),
+    files = new Map<string, CapturedFile>();
+  for (const file of value.files) {
+    const metadata = sourceFile(file.source);
+    if (
+      typeof file.text !== 'string' ||
+      !['100644', '100755'].includes(file.mode) ||
+      policy(metadata.path) ||
+      files.has(key(metadata.side, metadata.path))
+    )
+      invalid();
+    const bytes = Buffer.from(file.text, 'utf8');
+    if (
+      bytes.length !== metadata.byteLength ||
+      file.text.split('\n').length !== metadata.lineCount ||
+      hash(bytes) !== metadata.hash ||
+      (metadata.gitBlob && blobId(bytes, identity.objectFormat) !== metadata.gitBlob)
+    )
+      invalid();
+    files.set(key(metadata.side, metadata.path), {
+      source: metadata,
+      text: file.text,
+      mode: file.mode,
+    });
+  }
+  const selected = new Set<string>();
+  for (const change of value.selected) {
+    sourcePath(change.path);
+    if (change.oldPath !== undefined) sourcePath(change.oldPath);
+    if (
+      !['A', 'M', 'D', 'R', 'T'].includes(change.status) ||
+      !['source', 'base'].includes(change.side) ||
+      change.side !== (change.status === 'D' ? 'base' : 'source') ||
+      selected.has(change.path) ||
+      !files.has(key(change.side, change.path))
+    )
+      invalid();
+    selected.add(change.path);
+  }
+  for (const item of value.limitations) {
+    sourcePath(item.path);
+    sourceExclusionReason(item.reason);
+    if (
+      !['base', 'source'].includes(item.side) ||
+      typeof item.detail !== 'string' ||
+      item.detail.length > 1024 ||
+      files.has(key(item.side, item.path))
+    )
+      invalid();
+  }
+  const expected = contentHash({
+    version: 1,
+    kind: identity.kind,
+    headCommit: value.headCommit,
+    baseCommit: identity.baseCommit,
+    baseTree: identity.baseTree,
+    sourceTree: value.sourceTree,
+    ...(identity.kind === 'commit-tree' ? { targetBranch: value.branchName } : {}),
+    sourceFiles: value.files.map((file) => ({ ...file.source, mode: file.mode })),
+    selected: value.selected,
+    limitations: value.limitations,
+    policy: value.excludePatterns,
+    diffHash: hash(value.diff),
+  });
+  if (expected !== identity.hash) invalid();
+  return new LocalSourceSnapshot(
+    identity,
+    value.repository,
+    value.headCommit,
+    value.branchName,
+    files,
+    value.selected,
+    value.limitations,
+    value.diff,
+    value.sourceTree,
+    [...value.excludePatterns],
+  );
+}
 
 /** Synchronous bounded capture; extension hosts should run it outside their UI event loop. */
 export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnapshot {
@@ -744,6 +895,8 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
       selected,
       limitations,
       diff,
+      sourceTree,
+      [...(options.excludePatterns ?? [])],
     );
   } finally {
     git.close();
