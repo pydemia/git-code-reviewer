@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "phase": "P12",
+  "commit": "P12-C04 source recheck and deadline checkpoint",
+  "phaseComplete": false,
+  "goalComplete": false,
+  "sourceCommit": "270c6b29386173955f76ec987bcbe5711726b427",
+  "releasePinCommit": "2226f41e248394355d06245c280e0a2e56273b03",
+  "feature": "Recheck pinned central criteria sources before evaluation and approval; redact unavailable source responses; queue publication at source/time boundaries",
+  "tests": {
+    "suites": 6,
+    "passed": 123,
+    "failed": 0,
+    "skipped": 0,
+    "databaseFixture": {
+      "startedAt": "2026-09-14T18:49:29.518Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-14T18:50:14.856Z"
+    },
+    "builds": [
+      "contracts",
+      "runtime",
+      "web",
+      "full immutable image workspace build"
+    ],
+    "focusedEslint": true,
+    "helmLint": true,
+    "browser": {
+      "realCriteriaApi": true,
+      "widths": [
+        1360,
+        420
+      ],
+      "sourceRedaction": true,
+      "recheckFilter": true,
+      "stalePromotionDisabled": true,
+      "freshRevisionSourceSelection": true,
+      "editableLocalReviewDate": true,
+      "screenshotSha1360": "00685675cdce8dcbd69a2b2d9df018e111b81ab8e25b30cc8c5f7fbac0dc1aca",
+      "screenshotSha420": "2de3215c598290cd967f2c20989993024f63a2a48b02bf49ed8aa5610821bcfd"
+    },
+    "initialFixtureCorrections": [
+      "Personal memory unique-key collision fixed by using an unoccupied synthetic owner",
+      "Upgrade fixture added required appliesTo"
+    ]
+  },
+  "migrationUpgrade": {
+    "status": "passed",
+    "from": 48,
+    "to": 49,
+    "syntheticOnly": true,
+    "cleanup": true,
+    "criterionHistoryPreserved": true,
+    "currentDeadlineBackfill": true,
+    "existingCodeSourcePreserved": true,
+    "legacySnapshotPreserved": true,
+    "noInventedCodeEvidence": true,
+    "conversationQueuePreserved": true,
+    "legacyRowsPreserved": true,
+    "bodyVersionsPreserved": true,
+    "noInventedObservations": true,
+    "oldChecksumsPreserved": true,
+    "idempotent": true
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T18:57:13.544297+00:00",
+    "release": {
+      "revision": 64,
+      "updated": "2026-09-15T03:55:49.279136+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.50",
+      "app_version": "0.8.0-alpha.54",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:e25fab5538c229cf5cc433d189a4bf4849f95fea4975cfa9aea3c18d338eab10",
+      "source": "270c6b29386173955f76ec987bcbe5711726b427",
+      "version": "0.8.0-alpha.54",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:e25fab5538c229cf5cc433d189a4bf4849f95fea4975cfa9aea3c18d338eab10"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "270c6b29386173955f76ec987bcbe5711726b427",
+        "org.opencontainers.image.version": "0.8.0-alpha.54"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 49,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-6cd4cd8b76-dvcl8",
+        "imageDigest": "sha256:e25fab5538c229cf5cc433d189a4bf4849f95fea4975cfa9aea3c18d338eab10",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-8684867c6d-zjz58",
+        "imageDigest": "sha256:e25fab5538c229cf5cc433d189a4bf4849f95fea4975cfa9aea3c18d338eab10",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, schema48-to49 migration and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:8cbd50714fb818564938bb4227b0af36602ed16660ddc0fc120bd327651e1da7",
+    "chartSha256": "5bda430ff26fb2ec8db3277673cccedeb4f77ed4be651c259736c546d15e7a05"
+  },
+  "live": {
+    "requestId": "ee1f215e-81d3-4edd-9351-6cf47cefb914",
+    "status": "passed",
+    "version": "0.8.0-alpha.54",
+    "checks": [
+      "trusted-https-session-login",
+      "published-code-source-capture",
+      "trusted-https-source-list-with-exact-diff-and-shas",
+      "multiple-source-decision-remains-draft",
+      "unevaluated-activation-rejected",
+      "source-delete-queues-publication-atomically",
+      "source-delete-not-cancelled-by-trigger",
+      "https-unavailable-history-redacted",
+      "stale-source-promotion-rejected",
+      "retirement-remains-available",
+      "anonymous-and-revoked-repository-source-read-denied"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "ownedServerRowsRemoved": true,
+    "finishedAt": "2026-09-14T18:56:44.604Z"
+  },
+  "cleanup": {
+    "status": "passed",
+    "at": "2026-09-14T18:58:05.481788+00:00",
+    "ownedResourceRemainders": [],
+    "ownedLiveFixtureRemoved": true
+  },
+  "client": {
+    "commitDefender": "2.9.4",
+    "libraries": "0.1.0-alpha.37",
+    "cli": "0.1.0-alpha.33",
+    "unchanged": true,
+    "noForcedReload": true,
+    "localModelAndAccountUnchanged": true
+  },
+  "architecture": {
+    "centralToLocalDownloadsOnly": true,
+    "localSourceResultFeedbackUploads": false,
+    "centralExecutionForLocalClients": false,
+    "P10AndP08UpstreamWithdrawnNotCompleted": true
+  },
+  "limitations": [
+    "List recheck filter covers latest 100 criteria only",
+    "Provider-specific deletion/access observations remain",
+    "Previously downloaded bundles are immutable; new publication/download required for source withdrawal",
+    "Review date alone does not suppress a criterion",
+    "Critical revocation/offline handling and recurrence-based re-evaluation remain",
+    "No actual external GitHub or paid model calls in verification"
+  ]
+}
