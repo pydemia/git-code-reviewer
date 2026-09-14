@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { findingOccurrenceSchema, reviewRecurrenceSchema } from '@gcr/contracts';
 import { reviewAnalysisSchema } from './skills.js';
 import {
   criterionAssessmentInputSchema,
@@ -90,6 +91,7 @@ export const reviewFindingSchema = z.object({
   evidence: z.array(evidenceLocatorSchema),
   fingerprint: z.string().min(1),
   criteria: findingCriteriaSchema.optional(),
+  occurrence: findingOccurrenceSchema.optional(),
 });
 export type ReviewFinding = z.infer<typeof reviewFindingSchema>;
 
@@ -179,6 +181,7 @@ export const reviewReportSchema = z.object({
   versions: z.record(z.string(), z.string()),
   durationMs: z.number().int().nonnegative(),
   analysis: reviewAnalysisSchema.optional(),
+  recurrence: reviewRecurrenceSchema.optional(),
 });
 export type ReviewReport = z.infer<typeof reviewReportSchema>;
 

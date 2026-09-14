@@ -6,6 +6,7 @@ import {
   sharedCriterionContext,
 } from '../services/analysis-shared-knowledge.js';
 import { createHash, randomUUID } from 'node:crypto';
+import { loadReviewRecurrence } from '../services/review-recurrence.js';
 import { captureSnapshotChangeSource } from '../services/criterion-code-sources.js';
 import { reconcileCriterionDeadlines } from '../services/criterion-recheck.js';
 import { mkdir, rm } from 'node:fs/promises';
@@ -632,13 +633,13 @@ async function persistMaterialization(
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v9:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}`,
+          `analysis:${snapshotId}:default:v10:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v6:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}`,
+          `default-v7:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
@@ -919,6 +920,8 @@ export async function executeAnalysisJob(
     }
     await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
     if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
+    const recurrence = await loadReviewRecurrence(database, artifacts, output.report);
+    if (recurrence) output.report.recurrence = recurrence;
     await persistAnalysis(
       database,
       artifacts,

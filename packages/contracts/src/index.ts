@@ -1,4 +1,6 @@
 import { findingCriteriaSchema } from './finding-criteria.js';
+import { findingOccurrenceSchema, reviewRecurrenceSchema } from './review-recurrence.js';
+export * from './review-recurrence.js';
 export * from './finding-criteria.js';
 import { z } from 'zod';
 import { reviewAnalysisSchema } from './review-analysis.js';
@@ -491,11 +493,13 @@ export const findingViewSchema = z.object({
   evidence: z.array(evidenceLocatorSchema),
   fingerprint: z.string(),
   criteria: findingCriteriaSchema.optional(),
+  occurrence: findingOccurrenceSchema.optional(),
   links: z.array(linkViewSchema),
 });
 
 export const reportViewSchema = z.object({
   analysis: reviewAnalysisSchema.optional(),
+  recurrence: reviewRecurrenceSchema.optional(),
   schemaVersion: z.literal(schemaVersion),
   analysisRevisionId: z.string().uuid(),
   snapshotId: z.string().uuid(),

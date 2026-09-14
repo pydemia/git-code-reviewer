@@ -30,7 +30,7 @@ type PublicationContext = RepositoryTarget & {
 type PublicationRow = {
   commentId: string | null;
   bodyHash: string | null;
-  publishedAnalysisCreatedAt: string | null;
+  publishedIsCurrentOrNewer: boolean | null;
 };
 
 export class ReviewPublicationError extends Error {
@@ -56,6 +56,7 @@ export async function enqueueReviewPublication(
      join pull_requests pull_request on pull_request.id = request.pull_request_id
      join repositories repository on repository.id = pull_request.repository_id
      where analysis.id = $1 and pull_request.id = $2 and repository.enabled
+       and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
        and repository.review_publishing_enabled
        and (repository.credential_id is not null or $3::boolean)`,
     [analysisId, pullRequestId, githubAppEnabled],
@@ -70,7 +71,10 @@ export async function enqueueReviewPublication(
        target_analysis_run_id = excluded.target_analysis_run_id,
        head_sha = excluded.head_sha, state = 'pending',
        last_error_code = null, last_error_message = null,
-       updated_at = clock_timestamp()`,
+       updated_at = clock_timestamp()
+     where github_review_publications.target_analysis_run_id is distinct from excluded.target_analysis_run_id
+       and (select (created_at,id) from analysis_runs where id=excluded.target_analysis_run_id)
+           >= (select (created_at,id) from analysis_runs where id=github_review_publications.target_analysis_run_id)`,
     [pullRequestId, analysisId, eligible.rows[0].headSha],
   );
   await connection.query(
@@ -148,29 +152,25 @@ export async function publishReviewToGitHub(
     if (!context) {
       await connection.query(
         `update github_review_publications set state = 'disabled', updated_at = clock_timestamp()
-         where pull_request_id = $1`,
-        [pullRequestId],
+         where pull_request_id = $1 and target_analysis_run_id = $2`,
+        [pullRequestId, analysisId],
       );
       return;
     }
-    const publication = await loadPublication(connection, pullRequestId);
-    if (
-      publication?.publishedAnalysisCreatedAt &&
-      new Date(publication.publishedAnalysisCreatedAt).getTime() >=
-        new Date(context.analysisCreatedAt).getTime()
-    ) {
+    const publication = await loadPublication(connection, pullRequestId, analysisId);
+    if (publication?.publishedIsCurrentOrNewer) {
       return;
     }
 
     const findings = await loadFindings(connection, context.reportId);
     let canonicalReport: ReviewReport | undefined;
-    if (context.skillHash) {
+    if (context.skillHash || context.reportLocator) {
       if (!context.reportLocator)
         throw new ReviewPublicationError('Report artifact를 읽을 수 없습니다.', true);
       canonicalReport = reviewReportSchema.parse(await artifacts.readJson(context.reportLocator));
       if (
         canonicalReport.analysisRevisionId !== analysisId ||
-        canonicalReport.analysis?.skills.bundleHash !== context.skillHash
+        (context.skillHash && canonicalReport.analysis?.skills.bundleHash !== context.skillHash)
       ) {
         throw new ReviewPublicationError(
           'Report의 analysis/Skill snapshot이 일치하지 않습니다.',
@@ -290,6 +290,7 @@ async function loadPublicationContext(
      join repositories repository on repository.id = pull_request.repository_id
      join github_instances instance on instance.id = repository.instance_id
      where analysis.id = $1 and pull_request.id = $2
+       and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
        and analysis.state in ('completed', 'partial')
        and repository.enabled and repository.review_publishing_enabled and instance.enabled`,
     [analysisId, pullRequestId],
@@ -301,15 +302,16 @@ async function loadPublicationContext(
 async function loadPublication(
   database: Pick<DatabaseClient, 'query'>,
   pullRequestId: string,
+  analysisId: string,
 ): Promise<PublicationRow | null> {
   const result = await database.query<PublicationRow>(
     `select publication.comment_id as "commentId", publication.body_hash as "bodyHash",
-            published_analysis.created_at as "publishedAnalysisCreatedAt"
+            (published_analysis.created_at,published_analysis.id) >= (select created_at,id from analysis_runs where id=$2) as "publishedIsCurrentOrNewer"
      from github_review_publications publication
      left join analysis_runs published_analysis
        on published_analysis.id = publication.published_analysis_run_id
      where publication.pull_request_id = $1`,
-    [pullRequestId],
+    [pullRequestId, analysisId],
   );
   return result.rows[0] ?? null;
 }

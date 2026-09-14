@@ -5650,3 +5650,8 @@ body.workspace-resizing:has(.resize-bottom) {
 .finding-criteria dd {
   margin-inline-start: 1rem;
 }
+.review-recurrence {
+  overflow-wrap: anywhere;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}

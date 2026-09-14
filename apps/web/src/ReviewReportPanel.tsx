@@ -1,5 +1,6 @@
 import { SharedKnowledgePanel } from './SharedKnowledgePanel.tsx';
 import { FindingCriteria } from './FindingCriteria.tsx';
+import { ReviewRecurrence } from './ReviewRecurrence.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
@@ -162,6 +163,7 @@ export function ReviewReportPanel({
           analysisId={report.analysisRevisionId}
         />
       ) : null}
+      {section === 'summary' ? <ReviewRecurrence value={report.recurrence} /> : null}
       {section === 'summary' ? (
         <header className="structured-report-heading">
           <div className="report-title-row">

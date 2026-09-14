@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { assignFindingOccurrences } from './occurrences.js';
 import {
   reviewWritingGuidelines,
   type AnalysisProgress,
@@ -288,6 +289,8 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       : {}),
   };
   report.durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+  if (!input.fixtureMode)
+    assignFindingOccurrences(report, boundedFiles, input.sharedCriteria?.pinHash);
   return {
     state: limitations.length > 0 ? 'partial' : 'completed',
     report: reviewReportSchema.parse(report),

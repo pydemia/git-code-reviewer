@@ -66,7 +66,14 @@ export const reviewFileStatusLabels = {
 type View = z.infer<typeof reportViewSchema>;
 export type ReportContent = Pick<
   View,
-  'analysis' | 'summary' | 'grade' | 'coverage' | 'versions' | 'durationMs' | 'perFileSummaries'
+  | 'analysis'
+  | 'summary'
+  | 'grade'
+  | 'coverage'
+  | 'versions'
+  | 'durationMs'
+  | 'perFileSummaries'
+  | 'recurrence'
 > & {
   findings: Array<
     Pick<
@@ -249,6 +256,31 @@ export function formatReviewMarkdown(
   ];
   if (view.overview) {
     blocks.push(`## 전체 분석 요약\n\n${narrative(view.overview)}`);
+  }
+  if (report.recurrence) {
+    const history = report.recurrence;
+    const repeated = history.items.filter(
+      (item) => item.status === 'observed-again' || item.status === 'same-head',
+    ).length;
+    blocks.push(
+      details(
+        '이전 리뷰와 비교',
+        [
+          text(history.reason),
+          ...(history.baseline
+            ? [
+                `비교 SHA: ${history.baseline.headSha} · ${history.baseline.state === 'partial' ? '일부 검토' : '검토 완료'}`,
+                `같은 코드·설명의 재관측 ${repeated}개 · 재확인하지 못한 이전 지적 ${history.unconfirmedPrevious.length}개`,
+                '현재 지적을 숨기거나 이전 지적의 수정 완료를 판정하지 않습니다.',
+                ...history.unconfirmedPrevious.map(
+                  (item) =>
+                    `- ${item.priority} · ${text(item.title)}${item.path ? ` · ${text(item.path)}` : ''}`,
+                ),
+              ]
+            : []),
+        ].join('\n\n'),
+      ),
+    );
   }
   if (view.state === 'demo')
     blocks.push(
