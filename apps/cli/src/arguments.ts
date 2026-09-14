@@ -106,6 +106,7 @@ const allowed: Record<string, string[]> = {
     'tool-calls',
   ],
   service: [
+    'reviews-per-hour',
     'trigger',
     ...executor,
     'exclude',

@@ -195,6 +195,7 @@ export async function startLocalService(options: LocalServiceOptions) {
       case 'status':
         return {
           status: serviceFailure ? 'degraded' : 'running',
+          features: ['review-start-budget-v1'],
           pid: process.pid,
           profileId: options.profileId,
           active: active?.job.id ?? null,

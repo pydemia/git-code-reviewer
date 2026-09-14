@@ -33,6 +33,7 @@ export interface ServiceReviewOptions {
   durationMs: number;
   sourceBytes: number;
   toolCalls: number;
+  maximumReviewsPerHour?: number;
 }
 export interface ServiceRegistration {
   version: 1;
@@ -55,7 +56,8 @@ export interface ServiceJob {
   createdAt: number;
   state: 'queued' | 'running' | 'finished' | 'cancelled' | 'interrupted';
   owner: string | null;
-  result?: { exitCode: 0 | 1 | 2; status: string; runId?: string };
+  notBefore?: number;
+  result?: { exitCode: 0 | 1 | 2; status: string; runId?: string; retryAt?: number };
   cleanupPending?: boolean;
 }
 interface Owner {
@@ -68,6 +70,7 @@ const validId = (id: string) =>
 const invalid = () => new LocalServiceError('service-invalid');
 function reviewOptions(input: ServiceReviewOptions): ServiceReviewOptions {
   const value = structuredClone(input);
+  value.maximumReviewsPerHour ??= 6;
   if (
     !value ||
     !['standalone', 'centralized'].includes(value.mode) ||
@@ -86,8 +89,10 @@ function reviewOptions(input: ServiceReviewOptions): ServiceReviewOptions {
     ['durationMs', 600000],
     ['sourceBytes', 33554432],
     ['toolCalls', 1000],
+    ['maximumReviewsPerHour', 100],
   ] as const)
-    if (!Number.isInteger(value[field]) || value[field] < 1 || value[field] > max) throw invalid();
+    if (!Number.isInteger(value[field]) || value[field]! < 1 || value[field]! > max)
+      throw invalid();
   for (const values of [value.excludePatterns, value.allowPaths])
     if (
       !Array.isArray(values) ||
@@ -351,6 +356,7 @@ export class ServiceJobs {
         await this.cancel(job.id);
         continue;
       }
+      if (job.notBefore && job.notBefore > Date.now()) continue;
       const row = await this.records.read('chats', `payload_${job.id}`);
       if (!row || row.deleted || contentHash(row.value) !== job.payloadHash) throw invalid();
       const source = restoreLocalSource(row.value);
@@ -387,6 +393,14 @@ export class ServiceJobs {
       (result.runId !== undefined && !validId(result.runId))
     )
       throw invalid();
+    if (
+      result.status === 'deferred' &&
+      result.exitCode === 2 &&
+      Number.isSafeInteger(result.retryAt) &&
+      result.retryAt! > Date.now()
+    ) {
+      return this.update({ ...job, state: 'queued', owner: null, notBefore: result.retryAt! }, job);
+    }
     const done = await this.update({ ...job, state: 'finished', owner: null, result }, job);
     await this.purgePayload(done);
     return done;

@@ -63,6 +63,7 @@ export interface CliDependencies {
   /** Trusted service assembly ports; never selectable through CLI arguments. */
   frozenSource?: FrozenLocalSource;
   entrypoint?: string;
+  serviceStartLimits?: { maximumReviewsPerHour: number };
 }
 export interface CliResult {
   value: unknown;
@@ -690,6 +691,7 @@ export async function executeCli(
       storage: requestStorage,
       identity: resolution.policy.identity,
       reason: trigger,
+      ...(dependencies.serviceStartLimits ? { limits: dependencies.serviceStartLimits } : {}),
       retryFinished: values['retry-finished'] === true,
       ...(dependencies.signal ? { signal: dependencies.signal } : {}),
       assertValid: async () => {
@@ -762,7 +764,13 @@ export async function executeCli(
       error instanceof KnowledgeSyncError;
     return {
       value: {
-        status: error instanceof ExecutorError ? 'unavailable' : 'failed',
+        status:
+          error instanceof ReviewRequestError && error.code === 'request-deferred'
+            ? 'deferred'
+            : error instanceof ExecutorError
+              ? 'unavailable'
+              : 'failed',
+        ...(error instanceof ReviewRequestError && error.retryAt ? { retryAt: error.retryAt } : {}),
         ...(error instanceof CentralConnectionSetupError
           ? { connectionId: error.connectionId }
           : {}),

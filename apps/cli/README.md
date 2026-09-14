@@ -155,6 +155,6 @@ gcr service stop
 
 `--request-id UUID`는 응답 유실 시 같은 입력의 접수를 식별한다. 같은 UUID에 다른 입력을 보내면 거부한다. 서로 다른 receipt의 모델 실행은 기존 공통 요청 기록이 전체 source/context/executor identity로 중복을 판단한다. 프로세스 재시작 시 queued 요청은 복원하지만 이미 running이던 요청은 interrupted로 남기고 자동 재호출하지 않는다. `cancel`로 queued/interrupted payload를 정리할 수 있다. 실행 중 취소는 terminal 보고서를 만든 뒤 결과 상태를 기록한다.
 
-IPC는 macOS/Linux의 사용자 전용 Unix socket(0600, 상위 디렉터리 0700)을 사용하며 TCP port를 열지 않는다. Windows는 지원하지 않는다. Payload는 최대 8 MiB이며 queued/running/interrupted 합계 64개까지 받는다. 모델 시간·source·tool 제한은 등록한 리뷰별 설정이다. 사용자 전체 호출/token 예산, headless 파일 감시, 중단 요청의 결과 대조 UI, receipt 보존 기간과 managed hook 설치는 남아 있다. Linux IPC 지원이 Linux 모델 executor 검증을 뜻하지는 않는다.
+IPC는 macOS/Linux의 사용자 전용 Unix socket(0600, 상위 디렉터리 0700)을 사용하며 TCP port를 열지 않는다. Windows는 지원하지 않는다. Payload는 최대 8 MiB이며 queued/running/interrupted 합계 64개까지 받는다. 모델 시간·source·tool 제한은 등록한 리뷰별 설정이다. `service allow --reviews-per-hour 6`은 profile/worktree의 공통 실행 기록을 기준으로 시간당 시작 횟수를 제한한다(기본 6, 범위 1–100). 기존 수동 리뷰 시작도 집계하며 같은 결과를 재사용할 때는 새 시작을 차감하지 않는다. 한도에 걸린 receipt는 `notBefore`를 기록한 queued 상태로 남고 해당 시각 이후 다시 준비한다. 사용자 전체 호출/token 예산, headless 파일 감시, 중단 요청의 결과 대조 UI, receipt 보존 기간과 managed hook 설치는 남아 있다. Linux IPC 지원이 Linux 모델 executor 검증을 뜻하지는 않는다.
 
 `scripts/verify-service-reviews.mjs`는 명시한 설치 artifact·현재 Codex 실행 파일로 임시 저장소의 commit/push를 검증한다. `GCR_SERVICE_CONSUMER`, `GCR_SERVICE_CODEX`, `GCR_SERVICE_EVIDENCE`에 절대 경로를 지정해야 하며 실제 모델을 호출한다. 사용자 저장소의 hook이나 전역 CLI는 변경하지 않는다.

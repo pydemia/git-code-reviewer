@@ -77,6 +77,7 @@ export async function executeServiceCommand(
         'timeout-ms',
         'source-bytes',
         'tool-calls',
+        'reviews-per-hour',
         'mode',
         'connection',
       ].some((k) => values[k] !== undefined)
@@ -152,13 +153,15 @@ export async function executeServiceCommand(
           const result = await review(args, {
             ...dependencies,
             frozenSource: input.source,
+            serviceStartLimits: { maximumReviewsPerHour: options.maximumReviewsPerHour ?? 6 },
             signal: input.signal,
           });
-          const value = result.value as { runId?: string; status?: string };
+          const value = result.value as { runId?: string; status?: string; retryAt?: number };
           return {
             exitCode: result.exitCode,
             status: typeof value?.status === 'string' ? value.status : 'unavailable',
             ...(typeof value?.runId === 'string' ? { runId: value.runId } : {}),
+            ...(typeof value?.retryAt === 'number' ? { retryAt: value.retryAt } : {}),
           };
         },
       });
@@ -190,6 +193,7 @@ export async function executeServiceCommand(
         durationMs: number('timeout-ms', 120000),
         sourceBytes: number('source-bytes', 1048576),
         toolCalls: number('tool-calls', 100),
+        maximumReviewsPerHour: number('reviews-per-hour', 6),
         ...(text('executor-path') ? { executorPath: text('executor-path')! } : {}),
         ...(text('connection') ? { connectionId: text('connection')! } : {}),
       };

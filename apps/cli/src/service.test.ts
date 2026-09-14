@@ -186,3 +186,30 @@ it('revocation prevents new enqueue and rejects caller-side model or mode change
   expect((await f.cli(['enqueue', '--trigger', 'commit'])).exitCode).toBe(2);
   expect(f.calls()).toBe(0);
 }, 20000);
+it('defers a new source at the shared hourly limit without invoking another model review', async () => {
+  const f = await fixture();
+  expect(
+    (await f.cli(['service', 'allow', '--trigger', 'commit', '--reviews-per-hour', '1'])).exitCode,
+  ).toBe(0);
+  const first = randomUUID();
+  expect((await f.cli(['enqueue', '--trigger', 'commit', '--request-id', first])).exitCode).toBe(0);
+  f.release();
+  await until(
+    () => f.cli(['service', 'job', '--id', first]),
+    (result) => (result.value as ServiceJob)?.state === 'finished',
+  );
+  fs.writeFileSync(path.join(f.repo, 'a.ts'), 'export const a=3;\n');
+  f.git('add', '.');
+  const second = randomUUID();
+  expect((await f.cli(['enqueue', '--trigger', 'commit', '--request-id', second])).exitCode).toBe(
+    0,
+  );
+  const deferred = await until(
+    () => f.cli(['service', 'job', '--id', second]),
+    (result) => !!(result.value as ServiceJob)?.notBefore,
+  );
+  expect((deferred.value as ServiceJob).state).toBe('queued');
+  expect((deferred.value as ServiceJob).notBefore).toBeGreaterThan(Date.now());
+  expect(f.calls()).toBe(1);
+  expect((await f.cli(['service', 'cancel', '--id', second])).exitCode).toBe(0);
+}, 40000);
