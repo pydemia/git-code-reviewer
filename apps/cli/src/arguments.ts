@@ -31,6 +31,8 @@ Commands:
   enqueue-push                         Capture every pre-push ref and enqueue fixed source
   requests                             Inspect durable review ownership and outcomes
   result <run-id>                       Read a saved report (same review exit code)
+  chat read <run-id>                    Read the saved review conversation; no model call
+  chat send|answer|resume|cancel|source <run-id> --input <json-file|->
   history                              List saved review summaries
   memory|skill list|show <id>
   memory|skill create --input <json-file|->
@@ -153,6 +155,7 @@ const allowed: Record<string, string[]> = {
   requests: [],
   result: [],
   history: [],
+  chat: ['input', 'offline', 'offline-behavior', ...executor, 'timeout-ms', 'allow-path'],
   memory: ['scope', 'input', 'output', 'revision'],
   skill: ['scope', 'input', 'output', 'revision'],
 };

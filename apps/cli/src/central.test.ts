@@ -22,6 +22,7 @@ import {
   type CentralCredentialStore,
   type LocalKeyStore,
   type LocalReviewExecutor,
+  type LocalReviewChatExecutor,
 } from '@gcr/client-core';
 import { executeCli } from './cli.js';
 
@@ -414,6 +415,72 @@ const args = (command: string, id: string) => [
 ];
 const test = (name: string, fn: () => Promise<void>) => it(name, fn, 30000);
 describe.sequential('explicit connected CLI over HTTPS', () => {
+  test('continues the original central conversation after sync and blocks answers after confirmed revocation', async () => {
+    const profile = 'central-chat',
+      id = await connect(profile);
+    const result = await invoke(profile, args('review', id));
+    expect(result.exitCode).toBe(0);
+    const runId = (result.value as { runId: string }).runId;
+    const converse = vi.fn<LocalReviewChatExecutor['converse']>(async (input) => {
+      expect(input.prompt).toContain('CENTRAL_INSTRUCTION');
+      await input.source.execute('read_file', { path: 'a.ts' });
+      await input.questions.askUser('central-question', {
+        question: 'Keep integer cents?',
+        options: ['Yes', 'No'],
+      });
+      throw Error('Question checkpoint');
+    });
+    const chat = (action: string, body?: unknown) =>
+      executeCli(
+        [
+          'chat',
+          action,
+          runId,
+          ...args('unused', id).slice(1),
+          '--cwd',
+          repo,
+          '--profile',
+          profile,
+          '--data-dir',
+          data,
+          ...(body ? ['--input', '-'] : []),
+        ],
+        {
+          keys,
+          credentials,
+          readStdin: async () => JSON.stringify(body),
+          prepareExecutor: async () => ({
+            descriptor,
+            review,
+            conversationCapability: 'checkpoint-tool-v1',
+            converse,
+          }),
+        },
+      );
+    expect((await chat('read')).exitCode).toBe(0);
+    expect(
+      (await invoke(profile, ['central', 'sync', ...args('unused', id).slice(1)])).exitCode,
+    ).toBe(0);
+    const sent = await chat('send', { turnId: 'central-turn', content: 'Explain.' });
+    expect(sent.exitCode, JSON.stringify(sent)).toBe(1);
+    const saved = sent.value as {
+      conversation: { turns: Array<{ questions: Array<{ id: string }> }> };
+    };
+    const questionId = saved.conversation.turns[0]!.questions[0]!.id;
+    status = 403;
+    try {
+      expect(
+        (await invoke(profile, ['central', 'sync', ...args('unused', id).slice(1)])).exitCode,
+      ).toBe(2);
+      expect(
+        (await chat('answer', { turnId: 'central-turn', questionId, content: 'Yes' })).exitCode,
+      ).toBe(2);
+      expect((await chat('read')).exitCode).toBe(2);
+      expect(converse).toHaveBeenCalledTimes(1);
+    } finally {
+      status = 200;
+    }
+  });
   test('waits for initial publication and activates only the complete signed cache', async () => {
     initialManifestStatuses = [503];
     let observed!: () => void;
@@ -765,6 +832,16 @@ describe.sequential('explicit connected CLI over HTTPS', () => {
         ).value,
       ).toEqual(report);
       expect(
+        (
+          await invoke('automatic-fallback', [
+            'chat',
+            'read',
+            report.runId,
+            ...args('unused', id).slice(1),
+          ])
+        ).value,
+      ).toMatchObject({ review: report, conversation: { turns: [] } });
+      expect(
         (await invoke('automatic-fallback', ['history', ...args('unused', id).slice(1)])).value,
       ).toEqual(
         expect.arrayContaining([
@@ -799,6 +876,16 @@ describe.sequential('explicit connected CLI over HTTPS', () => {
         fallbackReason: 'authentication-required',
       });
       expect(report.identity.context.centralSnapshot).toBeUndefined();
+      expect(
+        (
+          await invoke('revoked-fallback', [
+            'chat',
+            'read',
+            report.runId,
+            ...args('unused', id).slice(1),
+          ])
+        ).value,
+      ).toMatchObject({ review: report, conversation: { turns: [] } });
       expect(
         (await invoke('revoked-fallback', ['result', report.runId, ...args('unused', id).slice(1)]))
           .value,

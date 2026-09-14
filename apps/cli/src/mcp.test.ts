@@ -62,10 +62,15 @@ it('negotiates versions, advertises startup capabilities and rejects mutable roo
   const names = messages.at(-1)?.result?.tools?.map((t) => t.name);
   expect(names).toContain('gcr_prepare_review');
   expect(names).not.toContain('gcr_review_changes');
+  expect(names).toContain('gcr_get_review_conversation');
+  expect(names).toContain('gcr_read_conversation_source');
+  expect(names).toContain('gcr_cancel_review_turn');
+  expect(names).not.toContain('gcr_continue_review');
   expect(names).not.toContain('gcr_submit_feedback');
   for (const args of [
     { name: 'gcr_status', arguments: { cwd: '/tmp' } },
     { name: 'gcr_review_changes', arguments: { preparedId: 'x' } },
+    { name: 'gcr_continue_review', arguments: { action: 'resume', runId: 'x', turnId: 't' } },
     { name: 'gcr_read_source', arguments: { preparedId: 'x', path: 'a', startLine: -1 } },
   ]) {
     await session.receive({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: args }, send);
@@ -86,6 +91,92 @@ it('negotiates versions, advertises startup capabilities and rejects mutable roo
     '--mode',
     'standalone',
   ]);
+  session.close();
+});
+it('binds conversation actions to the startup model and validates each action before calling CLI', async () => {
+  const messages: Message[] = [],
+    calls: Array<{ args: string[]; body?: unknown }> = [];
+  const session = createMcpSession(
+    [
+      '--cwd',
+      repo,
+      '--allow-review',
+      '--executor-path',
+      '/selected/codex',
+      '--model',
+      'gpt-6-astra',
+      '--reasoning-effort',
+      'xhigh',
+      '--timeout-ms',
+      '600000',
+      '--source-bytes',
+      '4096',
+      '--tool-calls',
+      '20',
+    ],
+    {},
+    async (args, deps) => {
+      calls.push({ args, body: deps?.readStdin ? JSON.parse(await deps.readStdin()) : undefined });
+      return { value: { status: 'awaiting_input' }, exitCode: 1 };
+    },
+  );
+  const send = async (value: unknown) => {
+    messages.push(value as Message);
+  };
+  await initialize(session, send);
+  for (const body of [
+    { action: 'send', runId: 'r', turnId: 't', content: 'Explain.' },
+    { action: 'answer', runId: 'r', turnId: 't', questionId: 'q', content: 'Yes' },
+    { action: 'resume', runId: 'r', turnId: 't' },
+  ]) {
+    await session.receive(
+      {
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'gcr_continue_review',
+          arguments: body,
+        },
+      },
+      send,
+    );
+    await session.drain();
+    expect(messages.at(-1)?.result?.isError).toBe(false);
+    const call = calls.at(-1)!;
+    expect(call.args.slice(0, 5)).toEqual(['chat', body.action, 'r', '--input', '-']);
+    expect(call.args).toContain('/selected/codex');
+    expect(call.args).toContain('xhigh');
+    expect(call.args).toContain('600000');
+    expect(call.args).not.toContain('--source-bytes');
+    expect(call.args).not.toContain('--tool-calls');
+    const expected = Object.fromEntries(
+      Object.entries(body).filter(([key]) => !['action', 'runId'].includes(key)),
+    );
+    expect(call.body).toEqual(expected);
+  }
+  for (const body of [
+    { action: 'send', runId: 'r', turnId: 't' },
+    { action: 'answer', runId: 'r', turnId: 't', content: 'Yes' },
+    { action: 'resume', runId: 'r', turnId: 't', content: 'No implicit new message' },
+    { action: 'send', runId: 'r', turnId: 't', content: 'Explain', model: 'other' },
+  ]) {
+    await session.receive(
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: {
+          name: 'gcr_continue_review',
+          arguments: body,
+        },
+      },
+      send,
+    );
+    await session.drain();
+    expect(messages.at(-1)?.error?.code).toBe(-32602);
+  }
+  expect(calls).toHaveLength(3);
   session.close();
 });
 it('handles a ping and cancellation while a model request runs, without restarting it', async () => {

@@ -56,6 +56,7 @@ import { ExecutorError, prepareCodexAccountExecutor } from '@gcr/client-executor
 import { argumentsFor, CliError, help } from './arguments.js';
 import { PreparedReviews, type PreparedReview } from './prepared.js';
 import { executeServiceCommand } from './service.js';
+import { executeChat } from './chat.js';
 
 export interface CliDependencies {
   cwd?: string;
@@ -196,6 +197,7 @@ export async function executeCli(
           'push-review',
           'history',
           'result',
+          'chat',
         ].includes(command))
     )
       throw new CliError(
@@ -403,7 +405,7 @@ export async function executeCli(
       return { value, exitCode: 0 };
     }
     if (
-      !['submit-review', 'feedback'].includes(command) &&
+      !['submit-review', 'feedback', 'chat'].includes(command) &&
       positionals.length !== (command === 'result' ? 1 : 0)
     )
       throw new CliError('usage', 'Unexpected positional arguments.');
@@ -449,6 +451,41 @@ export async function executeCli(
       } finally {
         requests.close();
       }
+    }
+    if (command === 'chat') {
+      const [action, reportId, ...extra] = positionals;
+      if (
+        !action ||
+        !reportId ||
+        extra.length ||
+        (action === 'read' ? !!string('input') : !string('input'))
+      )
+        throw new CliError(
+          'usage',
+          'Use chat ACTION RUN_ID; actions other than read require --input JSON.',
+        );
+      return await executeChat(
+        {
+          action,
+          reportId,
+          ...(string('input')
+            ? { body: await jsonInput(string('input')!, dependencies.readStdin) }
+            : {}),
+          cwd,
+          profileId,
+          dataDirectory,
+          mode: mode.mode,
+          ...(string('connection') ? { connectionId: string('connection')! } : {}),
+          offline: values.offline === true,
+          ...(behavior ? { offlineBehavior: behavior } : {}),
+          executorPath: string('executor-path', 'codex')!,
+          model: string('model', 'gpt-6-astra')!,
+          reasoningEffort: string('reasoning-effort', 'xhigh')!,
+          allowPaths: many('allow-path'),
+          ...(number('timeout-ms') ? { timeoutMs: number('timeout-ms')! } : {}),
+        },
+        dependencies,
+      );
     }
     const conversations = new WeakMap<LocalHistoryStore, ReviewConversationStore>();
     const historyStore = async (isCentral: boolean): Promise<LocalHistoryStore> => {
@@ -1028,6 +1065,7 @@ export async function executeCli(
     const known =
       error instanceof CliError ||
       error instanceof ReviewSubmissionQueueError ||
+      error instanceof ReviewConversationError ||
       error instanceof LocalServiceError ||
       error instanceof LocalStoreError ||
       error instanceof ReviewRequestError ||

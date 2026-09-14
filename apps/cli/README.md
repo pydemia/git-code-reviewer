@@ -37,7 +37,28 @@ gcr history --cwd /path/to/repo
 
 `result`는 저장된 리뷰의 종료 코드를 그대로 반환하고 `history`는 각 항목에 종료 코드를 포함한다. 실행 정책에 입장한 리뷰는 failed/cancelled도 terminal report로 저장한다. Capture·context·executor 준비 실패는 아직 실행 identity가 없으므로 명령 오류로 반환하며 가짜 report를 만들지 않는다. 이력 저장을 확인할 수 없으면 stdout의 보고서를 유지하고 stderr에 `history-save-failed`, 종료 코드 2를 출력한다.
 
-## Local Memory와 Skill
+## Host용 예방 리뷰 Skill
+
+CLI tarball은 host용 `dist/skills/gcr-prevention/SKILL.md`와 명령 안내를 포함한다. Skill 설치가 필요하면 해당 `gcr-prevention` 디렉터리를 선택한 host의 Skill 경로로 복사한다. 패키지 설치는 host 설정·hook·watcher를 변경하거나 모델을 실행하지 않는다. 이 host Skill은 아래의 암호화된 로컬 리뷰 지식 `gcr skill`과 용도가 다르다.
+
+## 저장된 리뷰 대화
+
+`gcr chat read RUN_ID`는 원래 리뷰와 저장된 대화를 읽는다. `send`, `answer`, `resume`, `cancel`, `source`는 `--input JSON_FILE` 또는 `--input -`로 정확한 action JSON을 받는다.
+
+| Action          | JSON                                                                            |
+| --------------- | ------------------------------------------------------------------------------- |
+| send            | `{"turnId":"turn-1","content":"이 finding의 발생 조건을 설명해 줘."}`           |
+| answer          | `{"turnId":"turn-1","questionId":"반환된-question-id","content":"사용자 답변"}` |
+| resume / cancel | `{"turnId":"turn-1"}`                                                           |
+| source          | `{"turnId":"turn-1","citation":0}`                                              |
+
+같은 `--cwd`, `--profile`, `--data-dir`와 원래 mode·connection을 지정한다. 모델을 실행하는 action에는 원래 executor/model 설정을 사용하며 경로를 제한한 리뷰는 같은 `--allow-path`를 전달한다. 저장된 context·executor·전송 범위·예산과 현재 설정이 다르면 새 대화를 시작하지 않고 거부한다. 소스는 원래 snapshot이며 이후 작업 파일의 수정은 반영하지 않는다. 수정 결과를 검토하려면 새 리뷰를 실행한다.
+
+`awaiting_input`은 질문을 저장하고 모델을 종료한 상태다. 질문 ID와 실제 사용자 답변을 제출하면 같은 turn을 재개하며 두 모델 호출과 실행 시간 등 기존 turn 예산을 이어서 사용한다. 같은 turn ID/내용 또는 이미 처리한 동일 답변은 모델을 다시 호출하지 않는다. 중단 뒤 queued 상태는 `read`로 확인하고 `resume`으로 명시적으로 실행한다. 취소·완료된 turn은 resume하지 않는다.
+
+`read`, `source`, `cancel`은 모델을 준비하지 않는다. Chat의 종료 코드 1은 queued/running/awaiting_input, 2는 실패·부분 완료·중단·취소를 뜻한다. 성공한 cancel 명령은 0을 반환한다. MCP에서는 `gcr_get_review_conversation`, `gcr_read_conversation_source`, `gcr_cancel_review_turn`을 제공하고 `--allow-review`가 있으면 `gcr_continue_review`의 send/answer/resume을 추가한다. MCP의 실행 계정은 startup 설정에 고정되며 tool 인수로 바꿀 수 없다.
+
+## Local Memory와 리뷰 지식 Skill
 
 기본 scope는 현재 repository/worktree이고 `--scope profile`은 Git 밖에서도 사용한다. `--profile` 기본값은 `default`다. Extension과 동일한 profile·worktree·data directory를 사용하면 같은 암호화 자료를 읽는다. OS Keychain/Secret Service가 없거나 잠겨 있으면 실패하며 평문으로 저장하지 않는다. 기본 data directory는 core의 CommitDefender 경로이고 `--data-dir`로 명시할 수 있다.
 

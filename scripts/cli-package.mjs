@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 assert(
-  args.every((arg) => arg === '--verify'),
-  'Usage: pnpm pack:cli [--verify]',
+  args.every((arg) => ['--verify', '--reuse-clients'].includes(arg)),
+  'Usage: pnpm pack:cli [--verify] [--reuse-clients]',
 );
 const json = async (file) => JSON.parse(await readFile(file, 'utf8'));
 const run = (command, argv, cwd = root) => execFileSync(command, argv, { cwd, stdio: 'inherit' });
@@ -18,13 +18,40 @@ const cli = await json(join(root, 'apps/cli/package.json'));
 const client = await json(join(root, 'packages/client-contract/package.json'));
 assert.equal(cli.name, '@gcr/cli');
 assert.equal(cli.engines.node, '>=22.0.0');
-run(process.execPath, ['scripts/client-packages.mjs', ...args]);
+if (args.includes('--reuse-clients')) run('pnpm', ['build:clients']);
+else run(process.execPath, ['scripts/client-packages.mjs', ...args]);
 await rm(join(root, 'apps/cli/dist'), { recursive: true, force: true });
 run('pnpm', ['--filter', '@gcr/cli', 'build']);
 await chmod(join(root, 'apps/cli/dist/main.js'), 0o755);
 const clients = join(root, 'artifacts/client-packages', client.version);
 const clientManifest = await json(join(clients, 'manifest.json'));
 assert.equal(clientManifest.version, client.version);
+assert.deepEqual(clientManifest.packages.map((entry) => entry.name).sort(), [
+  '@gcr/client-contract',
+  '@gcr/client-core',
+  '@gcr/client-executors',
+]);
+for (const entry of clientManifest.packages) {
+  assert.equal(entry.version, client.version);
+  assert.equal(entry.file, `gcr-${entry.name.slice(5)}-${entry.version}.tgz`);
+  assert.equal(digest(await readFile(join(clients, entry.file))), entry.sha256);
+  const packed = JSON.parse(
+    execFileSync('tar', ['-xOzf', join(clients, entry.file), 'package/package.json'], {
+      encoding: 'utf8',
+    }),
+  );
+  const workspace = await json(join(root, 'packages', entry.name.slice(5), 'package.json'));
+  for (const field of [
+    'dependencies',
+    'devDependencies',
+    'optionalDependencies',
+    'peerDependencies',
+  ])
+    if (workspace[field])
+      for (const [name, version] of Object.entries(workspace[field]))
+        if (version === 'workspace:*') workspace[field][name] = client.version;
+  assert.deepEqual(packed, workspace, 'Pinned client package metadata differs from the workspace');
+}
 const build = await json(join(root, 'apps/cli/dist/build-inputs.json'));
 for (const output of Object.values(build.outputs))
   assert(
@@ -53,6 +80,12 @@ await writeFile(
   join(root, 'apps/cli/dist/client-packages.json'),
   JSON.stringify(clientManifest, null, 2) + '\n',
 );
+const skillFiles = ['SKILL.md', 'references/client-workflows.md'];
+for (const file of skillFiles) {
+  const target = join(root, 'apps/cli/dist/skills/gcr-prevention', file);
+  await mkdir(dirname(target), { recursive: true });
+  await copyFile(join(root, 'skills/gcr-prevention', file), target);
+}
 const output = join(root, 'artifacts/cli', cli.version);
 await mkdir(dirname(output), { recursive: true });
 const stage = await mkdtemp(join(dirname(output), '.pack-'));
@@ -68,12 +101,24 @@ try {
     .split('\n');
   assert(
     listing.every((entry) =>
-      /^package\/(?:dist\/main\.js|dist\/client-packages\.json|package\.json|LICENSE|NOTICE|README\.md)$/.test(
+      /^package\/(?:dist\/main\.js|dist\/client-packages\.json|dist\/skills\/gcr-prevention\/(?:SKILL\.md|references\/client-workflows\.md)|package\.json|LICENSE|NOTICE|README\.md)$/.test(
         entry,
       ),
     ),
     'Unexpected packed CLI file',
   );
+  for (const skillFile of skillFiles)
+    assert.equal(
+      digest(
+        execFileSync('tar', [
+          '-xOzf',
+          join(stage, file),
+          `package/dist/skills/gcr-prevention/${skillFile}`,
+        ]),
+      ),
+      digest(await readFile(join(root, 'skills/gcr-prevention', skillFile))),
+      'Packed Skill differs from its source',
+    );
   const packed = JSON.parse(
     execFileSync('tar', ['-xOzf', join(stage, file), 'package/package.json'], { encoding: 'utf8' }),
   );
@@ -114,6 +159,14 @@ try {
       encoding: 'utf8',
     });
     assert(help.includes('Usage: gcr'));
+    for (const file of skillFiles)
+      assert.equal(
+        digest(
+          await readFile(join(consumer, 'node_modules/@gcr/cli/dist/skills/gcr-prevention', file)),
+        ),
+        digest(await readFile(join(root, 'skills/gcr-prevention', file))),
+        'Installed Skill differs from its source',
+      );
     const rejected = execFileSync(
       process.execPath,
       [
