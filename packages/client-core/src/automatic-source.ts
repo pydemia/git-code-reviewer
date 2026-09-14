@@ -162,23 +162,34 @@ export async function observeAutomaticFile(
   file: string,
   excludes: string[] = [],
 ): Promise<{ hash: string | null; changed: boolean } | undefined> {
+  return readAutomaticFile(await realpath(root), file, excludes);
+}
+async function readAutomaticFile(
+  root: string,
+  file: string,
+  excludes: string[],
+  // Only the bulk observer may supply this after a bounded Git/ignore query.
+  knownChanged = false,
+): Promise<{ hash: string | null; changed: boolean } | undefined> {
   file = sourcePath(file);
-  root = await realpath(root);
   if (sourcePathPolicy(excludes)(file)) return undefined;
-  const absolute = path.join(root, file),
-    parent = await realpath(path.dirname(absolute)).catch(() => undefined);
-  if (
-    !parent ||
-    parent !== path.dirname(absolute) ||
-    (parent !== root && !parent.startsWith(root + path.sep))
-  )
-    return undefined;
-  const ignored = await git(
-    root,
-    ['check-ignore', '--no-index', '-z', '--stdin'],
-    `./${file}\0`,
-    [0, 1],
-  );
+  const absolute = path.join(root, file);
+  // A deleted directory still contains reviewable tracked deletions. Check its
+  // nearest existing ancestor without accepting a symlink or an inaccessible path.
+  let parent = path.dirname(absolute);
+  for (;;) {
+    try {
+      if ((await realpath(parent)) !== parent) return undefined;
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || parent === root) return undefined;
+      parent = path.dirname(parent);
+    }
+  }
+  if (parent !== root && !parent.startsWith(root + path.sep)) return undefined;
+  const ignored = knownChanged
+    ? ''
+    : await git(root, ['check-ignore', '--no-index', '-z', '--stdin'], `./${file}\0`, [0, 1]);
   if (ignored) return undefined;
   let handle;
   try {
@@ -196,15 +207,81 @@ export async function observeAutomaticFile(
     if (length !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs)
       return undefined;
     if (buffer.subarray(0, length).includes(0)) return undefined;
-    const changed = await workingTreeChanged(root, file);
+    const changed = knownChanged || (await workingTreeChanged(root, file));
     return { hash: createHash('sha256').update(buffer.subarray(0, length)).digest('hex'), changed };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      const changed = await workingTreeChanged(root, file);
+      const changed = knownChanged || (await workingTreeChanged(root, file));
       return { hash: null, changed };
     }
     return undefined;
   } finally {
     await handle?.close();
   }
+}
+
+export interface AutomaticWorkingTree {
+  root: string;
+  head: string | null;
+  fingerprint: string;
+  files: Array<{ path: string; hash: string | null }>;
+}
+/** Re-query Git as well as file bytes so missed filesystem events can be recovered.
+ * Only changed, permitted text files enter the observation; contents are not retained. */
+export async function observeAutomaticWorkingTree(
+  cwd: string,
+  excludes: string[] = [],
+): Promise<AutomaticWorkingTree> {
+  const root = await realpath((await git(cwd, ['rev-parse', '--show-toplevel'])).trim());
+  const readHead = async () =>
+    (await git(root, ['rev-parse', '--verify', 'HEAD'], undefined, [0, 128])).trim() || null;
+  const head = await readHead();
+  const candidates = async () => {
+    const tracked = await git(
+      root,
+      head
+        ? [
+            'diff',
+            head,
+            '--name-only',
+            '--no-renames',
+            '--no-ext-diff',
+            '--no-textconv',
+            '-z',
+            '--',
+          ]
+        : ['ls-files', '--cached', '-z'],
+    );
+    const untracked = await git(root, ['ls-files', '--others', '--exclude-standard', '-z']);
+    return [...new Set((tracked + untracked).split('\0').filter(Boolean))].sort();
+  };
+  const names = await candidates(),
+    policy = sourcePathPolicy(excludes);
+  const permitted = names.map((file) => sourcePath(file)).filter((file) => !policy(file));
+  if (permitted.length > 512) throw new SourceCaptureError('source-unavailable');
+  const ignored = new Set(
+    permitted.length
+      ? (
+          await git(
+            root,
+            ['check-ignore', '--no-index', '-z', '--stdin'],
+            permitted.map((file) => `./${file}\0`).join(''),
+            [0, 1],
+          )
+        )
+          .split('\0')
+          .map((file) => file.replace(/^\.\//, ''))
+      : [],
+  );
+  const files: AutomaticWorkingTree['files'] = [];
+  const deadline = Date.now() + 20000;
+  for (const file of permitted) {
+    if (ignored.has(file)) continue;
+    if (Date.now() > deadline) throw new SourceCaptureError('source-unavailable');
+    const observed = await readAutomaticFile(root, file, excludes, true);
+    if (observed?.changed) files.push({ path: file, hash: observed.hash });
+  }
+  if (head !== (await readHead()) || contentHash(names) !== contentHash(await candidates()))
+    throw new SourceCaptureError('source-unavailable');
+  return { root, head, files, fingerprint: contentHash({ head, files }) };
 }

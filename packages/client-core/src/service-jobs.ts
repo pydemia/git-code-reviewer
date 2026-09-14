@@ -13,6 +13,7 @@ import { LocalStoreError } from './local-errors.js';
 import { contentHash, defaultLocalDataDirectory, discoverLocalIdentity } from './local-identity.js';
 import { restoreLocalSource, type FrozenLocalSource } from './source-snapshot.js';
 import { sourcePathPolicy } from './source-policy.js';
+import { validateServiceWatch, type ServiceWatch, type WatchTrigger } from './service-watch.js';
 
 export class LocalServiceError extends Error {
   constructor(
@@ -63,6 +64,7 @@ export interface ServiceJob {
   state: 'queued' | 'running' | 'finished' | 'cancelled' | 'interrupted';
   owner: string | null;
   notBefore?: number;
+  startedAt?: number;
   result?: {
     exitCode: 0 | 1 | 2;
     status: string;
@@ -72,6 +74,7 @@ export interface ServiceJob {
   };
   cleanupPending?: boolean;
   execution?: { key: string; generation: number };
+  watch?: true;
 }
 interface Owner {
   version: 1;
@@ -139,6 +142,32 @@ export class ServiceJobs {
   }
   close() {
     this.records.close();
+  }
+  async watch(repository: string, trigger: WatchTrigger): Promise<ServiceWatch | undefined> {
+    if (!/^[a-f0-9]{64}$/.test(repository) || !['stage', 'save'].includes(trigger)) throw invalid();
+    const row = await this.records.read('settings', `watch_${repository}_${trigger}`);
+    if (!row || row.deleted) return;
+    const value = validateServiceWatch(row.value as ServiceWatch);
+    if (value.repository !== repository || value.trigger !== trigger) throw invalid();
+    return value;
+  }
+  async watches() {
+    const result: ServiceWatch[] = [];
+    for (const id of await this.records.listIds('settings')) {
+      if (!id.startsWith('watch_')) continue;
+      const match = /^watch_([a-f0-9]{64})_(stage|save)$/.exec(id);
+      if (!match) throw invalid();
+      const state = await this.watch(match[1]!, match[2] as WatchTrigger);
+      if (state) result.push(state);
+    }
+    return result;
+  }
+  /** The service owner serializes configuration, observation and job mutations. */
+  async writeWatch(input: ServiceWatch) {
+    const state = validateServiceWatch(input),
+      id = `watch_${state.repository}_${state.trigger}`;
+    const row = await this.records.read('settings', id);
+    await this.records.write('settings', id, state, row?.revision ?? 0);
   }
   async acquireOwner(): Promise<string> {
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -281,6 +310,7 @@ export class ServiceJobs {
     registrationRevision: number;
     trigger: ReviewTrigger;
     source: FrozenLocalSource;
+    watch?: true;
   }) {
     if (!validId(input.id)) throw invalid();
     reviewTrigger(input.trigger);
@@ -291,6 +321,18 @@ export class ServiceJobs {
       !registration.triggers.includes(input.trigger)
     )
       throw new LocalServiceError('service-denied');
+    if (input.watch !== undefined) {
+      if (input.watch !== true || (input.trigger !== 'stage' && input.trigger !== 'save'))
+        throw invalid();
+      const watch = await this.watch(input.repository, input.trigger);
+      if (
+        !watch?.enabled ||
+        watch.registrationRevision !== input.registrationRevision ||
+        watch.intent?.id !== input.id ||
+        contentHash(watch.intent.source) !== contentHash(input.source)
+      )
+        throw new LocalServiceError('service-denied');
+    }
     const snapshot = restoreLocalSource(input.source);
     try {
       if (
@@ -315,6 +357,7 @@ export class ServiceJobs {
           old.repository !== input.repository ||
           old.registrationRevision !== input.registrationRevision ||
           old.trigger !== input.trigger ||
+          old.watch !== input.watch ||
           old.payloadHash !== payloadHash
         )
           throw invalid();
@@ -342,6 +385,7 @@ export class ServiceJobs {
         createdAt: Date.now(),
         state: 'queued',
         owner: null,
+        ...(input.watch ? { watch: true as const } : {}),
       };
       await this.records.write('settings', `job_${job.id}`, job, 0);
       return job;
@@ -440,6 +484,19 @@ export class ServiceJobs {
     await this.assertOwner(token);
     for (const job of await this.list()) {
       if (job.state !== 'queued') continue;
+      if (job.watch) {
+        if (job.trigger !== 'stage' && job.trigger !== 'save') throw invalid();
+        const watch = await this.watch(job.repository, job.trigger);
+        if (
+          !watch?.enabled ||
+          watch.registrationRevision !== job.registrationRevision ||
+          watch.cancelIds.includes(job.id) ||
+          (watch.receiptId !== job.id && watch.intent?.id !== job.id)
+        ) {
+          await this.cancel(job.id);
+          continue;
+        }
+      }
       const registration = await this.registration(job.repository);
       if (
         !registration ||
@@ -454,9 +511,10 @@ export class ServiceJobs {
       if (!row || row.deleted || contentHash(row.value) !== job.payloadHash) throw invalid();
       const source = restoreLocalSource(row.value);
       source.close();
-      await this.update({ ...job, state: 'running', owner: token }, job);
+      const startedAt = Date.now();
+      await this.update({ ...job, state: 'running', owner: token, startedAt }, job);
       return {
-        job: { ...job, state: 'running' as const, owner: token },
+        job: { ...job, state: 'running' as const, owner: token, startedAt },
         registration,
         source: row.value as FrozenLocalSource,
       };

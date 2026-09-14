@@ -27,6 +27,7 @@ Commands:
   service start|run|status|stop          Manage the profile's independent local service
   service allow|revoke|registrations    Explicit worktree trigger/model authorization
   service job|cancel --id <receipt-id> Inspect or cancel an asynchronous request
+  watch start|status|stop              Explicit headless Stage / external-file Save observation
   enqueue                              Capture source and return a durable service receipt
   enqueue-push                         Capture every pre-push ref and enqueue fixed source
   requests                             Inspect durable review ownership and outcomes
@@ -65,6 +66,10 @@ Review: --executor-path <codex-binary> --model gpt-6-astra --reasoning-effort xh
 Service: allow requires explicit --trigger values (repeatable; replaces previous grants).
          enqueue/enqueue-push use registered settings and accept --request-id <UUID>.
          Exit 0 from enqueue confirms durable receipt, not review completion.
+Watch: start --trigger stage|save (repeatable) requires matching service grants.
+       Save requires --external-changes; filesystem writes cannot identify Auto Save.
+       --minimum-save-interval-ms defaults to 600000 (range 10000..3600000).
+       First start baselines existing changes; stop cancels only watch-owned requests.
 
 review explicitly permits the selected account executor to read the approved fixed
 repository snapshot and selected knowledge. Standalone never contacts a central server.
@@ -154,6 +159,7 @@ const allowed: Record<string, string[]> = {
     'include-untracked',
   ],
   'enqueue-push': ['request-id'],
+  watch: ['trigger', 'external-changes', 'minimum-save-interval-ms'],
   requests: ['key', 'generation'],
   result: [],
   history: [],
@@ -180,6 +186,7 @@ const boolean = new Set([
   'retry-rejected',
   'allow-review',
   'allow-submissions',
+  'external-changes',
 ]);
 export function argumentsFor(argv: string[]) {
   if (!argv.length || argv[0] === '--help' || argv[0] === 'help')
@@ -192,7 +199,7 @@ export function argumentsFor(argv: string[]) {
       name,
       {
         type: boolean.has(name) ? ('boolean' as const) : ('string' as const),
-        ...(multiple.has(name) || (command === 'service' && name === 'trigger')
+        ...(multiple.has(name) || (['service', 'watch'].includes(command) && name === 'trigger')
           ? { multiple: true }
           : {}),
       },

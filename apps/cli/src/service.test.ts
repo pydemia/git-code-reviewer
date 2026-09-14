@@ -145,6 +145,37 @@ async function fixture() {
   };
   return { root, repo, git, cli, release, restart, calls: () => calls, observed };
 }
+it('runs explicit external-file watching through CLI commands, the service queue and the shared review runner', async () => {
+  const f = await fixture();
+  f.release();
+  expect((await f.cli(['service', 'allow', '--trigger', 'save'])).exitCode).toBe(0);
+  expect((await f.cli(['watch', 'start', '--trigger', 'save'])).exitCode).toBe(2);
+  expect(
+    (await f.cli(['watch', 'start', '--trigger', 'save', '--external-changes'])).exitCode,
+  ).toBe(0);
+  expect(f.calls()).toBe(0);
+  fs.writeFileSync(path.join(f.repo, 'a.ts'), 'export const watched=3;\n');
+  await until(
+    () => f.cli(['watch', 'status']),
+    (r) => (r.value as Array<{ receipt?: ServiceJob }>)[0]?.receipt?.state === 'finished',
+  );
+  expect(f.calls()).toBe(1);
+  expect(f.observed[0]).toContain('watched=3');
+  await f.restart();
+  expect((await f.cli(['watch', 'status'])).value).toEqual([
+    expect.objectContaining({
+      enabled: true,
+      trigger: 'save',
+      receipt: expect.objectContaining({ state: 'finished' }),
+    }),
+  ]);
+  expect((await f.cli(['watch', 'status', '--external-changes'])).exitCode).toBe(2);
+  expect((await f.cli(['watch', 'stop'])).exitCode).toBe(0);
+  expect((await f.cli(['watch', 'status'])).value).toEqual([
+    expect.objectContaining({ enabled: false }),
+  ]);
+  expect(f.calls()).toBe(1);
+}, 30000);
 it('reattaches a completed journal after the service fails before saving its receipt', async () => {
   const f = await fixture();
   expect((await f.cli(['service', 'allow', '--trigger', 'commit'])).exitCode).toBe(0);

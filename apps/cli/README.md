@@ -176,9 +176,35 @@ gcr service stop
 
 `--request-id UUID`는 응답 유실 시 같은 입력의 접수를 식별한다. 같은 UUID에 다른 입력을 보내면 거부한다. 서로 다른 receipt의 모델 실행은 기존 공통 요청 기록이 전체 source/context/executor identity로 중복을 판단한다. 프로세스 재시작 시 queued 요청은 복원하지만 이미 running이던 요청은 interrupted로 남기고 자동 재호출하지 않는다. `cancel`로 queued/interrupted payload를 정리할 수 있다. 실행 중 취소는 terminal 보고서를 만든 뒤 결과 상태를 기록한다.
 
-IPC는 macOS/Linux의 사용자 전용 Unix socket(0600, 상위 디렉터리 0700)을 사용하며 TCP port를 열지 않는다. Windows는 지원하지 않는다. Payload는 최대 8 MiB이며 queued/running/interrupted 합계 64개까지 받는다. 모델 시간·source·tool 제한은 등록한 리뷰별 설정이다. `service allow --reviews-per-hour 6`은 profile/worktree의 공통 실행 기록을 기준으로 시간당 시작 횟수를 제한한다(기본 6, 범위 1–100). 기존 수동 리뷰 시작도 집계하며 같은 결과를 재사용할 때는 새 시작을 차감하지 않는다. 한도에 걸린 receipt는 `notBefore`를 기록한 queued 상태로 남고 해당 시각 이후 다시 준비한다. 사용자 전체 호출/token 예산, headless 파일 감시, 중단 요청의 결과 대조 UI, receipt 보존 기간과 managed hook 설치는 남아 있다. Linux IPC 지원이 Linux 모델 executor 검증을 뜻하지는 않는다.
+IPC는 macOS/Linux의 사용자 전용 Unix socket(0600, 상위 디렉터리 0700)을 사용하며 TCP port를 열지 않는다. Windows는 지원하지 않는다. Payload는 최대 8 MiB이며 queued/running/interrupted 합계 64개까지 받는다. 모델 시간·source·tool 제한은 등록한 리뷰별 설정이다. `service allow --reviews-per-hour 6`은 profile/worktree의 공통 실행 기록을 기준으로 시간당 시작 횟수를 제한한다(기본 6, 범위 1–100). 기존 수동 리뷰 시작도 집계하며 같은 결과를 재사용할 때는 새 시작을 차감하지 않는다. 한도에 걸린 receipt는 `notBefore`를 기록한 queued 상태로 남고 해당 시각 이후 다시 준비한다. 사용자 전체 호출/token 예산과 receipt 보존 기간은 남아 있다. Linux IPC 지원이 Linux 모델 executor 검증을 뜻하지는 않는다.
 
 `scripts/verify-service-reviews.mjs`는 명시한 설치 artifact·현재 Codex 실행 파일로 임시 저장소의 commit/push를 검증한다. `GCR_SERVICE_CONSUMER`, `GCR_SERVICE_CODEX`, `GCR_SERVICE_EVIDENCE`에 절대 경로를 지정해야 하며 실제 모델을 호출한다. 사용자 저장소의 hook이나 전역 CLI는 변경하지 않는다.
+
+## VS Code와 독립적인 파일 감시
+
+```sh
+gcr service start
+# allow는 기존 grant 전체를 교체한다. 유지할 commit/push도 함께 지정한다.
+gcr service allow --cwd /path/to/repo --trigger stage --trigger save \
+  --executor-path /absolute/path/to/codex
+gcr watch start --cwd /path/to/repo --trigger stage
+# 모든 외부 파일 쓰기를 Save 입력으로 허용하는 경우에만 실행한다.
+gcr watch start --cwd /path/to/repo --trigger stage --trigger save --external-changes
+gcr watch status --cwd /path/to/repo
+gcr watch stop --cwd /path/to/repo
+```
+
+감시는 기본으로 꺼져 있다. `start`가 반환하면 CLI를 닫아도 서비스가 감시를 계속한다. 첫 시작은 현재 변경을 기준점으로 저장하므로 이미 수정하거나 stage한 코드를 소급 실행하지 않는다. 같은 설정으로 다시 시작하면 대기 중인 변경을 보존한다. 설정을 바꾸면 새 기준점을 만든다. `service allow/revoke`로 등록 revision이 바뀌면 감시가 꺼지며 `watch start`로 다시 허용해야 한다.
+
+Stage는 실제 index, Save는 디스크의 working tree를 관찰한다. 각 조회가 끝난 뒤 2초 후 다시 조회하고 변경은 3초 debounce 후 공통 서비스 큐로 보낸다. Save 접수 간격은 기본 10분이며 `--minimum-save-interval-ms`로 10000–3600000ms 사이에서 지정한다. 큐에서 실행을 시작한 시각도 이 간격에 반영한다. 여러 파일의 연속 변경은 합치고, whole-file unstage·원본 복원·내용이 같은 재저장·제외된 파일은 새 리뷰 입력을 만들지 않는다. 부분 hunk만 unstage한 경우의 추가 구분은 남아 있다.
+
+파일 시스템은 수동 Save, Auto Save, 다른 프로그램의 쓰기를 구분하지 못한다. 따라서 Save 감시는 `--external-changes`를 명시해야 켤 수 있으며 Auto Save로 기록된 바이트도 포함할 수 있다. 이 명령은 CD의 Save/Auto Save 설정과 아직 연동하지 않는다. CD 이벤트의 출처를 전달하며 headless 감시로 전환하는 기능은 후속 작업이다.
+
+관측값·debounce 대기·제출 intent를 암호화해 저장한다. 서비스가 재시작되면 누락된 변경을 다시 조회하고 이미 제출한 intent는 같은 receipt로 확인한다. 실행 중이던 요청은 `interrupted`로 남겨 결과를 복구하도록 하며 같은 관측 입력으로 모델을 자동 재호출하지 않는다. `watch stop`은 해당 감시가 만든 대기/실행 요청만 취소한다. 일반 enqueue·hook 요청과 서비스 grant는 유지한다.
+
+Save 조회는 제외 정책을 적용한 후보 512개, 텍스트 파일당 2 MiB, 파일 순회 20초 한도로 제한한다. 심볼릭 링크와 ignored 파일은 읽지 않으며 binary·파일당 크기 제한을 초과한 파일은 관측에서 제외한다. 후보 수·순회 한도를 넘거나 조회가 실패하면 `watch status`에 `watch-observation-unavailable`을 남기고 재조회한다. 상태에는 대기 파일 수와 receipt를 표시하며 고정 source payload는 포함하지 않는다. OS 로그인 시 서비스 자동 시작과 Linux 실제 executor 검증은 아직 남아 있다.
+
+`scripts/verify-headless-watch.mjs`는 설치한 CLI로 서비스를 시작한 뒤 명령이 종료된 상태에서 실제 파일을 변경한다. `GCR_WATCH_ALLOW_MODEL=1`, `GCR_WATCH_CONSUMER`, `GCR_WATCH_CODEX`, `GCR_WATCH_EVIDENCE`를 명시해야 하며 임시 저장소에 실제 계정 리뷰를 한 건 수행한다. 실행 중인 receipt의 관측 시간이 길어져도 같은 작업을 계속 확인한다. 완료를 확인한 후 서비스와 테스트용 OS key를 정리하며 실행 여부가 불명확하면 fixture를 보존한다.
 
 ## 중단 작업의 완료 결과 복구
 

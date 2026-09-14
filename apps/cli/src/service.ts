@@ -64,6 +64,37 @@ export async function executeServiceCommand(
     if (!row) throw new LocalServiceError('service-denied');
     return row;
   };
+  if (command === 'watch') {
+    const action = positionals[0];
+    if (
+      positionals.length !== 1 ||
+      !['start', 'status', 'stop'].includes(action!) ||
+      values.mode !== undefined ||
+      values.connection !== undefined ||
+      (action !== 'start' &&
+        ['trigger', 'external-changes', 'minimum-save-interval-ms'].some(
+          (k) => values[k] !== undefined,
+        ))
+    )
+      throw new CliError(
+        'usage',
+        'Choose watch start, status or stop; only start accepts watch settings.',
+      );
+    return {
+      exitCode: 0,
+      value: await callLocalService(location, {
+        action: `watch-${action}`,
+        root,
+        ...(action === 'start'
+          ? {
+              triggers: many('trigger'),
+              externalChanges: values['external-changes'] === true,
+              minimumSaveIntervalMs: number('minimum-save-interval-ms', 600000),
+            }
+          : {}),
+      }),
+    };
+  }
   if (command === 'service') {
     if (positionals.length !== 1)
       throw new CliError(

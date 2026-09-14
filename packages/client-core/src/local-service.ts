@@ -13,6 +13,7 @@ import {
 import type { LocalKeyStore } from './local-credentials.js';
 import type { FrozenLocalSource } from './source-snapshot.js';
 import type { ReviewRequestRecord } from '@gcr/client-contract';
+import { ServiceWatcher } from './service-watch.js';
 
 const maximumFrame = 9 * 1024 * 1024;
 export interface LocalServiceLocation {
@@ -176,6 +177,18 @@ export async function startLocalService(options: LocalServiceOptions) {
       });
   };
   const clients = new Set<net.Socket>();
+  const watcher = new ServiceWatcher({
+    jobs,
+    serial,
+    wake: () => setImmediate(wake),
+    cancel: async (id) => {
+      if (active?.job.id === id) {
+        active.controller.abort('watch-superseded');
+        return;
+      }
+      return jobs.cancel(id);
+    },
+  });
   let closePromise: Promise<void> | undefined;
   let closedResolve!: (result: { problem: string | null }) => void;
   const closed = new Promise<{ problem: string | null }>((resolve) => {
@@ -191,6 +204,7 @@ export async function startLocalService(options: LocalServiceOptions) {
       for (const socket of clients) socket.destroySoon();
       try {
         await new Promise<void>((resolve) => server.close(() => resolve()));
+        await watcher.close();
         await draining;
         await mutation;
         await jobs.releaseOwner(owner);
@@ -209,12 +223,14 @@ export async function startLocalService(options: LocalServiceOptions) {
           status: serviceFailure ? 'degraded' : 'running',
           features: [
             'review-start-budget-v1',
+            'headless-watch-v1',
             ...(options.reconcile ? ['review-reconciliation-v1'] : []),
           ],
           pid: process.pid,
           profileId: options.profileId,
           active: active?.job.id ?? null,
           problem: serviceFailure ?? null,
+          watchProblem: watcher.problem ?? null,
           jobs: (await jobs.list()).slice(-200),
         };
       case 'registrations':
@@ -245,7 +261,28 @@ export async function startLocalService(options: LocalServiceOptions) {
         );
         if (active?.job.repository === registration.key)
           active.controller.abort('registration-changed');
+        await watcher.disable(registration.key);
         return registration;
+      }
+      case 'watch-start':
+      case 'watch-stop':
+      case 'watch-status': {
+        if (typeof request.root !== 'string') throw new LocalServiceError('service-invalid');
+        const identity = discoverLocalIdentity(request.root, options.profileId);
+        const key = contentHash({
+          repositoryKey: identity.repositoryKey,
+          worktreeKey: identity.worktreeKey,
+        });
+        const registration = await jobs.registration(key);
+        if (!registration) throw new LocalServiceError('service-denied');
+        if (request.action === 'watch-start')
+          return watcher.configure(registration, {
+            triggers: request.triggers,
+            externalChanges: request.externalChanges,
+            minimumSaveIntervalMs: request.minimumSaveIntervalMs,
+          });
+        if (request.action === 'watch-stop') await watcher.disable(key);
+        return watcher.status(key);
       }
       case 'submit': {
         const job = await jobs.submit(request.input as Parameters<ServiceJobs['submit']>[0]);
@@ -337,6 +374,7 @@ export async function startLocalService(options: LocalServiceOptions) {
       void close();
     });
     wake();
+    watcher.start();
     return { address, closed, close };
   } catch (error) {
     server.close();

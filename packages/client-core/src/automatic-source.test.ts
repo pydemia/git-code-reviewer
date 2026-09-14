@@ -7,6 +7,7 @@ import {
   observeAutomaticRepository,
   observeAutomaticFile,
   newlyStagedPaths,
+  observeAutomaticWorkingTree,
 } from './automatic-source.js';
 const roots: string[] = [];
 afterEach(() => {
@@ -56,6 +57,30 @@ function fixture() {
     write: (file: string, text: string) => writeFileSync(path.join(repo, file), text),
   };
 }
+it('re-queries working changes including nested deletions, ignores private files and notices return to base', async () => {
+  const f = fixture();
+  mkdirSync(path.join(f.repo, 'nested'));
+  f.write('nested/old.ts', 'export const old=1;\n');
+  f.git('add', '.');
+  f.git('commit', '-m', 'nested');
+  const clean = await observeAutomaticWorkingTree(f.repo);
+  expect(clean.files).toEqual([]);
+  rmSync(path.join(f.repo, 'nested'), { recursive: true });
+  f.write('new.ts', 'export const fresh=2;\n');
+  f.write('.env', 'PRIVATE');
+  f.write('.gitignore', 'ignored.ts\n');
+  f.write('ignored.ts', 'PRIVATE');
+  f.write('binary.ts', 'BINARY\0CONTENT');
+  const changed = await observeAutomaticWorkingTree(f.repo, ['.gitignore']);
+  expect(changed.files.map((f) => f.path)).toEqual(['nested/old.ts', 'new.ts']);
+  expect(changed.files[0]?.hash).toBeNull();
+  expect((await observeAutomaticWorkingTree(f.repo, ['.gitignore'])).fingerprint).toBe(
+    changed.fingerprint,
+  );
+  rmSync(path.join(f.repo, 'new.ts'));
+  f.git('restore', 'nested/old.ts');
+  expect((await observeAutomaticWorkingTree(f.repo, ['.gitignore'])).files).toEqual([]);
+}, 20000);
 it('observes actual staged content, ignores index refresh and whole-file unstaging, and resets on commit', async () => {
   const f = fixture();
   const empty = await observeAutomaticRepository(f.repo);

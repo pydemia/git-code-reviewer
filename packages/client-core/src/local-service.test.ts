@@ -156,6 +156,37 @@ process.on('SIGTERM',()=>{void service.close();});process.stdout.write('ready\\n
     git,
   };
 }
+it('retains headless Stage observation after submitting clients exit and across service process restart', async () => {
+  const f = fixture();
+  const first = await f.start();
+  await f.register(['stage']);
+  await f.call({ action: 'watch-start', root: f.repo, triggers: ['stage'] });
+  writeFileSync(path.join(f.repo, 'a.ts'), 'export const watched=4;\n');
+  f.git('add', 'a.ts');
+  await until(async () => {
+    const states = (await f.call({ action: 'watch-status', root: f.repo })) as Array<{
+      pendingFiles: number;
+    }>;
+    return states[0]?.pendingFiles === 1;
+  });
+  const exited = once(first, 'exit');
+  first.kill('SIGKILL');
+  await exited;
+  const second = await f.start();
+  await until(async () => {
+    const states = (await f.call({ action: 'watch-status', root: f.repo })) as Array<{
+      receipt?: ServiceJob;
+    }>;
+    return states[0]?.receipt?.state === 'finished';
+  });
+  const lines = readFileSync(f.calls, 'utf8').trim().split('\n');
+  expect(lines).toHaveLength(1);
+  expect(lines[0]).toContain('watched=4');
+  await f.call({ action: 'watch-stop', root: f.repo });
+  const stopped = once(second, 'exit');
+  await f.call({ action: 'stop' });
+  await stopped;
+}, 30000);
 it('recovers a report persisted immediately before SIGKILL without a second executor invocation', async () => {
   const f = fixture();
   writeFileSync(

@@ -138,7 +138,7 @@ export async function executeCli(
     if (command === 'help' || values.help) return { value: help, exitCode: 0, text: true };
     if (command === 'mcp')
       throw new CliError('stdio-required', 'Start MCP using the gcr executable.');
-    if (['service', 'enqueue', 'enqueue-push'].includes(command))
+    if (['service', 'watch', 'enqueue', 'enqueue-push'].includes(command))
       return await executeServiceCommand(
         { command, values, positionals },
         dependencies,
