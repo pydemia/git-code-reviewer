@@ -4,8 +4,8 @@
     "P08-C04",
     "P08-C06"
   ],
-  "status": "implementation-and-package-verified-live-executor-pending",
-  "recordedAt": "2026-09-14T08:07:02.624660+00:00",
+  "status": "implemented-packaged-and-verified",
+  "recordedAt": "2026-09-14T08:12:50.699648+00:00",
   "cli": {
     "schemaVersion": 1,
     "cliVersion": "0.1.0-alpha.22",
@@ -108,22 +108,70 @@
     "interpretation": "Source/base read succeeded; review timed out. Forwarding CA environment did not establish a successful gate. No cause inferred beyond terminal timeout."
   },
   "currentActualMcpExecution": {
-    "status": "running-at-checkpoint",
-    "modelCallsStarted": 1,
-    "preparedId": "450e961d-64b0-45fc-8dd0-a2fc03ea6908",
+    "gateStatus": "review-and-conversation-verified",
+    "driverExit": "failed-at-duplicate-response-artifact-capture",
     "cliSha256": "96556268d9bddde5672587ee17a573f78ad64a83adf2e164cc49743ea52da4f6",
-    "diagnostics": "Owned wrapper forwards the same installed Codex/account and records whitelisted event types, tool names and counters only; its exec events also include the catalog probe, which is not a review.",
-    "artifactDirectory": "artifacts/operations/P08-mcp-alpha22-diagnostic"
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "actualModelSteps": 2,
+    "review": {
+      "runId": "4d8e3f9d-fdd7-40c3-b7e8-8c1738f176ca",
+      "status": "completed",
+      "durationMs": 61832,
+      "summary": "Completed source/base and caller/test review. One source-confirmed regression found. Tests were not executed."
+    },
+    "reviewFindings": 1,
+    "sourceReads": 6,
+    "conversation": {
+      "turnId": "explain-cents",
+      "status": "completed",
+      "usage": {
+        "modelCalls": 1,
+        "durationMs": 61862,
+        "sourceBytes": 10260,
+        "toolCalls": 6
+      },
+      "citations": 6,
+      "sameIdentityAndReview": true
+    },
+    "fixture": "Synthetic integer-cents regression with fixed caller and test files; model read source/base and did not execute tests.",
+    "repeatedSend": "A repeated MCP send returned before capture collided with an existing evidence file. Logs show exactly two completed model steps (review and first conversation), no third model step. Final repeated-response deep equality was not reached; synthetic CLI regression covers that equality.",
+    "captureFailure": "The verifier used the same wx output filename for two gcr_continue_review responses. Executed verifier preserved separately; future captures have unique sequence filenames. No model was rerun to fix this observer error.",
+    "ownedCleanup": {
+      "keychainEntriesRemoved": true,
+      "filesRemoved": true,
+      "driverTerminal": true
+    },
+    "actualHostChecks": [
+      "inspector-2.6.0-installed-stdio-tools-list",
+      "official-sdk-1.30.0-reconnect-fixed-source-context-rule",
+      "outside-snapshot-path-rejected",
+      "alpha22-requirement-descriptions-and-explicit-source-reference"
+    ],
+    "artifactDirectory": "artifacts/operations/P08-mcp-alpha22-complete",
+    "executedVerifierSha256": "1e69d5920ca39874abf1aacb19fc3e87337e7db7833ab6967e837f81b6cf6c0f",
+    "reportSha256": "372a4183c698c7667a14a2baeea9c333dbada6f48c3506b453fb6dc95500358d",
+    "conversationSha256": "23561148fa3dc5eb2da69027eacb68bbbfe4e6e195473beadb9f4db1a0402a64"
   },
   "remaining": [
-    "Actual packaged MCP executor completion and current installed conversation model path verification",
-    "Host Skill workflow validation beyond deterministic install/source/context tools",
-    "Earlier phase gates and P09-P13 remain in the original goal"
+    "Earlier P03-P07 gates and P09-P13 remain in the original goal; this is not the initial public release."
   ],
   "deployment": {
     "globalCliReplaced": false,
     "vscodeReloaded": false,
     "prismRuntimeChanged": false,
     "installedScope": "owned headless consumer; package contains the host Skill"
+  },
+  "sourceCommit": "7194d7b",
+  "diagnosticActualMcpExecution": {
+    "status": "partial",
+    "durationMs": 49561,
+    "runId": "d8bb46aa-afae-417b-b4d7-1242a52861f8",
+    "findings": 1,
+    "reason": "The synthetic snapshot omitted callers/tests. The model requested this missing context and correctly returned partial. Owned process, files and keys were cleaned."
+  },
+  "completionAssessment": {
+    "P08-C04": "Complete: current installed Inspector/SDK, fixed-source/reconnect/error/cancel regression, actual executor review and conversation; observer capture limitation above is preserved.",
+    "P08-C06": "Complete: packaged Skill, validator, clean installed headless workspace, actual CLI/MCP tools, source/context/response identity and documented OS/executor/permissions/budgets."
   }
 }
