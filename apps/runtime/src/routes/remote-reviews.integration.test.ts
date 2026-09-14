@@ -4,7 +4,7 @@ import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { clientReviewReport, type RemoteReviewPayload } from '@gcr/client-contract';
-import { canonicalJson, contentHash } from '@gcr/client-core';
+import { canonicalJson, contentHash, restoreRemoteReviewSource } from '@gcr/client-core';
 import { loadConfig, type AppConfig } from '../config.js';
 import { registerAuthentication, type AuthUser } from '../auth/index.js';
 import { registerMutationOriginGuard } from '../auth/mutation-origin.js';
@@ -110,6 +110,10 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
           },
         ],
         selected: [{ path: 'app.ts', side: 'source' }],
+        review: {
+          changes: [{ path: 'app.ts', side: 'source', status: 'A', base: 'absent' }],
+          incomplete: false,
+        },
       },
       context: { provenance: 'client-supplied', documents: [] },
       budget: {
@@ -656,6 +660,44 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
     expect((await get(auth.token, body)).statusCode).toBe(200);
     expect((await cancel(auth.token, body)).json().state).toBe('cancelled');
   });
+  it('requires approved change descriptions for new jobs while preserving legacy receipt replay', async () => {
+    const auth = await key(),
+      body = input();
+    const legacy = structuredClone(body);
+    delete legacy.payload.source.review;
+    approve(legacy);
+    const rejected = await submit(auth.token, legacy);
+    expect(rejected.statusCode).toBe(422);
+    expect(rejected.body).toContain('REMOTE_REVIEW_SOURCE_DESCRIPTION_REQUIRED');
+    expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('0');
+    await submit(auth.token, body);
+    const row = (await db.query('select id from client_review_jobs')).rows[0];
+    // Recreate the encrypted pre-description format, including its original approval hash.
+    const encrypted = encryptCredential(
+      canonicalJson(legacy.payload),
+      encryptionKey,
+      remoteReviewEncryptionPurpose(row.id, legacy.approval.payloadHash, 'source'),
+    );
+    await db.query(
+      'update client_review_jobs set payload_hash=$1,source_ciphertext=$2,source_iv=$3,source_tag=$4',
+      [
+        legacy.approval.payloadHash,
+        encrypted.credentialCiphertext,
+        encrypted.credentialIv,
+        encrypted.credentialAuthTag,
+      ],
+    );
+    expect((await get(auth.token, legacy)).statusCode).toBe(200);
+    expect((await submit(auth.token, legacy)).statusCode).toBe(200);
+    const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+    const loaded = await loadRemoteReviewPayload(db, config, authorization, claim);
+    expect(loaded).toEqual(legacy.payload);
+    expect(() => restoreRemoteReviewSource(loaded)).toThrow('invalid-upload');
+    expect(
+      (await db.query('select count(*),sum(reserved_model_calls) as calls from client_review_jobs'))
+        .rows[0],
+    ).toEqual({ count: '1', calls: '2' });
+  });
   it('claims a job once, checks its original key and account again, and rejects another owner', async () => {
     const auth = await key(),
       body = input();
@@ -666,7 +708,20 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
     ]);
     expect(claims.filter(Boolean)).toHaveLength(1);
     const claim = claims.find(Boolean)!;
-    expect(await loadRemoteReviewPayload(db, config, authorization, claim)).toEqual(body.payload);
+    const loaded = await loadRemoteReviewPayload(db, config, authorization, claim);
+    expect(loaded).toEqual(body.payload);
+    const uploaded = restoreRemoteReviewSource(loaded);
+    try {
+      expect(uploaded.readFile('app.ts')).toEqual({
+        status: 'available',
+        source: body.payload.source.files[0]!.metadata,
+        text: body.payload.source.files[0]!.text,
+      });
+      expect(uploaded.readFile('app.ts', 'base')).toEqual({ status: 'absent' });
+      expect(uploaded.selected).toEqual([{ path: 'app.ts', side: 'source', status: 'A' }]);
+    } finally {
+      uploaded.close();
+    }
     await expect(
       heartbeatRemoteReviewJob(db, config, authorization, { ...claim, executor: 'wrong' }),
     ).rejects.toThrow('REMOTE_REVIEW_LEASE_LOST');

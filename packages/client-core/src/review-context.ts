@@ -17,7 +17,7 @@ import { builtinReviewSkill } from './builtin-review.js';
 import { canonicalJson, contentHash } from './local-identity.js';
 import { compilePathPatterns } from './source-policy.js';
 import { resolveReviewMode, type ReviewProblem } from './review-mode.js';
-import type { LocalSourceSnapshot } from './source-snapshot.js';
+import type { ReviewSourceView } from './review-source.js';
 
 export interface KnowledgeReader {
   entries(): AsyncIterable<LocalKnowledge>;
@@ -28,7 +28,7 @@ export interface RequiredSource {
 }
 export interface LocalContextQuery {
   client: ClientIdentity;
-  snapshot: LocalSourceSnapshot;
+  snapshot: ReviewSourceView;
   settings?: { mode?: unknown; [key: string]: unknown };
   stores: readonly KnowledgeReader[];
   /** Branch observations must belong to this captured HEAD, not a later checkout. */
@@ -224,10 +224,7 @@ export async function resolveLocalContext(
       const read = input.snapshot.readFile(file.path, file.side);
       if (read.status === 'available') primary.push(read);
       const basePath = file.oldPath ?? file.path;
-      if (
-        file.side === 'source' &&
-        input.snapshot.readFile(basePath, 'base').status === 'available'
-      )
+      if (file.side === 'source' && input.snapshot.readFile(basePath, 'base').status !== 'absent')
         requestedSources.push({ path: basePath, side: 'base' });
     }
     const sources: ContextSourceRequirement[] = [];

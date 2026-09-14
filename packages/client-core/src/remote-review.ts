@@ -58,6 +58,10 @@ export function validateRemoteReviewPayload(input: unknown): RemoteReviewPayload
       )
         throw Error('invalid-upload');
     }
+    for (const change of payload.source.review?.changes ?? []) {
+      if (excluded(change.path) || (change.oldPath && excluded(change.oldPath)))
+        throw Error('invalid-upload');
+    }
     return payload;
   } catch {
     // Contract paths can contain client-controlled field names. Never surface them as API errors.
@@ -98,6 +102,24 @@ export function prepareRemoteReview(
       snapshot: snapshot.identity,
       files,
       selected: snapshot.selected.map(({ path, side }) => ({ path, side })),
+      review: {
+        incomplete: snapshot.incomplete,
+        changes: snapshot.selected.map((change) => {
+          const basePath = change.oldPath ?? change.path;
+          const base = snapshot.readFile(basePath, 'base');
+          return {
+            ...change,
+            base:
+              base.status === 'absent'
+                ? 'absent'
+                : files.some(
+                      (file) => file.metadata.path === basePath && file.metadata.side === 'base',
+                    )
+                  ? 'uploaded'
+                  : 'unavailable',
+          };
+        }),
+      },
     },
   });
   const json = canonicalJson(payload, REMOTE_REVIEW_MAX_BYTES);

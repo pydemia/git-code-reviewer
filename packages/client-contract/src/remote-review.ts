@@ -1,4 +1,5 @@
 import {
+  boolean,
   choice,
   fail,
   id,
@@ -25,6 +26,26 @@ export const remoteReviewDocument = object({
   text: text(262144, 1),
   hash: sha256,
 });
+const remoteReviewChange = refined(
+  object({
+    path: sourcePath,
+    side: choice(['base', 'source']),
+    status: choice(['A', 'M', 'D', 'R', 'T']),
+    oldPath: optional(sourcePath),
+    base: choice(['uploaded', 'absent', 'unavailable']),
+  }),
+  (value, at) => {
+    if ((value.status === 'D') !== (value.side === 'base')) fail(at, 'change side mismatch');
+    if ((value.status === 'R') !== (value.oldPath !== undefined) || value.oldPath === value.path)
+      fail(at, 'rename path mismatch');
+    if (
+      (value.status === 'A' && value.base !== 'absent') ||
+      (value.status === 'D' && value.base !== 'uploaded') ||
+      (value.status === 'R' && value.base === 'absent')
+    )
+      fail(at, 'change base mismatch');
+  },
+);
 
 /** Uploaded context is client-supplied material, never a published central policy. */
 export const remoteReviewPayload = refined(
@@ -45,6 +66,8 @@ export const remoteReviewPayload = refined(
       snapshot: snapshotIdentity,
       files: list(object({ metadata: sourceFile, text: text(2 * 1024 * 1024) }), 512, 1),
       selected: list(object({ path: sourcePath, side: choice(['base', 'source']) }), 512, 1),
+      // Legacy receipts remain decodable; execution requires this approved description.
+      review: optional(object({ changes: list(remoteReviewChange, 200, 1), incomplete: boolean })),
     }),
     context: object({
       provenance: literal('client-supplied'),
@@ -76,6 +99,25 @@ export const remoteReviewPayload = refined(
     const files = new Set(value.source.files.map((file) => key(file.metadata)));
     if (value.source.selected.some((file) => !files.has(key(file))))
       fail(at, 'selected source is not uploaded');
+    const review = value.source.review;
+    if (review) {
+      unique(
+        review.changes.map((change) => change.path),
+        `${at}.source.review.changes`,
+      );
+      const selected = new Set(value.source.selected.map(key));
+      if (
+        review.changes.length !== selected.size ||
+        review.changes.some((change) => !selected.has(key(change)))
+      )
+        fail(at, 'change selection mismatch');
+      for (const change of review.changes) {
+        if (files.has(`base:${change.oldPath ?? change.path}`) !== (change.base === 'uploaded'))
+          fail(at, 'base upload mismatch');
+        if (change.status === 'D' && files.has(`source:${change.path}`))
+          fail(at, 'deleted source is uploaded');
+      }
+    }
     const client = value.client;
     if (
       client.mode === 'centralized' &&

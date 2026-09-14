@@ -5,6 +5,8 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   captureLocalSource,
+  prepareRemoteReview,
+  restoreRemoteReviewSource,
   resolveLocalContext,
   resolveLocalExecutionPolicy,
   runLocalReview,
@@ -44,7 +46,7 @@ const call = (name = 'read_file', args = '{"path":"app.ts"}', id = 'call-1'): Ag
 };
 const options = { version: 'fixture', modelCalls: 2 };
 describe('registered model fixed-source review executor', () => {
-  it('executes a complete core review using observed source reads from a real immutable Git capture', async () => {
+  it('executes an uploaded fixed-source review after the original capture and checkout are removed', async () => {
     const root = mkdtempSync(path.join(tmpdir(), 'gcr-central-executor-'));
     try {
       const git = (...args: string[]) =>
@@ -60,7 +62,25 @@ describe('registered model fixed-source review executor', () => {
       git('init');
       writeFileSync(path.join(root, 'app.ts'), 'export const answer = 42;\n');
       git('add', 'app.ts');
-      const snapshot = captureLocalSource({ cwd: root, kind: 'index' });
+      const captured = captureLocalSource({ cwd: root, kind: 'index' });
+      const client = { mode: 'standalone' as const, profileId: 'fixture', ...captured.repository };
+      const { payload } = prepareRemoteReview({
+        schemaVersion: 1,
+        requestId: 'request',
+        audience: { serverId: 'server', tenantId: 'tenant', repositoryId: 'repo', userId: 'user' },
+        clientId: 'gcr-cli',
+        executor: 'central',
+        client,
+        model: { accountId: 'fixture-account', name: 'gpt-6-astra', reasoningEffort: 'xhigh' },
+        context: { provenance: 'client-supplied', documents: [] },
+        budget: { modelCalls: 2, durationMs: 120000, sourceBytes: 1048576, toolCalls: 100 },
+        retention: { sourceSeconds: 3600, resultSeconds: 86400 },
+        snapshot: captured,
+        sourceFiles: captured.sourceFiles,
+      });
+      captured.close();
+      rmSync(root, { recursive: true, force: true });
+      const snapshot = restoreRemoteReviewSource(payload);
       try {
         const turn = vi.fn(async (request: AgentTurnRequest) => {
           expect(request.reasoningEffort).toBe('xhigh');
@@ -90,11 +110,6 @@ describe('registered model fixed-source review executor', () => {
           );
         });
         const executor = createCentralReviewExecutor(selection(turn), options);
-        const client = {
-          mode: 'standalone' as const,
-          profileId: 'fixture',
-          ...snapshot.repository,
-        };
         const context = await resolveLocalContext({ client, snapshot, stores: [] });
         const resolved = resolveLocalExecutionPolicy({
           context,

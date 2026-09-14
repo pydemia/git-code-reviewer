@@ -1,8 +1,10 @@
 # 중앙 리뷰 작업 접수
 
-현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터가 구현되어 있다. 업로드를 공통 리뷰 입력으로 복원하는 경로와 worker의 실제 실행 루프는 아직 연결하지 않았다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
+현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터, 업로드된 소스의 공통 리뷰 입력 복원이 구현되어 있다. 승인된 컨텍스트 복원과 worker의 실제 실행 루프는 아직 연결하지 않았다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
 
 ## API
+
+신규 요청의 `source.review`에는 선택 파일별 변경 종류·rename의 이전 경로·기준 파일의 전송 여부와 캡처 불완전 여부가 필요하다. 해당 정보가 없으면 422 `REMOTE_REVIEW_SOURCE_DESCRIPTION_REQUIRED`를 반환한다. 기존 형식의 작업은 동일 hash로 조회·재전송할 수 있지만 실행기가 변경 정보를 추정해 복원하지는 않는다.
 
 기준 경로는 `/api/v1/repositories/{repositoryId}/remote-reviews`다. 요청에는 해당 서버를 대상으로 발급한 client API key와 `X-GCR-Server-Id`가 필요하다. Browser session cookie는 이 API의 인증 수단이 아니다.
 
@@ -50,3 +52,14 @@ Migration 0048은 provider 요청 시작 시각과 다음 접수 가능 시각�
 Lease가 만료된 작업은 요청 시작 기록이 없을 때만 queued로 복구한다. 기록이 있으면 uncertain으로 남기고 소스를 지운다. 이전 owner는 새 owner의 lease 갱신·모델 전송·완료 저장을 할 수 없다. 완료 저장은 현재 인가와 승인된 client/source/model/account 설정, 파일 범위를 대조하고 암호화된 report와 terminal receipt를 같은 transaction에 기록한다. 취소 이후 늦게 도착한 report는 저장하지 않는다.
 
 `createCentralReviewExecutor`는 공통 `list_files`, `read_file`, `search_code` 선언과 source port만 사용한다. Registered model의 turn과 source tool 응답을 이어 주고 호출 횟수·시간·출력 바이트를 제한한다. Shell이나 별도 source 수집기는 제공하지 않는다. 아직 이 어댑터를 queued upload부터 자동 실행하는 end-to-end 경로는 없으며 실제 계정 호출·배포 검증은 남아 있다.
+
+
+## 승인된 소스 복원
+
+`prepareRemoteReview`는 선택한 파일의 A/M/D/R/T와 rename의 이전 경로, 기준 파일 상태를 payload hash에 포함한다. 기준 파일 상태는 업로드됨·캡처에서 없음·업로드에 없음으로 구분한다. 기준 파일이 캡처에 있지만 전송 승인 목록에 없으면 마지막 상태가 되며 새 파일로 추정하지 않는다. 변경 정보의 선택 파일 집합과 업로드된 실제 file/side도 일치해야 한다. 실행 파일은 공통 runner와 같은 최대 200개다.
+
+`restoreRemoteReviewSource`는 검증된 전송 바이트만 읽는 `ReviewSourceView`를 만든다. Git checkout과 로컬 경로를 보유하지 않고 캡처를 재구성하는 `freeze`도 제공하지 않는다. 원본 snapshot hash와 OID는 client-captured 식별자로 유지하며 서버가 Git tree를 검증했다고 주장하지 않는다. Branch와 HEAD 관측을 전송하지 않으므로 이를 추정하지 않는다.
+
+공통 context·policy·source port·runner가 이 view를 사용한다. 읽기와 줄 수·바이트 예산, read ID 기반 coverage 검증은 로컬 리뷰와 같다. Rename의 이전 파일을 업로드하지 않으면 `needs-context`로 실행 전에 중단하고, 업로드했어도 모델이 읽지 않으면 완료로 인정하지 않는다. 임의의 미전송 경로는 unavailable이며 파일이 실제로 없다고 답하지 않는다.
+
+캡처 실패는 제외 파일 이름 없이 불완전 여부만 전달할 수 있다. 해당 값이 있으면 모든 선택 파일을 읽어도 결과는 partial이다. 이번 연결은 소스 복원까지다. 승인된 instructions/memory/skill 및 중앙 knowledge snapshot의 복원과 실행 중 인가 확인은 다음 작업이며, 테스트의 빈 context를 일반 요청의 context로 대체해서는 안 된다.

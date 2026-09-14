@@ -10,7 +10,7 @@ import {
 import { builtinReviewSkill } from './builtin-review.js';
 import { canonicalJson, contentHash } from './local-identity.js';
 import { compilePathPatterns } from './source-policy.js';
-import type { LocalSourceSnapshot } from './source-snapshot.js';
+import type { ReviewSourceView } from './review-source.js';
 import type { LocalContextResolution } from './review-context.js';
 import type { ReviewProblem } from './review-mode.js';
 
@@ -183,7 +183,7 @@ class LocalExecutionPolicy {
 export type { LocalExecutionPolicy };
 export interface ResolvePolicyInput {
   context: LocalContextResolution;
-  snapshot: LocalSourceSnapshot;
+  snapshot: ReviewSourceView;
   executor: LocalExecutorDescriptor;
   workspaceTrusted: boolean;
   approval?: ApprovedLocalScope;
