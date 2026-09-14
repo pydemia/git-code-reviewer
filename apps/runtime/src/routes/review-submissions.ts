@@ -5,6 +5,7 @@ import {
   reviewSubmissionJson,
   reviewSubmission,
   reviewSubmissionReceipt,
+  reviewSubmissionStatus,
   REVIEW_SUBMISSION_RETENTION_MS,
   type ReviewSubmission,
 } from '@gcr/client-contract';
@@ -87,6 +88,88 @@ export async function registerReviewSubmissionRoutes(
       throw error;
     });
     const base = '/api/v1/repositories/:repoId/review-submissions';
+    routes.get(
+      `${base}/:submissionId/status`,
+      { preHandler: requireUser, config: { clientKnowledgeRead: true } },
+      async (request) => {
+        const principal = request.clientPrincipal;
+        if (!principal) throw new ClientCredentialError(401, 'CLIENT_AUTHENTICATION_REQUIRED');
+        const { repoId, submissionId } = params
+          .extend({ submissionId: z.string().uuid() })
+          .parse(request.params);
+        if (!(await canReadRepository(database, authorization, request, repoId)))
+          throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+        const row = (
+          await database.query<
+            Row & {
+              decision: null | {
+                action: string;
+                note: string;
+                at: string;
+                rule: unknown;
+                feedback: null | {
+                  id: string;
+                  kind: string;
+                  revision: number;
+                  resolution: null | { action: string; note: string; at: string };
+                  exception: null | {
+                    id: string;
+                    revision: number;
+                    startsAt: string;
+                    expiresAt: string;
+                    revoked: boolean;
+                  };
+                };
+              };
+            }
+          >(
+            `select s.*, case when d.submission_id is null then null else jsonb_build_object(
+            'action',d.action,'note',d.note,'at',d.created_at,
+            'rule',case when r.id is null then null else jsonb_build_object('id',r.id,'title',v.document->>'title','state',r.state,'revision',r.current_revision,'contentHash',v.content_hash) end,
+            'feedback',case when f.id is null then null else jsonb_build_object('id',f.id,'kind',f.request->>'kind','revision',f.revision,
+              'resolution',case when fr.request_id is null then null else jsonb_build_object('action',fr.action,'note',fr.note,'at',fr.created_at) end,
+              'exception',case when e.id is null then null else jsonb_build_object('id',e.id,'revision',e.revision,'startsAt',e.starts_at,'expiresAt',e.expires_at,'revoked',er.exception_id is not null) end) end
+            ) end as decision
+           from client_review_submissions s
+           left join client_review_submission_decisions d on d.submission_id=s.id
+           left join review_rules r on r.id=d.rule_id
+           left join review_rule_revisions v on v.rule_id=r.id and v.revision=r.current_revision
+           left join review_rule_feedback f on f.id=d.feedback_id
+           left join review_rule_feedback_resolutions fr on fr.request_id=f.id
+           left join review_rule_exceptions e on e.request_id=f.id
+           left join review_rule_exception_revocations er on er.exception_id=e.id
+           where s.id=$1 and s.server_id=$2 and s.tenant_id=$3 and s.repository_id=$4 and s.owner_user_id=$5 and s.client_id=$6`,
+            [
+              submissionId,
+              config.KNOWLEDGE_SERVER_ID,
+              principal.tenantId,
+              repoId,
+              principal.user.id,
+              principal.clientId,
+            ],
+          )
+        ).rows[0];
+        if (!row) throw new SubmissionError(404, 'SUBMISSION_NOT_FOUND');
+        if (row.expires_at.getTime() <= Date.now())
+          throw new SubmissionError(410, 'SUBMISSION_EXPIRED');
+        const decision = row.decision;
+        if (decision) {
+          decision.at = new Date(decision.at).toISOString();
+          const f = decision.feedback;
+          if (f?.resolution) f.resolution.at = new Date(f.resolution.at).toISOString();
+          if (f?.exception) {
+            f.exception.startsAt = new Date(f.exception.startsAt).toISOString();
+            f.exception.expiresAt = new Date(f.exception.expiresAt).toISOString();
+          }
+        }
+        return reviewSubmissionStatus({
+          schemaVersion: 1,
+          receipt: receipt(row),
+          checkedAt: new Date().toISOString(),
+          decision,
+        });
+      },
+    );
     for (const kind of ['result', 'feedback'] as const) {
       const requiredScope = kind === 'result' ? 'reviews:submit' : 'feedback:submit';
       routes.post(
@@ -251,13 +334,11 @@ export async function registerReviewSubmissionRoutes(
       return {
         schemaVersion: 1,
         capabilities,
-        items: rows
-          .slice(0, 100)
-          .map((row) => ({
-            receipt: receipt(row),
-            submission: reviewSubmission(row.payload),
-            decision: row.decision,
-          })),
+        items: rows.slice(0, 100).map((row) => ({
+          receipt: receipt(row),
+          submission: reviewSubmission(row.payload),
+          decision: row.decision,
+        })),
         nextCursor: rows.length > 100 ? rows[99]!.id : null,
       };
     });

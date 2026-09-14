@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   centralConnectionInput,
   reviewSubmission,
+  reviewSubmissionReceipt,
   fallbackReason,
   offlineBehavior,
   type OfflineBehavior,
@@ -284,10 +285,32 @@ export class CentralConnections {
     const state = await this.state(id);
     await this.assert(state);
     if (input.clientId !== state.value.clientId) throw denied();
+    return this.submissionOperation(
+      state,
+      (transport, s) => transport.submitReview(input, s),
+      signal,
+    );
+  }
+  async submissionStatus(id: string, value: unknown, signal?: AbortSignal) {
+    const receipt = reviewSubmissionReceipt(value);
+    const state = await this.state(id);
+    await this.assert(state);
+    if (receipt.clientId !== state.value.clientId) throw denied();
+    return this.submissionOperation(
+      state,
+      (transport, s) => transport.submissionStatus(receipt, s),
+      signal,
+    );
+  }
+  private async submissionOperation<T>(
+    state: State,
+    work: (transport: KnowledgeHttpTransport, signal: AbortSignal) => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const cache = await this.cache(state.value);
     const { generation } = await cache.connectionState();
     try {
-      const result = await this.timed(signal, (s) => this.transport(state).submitReview(input, s));
+      const result = await this.timed(signal, (s) => work(this.transport(state), s));
       await this.assert(state);
       return result;
     } catch (error) {
@@ -301,7 +324,7 @@ export class CentralConnections {
             try {
               await this.records.write(
                 'settings',
-                id,
+                state.value.id,
                 { ...state.value, status: 'disconnected' },
                 state.revision,
               );

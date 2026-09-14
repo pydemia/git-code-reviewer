@@ -9,7 +9,9 @@ import {
   type CentralAudience,
   type ReviewSubmission,
   type ReviewSubmissionReceipt,
+  type ReviewSubmissionStatus,
 } from '@gcr/client-contract';
+import type { CentralKnowledgeSnapshot } from './central-cache.js';
 import { LocalRecordStore, type LocalRecordOptions } from './local-records.js';
 import { contentHash, defaultLocalDataDirectory } from './local-identity.js';
 import type { CentralConnections } from './central-connection.js';
@@ -36,6 +38,48 @@ export class ReviewSubmissionQueueError extends Error {
 const fail = (code: string): never => {
   throw new ReviewSubmissionQueueError(code);
 };
+/** Compare a fresh status with an already verified cache read. This does not
+ * publish, synchronize, approve feedback, or claim applicability to source. */
+export function reviewSubmissionPolicyState(
+  status: ReviewSubmissionStatus,
+  snapshot: CentralKnowledgeSnapshot,
+  now = Date.now(),
+) {
+  if (contentHash(status.receipt.audience) !== contentHash(snapshot.manifest.payload.audience))
+    return fail('selection-changed');
+  const d = status.decision;
+  if (!d || d.action === 'dismiss') return 'no-adoption' as const;
+  const rule = d.rule!;
+  if (rule.state !== 'active') return 'not-active' as const;
+  const feedback = d.feedback;
+  if (feedback && !feedback.resolution) return 'pending-feedback' as const;
+  if (feedback?.resolution?.action === 'reject') return 'feedback-rejected' as const;
+  if (feedback?.kind === 'correction' && rule.revision <= feedback.revision)
+    return 'acknowledged-only' as const;
+  const exception = feedback?.exception;
+  if (exception) {
+    if (exception.revision !== rule.revision) return 'outdated-exception' as const;
+    if (
+      exception.revoked ||
+      Date.parse(exception.startsAt) > now ||
+      Date.parse(exception.expiresAt) <= now
+    )
+      return 'exception-inactive' as const;
+  }
+  const policy = snapshot.bundles.policy;
+  const item =
+    policy.component === 'policy'
+      ? policy.criteria.find(
+          (x) =>
+            x.id === rule.id &&
+            x.revision === rule.revision &&
+            x.sourceContentHash === rule.contentHash,
+        )
+      : undefined;
+  if (!item || (exception && !item.exceptions.some((x) => x.id === exception.id)))
+    return 'awaiting-publication' as const;
+  return exception ? ('exception-current' as const) : ('criterion-current' as const);
+}
 /** There is no timer or sync hook. Queueing requires confirmation of the exact
  * wire payload; sending/retrying is a separate explicit host action. */
 export class ReviewSubmissionQueue {

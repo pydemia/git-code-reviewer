@@ -422,3 +422,63 @@ it('distinguishes submission scope denial from authenticated revocation and iden
     authorityFailure: 'authentication-required',
   });
 });
+
+it('reads only the bound receipt status and rejects swapped, oversized and revoked responses', async () => {
+  let status = 200,
+    body: unknown,
+    calls = 0;
+  const url = await listen(
+    httpServer((request, response) => {
+      calls++;
+      expect(request.method).toBe('GET');
+      expect(request.url).toBe('/base/api/v1/repositories/repo/review-submissions/receipt/status');
+      expect(request.headers['content-length']).toBeUndefined();
+      expect(request.headers.cookie).toBeUndefined();
+      response.writeHead(status, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(body));
+    }),
+  );
+  const receipt = {
+    schemaVersion: 1,
+    id: 'receipt',
+    requestId: 'request',
+    payloadHash: 'a'.repeat(64),
+    audience: binding(url).audience,
+    clientId: 'commit-defender',
+    kind: 'feedback',
+    status: 'submitted',
+    evidence: 'client-reported',
+    receivedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 86400000).toISOString(),
+  };
+  body = { schemaVersion: 1, receipt, checkedAt: new Date().toISOString(), decision: null };
+  expect(await transport(url).submissionStatus(receipt, signal())).toEqual(body);
+  const baseline = calls;
+  await expect(
+    transport(url).submissionStatus(
+      { ...receipt, audience: { ...receipt.audience, userId: 'bob' } },
+      signal(),
+    ),
+  ).rejects.toThrow('submission-binding-mismatch');
+  expect(calls).toBe(baseline);
+  body = { ...(body as object), receipt: { ...receipt, payloadHash: 'b'.repeat(64) } };
+  await expect(transport(url).submissionStatus(receipt, signal())).rejects.toMatchObject({
+    statusCode: 503,
+  });
+  body = { padding: 'x'.repeat(33000) };
+  await expect(transport(url).submissionStatus(receipt, signal())).rejects.toMatchObject({
+    statusCode: 503,
+  });
+  status = 404;
+  body = { error: { code: 'SUBMISSION_NOT_FOUND' } };
+  await expect(transport(url).submissionStatus(receipt, signal())).rejects.toMatchObject({
+    statusCode: 404,
+    authorityFailure: undefined,
+  });
+  status = 403;
+  body = { error: { code: 'CLIENT_ACCESS_REVOKED' } };
+  await expect(transport(url).submissionStatus(receipt, signal())).rejects.toMatchObject({
+    statusCode: 403,
+    authorityFailure: 'revoked',
+  });
+});

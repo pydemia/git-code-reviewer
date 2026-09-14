@@ -21,7 +21,8 @@ import {
   issueClientKey,
 } from './client-credentials.js';
 import { registerReviewSubmissionRoutes } from '../routes/review-submissions.js';
-import { reviewSubmission } from '@gcr/client-contract';
+import { registerReviewCriteriaRoutes } from '../routes/review-criteria.js';
+import { reviewSubmission, reviewSubmissionStatus } from '@gcr/client-contract';
 import { registerKnowledgeRoutes } from '../routes/review-knowledge.js';
 import { AuthorizationService } from '../services/authorization.js';
 import {
@@ -188,6 +189,7 @@ describe
       await registerClientCredentialRoutes(app, db, config, authorization, signer);
       await registerKnowledgeRoutes(app, db, authorization, store, signer);
       await registerReviewSubmissionRoutes(app, db, config, authorization);
+      await registerReviewCriteriaRoutes(app, db, authorization, config);
       app.post('/api/v1/model-fixture', { preHandler: requireUser }, async () => ({
         executed: true,
       }));
@@ -552,6 +554,180 @@ describe
         (await db.query('select id from client_review_submissions where request_id=$1', [input.id]))
           .rowCount,
       ).toBe(0);
+    });
+    it('returns only the bound submitter status across adoption, exception approval, revocation and expiry', async () => {
+      const writer = await issue('alice', { scopes: ['knowledge:read', 'feedback:submit'] });
+      const reader = await issue('alice');
+      const otherClient = await issue('alice', { clientId: 'gcr-cli' });
+      const bob = await issue('bob');
+      const base = `/api/v1/repositories/${repo}/review-submissions`;
+      const submit = async (kind: 'judgment' | 'exception') => {
+        const response = await app.inject({
+          method: 'POST',
+          url: base + '/feedback',
+          headers: auth(writer.token),
+          payload: {
+            schemaVersion: 1,
+            id: randomUUID(),
+            audience: {
+              serverId,
+              tenantId: tenant,
+              repositoryId: repo,
+              userId: actors.get('alice')!.user.id,
+            },
+            clientId: 'commit-defender',
+            approvedAt: new Date().toISOString(),
+            visibility: 'repository-reviewers',
+            kind: 'feedback',
+            review: {
+              runId: randomUUID(),
+              mode: 'standalone',
+              sourceHash: hash('status-source'),
+              contextHash: hash('status-context'),
+              snapshot: null,
+            },
+            feedback: {
+              kind,
+              message: 'EXPLICIT_PAYLOAD_NOT_RETURNED_IN_STATUS',
+              findingId: null,
+              rule: null,
+              source: null,
+            },
+          },
+        });
+        expect(response.statusCode, response.body).toBe(201);
+        return response.json();
+      };
+      const receipt = await submit('judgment');
+      const status = (id = receipt.id, token = reader.token, repository = repo) =>
+        app.inject({
+          url: `/api/v1/repositories/${repository}/review-submissions/${id}/status`,
+          headers: auth(token),
+        });
+      expect(
+        (await app.inject({ url: base + '/' + receipt.id + '/status', headers: web() })).statusCode,
+      ).toBe(401);
+      expect((await status(receipt.id, bob.token)).statusCode).toBe(404);
+      expect((await status(receipt.id, otherClient.token)).statusCode).toBe(404);
+      const second = await issue('alice', { repositoryIds: [secondRepo] });
+      expect((await status(receipt.id, second.token, secondRepo)).statusCode).toBe(404);
+      const pending = await status();
+      expect(pending.statusCode, pending.body).toBe(200);
+      expect(pending.headers['cache-control']).toBe('private, no-store');
+      expect(reviewSubmissionStatus(pending.json()).decision).toBeNull();
+      expect(pending.body).not.toContain('EXPLICIT_PAYLOAD_NOT_RETURNED_IN_STATUS');
+      await db.query(
+        "insert into review_criteria_roles(repository_id,user_id,role,granted_by) values($1,$2,'maintainer',$2)",
+        [repo, actors.get('alice')!.user.id],
+      );
+      await db.query(
+        "insert into review_criteria_roles(repository_id,user_id,role,granted_by) values($1,$2,'domain-owner',$2)",
+        [repo, actors.get('bob')!.user.id],
+      );
+      const post = async (url: string, payload: unknown, actor = 'alice', expected = 200) => {
+        const r = await app.inject({ method: 'POST', url, headers: web(actor), payload });
+        expect(r.statusCode, r.body).toBe(expected);
+        return r.json();
+      };
+      const adoption = await post(base + '/' + receipt.id + '/review', {
+        expectedPayloadHash: receipt.payloadHash,
+        note: 'Reviewed visible feedback',
+        action: 'create-candidate',
+        document: {
+          title: 'Status criterion',
+          topicKey: 'status',
+          requirement: 'Separate tenant cache keys.',
+          rationale: 'Avoid another tenant value.',
+          severity: 'P2',
+          counterEvidence: ['Separate cache instances.'],
+          reviewSteps: ['Inspect caller.'],
+          appliesTo: { filePaths: ['cache.py'] },
+        },
+        outcome: 'defect',
+        reasoning: 'Synthetic review.',
+      });
+      const criteria = `/api/v1/repositories/${repo}/review-criteria/${adoption.decision.ruleId}`;
+      let detail = (await app.inject({ url: criteria, headers: web() })).json();
+      expect(reviewSubmissionStatus((await status()).json()).decision?.rule).toMatchObject({
+        state: 'draft',
+        revision: 1,
+        contentHash: detail.criterion.contentHash,
+      });
+      detail = await post(
+        criteria + '/evaluations',
+        {
+          expectedVersion: detail.criterion.version,
+          note: 'Manual synthetic cases.',
+          cases: ['defect', 'fixed', 'normal', 'counter-evidence'].map((kind) => ({
+            kind,
+            name: kind,
+            source: 'cache[key]',
+            observed: kind === 'defect' ? 'finding' : 'clear',
+            evidence: 'Synthetic manual observation.',
+          })),
+        },
+        'alice',
+        201,
+      );
+      for (const action of ['evaluate', 'shadow', 'activate'])
+        detail = await post(criteria + '/actions', {
+          expectedVersion: detail.criterion.version,
+          action,
+          note: 'Synthetic transition.',
+        });
+      expect(reviewSubmissionStatus((await status()).json()).decision?.rule?.state).toBe('active');
+      const exception = await submit('exception');
+      const linked = await post(base + '/' + exception.id + '/review', {
+        expectedPayloadHash: exception.payloadHash,
+        note: 'Review exception scope.',
+        action: 'link-feedback',
+        ruleId: detail.criterion.id,
+        expectedVersion: detail.criterion.version,
+        exceptionTerms: {
+          appliesTo: { filePaths: ['legacy/cache.py'] },
+          startsAt: new Date(Date.now() - 1000).toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        },
+      });
+      expect(
+        reviewSubmissionStatus((await status(exception.id)).json()).decision?.feedback?.resolution,
+      ).toBeNull();
+      detail = (await app.inject({ url: criteria, headers: web() })).json();
+      await post(
+        criteria + '/feedback/' + linked.decision.feedbackId + '/resolution',
+        {
+          expectedVersion: detail.criterion.version,
+          action: 'approve-exception',
+          note: 'Independent owner approval.',
+        },
+        'bob',
+      );
+      const approved = reviewSubmissionStatus((await status(exception.id)).json());
+      expect(approved.decision?.feedback?.resolution?.action).toBe('approve-exception');
+      expect(approved.decision?.feedback?.exception?.revoked).toBe(false);
+      detail = (await app.inject({ url: criteria, headers: web() })).json();
+      await post(
+        criteria + '/exceptions/' + approved.decision!.feedback!.exception!.id + '/revocation',
+        { expectedVersion: detail.criterion.version, note: 'Exception no longer applies.' },
+        'bob',
+      );
+      expect(
+        reviewSubmissionStatus((await status(exception.id)).json()).decision?.feedback?.exception
+          ?.revoked,
+      ).toBe(true);
+      await db.query(
+        "update client_review_submissions set expires_at=clock_timestamp()-interval '1 second' where id=$1",
+        [receipt.id],
+      );
+      expect((await status()).statusCode).toBe(410);
+      await db.query('delete from client_review_submissions where id=any($1::uuid[])', [
+        [receipt.id, exception.id],
+      ]);
+      expect((await status()).statusCode).toBe(404);
+      await db.query('update client_api_keys set revoked_at=clock_timestamp() where id=$1', [
+        reader.id,
+      ]);
+      expect((await status()).statusCode).toBe(403);
     });
     it('downloads real signed publications over HTTP into the encrypted cache and honors 304', async () => {
       const key = await issue();

@@ -5,6 +5,7 @@ import {
   centralCredentialIdentity,
   reviewSubmission,
   reviewSubmissionReceipt,
+  reviewSubmissionStatus,
 } from '@gcr/client-contract';
 import { contentHash } from './local-identity.js';
 import type { IncomingMessage } from 'node:http';
@@ -187,6 +188,35 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       undefined,
       JSON.stringify(input),
     );
+    const body = await this.submissionJson(response, [200, 201]);
+    const receipt = reviewSubmissionReceipt(body);
+    if (
+      receipt.requestId !== input.id ||
+      receipt.payloadHash !== contentHash(input) ||
+      contentHash(receipt.audience) !== contentHash(input.audience) ||
+      receipt.clientId !== input.clientId ||
+      receipt.kind !== input.kind
+    )
+      throw new ReviewSubmissionDeliveryError(503);
+    return receipt;
+  }
+  async submissionStatus(value: unknown, signal: AbortSignal) {
+    const receipt = reviewSubmissionReceipt(value);
+    if (contentHash(receipt.audience) !== contentHash(this.binding.audience))
+      throw new Error('submission-binding-mismatch');
+    const response = await this.get(
+      `api/v1/repositories/${encodeURIComponent(receipt.audience.repositoryId)}/review-submissions/${encodeURIComponent(receipt.id)}/status`,
+      signal,
+    );
+    const result = reviewSubmissionStatus(await this.submissionJson(response, [200]));
+    if (contentHash(result.receipt) !== contentHash(receipt))
+      throw new ReviewSubmissionDeliveryError(503);
+    return result;
+  }
+  private async submissionJson(
+    response: IncomingMessage,
+    successCodes: readonly number[],
+  ): Promise<unknown> {
     try {
       const chunks: Buffer[] = [];
       let size = 0;
@@ -201,12 +231,10 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
         body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
       } catch {
         throw new ReviewSubmissionDeliveryError(
-          response.statusCode === 200 || response.statusCode === 201
-            ? 503
-            : (response.statusCode ?? 503),
+          successCodes.includes(response.statusCode ?? 0) ? 503 : (response.statusCode ?? 503),
         );
       }
-      if (response.statusCode !== 200 && response.statusCode !== 201) {
+      if (!successCodes.includes(response.statusCode ?? 0)) {
         const code = (body as { error?: { code?: unknown } })?.error?.code;
         const authorityFailure =
           response.statusCode === 403 && code === 'CLIENT_ACCESS_REVOKED'
@@ -218,16 +246,7 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
                 : undefined;
         throw new ReviewSubmissionDeliveryError(response.statusCode ?? 503, authorityFailure);
       }
-      const receipt = reviewSubmissionReceipt(body);
-      if (
-        receipt.requestId !== input.id ||
-        receipt.payloadHash !== contentHash(input) ||
-        contentHash(receipt.audience) !== contentHash(input.audience) ||
-        receipt.clientId !== input.clientId ||
-        receipt.kind !== input.kind
-      )
-        throw new ReviewSubmissionDeliveryError(503);
-      return receipt;
+      return body;
     } finally {
       response.destroy();
     }
