@@ -460,7 +460,7 @@ Token budget이나 작업 시간이 소진될 것 같다는 이유로 필수 검
 | 질문/재개·MCP·Skill·명시적 feedback 순환          | P08-C01–C06                                  |
 | 실제 VS Code·동일 VSIX·CLI 인증/게시·새 설치      | P09-C02, P09-R01/R03, P09-C05                |
 | 운영 배포·기존 사용자/권한/계정/데이터 유지       | P03-C08, 각 GCR 전달 checkpoint, P09-R02/C04 |
-| 중앙 모델 proxy·source 동의·admission             | P10                                          |
+| 중앙 모델 proxy·source 업로드 | 사용자 지시로 철회, 완료 집계 제외 |
 | 실행 runner·근거 수준·critic                      | P11                                          |
 | Thread/수정 이력·지속 학습·backfill·재검토        | P12                                          |
 | 공용 PR 기준·trusted evidence·중복 게시·성과 지표 | P13                                          |

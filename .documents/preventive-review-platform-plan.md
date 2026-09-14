@@ -206,7 +206,7 @@ Centralized의 `gcr init`은 현재 Git root와 remote의 인증정보를 제거
 
 Centralized client는 GCR 사용자 계정에 귀속된 기기별 credential로 접속한다. GCR UI는 Keycloak SAML로 로그인하며 그 웹 session에서 client 연결을 승인한다. GCR 내부 PKCE·headless device flow·access/refresh token 발급·회전·폐기와 scope·만료 제한 개인 API key 계획은 유지한다. SAML assertion을 API bearer로 재사용하지 않는다. 지원 client는 Commit Defender/CLI로 제한하고 범용 SSO·OIDC provider 제품은 GCR 구현 범위에 넣지 않는다. Secret은 OS credential store에 저장하고 공용 고정 key나 브라우저 cookie를 복사하지 않는다. 발급·폐기·SAML session과의 연결은 [client 인증 설계](./client-authentication-design.md), 실제 배포 구조는 [Keycloak SAML·공유 PostgreSQL 배포안](./keycloak-saml-deployment-design.md)을 따른다.
 
-권한은 `rules:read`, `memories:read`, `sources:read`, `reviews:submit`, `feedback:submit`, 선택적 `ai:invoke`, 유지관리용 `rules:manage`로 나눈다. 최초 sync에는 앞의 두 읽기 scope만 부여하고 추가 기능은 별도 승인한다. 모든 요청에서 tenant membership와 repository grant를 확인한다. GitHub PAT와 중앙 모델 계정의 credential은 client로 배포하지 않는다.
+클라이언트 키 권한은 `knowledge:read`로 제한한다. 중앙 관리 기능은 별도 웹 사용자 권한으로 처리하며 클라이언트에 쓰기·모델 실행 권한을 부여하지 않는다. 모든 요청에서 tenant membership와 repository grant를 확인한다. GitHub PAT와 중앙 모델 계정의 credential은 client로 배포하지 않는다.
 
 ### 7.2 동기화 시점과 기본값
 
@@ -258,7 +258,6 @@ Fallback 결과에는 실제 모드와 이유를 기록하고 중앙 기준 충�
 | `GET /api/v1/rules/:ruleId/revisions/:revision`                   | 규칙 설명과 열람 가능한 원문 provenance                        |
 | `POST /api/v1/local-review-runs`                                  | idempotency key가 있는 결과 metadata 제출                      |
 | `POST /api/v1/repositories/:id/review-knowledge/feedback`         | 오탐·수정·예외·메모리 후보 제출, 자동 정책 변경 없음           |
-| `POST /api/v1/ai-checks`                                          | 선택적 중앙 AI 분석; source 전송 정책과 별도 예산 적용         |
 
 관리 API는 후보 생성·평가·배포·폐기·예외 승인으로 분리한다. 다운로드 endpoint의 UUID를 아는 것만으로 다른 tenant의 bundle을 읽을 수 없어야 한다. 개인 overlay는 공용 artifact URL이나 공용 PR 출력에 포함하지 않는다.
 
@@ -322,11 +321,9 @@ gcr mcp
 | `gcr_prepare_review`    | 정확한 snapshot·diff·관련 source를 준비; 리뷰 완료는 아님 |
 | `gcr_review_changes`    | 구성된 executor에 맥락 리뷰 요청; 실행 ID 반환            |
 | `gcr_get_review_result` | 진행·완료·미완료·실패·취소와 결과 조회                    |
-| `gcr_submit_review`     | Host agent가 수행한 리뷰와 source·기준·근거 metadata 제출 |
 | `gcr_get_rule`          | 리뷰 기준의 조건·반례·이유 조회                           |
-| `gcr_submit_feedback`   | 확인된 수정·오탐·예외 요청 제출                           |
 
-Host agent가 자신의 모델로 리뷰할 때는 context 준비·파일 조회 도구를 사용하고 결과를 제출한다. 별도 executor가 필요한 자동 실행과 구분한다. Host 제출 결과는 client self-report이며 trusted CI 검증으로 승격하지 않는다.
+Host agent는 로컬에 구성된 모델로 context 준비·파일 조회 도구를 사용해 리뷰하고 결과를 로컬에 보관한다. 자동 실행도 로컬 executor를 사용한다. 로컬 결과를 중앙에 제출하거나 trusted CI 검증으로 승격하지 않는다.
 
 Root는 연결한 실제 Git root에 고정한다. 임의 tool 인수·source 내용·중앙 기준으로 접근 범위를 늘리지 않는다. Repository 파일과 Git 조회는 승인된 읽기 도구를 재사용하며 테스트·수정 등 추가 권한은 별도 통제한다.
 
@@ -460,15 +457,15 @@ Base ref·HEAD는 SHA로 고정하고 merge-base 기준 diff와 base·head의 �
 
 로컬 리뷰는 소스와 Git context를 개발 workspace에서 다룬다는 뜻이며 모델이 반드시 PC 안에서 실행된다는 뜻은 아니다.
 
-사용자와 대화 중인 coding agent는 자신의 승인된 모델 설정으로 MCP/CLI의 context를 읽고 리뷰할 수 있다. 저장 후 자동 리뷰에는 백그라운드에서 호출 가능한 executor가 별도로 필요하다. Host agent가 그런 호출을 지원하면 명시적으로 연결하고, 그렇지 않으면 인가된 중앙 review proxy 등 실행 가능한 경로를 구성한다. MCP나 Skill을 설치했다는 이유로 host 모델을 자동 호출할 수 있다고 가정하지 않는다. Phase 0에서 첫 경로를 확정하고 Phase 2에서 실제 자동 실행을 검증한다.
+사용자와 대화 중인 coding agent는 자신의 승인된 모델 설정으로 MCP/CLI의 context를 읽고 리뷰할 수 있다. 저장 후 자동 리뷰에는 백그라운드에서 호출 가능한 executor가 별도로 필요하다. Host agent가 그런 호출을 지원하면 명시적으로 연결하고, 그렇지 않으면 로컬에 별도 executor를 구성한다. 로컬 executor가 없으면 미완료로 처리한다. MCP나 Skill을 설치했다는 이유로 host 모델을 자동 호출할 수 있다고 가정하지 않는다. Phase 0에서 첫 경로를 확정하고 Phase 2에서 실제 자동 실행을 검증한다.
 
-중앙 proxy는 허용된 source 범위만 받아 기존 model admission·계정 할당·예산을 적용한다. 중앙 계정이 등록돼 있다는 사실만으로 모든 로컬 소스 전송을 허용하지 않는다. Host가 직접 호출한 모델의 비용·한도는 중앙에서 모두 관측·제어할 수 없음을 표시한다. Credential은 중앙 규칙 bundle에 넣지 않는다.
+로컬 모델의 계정·credential·호출 예산은 로컬 설정으로 관리한다. 중앙은 로컬 모델 요청을 대행하지 않으며 모델 credential을 지식 bundle에 넣지 않는다.
 
 호출량은 연속 변경 병합, 같은 snapshot 중복 제거, 관련 context 한정, workspace별 동시 실행 제한과 예산으로 줄인다. 과거 결과는 source·base·조회 context·기준·review profile·tool·model 설정의 유효성을 확인하고 재사용 사실을 표시한다. 변경되지 않은 범위의 결과만 유지하며 모델 응답의 완전 재현성을 보장하지 않는다.
 
 모델 미설정·한도 초과·통신 실패는 준비됨·대기·미완료·실패로 구분한다. 유효한 offline bundle로 메모리 조회와 context 준비는 가능하지만 실행 가능한 모델 경로가 없으면 새 맥락 리뷰가 완료되지 않는다. 기존 테스트가 성공해도 이를 대신하지 못한다.
 
-규칙 sync에는 source 업로드가 필요 없다. 결과 metadata와 원문 source·patch·개인 대화의 전송·보존 정책은 분리하고 상세 근거는 허용된 목적과 범위에서만 처리한다.
+규칙 sync는 중앙 자료를 읽는다. 로컬 결과 metadata·source·patch·개인 대화는 중앙으로 전송하지 않는다.
 
 ### 9.4 기존 검증 도구와 runner
 
