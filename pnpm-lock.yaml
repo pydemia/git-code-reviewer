@@ -219,6 +219,9 @@ importers:
 
   packages/github:
     dependencies:
+      '@gcr/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       jose:
         specifier: ^6.1.0
         version: 6.2.10

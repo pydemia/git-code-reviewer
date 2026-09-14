@@ -1,3 +1,4 @@
+import { CiValidationEvidence } from './CiValidationEvidence.tsx';
 import { SharedKnowledgePanel } from './SharedKnowledgePanel.tsx';
 import { FindingCriteria } from './FindingCriteria.tsx';
 import { ReviewRecurrence } from './ReviewRecurrence.tsx';
@@ -164,6 +165,12 @@ export function ReviewReportPanel({
         />
       ) : null}
       {section === 'summary' ? <ReviewRecurrence value={report.recurrence} /> : null}
+      {section === 'summary' ? (
+        <CiValidationEvidence
+          key={report.analysisRevisionId}
+          analysisId={report.analysisRevisionId}
+        />
+      ) : null}
       {section === 'summary' ? (
         <header className="structured-report-heading">
           <div className="report-title-row">

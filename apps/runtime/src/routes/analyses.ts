@@ -1,3 +1,4 @@
+import { readTrustedCiEvidence } from '../services/trusted-ci.js';
 import { sharedKnowledgeView } from '../services/analysis-shared-knowledge.js';
 import { expandRelationships } from '@gcr/analysis-engine';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
@@ -52,6 +53,22 @@ export async function registerAnalysisRoutes(
   config: AppConfig,
   authorization: AuthorizationService,
 ) {
+  app.get(
+    '/api/v1/analyses/:analysisId/ci-validation',
+    { preHandler: requireUser },
+    async (request, reply) => {
+      reply.header('cache-control', 'no-store');
+      const { analysisId } = analysisParams.parse(request.params);
+      if (!(await authorizedContext(database, authorization, request, analysisId)))
+        return hiddenNotFound(request, reply);
+      const evidence = await readTrustedCiEvidence(database, artifacts, config, analysisId);
+      // Repository access can be revoked while the CI provider is responding.
+      if (!(await authorizedContext(database, authorization, request, analysisId)))
+        return hiddenNotFound(request, reply);
+      return evidence;
+    },
+  );
+
   app.get(
     '/api/v1/analyses/:analysisId/status',
     { preHandler: requireUser },

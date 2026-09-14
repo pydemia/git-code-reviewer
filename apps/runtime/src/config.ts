@@ -1,7 +1,8 @@
+import { createPublicKey } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { z } from 'zod';
-import { localPasswordMinimumLength } from '@gcr/contracts';
+import { localPasswordMinimumLength, ciTrustPolicySchema } from '@gcr/contracts';
 import { validateSamlSettings } from './auth/saml-config.js';
 import { identityAdministrationConfig } from './identity/config.js';
 
@@ -16,6 +17,27 @@ const optionalUrl = z.preprocess(
 );
 
 const configSchema = z.object({
+  TRUSTED_CI_POLICIES: z
+    .string()
+    .default('[]')
+    .transform((value, context) => {
+      try {
+        const policies = z.array(ciTrustPolicySchema).max(50).parse(JSON.parse(value));
+        if (
+          new Set(policies.map((policy) => `${policy.apiBaseUrl}:${policy.repositoryId}`)).size !==
+          policies.length
+        )
+          throw Error('duplicate repository policy');
+        for (const policy of policies) {
+          if (createPublicKey(policy.publicKey).asymmetricKeyType !== 'ed25519')
+            throw Error('Expected Ed25519 public key');
+        }
+        return policies;
+      } catch {
+        context.addIssue({ code: 'custom', message: 'Invalid trusted CI policies' });
+        return z.NEVER;
+      }
+    }),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(4000),

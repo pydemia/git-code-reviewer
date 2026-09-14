@@ -35,6 +35,7 @@ data:
   OIDC_ADMIN_GROUP: {{ .Values.auth.adminGroup | quote }}
   DEFAULT_TENANT_SLUG: {{ .Values.auth.defaultTenantSlug | quote }}
   AUTO_JOIN_DEFAULT_TENANT: {{ .Values.auth.autoJoinDefaultTenant | quote }}
+  TRUSTED_CI_POLICIES: {{ .Values.trustedCi.policies | toJson | quote }}
   GITHUB_MODE: {{ .Values.github.mode | quote }}
   KNOWLEDGE_PUBLICATION_ENABLED: {{ .Values.knowledgePublication.enabled | quote }}
   CREDENTIAL_REGISTRY_ENABLED: {{ .Values.credentialRegistry.enabled | quote }}

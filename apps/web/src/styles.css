@@ -5655,3 +5655,27 @@ body.workspace-resizing:has(.resize-bottom) {
   padding: 1rem;
   border-bottom: 1px solid var(--border);
 }
+
+.ci-validation {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ci-validation article {
+  margin-block: 1rem;
+}
+.ci-validation dl {
+  margin-block: 0.75rem;
+}
+.ci-validation dt {
+  font-weight: 600;
+}
+.ci-validation dd {
+  margin-inline-start: 0;
+  margin-block-end: 0.5rem;
+  white-space: pre-wrap;
+}
+.ci-validation pre {
+  max-width: 100%;
+  overflow: auto;
+  font-size: 0.8rem;
+}

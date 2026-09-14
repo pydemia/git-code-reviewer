@@ -1,3 +1,5 @@
+import { ciReader, type GitHubCiReader } from './ci-evidence.js';
+export type { GitHubCiReader } from './ci-evidence.js';
 import { createHash } from 'node:crypto';
 import { importPKCS8, SignJWT } from 'jose';
 import { z } from 'zod';
@@ -175,7 +177,7 @@ export class GitHubRequestError extends Error {
 
 type CachedToken = { token: string; expiresAt: number };
 
-export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
+export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher, GitHubCiReader {
   private readonly tokens = new Map<string, CachedToken>();
   private keyPromise: Promise<CryptoKey> | undefined;
 
@@ -207,6 +209,22 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
     return listPullRequestMessages(target, pullNumber, (url, init) =>
       this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
     );
+  }
+
+  async listValidationChecks(target: RepositoryTarget, headSha: string, name: string) {
+    return ciReader((url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    ).listValidationChecks(target, headSha, name);
+  }
+  async readValidationRun(target: RepositoryTarget, runId: string, attempt: number) {
+    return ciReader((url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    ).readValidationRun(target, runId, attempt);
+  }
+  async readValidationWorkflowHash(target: RepositoryTarget, headSha: string, workflow: string) {
+    return ciReader((url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    ).readValidationWorkflowHash(target, headSha, workflow);
   }
 
   async upsertPullRequestComment(
@@ -291,7 +309,9 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
   }
 }
 
-export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublisher {
+export class GitHubAccessTokenClient
+  implements GitHubReader, GitHubReviewPublisher, GitHubCiReader
+{
   constructor(
     private readonly token: string,
     private readonly request: typeof fetch = fetch,
@@ -313,6 +333,28 @@ export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublis
   ): Promise<PullRequestMessageObservation[]> {
     return listPullRequestMessages(target, pullNumber, (url, init) =>
       this.authenticatedRequest(url, init),
+    );
+  }
+
+  async listValidationChecks(target: RepositoryTarget, headSha: string, name: string) {
+    return ciReader((url, init) => this.authenticatedRequest(url, init)).listValidationChecks(
+      target,
+      headSha,
+      name,
+    );
+  }
+  async readValidationRun(target: RepositoryTarget, runId: string, attempt: number) {
+    return ciReader((url, init) => this.authenticatedRequest(url, init)).readValidationRun(
+      target,
+      runId,
+      attempt,
+    );
+  }
+  async readValidationWorkflowHash(target: RepositoryTarget, headSha: string, workflow: string) {
+    return ciReader((url, init) => this.authenticatedRequest(url, init)).readValidationWorkflowHash(
+      target,
+      headSha,
+      workflow,
     );
   }
 

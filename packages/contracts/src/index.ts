@@ -792,3 +792,5 @@ export * from './client-credentials.js';
 export * from './review-submission-intake.js';
 
 export * from './analysis-shared-knowledge.js';
+
+export * from './trusted-ci.js';

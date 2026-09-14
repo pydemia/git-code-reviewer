@@ -22,6 +22,7 @@ export type SnapshotFile = {
 export type SnapshotMaterialization = {
   resolution: 'exact' | 'unresolved';
   mergeBaseSha: string | null;
+  trees?: { base: string; head: string; mergeBase: string };
   baseSha: string;
   headSha: string;
   files: SnapshotFile[];
@@ -96,6 +97,12 @@ export async function materializeGitSnapshot(
     };
   }
 
+  const trees = {
+    base: (await run(['rev-parse', `${input.baseSha}^{tree}`])).trim(),
+    head: (await run(['rev-parse', `${input.headSha}^{tree}`])).trim(),
+    mergeBase: (await run(['rev-parse', `${mergeBase}^{tree}`])).trim(),
+  };
+  for (const tree of Object.values(trees)) assertSha(tree);
   const names = await run(['diff', '--name-status', '-M', mergeBase, input.headSha, '--']);
   const files: SnapshotFile[] = [];
   for (const line of names.split('\n').filter(Boolean).slice(0, 2_000)) {
@@ -136,6 +143,7 @@ export async function materializeGitSnapshot(
   ]);
   return {
     resolution: 'exact',
+    trees,
     mergeBaseSha: mergeBase,
     baseSha: input.baseSha,
     headSha: input.headSha,

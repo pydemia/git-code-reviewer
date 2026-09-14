@@ -490,6 +490,7 @@ async function persistMaterialization(
       headSha: materialization.headSha,
       mergeBaseSha: materialization.mergeBaseSha,
       resolution: materialization.resolution,
+      trees: materialization.trees ?? null,
       fileCount: materialization.files.length,
     }),
   );
@@ -503,8 +504,8 @@ async function persistMaterialization(
       [snapshotRequestId],
     );
     await connection.query(
-      `insert into snapshots(id, request_id, version, merge_base_sha, resolution, policy_version, manifest_checksum)
-       values ($1,$2,$3,$4,$5,'snapshot-v1',$6)`,
+      `insert into snapshots(id, request_id, version, merge_base_sha, resolution, policy_version, manifest_checksum, source_trees)
+       values ($1,$2,$3,$4,$5,'snapshot-v1',$6,$7::jsonb)`,
       [
         snapshotId,
         snapshotRequestId,
@@ -512,6 +513,7 @@ async function persistMaterialization(
         materialization.mergeBaseSha,
         materialization.resolution,
         manifest.checksum,
+        materialization.trees ? JSON.stringify(materialization.trees) : null,
       ],
     );
     await insertArtifact(
