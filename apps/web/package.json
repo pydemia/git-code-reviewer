@@ -10,13 +10,14 @@
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.2.8",
+    "@gcr/client-contract": "workspace:*",
     "@gcr/contracts": "workspace:*",
     "lucide-react": "^0.544.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "@gcr/client-contract": "workspace:*"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/react": "^19.1.16",
