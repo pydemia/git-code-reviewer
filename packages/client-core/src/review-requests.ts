@@ -173,7 +173,8 @@ export class ReviewRequests {
         const request = await this.put(state, {
           ...state.value,
           state: 'interrupted',
-          generation: state.value.generation + 1,
+          // Interruption fences the owner token; it does not start another attempt.
+          // Keep the attempt number so its completion receipt can be reconciled.
           owner: null,
           updatedAt: now,
         });
@@ -293,6 +294,103 @@ export class ReviewRequests {
       });
     });
   }
+  /** Record the returned terminal report before saving history. This is a pointer
+   * and digest, not another copy of private report/source content. Older clients
+   * ignore this separate record and can still decode the request journal. */
+  async prepareCompletion(lease: ReviewRequestLease, report: ClientReviewReport) {
+    const parsed = clientReviewReport(report);
+    if (reviewRequestKey(parsed.identity) !== lease.key || !parsed.finishedAt)
+      throw new ReviewRequestError('request-invalid');
+    const state = await this.owned(lease);
+    if (state.value.state !== 'running') throw new ReviewRequestError('request-lost');
+    const id = `completion_${lease.key}_${lease.generation}`;
+    const value = {
+      version: 1,
+      key: lease.key,
+      generation: lease.generation,
+      reportId: parsed.runId,
+      reportHash: contentHash(parsed),
+    };
+    const old = await this.records.read('chats', id);
+    if (old) {
+      if (old.deleted || contentHash(old.value) !== contentHash(value))
+        throw new ReviewRequestError('request-invalid');
+      return;
+    }
+    await this.records.write('chats', id, value, 0);
+  }
+  /** Reattach only this attempt's terminal report. Never claim or run a model.
+   * A missing receipt/history leaves interruption visible; lease expiry alone
+   * does not establish that an external executor stopped. */
+  async reconcile(
+    key: string,
+    generation: number,
+    input: {
+      loadReport(id: string): Promise<ClientReviewReport | undefined>;
+      assertValid(): Promise<unknown>;
+    },
+  ) {
+    if (!Number.isSafeInteger(generation) || generation < 1)
+      throw new ReviewRequestError('request-invalid');
+    return this.retry(async () => {
+      let state = await this.state(key);
+      if (!state || state.value.generation !== generation)
+        throw new ReviewRequestError('request-invalid');
+      const now = this.time(state.value.updatedAt);
+      if (state.value.owner && state.value.owner.deadline > now) return { request: state.value };
+      if (state.value.state === 'running') {
+        const value = await this.put(state, {
+          ...state.value,
+          state: 'interrupted',
+          owner: null,
+          updatedAt: now,
+        });
+        state = (await this.state(key))!;
+        if (state.value.generation !== generation || state.value.state !== value.state)
+          throw new ReviewRequestError('request-lost');
+      }
+      if (!['interrupted', 'finished'].includes(state.value.state)) return { request: state.value };
+      await input.assertValid();
+      const row = await this.records.read('chats', `completion_${key}_${generation}`);
+      const receipt = row && !row.deleted ? (row.value as Record<string, unknown>) : undefined;
+      if (
+        receipt &&
+        (receipt.version !== 1 ||
+          receipt.key !== key ||
+          receipt.generation !== generation ||
+          typeof receipt.reportId !== 'string' ||
+          typeof receipt.reportHash !== 'string' ||
+          !/^[a-f0-9]{64}$/.test(receipt.reportHash))
+      )
+        throw new ReviewRequestError('request-invalid');
+      if (!receipt && state.value.state !== 'finished') return { request: state.value };
+      const id = state.value.resultId ?? String(receipt!.reportId);
+      const report = await input.loadReport(id);
+      if (!report) return { request: state.value };
+      const parsed = clientReviewReport(report);
+      if (
+        parsed.runId !== id ||
+        !parsed.finishedAt ||
+        reviewRequestKey(parsed.identity) !== key ||
+        (receipt && (receipt.reportId !== id || receipt.reportHash !== contentHash(parsed)))
+      )
+        throw new ReviewRequestError('request-invalid');
+      await input.assertValid();
+      if (state.value.state === 'finished') {
+        if ((await this.state(key))?.revision !== state.revision)
+          throw new ReviewRequestError('request-lost');
+        return { request: state.value, report: parsed };
+      }
+      const request = await this.put(state, {
+        ...state.value,
+        state: 'finished',
+        owner: null,
+        resultId: parsed.runId,
+        updatedAt: this.time(state.value.updatedAt),
+      });
+      return { request, report: parsed };
+    });
+  }
   async release(lease: ReviewRequestLease) {
     await this.retry(async () => {
       const state = await this.owned(lease);
@@ -314,6 +412,7 @@ export async function executeReviewRequest(input: {
   retryFinished?: boolean;
   limits?: ReviewStartLimits;
   assertValid?(): Promise<unknown>;
+  onRequest?(request: ReviewRequestRecord): Promise<void>;
   loadReport(id: string): Promise<ClientReviewReport | undefined>;
   saveReport(report: ClientReviewReport): Promise<unknown>;
   run(signal: AbortSignal): Promise<ClientReviewReport>;
@@ -366,9 +465,12 @@ export async function executeReviewRequest(input: {
           throw new ReviewRequestError('request-invalid');
         await input.assertValid?.();
         check();
+        await input.onRequest?.(claimed.request);
+        check();
         return { report, reused: true, persisted: true, recorded: true, requestKey: request.key };
       }
       lease = claimed.lease;
+      await input.onRequest?.(claimed.request);
       break;
     }
     beat();
@@ -381,6 +483,8 @@ export async function executeReviewRequest(input: {
       throw new ReviewRequestError('request-invalid');
     if (lost) throw new ReviewRequestError('request-lost');
     let persisted = false;
+    // Failure to store an auxiliary recovery receipt must not suppress history.
+    await queue.prepareCompletion(lease, report).catch(() => undefined);
     try {
       await input.saveReport(report);
       persisted = true;

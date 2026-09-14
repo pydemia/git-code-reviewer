@@ -3,9 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import {
   contentHash,
+  ServiceJobs,
+  ReviewRequests,
   type LocalKeyStore,
   type LocalReviewExecutor,
   type ServiceJob,
@@ -116,8 +118,8 @@ async function fixture() {
   const common = ['--cwd', repo, '--data-dir', data, '--profile', profile];
   const dependencies = { keys, prepareExecutor: async () => executor };
   const cli = (args: string[]) => executeCli([...args, ...common], dependencies);
-  const stop = new AbortController();
-  const running = executeCli(['service', 'run', ...common], {
+  let stop = new AbortController();
+  let running = executeCli(['service', 'run', ...common], {
     ...dependencies,
     signal: stop.signal,
   });
@@ -131,8 +133,93 @@ async function fixture() {
     () => cli(['service', 'status']),
     (result) => result.exitCode === 0,
   );
-  return { root, repo, git, cli, release, calls: () => calls, observed };
+  const restart = async () => {
+    stop.abort();
+    await running;
+    stop = new AbortController();
+    running = executeCli(['service', 'run', ...common], { ...dependencies, signal: stop.signal });
+    await until(
+      () => cli(['service', 'status']),
+      (result) => result.exitCode === 0,
+    );
+  };
+  return { root, repo, git, cli, release, restart, calls: () => calls, observed };
 }
+it('reattaches a completed journal after the service fails before saving its receipt', async () => {
+  const f = await fixture();
+  expect((await f.cli(['service', 'allow', '--trigger', 'commit'])).exitCode).toBe(0);
+  const failure = vi
+    .spyOn(ServiceJobs.prototype, 'finish')
+    .mockRejectedValueOnce(Error('service completion disk failure'));
+  const id = randomUUID();
+  try {
+    expect((await f.cli(['enqueue', '--trigger', 'commit', '--request-id', id])).exitCode).toBe(0);
+    f.release();
+    await until(
+      () => f.cli(['service', 'status']),
+      (r) => (r.value as { problem?: string }).problem === 'service-invalid',
+    );
+  } finally {
+    failure.mockRestore();
+  }
+  const before = (await f.cli(['service', 'job', '--id', id])).value as ServiceJob;
+  expect(before.state).toBe('running');
+  expect(before.execution?.generation).toBe(1);
+  fs.writeFileSync(path.join(f.repo, 'a.ts'), 'MUTATED_AFTER_ORIGINAL_REVIEW');
+  await f.restart();
+  expect(((await f.cli(['service', 'job', '--id', id])).value as ServiceJob).state).toBe(
+    'interrupted',
+  );
+  const result = await f.cli(['service', 'reconcile', '--id', id]);
+  expect(result.exitCode, JSON.stringify(result)).toBe(0);
+  const restored = result.value as ServiceJob;
+  expect(restored.state).toBe('finished');
+  expect(restored.result).toMatchObject({ status: 'completed', exitCode: 0 });
+  expect((await f.cli(['service', 'reconcile', '--id', id])).value).toEqual(restored);
+  expect((await f.cli(['result', restored.result!.runId!])).exitCode).toBe(0);
+  expect(f.calls()).toBe(1);
+}, 40000);
+
+it('keeps an unconfirmed request interrupted and recovers only its matching saved report', async () => {
+  const f = await fixture();
+  expect((await f.cli(['service', 'allow', '--trigger', 'commit'])).exitCode).toBe(0);
+  const failure = vi
+    .spyOn(ReviewRequests.prototype, 'finish')
+    .mockRejectedValueOnce(Error('journal write failure'));
+  const id = randomUUID();
+  let interrupted: ServiceJob;
+  try {
+    expect((await f.cli(['enqueue', '--trigger', 'commit', '--request-id', id])).exitCode).toBe(0);
+    f.release();
+    const result = await until(
+      () => f.cli(['service', 'job', '--id', id]),
+      (r) => (r.value as ServiceJob)?.state === 'interrupted',
+    );
+    interrupted = result.value as ServiceJob;
+    expect(interrupted.result?.completionUnconfirmed).toBe(true);
+  } finally {
+    failure.mockRestore();
+  }
+  const execution = interrupted!.execution!;
+  expect(
+    (
+      await f.cli([
+        'requests',
+        'reconcile',
+        '--key',
+        execution.key,
+        '--generation',
+        String(execution.generation + 1),
+      ])
+    ).exitCode,
+  ).toBe(2);
+  const restored = await f.cli(['service', 'reconcile', '--id', id]);
+  expect(restored.value).toMatchObject({
+    state: 'finished',
+    result: { runId: interrupted!.result!.runId, exitCode: 0 },
+  });
+  expect(f.calls()).toBe(1);
+}, 40000);
 it('returns an encrypted queue receipt before model completion and shares results across separate receipts', async () => {
   const f = await fixture();
   expect((await f.cli(['enqueue', '--trigger', 'commit'])).exitCode).toBe(2);

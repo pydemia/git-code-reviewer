@@ -57,6 +57,8 @@ Pass the original executor/model selection to actions that run a model; a review
 
 `citation` is a zero-based index in that turn's response. Source reads return at most 200 lines / 24,000 characters. `read`, `source` and `cancel` do not start a model. Unknown worker termination remains interrupted/uncertain until the stored state is reconciled; do not repeatedly resume an active turn.
 
+For interrupted automatic reviews, inspect `gcr service job --id RECEIPT_ID` and use `gcr service reconcile --id RECEIPT_ID` to attach an already saved result. A standalone request journal can be checked with `gcr requests` and `gcr requests reconcile --key REQUEST_HASH --generation N`, using the original worktree/profile/connection. Reconciliation never starts a model. Missing terminal receipts or history remain unresolved; lease expiry alone does not prove the model stopped.
+
 ## MCP mapping
 
 Start the installed CLI's `mcp` command with an absolute `--cwd` and the same profile/data/connection selection. The process binds that root at startup; tool arguments cannot change it. Add `--allow-review` only for authorized executor/conversation calls and `--allow-submissions` for the explicit submission workflow. Startup does not run a review. Preserve the host's required CA/proxy environment when launching a stdio server; do not copy credentials into its configuration.

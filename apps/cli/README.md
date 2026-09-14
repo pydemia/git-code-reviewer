@@ -179,3 +179,17 @@ gcr service stop
 IPC는 macOS/Linux의 사용자 전용 Unix socket(0600, 상위 디렉터리 0700)을 사용하며 TCP port를 열지 않는다. Windows는 지원하지 않는다. Payload는 최대 8 MiB이며 queued/running/interrupted 합계 64개까지 받는다. 모델 시간·source·tool 제한은 등록한 리뷰별 설정이다. `service allow --reviews-per-hour 6`은 profile/worktree의 공통 실행 기록을 기준으로 시간당 시작 횟수를 제한한다(기본 6, 범위 1–100). 기존 수동 리뷰 시작도 집계하며 같은 결과를 재사용할 때는 새 시작을 차감하지 않는다. 한도에 걸린 receipt는 `notBefore`를 기록한 queued 상태로 남고 해당 시각 이후 다시 준비한다. 사용자 전체 호출/token 예산, headless 파일 감시, 중단 요청의 결과 대조 UI, receipt 보존 기간과 managed hook 설치는 남아 있다. Linux IPC 지원이 Linux 모델 executor 검증을 뜻하지는 않는다.
 
 `scripts/verify-service-reviews.mjs`는 명시한 설치 artifact·현재 Codex 실행 파일로 임시 저장소의 commit/push를 검증한다. `GCR_SERVICE_CONSUMER`, `GCR_SERVICE_CODEX`, `GCR_SERVICE_EVIDENCE`에 절대 경로를 지정해야 하며 실제 모델을 호출한다. 사용자 저장소의 hook이나 전역 CLI는 변경하지 않는다.
+
+## 중단 작업의 완료 결과 복구
+
+```sh
+gcr requests --cwd /path/to/repo --profile work
+gcr requests reconcile --key REQUEST_HASH --generation 1 --cwd /path/to/repo --profile work
+gcr service reconcile --id RECEIPT_ID --profile work
+```
+
+원래 data directory와 profile을 지정하며 중앙 요청은 같은 `--mode centralized --connection ID`를 사용한다. 서비스의 `review-reconciliation-v1` 기능은 CLI alpha.23부터 제공한다. 기존 서비스가 실행 중이면 먼저 status에서 버전 기능과 활성 작업을 확인한다.
+
+복구는 실행 세대별 완료 receipt의 보고서 ID/hash와 실제 암호화 이력을 대조한다. 현재 작업 파일을 캡처하거나 모델을 준비·재호출하지 않는다. 살아 있는 lease, 저장 보고서나 receipt의 부재는 unresolved/interrupted로 유지한다. 다른 generation의 결과·변조된 보고서·철회된 중앙 권한은 거부한다. CLI `requests reconcile`은 확인한 원본 보고서와 request를 반환하며 성공은 exit 0, 미해결·오류는 exit 2다. 서비스 명령은 receipt가 finished로 확인된 경우에만 exit 0이다. 보고서 자체의 partial/failed 상태는 그대로 유지한다.
+
+서비스에서 이력·완료 기록 저장이 확인되지 않으면 `completionUnconfirmed: true`와 interrupted 상태를 남긴다. `runId`가 존재해도 완료 receipt로 취급하지 않는다. 복구에 성공하면 원래 결과를 연결하고 source payload를 삭제한다. 구버전에서 완료 receipt 없이 중단된 작업과 모델 종료를 확인할 근거가 없는 작업은 재호출로 복구하지 않는다.

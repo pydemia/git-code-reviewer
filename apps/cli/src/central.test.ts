@@ -16,6 +16,7 @@ import {
 import {
   contentHash,
   LocalRecordStore,
+  ReviewRequests,
   PlatformLocalKeyStore,
   PlatformCentralCredentialStore,
   discoverLocalIdentity,
@@ -415,6 +416,59 @@ const args = (command: string, id: string) => [
 ];
 const test = (name: string, fn: () => Promise<void>) => it(name, fn, 30000);
 describe.sequential('explicit connected CLI over HTTPS', () => {
+  test('reconciles saved central completion only while the original connection remains authorized', async () => {
+    for (const revoke of [false, true]) {
+      const profile = `central-recovery-${revoke}`,
+        id = await connect(profile);
+      const failedWrite = vi
+        .spyOn(ReviewRequests.prototype, 'finish')
+        .mockRejectedValueOnce(Error('request journal fixture'));
+      let original;
+      try {
+        original = await invoke(profile, args('review', id));
+      } finally {
+        failedWrite.mockRestore();
+      }
+      expect(original.exitCode).toBe(2);
+      expect(original.diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'request-completion-unconfirmed' }),
+        ]),
+      );
+      const pending = (await invoke(profile, ['requests'])).value as Array<{
+        key: string;
+        generation: number;
+        state: string;
+      }>;
+      expect(pending).toHaveLength(1);
+      const request = pending[0]!;
+      expect(request.state).toBe('interrupted');
+      const before = models;
+      try {
+        if (revoke) {
+          status = 403;
+          expect(
+            (await invoke(profile, ['central', 'sync', ...args('unused', id).slice(1)])).exitCode,
+          ).toBe(2);
+        }
+        const result = await invoke(profile, [
+          'requests',
+          'reconcile',
+          '--key',
+          request.key,
+          '--generation',
+          String(request.generation),
+          ...args('unused', id).slice(1),
+        ]);
+        expect(result.exitCode, JSON.stringify(result)).toBe(revoke ? 2 : 0);
+        if (!revoke)
+          expect(result.value).toMatchObject({ status: 'reconciled', report: original.value });
+        expect(models).toBe(before);
+      } finally {
+        status = 200;
+      }
+    }
+  });
   test('continues the original central conversation after sync and blocks answers after confirmed revocation', async () => {
     const profile = 'central-chat',
       id = await connect(profile);

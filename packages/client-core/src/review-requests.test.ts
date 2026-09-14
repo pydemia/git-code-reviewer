@@ -71,6 +71,159 @@ function changed() {
   value.identity.source.hash = 'f'.repeat(64);
   return value;
 }
+it('reconciles the exact saved completion after lease expiry without another model run', async () => {
+  const f = await setup(),
+    queue = await f.open();
+  const request = await queue.enqueue(report().identity, 'commit');
+  const claim = await queue.claim(request.key, { leaseMs: 1000 });
+  if (claim.kind !== 'acquired') throw Error('fixture');
+  await queue.begin(claim.lease, 'commit');
+  await queue.prepareCompletion(claim.lease, report());
+  await f.history.saveReview(report());
+  const loadReport = vi.fn((id: string) => f.history.getReview(id));
+  const assertValid = vi.fn(async () => undefined);
+  expect(
+    (await queue.reconcile(request.key, claim.lease.generation, { loadReport, assertValid }))
+      .request.state,
+  ).toBe('running');
+  expect(loadReport).not.toHaveBeenCalled();
+  queue.close();
+  f.advance(1001);
+  const reopened = await f.open();
+  const recovered = await reopened.reconcile(request.key, claim.lease.generation, {
+    loadReport,
+    assertValid,
+  });
+  expect(recovered.request).toMatchObject({
+    state: 'finished',
+    resultId: report().runId,
+    generation: claim.lease.generation,
+  });
+  expect(recovered.report).toEqual(report());
+  await expect(reopened.finish(claim.lease, report())).rejects.toMatchObject({
+    code: 'request-lost',
+  });
+  const run = vi.fn(async () => report());
+  const reused = await executeReviewRequest({
+    storage: f.storage,
+    identity: report().identity,
+    loadReport,
+    saveReport: (r) => f.history.saveReview(r),
+    run,
+  });
+  expect(reused.reused).toBe(true);
+  expect(run).not.toHaveBeenCalled();
+});
+
+it('leaves unknown execution interrupted even when an unrelated older report exists', async () => {
+  const f = await setup(),
+    queue = await f.open();
+  const request = await queue.enqueue(report().identity, 'manual');
+  const claim = await queue.claim(request.key, { leaseMs: 1000 });
+  if (claim.kind !== 'acquired') throw Error('fixture');
+  await queue.begin(claim.lease, 'manual');
+  await f.history.saveReview(report());
+  f.advance(1001);
+  const loadReport = vi.fn((id: string) => f.history.getReview(id));
+  const recovered = await queue.reconcile(request.key, claim.lease.generation, {
+    loadReport,
+    assertValid: async () => undefined,
+  });
+  expect(recovered.request.state).toBe('interrupted');
+  expect(recovered.report).toBeUndefined();
+  expect(loadReport).not.toHaveBeenCalled();
+  expect((await queue.claim(request.key)).kind).toBe('interrupted');
+});
+
+it('requires durable matching history and current authorization before attaching a completion receipt', async () => {
+  const f = await setup(),
+    queue = await f.open();
+  const request = await queue.enqueue(report().identity, 'manual');
+  const claim = await queue.claim(request.key, { leaseMs: 1000 });
+  if (claim.kind !== 'acquired') throw Error('fixture');
+  await queue.begin(claim.lease, 'manual');
+  await queue.prepareCompletion(claim.lease, report());
+  f.advance(1001);
+  const assertValid = vi.fn(async () => undefined);
+  expect(
+    (
+      await queue.reconcile(request.key, claim.lease.generation, {
+        loadReport: async () => undefined,
+        assertValid,
+      })
+    ).report,
+  ).toBeUndefined();
+  await expect(
+    queue.reconcile(request.key, claim.lease.generation, {
+      loadReport: async () => ({ ...report(), summary: 'Modified report' }),
+      assertValid,
+    }),
+  ).rejects.toMatchObject({ code: 'request-invalid' });
+  await expect(
+    queue.reconcile(request.key, claim.lease.generation, {
+      loadReport: async () => report(),
+      assertValid: async () => {
+        throw Error('revoked');
+      },
+    }),
+  ).rejects.toThrow('revoked');
+  expect((await queue.get(request.key))?.state).toBe('interrupted');
+  await f.history.saveReview(report());
+  expect(
+    (
+      await queue.reconcile(request.key, claim.lease.generation, {
+        loadReport: (id) => f.history.getReview(id),
+        assertValid,
+      })
+    ).report,
+  ).toEqual(report());
+});
+
+it('cannot reuse a previous generation completion for a later interrupted attempt', async () => {
+  const f = await setup(),
+    queue = await f.open();
+  const request = await queue.enqueue(report().identity, 'manual');
+  const first = await queue.claim(request.key);
+  if (first.kind !== 'acquired') throw Error('fixture');
+  await queue.begin(first.lease, 'manual');
+  await queue.prepareCompletion(first.lease, report());
+  await queue.finish(first.lease, report());
+  const second = await queue.claim(request.key, {
+    retryFinishedGeneration: first.lease.generation,
+    leaseMs: 1000,
+  });
+  if (second.kind !== 'acquired') throw Error('fixture');
+  await queue.begin(second.lease, 'manual');
+  f.advance(1001);
+  const input = { loadReport: async () => report(), assertValid: async () => undefined };
+  await expect(queue.reconcile(request.key, first.lease.generation, input)).rejects.toMatchObject({
+    code: 'request-invalid',
+  });
+  const recovered = await queue.reconcile(request.key, second.lease.generation, input);
+  expect(recovered.request.state).toBe('interrupted');
+  expect(recovered.report).toBeUndefined();
+});
+
+it('preserves history when the auxiliary completion receipt cannot be written', async () => {
+  const f = await setup();
+  const failure = vi
+    .spyOn(ReviewRequests.prototype, 'prepareCompletion')
+    .mockRejectedValue(Error('disk fixture'));
+  try {
+    const result = await executeReviewRequest({
+      storage: f.storage,
+      identity: report().identity,
+      loadReport: (id) => f.history.getReview(id),
+      saveReport: (r) => f.history.saveReview(r),
+      run: async () => report(),
+    });
+    expect(result.persisted).toBe(true);
+    expect(result.recorded).toBe(true);
+    expect(await f.history.getReview(report().runId)).toEqual(report());
+  } finally {
+    failure.mockRestore();
+  }
+});
 it('merges all trigger reasons across independently opened journals and grants one lease', async () => {
   const f = await setup(),
     a = await f.open(),

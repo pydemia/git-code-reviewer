@@ -30,6 +30,8 @@ Commands:
   enqueue                              Capture source and return a durable service receipt
   enqueue-push                         Capture every pre-push ref and enqueue fixed source
   requests                             Inspect durable review ownership and outcomes
+  requests reconcile --key <hash> --generation <n>  Recover a saved terminal report; no model
+  service reconcile --id <receipt-id>  Reconcile an interrupted service receipt; no model
   result <run-id>                       Read a saved report (same review exit code)
   chat read <run-id>                    Read the saved review conversation; no model call
   chat send|answer|resume|cancel|source <run-id> --input <json-file|->
@@ -152,7 +154,7 @@ const allowed: Record<string, string[]> = {
     'include-untracked',
   ],
   'enqueue-push': ['request-id'],
-  requests: [],
+  requests: ['key', 'generation'],
   result: [],
   history: [],
   chat: ['input', 'offline', 'offline-behavior', ...executor, 'timeout-ms', 'allow-path'],

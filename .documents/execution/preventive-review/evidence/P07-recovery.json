@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "phase": [
+    "P07-C01",
+    "P07-C03"
+  ],
+  "status": "core-cli-delivered-cd-ui-pending",
+  "recordedAt": "2026-09-14T08:40:00.306373+00:00",
+  "implementation": [
+    "Terminal report ID/hash/attempt completion receipt before history save",
+    "Explicit request reconciliation with current authorization and immutable identity/hash checks",
+    "Service receipt bound to request key/generation and registration revision",
+    "Unconfirmed history/request completion remains interrupted with fixed payload retained",
+    "Reconciled terminal result purges service payload without recapturing source or starting a model",
+    "Separate completion records preserve legacy request schema; interruption removes ownership without claiming a new generation"
+  ],
+  "validation": {
+    "runtime": "Node 22.23.2",
+    "distinctPassed": 69,
+    "optInSkipped": 1,
+    "externalModelCalls": 0,
+    "logs": [
+      {
+        "path": "artifacts/operations/P07-recovery-last-request-tests.log",
+        "passed": 15,
+        "skipped": 0,
+        "sha256": "a26348c43e09021fedb31fb87b36949107e18fcba9ad73d7f4d528ec4a83237b"
+      },
+      {
+        "path": "artifacts/operations/P07-recovery-final-service-tests.log",
+        "passed": 12,
+        "skipped": 0,
+        "sha256": "d134626c6f47b7d8d994131106259bf31737deec14d5d1ab20a0c3554b21b2cc"
+      },
+      {
+        "path": "artifacts/operations/P07-recovery-central-tests.log",
+        "passed": 19,
+        "skipped": 1,
+        "sha256": "6147c37261a08ce69441c798d89ffd8c99ff7d6fffef17542741e017aff28e2f"
+      },
+      {
+        "path": "artifacts/operations/P07-recovery-cli-regression.log",
+        "passed": 23,
+        "skipped": 0,
+        "sha256": "478931391fa318c50302ad08df426bfd070fd061433263989fa54271add1bd89"
+      }
+    ],
+    "covered": [
+      "Live lease left unchanged; stale owner fenced after expiry",
+      "Exact saved completion recovered after reopening stores",
+      "Unknown execution stays interrupted even if a similar report exists",
+      "Missing history, mismatched report digest and old generation rejected",
+      "Current authorization checked before attaching completion",
+      "Auxiliary receipt write failure does not suppress history",
+      "Service restart after receipt write failure",
+      "Unconfirmed request completion reconciled to the same saved run",
+      "Separate service process SIGKILL after history persistence and before request completion, then restart and recovery with exactly one synthetic executor call",
+      "Working file changed after the crash; original source hash preserved",
+      "Real HTTPS central fixture accepts original authorized connection and rejects confirmed revocation",
+      "Existing manual CLI, saved conversation and MCP regressions"
+    ],
+    "checks": {
+      "clientBuild": "passed",
+      "cliTypecheck": "passed",
+      "focusedLint": "passed",
+      "diffCheck": "passed"
+    },
+    "modelScope": "Synthetic executors exercise crash and recovery; no new model quality or actual account review claim."
+  },
+  "cli": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.23",
+    "clientVersion": "0.1.0-alpha.27",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.27",
+        "file": "gcr-client-contract-0.1.0-alpha.27.tgz",
+        "sha256": "df2d0cc329e18e5340497875599046fe62791ac3fbfdf75d5de45c94a68de0ba"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.27",
+        "file": "gcr-client-core-0.1.0-alpha.27.tgz",
+        "sha256": "3fc7cdac006a2436120d3a4b75b5246f24d185b136a23cfffe5c0e9f9ea8c1c7"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.27",
+        "file": "gcr-client-executors-0.1.0-alpha.27.tgz",
+        "sha256": "90b6c3ab6ace1eab6230bda6bcc4d06211262acec5f86e99268fbf1ac237264e"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.23",
+        "file": "gcr-cli-0.1.0-alpha.23.tgz",
+        "sha256": "7dfc8a4461ec1cc0280b7f4ac726c2abd821b54ca6b1ebef8049d121741795bd"
+      }
+    ]
+  },
+  "installedSmoke": {
+    "status": "passed",
+    "profile": "recovery-547d2c1e-ecab-4b0c-ada0-3d7fc34d8746",
+    "externalModelCalls": 0,
+    "cliSha256": "c654f0325ccc9c8aab9fc7057cdb00aa4414f4d3a179d1d12cc6347f9161ec52",
+    "checks": [
+      "installed-service-capability",
+      "same-live-service-reused",
+      "no-registered-or-running-jobs",
+      "unknown-receipt-rejected",
+      "empty-request-journal",
+      "missing-completion-rejected",
+      "no-model-or-automatic-registration"
+    ],
+    "serviceStopped": true,
+    "ownedKeysRemoved": 2,
+    "ownedFilesRemoved": true,
+    "finishedAt": "2026-09-14T08:38:07.024Z"
+  },
+  "delivery": {
+    "installedConsumer": "artifacts/operations/P07-recovery-alpha23/consumer",
+    "globalCliReplaced": false,
+    "commitDefenderChanged": false,
+    "prismRuntimeChanged": false,
+    "ownedServiceStopped": true,
+    "ownedOsKeyEntriesRemoved": 2,
+    "ownedFilesRemoved": true
+  },
+  "remaining": [
+    "Commit Defender recovery selection UI, interrupted status display and alpha.27/CLI alpha.23 delivery",
+    "P07 trigger combinations, missed-event recovery, headless watching and user-wide budgets",
+    "Receipt/completion retention and other-UID live IPC test",
+    "Earlier P03-P06 gates and P09-P13 remain in the original goal"
+  ],
+  "limitations": [
+    "Older interrupted requests without a terminal completion receipt cannot be inferred from similar history.",
+    "Older clients that advanced the interrupted generation can make that original attempt ineligible for this recovery path; no generation guessing.",
+    "Elapsed leases alone do not prove executor termination. Only a matching terminal receipt plus saved report can be attached."
+  ]
+}

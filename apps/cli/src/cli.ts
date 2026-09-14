@@ -12,6 +12,7 @@ import {
   reviewTrigger,
   sourcePath,
   type LocalScope,
+  type ReviewRequestRecord,
 } from '@gcr/client-contract';
 import {
   captureLocalSource,
@@ -73,6 +74,7 @@ export interface CliDependencies {
   frozenSource?: FrozenLocalSource;
   entrypoint?: string;
   serviceStartLimits?: { maximumReviewsPerHour: number };
+  onReviewRequest?(request: ReviewRequestRecord): Promise<void>;
 }
 export interface CliResult {
   value: unknown;
@@ -198,6 +200,7 @@ export async function executeCli(
           'history',
           'result',
           'chat',
+          'requests',
         ].includes(command))
     )
       throw new CliError(
@@ -405,7 +408,7 @@ export async function executeCli(
       return { value, exitCode: 0 };
     }
     if (
-      !['submit-review', 'feedback', 'chat'].includes(command) &&
+      !['submit-review', 'feedback', 'chat', 'requests'].includes(command) &&
       positionals.length !== (command === 'result' ? 1 : 0)
     )
       throw new CliError('usage', 'Unexpected positional arguments.');
@@ -444,7 +447,12 @@ export async function executeCli(
       dataDirectory,
       ...(dependencies.keys ? { keys: dependencies.keys } : {}),
     };
-    if (command === 'requests') {
+    if (command === 'requests' && positionals[0] !== 'reconcile') {
+      if (positionals.length || string('key') || string('generation'))
+        throw new CliError(
+          'usage',
+          'Use requests or requests reconcile --key HASH --generation N.',
+        );
       const requests = await ReviewRequests.open(requestStorage);
       try {
         return { value: await requests.list(), exitCode: 0 };
@@ -509,6 +517,51 @@ export async function executeCli(
       );
       return history;
     };
+    if (command === 'requests') {
+      if (positionals.length !== 1 || !string('key') || !number('generation'))
+        throw new CliError('usage', 'Use requests reconcile --key HASH --generation N.');
+      const queue = await ReviewRequests.open(requestStorage);
+      try {
+        const request = await queue.get(string('key')!);
+        if (!request) throw new CliError('not-found', 'Review request was not found.');
+        const saved = request.identity.client;
+        const assertValid = async () => {
+          if (dependencies.signal?.aborted)
+            throw new CliError('cancelled', 'Reconciliation cancelled.');
+          if (
+            central
+              ? saved.execution?.connectionId !== string('connection')
+              : saved.mode !== 'standalone' || saved.execution?.configuredMode === 'centralized'
+          )
+            throw new CliError(
+              'selection-changed',
+              'Use the original request mode and connection.',
+            );
+          if (saved.mode === 'centralized') {
+            const identity = await (
+              await centralConnections()
+            ).historyIdentity(string('connection')!);
+            if (contentHash(identity.audience) !== contentHash(saved.audience))
+              throw new CliError(
+                'selection-changed',
+                'The original central audience is unavailable.',
+              );
+          }
+        };
+        await assertValid();
+        const history = await historyStore(saved.mode === 'centralized');
+        const result = await queue.reconcile(request.key, number('generation')!, {
+          assertValid,
+          loadReport: (id) => history.getReview(id),
+        });
+        return {
+          value: { status: result.report ? 'reconciled' : 'unresolved', ...result },
+          exitCode: result.report ? 0 : 2,
+        };
+      } finally {
+        queue.close();
+      }
+    }
     if (command === 'submit-review' || command === 'feedback') {
       if (!central)
         throw new CliError('usage', 'Submission requires an explicit central connection.');
@@ -974,6 +1027,7 @@ export async function executeCli(
       };
     let retentionPending = false;
     const result = await executeReviewRequest({
+      ...(dependencies.onReviewRequest ? { onRequest: dependencies.onReviewRequest } : {}),
       storage: requestStorage,
       identity: resolution.policy.identity,
       reason: trigger,

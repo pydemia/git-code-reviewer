@@ -3,7 +3,13 @@ import path from 'node:path';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { localScope, reviewTrigger, type ReviewTrigger } from '@gcr/client-contract';
+import {
+  clientReviewReport,
+  reviewExitCode,
+  localScope,
+  reviewTrigger,
+  type ReviewTrigger,
+} from '@gcr/client-contract';
 import {
   captureLocalSource,
   contentHash,
@@ -154,15 +160,56 @@ export async function executeServiceCommand(
             ...dependencies,
             frozenSource: input.source,
             serviceStartLimits: { maximumReviewsPerHour: options.maximumReviewsPerHour ?? 6 },
+            onReviewRequest: input.bindRequest,
             signal: input.signal,
           });
           const value = result.value as { runId?: string; status?: string; retryAt?: number };
           return {
             exitCode: result.exitCode,
             status: typeof value?.status === 'string' ? value.status : 'unavailable',
+            ...(result.diagnostics?.some(
+              (item) =>
+                item &&
+                typeof item === 'object' &&
+                'code' in item &&
+                ['history-save-failed', 'request-completion-unconfirmed'].includes(
+                  String(item.code),
+                ),
+            )
+              ? { completionUnconfirmed: true }
+              : {}),
             ...(typeof value?.runId === 'string' ? { runId: value.runId } : {}),
             ...(typeof value?.retryAt === 'number' ? { retryAt: value.retryAt } : {}),
           };
+        },
+        reconcile: async ({ job, registration }) => {
+          if (!job.execution) return;
+          const options = registration.options;
+          const result = await review(
+            [
+              'requests',
+              'reconcile',
+              '--key',
+              job.execution.key,
+              '--generation',
+              String(job.execution.generation),
+              '--cwd',
+              registration.root,
+              ...common,
+              '--mode',
+              options.mode,
+              ...(options.connectionId ? ['--connection', options.connectionId] : []),
+            ],
+            dependencies,
+          );
+          const value = result.value as { status?: string; report?: unknown };
+          if (value.status === 'unresolved') return;
+          if (result.exitCode !== 0 || value.status !== 'reconciled' || !value.report)
+            throw new LocalServiceError('service-denied');
+          const report = clientReviewReport(value.report);
+          if (report.identity.source.hash !== job.sourceHash)
+            throw new LocalServiceError('service-invalid');
+          return { exitCode: reviewExitCode(report), status: report.status, runId: report.runId };
         },
       });
       const stop = () => {
@@ -214,13 +261,14 @@ export async function executeServiceCommand(
         exitCode: 0,
       };
     }
-    if (['status', 'stop', 'registrations', 'job', 'cancel'].includes(action!)) {
+    if (['status', 'stop', 'registrations', 'job', 'cancel', 'reconcile'].includes(action!)) {
       const id = text('id');
-      if (['job', 'cancel'].includes(action!) && !id)
+      if (['job', 'cancel', 'reconcile'].includes(action!) && !id)
         throw new CliError('usage', 'A job ID is required.');
+      const value = await callLocalService(location, { action, ...(id ? { id } : {}) });
       return {
-        value: await callLocalService(location, { action, ...(id ? { id } : {}) }),
-        exitCode: 0,
+        value,
+        exitCode: action === 'reconcile' && (value as ServiceJob).state !== 'finished' ? 2 : 0,
       };
     }
     throw new CliError('usage', 'Unknown service action.');

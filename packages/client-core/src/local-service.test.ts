@@ -140,8 +140,91 @@ process.on('SIGTERM',()=>{void service.close();});process.stdout.write('ready\\n
         source: frozen,
       },
     }) as Promise<ServiceJob>;
-  return { root, repo, data, calls, location, frozen, start, call, register, submit, git };
+  return {
+    root,
+    repo,
+    data,
+    keys,
+    script,
+    calls,
+    location,
+    frozen,
+    start,
+    call,
+    register,
+    submit,
+    git,
+  };
 }
+it('recovers a report persisted immediately before SIGKILL without a second executor invocation', async () => {
+  const f = fixture();
+  writeFileSync(
+    f.script,
+    `
+import {readFile,writeFile,unlink,appendFile} from 'node:fs/promises';
+import path from 'node:path';
+import {startLocalService,restoreLocalSource,discoverLocalIdentity,resolveLocalContext,resolveLocalExecutionPolicy,runLocalReview,executeReviewRequest,ReviewRequests,LocalRecordStore,LocalHistoryStore,contentHash} from ${JSON.stringify(new URL('../dist/index.js', import.meta.url).href)};
+const location=${JSON.stringify(f.location)};
+const keys={read:async id=>{try{return await readFile(path.join(${JSON.stringify(f.keys)},id));}catch(e){if(e.code==='ENOENT')return;throw e;}},write:async(id,bytes)=>writeFile(path.join(${JSON.stringify(f.keys)},id),bytes,{mode:0o600}),remove:async id=>unlink(path.join(${JSON.stringify(f.keys)},id))};
+const storage=reg=>({...location,scope:{kind:'repository',profileId:location.profileId,repositoryKey:reg.repositoryKey,worktreeKey:reg.worktreeKey},keys});
+const descriptor={id:'fixture',version:'1',model:'fixture',configHash:contentHash('crash-fixture'),capabilities:{available:true,sourceIsolation:'fixed-source-only',cancellation:true,timeout:true,childProcessCleanup:true,outputTokenLimit:false}};
+const service=await startLocalService({...location,keys,
+ run:async input=>{
+  const snapshot=restoreLocalSource(input.source), records=await LocalRecordStore.open(storage(input.registration)), history=new LocalHistoryStore(records);
+  try {
+   const client=discoverLocalIdentity(input.registration.root,location.profileId);
+   const context=await resolveLocalContext({client,snapshot,stores:[]});
+   const policy=resolveLocalExecutionPolicy({context,snapshot,executor:descriptor,workspaceTrusted:true,approval:{client,executor:descriptor,paths:['**'],allowBase:true,allowRelated:true,allowKnowledge:true}});
+   if(context.status!=='ready'||policy.status!=='ready')throw Error('fixture authority');
+   const result=await executeReviewRequest({storage:storage(input.registration),identity:policy.policy.identity,reason:input.job.trigger,signal:input.signal,onRequest:input.bindRequest,
+    loadReport:id=>history.getReview(id),
+    saveReport:async report=>{await history.saveReview(report);if(process.env.GCR_TEST_BLOCK==='1')process.kill(process.pid,'SIGKILL');},
+    run:signal=>runLocalReview({snapshot,context:context.context,policy:policy.policy,signal,executor:{descriptor,review:async request=>{
+      await appendFile(${JSON.stringify(f.calls)},JSON.stringify({id:input.job.id,sourceHash:snapshot.identity.hash})+'\\n');
+      const reads=await Promise.all(['source','base'].map(async side=>JSON.parse(await request.source.execute('read_file',{path:'a.ts',side}))));
+      return {model:'fixture',raw:JSON.stringify({summary:'Crash fixture',files:[{path:'a.ts',side:'source',complete:true,summary:'Read fixed bytes',readIds:reads.map(r=>r.readId)}],findings:[],questions:[]})};
+    }}})});
+   return {exitCode:0,status:result.report.status,runId:result.report.runId};
+  }finally{snapshot.close();records.close();}
+ },
+ reconcile:async({job,registration})=>{
+  const queue=await ReviewRequests.open(storage(registration)),records=await LocalRecordStore.open(storage(registration)),history=new LocalHistoryStore(records);
+  try{const result=await queue.reconcile(job.execution.key,job.execution.generation,{loadReport:id=>history.getReview(id),assertValid:async()=>{}});
+   if(result.report)return {exitCode:0,status:result.report.status,runId:result.report.runId};
+  }finally{queue.close();records.close();}
+ }
+});
+process.on('SIGTERM',()=>{void service.close();});process.stdout.write('ready\\n');await service.closed;
+`,
+  );
+  const first = await f.start(true),
+    exited = once(first, 'exit');
+  const registration = await f.register(),
+    submitted = await f.submit(registration);
+  const [code, signal] = await exited;
+  expect(code).toBeNull();
+  expect(signal).toBe('SIGKILL');
+  writeFileSync(path.join(f.repo, 'a.ts'), 'DO_NOT_RECAPTURE_THIS_WORKING_FILE');
+  const second = await f.start();
+  const interrupted = (await f.call({ action: 'job', id: submitted.id })) as ServiceJob;
+  expect(interrupted.state).toBe('interrupted');
+  expect(interrupted.execution?.generation).toBe(1);
+  const deadline = Date.now() + 45000;
+  let recovered: ServiceJob;
+  for (;;) {
+    recovered = (await f.call({ action: 'reconcile', id: submitted.id })) as ServiceJob;
+    if (recovered.state === 'finished') break;
+    if (Date.now() > deadline) throw Error('Completion was not reconciled after its lease expired');
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  expect(recovered.result).toMatchObject({ status: 'completed', exitCode: 0 });
+  expect(recovered.sourceHash).toBe(interrupted.sourceHash);
+  expect(readFileSync(f.calls, 'utf8').trim().split('\n')).toHaveLength(1);
+  expect(await f.call({ action: 'reconcile', id: submitted.id })).toEqual(recovered);
+  const stopped = once(second, 'exit');
+  await f.call({ action: 'stop' });
+  await stopped;
+}, 90000);
 it('requires explicit registration and trigger permission, persists an idempotent receipt, and runs after disconnect', async () => {
   const f = fixture();
   const child = await f.start(true);

@@ -1,7 +1,13 @@
 import path from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { reviewTrigger, type ReviewTrigger } from '@gcr/client-contract';
+import {
+  reviewTrigger,
+  reviewRequestRecord,
+  type ReviewRequestRecord,
+  type ReviewTrigger,
+} from '@gcr/client-contract';
+import { reviewRequestKey } from './review-requests.js';
 import { LocalRecordStore, type LocalRecordOptions } from './local-records.js';
 import { LocalStoreError } from './local-errors.js';
 import { contentHash, defaultLocalDataDirectory, discoverLocalIdentity } from './local-identity.js';
@@ -57,8 +63,15 @@ export interface ServiceJob {
   state: 'queued' | 'running' | 'finished' | 'cancelled' | 'interrupted';
   owner: string | null;
   notBefore?: number;
-  result?: { exitCode: 0 | 1 | 2; status: string; runId?: string; retryAt?: number };
+  result?: {
+    exitCode: 0 | 1 | 2;
+    status: string;
+    runId?: string;
+    retryAt?: number;
+    completionUnconfirmed?: boolean;
+  };
   cleanupPending?: boolean;
+  execution?: { key: string; generation: number };
 }
 interface Owner {
   version: 1;
@@ -244,6 +257,13 @@ export class ServiceJobs {
     )
       throw invalid();
     reviewTrigger(value.trigger);
+    if (
+      value.execution &&
+      (!/^[a-f0-9]{64}$/.test(value.execution.key) ||
+        !Number.isSafeInteger(value.execution.generation) ||
+        value.execution.generation < 1)
+    )
+      throw invalid();
     return value;
   }
   async list() {
@@ -343,6 +363,79 @@ export class ServiceJobs {
       if (job.state === 'running')
         await this.update({ ...job, state: 'interrupted', owner: null }, job);
   }
+  async bindRequest(id: string, token: string, input: ReviewRequestRecord) {
+    await this.assertOwner(token);
+    const job = await this.job(id),
+      request = reviewRequestRecord(input);
+    if (!job || job.state !== 'running' || job.owner !== token)
+      throw new LocalServiceError('service-interrupted');
+    const registration = await this.registration(job.repository),
+      client = request.identity.client;
+    if (
+      !registration ||
+      registration.revision !== job.registrationRevision ||
+      !registration.triggers.includes(job.trigger) ||
+      client.profileId !== this.profileId ||
+      client.repositoryKey !== registration.repositoryKey ||
+      client.worktreeKey !== registration.worktreeKey ||
+      request.identity.source.hash !== job.sourceHash ||
+      reviewRequestKey(request.identity) !== request.key ||
+      !request.reasons.includes(job.trigger) ||
+      (registration.options.mode === 'centralized'
+        ? client.execution?.configuredMode !== 'centralized' ||
+          client.execution.connectionId !== registration.options.connectionId
+        : client.mode !== 'standalone' || client.execution?.configuredMode === 'centralized') ||
+      request.generation < 1 ||
+      !['claimed', 'running', 'finished'].includes(request.state)
+    )
+      throw new LocalServiceError('service-denied');
+    const execution = { key: request.key, generation: request.generation };
+    if (job.execution && contentHash(job.execution) !== contentHash(execution)) throw invalid();
+    return this.update({ ...job, execution }, job);
+  }
+  async reconcile(
+    id: string,
+    token: string,
+    inspect: (input: {
+      job: ServiceJob;
+      registration: ServiceRegistration;
+    }) => Promise<NonNullable<ServiceJob['result']> | undefined>,
+  ) {
+    await this.assertOwner(token);
+    const job = await this.job(id);
+    if (!job) throw invalid();
+    if (job.state !== 'interrupted' || !job.execution) return job;
+    const registration = await this.registration(job.repository);
+    if (
+      !registration ||
+      registration.revision !== job.registrationRevision ||
+      !registration.triggers.includes(job.trigger)
+    )
+      throw new LocalServiceError('service-denied');
+    const result = await inspect({ job, registration });
+    if (!result) return job;
+    if (
+      ![0, 1, 2].includes(result.exitCode) ||
+      !result.runId ||
+      !validId(result.runId) ||
+      ![
+        'completed',
+        'partial',
+        'failed',
+        'cancelled',
+        'needs-context',
+        'unavailable',
+        'superseded',
+      ].includes(result.status)
+    )
+      throw invalid();
+    await this.assertOwner(token);
+    const current = await this.registration(job.repository);
+    if (current?.revision !== registration.revision) throw new LocalServiceError('service-denied');
+    const done = await this.update({ ...job, state: 'finished', owner: null, result }, job);
+    await this.purgePayload(done);
+    return done;
+  }
   async next(token: string) {
     await this.assertOwner(token);
     for (const job of await this.list()) {
@@ -399,8 +492,12 @@ export class ServiceJobs {
       Number.isSafeInteger(result.retryAt) &&
       result.retryAt! > Date.now()
     ) {
-      return this.update({ ...job, state: 'queued', owner: null, notBefore: result.retryAt! }, job);
+      const queued = { ...job, state: 'queued' as const, owner: null, notBefore: result.retryAt! };
+      delete queued.execution;
+      return this.update(queued, job);
     }
+    if (result.completionUnconfirmed)
+      return this.update({ ...job, state: 'interrupted', owner: null, result }, job);
     const done = await this.update({ ...job, state: 'finished', owner: null, result }, job);
     await this.purgePayload(done);
     return done;

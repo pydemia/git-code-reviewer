@@ -12,6 +12,7 @@ import {
 } from './service-jobs.js';
 import type { LocalKeyStore } from './local-credentials.js';
 import type { FrozenLocalSource } from './source-snapshot.js';
+import type { ReviewRequestRecord } from '@gcr/client-contract';
 
 const maximumFrame = 9 * 1024 * 1024;
 export interface LocalServiceLocation {
@@ -104,7 +105,12 @@ export interface LocalServiceOptions extends LocalServiceLocation {
     registration: ServiceRegistration;
     source: FrozenLocalSource;
     signal: AbortSignal;
+    bindRequest(request: ReviewRequestRecord): Promise<void>;
   }): Promise<NonNullable<ServiceJob['result']>>;
+  reconcile?(input: {
+    job: ServiceJob;
+    registration: ServiceRegistration;
+  }): Promise<NonNullable<ServiceJob['result']> | undefined>;
 }
 /** Private Unix socket plus an encrypted CAS owner. The service outlives its submitting client. */
 export async function startLocalService(options: LocalServiceOptions) {
@@ -142,7 +148,13 @@ export async function startLocalService(options: LocalServiceOptions) {
         active = { job: next.job, controller };
         let result: NonNullable<ServiceJob['result']>;
         try {
-          result = await options.run({ ...next, signal: controller.signal });
+          result = await options.run({
+            ...next,
+            signal: controller.signal,
+            bindRequest: async (request) => {
+              await serial(() => jobs.bindRequest(next.job.id, owner, request));
+            },
+          });
         } catch {
           result = { exitCode: 2, status: controller.signal.aborted ? 'cancelled' : 'failed' };
         }
@@ -195,7 +207,10 @@ export async function startLocalService(options: LocalServiceOptions) {
       case 'status':
         return {
           status: serviceFailure ? 'degraded' : 'running',
-          features: ['review-start-budget-v1'],
+          features: [
+            'review-start-budget-v1',
+            ...(options.reconcile ? ['review-reconciliation-v1'] : []),
+          ],
           pid: process.pid,
           profileId: options.profileId,
           active: active?.job.id ?? null,
@@ -239,6 +254,9 @@ export async function startLocalService(options: LocalServiceOptions) {
       }
       case 'job':
         return (await jobs.job(String(request.id))) ?? null;
+      case 'reconcile':
+        if (!options.reconcile) throw new LocalServiceError('service-unavailable');
+        return jobs.reconcile(String(request.id), owner, options.reconcile);
       case 'cancel': {
         if (active && active.job.id === request.id) {
           active.controller.abort('user');
