@@ -365,3 +365,60 @@ describe('bound central HTTP transport', () => {
     });
   });
 });
+
+it('distinguishes submission scope denial from authenticated revocation and identity unavailability', async () => {
+  let status = 403,
+    code = 'CLIENT_SCOPE_DENIED';
+  const url = await listen(
+    httpServer((request, response) => {
+      expect(request.method).toBe('POST');
+      request.resume();
+      response.writeHead(status, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ error: { code, message: 'PRIVATE_DIAGNOSTIC' } }));
+    }),
+  );
+  const input = {
+    schemaVersion: 1,
+    id: 'submission',
+    audience: binding(url).audience,
+    clientId: 'gcr-cli',
+    approvedAt: new Date().toISOString(),
+    visibility: 'repository-reviewers',
+    review: {
+      runId: 'review',
+      mode: 'standalone',
+      sourceHash: 'a'.repeat(64),
+      contextHash: 'b'.repeat(64),
+      snapshot: null,
+    },
+    kind: 'feedback',
+    feedback: {
+      kind: 'judgment',
+      message: 'explicit fixture',
+      findingId: null,
+      rule: null,
+      source: null,
+    },
+  };
+  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
+    statusCode: 403,
+    authorityFailure: undefined,
+  });
+  code = 'CLIENT_ACCESS_REVOKED';
+  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
+    statusCode: 403,
+    authorityFailure: 'revoked',
+  });
+  status = 503;
+  code = 'IDENTITY_UNAVAILABLE';
+  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
+    statusCode: 503,
+    authorityFailure: 'identity-unavailable',
+  });
+  status = 401;
+  code = 'CLIENT_AUTHENTICATION_REQUIRED';
+  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
+    statusCode: 401,
+    authorityFailure: 'authentication-required',
+  });
+});

@@ -804,3 +804,22 @@ describe('encrypted central snapshot synchronization', () => {
     await expect((await f.open()).read()).rejects.toMatchObject({ code: 'busy' });
   });
 });
+
+it('applies external authority failures to the original login and preserves a replacement generation', async () => {
+  const f = await setup(),
+    cache = await f.open();
+  await cache.synchronize(fixture().transport);
+  const generation = (await cache.connectionState()).generation;
+  await cache.rejectAuthority(generation, 'identity-unavailable');
+  await expect((await f.open()).read()).rejects.toMatchObject({ code: 'identity-unavailable' });
+  await cache.synchronize(fixture().transport);
+  await expect(cache.read()).resolves.toBeDefined();
+  await cache.rejectAuthority((await cache.connectionState()).generation, 'revoked');
+  await expect((await f.open()).read()).rejects.toMatchObject({ code: 'revoked' });
+  await cache.resume((await cache.connectionState()).generation);
+  await cache.synchronize(fixture().transport);
+  await expect(cache.rejectAuthority(generation, 'revoked')).rejects.toMatchObject({
+    code: 'superseded',
+  });
+  await expect(cache.read()).resolves.toBeDefined();
+});

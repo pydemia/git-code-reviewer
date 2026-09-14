@@ -4,12 +4,13 @@ import fastifyStatic from '@fastify/static';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import Fastify from 'fastify';
 import { errorEnvelope, schemaVersion } from '@gcr/contracts';
+import { registerMutationOriginGuard } from './auth/mutation-origin.js';
 import { pingDatabase, type Database } from '@gcr/db';
 import { openRuntimeDatabase } from './database.js';
 import { registerAuthentication, IdentityUnavailableError } from './auth/index.js';
 import { registerClientCredentialRoutes } from './auth/client-routes.js';
 import { ClientCredentialError } from './auth/client-credentials.js';
-import { isSamlCallback, redactSamlRequestUrl } from './auth/saml-routes.js';
+import { redactSamlRequestUrl } from './auth/saml-routes.js';
 import { loadSamlProtocolConfig } from './auth/saml-config.js';
 import { ZodError } from 'zod';
 import { GitHubRegistryError } from './services/account-registry.js';
@@ -182,18 +183,7 @@ export async function buildServer(
     }
   });
 
-  app.addHook('onRequest', async (request, reply) => {
-    if (
-      (config.NODE_ENV === 'production' || config.AUTH_MODE === 'saml') &&
-      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
-      !(config.AUTH_MODE === 'saml' && isSamlCallback(request)) &&
-      !sameOrigin(request, config)
-    ) {
-      return reply
-        .code(403)
-        .send(errorEnvelope('INVALID_ORIGIN', '허용되지 않은 요청입니다.', request.id));
-    }
-  });
+  registerMutationOriginGuard(app, config);
 
   await registerAuthentication(app, config, database, samlProtocol);
   await registerClientCredentialRoutes(app, database, config, authorization, knowledgeSigner);
@@ -329,17 +319,5 @@ async function dependencyHealth(
         authorization: { status: 'degraded', latencyMs: null },
       },
     };
-  }
-}
-
-function sameOrigin(request: import('fastify').FastifyRequest, config: AppConfig): boolean {
-  const origin = request.headers.origin;
-  if (!origin) return false;
-  try {
-    const parsed = new URL(origin);
-    const expected = new URL(config.PUBLIC_BASE_URL ?? `${request.protocol}://${request.host}`);
-    return origin === parsed.origin && parsed.origin === expected.origin;
-  } catch {
-    return false;
   }
 }

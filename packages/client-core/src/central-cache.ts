@@ -540,6 +540,55 @@ export class CentralKnowledgeCache {
     }
     return pending;
   }
+  /** A negative response from another authenticated API is scoped to the cache
+   * generation that sent it. It cannot revoke a replacement connection. */
+  async rejectAuthority(
+    generation: number,
+    reason: 'revoked' | 'authentication-required' | 'identity-unavailable',
+  ) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const state = await this.state();
+      if (state.value.generation !== generation) throw error('superseded');
+      try {
+        if (reason === 'identity-unavailable') {
+          this.identityUnavailableGeneration = generation;
+          await this.put(state, {
+            ...state.value,
+            identityUnavailable: true,
+            observedAt: this.time(),
+            claim: null,
+          });
+        } else {
+          this.denied = reason;
+          let inventory: string[] | undefined;
+          try {
+            inventory = await this.records.listIds('knowledge');
+          } catch {
+            /* Persist the barrier even if cleanup inventory fails. */
+          }
+          await this.put(state, {
+            ...state.value,
+            generation: generation + 1,
+            status: reason,
+            observedAt: this.time(),
+            claim: null,
+            active: null,
+          });
+          if (inventory) await this.purge(inventory);
+        }
+        return;
+      } catch (cause) {
+        if (!(cause instanceof LocalStoreError) || cause.code !== 'revision-conflict') throw cause;
+        // A newer synchronization or explicit login owns its own generation.
+        const current = await this.state();
+        if (current.value.generation !== generation) {
+          if (current.value.status === 'enabled') this.denied = undefined;
+          throw error('superseded');
+        }
+      }
+    }
+    throw error('superseded');
+  }
   async disable(reason: 'disconnected' | 'authentication-required' | 'revoked' = 'disconnected') {
     this.denied = reason;
     // Capture only pre-disconnect bodies, so cleanup cannot delete a resumed

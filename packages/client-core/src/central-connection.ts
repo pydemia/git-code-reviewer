@@ -19,7 +19,7 @@ import {
 } from './local-credentials.js';
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
 import { CentralKnowledgeCache } from './central-cache.js';
-import { KnowledgeHttpTransport } from './knowledge-http.js';
+import { KnowledgeHttpTransport, ReviewSubmissionDeliveryError } from './knowledge-http.js';
 const denied = () =>
   new KnowledgeSyncError(
     'authentication-required',
@@ -284,9 +284,40 @@ export class CentralConnections {
     const state = await this.state(id);
     await this.assert(state);
     if (input.clientId !== state.value.clientId) throw denied();
-    const result = await this.timed(signal, (s) => this.transport(state).submitReview(input, s));
-    await this.assert(state);
-    return result;
+    const cache = await this.cache(state.value);
+    const { generation } = await cache.connectionState();
+    try {
+      const result = await this.timed(signal, (s) => this.transport(state).submitReview(input, s));
+      await this.assert(state);
+      return result;
+    } catch (error) {
+      if (error instanceof ReviewSubmissionDeliveryError && error.authorityFailure) {
+        await this.assert(state);
+        try {
+          await cache.rejectAuthority(generation, error.authorityFailure);
+        } finally {
+          if (error.authorityFailure !== 'identity-unavailable') {
+            this.invalid.add(state.value.credentialReference);
+            try {
+              await this.records.write(
+                'settings',
+                id,
+                { ...state.value, status: 'disconnected' },
+                state.revision,
+              );
+            } catch {
+              /* A replacement selection must not be overwritten. */
+            }
+            try {
+              await this.credentials.remove(state.value.credentialReference);
+            } catch {
+              /* Explicit disconnect can retry cleanup. */
+            }
+          }
+        }
+      }
+      throw error;
+    }
   }
   async historyIdentity(id: string) {
     const state = await this.state(id);

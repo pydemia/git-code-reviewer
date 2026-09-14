@@ -12,6 +12,7 @@ import {
   TrustedCentralBinding,
 } from '../../../../packages/client-core/dist/index.js';
 import { loadConfig, type AppConfig } from '../config.js';
+import { registerMutationOriginGuard } from './mutation-origin.js';
 import { registerAuthentication, requireUser, type AuthUser } from './index.js';
 import { registerClientCredentialRoutes } from './client-routes.js';
 import {
@@ -181,6 +182,7 @@ describe
           error: { code: error instanceof ClientCredentialError ? error.code : 'UNEXPECTED' },
         }),
       );
+      registerMutationOriginGuard(app, { ...config, NODE_ENV: 'production' });
       await registerAuthentication(app, config, db);
       const authorization = new AuthorizationService(config);
       await registerClientCredentialRoutes(app, db, config, authorization, signer);
@@ -194,6 +196,7 @@ describe
         const login = await app.inject({
           method: 'POST',
           url: '/auth/local/login',
+          headers: { origin: 'http://127.0.0.1' },
           payload: { username: name, password: 'Synthetic-user-password-2026!' },
         });
         expect(login.statusCode, login.body).toBe(200);
@@ -380,6 +383,26 @@ describe
       const send = (payload: unknown, token = feedbackKey.token) =>
         app.inject({ method: 'POST', url, headers: auth(token), payload });
       expect((await send(input, reader.token)).statusCode).toBe(403);
+      for (const headers of [
+        { ...auth(feedbackKey.token), origin: 'https://untrusted.invalid' },
+        { cookie: actors.get('alice')!.cookie },
+      ]) {
+        const response = await app.inject({ method: 'POST', url, headers, payload: input });
+        expect(response.statusCode).toBe(403);
+        expect(response.json().error.code).toBe('INVALID_ORIGIN');
+      }
+      expect(
+        (await app.inject({ method: 'POST', url, headers: auth('invalid'), payload: input }))
+          .statusCode,
+      ).toBe(401);
+      const unmarked = await app.inject({
+        method: 'POST',
+        url: '/api/v1/model-fixture',
+        headers: auth(feedbackKey.token),
+      });
+      expect(unmarked.statusCode).toBe(403);
+      expect(unmarked.json().error.code).toBe('INVALID_ORIGIN');
+
       expect(
         (await app.inject({ method: 'POST', url, headers: web(), payload: input })).statusCode,
       ).toBe(401);

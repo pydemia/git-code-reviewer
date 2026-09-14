@@ -188,8 +188,6 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       JSON.stringify(input),
     );
     try {
-      if (response.statusCode !== 200 && response.statusCode !== 201)
-        throw new ReviewSubmissionDeliveryError(response.statusCode ?? 503);
       const chunks: Buffer[] = [];
       let size = 0;
       for await (const chunk of response) {
@@ -198,9 +196,29 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
         if (size > 32768) throw new ReviewSubmissionDeliveryError(503);
         chunks.push(bytes);
       }
-      const receipt = reviewSubmissionReceipt(
-        JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))),
-      );
+      let body: unknown;
+      try {
+        body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
+      } catch {
+        throw new ReviewSubmissionDeliveryError(
+          response.statusCode === 200 || response.statusCode === 201
+            ? 503
+            : (response.statusCode ?? 503),
+        );
+      }
+      if (response.statusCode !== 200 && response.statusCode !== 201) {
+        const code = (body as { error?: { code?: unknown } })?.error?.code;
+        const authorityFailure =
+          response.statusCode === 403 && code === 'CLIENT_ACCESS_REVOKED'
+            ? 'revoked'
+            : response.statusCode === 401 && code === 'CLIENT_AUTHENTICATION_REQUIRED'
+              ? 'authentication-required'
+              : response.statusCode === 503 && code === 'IDENTITY_UNAVAILABLE'
+                ? 'identity-unavailable'
+                : undefined;
+        throw new ReviewSubmissionDeliveryError(response.statusCode ?? 503, authorityFailure);
+      }
+      const receipt = reviewSubmissionReceipt(body);
       if (
         receipt.requestId !== input.id ||
         receipt.payloadHash !== contentHash(input) ||
@@ -271,7 +289,10 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
 }
 
 export class ReviewSubmissionDeliveryError extends Error {
-  constructor(readonly statusCode: number) {
+  constructor(
+    readonly statusCode: number,
+    readonly authorityFailure?: 'revoked' | 'authentication-required' | 'identity-unavailable',
+  ) {
     super('Review submission was not confirmed.');
     this.name = 'ReviewSubmissionDeliveryError';
   }
