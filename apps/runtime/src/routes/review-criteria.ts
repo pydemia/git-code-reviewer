@@ -104,6 +104,7 @@ export async function registerReviewCriteriaRoutes(
       );
       const feedback = await connection.query(
         `select f.id, f.revision, f.request, f.created_by as "createdBy", f.created_at as "createdAt",
+         (select content from review_rule_feedback_client_sources where feedback_id=f.id) as "clientSource",
          case when res.request_id is null then null else jsonb_build_object('action', res.action, 'note', res.note,
            'actorUserId', res.actor_user_id, 'createdAt', res.created_at) end as resolution
          from review_rule_feedback f left join review_rule_feedback_resolutions res on res.request_id = f.id

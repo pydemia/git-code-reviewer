@@ -15,6 +15,13 @@ import { authenticateClientKey, ClientCredentialError } from '../auth/client-cre
 import type { AppConfig } from '../config.js';
 import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from './worklist.js';
+import { CriterionError } from '../services/review-criteria.js';
+import {
+  submissionIntakeAccess,
+  reviewSubmissionIntake,
+  intakeDecisionSelect,
+  intakeDecisionJoins,
+} from '../services/review-submission-intake.js';
 
 const params = z.object({ repoId: z.string().uuid() });
 type Row = {
@@ -60,6 +67,7 @@ export async function registerReviewSubmissionRoutes(
     routes.setErrorHandler((error, request, reply) => {
       if (
         error instanceof SubmissionError ||
+        error instanceof CriterionError ||
         error instanceof ClientCredentialError ||
         error instanceof ContractError ||
         error instanceof z.ZodError
@@ -67,11 +75,14 @@ export async function registerReviewSubmissionRoutes(
         return reply.code('statusCode' in error ? error.statusCode : 400).send({
           error: {
             code: 'code' in error ? error.code : 'INVALID_REVIEW_SUBMISSION',
-            message: '리뷰 제출 요청을 처리하지 못했습니다.',
+            message:
+              error instanceof CriterionError
+                ? error.message
+                : '리뷰 제출 요청을 처리하지 못했습니다.',
             requestId: request.id,
           },
         });
-      if (['40001', '23505'].includes((error as { code?: string }).code ?? ''))
+      if (['40001', '23505', '40P01', '55P03'].includes((error as { code?: string }).code ?? ''))
         return reply.code(409).send({ error: { code: 'SUBMISSION_AUTHORIZATION_CHANGED' } });
       throw error;
     });
@@ -207,25 +218,46 @@ export async function registerReviewSubmissionRoutes(
         },
       );
     }
+    routes.post(
+      `${base}/:submissionId/review`,
+      { preHandler: requireUser, bodyLimit: 1048576 },
+      async (request) => {
+        const { repoId, submissionId } = params
+          .extend({ submissionId: z.string().uuid() })
+          .parse(request.params);
+        return reviewSubmissionIntake(
+          database,
+          request,
+          authorization,
+          repoId,
+          submissionId,
+          request.body,
+        );
+      },
+    );
     routes.get(base, { preHandler: requireUser }, async (request) => {
       const { repoId } = params.parse(request.params);
-      if (!(await canReadRepository(database, authorization, request, repoId)))
-        throw new SubmissionError(404, 'REPOSITORY_NOT_FOUND');
+      const capabilities = await submissionIntakeAccess(database, request, authorization, repoId);
       const { cursor } = z
         .object({ cursor: z.string().uuid().optional() })
         .strict()
         .parse(request.query);
       const rows = (
-        await database.query<Row>(
-          `select * from client_review_submissions where repository_id=$1 and expires_at>clock_timestamp() and ($2::uuid is null or id>$2) order by id limit 101`,
+        await database.query<Row & { decision: unknown }>(
+          `select s.*, ${intakeDecisionSelect} from client_review_submissions s ${intakeDecisionJoins} where s.repository_id=$1 and s.expires_at>clock_timestamp() and ($2::uuid is null or s.id>$2) order by s.id limit 101`,
           [repoId, cursor ?? null],
         )
       ).rows;
       return {
         schemaVersion: 1,
+        capabilities,
         items: rows
           .slice(0, 100)
-          .map((row) => ({ receipt: receipt(row), submission: reviewSubmission(row.payload) })),
+          .map((row) => ({
+            receipt: receipt(row),
+            submission: reviewSubmission(row.payload),
+            decision: row.decision,
+          })),
         nextCursor: rows.length > 100 ? rows[99]!.id : null,
       };
     });

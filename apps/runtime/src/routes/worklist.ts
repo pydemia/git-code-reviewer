@@ -534,9 +534,9 @@ async function listRepositories(database: Database, tenantId?: string) {
 }
 
 export async function canReadRepository(
-  database: Database,
+  database: Pick<Database, 'query'>,
   authorization: AuthorizationService,
-  request: FastifyRequest,
+  request: Pick<FastifyRequest, 'user' | 'id'>,
   repositoryId: string,
   action: AuthorizationAction = 'view',
 ): Promise<boolean> {

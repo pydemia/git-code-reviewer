@@ -366,8 +366,8 @@ export async function submitCriterionFeedback(
 ) {
   if (input.request.kind === 'exception' && !['shadow', 'active'].includes(rule.state))
     throw conflict('예외는 관찰 중이거나 활성 상태인 기준에 요청할 수 있습니다.');
-  await connection.query(
-    'insert into review_rule_feedback(rule_id, revision, request, created_by) values($1,$2,$3::jsonb,$4)',
+  const inserted = await connection.query<{ id: string }>(
+    'insert into review_rule_feedback(rule_id, revision, request, created_by) values($1,$2,$3::jsonb,$4) returning id',
     [rule.id, rule.revision, JSON.stringify(input.request), actorId],
   );
   await recordCriterionEvent(
@@ -379,6 +379,7 @@ export async function submitCriterionFeedback(
     input.request.message.slice(0, 2000),
   );
   await bumpVersion(connection, rule.id);
+  return inserted.rows[0]!.id;
 }
 
 export async function resolveCriterionFeedback(

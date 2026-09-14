@@ -781,3 +781,4 @@ export * from './chat-run.js';
 export * from './identity-admin.js';
 export * from './review-criteria.js';
 export * from './client-credentials.js';
+export * from './review-submission-intake.js';

@@ -184,6 +184,12 @@ export function CriterionFeedbackPanel({
                 {item.resolution ? resolutionLabels[item.resolution.action] : '검토 대기'}
               </p>
               <p className="criteria-prose">{item.request.message}</p>
+              {item.clientSource ? (
+                <details>
+                  <summary>사용자 제출 출처 · 독립 검증 전</summary>
+                  <pre className="criteria-prose">{item.clientSource}</pre>
+                </details>
+              ) : null}
               {item.request.kind === 'exception' ? (
                 <>
                   <p>

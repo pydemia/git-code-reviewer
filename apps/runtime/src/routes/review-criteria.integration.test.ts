@@ -1,4 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { reviewSubmission, reviewSubmissionJson } from '@gcr/client-contract';
+import { registerReviewSubmissionRoutes } from './review-submissions.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -133,6 +135,83 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
     expect(response.statusCode, response.body).toBe(200);
     return criterionDetailSchema.parse(response.json());
   };
+
+  const intakeBase = () => `/api/v1/repositories/${repositoryId}/review-submissions`;
+  async function submitted(kind: 'correction' | 'exception' | 'judgment' | 'result' = 'judgment') {
+    const common = {
+      schemaVersion: 1,
+      id: randomUUID(),
+      audience: {
+        serverId: randomUUID(),
+        tenantId,
+        repositoryId,
+        userId: actors.get('reader')!.id,
+      },
+      clientId: 'commit-defender',
+      approvedAt: new Date().toISOString(),
+      visibility: 'repository-reviewers',
+      review: {
+        runId: randomUUID(),
+        mode: 'standalone',
+        sourceHash: 'a'.repeat(64),
+        contextHash: 'b'.repeat(64),
+        snapshot: null,
+      },
+    };
+    const payload = reviewSubmission(
+      kind === 'result'
+        ? {
+            ...common,
+            kind: 'result',
+            result: { status: 'completed', fileCount: 1, findingCount: 1 },
+          }
+        : {
+            ...common,
+            kind: 'feedback',
+            feedback: {
+              kind,
+              message:
+                'Synthetic client feedback: verify tenant isolation <script>not executable</script>',
+              findingId: null,
+              rule: null,
+              source: null,
+            },
+          },
+    );
+    const hash = createHash('sha256').update(reviewSubmissionJson(payload)).digest('hex');
+    const id = (
+      await database.query<{ id: string }>(
+        `insert into client_review_submissions(server_id,tenant_id,repository_id,owner_user_id,client_id,request_id,kind,payload_hash,payload) values($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) returning id`,
+        [
+          payload.audience.serverId,
+          tenantId,
+          repositoryId,
+          payload.audience.userId,
+          payload.clientId,
+          payload.id,
+          payload.kind,
+          hash,
+          JSON.stringify(payload),
+        ],
+      )
+    ).rows[0]!.id;
+    return { id, hash, payload };
+  }
+  const inspectSubmission = async (id: string) =>
+    (await app.inject({ url: intakeBase(), headers: headers() }))
+      .json()
+      .items.find((item: { receipt: { id: string } }) => item.receipt.id === id);
+  const reviewSubmissionRequest = (
+    entry: { id: string; hash: string },
+    input: object,
+    actor = 'maintainer',
+  ) =>
+    app.inject({
+      method: 'POST',
+      url: `${intakeBase()}/${entry.id}/review`,
+      headers: headers(actor),
+      payload: { expectedPayloadHash: entry.hash, note: 'Synthetic curator review', ...input },
+    });
 
   beforeAll(async () => {
     const url = new URL(databaseUrl!);
@@ -298,6 +377,7 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       ],
     }));
     await registerReviewCriteriaRoutes(app, database, new AuthorizationService(config), config);
+    await registerReviewSubmissionRoutes(app, database, config, new AuthorizationService(config));
     await registerKnowledgeRoutes(
       app,
       database,
@@ -315,6 +395,164 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       await root.query(`drop schema if exists ${schema} cascade`);
       await root.end();
     }
+  });
+
+  it('adopts explicit feedback as one draft with durable client-reported provenance and unchanged approval gates', async () => {
+    const entry = await submitted();
+    const draft = fixture();
+    const input = {
+      action: 'create-candidate',
+      document: draft.document,
+      outcome: draft.decision.outcome,
+      reasoning: draft.decision.reasoning,
+    };
+    expect((await reviewSubmissionRequest(entry, input, 'reader')).statusCode).toBe(403);
+    expect((await reviewSubmissionRequest(entry, input, 'outsider')).statusCode).toBe(404);
+    expect(
+      (await reviewSubmissionRequest(entry, { ...input, expectedPayloadHash: '0'.repeat(64) }))
+        .statusCode,
+    ).toBe(409);
+    const concurrent = await Promise.all([
+      reviewSubmissionRequest(entry, input),
+      reviewSubmissionRequest(entry, input),
+    ]);
+    expect(concurrent.some((result) => result.statusCode === 200)).toBe(true);
+    expect(concurrent.every((result) => [200, 409].includes(result.statusCode))).toBe(true);
+    const adopted = await reviewSubmissionRequest(entry, input);
+    expect(adopted.statusCode, adopted.body).toBe(200);
+    const decision = adopted.json().decision;
+    expect(decision.rule.state).toBe('draft');
+    const detail = criterionDetailSchema.parse(
+      (await app.inject({ url: `${base()}/${decision.ruleId}`, headers: headers() })).json(),
+    );
+    expect(detail.revisions[0]!.decision.sources[0]!.content).toContain(entry.id);
+    expect(detail.revisions[0]!.decision.sources[0]!.content).toContain('Client-reported');
+    expect(detail.revisions[0]!.decision.sources[0]!.content).toContain(entry.hash);
+    expect(detail.criterion.state).toBe('draft');
+    expect(detail.evaluations).toHaveLength(0);
+    expect((await action(detail, 'activate')).statusCode).toBe(409);
+    expect((await reviewSubmissionRequest(entry, { action: 'dismiss' })).statusCode).toBe(409);
+    expect((await inspectSubmission(entry.id)).decision.ruleId).toBe(decision.ruleId);
+    await database.query('delete from client_review_submissions where id=$1', [entry.id]);
+    expect(
+      (
+        await database.query(
+          'select 1 from client_review_submission_decisions where submission_id=$1',
+          [entry.id],
+        )
+      ).rowCount,
+    ).toBe(0);
+    expect(
+      (await app.inject({ url: `${base()}/${decision.ruleId}`, headers: headers() })).statusCode,
+    ).toBe(200);
+  });
+  it('requires exception terms and a different approver, reports resolution, and keeps adopted attribution after intake expiry', async () => {
+    const entry = await submitted('exception');
+    let rule = await create();
+    rule = await recordEvaluation(rule);
+    rule = await transition(rule, 'evaluate');
+    rule = await transition(rule, 'shadow');
+    const input = {
+      action: 'link-feedback',
+      ruleId: rule.criterion.id,
+      expectedVersion: rule.criterion.version,
+      exceptionTerms: {
+        appliesTo: { filePaths: ['legacy/cache.py'] },
+        startsAt: new Date(Date.now() - 1000).toISOString(),
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    };
+    expect(
+      (await reviewSubmissionRequest(entry, { ...input, exceptionTerms: undefined })).statusCode,
+    ).toBe(400);
+    const linked = await reviewSubmissionRequest(entry, input);
+    expect(linked.statusCode, linked.body).toBe(200);
+    const decision = linked.json().decision;
+    const read = async () =>
+      criterionDetailSchema.parse(
+        (await app.inject({ url: `${base()}/${rule.criterion.id}`, headers: headers() })).json(),
+      );
+    rule = await read();
+    const feedback = rule.feedback.find((item) => item.id === decision.feedbackId)!;
+    expect(feedback.createdBy).toBe(actors.get('maintainer')!.id);
+    expect(feedback.clientSource).toContain('Client-reported');
+    expect(feedback.clientSource).toContain(entry.payload.audience.userId);
+    const resolve = (actor: string) =>
+      app.inject({
+        method: 'POST',
+        url: `${base()}/${rule.criterion.id}/feedback/${feedback.id}/resolution`,
+        headers: headers(actor),
+        payload: {
+          expectedVersion: rule.criterion.version,
+          action: 'approve-exception',
+          note: 'Synthetic independently reviewed exception',
+        },
+      });
+    expect((await resolve('maintainer')).statusCode).toBe(403);
+    await database.query(
+      "insert into review_criteria_roles(repository_id,user_id,role,granted_by) values($1,$2,'domain-owner',$3)",
+      [repositoryId, actors.get('maintainer')!.id, actors.get('admin')!.id],
+    );
+    try {
+      expect((await resolve('maintainer')).statusCode).toBe(409);
+    } finally {
+      await database.query(
+        "delete from review_criteria_roles where repository_id=$1 and user_id=$2 and role='domain-owner'",
+        [repositoryId, actors.get('maintainer')!.id],
+      );
+    }
+    const approved = await resolve('owner');
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect((await inspectSubmission(entry.id)).decision.feedbackResolution.action).toBe(
+      'approve-exception',
+    );
+    await database.query('delete from client_review_submissions where id=$1', [entry.id]);
+    expect((await read()).feedback.find((item) => item.id === feedback.id)!.clientSource).toContain(
+      entry.hash,
+    );
+  });
+  it('does not turn result counts into criteria and denies expired intake, bearer administrators, and revoked membership', async () => {
+    const entry = await submitted('result'),
+      draft = fixture();
+    expect(
+      (
+        await reviewSubmissionRequest(entry, {
+          action: 'create-candidate',
+          document: draft.document,
+          outcome: 'defect',
+          reasoning: 'Counts alone',
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `${intakeBase()}/${entry.id}/review`,
+          headers: { ...headers('admin'), authorization: 'Bearer cannot-review' },
+          payload: { action: 'dismiss', expectedPayloadHash: entry.hash, note: 'Denied bearer' },
+        })
+      ).statusCode,
+    ).toBe(403);
+    await database.query(
+      'update tenant_memberships set enabled=false where tenant_id=$1 and user_id=$2',
+      [tenantId, actors.get('maintainer')!.id],
+    );
+    try {
+      expect((await reviewSubmissionRequest(entry, { action: 'dismiss' })).statusCode).toBe(404);
+    } finally {
+      await database.query(
+        'update tenant_memberships set enabled=true where tenant_id=$1 and user_id=$2',
+        [tenantId, actors.get('maintainer')!.id],
+      );
+    }
+    expect((await reviewSubmissionRequest(entry, { action: 'dismiss' })).statusCode).toBe(200);
+    await database.query(
+      "update client_review_submissions set expires_at=clock_timestamp()-interval '1 second' where id=$1",
+      [entry.id],
+    );
+    expect(await inspectSubmission(entry.id)).toBeUndefined();
+    expect((await reviewSubmissionRequest(entry, { action: 'dismiss' })).statusCode).toBe(404);
   });
 
   it('requires repository access and delegated management', async () => {
@@ -1082,7 +1320,42 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       });
       const page = await context.newPage();
       page.on('pageerror', (error) => errors.push(error.message));
+      const intake = await submitted('judgment');
       await page.goto(`http://127.0.0.1:${webAddress.port}/review-criteria`);
+      const submissions = page.getByRole('region', { name: '클라이언트 리뷰 제출', exact: true });
+      await submissions.getByText('새 판단', { exact: true }).click();
+      await submissions.getByLabel('검토 처리', { exact: true }).selectOption('create-candidate');
+      await submissions
+        .getByLabel('검토 메모', { exact: true })
+        .fill('브라우저에서 사용자 제출을 검토한 기록');
+      await submissions
+        .getByLabel('제목', { exact: true })
+        .fill('클라이언트 제출에서 채택한 캐시 기준');
+      await submissions.getByLabel('주제 키', { exact: true }).fill('cache.client-feedback');
+      await submissions.getByLabel('검토 기준', { exact: true }).fill('테넌트별 캐시를 분리한다.');
+      await submissions
+        .getByLabel('기준의 이유', { exact: true })
+        .fill('다른 테넌트의 데이터 유출 방지');
+      await submissions
+        .getByLabel('판단 근거', { exact: true })
+        .fill('사용자 제출 원문을 검토했다. 실행 검증 전의 후보이다.');
+      await submissions.getByLabel('반증 조건').fill('이미 테넌트별 캐시이면 제외');
+      await submissions.getByLabel('검토 절차').fill('캐시 키와 호출부를 확인한다.');
+      expect(
+        await submissions.getByLabel('수동 검토 기록').getAttribute('readonly'),
+      ).not.toBeNull();
+      await submissions.getByRole('button', { name: '후보 저장', exact: true }).click();
+      await page
+        .getByRole('heading', { name: '클라이언트 제출에서 채택한 캐시 기준', exact: true })
+        .waitFor();
+      const adopted = await inspectSubmission(intake.id);
+      expect(adopted.decision.action).toBe('create-candidate');
+      expect(adopted.decision.rule.state).toBe('draft');
+      expect(await submissions.locator('script').count()).toBe(0);
+      await submissions
+        .getByRole('button', { name: '제출·승인 상태 새로고침', exact: true })
+        .click();
+
       await page.getByText('원문에서 모델 후보 생성', { exact: true }).click();
       await page.getByLabel('모델 계정', { exact: true }).selectOption(modelAccountId);
       await page.getByLabel('후보 생성 모델', { exact: true }).selectOption('synthetic-model');

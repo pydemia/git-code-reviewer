@@ -363,3 +363,40 @@
     max-width: 135px;
   }
 }
+
+.criteria-submissions {
+  margin-block: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border, #d0d7de);
+  border-radius: 8px;
+}
+.submission-list {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 24rem;
+  overflow: auto;
+}
+.submission-list > button {
+  display: grid;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.submission-list > button[aria-pressed='true'] {
+  outline: 2px solid var(--accent, #2675bd);
+  outline-offset: -2px;
+}
+.submission-detail {
+  margin-top: 1rem;
+  overflow-wrap: anywhere;
+}
+.submission-detail pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.submission-review-form > label {
+  display: grid;
+  gap: 0.4rem;
+  margin-block: 0.8rem;
+}

@@ -241,6 +241,7 @@ export const criterionDetailSchema = z.object({
       id: z.string().uuid(),
       revision: z.number().int().positive(),
       request: criterionFeedbackContentSchema,
+      clientSource: z.string().max(8000).nullable().optional(),
       createdBy: z.string().uuid(),
       createdAt: z.string(),
       resolution: z
