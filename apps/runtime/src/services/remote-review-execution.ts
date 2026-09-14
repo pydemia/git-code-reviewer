@@ -5,7 +5,12 @@ import {
   type ClientReviewReport,
   type RemoteReviewPayload,
 } from '@gcr/client-contract';
-import { canonicalJson, contentHash, validateRemoteReviewRequest } from '@gcr/client-core';
+import {
+  canonicalJson,
+  contentHash,
+  remoteReviewContextHash,
+  validateRemoteReviewRequest,
+} from '@gcr/client-core';
 import type { AppConfig } from '../config.js';
 import { revalidateClientKeyGrant, ClientCredentialError } from '../auth/client-credentials.js';
 import { canReadRepository } from '../routes/worklist.js';
@@ -251,6 +256,7 @@ export async function completeRemoteReviewJob(
     if (
       contentHash(report.identity.client) !== contentHash(approved.client) ||
       contentHash(report.identity.source) !== contentHash(approved.source.snapshot) ||
+      report.identity.context.hash !== remoteReviewContextHash(approved) ||
       report.identity.executor.model !== approved.model.name ||
       report.identity.executor.id !== 'central' ||
       report.identity.executor.configHash !==

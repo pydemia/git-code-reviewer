@@ -361,6 +361,7 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
           selected.some((change) => [change.path, change.oldPath].includes(source.path)),
         ),
         knowledge: context.knowledge,
+        ...(context.documents.length ? { uploadedDocuments: context.documents } : {}),
         ...(central ? { centralKnowledge: central.items } : {}),
       }),
     ].join('\n\n');

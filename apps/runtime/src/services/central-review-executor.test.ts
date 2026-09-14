@@ -7,6 +7,7 @@ import {
   captureLocalSource,
   prepareRemoteReview,
   restoreRemoteReviewSource,
+  restoreRemoteReviewContext,
   resolveLocalContext,
   resolveLocalExecutionPolicy,
   runLocalReview,
@@ -64,6 +65,8 @@ describe('registered model fixed-source review executor', () => {
       git('add', 'app.ts');
       const captured = captureLocalSource({ cwd: root, kind: 'index' });
       const client = { mode: 'standalone' as const, profileId: 'fixture', ...captured.repository };
+      const local = await resolveLocalContext({ client, snapshot: captured, stores: [] });
+      if (local.status !== 'ready') throw Error('fixture-context');
       const { payload } = prepareRemoteReview({
         schemaVersion: 1,
         requestId: 'request',
@@ -72,7 +75,7 @@ describe('registered model fixed-source review executor', () => {
         executor: 'central',
         client,
         model: { accountId: 'fixture-account', name: 'gpt-6-astra', reasoningEffort: 'xhigh' },
-        context: { provenance: 'client-supplied', documents: [] },
+        context: local.context.toRemoteContext(),
         budget: { modelCalls: 2, durationMs: 120000, sourceBytes: 1048576, toolCalls: 100 },
         retention: { sourceSeconds: 3600, resultSeconds: 86400 },
         snapshot: captured,
@@ -110,7 +113,7 @@ describe('registered model fixed-source review executor', () => {
           );
         });
         const executor = createCentralReviewExecutor(selection(turn), options);
-        const context = await resolveLocalContext({ client, snapshot, stores: [] });
+        const context = await restoreRemoteReviewContext(payload);
         const resolved = resolveLocalExecutionPolicy({
           context,
           snapshot,

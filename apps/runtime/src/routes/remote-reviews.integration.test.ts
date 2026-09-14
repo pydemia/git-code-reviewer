@@ -4,7 +4,14 @@ import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { clientReviewReport, type RemoteReviewPayload } from '@gcr/client-contract';
-import { canonicalJson, contentHash, restoreRemoteReviewSource } from '@gcr/client-core';
+import {
+  builtinReviewSkill,
+  canonicalJson,
+  contentHash,
+  remoteReviewContextHash,
+  restoreRemoteReviewContext,
+  restoreRemoteReviewSource,
+} from '@gcr/client-core';
 import { loadConfig, type AppConfig } from '../config.js';
 import { registerAuthentication, type AuthUser } from '../auth/index.js';
 import { registerMutationOriginGuard } from '../auth/mutation-origin.js';
@@ -124,6 +131,20 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
       },
       retention: { sourceSeconds: 3600, resultSeconds: 86400 },
     };
+    payload.context.resolved = {
+      version: 1,
+      client: payload.client,
+      sourceHash: payload.source.snapshot.hash,
+      originalContextHash: hash('original-context'),
+      builtin: {
+        id: builtinReviewSkill.id,
+        revision: builtinReviewSkill.revision,
+        hash: builtinReviewSkill.hash,
+      },
+      knowledge: [],
+      requiredSources: [{ path: 'app.ts', side: 'source' }],
+      validUntil: null,
+    };
     return {
       payload,
       approval: { payloadHash: contentHash(payload), approvedAt: new Date().toISOString() },
@@ -138,7 +159,7 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
       identity: {
         client: body.payload.client,
         source: body.payload.source.snapshot,
-        context: { hash: contentHash(body.payload.context), entries: [], required: [] },
+        context: { hash: remoteReviewContextHash(body.payload), entries: [], required: [] },
         reviewProfile: { id: 'fixture', revision: 1, hash: hash('profile') },
         executor: {
           id: 'central',
@@ -399,7 +420,10 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
     expect((await submit(auth.token, body)).statusCode).toBe(201);
     for (const field of ['source', 'model', 'account', 'budget']) {
       const changed = structuredClone(body);
-      if (field === 'source') changed.payload.source.snapshot.hash = 'e'.repeat(64);
+      if (field === 'source') {
+        changed.payload.source.snapshot.hash = 'e'.repeat(64);
+        changed.payload.context.resolved!.sourceHash = changed.payload.source.snapshot.hash;
+      }
       if (field === 'model') changed.payload.model.reasoningEffort = 'high';
       if (field === 'account') changed.payload.model.accountId = randomUUID();
       if (field === 'budget') changed.payload.budget.modelCalls++;
@@ -665,7 +689,13 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
       body = input();
     const legacy = structuredClone(body);
     delete legacy.payload.source.review;
+    delete legacy.payload.context.resolved;
     approve(legacy);
+    const noContext = structuredClone(body);
+    delete noContext.payload.context.resolved;
+    const contextRejected = await submit(auth.token, approve(noContext));
+    expect(contextRejected.statusCode).toBe(422);
+    expect(contextRejected.body).toContain('REMOTE_REVIEW_CONTEXT_REQUIRED');
     const rejected = await submit(auth.token, legacy);
     expect(rejected.statusCode).toBe(422);
     expect(rejected.body).toContain('REMOTE_REVIEW_SOURCE_DESCRIPTION_REQUIRED');
@@ -710,6 +740,9 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
     const claim = claims.find(Boolean)!;
     const loaded = await loadRemoteReviewPayload(db, config, authorization, claim);
     expect(loaded).toEqual(body.payload);
+    const context = await restoreRemoteReviewContext(loaded);
+    expect(context.status).toBe('ready');
+    expect(context.context?.identity.hash).toBe(remoteReviewContextHash(body.payload));
     const uploaded = restoreRemoteReviewSource(loaded);
     try {
       expect(uploaded.readFile('app.ts')).toEqual({
@@ -857,6 +890,11 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
     wrongAccount.identity.executor.configHash = '0'.repeat(64);
     await expect(
       completeRemoteReviewJob(db, config, authorization, claim, wrongAccount),
+    ).rejects.toThrow('REMOTE_REVIEW_RESULT_MISMATCH');
+    const wrongContext = reportFor(body);
+    wrongContext.identity.context.hash = '0'.repeat(64);
+    await expect(
+      completeRemoteReviewJob(db, config, authorization, claim, wrongContext),
     ).rejects.toThrow('REMOTE_REVIEW_RESULT_MISMATCH');
     const report = reportFor(body);
     await completeRemoteReviewJob(db, config, authorization, claim, report);

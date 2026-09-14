@@ -62,6 +62,32 @@ export function validateRemoteReviewPayload(input: unknown): RemoteReviewPayload
       if (excluded(change.path) || (change.oldPath && excluded(change.oldPath)))
         throw Error('invalid-upload');
     }
+    const resolved = payload.context.resolved;
+    if (resolved) {
+      if (
+        contentHash(resolved.client) !== contentHash(payload.client) ||
+        resolved.sourceHash !== payload.source.snapshot.hash ||
+        (payload.client.mode === 'centralized') !== (resolved.central !== undefined) ||
+        new Set(resolved.knowledge.map((item) => item.id)).size !== resolved.knowledge.length
+      )
+        throw Error('invalid-upload');
+      for (const item of resolved.knowledge) {
+        const { hash, ...body } = item;
+        if (
+          hash !== contentHash(body) ||
+          item.scope.profileId !== payload.client.profileId ||
+          (item.scope.kind === 'repository' &&
+            (item.scope.repositoryKey !== payload.client.repositoryKey ||
+              item.scope.worktreeKey !== payload.client.worktreeKey))
+        )
+          throw Error('invalid-upload');
+      }
+      if (
+        resolved.central &&
+        contentHash(resolved.central.manifest.payload.audience) !== contentHash(payload.audience)
+      )
+        throw Error('invalid-upload');
+    }
     return payload;
   } catch {
     // Contract paths can contain client-controlled field names. Never surface them as API errors.
@@ -70,7 +96,8 @@ export function validateRemoteReviewPayload(input: unknown): RemoteReviewPayload
 }
 
 /** Build the reviewable proposal from a frozen view and an exact list of approved file sides.
- * Diff text, branch names, local paths, remotes and excluded file names are not uploaded. */
+ * Diff text, local paths, remotes and excluded file names are not uploaded.
+ * A pinned central context can explicitly include its approved branch selection. */
 export function prepareRemoteReview(
   input: Omit<RemoteReviewPayload, 'source'> & {
     snapshot: LocalSourceSnapshot;
@@ -163,4 +190,14 @@ export function assertFreshRemoteReviewApproval(
   const age = now - Date.parse(request.approval.approvedAt);
   if (!Number.isFinite(age) || age < -60_000 || age > 300_000)
     throw new RemoteReviewValidationError('approval-expired');
+}
+
+/** Binds every approved context byte and its source/client scope to the resulting report. */
+export function remoteReviewContextHash(payload: RemoteReviewPayload): string {
+  return contentHash({
+    version: 3,
+    client: payload.client,
+    sourceHash: payload.source.snapshot.hash,
+    context: payload.context,
+  });
 }

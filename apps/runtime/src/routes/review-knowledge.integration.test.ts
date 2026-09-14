@@ -2,7 +2,7 @@ import { randomUUID, generateKeyPairSync, createHash } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import Fastify from 'fastify';
+import Fastify, { type FastifyRequest } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
@@ -17,7 +17,9 @@ import {
   bindKnowledgeSigner,
   ensureKnowledgeScopes,
   removeExpiredKnowledgeManifests,
+  observeApprovedKnowledgeManifest,
 } from '../services/knowledge-manifest.js';
+import { remoteReviewContextAuthority } from '../services/remote-review-context.js';
 import { claimKnowledgePublication, publishKnowledge } from '../services/knowledge-publication.js';
 import { chromium } from 'playwright';
 import { createServer } from '../../../web/src/review-criteria-test-server.js';
@@ -134,10 +136,13 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     }
     await bindKnowledgeSigner(db, signer);
     app = Fastify();
-    app.addHook('onRequest', async (request) => {
+    app.addHook('onRequest', async (request: FastifyRequest) => {
       request.user = actors.get(String(request.headers['x-test-actor'])) ?? null;
     });
-    app.get('/api/v1/me', async (request) => ({ schemaVersion: 1, ...request.user }));
+    app.get('/api/v1/me', async (request: FastifyRequest) => ({
+      schemaVersion: 1,
+      ...request.user,
+    }));
     app.get('/api/v1/repositories', async () => ({
       schemaVersion: 1,
       nextCursor: null,
@@ -202,6 +207,35 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
     await drain();
     const { parsed } = await manifest();
     expect(parsed.payload.components.personal.releaseSequence).toBe(1);
+  });
+  it('loads only an approved current remote-review pin and rechecks authorization and pending publication', async () => {
+    await ensureKnowledgeScopes(db, repository, actors.get('alice')!.id);
+    await drain();
+    const pin = (await manifest()).parsed;
+    const authority = remoteReviewContextAuthority(db, store, serverId);
+    expect(await authority.observe(pin)).toBe('current');
+    const bundles = await authority.load(pin);
+    for (const part of ['policy', 'collective', 'personal'] as const)
+      expect(bundles[part].component).toBe(part);
+    const forged = structuredClone(pin);
+    forged.payload.audience.userId = actors.get('bob')!.id;
+    await expect(authority.observe(forged)).rejects.toThrow();
+    await expect(observeApprovedKnowledgeManifest(db, randomUUID(), pin)).rejects.toThrow();
+    await db.query("select request_review_knowledge($1,'policy',null,'remote-pin-test')", [
+      repository,
+    ]);
+    await expect(authority.observe(pin)).rejects.toThrow();
+    await drain();
+    const current = (await manifest()).parsed;
+    await db.query('update users set enabled=false where id=$1', [actors.get('alice')!.id]);
+    try {
+      await expect(authority.observe(current)).rejects.toThrow();
+    } finally {
+      await db.query('update users set enabled=true where id=$1', [actors.get('alice')!.id]);
+    }
+    await expect(authority.observe(current)).rejects.toThrow();
+    await drain();
+    expect(await authority.observe((await manifest()).parsed)).toBe('current');
   });
   it('signs scoped manifests, caches fresh recipes and downloads verifiable immutable components', async () => {
     const { result, parsed } = await manifest();

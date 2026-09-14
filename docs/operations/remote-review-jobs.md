@@ -1,6 +1,6 @@
 # 중앙 리뷰 작업 접수
 
-현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터, 업로드된 소스의 공통 리뷰 입력 복원이 구현되어 있다. 승인된 컨텍스트 복원과 worker의 실제 실행 루프는 아직 연결하지 않았다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
+현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터, 업로드된 소스의 공통 리뷰 입력 복원이 구현되어 있다. 승인된 로컬 컨텍스트와 중앙 knowledge pin의 복원도 구현했다. Worker의 자동 실행 루프 연결은 아직 남아 있다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
 
 ## API
 
@@ -62,4 +62,19 @@ Lease가 만료된 작업은 요청 시작 기록이 없을 때만 queued로 복
 
 공통 context·policy·source port·runner가 이 view를 사용한다. 읽기와 줄 수·바이트 예산, read ID 기반 coverage 검증은 로컬 리뷰와 같다. Rename의 이전 파일을 업로드하지 않으면 `needs-context`로 실행 전에 중단하고, 업로드했어도 모델이 읽지 않으면 완료로 인정하지 않는다. 임의의 미전송 경로는 unavailable이며 파일이 실제로 없다고 답하지 않는다.
 
-캡처 실패는 제외 파일 이름 없이 불완전 여부만 전달할 수 있다. 해당 값이 있으면 모든 선택 파일을 읽어도 결과는 partial이다. 이번 연결은 소스 복원까지다. 승인된 instructions/memory/skill 및 중앙 knowledge snapshot의 복원과 실행 중 인가 확인은 다음 작업이며, 테스트의 빈 context를 일반 요청의 context로 대체해서는 안 된다.
+캡처 실패는 제외 파일 이름 없이 불완전 여부만 전달할 수 있다. 해당 값이 있으면 모든 선택 파일을 읽어도 결과는 partial이다. 컨텍스트 복원은 아래 계약을 사용한다. 빈 context fixture를 일반 요청의 승인된 문서 대신 사용하지 않는다.
+
+
+## 승인된 컨텍스트와 중앙 기준
+
+신규 요청에는 `context.resolved`가 필요하며 누락되면 422 `REMOTE_REVIEW_CONTEXT_REQUIRED`를 반환한다. 과거 형식의 동일 요청 조회·재전송은 유지한다. `LocalReviewContext.toRemoteContext()`는 준비된 context에서 선택한 local memory/Skill, built-in 버전, 필수 source, 만료 시각과 원래 context hash를 내보낸다. 필수 자료가 없거나 선택 검사가 끝나지 않았으면 내보내지 않는다. 생략된 지식의 ID와 store 경로는 전송하지 않는다.
+
+`restoreRemoteReviewContext`는 client/source 범위·지식 본문 hash·활성 상태·만료·built-in 버전을 검사하고 승인된 자료를 그대로 복원한다. 추가 instructions/memory/skill 문서는 공통 runner의 untrusted JSON에 포함한다. 이 문서가 도구·모델 선택이나 중앙 기준의 우선순위를 바꾸지는 못한다. 선택 자료가 1 MiB를 넘으면 임의로 제거하지 않고 복원을 거부한다.
+
+Centralized context는 manifest와 선택 당시 시각·byte budget·branch, 선택 결과 hash를 전송한다. Branch가 필요한 중앙 기준을 재현하기 위해 이 값은 context의 명시적 승인 대상에 포함된다. 일반 소스 전송에 branch/HEAD를 자동 첨부하는 기능은 아니다. Manifest나 중앙 지식 본문을 client-supplied 문서만으로 대체할 수 없다.
+
+서버의 `remoteReviewContextAuthority`는 원래 manifest가 해당 서버·사용자·저장소의 저장된 온라인 pin과 완전히 일치하는지, 현재 권한 revision과 publication 조합이 유지되는지 확인한다. 해당 pin의 세 bundle을 기존 artifact 서비스에서 읽고 hash·바이트 수·scope를 검사한다. 공통 선택기를 승인 당시 조건으로 실행한 결과가 승인된 selection hash와 같아야 한다. 최신 manifest를 새로 발급하거나 다른 지식으로 대체하지 않는다. Offline lease가 남아 있더라도 중앙 실행에는 유효한 online pin이 필요하다.
+
+복원된 context는 실행 중에도 이 authority를 관측한다. Pin이나 권한을 더 이상 사용할 수 없으면 공통 runner가 취소 신호를 전달한다. 결과의 context hash는 승인된 context 전체와 client/source 범위를 포함하며 작업 완료 저장에서도 대조한다. 원래 클라이언트 context hash는 별도 필드로 보존한다.
+
+소스·컨텍스트·모델 어댑터의 연결 검증은 합성 모델을 사용했다. 실제 worker scheduling·계정 resolver·model admission·heartbeat·취소 후 정리·결과 저장의 자동 연결과 실제 계정 검증, client UI, 패키지/VSIX/Helm 전달은 아직 남아 있다.

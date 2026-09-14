@@ -18,6 +18,8 @@ import {
 } from './codec.js';
 import { centralAudience, clientIdentity, snapshotIdentity, sourceFile } from './identity.js';
 import { clientReviewReport } from './review.js';
+import { localKnowledge } from './knowledge.js';
+import { signedKnowledgeManifest } from './knowledge-manifest.js';
 
 export const REMOTE_REVIEW_MAX_BYTES = 8 * 1024 * 1024;
 export const remoteReviewDocument = object({
@@ -26,6 +28,28 @@ export const remoteReviewDocument = object({
   text: text(262144, 1),
   hash: sha256,
 });
+export const remoteReviewResolvedContext = object({
+  version: literal(1),
+  client: clientIdentity,
+  sourceHash: sha256,
+  originalContextHash: sha256,
+  builtin: object({ id, revision: integer(1), hash: sha256 }),
+  knowledge: list(localKnowledge, 128),
+  requiredSources: list(object({ path: sourcePath, side: choice(['source', 'base']) }), 512),
+  validUntil: union(timestamp, literal(null)),
+  central: optional(
+    object({
+      manifest: signedKnowledgeManifest,
+      selection: object({
+        now: timestamp,
+        byteLimit: integer(0, 1048576),
+        branch: union(sourcePath, literal(null)),
+      }),
+      selectionHash: sha256,
+    }),
+  ),
+});
+export type RemoteReviewResolvedContext = ReturnType<typeof remoteReviewResolvedContext>;
 const remoteReviewChange = refined(
   object({
     path: sourcePath,
@@ -72,6 +96,7 @@ export const remoteReviewPayload = refined(
     context: object({
       provenance: literal('client-supplied'),
       documents: list(remoteReviewDocument, 128),
+      resolved: optional(remoteReviewResolvedContext),
     }),
     budget: object({
       modelCalls: integer(1, 10),

@@ -225,6 +225,8 @@ export async function submitRemoteReviewJob(
       throw new RemoteReviewJobError(503, 'REMOTE_REVIEWS_DISABLED');
     if (!payload.source.review)
       throw new RemoteReviewJobError(422, 'REMOTE_REVIEW_SOURCE_DESCRIPTION_REQUIRED');
+    if (!payload.context.resolved)
+      throw new RemoteReviewJobError(422, 'REMOTE_REVIEW_CONTEXT_REQUIRED');
     if (payload.budget.outputTokensPerCall !== undefined)
       throw new RemoteReviewJobError(422, 'REMOTE_REVIEW_OUTPUT_TOKEN_LIMIT_UNSUPPORTED');
     assertFreshRemoteReviewApproval(request);

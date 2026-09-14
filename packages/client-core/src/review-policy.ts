@@ -270,7 +270,7 @@ export function resolveLocalExecutionPolicy(input: ResolvePolicyInput): LocalPol
         'Selected review context expired before execution. Resolve context again.',
       );
     if (
-      (context.knowledge.length || context.central?.items.length) &&
+      (context.knowledge.length || context.documents.length || context.central?.items.length) &&
       approval.allowKnowledge !== true
     )
       return unavailable(

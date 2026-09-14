@@ -1,9 +1,10 @@
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { RemoteReviewPayload, SourceFile } from '@gcr/client-contract';
+import { localKnowledge, type RemoteReviewPayload, type SourceFile } from '@gcr/client-contract';
 import { captureLocalSource } from './source-snapshot.js';
 import { contentHash } from './local-identity.js';
 import {
@@ -11,6 +12,8 @@ import {
   validateRemoteReviewPayload,
   validateRemoteReviewRequest,
 } from './remote-review.js';
+import { restoreRemoteReviewContext } from './remote-review-context.js';
+import { remoteReviewContextHash } from './remote-review.js';
 import { restoreRemoteReviewSource } from './remote-review-source.js';
 import { resolveLocalContext } from './review-context.js';
 import { resolveLocalExecutionPolicy } from './review-policy.js';
@@ -107,7 +110,9 @@ const descriptor: LocalReviewExecutor['descriptor'] = {
 async function run(value: RemoteReviewPayload, omitRenameBase = false) {
   const snapshot = restoreRemoteReviewSource(value);
   try {
-    const context = await resolveLocalContext({ snapshot, client: value.client, stores: [] });
+    const context = value.context.resolved
+      ? await restoreRemoteReviewContext(value)
+      : await resolveLocalContext({ snapshot, client: value.client, stores: [] });
     const resolved = resolveLocalExecutionPolicy({
       snapshot,
       context,
@@ -120,7 +125,7 @@ async function run(value: RemoteReviewPayload, omitRenameBase = false) {
         paths: ['**'],
         allowRelated: true,
         allowBase: true,
-        allowKnowledge: false,
+        allowKnowledge: true,
       },
       budget: value.budget,
     });
@@ -133,6 +138,9 @@ async function run(value: RemoteReviewPayload, omitRenameBase = false) {
         descriptor,
         async review(input) {
           expect(input.prompt).toContain('"oldPath":"old.ts"');
+          for (const doc of value.context.documents) expect(input.prompt).toContain(doc.text);
+          for (const item of value.context.resolved?.knowledge ?? [])
+            expect(input.prompt).toContain(item.body);
           const files = [];
           for (const change of snapshot.selected) {
             const readIds = [];
@@ -308,5 +316,122 @@ describe('approved remote source view', () => {
     source.close();
     expect(() => source.readFile('renamed.ts')).toThrow('snapshot-closed');
     expect(() => source.sourceFiles).toThrow('snapshot-closed');
+  });
+});
+
+async function contextTransfer() {
+  const value = transfer().payload;
+  const source = restoreRemoteReviewSource(value);
+  try {
+    const at = new Date().toISOString();
+    const body = {
+      kind: 'skill',
+      id: 'approved-note',
+      revision: 1,
+      state: 'active',
+      scope: { kind: 'profile', profileId: value.client.profileId },
+      title: 'Approved local skill',
+      body: 'Check the renamed entry point.',
+      reviewOnly: true,
+      origin: 'user-authored',
+      appliesTo: { paths: [], languages: [], branches: [], symbols: [] },
+      sources: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    const item = localKnowledge({ ...body, hash: contentHash(body) });
+    const local = await resolveLocalContext({
+      client: value.client,
+      snapshot: source,
+      stores: [
+        {
+          async *entries() {
+            yield item;
+          },
+        },
+      ],
+      requiredKnowledgeIds: [item.id],
+    });
+    if (local.status !== 'ready') throw Error('fixture context');
+    value.context = local.context.toRemoteContext();
+    const text = 'Inspect callers of the renamed entry point.';
+    value.context.documents.push({
+      id: 'explicit-instruction',
+      kind: 'instructions',
+      text,
+      hash: createHash('sha256').update(text).digest('hex'),
+    });
+    return value;
+  } finally {
+    source.close();
+  }
+}
+describe('approved context restoration', () => {
+  it('preserves exact local skill and explicit instructions through a completed common review', async () => {
+    const value = await contextTransfer();
+    const restored = await restoreRemoteReviewContext(value);
+    expect(restored.status).toBe('ready');
+    expect(restored.context?.knowledge).toEqual(value.context.resolved!.knowledge);
+    expect(restored.context?.documents).toEqual(value.context.documents);
+    expect(restored.context?.identity.hash).toBe(remoteReviewContextHash(value));
+    expect(restored.context?.identity.hash).not.toBe(value.context.resolved!.originalContextHash);
+    const report = await run(value);
+    expect(report.status, JSON.stringify(report.problems)).toBe('completed');
+    expect(report.identity.context.hash).toBe(remoteReviewContextHash(value));
+  });
+  it.each([
+    'legacy',
+    'builtin',
+    'expiry',
+    'inactive',
+    'hash',
+    'scope',
+    'source',
+    'central-without-authority',
+  ])('refuses %s instead of replacing the approved context', async (kind) => {
+    const value = await contextTransfer(),
+      resolved = value.context.resolved!;
+    if (kind === 'legacy') delete value.context.resolved;
+    if (kind === 'builtin') resolved.builtin.hash = '0'.repeat(64);
+    if (kind === 'expiry') resolved.validUntil = '2020-01-01T00:00:00.000Z';
+    if (kind === 'inactive') {
+      resolved.knowledge[0]!.state = 'inactive';
+      const body = { ...resolved.knowledge[0]! } as Record<string, unknown>;
+      delete body.hash;
+      resolved.knowledge[0]!.hash = contentHash(body);
+    }
+    if (kind === 'hash') resolved.knowledge[0]!.body += 'Unapproved edit';
+    if (kind === 'scope') resolved.client.profileId = 'other-profile';
+    if (kind === 'source') resolved.sourceHash = '0'.repeat(64);
+    if (kind === 'central-without-authority') {
+      value.client = { ...value.client, mode: 'centralized', audience };
+      resolved.client = value.client;
+    }
+    expect((await restoreRemoteReviewContext(value)).status).toBe('unavailable');
+  });
+  it('does not export a context with unresolved required knowledge', async () => {
+    const value = transfer().payload,
+      source = restoreRemoteReviewSource(value);
+    try {
+      const context = await resolveLocalContext({
+        snapshot: source,
+        client: value.client,
+        stores: [],
+        requiredKnowledgeIds: ['missing'],
+      });
+      expect(context.status).toBe('needs-context');
+      expect(() => context.context?.toRemoteContext()).toThrow('context-not-transferable');
+    } finally {
+      source.close();
+    }
+  });
+  it('keeps required related source unavailable instead of removing the requirement', async () => {
+    const value = await contextTransfer();
+    value.context.resolved!.requiredSources.push({ path: 'not-uploaded.ts', side: 'source' });
+    const restored = await restoreRemoteReviewContext(value);
+    expect(restored.status).toBe('needs-context');
+    expect(
+      restored.context?.sources.find((item) => item.path === 'not-uploaded.ts')?.available,
+    ).toBe(false);
   });
 });

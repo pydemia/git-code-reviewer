@@ -23,6 +23,9 @@ import { resolveCentralContext, resolveLocalContext } from './review-context.js'
 import { resolveLocalExecutionPolicy } from './review-policy.js';
 import { runLocalReview, type LocalReviewExecutor } from './review-runner.js';
 import { contentHash, discoverLocalIdentity } from './local-identity.js';
+import { prepareRemoteReview, remoteReviewContextHash } from './remote-review.js';
+import { restoreRemoteReviewSource } from './remote-review-source.js';
+import { restoreRemoteReviewContext } from './remote-review-context.js';
 import { captureLocalSource, type LocalSourceSnapshot } from './source-snapshot.js';
 
 const pair = generateKeyPairSync('ed25519');
@@ -128,7 +131,7 @@ const file = (name: string) => ({
     path: name,
     side: 'source',
     hash: contentHash(name),
-    bytes: 10,
+    byteLength: 10,
     lineCount: 1,
   } as SourceFile,
   text: 'function load() { return contract; }',
@@ -687,5 +690,142 @@ describe('authorized central snapshot review', () => {
     const result = await running;
     expect(result.status).toBe('cancelled');
     late();
+  });
+});
+
+describe('approved central context transfer', () => {
+  async function transferContext() {
+    const b = bundles(),
+      f = await setup(b);
+    const resolved = await resolveCentralContext(f.query);
+    if (resolved.status !== 'ready') throw Error('fixture');
+    const { payload } = prepareRemoteReview({
+      schemaVersion: 1,
+      requestId: 'transfer',
+      audience,
+      clientId: 'gcr-cli',
+      client,
+      executor: 'central',
+      model: { accountId: 'fixture', name: descriptor.model, reasoningEffort: 'xhigh' },
+      context: resolved.context.toRemoteContext(),
+      snapshot,
+      sourceFiles: snapshot.sourceFiles,
+      budget: { modelCalls: 2, durationMs: 10000, sourceBytes: 1048576, toolCalls: 100 },
+      retention: { sourceSeconds: 3600, resultSeconds: 86400 },
+    });
+    const authority = {
+      load: vi.fn(async () => b),
+      observe: vi.fn(async () => 'current' as const),
+    };
+    return { payload, resolved, authority };
+  }
+  it('recreates the exact selected central criteria and completes a pinned review without reading the client cache', async () => {
+    const f = await transferContext();
+    const restored = await restoreRemoteReviewContext(f.payload, { authority: f.authority });
+    expect(restored.status, JSON.stringify(restored.problems)).toBe('ready');
+    if (restored.status !== 'ready') throw Error('fixture');
+    expect(restored.context.client.mode).toBe('centralized');
+    expect(restored.context.central).toEqual(f.resolved.context.central);
+    expect(restored.context.identity.centralSnapshot).toEqual(
+      f.resolved.context.identity.centralSnapshot,
+    );
+    expect(restored.context.identity.hash).toBe(remoteReviewContextHash(f.payload));
+    const source = restoreRemoteReviewSource(f.payload);
+    try {
+      const policy = resolveLocalExecutionPolicy({
+        snapshot: source,
+        context: restored,
+        executor: descriptor,
+        workspaceTrusted: true,
+        approval: {
+          client,
+          executor: descriptor,
+          paths: ['**'],
+          allowBase: true,
+          allowRelated: true,
+          allowKnowledge: true,
+        },
+      });
+      if (policy.status !== 'ready') throw Error('fixture');
+      const report = await runLocalReview({
+        snapshot: source,
+        context: restored.context,
+        policy: policy.policy,
+        executor: { descriptor, review: answer },
+      });
+      expect(report.status, JSON.stringify(report.problems)).toBe('completed');
+      expect(report.identity.context.hash).toBe(remoteReviewContextHash(f.payload));
+      expect(f.authority.observe.mock.calls.length).toBeGreaterThan(2);
+      f.authority.observe.mockRejectedValue(Error('authorization-revoked'));
+      await expect(restored.context.observeCentralSnapshot()).rejects.toThrow(
+        'authorization-revoked',
+      );
+    } finally {
+      source.close();
+    }
+  });
+  it('aborts an in-flight uploaded review when the pinned authority is revoked', async () => {
+    const f = await transferContext();
+    const restored = await restoreRemoteReviewContext(f.payload, { authority: f.authority });
+    if (restored.status !== 'ready') throw Error('fixture');
+    const source = restoreRemoteReviewSource(f.payload);
+    try {
+      const policy = resolveLocalExecutionPolicy({
+        snapshot: source,
+        context: restored,
+        executor: descriptor,
+        workspaceTrusted: true,
+        approval: {
+          client,
+          executor: descriptor,
+          paths: ['**'],
+          allowBase: true,
+          allowRelated: true,
+          allowKnowledge: true,
+        },
+      });
+      if (policy.status !== 'ready') throw Error('fixture');
+      let aborted = false;
+      const report = await runLocalReview({
+        snapshot: source,
+        context: restored.context,
+        policy: policy.policy,
+        executor: {
+          descriptor,
+          review: async (input) => {
+            f.authority.observe.mockRejectedValue(Error('revoked'));
+            return new Promise((_, reject) => {
+              input.signal!.addEventListener(
+                'abort',
+                () => {
+                  aborted = true;
+                  reject(Error('aborted'));
+                },
+                { once: true },
+              );
+            });
+          },
+        },
+      });
+      expect(report.status).toBe('cancelled');
+      expect(aborted).toBe(true);
+    } finally {
+      source.close();
+    }
+  });
+  it('refuses changed bundle bytes, changed selection, and absent authority without a local fallback', async () => {
+    const f = await transferContext();
+    expect((await restoreRemoteReviewContext(f.payload)).status).toBe('unavailable');
+    const changed = structuredClone(f.payload);
+    changed.context.resolved!.central!.selectionHash = '0'.repeat(64);
+    expect((await restoreRemoteReviewContext(changed, { authority: f.authority })).status).toBe(
+      'unavailable',
+    );
+    const b = bundles();
+    policyBundle(b).criteria[0]!.document.requirement = 'Unapproved replacement';
+    f.authority.load.mockResolvedValue(b);
+    expect((await restoreRemoteReviewContext(f.payload, { authority: f.authority })).status).toBe(
+      'unavailable',
+    );
   });
 });
