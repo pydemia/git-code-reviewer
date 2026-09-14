@@ -1,0 +1,421 @@
+{
+  "schemaVersion": 1,
+  "phase": "P13",
+  "commit": "P13-C04 central review observations",
+  "phaseComplete": false,
+  "goalComplete": false,
+  "sourceCommit": "c67c964d6b568da773ad22e8e998b958c6a02c43",
+  "releasePinCommit": "3a15729f8b5d4778345de0ba17e890638736f383",
+  "feature": "Read-only central review outcomes, retry effort, public publication and authorized GET response aggregates with explicit unknowns",
+  "tests": {
+    "passedSuites": 28,
+    "passed": 266,
+    "failed": 0,
+    "skipped": 0,
+    "databaseFixture": {
+      "startedAt": "2026-09-14T20:47:54.308Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-14T20:48:32.855Z"
+    },
+    "builds": [
+      "contracts",
+      "runtime",
+      "web",
+      "full immutable image workspace build"
+    ],
+    "focusedEslint": true,
+    "helmLint": true,
+    "migration": {
+      "from": 50,
+      "to": 51,
+      "priorChecksumsPreserved": true,
+      "existingReportObservationNull": true
+    },
+    "browser": {
+      "fullPageWithRealApi": true,
+      "repositoryAndPeriodSwitch": true,
+      "refresh": true,
+      "widths": [
+        1360,
+        420
+      ],
+      "noHorizontalOverflow": true,
+      "bottomScrollVerified": true,
+      "screenshotHashes": {
+        "1360": "ba51461edc18c1b4a5da6945b25a5342b113c3f4df8a88d3afbc32c8d69823e9",
+        "1360-bottom": "73573a42176ad3fa639d554e12d2c93e492d844fba0f2d8ef72879de86cadf4c",
+        "420": "43e83c626f85b874884cef1170199698ba47476164fb0c5c1ce5a27e815e90bc",
+        "420-bottom": "dffea112372f01a7a1ecb25c55b5fe5c14b65fc4fab3332e827c68bff16b3115"
+      }
+    }
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T20:56:37.882149+00:00",
+    "release": {
+      "revision": 68,
+      "updated": "2026-09-15T05:54:49.556573+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.54",
+      "app_version": "0.8.0-alpha.58",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:0cd8d22ec00cbd61f22af0528d4102fd1629bef0659f1e34d65f40ed9e6e8a7d",
+      "source": "c67c964d6b568da773ad22e8e998b958c6a02c43",
+      "version": "0.8.0-alpha.58",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:0cd8d22ec00cbd61f22af0528d4102fd1629bef0659f1e34d65f40ed9e6e8a7d"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "c67c964d6b568da773ad22e8e998b958c6a02c43",
+        "org.opencontainers.image.version": "0.8.0-alpha.58"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 51,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-684d5bf564-pt2rq",
+        "imageDigest": "sha256:0cd8d22ec00cbd61f22af0528d4102fd1629bef0659f1e34d65f40ed9e6e8a7d",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-6c6858dd9b-qdb4v",
+        "imageDigest": "sha256:0cd8d22ec00cbd61f22af0528d4102fd1629bef0659f1e34d65f40ed9e6e8a7d",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, schema51 upgrade and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:8a9cdd0849782a012742d65040155ae9423484042c3fd59e7d421ce60794295a",
+    "chartSha256": "ace420a68e1fa0262ec3a0f1b872672c9b68d8a00ec58b188402423c7e36fee8"
+  },
+  "live": {
+    "requestId": "04d39525-405a-49dd-95c0-e5cc9e230303",
+    "status": "passed",
+    "version": "0.8.0-alpha.58",
+    "checks": [
+      "trusted-https-session-login",
+      "actual-analyzer-and-recurrence-service",
+      "changed-sha-line-move-observed-again",
+      "unconfirmed-previous-retained",
+      "personal-baseline-excluded",
+      "trusted-https-report-and-markdown",
+      "trusted-https-central-observations",
+      "actual-manifest-200-304-and-bundle-response-counts",
+      "local-application-and-quality-unknown",
+      "private-runs-and-publication-scopes-excluded",
+      "anonymous-and-revoked-repository-read-denied"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "recurrence": {
+      "schemaVersion": 1,
+      "status": "compared",
+      "reason": "직전 공용 보고서와 코드 구간·설명·분석 기준이 같은 관측을 비교했습니다. 일치하지 않거나 누락된 지적의 수정 여부는 확인하지 않았습니다.",
+      "baseline": {
+        "analysisId": "e3d27ee5-b09a-414c-bdf8-23dbb8046002",
+        "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "state": "completed"
+      },
+      "items": [
+        {
+          "findingId": "20c9d2d7-b080-45ba-bdd9-5759c9e8edce",
+          "status": "observed-again",
+          "previousFindingId": "cb3243a7-ca59-44fb-b236-52b3fc69d30e"
+        }
+      ],
+      "unconfirmedPrevious": [
+        {
+          "findingId": "1e386323-54ee-4182-bfc0-8b95ddd401ae",
+          "title": "Previous observation needs review.",
+          "path": "cache.ts",
+          "priority": "P2"
+        }
+      ]
+    },
+    "observations": {
+      "schemaVersion": 1,
+      "repositoryId": "dcf9aad4-bf02-4363-9dfe-4d926af78f1f",
+      "observedAt": "2026-09-14T20:55:57.002Z",
+      "window": {
+        "days": 7,
+        "from": "2026-09-07T20:55:57.002Z",
+        "runLimit": 2000,
+        "includedRuns": 2,
+        "truncated": false
+      },
+      "pulls": {
+        "included": 1,
+        "states": {
+          "completed": 1
+        },
+        "latestAtObservedHead": 1,
+        "latestAtOtherHead": 0,
+        "reports": 1,
+        "recordedReports": 1,
+        "fixtureReports": 0,
+        "reviewStatuses": {
+          "model": 1
+        },
+        "unrecordedReports": 0,
+        "findings": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 1,
+          "P3": 0
+        },
+        "criteria": {
+          "violation": 0,
+          "satisfied": 0,
+          "uncertain": 0,
+          "notReported": 1,
+          "unavailable": 0
+        },
+        "recurrence": {
+          "comparedReports": 1,
+          "unavailableReports": 0,
+          "repeated": 1,
+          "unconfirmedPrevious": 1
+        }
+      },
+      "effort": {
+        "recordedDurations": 2,
+        "fixtureDurations": 0,
+        "unrecordedDurations": 0,
+        "totalReportedDurationMs": 17,
+        "ledgerAttempts": 0,
+        "ledgerStates": {},
+        "runsWithLedger": 0,
+        "runsWithoutLedger": 2,
+        "inputBytes": 0,
+        "billedCost": null,
+        "tokenUsage": null
+      },
+      "decisions": [],
+      "publication": [
+        {
+          "component": "collective",
+          "state": "published",
+          "releaseSequence": 1,
+          "publishedInWindow": 1
+        },
+        {
+          "component": "policy",
+          "state": "published",
+          "releaseSequence": 1,
+          "publishedInWindow": 1
+        }
+      ],
+      "downloads": {
+        "since": "2026-09-14T20:54:52.787Z",
+        "bestEffort": true,
+        "responses": [
+          {
+            "route": "bundle",
+            "status": 200,
+            "count": 1,
+            "totalDurationMs": 47
+          },
+          {
+            "route": "manifest",
+            "status": 200,
+            "count": 1,
+            "totalDurationMs": 115
+          },
+          {
+            "route": "manifest",
+            "status": 304,
+            "count": 1,
+            "totalDurationMs": 214
+          }
+        ]
+      },
+      "local": {
+        "execution": "unknown",
+        "applied": "unknown"
+      },
+      "quality": {
+        "falsePositiveRate": null,
+        "incidentReduction": null
+      }
+    },
+    "ownedServerRowsRemoved": true,
+    "ownedPublishedFilesRemoved": [
+      "analyses/e3d27ee5-b09a-414c-bdf8-23dbb8046002/report.v1.json",
+      "analyses/09c18481-4b19-4483-9f63-4a6ab94a4a8c/report.v1.json",
+      "analyses/ebb4e71b-ad20-494b-be40-3fb6f26106aa/report.v1.json",
+      "review-knowledge/233736e6-6921-4b78-8b8a-4b468c0fd03c/3ec823ee7e70692294d721d2c1f8505aa8ade5a57a7f9d907e9b802308b724be.json",
+      "review-knowledge/5429ca63-f5db-42a0-b663-005f0424b0fb/2072d22905bdd48671d4c3b87918d2181ae98dc9d45c21e536d7598a7f5b79c2.json",
+      "review-knowledge/fffdf7e0-3aa7-4a28-88b9-8aaa466d8d80/951471666314e3eaf742a2b88c3ddb77ebc9ad048c0a09fcab38f153298b7a74.json"
+    ],
+    "finishedAt": "2026-09-14T20:55:59.425Z"
+  },
+  "cleanup": {
+    "status": "passed",
+    "at": "2026-09-14T20:56:33.627018+00:00",
+    "ownedResourcesRemoved": [
+      "deployment/gcr-prism-observations0",
+      "pod/gcr-observations-image-smoke",
+      "configmap/gcr-observations-image-smoke",
+      "networkpolicy/gcr-observations-image-smoke",
+      "configmap/gcr-observations-build-ca",
+      "serviceaccount/gcr-observations-build"
+    ],
+    "ownedBuildPodsAbsent": true
+  },
+  "retiringRuntimeAfter": {
+    "at": "2026-09-14T20:57:07.352719+00:00",
+    "retiring": [
+      {
+        "name": "git-code-reviewer-worker-695f7bc95c-fjbjv",
+        "deletionTimestamp": "2026-09-14T21:55:23Z",
+        "graceSeconds": 3600,
+        "containers": [
+          {
+            "name": "source-sandbox",
+            "ready": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T20:30:06Z"
+              }
+            }
+          },
+          {
+            "name": "worker",
+            "ready": false,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T20:30:05Z"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "forcedTermination": false
+  },
+  "database": {
+    "schema": 51,
+    "newMigration": "0051_review_observations.sql",
+    "allExistingChecksumsPreserved": true,
+    "history": {
+      "status": "passed",
+      "priorReports": 168,
+      "unrecorded": 168,
+      "backfilled": 0
+    }
+  },
+  "client": {
+    "commitDefender": "2.9.4",
+    "installedLibraries": "0.1.0-alpha.37",
+    "cli": "0.1.0-alpha.33",
+    "unchanged": true,
+    "noForcedReload": true,
+    "localModelAndAccountUnchanged": true
+  },
+  "architecture": {
+    "centralToLocalDownloadsOnly": true,
+    "localSourceResultFeedbackUploads": false,
+    "centralExecutionForLocalClients": false,
+    "localExecutionAndApplicationUnknown": true,
+    "P10AndP08UpstreamWithdrawnNotCompleted": true
+  },
+  "limitations": [
+    "Reports predating migration remain unrecorded",
+    "Server response metrics are best effort, authorized requests only, UTC day buckets; client application is not observed",
+    "Latest PR outcomes and all-run effort have different denominators; fixture findings/durations excluded",
+    "No paid model or external GitHub posts in verification",
+    "Token billing, real model quality, trusted CI, local metrics usability and recovery remain"
+  ]
+}
