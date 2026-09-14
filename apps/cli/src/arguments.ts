@@ -14,7 +14,14 @@ Commands:
   central connect --input <config.json> --api-key-stdin
   central list|status|sync|disconnect  Explicit central connection management
   status [--check-executor]            Local identity and supported capabilities
-  context                              Fixed snapshot and active knowledge selection
+  context [--prepared <id>] [--include-knowledge]  Selected context (may contain private knowledge)
+  prepare                              Save an encrypted fixed source for 24 hours; no model call
+  read-source --prepared <id> --file <path> [--side source|base]
+  get-rule --prepared <id> --id <rule-id> [--revision <n>]
+  submit-review|feedback preview <run-id> [--input <selection.json|->]
+  submit-review|feedback queue --input <payload.json|-> --confirm-hash <sha256>
+  submit-review|feedback send|show|cancel <id> | list
+  mcp [--allow-review] [--allow-submissions]  Stdio server bound to this worktree
   review                               Review and save an encrypted terminal report
   push-review                          Review every ref from pre-push stdin (foreground)
   service start|run|status|stop          Manage the profile's independent local service
@@ -46,6 +53,7 @@ Snapshot: --source index|working-tree|commit-tree (default index) --base <ref>
           --path <exact-path> (repeatable) --include-untracked <path> (working-tree only)
           --exclude <glob> --require-source <source|base>:<path> --require-knowledge <id>
 Review: --executor-path <codex-binary> --model gpt-6-astra --reasoning-effort xhigh
+        --prepared <id> reuses source and requires unchanged authorized context.
         --retry-finished (explicitly rerun a saved terminal review)
         --trigger manual|work_completed|save|stage|commit|push (default manual)
         --allow-path <glob> (default **; includes fixed base and related files)
@@ -79,8 +87,22 @@ const executor = ['executor-path', 'model', 'reasoning-effort'];
 const allowed: Record<string, string[]> = {
   status: ['check-executor', ...executor],
   central: ['input', 'api-key-stdin', 'offline-behavior'],
-  context: [...snapshot, 'offline', 'offline-behavior'],
+  context: [...snapshot, 'offline', 'offline-behavior', 'prepared', 'include-knowledge'],
+  prepare: [...snapshot, 'offline', 'offline-behavior'],
+  'read-source': ['prepared', 'file', 'side', 'start-line', 'end-line', 'offline'],
+  'get-rule': ['prepared', 'id', 'revision', 'offline'],
+  'submit-review': ['input', 'confirm-hash', 'retry-rejected'],
+  feedback: ['input', 'confirm-hash', 'retry-rejected'],
+  mcp: [
+    ...executor,
+    'allow-review',
+    'allow-submissions',
+    'timeout-ms',
+    'source-bytes',
+    'tool-calls',
+  ],
   review: [
+    'prepared',
     'offline',
     'offline-behavior',
     'retry-finished',
@@ -149,6 +171,10 @@ const boolean = new Set([
   'api-key-stdin',
   'offline',
   'retry-finished',
+  'include-knowledge',
+  'retry-rejected',
+  'allow-review',
+  'allow-submissions',
 ]);
 export function argumentsFor(argv: string[]) {
   if (!argv.length || argv[0] === '--help' || argv[0] === 'help')

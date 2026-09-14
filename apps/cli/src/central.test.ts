@@ -7,6 +7,7 @@ import os from 'node:os';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   canonicalKnowledgeJson,
+  reviewSubmission,
   encodeKnowledgeBundle,
   KNOWLEDGE_SIGNATURE_CONTEXT,
   type CentralKnowledgeBundle,
@@ -61,6 +62,8 @@ let calls = 0,
   status = 200,
   wrongIdentity = false;
 let initialManifestStatuses: number[] = [];
+const submitted = new Map<string, unknown>();
+let submissionError: string | undefined;
 let onInitialManifest: (() => void) | undefined;
 let config: Record<string, unknown>;
 const descriptor = {
@@ -289,6 +292,41 @@ beforeAll(async () => {
     if (status !== 200) {
       res.statusCode = status;
       res.end('{}');
+      return;
+    }
+    if (req.method === 'POST' && req.url?.includes('/review-submissions/')) {
+      if (submissionError) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: { code: submissionError } }));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+      req.on('end', () => {
+        try {
+          const input = reviewSubmission(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+          const prior = submitted.get(input.id);
+          const receipt = prior ?? {
+            schemaVersion: 1,
+            id: randomUUID(),
+            requestId: input.id,
+            payloadHash: contentHash(input),
+            audience: input.audience,
+            clientId: input.clientId,
+            kind: input.kind,
+            status: 'submitted',
+            evidence: 'client-reported',
+            receivedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          };
+          submitted.set(input.id, receipt);
+          res.statusCode = prior ? 200 : 201;
+          res.end(JSON.stringify(receipt));
+        } catch {
+          res.statusCode = 400;
+          res.end('{}');
+        }
+      });
       return;
     }
     if (req.url === '/base/api/v1/client-auth/me') {
@@ -994,3 +1032,84 @@ it.skipIf(
   },
   420000,
 );
+
+it('uses explicit CLI preview, confirmation, queue and send with TLS and blocks revoked preparations', async () => {
+  status = 200;
+  wrongIdentity = false;
+  submissionError = undefined;
+  const profile = 'submission-cli',
+    id = await connect(profile);
+  const common = [
+    '--cwd',
+    repo,
+    '--profile',
+    profile,
+    '--data-dir',
+    data,
+    '--mode',
+    'centralized',
+    '--connection',
+    id,
+  ];
+  const run = (command: string[], input?: unknown) =>
+    executeCli([...command, ...common], {
+      keys,
+      credentials,
+      prepareExecutor: async () => ({ descriptor, review }),
+      ...(input === undefined ? {} : { readStdin: async () => JSON.stringify(input) }),
+    });
+  const before = models;
+  const prepared = await run(['prepare']);
+  expect(prepared.exitCode).toBe(0);
+  const preparedId = (prepared.value as { preparedId: string }).preparedId;
+  const result = await run(['review', '--prepared', preparedId]);
+  expect(result.exitCode).toBe(0);
+  const runId = (result.value as { runId: string }).runId;
+  for (const command of ['feedback', 'submit-review']) {
+    const preview = await run(
+      [command, 'preview', runId, ...(command === 'feedback' ? ['--input', '-'] : [])],
+      command === 'feedback'
+        ? { feedbackKind: 'judgment', message: 'Explicit fixture feedback' }
+        : undefined,
+    );
+    expect(preview.exitCode).toBe(0);
+    const { payload, payloadHash } = preview.value as { payload: unknown; payloadHash: string };
+    expect(() => reviewSubmission(payload)).not.toThrow();
+    const sentBefore = submitted.size;
+    expect(
+      (await run([command, 'queue', '--input', '-', '--confirm-hash', '0'.repeat(64)], payload))
+        .exitCode,
+    ).toBe(2);
+    const queued = await run(
+      [command, 'queue', '--input', '-', '--confirm-hash', payloadHash],
+      payload,
+    );
+    expect(queued.exitCode, JSON.stringify(queued.value)).toBe(0);
+    expect(submitted.size).toBe(sentBefore);
+    const requestId = (payload as { id: string }).id;
+    const receipt = await run([command, 'send', requestId]);
+    expect(receipt.exitCode).toBe(0);
+    expect(submitted.size).toBe(sentBefore + 1);
+    expect(await run([command, 'send', requestId])).toEqual(receipt);
+    expect(submitted.size).toBe(sentBefore + 1);
+  }
+  const preview = await run(['feedback', 'preview', runId, '--input', '-'], {
+    feedbackKind: 'exception',
+    message: 'Explicit scope and revocation fixture',
+  });
+  const { payload, payloadHash } = preview.value as {
+    payload: { id: string };
+    payloadHash: string;
+  };
+  await run(['feedback', 'queue', '--input', '-', '--confirm-hash', payloadHash], payload);
+  submissionError = 'CLIENT_SCOPE_REQUIRED';
+  expect((await run(['feedback', 'send', payload.id])).exitCode).toBe(2);
+  expect((await run(['context', '--offline'])).exitCode).toBe(0);
+  submissionError = 'CLIENT_ACCESS_REVOKED';
+  expect((await run(['feedback', 'send', payload.id, '--retry-rejected'])).exitCode).toBe(2);
+  expect(
+    (await run(['read-source', '--prepared', preparedId, '--file', 'a.ts', '--offline'])).exitCode,
+  ).toBe(2);
+  expect(models).toBe(before + 1);
+  submissionError = undefined;
+}, 30000);

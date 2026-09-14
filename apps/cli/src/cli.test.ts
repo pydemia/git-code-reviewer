@@ -363,3 +363,74 @@ describe('commit and pre-push foreground reviews', () => {
     expect(modelCalls).toBe(before);
   });
 });
+
+it('prepares once, reads fixed source after edits, reopens and reviews with the same context', async () => {
+  const common = ['--cwd', repo, '--data-dir', data, '--profile', 'prepared-test'];
+  const run = (args: string[], input?: unknown) =>
+    executeCli([...args, ...common], {
+      keys,
+      prepareExecutor: async () => executor,
+      ...(input === undefined ? {} : { readStdin: async () => JSON.stringify(input) }),
+    });
+  const before = modelCalls;
+  const prepared = await run(['prepare']);
+  expect(prepared.exitCode).toBe(0);
+  const value = prepared.value as {
+    preparedId: string;
+    source: { hash: string };
+    context: { hash: string };
+    modelExecuted: boolean;
+  };
+  expect(value.modelExecuted).toBe(false);
+  expect(modelCalls).toBe(before);
+  const original = await run(['read-source', '--prepared', value.preparedId, '--file', 'load.py']);
+  expect(original.exitCode).toBe(0);
+  const file = path.join(repo, 'load.py'),
+    bytes = fs.readFileSync(file);
+  try {
+    fs.writeFileSync(file, 'CHANGED_AFTER_PREPARATION_CANARY\n');
+    expect(await run(['read-source', '--prepared', value.preparedId, '--file', 'load.py'])).toEqual(
+      original,
+    );
+    const context = await run(['context', '--prepared', value.preparedId, '--include-knowledge']);
+    expect(context.exitCode).toBe(0);
+    expect(JSON.stringify(context.value)).toContain('gcr-standalone-review');
+    expect(
+      (await run(['get-rule', '--prepared', value.preparedId, '--id', 'gcr-standalone-review']))
+        .exitCode,
+    ).toBe(0);
+    const reviewed = await run(['review', '--prepared', value.preparedId]);
+    expect(reviewed.exitCode).toBe(1);
+    const report = clientReviewReport(reviewed.value);
+    expect(report.identity.source.hash).toBe(value.source.hash);
+    expect(report.identity.context.hash).toBe(value.context.hash);
+    expect(JSON.stringify(report)).not.toContain('CHANGED_AFTER_PREPARATION_CANARY');
+    expect(modelCalls).toBe(before + 1);
+    const changed = await run([
+      'review',
+      '--prepared',
+      value.preparedId,
+      '--source',
+      'working-tree',
+    ]);
+    expect(changed.exitCode).toBe(2);
+    expect(
+      (await run(['read-source', '--prepared', value.preparedId, '--file', '../outside'])).exitCode,
+    ).toBe(2);
+    const memory = (
+      await run(['memory', 'create', '--input', '-'], {
+        title: 'New applicable knowledge',
+        body: 'Confirm the prepared review is refreshed after this active knowledge changes.',
+      })
+    ).value as LocalKnowledge;
+    expect(
+      (await run(['memory', 'activate', memory.id, '--revision', String(memory.revision)]))
+        .exitCode,
+    ).toBe(0);
+    const stale = await run(['review', '--prepared', value.preparedId]);
+    expect(stale.value).toMatchObject({ error: { code: 'prepared-context-changed' } });
+    expect(modelCalls).toBe(before + 1);
+  } finally {
+    fs.writeFileSync(file, bytes);
+  }
+}, 30000);

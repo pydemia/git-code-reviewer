@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { serveMcpStdio } from './mcp.js';
 import { executeCli } from './cli.js';
 import { fileURLToPath } from 'node:url';
 
@@ -13,29 +14,46 @@ process.stdout.on('error', () => {
   controller.abort();
   process.exitCode = 2;
 });
-const result = await executeCli(process.argv.slice(2), {
-  signal: controller.signal,
-  entrypoint: fileURLToPath(import.meta.url),
-  readStdin: async () => {
-    if (process.stdin.isTTY) throw new Error('stdin-required');
-    const chunks: Buffer[] = [];
-    let size = 0;
-    for await (const chunk of process.stdin) {
-      if (controller.signal.aborted) throw new Error('cancelled');
-      const bytes = Buffer.from(chunk);
-      size += bytes.length;
-      if (size > 2_000_000) throw new Error('input-limit');
-      chunks.push(bytes);
-    }
-    return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
-  },
-});
-process.removeListener('SIGINT', cancel);
-process.removeListener('SIGTERM', cancel);
-if (result.diagnostics)
-  for (const diagnostic of result.diagnostics)
-    process.stderr.write(JSON.stringify(diagnostic) + '\n');
-process.stdout.write(
-  result.text ? String(result.value) : JSON.stringify(result.value, null, 2) + '\n',
-);
-process.exitCode = result.exitCode;
+if (process.argv[2] === 'mcp') {
+  try {
+    await serveMcpStdio(process.argv.slice(3), {
+      signal: controller.signal,
+      entrypoint: fileURLToPath(import.meta.url),
+    });
+  } catch {
+    process.stderr.write(
+      'GCR MCP could not continue. Check startup arguments, worktree and local storage.\n',
+    );
+    process.exitCode = 2;
+  } finally {
+    process.removeListener('SIGINT', cancel);
+    process.removeListener('SIGTERM', cancel);
+  }
+} else {
+  const result = await executeCli(process.argv.slice(2), {
+    signal: controller.signal,
+    entrypoint: fileURLToPath(import.meta.url),
+    readStdin: async () => {
+      if (process.stdin.isTTY) throw new Error('stdin-required');
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of process.stdin) {
+        if (controller.signal.aborted) throw new Error('cancelled');
+        const bytes = Buffer.from(chunk);
+        size += bytes.length;
+        if (size > 2_000_000) throw new Error('input-limit');
+        chunks.push(bytes);
+      }
+      return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
+    },
+  });
+  process.removeListener('SIGINT', cancel);
+  process.removeListener('SIGTERM', cancel);
+  if (result.diagnostics)
+    for (const diagnostic of result.diagnostics)
+      process.stderr.write(JSON.stringify(diagnostic) + '\n');
+  process.stdout.write(
+    result.text ? String(result.value) : JSON.stringify(result.value, null, 2) + '\n',
+  );
+  process.exitCode = result.exitCode;
+}

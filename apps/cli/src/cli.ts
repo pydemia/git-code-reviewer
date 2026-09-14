@@ -4,6 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   ContractError,
+  reviewSubmission,
   offlineBehavior,
   localKnowledge,
   localScope,
@@ -14,6 +15,10 @@ import {
 } from '@gcr/client-contract';
 import {
   captureLocalSource,
+  contentHash,
+  ReviewSubmissionQueue,
+  ReviewSubmissionQueueError,
+  prepareReviewSubmission,
   restoreLocalSource,
   LocalServiceError,
   type FrozenLocalSource,
@@ -49,6 +54,7 @@ import {
 } from '@gcr/client-core';
 import { ExecutorError, prepareCodexAccountExecutor } from '@gcr/client-executors';
 import { argumentsFor, CliError, help } from './arguments.js';
+import { PreparedReviews, type PreparedReview } from './prepared.js';
 import { executeServiceCommand } from './service.js';
 
 export interface CliDependencies {
@@ -127,6 +133,8 @@ export async function executeCli(
       };
     const { command, values, positionals } = argumentsFor(argv);
     if (command === 'help' || values.help) return { value: help, exitCode: 0, text: true };
+    if (command === 'mcp')
+      throw new CliError('stdio-required', 'Start MCP using the gcr executable.');
     if (['service', 'enqueue', 'enqueue-push'].includes(command))
       return await executeServiceCommand(
         { command, values, positionals },
@@ -175,9 +183,20 @@ export async function executeCli(
           values.offline ||
           values['offline-behavior'])) ||
       (central &&
-        !['central', 'status', 'context', 'review', 'push-review', 'history', 'result'].includes(
-          command,
-        ))
+        ![
+          'central',
+          'status',
+          'context',
+          'prepare',
+          'read-source',
+          'get-rule',
+          'submit-review',
+          'feedback',
+          'review',
+          'push-review',
+          'history',
+          'result',
+        ].includes(command))
     )
       throw new CliError(
         'usage',
@@ -383,7 +402,10 @@ export async function executeCli(
       }
       return { value, exitCode: 0 };
     }
-    if (positionals.length !== (command === 'result' ? 1 : 0))
+    if (
+      !['submit-review', 'feedback'].includes(command) &&
+      positionals.length !== (command === 'result' ? 1 : 0)
+    )
       throw new CliError('usage', 'Unexpected positional arguments.');
     if (command === 'status' && central) {
       const status = await (await centralConnections()).status(string('connection')!);
@@ -409,9 +431,9 @@ export async function executeCli(
             ? (await prepare()).descriptor
             : { status: 'not-checked', model: 'gpt-6-astra', reasoningEffort: 'xhigh' },
           storage: 'not-opened',
-          triggers: ['manual', 'commit', 'push'],
-          execution: 'foreground',
-          backgroundService: 'unavailable',
+          triggers: ['manual', 'work_completed', 'save', 'stage', 'commit', 'push'],
+          execution: 'foreground-or-explicit-service',
+          backgroundService: 'not-checked',
         },
         exitCode: 0,
       };
@@ -450,6 +472,104 @@ export async function executeCli(
       );
       return history;
     };
+    if (command === 'submit-review' || command === 'feedback') {
+      if (!central)
+        throw new CliError('usage', 'Submission requires an explicit central connection.');
+      const [action, id, ...extra] = positionals;
+      const kind = command === 'feedback' ? 'feedback' : 'result';
+      if (
+        extra.length ||
+        !['preview', 'queue', 'send', 'show', 'cancel', 'list'].includes(action ?? '') ||
+        (['preview', 'send', 'show', 'cancel'].includes(action ?? '') ? !id : id !== undefined)
+      )
+        throw new CliError('usage', 'Invalid submission action.');
+      if (
+        (action === 'queue') !== !!string('confirm-hash') ||
+        (values['retry-rejected'] && action !== 'send') ||
+        (string('input') && !['queue', 'preview'].includes(action!))
+      )
+        throw new CliError('usage', 'Submission options do not match the action.');
+      const manager = await centralConnections();
+      if (action === 'preview') {
+        const report =
+          (await (await historyStore(true)).getReview(id!)) ??
+          (await (await historyStore(false)).getReview(id!));
+        if (!report) throw new CliError('not-found', 'Saved review was not found.');
+        let selection: Parameters<typeof prepareReviewSubmission>[0]['selection'] = {
+          kind: 'result',
+        };
+        if (kind === 'feedback') {
+          if (!string('input'))
+            throw new CliError('usage', 'Feedback preview requires an explicit selection JSON.');
+          const input = (await jsonInput(string('input')!, dependencies.readStdin)) as Record<
+            string,
+            unknown
+          >;
+          if (
+            !input ||
+            typeof input !== 'object' ||
+            Array.isArray(input) ||
+            Object.keys(input).some(
+              (k) =>
+                !['feedbackKind', 'message', 'findingId', 'includeSourceReference'].includes(k),
+            ) ||
+            !['correction', 'exception', 'judgment'].includes(String(input.feedbackKind)) ||
+            typeof input.message !== 'string' ||
+            (input.findingId !== undefined && typeof input.findingId !== 'string') ||
+            (input.includeSourceReference !== undefined &&
+              typeof input.includeSourceReference !== 'boolean')
+          )
+            throw new CliError('invalid-input', 'Invalid explicit feedback selection.');
+          selection = { kind: 'feedback', ...input } as Extract<
+            Parameters<typeof prepareReviewSubmission>[0]['selection'],
+            { kind: 'feedback' }
+          >;
+        } else if (string('input'))
+          throw new CliError('usage', 'Result preview does not accept input.');
+        const { submission: payload, payloadHash } = prepareReviewSubmission({
+          report,
+          selection,
+          id: randomUUID(),
+          audience: (await manager.historyIdentity(string('connection')!)).audience,
+          clientId: 'gcr-cli',
+          approvedAt: new Date().toISOString(),
+        });
+        return {
+          value: {
+            status: 'confirmation-required',
+            payload,
+            payloadHash,
+            uploaded: false,
+          },
+          exitCode: 0,
+        };
+      }
+      const queue = await ReviewSubmissionQueue.open({
+        ...requestStorage,
+        connectionId: string('connection')!,
+        connections: manager,
+      });
+      opened.push(queue);
+      if (action === 'list')
+        return {
+          value: (await queue.list()).filter((x) => x.value.payload.kind === kind),
+          exitCode: 0,
+        };
+      if (action === 'queue') {
+        if (!string('input')) throw new CliError('usage', 'Queue requires confirmed payload JSON.');
+        const payload = reviewSubmission(await jsonInput(string('input')!, dependencies.readStdin));
+        if (payload.kind !== kind)
+          throw new CliError('invalid-input', 'Submission kind does not match this command.');
+        return { value: await queue.enqueue(payload, string('confirm-hash')!), exitCode: 0 };
+      }
+      const row = await queue.get(id!);
+      if (row.value.payload.kind !== kind)
+        throw new CliError('invalid-input', 'Submission kind does not match this command.');
+      if (action === 'show') return { value: row, exitCode: 0 };
+      if (action === 'cancel') return { value: await queue.cancel(id!), exitCode: 0 };
+      const sent = await queue.send(id!, dependencies.signal, values['retry-rejected'] === true);
+      return { value: sent, exitCode: sent.value.status === 'submitted' ? 0 : 2 };
+    }
     if (command === 'result' || command === 'history') {
       let history: LocalHistoryStore | undefined;
       let denied: unknown;
@@ -555,7 +675,43 @@ export async function executeCli(
         exitCode,
       };
     }
-    const kind = string('source', 'index');
+    let prepared: PreparedReview | undefined;
+    let preparations: PreparedReviews | undefined;
+    if (command === 'prepare' || string('prepared')) {
+      preparations = await PreparedReviews.open(requestStorage);
+      opened.push(preparations);
+    }
+    if (string('prepared')) {
+      if (
+        dependencies.frozenSource ||
+        [
+          'source',
+          'base',
+          'index-file',
+          'source-commit',
+          'base-commit',
+          'target-branch',
+          'path',
+          'include-untracked',
+          'exclude',
+          'require-source',
+          'require-knowledge',
+        ].some((k) => values[k] !== undefined)
+      )
+        throw new CliError(
+          'usage',
+          'Prepared reviews cannot replace source or context selection options.',
+        );
+      prepared = await preparations!.get(string('prepared')!);
+      if (prepared.mode !== mode.mode || prepared.connectionId !== (string('connection') ?? null))
+        throw new CliError(
+          'prepared-scope-mismatch',
+          'Use the original mode and connection for this prepared review.',
+        );
+    }
+    if (['read-source', 'get-rule'].includes(command) && !prepared)
+      throw new CliError('usage', 'This command requires --prepared.');
+    const kind = prepared?.source.identity.kind ?? string('source', 'index');
     if (kind !== 'index' && kind !== 'working-tree' && kind !== 'commit-tree')
       throw new CliError('usage', 'Source must be index, working-tree or commit-tree.');
     const trigger = reviewTrigger(string('trigger', 'manual'));
@@ -571,22 +727,24 @@ export async function executeCli(
         'usage',
         'Commit reviews require index source; push reviews require exact commit-tree source.',
       );
-    snapshot = dependencies.frozenSource
-      ? restoreLocalSource(dependencies.frozenSource)
-      : captureLocalSource({
-          cwd,
-          kind,
-          ...(string('base') ? { baseRef: string('base')! } : {}),
-          ...(string('source-commit') ? { sourceCommit: string('source-commit')! } : {}),
-          ...(string('base-commit')
-            ? { baseCommit: string('base-commit') === 'empty' ? null : string('base-commit')! }
-            : {}),
-          ...(string('target-branch') ? { targetBranch: string('target-branch')! } : {}),
-          ...(string('index-file') ? { indexFile: string('index-file')! } : {}),
-          ...(many('path').length ? { paths: many('path') } : {}),
-          includeUntracked: many('include-untracked'),
-          excludePatterns: many('exclude'),
-        });
+    snapshot = prepared
+      ? restoreLocalSource(prepared.source)
+      : dependencies.frozenSource
+        ? restoreLocalSource(dependencies.frozenSource)
+        : captureLocalSource({
+            cwd,
+            kind,
+            ...(string('base') ? { baseRef: string('base')! } : {}),
+            ...(string('source-commit') ? { sourceCommit: string('source-commit')! } : {}),
+            ...(string('base-commit')
+              ? { baseCommit: string('base-commit') === 'empty' ? null : string('base-commit')! }
+              : {}),
+            ...(string('target-branch') ? { targetBranch: string('target-branch')! } : {}),
+            ...(string('index-file') ? { indexFile: string('index-file')! } : {}),
+            ...(many('path').length ? { paths: many('path') } : {}),
+            includeUntracked: many('include-untracked'),
+            excludePatterns: many('exclude'),
+          });
     if (
       snapshot.identity.kind !== kind ||
       snapshot.repository.repositoryKey !== client!.repositoryKey ||
@@ -603,8 +761,8 @@ export async function executeCli(
         new LocalKnowledgeStore(await records(repositoryScope!)),
         new LocalKnowledgeStore(await records({ kind: 'profile', profileId })),
       ],
-      requiredKnowledgeIds: many('require-knowledge'),
-      requiredSources: many('require-source').map((value) => {
+      requiredKnowledgeIds: prepared?.requiredKnowledge ?? many('require-knowledge'),
+      requiredSources: (prepared?.requiredSource ?? many('require-source')).map((value) => {
         const index = value.indexOf(':');
         const side = value.slice(0, index);
         if (index < 0 || (side !== 'source' && side !== 'base'))
@@ -639,6 +797,75 @@ export async function executeCli(
     const context = connection
       ? await resolveCentralContext({ ...contextInput, ...connection })
       : await resolveLocalContext({ ...contextInput, client: execution.client });
+    if (
+      prepared &&
+      (!context.context ||
+        context.context.identity.hash !== prepared.contextHash ||
+        contentHash(context.context.client) !== prepared.clientHash)
+    )
+      throw new CliError(
+        'prepared-context-changed',
+        'Applicable context or authority changed. Prepare and confirm a new review.',
+      );
+    if (context.context && (await context.context.observeCentralSnapshot()) !== 'current')
+      throw new CliError(
+        'prepared-context-changed',
+        'Central context changed or is being synchronized.',
+      );
+    if (command === 'prepare') {
+      if (context.status !== 'ready')
+        return { value: { status: context.status, problems: context.problems }, exitCode: 2 };
+      const saved = await preparations!.save({
+        source: snapshot.freeze(),
+        contextHash: context.context.identity.hash,
+        clientHash: contentHash(context.context.client),
+        mode: mode.mode,
+        connectionId: string('connection') ?? null,
+        requiredKnowledge: many('require-knowledge'),
+        requiredSource: many('require-source'),
+      });
+      return {
+        value: {
+          status: 'prepared',
+          preparedId: saved.id,
+          expiresAt: saved.expiresAt,
+          source: snapshot.identity,
+          context: context.context.identity,
+          selected: snapshot.selected,
+          sourceFiles: snapshot.sourceFiles,
+          limitations: snapshot.limitations,
+          diff: snapshot.diff,
+          modelExecuted: false,
+        },
+        exitCode: 0,
+      };
+    }
+    if (command === 'read-source') {
+      const file = string('file'),
+        side = string('side', 'source');
+      if (!file || !['source', 'base'].includes(side!))
+        throw new CliError('usage', 'Specify a source path and source/base side.');
+      const result = snapshot.readLines(
+        file,
+        side as 'source' | 'base',
+        number('start-line') ?? 1,
+        number('end-line'),
+      );
+      return { value: result, exitCode: result.status === 'available' ? 0 : 2 };
+    }
+    if (command === 'get-rule') {
+      const id = string('id'),
+        revision = number('revision');
+      if (!id) throw new CliError('usage', 'Specify --id for the selected rule.');
+      const matches = [
+        ...(context.context?.central?.items ?? []),
+        ...(context.context?.knowledge ?? []),
+        ...(context.context?.builtin ? [context.context.builtin] : []),
+      ].filter((x) => x.id === id && (revision === undefined || x.revision === revision));
+      if (matches.length !== 1)
+        throw new CliError('not-found', 'An unambiguous selected rule was not found.');
+      return { value: matches[0], exitCode: 0 };
+    }
     if (command === 'context')
       return {
         value: {
@@ -655,6 +882,15 @@ export async function executeCli(
                 context: context.context.identity,
                 omissions: context.context.omissions,
                 knowledgeBytes: context.context.bytes,
+                ...(values['include-knowledge']
+                  ? {
+                      knowledge: {
+                        local: context.context.knowledge,
+                        builtin: context.context.builtin,
+                        central: context.context.central,
+                      },
+                    }
+                  : {}),
               }
             : {}),
         },
@@ -791,6 +1027,7 @@ export async function executeCli(
       };
     const known =
       error instanceof CliError ||
+      error instanceof ReviewSubmissionQueueError ||
       error instanceof LocalServiceError ||
       error instanceof LocalStoreError ||
       error instanceof ReviewRequestError ||
