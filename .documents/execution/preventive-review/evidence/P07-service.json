@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-14T01:36:43.062265+00:00",
+  "scope": "P07 independent CLI service and asynchronous receipt checkpoint",
+  "sourceCommit": "29d1794c00ed2c6fcc00fa6ff9254c558f85b0db",
+  "clientPackages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.21",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.21",
+        "file": "gcr-client-contract-0.1.0-alpha.21.tgz",
+        "sha256": "a935b18a0559e4140cb4b17e391d3b9e5cb7357bf23cee9e35920e2bb80bdcda"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.21",
+        "file": "gcr-client-core-0.1.0-alpha.21.tgz",
+        "sha256": "ef39e8bb2823def44681e7c06bf079a4c1eddcfc7d0f75d792b70ff0e2aba5d6"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.21",
+        "file": "gcr-client-executors-0.1.0-alpha.21.tgz",
+        "sha256": "8b85d2989b70acde2e124cbedeba8f2215684b6bf1f79dda65c0ba5c337eddfa"
+      }
+    ]
+  },
+  "cliPackages": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.15",
+    "clientVersion": "0.1.0-alpha.21",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.21",
+        "file": "gcr-client-contract-0.1.0-alpha.21.tgz",
+        "sha256": "a935b18a0559e4140cb4b17e391d3b9e5cb7357bf23cee9e35920e2bb80bdcda"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.21",
+        "file": "gcr-client-core-0.1.0-alpha.21.tgz",
+        "sha256": "ef39e8bb2823def44681e7c06bf079a4c1eddcfc7d0f75d792b70ff0e2aba5d6"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.21",
+        "file": "gcr-client-executors-0.1.0-alpha.21.tgz",
+        "sha256": "8b85d2989b70acde2e124cbedeba8f2215684b6bf1f79dda65c0ba5c337eddfa"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.15",
+        "file": "gcr-cli-0.1.0-alpha.15.tgz",
+        "sha256": "1378c845d8e066afcf2f4e53ca15da94a9e5b2531bc98978c97ca44702d1bc73"
+      }
+    ]
+  },
+  "regression": {
+    "gcr": {
+      "files": 26,
+      "passed": 381,
+      "skipped": 1,
+      "skipReason": "opt-in actual-account smoke"
+    },
+    "serviceCoreTests": 6,
+    "serviceCliTests": 2,
+    "typecheck": "client and CLI builds passed",
+    "lint": "changed source and verifier passed",
+    "cleanConsumer": "version/import and CLI entrypoint passed"
+  },
+  "live": {
+    "status": "verified",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "adapter": "owned temporary advisory Git hooks enqueue into detached installed CLI service",
+    "events": [
+      {
+        "trigger": "commit",
+        "receiptId": "0137a050-08a4-482e-814e-19acbb775a58",
+        "stateAfterGitReturned": "running",
+        "status": "completed",
+        "runId": "d110d453-0695-4a01-a539-a17921922548",
+        "source": {
+          "kind": "index",
+          "hash": "fe67bf908471a2f3fcda36bf72005035d4353905333d82710a2e5b8aaecb2357",
+          "objectFormat": "sha1",
+          "baseCommit": "c28a1b74ebd03edf8fe49af33de96a12ba0cb503",
+          "baseTree": "333e77353e7f2fc0b8067b758874012dbb3e85c6",
+          "sourceTree": "2ec6204a90c8fccb8e25b96d96a3f59feea361ff"
+        },
+        "findingCount": 1,
+        "sourceReadCount": 7,
+        "sourceReadPaths": [
+          "caller.ts",
+          "package.json",
+          "sum.test.ts",
+          "sum.ts"
+        ],
+        "testsExecutedByModel": false
+      },
+      {
+        "trigger": "push",
+        "receiptId": "c1d301c7-9322-26fc-e0b9-1a755b5f8074",
+        "stateAfterGitReturned": "running",
+        "status": "completed",
+        "runId": "98e88250-b027-4e6c-b3e4-55ecd0dd4357",
+        "source": {
+          "kind": "commit-tree",
+          "hash": "23bf2849aac8032e66450573258bae94ac7103b7f2973e54852a38177fbd2c95",
+          "objectFormat": "sha1",
+          "baseCommit": "c28a1b74ebd03edf8fe49af33de96a12ba0cb503",
+          "baseTree": "333e77353e7f2fc0b8067b758874012dbb3e85c6",
+          "sourceCommit": "795990fb23f9d9a5bd56b9b20e676d94b985ea6d",
+          "sourceTree": "2ec6204a90c8fccb8e25b96d96a3f59feea361ff"
+        },
+        "findingCount": 1,
+        "sourceReadCount": 7,
+        "sourceReadPaths": [
+          "caller.ts",
+          "package.json",
+          "sum.test.ts",
+          "sum.ts"
+        ],
+        "testsExecutedByModel": false
+      }
+    ],
+    "requests": [
+      {
+        "state": "finished",
+        "generation": 1,
+        "reasons": [
+          "push"
+        ],
+        "resultId": "98e88250-b027-4e6c-b3e4-55ecd0dd4357"
+      },
+      {
+        "state": "finished",
+        "generation": 1,
+        "reasons": [
+          "commit"
+        ],
+        "resultId": "d110d453-0695-4a01-a539-a17921922548"
+      }
+    ],
+    "modelReviewInvocations": 2,
+    "partialCommitTreeMatched": true,
+    "unrelatedIndexPreserved": true,
+    "localRemoteUpdated": true,
+    "gitReturnedBeforeBothReviewsCompleted": true,
+    "cleanup": "service stopped; owned keys and encrypted records removed",
+    "finishedAt": "2026-09-14T01:35:33.015Z",
+    "cliSha256": "caea92e3f239811b3ef34abb54113b1ea38eabd3b11efe8101fa19048c456190",
+    "rawEvidenceSha256": "25536d4e4b2c76200f990014088b0fdbbf268eee7085ac40ca1463cbd1f2fce0"
+  },
+  "delivery": {
+    "cli": "installed into isolated P07-service-consumer; no global CLI replacement",
+    "commitDefender": "previous alpha.20 client remains installed; service integration pending",
+    "cluster": "no server deployment required for this CLI-only change"
+  },
+  "remaining": [
+    "headless watch and OS login lifecycle",
+    "actual other-UID IPC denial (noninteractive sudo requires password; mode/owner assertions passed)",
+    "user-wide call/token budgets and receipt retention",
+    "interrupted-result reconciliation",
+    "Commit Defender Commit/Push toggles and non-destructive managed hooks",
+    "optional advisory wait/timeout integration",
+    "16 toggle combinations and full P07 release gate"
+  ]
+}
