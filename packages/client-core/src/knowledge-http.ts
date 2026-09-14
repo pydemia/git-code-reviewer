@@ -6,7 +6,17 @@ import {
   reviewSubmission,
   reviewSubmissionReceipt,
   reviewSubmissionStatus,
+  remoteReviewHandle,
+  type RemoteReviewHandle,
+  type RemoteReviewRequest,
 } from '@gcr/client-contract';
+import {
+  prepareRemoteReviewHandle,
+  validateRemoteReviewRequest,
+  verifyRemoteReviewStatus,
+  verifyRemoteReviewResult,
+  RemoteReviewDeliveryError,
+} from './remote-review.js';
 import { contentHash } from './local-identity.js';
 import type { IncomingMessage } from 'node:http';
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
@@ -281,6 +291,96 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
     } finally {
       response.destroy();
     }
+  }
+  private remoteRoute(handle: RemoteReviewHandle) {
+    const h = remoteReviewHandle(handle);
+    if (contentHash(h.audience) !== contentHash(this.binding.audience))
+      throw new RemoteReviewDeliveryError('response-mismatch');
+    return `api/v1/repositories/${encodeURIComponent(h.audience.repositoryId)}/remote-reviews`;
+  }
+  private async remoteJson(route: string, signal: AbortSignal, body?: string): Promise<unknown> {
+    let response: IncomingMessage | undefined;
+    try {
+      response = await this.get(route, signal, undefined, body);
+      const status = response.statusCode ?? 503;
+      const success = status === 200 || (body !== undefined && status === 201);
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of response) {
+        const bytes = Buffer.from(chunk);
+        size += bytes.length;
+        if (size > (success && route.endsWith('/result') ? 16 * 1024 * 1024 + 65536 : 32768))
+          throw new RemoteReviewDeliveryError('delivery-unconfirmed');
+        chunks.push(bytes);
+      }
+      let value: unknown;
+      try {
+        value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
+      } catch {
+        throw new RemoteReviewDeliveryError(success ? 'response-mismatch' : 'http-error', status);
+      }
+      if (!success) {
+        const code = (value as { error?: { code?: unknown } })?.error?.code;
+        const authority =
+          status === 401 && code === 'CLIENT_AUTHENTICATION_REQUIRED'
+            ? 'authentication-required'
+            : status === 403 && code === 'CLIENT_ACCESS_REVOKED'
+              ? 'revoked'
+              : status === 503 && code === 'IDENTITY_UNAVAILABLE'
+                ? 'identity-unavailable'
+                : undefined;
+        throw new RemoteReviewDeliveryError('http-error', status, authority);
+      }
+      return value;
+    } catch (error) {
+      if (error instanceof RemoteReviewDeliveryError) throw error;
+      throw new RemoteReviewDeliveryError('delivery-unconfirmed');
+    } finally {
+      response?.destroy();
+    }
+  }
+  async submitRemoteReview(value: RemoteReviewRequest, signal: AbortSignal) {
+    const input = validateRemoteReviewRequest(value, {
+      audience: this.binding.audience,
+      clientId: value.payload.clientId,
+    });
+    const handle = prepareRemoteReviewHandle(input);
+    return verifyRemoteReviewStatus(
+      handle,
+      await this.remoteJson(this.remoteRoute(handle), signal, JSON.stringify(input)),
+    );
+  }
+  async remoteReviewStatus(handle: RemoteReviewHandle, signal: AbortSignal) {
+    return verifyRemoteReviewStatus(
+      handle,
+      await this.remoteJson(
+        `${this.remoteRoute(handle)}/${encodeURIComponent(handle.requestId)}/status`,
+        signal,
+      ),
+    );
+  }
+  async remoteReviewResult(handle: RemoteReviewHandle, signal: AbortSignal) {
+    return verifyRemoteReviewResult(
+      handle,
+      await this.remoteJson(
+        `${this.remoteRoute(handle)}/${encodeURIComponent(handle.requestId)}/result`,
+        signal,
+      ),
+    );
+  }
+  async cancelRemoteReview(handle: RemoteReviewHandle, signal: AbortSignal) {
+    return verifyRemoteReviewStatus(
+      handle,
+      await this.remoteJson(
+        `${this.remoteRoute(handle)}/${encodeURIComponent(handle.requestId)}/cancel`,
+        signal,
+        JSON.stringify({
+          schemaVersion: 1,
+          requestId: handle.requestId,
+          payloadHash: handle.payloadHash,
+        }),
+      ),
+    );
   }
   async bundle({
     snapshotId,

@@ -8,6 +8,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   canonicalKnowledgeJson,
   reviewSubmission,
+  type RemoteReviewStatus,
+  type RemoteReviewPayload,
   encodeKnowledgeBundle,
   KNOWLEDGE_SIGNATURE_CONTEXT,
   type CentralKnowledgeBundle,
@@ -15,6 +17,7 @@ import {
 } from '@gcr/client-contract';
 import {
   contentHash,
+  validateRemoteReviewRequest,
   LocalRecordStore,
   ReviewRequests,
   PlatformLocalKeyStore,
@@ -68,6 +71,9 @@ let calls = 0,
 let initialManifestStatuses: number[] = [];
 const submitted = new Map<string, unknown>();
 let submissionError: string | undefined;
+const remoteJobs = new Map<string, RemoteReviewStatus>();
+let remotePosts = 0,
+  dropRemoteAck = false;
 let onInitialManifest: (() => void) | undefined;
 let config: Record<string, unknown>;
 let identityClientId: 'gcr-cli' | 'commit-defender' = 'gcr-cli';
@@ -299,6 +305,57 @@ beforeAll(async () => {
       res.end('{}');
       return;
     }
+    if (req.url?.includes('/remote-reviews')) {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+      req.on('end', () => {
+        if (req.method === 'POST' && req.url?.endsWith('/remote-reviews')) {
+          const input = validateRemoteReviewRequest(JSON.parse(Buffer.concat(chunks).toString()), {
+            audience,
+            clientId: 'gcr-cli',
+          });
+          remotePosts++;
+          let receipt = remoteJobs.get(input.payload.requestId);
+          if (!receipt) {
+            const now = Date.now();
+            receipt = {
+              schemaVersion: 1,
+              requestId: input.payload.requestId,
+              audience,
+              clientId: 'gcr-cli',
+              payloadHash: input.approval.payloadHash,
+              receivedAt: new Date(now).toISOString(),
+              sourceExpiresAt: new Date(
+                now + input.payload.retention.sourceSeconds * 1000,
+              ).toISOString(),
+              resultExpiresAt: new Date(
+                now + input.payload.retention.resultSeconds * 1000,
+              ).toISOString(),
+              state: 'queued',
+            };
+            remoteJobs.set(receipt.requestId, receipt);
+          }
+          if (dropRemoteAck) {
+            req.socket.destroy();
+            return;
+          }
+          res.writeHead(201).end(JSON.stringify(receipt));
+          return;
+        }
+        const requestId = req.url!.split('/').at(-2)!;
+        let receipt = remoteJobs.get(requestId);
+        if (!receipt) {
+          res.writeHead(404).end('{}');
+          return;
+        }
+        if (req.url?.endsWith('/cancel')) {
+          receipt = { ...receipt, state: 'cancelled', reason: 'cancelled' };
+          remoteJobs.set(requestId, receipt);
+        }
+        res.end(JSON.stringify(receipt));
+      });
+      return;
+    }
     if (req.method === 'POST' && req.url?.includes('/review-submissions/')) {
       if (submissionError) {
         res.statusCode = 403;
@@ -419,6 +476,107 @@ const args = (command: string, id: string) => [
 ];
 const test = (name: string, fn: () => Promise<void>) => it(name, fn, 30000);
 describe.sequential('explicit connected CLI over HTTPS', () => {
+  test('previews local knowledge with central execution and recovers an unacknowledged upload without local model calls', async () => {
+    const profile = 'remote-cli',
+      id = await connect(profile),
+      before = models;
+    const base = ['remote-review', '--connection', id];
+    const preview = await invoke(profile, [...base, 'preview', '--account-id', 'account']);
+    expect(preview.exitCode, JSON.stringify(preview.value)).toBe(0);
+    const proposal = preview.value as { payload: RemoteReviewPayload; payloadHash: string };
+    expect(proposal.payload.client.mode).toBe('standalone');
+    expect(proposal.payload.context.resolved?.central).toBeUndefined();
+    expect(proposal.payload.source.files.some((f) => f.metadata.side === 'base')).toBe(true);
+    const file = path.join(root, 'remote-preview.json');
+    fs.writeFileSync(file, JSON.stringify(proposal));
+    const submit = [...base, 'submit', '--input', file, '--confirm-hash', proposal.payloadHash];
+    const beforePosts = remotePosts;
+    expect(
+      (
+        await invoke(profile, [
+          ...base,
+          'submit',
+          '--input',
+          file,
+          '--confirm-hash',
+          '0'.repeat(64),
+        ])
+      ).value,
+    ).toMatchObject({ error: { code: 'confirmation-required' } });
+    expect(remotePosts).toBe(beforePosts);
+    dropRemoteAck = true;
+    try {
+      expect((await invoke(profile, submit)).value).toMatchObject({
+        status: 'unconfirmed',
+        requestId: proposal.payload.requestId,
+      });
+      expect((await invoke(profile, submit)).value).toMatchObject({
+        execution: { state: 'queued' },
+      });
+    } finally {
+      dropRemoteAck = false;
+    }
+    expect(remotePosts).toBe(beforePosts + 1);
+    expect(
+      (
+        await invoke(profile, [
+          ...base,
+          'wait',
+          proposal.payload.requestId,
+          '--wait-timeout-ms',
+          '30',
+        ])
+      ).value,
+    ).toMatchObject({ status: 'unconfirmed', requestId: proposal.payload.requestId });
+    expect(
+      (await invoke(profile, [...base, 'cancel', proposal.payload.requestId])).value,
+    ).toMatchObject({ cancellationRequested: true, execution: { state: 'cancelled' } });
+    expect(
+      (await invoke(profile, [...base, 'status', proposal.payload.requestId])).value,
+    ).toMatchObject({ execution: { state: 'cancelled' } });
+    expect(
+      (await invoke(profile, [...base, 'wait', proposal.payload.requestId])).value,
+    ).toMatchObject({ execution: { state: 'cancelled' } });
+    const rows = await invoke(profile, [...base, 'list']);
+    expect(JSON.stringify(rows)).not.toContain('export const');
+    expect(models).toBe(before);
+  });
+  test('central knowledge preview preserves the pinned manifest and rejects incompatible remote action options', async () => {
+    const profile = 'remote-central-cli',
+      id = await connect(profile),
+      before = models;
+    const preview = await invoke(profile, [
+      ...args('remote-review', id),
+      'preview',
+      '--account-id',
+      'account',
+    ]);
+    expect(preview.exitCode, JSON.stringify(preview.value)).toBe(0);
+    expect(preview.value).toMatchObject({
+      uploaded: false,
+      modelExecuted: false,
+      payload: {
+        client: { mode: 'centralized' },
+        context: { resolved: { central: { manifest: { payload: { audience } } } } },
+      },
+    });
+    expect(
+      (
+        await invoke(profile, [
+          ...args('remote-review', id),
+          'status',
+          'request',
+          '--account-id',
+          'account',
+        ])
+      ).exitCode,
+    ).toBe(2);
+    expect(
+      (await invoke(profile, ['remote-review', 'preview', '--account-id', 'account'])).exitCode,
+    ).toBe(2);
+    expect(models).toBe(before);
+  });
+
   test('executes an explicitly registered CD connection in the service while ordinary CLI access remains denied', async () => {
     const profileId = 'cd-service',
       identity = discoverLocalIdentity(repo, profileId);

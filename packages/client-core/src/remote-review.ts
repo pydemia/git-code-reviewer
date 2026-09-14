@@ -3,9 +3,14 @@ import {
   REMOTE_REVIEW_MAX_BYTES,
   remoteReviewPayload,
   remoteReviewRequest,
+  remoteReviewHandle,
+  remoteReviewStatus,
+  remoteReviewResult,
   type CentralAudience,
   type RemoteReviewPayload,
   type RemoteReviewRequest,
+  type RemoteReviewHandle,
+  type RemoteReviewStatus,
   type SourceFile,
 } from '@gcr/client-contract';
 import { canonicalJson, contentHash } from './local-identity.js';
@@ -200,4 +205,111 @@ export function remoteReviewContextHash(payload: RemoteReviewPayload): string {
     sourceHash: payload.source.snapshot.hash,
     context: payload.context,
   });
+}
+
+export function centralReviewExecutorConfigHash(
+  model: { accountId: string; name: string; reasoningEffort: string },
+  modelCalls: number,
+): string {
+  return contentHash({
+    accountId: model.accountId,
+    model: model.name,
+    reasoningEffort: model.reasoningEffort,
+    modelCalls,
+  });
+}
+
+export function prepareRemoteReviewHandle(input: RemoteReviewRequest): RemoteReviewHandle {
+  const { payload: p, approval } = validateRemoteReviewRequest(input, input.payload);
+  return remoteReviewHandle({
+    schemaVersion: 1,
+    requestId: p.requestId,
+    audience: p.audience,
+    clientId: p.clientId,
+    payloadHash: approval.payloadHash,
+    client: p.client,
+    source: p.source.snapshot,
+    sourceFiles: p.source.files.map((f) => f.metadata),
+    selected: p.source.selected,
+    contextHash: remoteReviewContextHash(p),
+    model: p.model.name,
+    executorConfigHash: centralReviewExecutorConfigHash(p.model, p.budget.modelCalls),
+    sourceSeconds: p.retention.sourceSeconds,
+    resultSeconds: p.retention.resultSeconds,
+  });
+}
+
+export class RemoteReviewDeliveryError extends Error {
+  constructor(
+    readonly code: 'delivery-unconfirmed' | 'response-mismatch' | 'http-error',
+    readonly statusCode?: number,
+    readonly authorityFailure?: 'revoked' | 'authentication-required' | 'identity-unavailable',
+  ) {
+    super(code);
+    this.name = 'RemoteReviewDeliveryError';
+  }
+}
+
+export function verifyRemoteReviewStatus(
+  handle: RemoteReviewHandle,
+  input: unknown,
+  previous?: RemoteReviewStatus,
+): RemoteReviewStatus {
+  try {
+    const h = remoteReviewHandle(handle),
+      s = remoteReviewStatus(input);
+    if (
+      s.requestId !== h.requestId ||
+      s.payloadHash !== h.payloadHash ||
+      s.clientId !== h.clientId ||
+      contentHash(s.audience) !== contentHash(h.audience) ||
+      Date.parse(s.sourceExpiresAt) - Date.parse(s.receivedAt) !== h.sourceSeconds * 1000 ||
+      Date.parse(s.resultExpiresAt) - Date.parse(s.receivedAt) !== h.resultSeconds * 1000 ||
+      (previous &&
+        (s.receivedAt !== previous.receivedAt ||
+          s.sourceExpiresAt !== previous.sourceExpiresAt ||
+          s.resultExpiresAt !== previous.resultExpiresAt ||
+          (previous.state === 'completed' &&
+            s.state === 'completed' &&
+            s.reportHash !== previous.reportHash)))
+    )
+      throw Error('mismatch');
+    return s;
+  } catch {
+    throw new RemoteReviewDeliveryError('response-mismatch');
+  }
+}
+
+/** Validates a server report as a whole; server read receipts are never presented as local reads. */
+export function verifyRemoteReviewResult(
+  handle: RemoteReviewHandle,
+  input: unknown,
+  previous?: RemoteReviewStatus,
+) {
+  try {
+    const h = remoteReviewHandle(handle),
+      result = remoteReviewResult(input);
+    const s = verifyRemoteReviewStatus(h, result.status, previous),
+      r = result.report;
+    const hashes = (values: unknown[]) => contentHash(values.map((v) => contentHash(v)).sort());
+    if (
+      s.state !== 'completed' ||
+      s.reportHash !== contentHash(r) ||
+      !['completed', 'partial', 'needs-context'].includes(r.status) ||
+      !r.finishedAt ||
+      contentHash(r.identity.client) !== contentHash(h.client) ||
+      contentHash(r.identity.source) !== contentHash(h.source) ||
+      r.identity.context.hash !== h.contextHash ||
+      r.identity.executor.id !== 'central' ||
+      r.identity.executor.model !== h.model ||
+      r.identity.executor.configHash !== h.executorConfigHash ||
+      hashes(r.sourceFiles) !== hashes(h.sourceFiles) ||
+      hashes(r.files.map((f) => ({ path: f.source.path, side: f.source.side }))) !==
+        hashes(h.selected)
+    )
+      throw Error('mismatch');
+    return result;
+  } catch {
+    throw new RemoteReviewDeliveryError('response-mismatch');
+  }
 }

@@ -3,7 +3,12 @@ import {
   localReviewResponseSchema,
   type FixedSourceToolName,
 } from '@gcr/client-contract';
-import { contentHash, type LocalReviewExecutor } from '@gcr/client-core';
+import {
+  contentHash,
+  centralReviewExecutorConfigHash,
+  type LocalReviewExecutor,
+} from '@gcr/client-core';
+export { centralReviewExecutorConfigHash } from '@gcr/client-core';
 import type { ChatAccountSelection } from './account-registry.js';
 
 export class CentralReviewExecutorError extends Error {
@@ -18,18 +23,6 @@ export class CentralReviewExecutorError extends Error {
     super(code);
   }
 }
-export function centralReviewExecutorConfigHash(
-  model: { accountId: string; name: string; reasoningEffort: string },
-  modelCalls: number,
-): string {
-  return contentHash({
-    accountId: model.accountId,
-    model: model.name,
-    reasoningEffort: model.reasoningEffort,
-    modelCalls,
-  });
-}
-
 /** Registered HTTP model over the same source port used by local reviews.
  * Account discovery, model admission and job ownership belong to the caller. */
 export function createCentralReviewExecutor(

@@ -166,6 +166,25 @@ export const remoteReviewRequest = object({
 });
 export type RemoteReviewRequest = ReturnType<typeof remoteReviewRequest>;
 
+/** Persist before submission. Contains verification metadata, never uploaded source or knowledge text. */
+export const remoteReviewHandle = object({
+  schemaVersion: literal(1),
+  requestId: id,
+  audience: centralAudience,
+  clientId: choice(['commit-defender', 'gcr-cli']),
+  payloadHash: sha256,
+  client: clientIdentity,
+  source: snapshotIdentity,
+  sourceFiles: list(sourceFile, 512, 1),
+  selected: list(object({ path: sourcePath, side: choice(['base', 'source']) }), 512, 1),
+  contextHash: sha256,
+  model: text(256, 1),
+  executorConfigHash: sha256,
+  sourceSeconds: integer(60, 86400),
+  resultSeconds: integer(60, 2592000),
+});
+export type RemoteReviewHandle = ReturnType<typeof remoteReviewHandle>;
+
 const receipt = {
   schemaVersion: literal(1),
   requestId: id,

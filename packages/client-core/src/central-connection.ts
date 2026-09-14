@@ -10,7 +10,15 @@ import {
   centralConnectionRecord,
   centralConnectionReference,
   type CentralConnectionRecord,
+  remoteReviewHandle,
+  type RemoteReviewHandle,
+  type RemoteReviewRequest,
 } from '@gcr/client-contract';
+import {
+  prepareRemoteReviewHandle,
+  RemoteReviewDeliveryError,
+  validateRemoteReviewRequest,
+} from './remote-review.js';
 import { LocalRecordStore, type LocalRecordOptions } from './local-records.js';
 import { defaultLocalDataDirectory } from './local-identity.js';
 import {
@@ -302,6 +310,43 @@ export class CentralConnections {
       signal,
     );
   }
+  async submitRemoteReview(id: string, value: RemoteReviewRequest, signal?: AbortSignal) {
+    value = validateRemoteReviewRequest(value, value.payload);
+    return this.remoteOperation(
+      id,
+      prepareRemoteReviewHandle(value),
+      (t, s) => t.submitRemoteReview(value, s),
+      signal,
+    );
+  }
+  async remoteReviewStatus(id: string, handle: RemoteReviewHandle, signal?: AbortSignal) {
+    return this.remoteOperation(id, handle, (t, s) => t.remoteReviewStatus(handle, s), signal);
+  }
+  async remoteReviewResult(id: string, handle: RemoteReviewHandle, signal?: AbortSignal) {
+    return this.remoteOperation(id, handle, (t, s) => t.remoteReviewResult(handle, s), signal);
+  }
+  async cancelRemoteReview(id: string, handle: RemoteReviewHandle, signal?: AbortSignal) {
+    return this.remoteOperation(id, handle, (t, s) => t.cancelRemoteReview(handle, s), signal);
+  }
+  private async remoteOperation<T>(
+    id: string,
+    value: RemoteReviewHandle,
+    work: (transport: KnowledgeHttpTransport, signal: AbortSignal) => Promise<T>,
+    signal?: AbortSignal,
+  ) {
+    const handle = remoteReviewHandle(value),
+      state = await this.state(id);
+    await this.assert(state);
+    if (
+      handle.clientId !== state.value.clientId ||
+      handle.client.profileId !== this.options.scope.profileId ||
+      this.options.scope.kind !== 'repository' ||
+      handle.client.repositoryKey !== this.options.scope.repositoryKey ||
+      handle.client.worktreeKey !== this.options.scope.worktreeKey
+    )
+      throw denied();
+    return this.submissionOperation(state, work, signal);
+  }
   private async submissionOperation<T>(
     state: State,
     work: (transport: KnowledgeHttpTransport, signal: AbortSignal) => Promise<T>,
@@ -314,7 +359,11 @@ export class CentralConnections {
       await this.assert(state);
       return result;
     } catch (error) {
-      if (error instanceof ReviewSubmissionDeliveryError && error.authorityFailure) {
+      if (
+        (error instanceof ReviewSubmissionDeliveryError ||
+          error instanceof RemoteReviewDeliveryError) &&
+        error.authorityFailure
+      ) {
         await this.assert(state);
         try {
           await cache.rejectAuthority(generation, error.authorityFailure);

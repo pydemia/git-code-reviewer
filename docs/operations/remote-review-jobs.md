@@ -1,6 +1,6 @@
 # 중앙 리뷰 작업 접수
 
-현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터, 업로드된 소스의 공통 리뷰 입력 복원이 구현되어 있다. 승인된 로컬 컨텍스트와 중앙 knowledge pin의 복원도 구현했다. Worker가 이 경로를 자동 실행하도록 연결했다. 실제 계정과 배포 검증은 아직 남아 있다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
+현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터, 업로드된 소스의 공통 리뷰 입력 복원이 구현되어 있다. 승인된 로컬 컨텍스트와 중앙 knowledge pin의 복원도 구현했다. Worker가 이 경로를 자동 실행하도록 연결했다. 공통 client의 복구 가능한 전송과 CLI의 명시적 중앙 실행 명령도 연결했다. CD 선택 UI, 실제 계정과 배포 검증은 아직 남아 있다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
 
 ## API
 
@@ -89,3 +89,18 @@ Worker는 중앙 요청과 기존 기준 생성·대화·PR 작업 사이에 실
 취소 또는 권한 철회 시 AbortSignal을 보내고 모델 transport 정리를 기다린다. 최대 5초 안에 정리 완료를 확인하지 못한 호출은 uncertain이며 cancelled나 completed로 기록하지 않는다. Cancelled는 이 worker의 전송/실행 종료를 뜻하며 provider 내부 연산 종료나 과금 취소를 보증하지 않는다. 이전 owner와 이미 완료된 receipt는 바꾸지 않는다. Worker 종료가 첫 전송 전이면 같은 요청을 queued로 남긴다.
 
 Helm의 `remoteReviews.enabled`, `userHourlyCalls`, `repositoryHourlyCalls`로 설정하며 기본은 false/60/300이다. Server와 worker의 직접 env에만 실행 활성화 값을 넣고 migration/retention 작업은 중앙 실행을 활성화하지 않는다. 활성화에는 기존 client key·knowledge distribution 설정, 등록 계정 암호화, model admission, local/SAML 인증이 필요하다. Worker에도 client key 활성화와 같은 서버 ID를 전달한다. 배포와 실제 계정 검증 전에는 기본 비활성 값을 유지한다.
+
+
+## Client 복구와 CLI
+
+공통 `RemoteReviewClient`는 제출 전에 요청 ID·audience·client/source/context·executor 설정 hash·전송 파일 metadata·보존 기간을 암호화해 기록한다. Source/knowledge 본문이나 report 본문은 이 기록에 넣지 않는다. 새 기록의 CAS가 성공하기 전에 POST하지 않으며 기존 ID의 `submit`은 조회만 한다. 수신 확인을 잃어도 새 ID나 다른 executor를 만들지 않는다. 명시적 `retrySubmission`만 동일 payload와 최초 승인 시각으로 재전송할 수 있다. 취소 요청은 네트워크 전에 기록하며 이후 재전송을 차단한다. 전송/취소 실패 자체를 실행 실패나 취소 완료로 표시하지 않는다.
+
+HTTP는 기존 명시적 서버·audience·OS credential binding을 사용하며 TLS 검증을 유지하고 redirect를 따르지 않는다. 매 요청에서 현재 연결을 확인하고 응답 뒤에도 연결 revision을 확인한다. 서버가 명시한 credential 폐기·identity freshness 오류는 기존 cache 권한 차단 경로에 반영한다. Response body는 크기와 UTF-8을 검사하며 오류 body나 credential을 사용자 메시지에 포함하지 않는다.
+
+Result는 계약 검사에 더해 payload/report hash, client/source/context, 중앙 executor의 계정·모델·effort·호출 상한 hash, 업로드 파일과 선택 범위를 확인한다. 최초 receipt의 보존 시각과 이미 확인한 report hash가 바뀌면 거부한다. Partial/needs-context는 원래 상태로 반환하고 server read ID를 local source receipt로 위장하지 않는다. 완료·취소 상태는 늦게 도착한 queued/running 응답으로 되돌리지 않는다.
+
+CLI의 `remote-review preview|submit|retry|status|wait|result|cancel|list` 사용법은 [CLI 안내](../../apps/cli/README.md#중앙-모델-실행)에 기록한다. Preview는 실제 전송 자료를 출력하지만 모델을 호출하거나 source를 제출하지 않는다. Source 전송은 정확한 hash 확인 후에만 시작한다. Knowledge mode와 model executor는 독립이며 중앙 context가 불완전할 때 preview가 로컬 지식으로 바뀌어 승인되지 않도록 한다.
+
+이 checkpoint의 CLI는 개발 bundle까지 검증했다. 계정/가용 모델 조회 endpoint, CD 승인·진행 UI, 패키지 버전 갱신과 설치, 실제 사용자 계정 호출 및 PRISM rollout은 남아 있다.
+
+`wait`는 제한 시간 안에서 같은 ID의 상태 GET만 반복한다. DB 경합의 409, 용량/일시 장애와 통신 오류를 재조회하며 인가 실패·검증 불일치에서는 중단한다. Timeout과 로컬 취소는 서버 outcome 미확정이며 POST나 모델 fallback을 실행하지 않는다.

@@ -37,6 +37,36 @@ gcr history --cwd /path/to/repo
 
 `result`는 저장된 리뷰의 종료 코드를 그대로 반환하고 `history`는 각 항목에 종료 코드를 포함한다. 실행 정책에 입장한 리뷰는 failed/cancelled도 terminal report로 저장한다. Capture·context·executor 준비 실패는 아직 실행 identity가 없으므로 명령 오류로 반환하며 가짜 report를 만들지 않는다. 이력 저장을 확인할 수 없으면 stdout의 보고서를 유지하고 stderr에 `history-save-failed`, 종료 코드 2를 출력한다.
 
+## 중앙 모델 실행
+
+개발 소스의 `remote-review`는 지식 모드와 별도로 중앙 모델 실행을 명시한다. `--mode standalone`은 로컬 지식을, `--mode centralized`는 선택한 중앙 기준을 사용한다. 두 경우 모두 명시한 `--connection`의 서버로 승인된 자료를 전송한다. 일반 `review`의 기존 executor 선택은 바꾸지 않는다. 현재 PRISM 배포본과 설치된 CLI에는 아직 이 경로를 전달하지 않았다.
+
+먼저 서버에 할당된 계정 ID와 `knowledge:read`·`ai:invoke` 권한이 있는 연결을 준비한다. 계정 선택 UI·가용 모델 조회는 후속 작업이며 캐시 동기화 성공만으로 중앙 모델의 실행 가능 여부를 판단하지 않는다.
+
+```sh
+umask 077
+gcr remote-review preview --cwd /path/to/repo --connection CONNECTION_ID \
+  --mode standalone --account-id ACCOUNT_ID --model gpt-6-astra \
+  --reasoning-effort xhigh --source index > /path/to/private/remote-preview.json
+gcr remote-review submit --cwd /path/to/repo --connection CONNECTION_ID \
+  --input /path/to/private/remote-preview.json --confirm-hash PAYLOAD_HASH
+gcr remote-review status REQUEST_ID --cwd /path/to/repo --connection CONNECTION_ID
+gcr remote-review result REQUEST_ID --cwd /path/to/repo --connection CONNECTION_ID
+gcr remote-review cancel REQUEST_ID --cwd /path/to/repo --connection CONNECTION_ID
+```
+
+미리보기 JSON에는 실제 source/base/관련 파일과 선택한 지식 본문이 들어 있다. 저장 위치는 repository 밖의 개인 디렉터리를 사용한다. `payloadHash`를 확인해 제출하며 `REQUEST_ID`는 `payload.requestId`다. 이 파일은 사용자가 저장한 평문이므로 명령의 암호화된 복구 기록과 별개다. 신규 제출에서 승인 시각을 기록한다. 중앙 지식 미리보기와 제출에는 모두 `--mode centralized`를 사용한다.
+
+기본 예산은 모델 호출 4회, 전체 120초, source tool 1 MiB·100회이며 각각 `--model-calls`, `--timeout-ms`, `--source-bytes`, `--tool-calls`로 미리보기에서 지정한다. 서버의 소스 보존은 3,600초, 결과 보존은 86,400초이며 `--source-retention-seconds`, `--result-retention-seconds`로 지정한다. 현재 모델 전송은 출력 token 상한을 지원하지 않는다. 미리보기에 한도 미지원 상태를 표시하고 임의의 token 제한을 약속하지 않는다.
+
+제출 전에 요청 ID·승인 hash·결과 검증 메타데이터를 OS 키로 암호화해 기록한다. 같은 ID를 다시 `submit`하면 상태만 조회한다. 404·통신 오류·Ctrl-C는 서버에서 실행하지 않았다는 뜻이 아니다. 자동 새 요청이나 로컬 executor 전환은 없다. 상태가 확인되지 않은 요청을 재전송하려면 같은 파일·hash로 `retry`를 명시한다. 최초 승인 시각을 유지하며 이미 알려진 작업은 조회만 한다. 취소를 요청한 뒤에는 재전송하지 않는다. 취소 응답이 유실되면 `cancel`로 다시 확인한다.
+
+`wait REQUEST_ID`는 최대 10분 동안 같은 요청의 상태를 조회한다. `--wait-timeout-ms`로 대기 한도를 줄일 수 있다. 일시적인 409·429·5xx 및 통신 오류는 재조회하지만 인가 오류·응답 불일치는 즉시 중단한다. 대기 종료는 서버 작업 취소를 뜻하지 않는다. 완료되면 결과를 받아 기존 report 종료 코드를 적용한다.
+
+`list`는 복구 기록을 보여 준다. 복구 기록에는 소스·지식 본문과 report 본문을 저장하지 않으며 요청 ID 재사용을 막기 위한 메타데이터는 유지한다. `result`는 현재 서버 권한과 보존 기간 안에서 결과를 조회하고 승인한 source/context/model/account 설정 및 report hash를 대조한다. 서버의 read receipt를 로컬 읽기 근거로 변환하지 않는다. 현재는 로컬 `history`·`chat`에 중앙 report를 가져오는 기능을 제공하지 않는다.
+
+제출·상태·취소 명령은 리뷰 결과를 확인하지 않았으므로 종료 코드 2를 반환한다. 결과 명령은 report의 완료·finding·미완료에 따라 기존 0/1/2 규칙을 적용한다. 미리보기와 목록 조회는 명령 성공 시 0이다.
+
 ## Host용 예방 리뷰 Skill
 
 CLI tarball은 host용 `dist/skills/gcr-prevention/SKILL.md`와 명령 안내를 포함한다. Skill 설치가 필요하면 해당 `gcr-prevention` 디렉터리를 선택한 host의 Skill 경로로 복사한다. 패키지 설치는 host 설정·hook·watcher를 변경하거나 모델을 실행하지 않는다. 이 host Skill은 아래의 암호화된 로컬 리뷰 지식 `gcr skill`과 용도가 다르다.

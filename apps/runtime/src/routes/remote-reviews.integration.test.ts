@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -12,6 +12,10 @@ import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { clientReviewReport, type RemoteReviewPayload } from '@gcr/client-contract';
 import {
   builtinReviewSkill,
+  TrustedCentralBinding,
+  KnowledgeHttpTransport,
+  prepareRemoteReviewHandle,
+  RemoteReviewDeliveryError,
   canonicalJson,
   contentHash,
   remoteReviewContextHash,
@@ -1045,15 +1049,33 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
       stop = new AbortController();
     const auth = await key(),
       body = input();
-    expect((await submit(auth.token, body)).statusCode).toBe(201);
+    const binding = new TrustedCentralBinding({
+      serverUrl: origin,
+      allowLoopbackHttp: true,
+      audience: body.payload.audience,
+      trustedKeys: new Map([['fixture', generateKeyPairSync('ed25519').publicKey]]),
+    });
+    const client = new KnowledgeHttpTransport(binding, {
+      bindingId: binding.id,
+      readToken: async () => auth.token,
+    });
+    const handle = prepareRemoteReviewHandle(body);
+    expect((await client.submitRemoteReview(body, stop.signal)).state).toBe('queued');
     const running = runWorker(fixture.settings, { signal: stop.signal });
     try {
-      await until(async () => (await get(auth.token, body)).json().state === 'completed');
-      const result = (await get(auth.token, body, 'result')).json();
+      await until(async () => {
+        try {
+          return (await client.remoteReviewStatus(handle, stop.signal)).state === 'completed';
+        } catch (error) {
+          if (error instanceof RemoteReviewDeliveryError && error.statusCode === 409) return false;
+          throw error;
+        }
+      });
+      const result = await client.remoteReviewResult(handle, stop.signal);
       expect(result.report.status).toBe('completed');
       expect(result.report.identity.context.hash).toBe(remoteReviewContextHash(body.payload));
       expect(fixture.requests).toHaveLength(2);
-      expect((await submit(auth.token, body)).statusCode).toBe(200);
+      expect((await client.submitRemoteReview(body, stop.signal)).state).toBe('completed');
       expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('1');
       expect(
         (

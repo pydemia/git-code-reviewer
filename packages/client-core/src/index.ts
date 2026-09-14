@@ -43,3 +43,4 @@ export * from './review-submissions.js';
 export * from './remote-review.js';
 export * from './remote-review-source.js';
 export * from './remote-review-context.js';
+export * from './remote-review-client.js';

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { serveMcpStdio } from './mcp.js';
+import { REMOTE_REVIEW_MAX_BYTES } from '@gcr/client-contract';
 import { executeCli } from './cli.js';
 import { fileURLToPath } from 'node:url';
 
@@ -41,7 +42,8 @@ if (process.argv[2] === 'mcp') {
         if (controller.signal.aborted) throw new Error('cancelled');
         const bytes = Buffer.from(chunk);
         size += bytes.length;
-        if (size > 2_000_000) throw new Error('input-limit');
+        if (size > (process.argv[2] === 'remote-review' ? REMOTE_REVIEW_MAX_BYTES * 2 : 2_000_000))
+          throw new Error('input-limit');
         chunks.push(bytes);
       }
       return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
