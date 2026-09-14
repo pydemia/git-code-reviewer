@@ -233,7 +233,7 @@ Phase 완료 조건별 근거 / goal 종료 결과
 | P05-C04   | GCR · `feat: publish immutable knowledge bundles from an outbox`         | 정책/Skill·집단·본인 개인 배포 projection, 같은 transaction의 outbox, canonical serialization·hash·크기 제한·artifact staging·release pointer         | 미승인/퇴역/비공개 원문 혼입 거부. Worker crash·중복 이벤트·부분 저장에도 준비되지 않은 artifact 미발행. Skill 실제 본문 포함                   |
 | P05-C05   | GCR · `feat: sign coherent manifests and revocation leases`              | 조합 manifest·서명된 빈 personal component·audience·authorization revision·offline lease·key ID·호환성. Rollback은 높은 sequence로 재발행             | 개인 component만 갱신, source 삭제/제외 시 재검토·필요한 철회 발행, signing key 회전. Bundle 크기 초과·개인 발행 실패를 빈 자료로 대체하지 않음 |
 | P05-C06   | GCR · `feat: expose authorized repository knowledge endpoints`           | repo resolve, manifest·bundle·source API, ETag/If-None-Match·권한별 projection. Fork·여러 remote·GHES host 명시 매핑                                  | Body owner 위조·bundle ID 추측·다른 tenant·repo 접근 거부. 304 전에도 인가, lease 갱신은 새 서명/200. 임의 URL로 원문 fetch하지 않음            |
-| P05-C07   | GCR · `feat: show knowledge publication and client compatibility status` | 발행 실패·현재 component/version·지원 client 표시, sync 상태 수신 계약·최소 metadata 보관 정책. 운영 feature flag와 검증 기록                         | 동기화 관측 없음은 unknown, 내용·개인 메모리 원문·source를 상태 telemetry로 자동 수집하지 않음. 비호환 client 거부 이유 표시                    |
+| P05-C07   | GCR · `feat: show knowledge publication and client compatibility status` | 발행 실패·현재 component/version·지원 client 표시, 서버가 관측한 GET 응답 상태·최소 보관 정책. 운영 feature flag와 검증 기록                         | 클라이언트 상태 보고 API를 만들지 않음. GET 성공만으로 로컬 적용·리뷰 완료를 추정하지 않고 unknown으로 표시. 비호환 client 거부 이유 표시                    |
 
 **완료 조건:** 실제 기존 원천 또는 명시적 테스트 원천으로 기준 후보→평가→승인→발행→API 다운로드→수정/퇴역을 수행한다. 동일 인가 범위의 두 client fixture가 같은 조합을 받고 다른 사용자의 personal bundle은 받지 못해야 한다. 이 phase는 API 수준 검증이며 실제 CD sync·리뷰는 P06의 완료 조건이다.
 
@@ -341,20 +341,20 @@ P10-C01–C04의 source 업로드·remote job·중앙 모델 executor·클라이
 | P12-C02   | GCR · `feat: reconcile incremental and closed pull request history`    | 기존 polling 증분 cursor·실패 재시도, 최근 종료 PR 회수·webhook 보정, bounded backfill·quota                  | 중복/역순/유실·pagination 중단 재개, scope/기간/처리량 제한. 전체 과거 PR 자동 수집 금지                      |
 | P12-C03   | GCR · `feat: derive review decisions from discussion and code changes` | 여러 원문·수정 전후에서 결함/오탐/예외/설계 결정/질문 후보, provenance·평가·명시적 승인 연결                  | Merge·resolve를 결함 해결로 단정하지 않음. 의미 유사도만으로 다른 endpoint의 위반을 합치지 않음               |
 | P12-C04   | GCR · `feat: re-evaluate criteria when sources or exceptions change`   | 원문 삭제/비공개·전제 변경·예외 만료·재발의 재검토·퇴역·critical revocation·재발행                            | 과거 지적 blanket suppression 없음. 예외 만료 후 재등장, 권한 사라진 원문의 배포 projection 정리              |
-| P12-C05   | GCR · `feat: trace recurring findings and feedback outcomes`           | Occurrence의 open/fixed/false-positive/exception/superseded, 원문→판단→배포→리뷰→수정 연결·관리 UI            | 동일 revision 중복과 새 SHA 재발 구분, feedback 중복 제출 집계 방지. 실제 표본으로 다음 client 리뷰 적용 확인 |
+| P12-C05   | GCR · `feat: trace recurring findings and feedback outcomes`           | Occurrence의 open/fixed/false-positive/exception/superseded, 원문→판단→배포→리뷰→수정 연결·관리 UI            | 동일 revision 중복과 새 SHA 재발 구분, 중앙 PR 논의의 중복 수집 집계 방지. 실제 표본으로 다음 client 리뷰 적용을 로컬에서 확인 |
 
 **완료 조건:** 실제 확인 가능한 논의와 수정 표본으로 후보→검토→배포→다음 로컬 리뷰를 연결하고 전제가 바뀐 판단을 재검토한다. 개인별 기여나 결함 수를 추정으로 채우지 않는다. Webhook·backfill은 사용자가 지정한 저장소·범위와 기존 권한 안에서 운용한다.
 
 ### P13. 중앙 PR 리뷰와 운영 지표
 
-**Goal 목표:** 중앙 PR 분석에 같은 공용 기준을 적용하고 로컬/중앙/CI 근거의 신뢰 수준을 구분해 재발·오탐·검토 비용을 관측한다.
+**Goal 목표:** 중앙 PR 분석에 같은 공용 기준을 적용하고 중앙/CI 근거의 신뢰 수준을 구분해 재발·오탐·검토 비용을 관측한다. 로컬 결과와 실행 지표는 로컬에서만 확인한다.
 
 | Commit ID | 저장소·제안 메시지                                                     | 변경 범위                                                                                                     | Commit 검증                                                                                                                    |
 | --------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | P13-C01   | GCR · `feat: pin shared criteria in central pull request reviews`      | 중앙 분석에서 공용 bundle·resolver·result 계약 고정, 개인 context의 PR projection 제외                        | 동일 fixture에서 client/central 기준 적용 일치, queued/running 이전 revision 보존, 개인 원문/ID 누출 거부                      |
-| P13-C02   | GCR · `feat: link client reports and trusted validation evidence`      | Source/tree/context/rule/tool/profile/environment 일치 검증, self-report와 trusted central/CI provenance 분리 | 위조 client 결과·CI issuer/repo/ref 불일치·stale evidence 거부. P11 미완료 시 test-evidence 경로 비활성                        |
+| P13-C02   | GCR · `feat: link central reviews and trusted CI validation evidence`      | Source/tree/context/rule/tool/profile/environment 일치 검증, central/CI provenance 검증. 로컬 결과는 로컬에서만 비교 | CI issuer/repo/ref 불일치·stale evidence 거부. 로컬 결과 제출 경로 없음. P11 로컬 실행 증거도 중앙으로 전송하지 않음                        |
 | P13-C03   | GCR · `feat: present recurring findings without duplicate pr messages` | 같은 발생 항목 managed comment 갱신, 새 SHA의 재발·미확인·잔여 위험 구분, 위험별 담당 검토 경로               | 동일 SHA retry 중복 게시 방지·다른 결함 suppression 없음. 실제 PR 게시 검증은 명시된 대상/권한으로 수행, 자동 승인·merge 없음  |
-| P13-C04   | GCR · `feat: report review outcomes with explicit observation gaps`    | Outcomes·Client sync·품질/비용 지표: 확인된 재발·오탐·수정·미완료·sync 지연·관측 가능한 호출/시간             | 미제출 telemetry는 unknown, 미판정은 분모 분리. Reviewer 개인 평가·확인되지 않은 사고 감소율 생성 금지                         |
+| P13-C04   | GCR · `feat: report review outcomes with explicit observation gaps`    | 중앙 PR outcomes·품질/비용·발행/GET 응답 지표. 로컬 리뷰·sync 적용·호출/시간 지표는 로컬에만 보관             | 중앙에서 로컬 실행·적용 여부는 unknown, 미판정은 분모 분리. Reviewer 개인 평가·확인되지 않은 사고 감소율 생성 금지                         |
 | P13-C05   | GCR · `docs: verify staged rollout and review recovery operations`     | Canary·오탐 기준 rollback·키/계정 폐기·복원·model/DB pool 운영, 지원 환경과 known limitations 갱신            | 규칙은 높은 sequence rollback, client는 검증한 patch 릴리스, identity DB는 검증한 복구 절차. 실제 배포 후 기준/인가/리뷰 smoke |
 
 **완료 조건:** 같은 공용 기준의 로컬/PR 적용과 신뢰 구분을 검증하고 관측 누락이 있는 지표를 사실대로 표시한다. 운영 확대·복구를 검증하되 local hook을 중앙 강제 통제의 증거로 사용하지 않는다.

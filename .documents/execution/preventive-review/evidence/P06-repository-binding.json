@@ -1,0 +1,333 @@
+{
+  "schemaVersion": 1,
+  "phase": "P06",
+  "commits": [
+    "P05-C06",
+    "P06-C01"
+  ],
+  "phaseComplete": false,
+  "goalComplete": false,
+  "feature": "Central repository identity downloaded with read-only credential and matched against local Git remotes without uploading remotes or source",
+  "sourceCommits": {
+    "gcr": "c5e68d7c803e64ce50d723f76c7b82b74ef5acfb",
+    "commitDefender": "e29e3ad84f12a84babe4085bd10279da0e9c2202"
+  },
+  "versions": {
+    "clientLibraries": "0.1.0-alpha.36",
+    "cli": "0.1.0-alpha.32",
+    "commitDefender": "2.9.3"
+  },
+  "checks": [
+    "authorized repository identity GET; cookie-only, revoked and cross-repository credentials rejected",
+    "remote mismatch rejected before key persistence",
+    "HTTPS/SSH/scp and Git insteadOf matched locally; fork, host, path and nonstandard ports kept distinct",
+    "changed remotes deny signed cache, context, review preparation and knowledge view",
+    "disconnect remains available after mismatch",
+    "central source identity rechecked on sync",
+    "no central executor or local result submission commands"
+  ],
+  "tests": {
+    "gcrFocused": {
+      "files": 3,
+      "passed": 45,
+      "optInSkipped": 1,
+      "database": "PostgreSQL 18.3",
+      "databaseFixtureCleanup": true
+    },
+    "gcrAdditionalCliBinding": {
+      "passed": 1,
+      "deselected": 21
+    },
+    "finalParserAfterLintRefactor": {
+      "passed": 12,
+      "overlapsFocusedRun": true
+    },
+    "commitDefender": {
+      "view": 6,
+      "sync": 3,
+      "review": 12,
+      "chat": 4,
+      "contract": 21,
+      "passed": 46
+    },
+    "runtimeBuild": true,
+    "clientPackageCleanConsumers": [
+      "25.9.0",
+      "18.20.8"
+    ],
+    "commitDefenderTypecheck": true,
+    "commitDefenderTestTypecheck": true
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T17:01:06.111503+00:00",
+    "release": {
+      "revision": 60,
+      "updated": "2026-09-15T01:53:21.294741+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.46",
+      "app_version": "0.8.0-alpha.50",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:22e53744bfdfb75bc1a806f393e2d2907bd19e39f669033a54abda8264a1b1ac",
+      "source": "c5e68d7c803e64ce50d723f76c7b82b74ef5acfb",
+      "version": "0.8.0-alpha.50",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:22e53744bfdfb75bc1a806f393e2d2907bd19e39f669033a54abda8264a1b1ac"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "c5e68d7c803e64ce50d723f76c7b82b74ef5acfb",
+        "org.opencontainers.image.version": "0.8.0-alpha.50"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 45,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-6587cbdbc4-b588k",
+        "imageDigest": "sha256:22e53744bfdfb75bc1a806f393e2d2907bd19e39f669033a54abda8264a1b1ac",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-755bb996f7-kv9s4",
+        "imageDigest": "sha256:22e53744bfdfb75bc1a806f393e2d2907bd19e39f669033a54abda8264a1b1ac",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, unchanged schema45 and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:eff2d66935bd2e1d260304d21af8d0abcf39b621051f9f84cf135d3af4be5ffc",
+    "chartSha256": "55a17840495b18c525670f2de34be833ecf3c54265b215d786089822ab94f10c"
+  },
+  "helmTest": {
+    "status": "passed",
+    "revision": 60,
+    "completedAt": "2026-09-15T01:54:36+09:00"
+  },
+  "liveClient": {
+    "requestId": "d9103058-d215-4240-9d2b-2c0ece453f8c",
+    "status": "passed",
+    "version": "0.8.0-alpha.50",
+    "cliVersion": "0.1.0-alpha.32",
+    "cliSha256": "12f3f227b71ccad35ce62598ea4585a26e3a3af2b111f6be470f0f9a3ca3b5b2",
+    "checks": [
+      "trusted-https-session-login",
+      "downloaded-public-configuration-matches-independent-CA-and-key",
+      "installed-cli-api-key-connect-with-macos-keychain",
+      "actual-worker-v2-three-component-sync",
+      "installed-cli-central-context-exact-audience",
+      "authenticated-repository-identity-local-remote-match",
+      "changed-remote-blocks-offline-context",
+      "explicit-offline-signed-cache",
+      "web-revocation-denies-cli-synchronization",
+      "disconnect-fallback-is-local-without-central-audience",
+      "explicit-disconnect-blocks-offline-cache"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "ownedKeychainEntriesRemoved": true,
+    "ownedServerRowsRemoved": true,
+    "ownedLocalFilesRemoved": true,
+    "verifiedAt": "2026-09-14T16:57:02.309Z"
+  },
+  "hosts": [
+    {
+      "status": "passed",
+      "vscode": "1.135.0",
+      "node": "24.18.1",
+      "electron": "42.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.9.3",
+      "delivery": "packaged-extension",
+      "commandCount": 25,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "central executor and upstream submission commands absent",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    },
+    {
+      "status": "passed",
+      "vscode": "1.90.2",
+      "node": "20.9.0",
+      "electron": "29.4.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.9.3",
+      "delivery": "packaged-extension",
+      "commandCount": 25,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "central executor and upstream submission commands absent",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    }
+  ],
+  "installation": {
+    "version": "2.9.3",
+    "path": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.9.3",
+    "vsixSha256": "99af38106ccfb985f85ec8ee6a4713b4a1d89ba5c8ded8b0393771be45128a49",
+    "packageMatchesExceptVSCodeMetadata": true,
+    "fileHashes": {
+      "gear-settings-svgrepo-com.svg": "63f5dddb385ee497406a836eeaca06e76894deaac6f57a172491abaac6120a16",
+      "readme.md": "76e4e8376b37c7af3fa578f73777e6b7460b06333f5a832744178b6a232f5628",
+      "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/standalone-review-worker.js": "1dc9f54a4398f5beb499a853f88ab42376b2339bdeb8ef291e36cadcbdadc8c9",
+      "out/review-chat-worker.js": "2d070f155b399031cf8c8ed037e80205b1453b179ef6cd776336220a5faeae5e",
+      "out/hook-cli.js": "378d683fda1ef406c8db076300837f75697f904ff912f9f969c205f419b935e6",
+      "out/extension.js": "a23fa5cf2645c95515ce6a0ad839152149d018ae0e0bdf561f395b65f7d2aaa7",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "docs/standalone-review.md": "5f34b97fcd103cfb8350c77a89a6e9ff229103f9ea554ac4cb4901b76bf84b65",
+      "docs/review-submissions.md": "947ba20aeaa5cf4323b5f862198377131b6ed89923851aac13cf92e1e8ff5608",
+      "docs/review-conversations.md": "659846084bec1a612105db33e05d3a251e107a68fbaa812a9ac9b458e8c3c711",
+      "docs/model-credentials.md": "20609945e9a5679b31e64bbd1318f933c8d1dbc761b230f2eae48a0dfaac054d",
+      "docs/central-review.md": "69f442f71046d0ac7a65b6ccba61140e1898d649cabb83e791dee3508885cd49",
+      "docs/automatic-reviews.md": "0df472bb3db236ef34ba19e3d4998c719d8662d76c75ed7cadf65d76b495328d",
+      "media/shield.svg": "2010a057014fec006c2e21bd99b4920eca6f62557bdbf40aba8107174322f317",
+      "media/icon.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/icon.png": "08e5c0ab7e5fb8d9fa4ecd588bfbe943de623c023df5ab58f18c9a6d2509c5eb",
+      "media/checklist.svg": "21dd71ecaf23a444021007f6e19b051977bac55cf9bc2a4b353e191f6fd2585a",
+      "third-party/gcr/README.md": "e95bebe4c89b1c6e2f28c1dd8647d911707d96f7bc97064e3c6307bb3626c0e1",
+      "third-party/gcr-cli/manifest.json": "1b9c2a7607b0c3f52421d3eb1e70e8a734406590317e4538b3789079d2120076",
+      "third-party/gcr-cli/NOTICE": "20250998d1506d715bd504d0c929a503b26290c51e370ab48fc9d69866f268bc",
+      "third-party/gcr-cli/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/gcr-service/manifest.json": "7119b3cddef54a45f176e4b38596f31c6348caa1d049d3d6559bb35e86942799",
+      "out/gcr-service/main.mjs": "12f3f227b71ccad35ce62598ea4585a26e3a3af2b111f6be470f0f9a3ca3b5b2",
+      "media/icon-options/E-prism.svg": "4c8e90762a1461742c2c536f79db5f08073a494ba396610329c87a30bb1a72f4",
+      "media/icon-options/D-arctic.svg": "da4073ab7183ba9e93cf5f8bf43b5db309bc52cd05942dfb30989820bd3f0c39",
+      "media/icon-options/C5-stroke.svg": "7d555608dd8c17829b267acf4edd1bcd2e819de9b3d8d5c8e0dcbb7b0757d07f",
+      "media/icon-options/C4-split.svg": "00d7331f1e3bd832a3c3f150074786166935e8f6b95b964a243778e0dbb29358",
+      "media/icon-options/C3-ring.svg": "06136d4882b76fe4bfdd9fa3912615e28505bcf22cfb336dfe23236421bb3cc6",
+      "media/icon-options/C2-faceted.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/icon-options/C1-razor.svg": "aaa7d9373c99e2cbd3d0856437c0748e5e51522941a797828b1101bcd08e998b",
+      "media/icon-options/C-sunset.svg": "27d42d0ef7711cf14529285e183ab7d78c87d8a887ee6586bc2937d6426ae92e",
+      "media/icon-options/B-terminal.svg": "3997643541cc731d198e42ac8870cd2ccaf3f952717f1567aab6f18fbe8ad489",
+      "media/icon-options/A-apex.svg": "159597f286f7c1d4198dfb990d776279e5966d772aefc4b2e43117eb6e579375",
+      "third-party/gcr/client-executors/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-core/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-contract/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "forcedReload": false,
+    "globalCliReplaced": false
+  },
+  "limits": [
+    "Existing connections and repositories without remotes remain manual/unverified; explicit reconnect with a matching remote establishes binding.",
+    "No automatic server/tenant discovery; independently trusted connection configuration is required.",
+    "No mapping of arbitrary nonstandard SSH-to-HTTPS port aliases.",
+    "Native hosts verify activation and commands, not automated interaction with the binding UI.",
+    "Live PRISM fixture is synthetic and model-free; this checkpoint does not establish real model review quality or Linux client acceptance.",
+    "Initial live fixture incorrectly expected default disconnected offline context to fail. Corrected the assertion to require local-only standalone fallback, then explicitly verified pause mode rejects central cache; both fixture runs cleaned up owned resources.",
+    "First package/consumer attempts found stale exported version and stale npm integrity; rebuilt and verified final immutable artifacts before delivery.",
+    "P06 and the full development/deployment goal remain incomplete."
+  ],
+  "localArtifacts": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P06-repository-binding",
+  "artifacts": {
+    "gcr-client-contract-0.1.0-alpha.36.tgz": "242352fdfd12bd4b7b412946eeeb2fd770e3ea76846e45a8dbb098e4d24bd0da",
+    "gcr-client-core-0.1.0-alpha.36.tgz": "bf8a63d7a420073e83e8491a9f9c9b3301ec05d3a760ca74855207abb0aff90f",
+    "gcr-client-executors-0.1.0-alpha.36.tgz": "43065ebc1ac6927af61955c071df8c024d9f63b6a95536624b9c292381bd676c",
+    "gcr-cli-0.1.0-alpha.32.tgz": "9861a68dba23764a420d05340ee6e5d723e748acd4932d97781ac147abd17467"
+  }
+}
