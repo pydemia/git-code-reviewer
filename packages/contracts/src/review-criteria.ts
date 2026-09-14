@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { githubPrMessageProvenanceSchema } from './review-memory.js';
 
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 const text = (maximum: number) => z.string().trim().min(1).max(maximum);
@@ -25,7 +26,12 @@ export const criterionStateSchema = z.enum(['draft', 'evaluated', 'shadow', 'act
 export const criterionSourceInputSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('memory'), id: z.string().uuid(), contentHash: hash }).strict(),
   z
-    .object({ kind: z.literal('github-pr-message'), id: z.string().uuid(), contentHash: hash })
+    .object({
+      kind: z.literal('github-pr-message'),
+      id: z.string().uuid(),
+      contentHash: hash,
+      observationHash: hash.optional(),
+    })
     .strict(),
   z.object({ kind: z.literal('manual'), content: text(8000) }).strict(),
 ]);
@@ -38,6 +44,8 @@ export const criterionSourceSchema = z
     label: text(500),
     baseSha: z.string().nullable(),
     headSha: z.string().nullable(),
+    observationHash: hash.optional(),
+    discussion: githubPrMessageProvenanceSchema.optional(),
   })
   .strict();
 

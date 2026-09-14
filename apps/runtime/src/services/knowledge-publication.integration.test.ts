@@ -597,6 +597,45 @@ describe.skipIf(!url).sequential('immutable knowledge publication', () => {
     expect(after.row.last_error).toBe('PUBLICATION_INVALID');
     expect(after.row.requested_revision).not.toBe(after.row.published_revision);
   }, 30000);
+  it('withdraws a criterion when its observed review state changes without a body edit', async () => {
+    const repository = await repo();
+    const pr = (
+      await db.query(
+        "insert into pull_requests(repository_id,github_id,number,title,state,author_login,html_url,base_ref,base_sha,head_ref,head_sha,github_updated_at) values($1,1,1,'Synthetic','open','fixture','https://example.invalid/pr/1','main',$2,'feature',$3,clock_timestamp()) returning id",
+        [repository, 'a'.repeat(40), 'b'.repeat(40)],
+      )
+    ).rows[0].id;
+    const body = 'Preserve tenant isolation in cache keys.';
+    const source = (
+      await db.query(
+        "insert into github_pr_messages(tenant_id,repository_id,pull_request_id,github_id,kind,author_login,body,content_hash,html_url,github_created_at,github_updated_at,observation_hash) values($1,$2,$3,1,'review','fixture',$4,$5,'https://example.invalid/review/1',clock_timestamp(),clock_timestamp(),$6) returning id",
+        [tenant, repository, pr, body, hash(body), 'c'.repeat(64)],
+      )
+    ).rows[0].id;
+    const input = candidate();
+    input.decision.sources = [
+      {
+        kind: 'github-pr-message',
+        id: source,
+        contentHash: hash(body),
+        observationHash: 'c'.repeat(64),
+      },
+    ];
+    const criterion = await activate(repository, input);
+    const initial = await publish(repository);
+    expect(
+      initial.bundle.component === 'policy' && initial.bundle.criteria.map((r) => r.id),
+    ).toContain(criterion);
+    await db.query('update github_pr_messages set observation_hash=$2 where id=$1', [
+      source,
+      'd'.repeat(64),
+    ]);
+    const changed = await publish(repository);
+    expect(changed.bundle.component === 'policy' && changed.bundle.criteria).toEqual([]);
+    expect(changed.row.release_sequence).toBeGreaterThan(initial.row.release_sequence);
+    expect(await store.readText(initial.row.locator)).toBe(initial.bytes);
+  });
+
   it('invalidates a personal projection when its PR source changes or is ignored', async () => {
     const repository = await repo();
     const pr = (
@@ -619,6 +658,18 @@ describe.skipIf(!url).sequential('immutable knowledge publication', () => {
     await approve(repository, id, alice);
     const initial = await publish(repository, 'personal', alice);
     expect(initial.bundle.component === 'personal' && initial.bundle.memories.length).toBe(1);
+    // A newly observed review state/location changes provenance even when body bytes do not.
+    await db.query('update github_pr_messages set observation_hash=$2 where id=$1', [
+      source,
+      'd'.repeat(64),
+    ]);
+    const stateChanged = await publish(repository, 'personal', alice);
+    expect(stateChanged.bundle.component === 'personal' && stateChanged.bundle.memories).toEqual(
+      [],
+    );
+    await approve(repository, id, alice);
+    const reapproved = await publish(repository, 'personal', alice);
+    expect(reapproved.bundle.component === 'personal' && reapproved.bundle.memories.length).toBe(1);
     await db.query("update github_pr_messages set body='Changed PR source' where id=$1", [source]);
     const changed = await publish(repository, 'personal', alice);
     expect(changed.bundle.component === 'personal' && changed.bundle.memories).toEqual([]);

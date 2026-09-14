@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
-import { reviewMemorySchema } from '@gcr/contracts';
+import {
+  reviewMemorySchema,
+  githubPrMemorySourceListSchema,
+  githubPrMessageHistorySchema,
+} from '@gcr/contracts';
+import { listCriterionSources, resolveCriterionSources } from '../services/review-criteria.js';
 import { ZodError } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AuthUser } from '../auth/index.js';
@@ -230,6 +235,187 @@ describe.skipIf(!databaseUrl).sequential('review memory workflow', () => {
         expectedId,
       ]);
     }
+  });
+
+  it('preserves state-only observations, rejects late responses and exposes authorized history', async () => {
+    const provenance = {
+      provider: 'github-rest' as const,
+      reviewState: 'CHANGES_REQUESTED',
+      reviewGithubId: '81',
+      originalCommitSha: null,
+      originalLine: null,
+      startLine: null,
+      originalStartLine: null,
+      startSide: null,
+      subjectType: null,
+      diffHunk: null,
+      threadResolved: null,
+      threadOutdated: null,
+    };
+    const message = {
+      ...githubMessage('  Same source text\n'),
+      githubId: 81,
+      kind: 'review' as const,
+      provenance,
+    };
+    const at = (second: number) => new Date(`2026-09-15T00:00:${String(second).padStart(2, '0')}Z`);
+    await persistPullRequestMessages(database, repositoryId, 7, [message], at(1));
+    const row = (
+      await database.query('select id,observation_hash from github_pr_messages where github_id=81')
+    ).rows[0];
+    const firstHash = row.observation_hash;
+    const outbox = async () =>
+      (await database.query('select count(*)::int as n from review_knowledge_outbox')).rows[0].n;
+    const before = await outbox();
+    await persistPullRequestMessages(database, repositoryId, 7, [message], at(2));
+    expect(await outbox()).toBe(before);
+    const approved = { ...message, provenance: { ...provenance, reviewState: 'APPROVED' } };
+    await persistPullRequestMessages(database, repositoryId, 7, [approved], at(4));
+    expect(await outbox()).toBeGreaterThan(before);
+    await expect(
+      resolveCriterionSources(
+        database,
+        repositoryId,
+        [
+          {
+            kind: 'github-pr-message',
+            id: row.id,
+            contentHash: (
+              await database.query('select content_hash from github_pr_messages where id=$1', [
+                row.id,
+              ])
+            ).rows[0].content_hash,
+            observationHash: firstHash,
+          },
+        ],
+        false,
+      ),
+    ).rejects.toMatchObject({ statusCode: 409 });
+    const after = await outbox();
+    await persistPullRequestMessages(database, repositoryId, 7, [message], at(3));
+    expect(await outbox()).toBe(after);
+    const latest = (
+      await database.query(
+        'select body,provenance,observation_hash from github_pr_messages where id=$1',
+        [row.id],
+      )
+    ).rows[0];
+    expect(latest.body).toBe(message.body);
+    expect(latest.provenance.reviewState).toBe('APPROVED');
+    expect(latest.observation_hash).not.toBe(firstHash);
+    expect(
+      (await listCriterionSources(database, repositoryId)).find((s) => s.id === row.id),
+    ).toMatchObject({
+      observationHash: latest.observation_hash,
+      discussion: { reviewState: 'APPROVED', threadResolved: null },
+    });
+    const base = `/api/v1/repositories/${repositoryId}/pulls/7/review-memory-sources`;
+    const listed = await app.inject({ url: base, headers: actor('first') });
+    expect(
+      githubPrMemorySourceListSchema.parse(listed.json()).items.find((s) => s.id === row.id),
+    ).toMatchObject({
+      provenance: { reviewState: 'APPROVED' },
+      observationHash: latest.observation_hash,
+    });
+    const historyUrl = `${base}/${row.id}/history`;
+    const response = await app.inject({ url: historyUrl, headers: actor('first') });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    const history = githubPrMessageHistorySchema.parse(response.json());
+    expect(history.items.map((item) => item.snapshot.provenance?.reviewState)).toEqual([
+      'APPROVED',
+      'CHANGES_REQUESTED',
+    ]);
+    expect(history.items[0]!.snapshot.body).toBe(message.body);
+    expect(
+      (
+        await database.query(
+          'select count(*)::int as n from github_pr_message_versions where message_id=$1',
+          [row.id],
+        )
+      ).rows[0].n,
+    ).toBe(1);
+    // Returning to an earlier state is another event, not a duplicate snapshot to discard.
+    await persistPullRequestMessages(database, repositoryId, 7, [message], at(5));
+    expect(
+      (await app.inject({ url: historyUrl, headers: actor('first') })).json().items,
+    ).toHaveLength(3);
+    expect((await app.inject({ url: historyUrl })).statusCode).toBe(401);
+    expect(
+      (
+        await app.inject({
+          url: historyUrl.replace('/pulls/7/', '/pulls/8/'),
+          headers: actor('first'),
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          url: historyUrl.replace(repositoryId, randomUUID()),
+          headers: actor('first'),
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          url: historyUrl + '?cursor=9223372036854775808',
+          headers: actor('first'),
+        })
+      ).statusCode,
+    ).toBe(400);
+    const next = (
+      await app.inject({
+        url: historyUrl + '?cursor=' + history.items[0]!.id,
+        headers: actor('first'),
+      })
+    ).json();
+    expect(next.items).toHaveLength(1);
+    await expect(
+      database.query(
+        'update github_pr_message_observations set observation_hash=$2 where message_id=$1',
+        [row.id, 'a'.repeat(64)],
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    await expect(
+      database.query('delete from github_pr_message_observations where message_id=$1', [row.id]),
+    ).rejects.toMatchObject({ code: '23514' });
+    await database.query('delete from github_pr_messages where id=$1', [row.id]);
+    expect(
+      (
+        await database.query(
+          'select count(*)::int as n from github_pr_message_observations where message_id=$1',
+          [row.id],
+        )
+      ).rows[0].n,
+    ).toBe(0);
+  });
+
+  it('does not restore an older edited body from a later-started but stale provider response', async () => {
+    const fresh = { ...githubMessage('new'), githubId: 82, updatedAt: '2026-09-14T02:00:00Z' };
+    await persistPullRequestMessages(
+      database,
+      repositoryId,
+      7,
+      [fresh],
+      new Date('2026-09-15T01:00:00Z'),
+    );
+    await persistPullRequestMessages(
+      database,
+      repositoryId,
+      7,
+      [{ ...fresh, body: 'old', updatedAt: '2026-09-14T01:00:00Z' }],
+      new Date('2026-09-15T01:00:01Z'),
+    );
+    expect(
+      (await database.query('select body from github_pr_messages where github_id=82')).rows[0].body,
+    ).toBe('new');
+    // Absence from a list is not evidence of deletion.
+    await persistPullRequestMessages(database, repositoryId, 7, []);
+    expect(
+      (await database.query('select body from github_pr_messages where github_id=82')).rows[0].body,
+    ).toBe('new');
   });
 
   async function createAndActivate(user: string): Promise<string> {

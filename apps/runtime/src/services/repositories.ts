@@ -81,8 +81,15 @@ export async function pollRepository(
       const conversationPulls = await persistPulls(database, repositoryId, result.pulls);
       if (reader.listPullRequestMessages) {
         for (const pull of conversationPulls) {
+          const syncStartedAt = new Date();
           const messages = await reader.listPullRequestMessages(repository, pull.number);
-          await persistPullRequestMessages(database, repositoryId, pull.number, messages);
+          await persistPullRequestMessages(
+            database,
+            repositoryId,
+            pull.number,
+            messages,
+            syncStartedAt,
+          );
         }
       }
     }
@@ -323,6 +330,7 @@ export async function persistPullRequestMessages(
   repositoryId: string,
   pullNumber: number,
   messages: PullRequestMessageObservation[],
+  syncStartedAt = new Date(),
 ): Promise<void> {
   const connection = await database.connect();
   try {
@@ -333,7 +341,7 @@ export async function persistPullRequestMessages(
          join repositories repository on repository.id = pull_request.repository_id
         where pull_request.repository_id = $1 and pull_request.number = $2
           and repository.enabled and repository.deleted_at is null
-        for share of pull_request, repository`,
+        for update of pull_request for share of repository`,
       [repositoryId, pullNumber],
     );
     const context = pull.rows[0];
@@ -343,12 +351,31 @@ export async function persistPullRequestMessages(
     }
     for (const message of messages) {
       const contentHash = createHash('sha256').update(message.body).digest('hex');
+      const snapshot = {
+        githubId: String(message.githubId),
+        kind: message.kind,
+        authorLogin: message.author,
+        authorType: message.authorType,
+        body: message.body,
+        contentHash,
+        path: message.path,
+        line: message.line,
+        side: message.side,
+        commitSha: message.commitSha,
+        inReplyToGithubId:
+          message.inReplyToGithubId == null ? null : String(message.inReplyToGithubId),
+        htmlUrl: message.url,
+        githubCreatedAt: message.createdAt,
+        githubUpdatedAt: message.updatedAt,
+        provenance: message.provenance ?? null,
+      };
+      const observationHash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
       const persisted = await connection.query<{ id: string }>(
         `insert into github_pr_messages(
            tenant_id, repository_id, pull_request_id, github_id, kind, author_login,
            author_type, body, content_hash, path, line, side, commit_sha, in_reply_to_github_id,
-           html_url, github_created_at, github_updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+           html_url, github_created_at, github_updated_at, provenance, observation_hash, last_sync_started_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20)
          on conflict (repository_id, kind, github_id) do update set
            pull_request_id = excluded.pull_request_id, author_login = excluded.author_login,
            author_type = excluded.author_type, body = excluded.body,
@@ -356,7 +383,13 @@ export async function persistPullRequestMessages(
            side = excluded.side, commit_sha = excluded.commit_sha,
            in_reply_to_github_id = excluded.in_reply_to_github_id,
            html_url = excluded.html_url, github_updated_at = excluded.github_updated_at,
-           last_observed_at = clock_timestamp()
+           provenance = excluded.provenance, observation_hash = excluded.observation_hash,
+           last_sync_started_at = excluded.last_sync_started_at, last_observed_at = clock_timestamp()
+         where (github_pr_messages.last_sync_started_at is null
+                or github_pr_messages.last_sync_started_at < excluded.last_sync_started_at
+                or (github_pr_messages.last_sync_started_at = excluded.last_sync_started_at
+                    and github_pr_messages.observation_hash = excluded.observation_hash))
+           and github_pr_messages.github_updated_at <= excluded.github_updated_at
          returning id`,
         [
           context.tenantId,
@@ -376,7 +409,18 @@ export async function persistPullRequestMessages(
           message.url,
           message.createdAt,
           message.updatedAt,
+          message.provenance ? JSON.stringify(message.provenance) : null,
+          observationHash,
+          syncStartedAt,
         ],
+      );
+      // A late response must not replace a newer observation or republish old source.
+      if (!persisted.rows[0]) continue;
+      await connection.query(
+        `insert into github_pr_message_observations(message_id,observation_hash,snapshot,sync_started_at)
+         select $1,$2,$3::jsonb,$4 where $2 is distinct from
+           (select observation_hash from github_pr_message_observations where message_id=$1 order by id desc limit 1)`,
+        [persisted.rows[0].id, observationHash, JSON.stringify(snapshot), syncStartedAt],
       );
       await connection.query(
         `insert into github_pr_message_versions(

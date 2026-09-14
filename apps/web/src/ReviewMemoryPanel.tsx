@@ -1,5 +1,6 @@
 import { Brain, ExternalLink, GitPullRequest, MessageSquare, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { GitHubMessageEvidence } from './GitHubMessageEvidence.tsx';
 import {
   createReviewMemoryCandidate,
   loadGitHubPrMemorySources,
@@ -172,12 +173,18 @@ export function ReviewMemoryPanel({
                   <ExternalLink size={13} />
                 </a>
               </div>
-              <p>{source.body}</p>
+              <p>{source.body || '본문 없음'}</p>
+              <GitHubMessageEvidence
+                key={`${source.id}:${source.observationHash ?? 'legacy'}`}
+                repositoryId={data.pull.repositoryId}
+                pullNumber={data.pull.number}
+                source={source}
+              />
               <div className="memory-actions">
                 {source.state !== 'saved' ? (
                   <button
                     type="button"
-                    disabled={busy === source.id}
+                    disabled={busy === source.id || !source.body.trim()}
                     onClick={() =>
                       void run(source.id, () =>
                         createReviewMemoryCandidate(analysisId, {

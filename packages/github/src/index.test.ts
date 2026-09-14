@@ -186,6 +186,80 @@ describe('GitHub adapter', () => {
     ]);
   });
 
+  it('preserves empty submitted review states, exact bodies and original positions without inventing resolution', async () => {
+    const client = new GitHubAccessTokenClient('test-token', async (input) => {
+      if (String(input).includes('/issues/7/comments')) return Response.json([]);
+      if (String(input).includes('/pulls/7/reviews'))
+        return Response.json([
+          {
+            id: 20,
+            html_url: 'https://github.example/review/20',
+            body: '',
+            user: null,
+            state: 'APPROVED',
+            submitted_at: '2026-09-08T01:00:00Z',
+          },
+          {
+            id: 21,
+            html_url: 'https://github.example/review/21',
+            body: null,
+            user: null,
+            state: 'DISMISSED',
+            submitted_at: '2026-09-08T01:01:00Z',
+          },
+          {
+            id: 22,
+            html_url: 'https://github.example/review/22',
+            body: 'private draft',
+            user: null,
+            state: 'PENDING',
+          },
+        ]);
+      return Response.json([
+        {
+          id: 23,
+          html_url: 'https://github.example/comment/23',
+          body: '  preserve whitespace\n',
+          user: null,
+          path: 'src/retry.ts',
+          line: null,
+          original_line: 42,
+          original_start_line: 40,
+          start_line: null,
+          side: 'RIGHT',
+          original_commit_id: 'a'.repeat(40),
+          commit_id: 'b'.repeat(40),
+          pull_request_review_id: 20,
+          in_reply_to_id: 19,
+          diff_hunk: '@@ -1 +1 @@\n+ code',
+          created_at: '2026-09-08T01:02:00Z',
+          updated_at: '2026-09-08T01:03:00Z',
+        },
+      ]);
+    });
+    const messages = await client.listPullRequestMessages(target, 7);
+    expect(messages).toHaveLength(3);
+    expect(messages[0]).toMatchObject({
+      body: '',
+      provenance: { reviewState: 'APPROVED', reviewGithubId: '20' },
+    });
+    expect(messages[1]).toMatchObject({ body: '', provenance: { reviewState: 'DISMISSED' } });
+    expect(messages[2]).toMatchObject({
+      body: '  preserve whitespace\n',
+      line: null,
+      inReplyToGithubId: 19,
+      provenance: {
+        originalLine: 42,
+        originalStartLine: 40,
+        originalCommitSha: 'a'.repeat(40),
+        reviewGithubId: '20',
+        threadResolved: null,
+        threadOutdated: null,
+      },
+    });
+    expect(messages.some((m) => m.githubId === 22)).toBe(false);
+  });
+
   it('creates a managed PR timeline comment when none exists', async () => {
     const calls: Array<{ url: string; method: string; body: string | null }> = [];
     const client = new GitHubAccessTokenClient('secret-token', async (input, init) => {

@@ -41,7 +41,12 @@ export function CriterionForm({
     const get = (name: string) => String(data.get(name) ?? '');
     const linked = sources
       .filter((source) => selectedSources.includes(`${source.kind}:${source.id}`))
-      .map(({ kind, id, contentHash }) => ({ kind, id, contentHash }));
+      .map(({ kind, id, contentHash, observationHash }) => ({
+        kind,
+        id,
+        contentHash,
+        ...(observationHash ? { observationHash } : {}),
+      }));
     const manual = submissionSource ?? get('source').trim();
     const parsed = criterionCreateSchema.safeParse({
       document: {

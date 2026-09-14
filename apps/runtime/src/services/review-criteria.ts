@@ -52,6 +52,17 @@ export const criterionJoins = `from review_rules r join repositories repo on rep
   join review_rule_revisions rev on rev.rule_id = r.id and rev.revision = r.current_revision
   join review_decisions decision on decision.id = rev.decision_id`;
 
+function withObservedHash<
+  T extends { observationHash?: string | null | undefined; discussion?: unknown },
+>(source: T) {
+  const { observationHash, discussion, ...rest } = source;
+  return {
+    ...rest,
+    ...(observationHash ? { observationHash } : {}),
+    ...(discussion ? { discussion } : {}),
+  };
+}
+
 export async function listCriterionSources(
   connection: Connection,
   repositoryId: string,
@@ -59,17 +70,17 @@ export async function listCriterionSources(
   const result = await connection.query<Source>(
     `select 'memory' as kind, id, content_hash as "contentHash",
        concat_ws(E'\n\n', summary, nullif(detail, ''), nullif(recommendation, '')) as content,
-       summary as label, source_base_sha as "baseSha", source_head_sha as "headSha"
+       summary as label, source_base_sha as "baseSha", source_head_sha as "headSha", null::text as "observationHash", null::jsonb as discussion
      from review_memories where repository_id = $1 and scope = 'collective' and state in ('candidate','active')
      union all
      select 'github-pr-message', message.id, message.content_hash, message.body,
-       left(concat('PR #', pr.number, ' · ', message.author_login), 500), pr.base_sha, message.commit_sha
+       left(concat('PR #', pr.number, ' · ', message.author_login), 500), pr.base_sha, message.commit_sha, message.observation_hash, message.provenance
      from github_pr_messages message join pull_requests pr on pr.id = message.pull_request_id
      where message.repository_id = $1 and char_length(trim(message.body)) between 1 and 12000
      order by kind, id limit 200`,
     [repositoryId],
   );
-  return result.rows.map((row) => criterionSourceSchema.parse(row));
+  return result.rows.map((row) => criterionSourceSchema.parse(withObservedHash(row)));
 }
 
 export async function resolveCriterionSources(
@@ -109,7 +120,7 @@ export async function resolveCriterionSources(
         : await connection.query<Source>(
             `select 'github-pr-message' as kind, m.id, m.content_hash as "contentHash", m.body as content,
            left(concat('PR #', p.number, ' · ', m.author_login),500) as label,
-           p.base_sha as "baseSha", m.commit_sha as "headSha"
+           p.base_sha as "baseSha", m.commit_sha as "headSha", m.observation_hash as "observationHash", m.provenance as discussion
          from github_pr_messages m join pull_requests p on p.id = m.pull_request_id
          where m.id = $1 and m.repository_id = $2 ${lock ? 'for share of m, p' : ''}`,
             [source.id, repositoryId],
@@ -117,7 +128,12 @@ export async function resolveCriterionSources(
     if (!found.rows[0]) throw criteriaNotFound();
     if (found.rows[0].contentHash !== source.contentHash)
       throw conflict('출처가 변경됐습니다. 최신 내용을 확인하고 다시 등록해 주세요.');
-    const parsed = criterionSourceSchema.safeParse(found.rows[0]);
+    if (
+      source.kind === 'github-pr-message' &&
+      (found.rows[0].observationHash ?? null) !== (source.observationHash ?? null)
+    )
+      throw conflict('리뷰 상태나 위치가 변경됐습니다. 출처를 다시 조회해 주세요.');
+    const parsed = criterionSourceSchema.safeParse(withObservedHash(found.rows[0]));
     if (!parsed.success) throw conflict('출처가 비어 있거나 허용 길이를 초과합니다.');
     result.push(parsed.data);
   }

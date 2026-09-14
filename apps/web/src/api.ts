@@ -39,6 +39,7 @@ import {
   diffIndexSchema,
   githubConnectionListSchema,
   githubPrMemorySourceListSchema,
+  githubPrMessageHistorySchema,
   reviewMemoryListSchema,
   reviewMemoryResponseSchema,
   adminReviewMemoryListSchema,
@@ -921,4 +922,21 @@ function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
       { once: true },
     );
   });
+}
+
+export type GitHubPrMessageHistory = ReturnType<typeof githubPrMessageHistorySchema.parse>;
+export async function loadGitHubPrMessageHistory(
+  repositoryId: string,
+  pullNumber: number,
+  sourceId: string,
+  signal: AbortSignal,
+  cursor: string | null = null,
+): Promise<GitHubPrMessageHistory> {
+  const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  return githubPrMessageHistorySchema.parse(
+    await fetchJson(
+      `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources/${sourceId}/history${query}`,
+      signal,
+    ),
+  );
 }

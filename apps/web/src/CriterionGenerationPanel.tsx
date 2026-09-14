@@ -97,7 +97,12 @@ export function CriterionGenerationPanel({
         sources: [
           ...sources
             .filter((source) => selected.includes(`${source.kind}:${source.id}`))
-            .map(({ kind, id, contentHash }) => ({ kind, id, contentHash })),
+            .map(({ kind, id, contentHash, observationHash }) => ({
+              kind,
+              id,
+              contentHash,
+              ...(observationHash ? { observationHash } : {}),
+            })),
           ...(manual ? [{ kind: 'manual', content: manual }] : []),
         ],
       },

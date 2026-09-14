@@ -36,7 +36,8 @@ const pullReviewSchema = z.object({
   body: z.string().nullable(),
   user: conversationAuthorSchema,
   commit_id: z.string().nullable().optional(),
-  submitted_at: z.string().nullable(),
+  submitted_at: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
 });
 const pullReviewCommentSchema = pullIssueCommentSchema.extend({
   path: z.string(),
@@ -45,6 +46,13 @@ const pullReviewCommentSchema = pullIssueCommentSchema.extend({
   side: z.enum(['LEFT', 'RIGHT']).nullable().optional(),
   commit_id: z.string().nullable().optional(),
   in_reply_to_id: z.number().int().positive().nullable().optional(),
+  pull_request_review_id: z.number().int().positive().nullable().optional(),
+  original_commit_id: z.string().nullable().optional(),
+  start_line: z.number().int().positive().nullable().optional(),
+  original_start_line: z.number().int().positive().nullable().optional(),
+  start_side: z.enum(['LEFT', 'RIGHT']).nullable().optional(),
+  subject_type: z.string().nullable().optional(),
+  diff_hunk: z.string().nullable().optional(),
 });
 
 export type PullRequestObservation = {
@@ -74,9 +82,26 @@ export type PullResult =
   | { outcome: 'not-modified'; etag: string | null; pulls: [] }
   | { outcome: 'updated'; etag: string | null; pulls: PullRequestObservation[] };
 
+export type PullRequestMessageProvenance = {
+  provider: 'github-rest';
+  reviewState: string | null;
+  reviewGithubId: string | null;
+  originalCommitSha: string | null;
+  originalLine: number | null;
+  startLine: number | null;
+  originalStartLine: number | null;
+  startSide: 'LEFT' | 'RIGHT' | null;
+  subjectType: string | null;
+  diffHunk: string | null;
+  // The REST comment endpoints do not supply thread resolution/outdated state.
+  threadResolved: null;
+  threadOutdated: null;
+};
+
 export type PullRequestMessageObservation = {
   githubId: number;
   kind: 'issue-comment' | 'review' | 'review-comment';
+  provenance?: PullRequestMessageProvenance;
   author: string;
   authorType: string;
   body: string;
@@ -353,37 +378,46 @@ async function listPullRequestMessages(
     paginatedRequest(target, `pulls/${pullNumber}/reviews`, pullReviewSchema, request),
     paginatedRequest(target, `pulls/${pullNumber}/comments`, pullReviewCommentSchema, request),
   ]);
+  const provenance: PullRequestMessageProvenance = {
+    provider: 'github-rest',
+    reviewState: null,
+    reviewGithubId: null,
+    originalCommitSha: null,
+    originalLine: null,
+    startLine: null,
+    originalStartLine: null,
+    startSide: null,
+    subjectType: null,
+    diffHunk: null,
+    threadResolved: null,
+    threadOutdated: null,
+  };
   return [
-    ...issueComments.flatMap((comment) =>
-      comment.body?.trim()
-        ? [
-            {
-              githubId: comment.id,
-              kind: 'issue-comment' as const,
-              author: comment.user?.login ?? 'unknown',
-              authorType: comment.user?.type ?? 'Unknown',
-              body: comment.body.trim(),
-              path: null,
-              line: null,
-              side: null,
-              commitSha: null,
-              inReplyToGithubId: null,
-              url: comment.html_url,
-              createdAt: comment.created_at,
-              updatedAt: comment.updated_at,
-            },
-          ]
-        : [],
-    ),
+    ...issueComments.map((comment) => ({
+      githubId: comment.id,
+      kind: 'issue-comment' as const,
+      author: comment.user?.login ?? 'unknown',
+      authorType: comment.user?.type ?? 'Unknown',
+      body: comment.body ?? '',
+      path: null,
+      line: null,
+      side: null,
+      commitSha: null,
+      inReplyToGithubId: null,
+      url: comment.html_url,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at,
+      provenance,
+    })),
     ...reviews.flatMap((review) =>
-      review.body?.trim() && review.submitted_at
+      review.submitted_at
         ? [
             {
               githubId: review.id,
               kind: 'review' as const,
               author: review.user?.login ?? 'unknown',
               authorType: review.user?.type ?? 'Unknown',
-              body: review.body.trim(),
+              body: review.body ?? '',
               path: null,
               line: null,
               side: null,
@@ -392,31 +426,42 @@ async function listPullRequestMessages(
               url: review.html_url,
               createdAt: review.submitted_at,
               updatedAt: review.submitted_at,
+              provenance: {
+                ...provenance,
+                reviewState: review.state ?? null,
+                reviewGithubId: String(review.id),
+              },
             },
           ]
         : [],
     ),
-    ...reviewComments.flatMap((comment) =>
-      comment.body?.trim()
-        ? [
-            {
-              githubId: comment.id,
-              kind: 'review-comment' as const,
-              author: comment.user?.login ?? 'unknown',
-              authorType: comment.user?.type ?? 'Unknown',
-              body: comment.body.trim(),
-              path: comment.path,
-              line: comment.line ?? comment.original_line ?? null,
-              side: comment.side ?? null,
-              commitSha: comment.commit_id ?? null,
-              inReplyToGithubId: comment.in_reply_to_id ?? null,
-              url: comment.html_url,
-              createdAt: comment.created_at,
-              updatedAt: comment.updated_at,
-            },
-          ]
-        : [],
-    ),
+    ...reviewComments.map((comment) => ({
+      githubId: comment.id,
+      kind: 'review-comment' as const,
+      author: comment.user?.login ?? 'unknown',
+      authorType: comment.user?.type ?? 'Unknown',
+      body: comment.body ?? '',
+      path: comment.path,
+      line: comment.line ?? null,
+      side: comment.side ?? null,
+      commitSha: comment.commit_id ?? null,
+      inReplyToGithubId: comment.in_reply_to_id ?? null,
+      url: comment.html_url,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at,
+      provenance: {
+        ...provenance,
+        reviewGithubId:
+          comment.pull_request_review_id == null ? null : String(comment.pull_request_review_id),
+        originalCommitSha: comment.original_commit_id ?? null,
+        originalLine: comment.original_line ?? null,
+        startLine: comment.start_line ?? null,
+        originalStartLine: comment.original_start_line ?? null,
+        startSide: comment.start_side ?? null,
+        subjectType: comment.subject_type ?? null,
+        diffHunk: comment.diff_hunk ?? null,
+      },
+    })),
   ].sort(
     (left, right) =>
       left.createdAt.localeCompare(right.createdAt) || left.githubId - right.githubId,

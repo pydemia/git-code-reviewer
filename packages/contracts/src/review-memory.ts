@@ -160,6 +160,21 @@ export const reviewMemoryReviewSchema = z
   .strict();
 export type ReviewMemoryReview = z.infer<typeof reviewMemoryReviewSchema>;
 
+export const githubPrMessageProvenanceSchema = z.object({
+  provider: z.literal('github-rest'),
+  reviewState: z.string().nullable(),
+  reviewGithubId: z.string().nullable(),
+  originalCommitSha: z.string().nullable(),
+  originalLine: z.number().int().positive().nullable(),
+  startLine: z.number().int().positive().nullable(),
+  originalStartLine: z.number().int().positive().nullable(),
+  startSide: z.enum(['LEFT', 'RIGHT']).nullable(),
+  subjectType: z.string().nullable(),
+  diffHunk: z.string().nullable(),
+  threadResolved: z.null(),
+  threadOutdated: z.null(),
+});
+
 export const githubPrMemorySourceSchema = z.object({
   id: z.string().uuid(),
   pullRequestId: z.string().uuid(),
@@ -173,6 +188,12 @@ export const githubPrMemorySourceSchema = z.object({
   side: z.enum(['LEFT', 'RIGHT']).nullable(),
   commitSha: z.string().nullable(),
   inReplyToGithubId: z.string().nullable(),
+  provenance: githubPrMessageProvenanceSchema.nullable().default(null),
+  observationHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable()
+    .default(null),
   htmlUrl: z.string().url(),
   githubCreatedAt: z.string(),
   githubUpdatedAt: z.string(),
@@ -189,3 +210,20 @@ export const githubPrMemorySourceListSchema = z.object({
 export const githubPrMemorySourceStateSchema = z
   .object({ state: z.enum(['available', 'ignored']) })
   .strict();
+
+export const githubPrMessageHistorySchema = z.object({
+  schemaVersion: z.literal(1),
+  sourceId: z.string().uuid(),
+  items: z.array(
+    z.object({
+      id: z.string().regex(/^[1-9][0-9]*$/),
+      observationHash: z.string().regex(/^[0-9a-f]{64}$/),
+      observedAt: z.string(),
+      syncStartedAt: z.string(),
+      snapshot: githubPrMemorySourceSchema
+        .omit({ id: true, pullRequestId: true, state: true, observationHash: true })
+        .extend({ githubId: z.string() }),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+});

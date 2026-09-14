@@ -1,5 +1,7 @@
 import {
   githubPrMemorySourceStateSchema,
+  githubPrMessageHistorySchema,
+  githubPrMessageProvenanceSchema,
   reviewMemoryCandidateCreateSchema,
   reviewMemoryReviewSchema,
   schemaVersion,
@@ -62,7 +64,7 @@ export async function registerReviewMemoryRoutes(
         `select message.id, message.pull_request_id as "pullRequestId", message.kind,
                 message.author_login as "authorLogin", message.author_type as "authorType",
                 message.body, message.content_hash as "contentHash", message.path,
-                message.line, message.side,
+                message.line, message.side, message.provenance, message.observation_hash as "observationHash",
                 message.commit_sha as "commitSha",
                 message.in_reply_to_github_id::text as "inReplyToGithubId",
                 message.html_url as "htmlUrl", message.github_created_at as "githubCreatedAt",
@@ -83,6 +85,54 @@ export async function registerReviewMemoryRoutes(
         pullNumber: number,
         items: result.rows.map(githubSourceView),
       };
+    },
+  );
+
+  app.get(
+    '/api/v1/repositories/:repoId/pulls/:number/review-memory-sources/:sourceId/history',
+    { preHandler: requireUser },
+    async (request, reply) => {
+      const { repoId, number, sourceId } = sourceParams.parse(request.params);
+      const { cursor } = z
+        .object({
+          cursor: z
+            .string()
+            .regex(/^[1-9][0-9]{0,18}$/)
+            .refine((value) => BigInt(value) <= 9223372036854775807n)
+            .optional(),
+        })
+        .strict()
+        .parse(request.query);
+      reply.header('cache-control', 'private, no-store');
+      if (!(await canReadRepository(database, authorization, request, repoId, 'view')))
+        return hiddenNotFound(request, reply);
+      const source = await database.query(
+        `select m.id from github_pr_messages m join pull_requests p on p.id=m.pull_request_id
+         where m.id=$1 and m.repository_id=$2 and p.number=$3`,
+        [sourceId, repoId, number],
+      );
+      if (!source.rowCount) return hiddenNotFound(request, reply);
+      const rows = (
+        await database.query(
+          `select id::text, observation_hash as "observationHash", snapshot,
+           observed_at as "observedAt", sync_started_at as "syncStartedAt"
+         from github_pr_message_observations where message_id=$1 and ($2::bigint is null or id<$2)
+         order by id desc limit 51`,
+          [sourceId, cursor ?? null],
+        )
+      ).rows;
+      return githubPrMessageHistorySchema.parse({
+        schemaVersion,
+        sourceId,
+        items: rows
+          .slice(0, 50)
+          .map((row) => ({
+            ...row,
+            observedAt: dateString(row.observedAt),
+            syncStartedAt: dateString(row.syncStartedAt),
+          })),
+        nextCursor: rows.length > 50 ? rows[49]!.id : null,
+      });
     },
   );
 
@@ -478,6 +528,8 @@ type GitHubPrMemorySourceRow = {
   side: 'LEFT' | 'RIGHT' | null;
   commitSha: string | null;
   inReplyToGithubId: string | null;
+  provenance: z.infer<typeof githubPrMessageProvenanceSchema> | null;
+  observationHash: string | null;
   htmlUrl: string;
   githubCreatedAt: Date | string;
   githubUpdatedAt: Date | string;

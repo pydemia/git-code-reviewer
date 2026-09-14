@@ -79,7 +79,7 @@ async function memorySourceFingerprint(
   if (memory.sourceKind === 'github-pr-message') {
     if (!memory.sourceGithubPrMessageId) return null;
     rows = await connection.query(
-      `select body,content_hash,path,line,side,commit_sha from github_pr_messages m where id=$1 and repository_id=$2 and content_hash=$3
+      `select body,content_hash,path,line,side,commit_sha,observation_hash from github_pr_messages m where id=$1 and repository_id=$2 and content_hash=$3
       and not exists(select 1 from github_pr_message_user_states s where s.message_id=m.id and s.user_id=$4 and s.state='ignored')`,
       [
         memory.sourceGithubPrMessageId,
@@ -101,7 +101,11 @@ async function memorySourceFingerprint(
       [memory.sourceChatMessageId, memory.ownerUserId, memory.repositoryId],
     );
   }
-  return rows.rows[0] ? digest(rows.rows[0]) : null;
+  const source = rows.rows[0];
+  if (!source) return null;
+  // Legacy approvals retain their old fingerprint until new REST evidence is observed.
+  if (source.observation_hash === null) delete source.observation_hash;
+  return digest(source);
 }
 export async function knowledgeMemoryApprovalFingerprint(
   connection: Connection,
@@ -276,7 +280,12 @@ export async function projectKnowledge(connection: Connection, scope: KnowledgeS
         sources.map((source) =>
           source.kind === 'manual'
             ? { kind: 'manual' as const, content: source.content }
-            : { kind: source.kind, id: source.id!, contentHash: source.contentHash },
+            : {
+                kind: source.kind,
+                id: source.id!,
+                contentHash: source.contentHash,
+                ...(source.observationHash ? { observationHash: source.observationHash } : {}),
+              },
         ),
         false,
       );
