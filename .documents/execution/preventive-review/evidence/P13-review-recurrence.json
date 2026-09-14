@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "phase": "P13",
+  "commit": "P13-C03 previous public observations and managed publication order",
+  "phaseComplete": false,
+  "goalComplete": false,
+  "sourceCommit": "a58a3cd59d02fe0b25017392cc651b6adb8ec28c",
+  "releasePinCommit": "2fd29fb98fd738c48c5f80910fb7730631f7458d",
+  "feature": "Compare exact observed code/explanation/criteria against prior public report without suppressing current findings or inferring fixes; preserve managed comment ordering",
+  "tests": {
+    "passedSuites": 26,
+    "passed": 256,
+    "failedSuites": 1,
+    "notExecuted": 8,
+    "environmentFailure": "Separate runtime DB TLS suite could not start Docker image: existing blob I/O error; no DB config change in this release",
+    "databaseFixture": {
+      "startedAt": "2026-09-14T20:22:32.597Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 1,
+      "finishedAt": "2026-09-14T20:23:16.020Z"
+    },
+    "builds": [
+      "contracts",
+      "review-contract",
+      "analysis-engine",
+      "runtime",
+      "web",
+      "full immutable image workspace build"
+    ],
+    "focusedEslint": true,
+    "helmLint": true,
+    "browser": {
+      "actualReportApi": true,
+      "widths": [
+        1360,
+        420
+      ],
+      "htmlInert": true,
+      "noHorizontalOverflow": true,
+      "screenshotHashes": {
+        "1360": "319b9219aaa5bbe49f5ad26038d60720e0088e74e1ee9f8a39fa6dbc68b394e5",
+        "420": "f8576c8653739460cc617b1b94e1a789bb2766a27f69a7496018b52c7e80b39b"
+      }
+    }
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T20:30:43.787485+00:00",
+    "release": {
+      "revision": 67,
+      "updated": "2026-09-15T05:29:34.389217+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.53",
+      "app_version": "0.8.0-alpha.57",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:7b07315a787c8f493a95278ee17d8ad7d7e4864b34284655ff1f9ee2cf096c61",
+      "source": "a58a3cd59d02fe0b25017392cc651b6adb8ec28c",
+      "version": "0.8.0-alpha.57",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:7b07315a787c8f493a95278ee17d8ad7d7e4864b34284655ff1f9ee2cf096c61"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "a58a3cd59d02fe0b25017392cc651b6adb8ec28c",
+        "org.opencontainers.image.version": "0.8.0-alpha.57"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 50,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-764fc44c98-qbmlh",
+        "imageDigest": "sha256:7b07315a787c8f493a95278ee17d8ad7d7e4864b34284655ff1f9ee2cf096c61",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-695f7bc95c-fjbjv",
+        "imageDigest": "sha256:7b07315a787c8f493a95278ee17d8ad7d7e4864b34284655ff1f9ee2cf096c61",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, schema50 preservation and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:c2afd1b22071e1d41e6b83a1ec3905b3f2bf32ade93083b24d405d0b4c361651",
+    "chartSha256": "11d1afd060dabd3ca82ec67ab2a212c36d1f0e772196e67199017690ff270e45"
+  },
+  "live": {
+    "requestId": "defff05f-c3fb-4b8d-8255-2ea76bfdd221",
+    "status": "passed",
+    "version": "0.8.0-alpha.57",
+    "checks": [
+      "trusted-https-session-login",
+      "actual-analyzer-and-recurrence-service",
+      "changed-sha-line-move-observed-again",
+      "unconfirmed-previous-retained",
+      "personal-baseline-excluded",
+      "trusted-https-report-and-markdown",
+      "anonymous-and-revoked-repository-read-denied"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "recurrence": {
+      "schemaVersion": 1,
+      "status": "compared",
+      "reason": "직전 공용 보고서와 코드 구간·설명·분석 기준이 같은 관측을 비교했습니다. 일치하지 않거나 누락된 지적의 수정 여부는 확인하지 않았습니다.",
+      "baseline": {
+        "analysisId": "c2076f37-e7b3-45cd-b906-9d455d4c2297",
+        "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "state": "completed"
+      },
+      "items": [
+        {
+          "findingId": "9747f164-7a3d-426a-b597-6c82e2a790f3",
+          "status": "observed-again",
+          "previousFindingId": "9e2797fc-33ce-4f36-b6e3-92fa809b76bf"
+        }
+      ],
+      "unconfirmedPrevious": [
+        {
+          "findingId": "39e23bb5-3ed2-428e-8bf9-412e00db275a",
+          "title": "Previous observation needs review.",
+          "path": "cache.ts",
+          "priority": "P2"
+        }
+      ]
+    },
+    "ownedServerRowsRemoved": true,
+    "ownedPublishedFilesRemoved": [
+      "analyses/c2076f37-e7b3-45cd-b906-9d455d4c2297/report.v1.json",
+      "analyses/4b25e52d-d06e-4070-b6ef-d59800939465/report.v1.json",
+      "analyses/9f40213f-b8ae-4244-b2d4-4545150b560b/report.v1.json"
+    ],
+    "finishedAt": "2026-09-14T20:30:22.321Z"
+  },
+  "cleanup": {
+    "status": "passed",
+    "at": "2026-09-14T20:30:38.900537+00:00",
+    "ownedResourcesRemoved": [
+      "deployment/gcr-prism-recurrence0",
+      "pod/gcr-recurrence-image-smoke",
+      "configmap/gcr-recurrence-image-smoke",
+      "networkpolicy/gcr-recurrence-image-smoke",
+      "configmap/gcr-recurrence-build-ca",
+      "serviceaccount/gcr-recurrence-build"
+    ],
+    "ownedBuildPodsAbsent": true
+  },
+  "retiringRuntimeBefore": {
+    "at": "2026-09-14T20:26:19.966614+00:00",
+    "retiring": [],
+    "forcedTermination": false
+  },
+  "retiringRuntimeAfter": {
+    "at": "2026-09-14T20:31:03.378790+00:00",
+    "retiring": [
+      {
+        "name": "git-code-reviewer-worker-b84746d9d-wn97j",
+        "deletionTimestamp": "2026-09-14T21:30:07Z",
+        "graceSeconds": 3600,
+        "containers": [
+          {
+            "name": "source-sandbox",
+            "ready": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T19:55:46Z"
+              }
+            }
+          },
+          {
+            "name": "worker",
+            "ready": false,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T19:55:46Z"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "forcedTermination": false
+  },
+  "database": {
+    "schema": 50,
+    "newMigration": false,
+    "allExistingChecksumsPreserved": true
+  },
+  "client": {
+    "commitDefender": "2.9.4",
+    "installedLibraries": "0.1.0-alpha.37",
+    "cli": "0.1.0-alpha.33",
+    "unchanged": true,
+    "noForcedReload": true,
+    "localModelAndAccountUnchanged": true
+  },
+  "architecture": {
+    "centralToLocalDownloadsOnly": true,
+    "localSourceResultFeedbackUploads": false,
+    "centralExecutionForLocalClients": false,
+    "P10AndP08UpstreamWithdrawnNotCompleted": true
+  },
+  "limitations": [
+    "Exact source/explanation identity is not semantic recurrence or fix proof",
+    "No external GitHub or paid model calls in verification",
+    "Live report uses actual analyzer and recurrence service with synthetic source/model; worker persistence covered by native integration tests",
+    "Only last observed database PR head is checked; remote head race remains",
+    "Legacy reports are not backfilled",
+    "Actual model comparison, trusted CI, operational metrics and recovery remain"
+  ]
+}
