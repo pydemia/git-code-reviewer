@@ -39,6 +39,7 @@ declare module 'fastify' {
   }
   interface FastifyContextConfig {
     clientKnowledgeRead?: boolean;
+    clientSubmissionScope?: 'reviews:submit' | 'feedback:submit';
   }
 }
 
@@ -78,12 +79,15 @@ export async function registerAuthentication(
   app.addHook('preHandler', async (request) => {
     if (request.url.startsWith('/health/')) return;
     // Bearer credentials never inherit browser/proxy/development authentication.
-    // Only explicitly marked read endpoints accept this credential family.
+    // Only explicitly marked endpoints accept this credential family.
     if (
       request.headers.authorization !== undefined ||
       request.url.split('?')[0]?.startsWith('/api/v1/client-auth/')
     ) {
-      if (request.routeOptions.config.clientKnowledgeRead) {
+      if (
+        request.routeOptions.config.clientKnowledgeRead ||
+        request.routeOptions.config.clientSubmissionScope
+      ) {
         if (
           !config.CLIENT_API_KEYS_ENABLED ||
           !config.KNOWLEDGE_SERVER_ID ||
@@ -100,6 +104,7 @@ export async function registerAuthentication(
             ? { requestedServerId: request.headers['x-gcr-server-id'] }
             : {}),
           authMode: config.AUTH_MODE,
+          requiredScope: request.routeOptions.config.clientSubmissionScope ?? 'knowledge:read',
           ...(params.repoId ? { repositoryId: params.repoId } : {}),
         });
         request.user = request.clientPrincipal.user;

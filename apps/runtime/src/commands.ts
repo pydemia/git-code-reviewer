@@ -62,12 +62,18 @@ export async function retention(config: AppConfig, reconcile: boolean): Promise<
       return;
     }
 
+    const submissionsDeleted =
+      (
+        await connection.query(
+          'delete from client_review_submissions where expires_at<=clock_timestamp()',
+        )
+      ).rowCount ?? 0;
     const workspacesDeleted = await cleanupExpiredWorkspaces(config.WORKSPACE_ROOT);
     const result = reconcile
       ? await reconcileArtifacts(connection, artifacts, config)
       : await applyRetention(connection, artifacts, config);
     process.stdout.write(
-      `${JSON.stringify({ status: 'completed', mode: reconcile ? 'reconcile' : 'retention', workspacesDeleted, ...result })}\n`,
+      `${JSON.stringify({ status: 'completed', mode: reconcile ? 'reconcile' : 'retention', workspacesDeleted, submissionsDeleted, ...result })}\n`,
     );
   } finally {
     await connection.query('select pg_advisory_unlock($1)', [lockId]).catch(() => undefined);

@@ -2,7 +2,7 @@ import { createHash, generateKeyPairSync, randomBytes, randomUUID } from 'node:c
 import { mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import Fastify from 'fastify';
+import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
@@ -19,6 +19,8 @@ import {
   ClientCredentialError,
   issueClientKey,
 } from './client-credentials.js';
+import { registerReviewSubmissionRoutes } from '../routes/review-submissions.js';
+import { reviewSubmission } from '@gcr/client-contract';
 import { registerKnowledgeRoutes } from '../routes/review-knowledge.js';
 import { AuthorizationService } from '../services/authorization.js';
 import {
@@ -174,7 +176,7 @@ describe
         });
       }
       app = Fastify();
-      app.setErrorHandler((error, _request, reply) =>
+      app.setErrorHandler((error: Error, _request: FastifyRequest, reply: FastifyReply) =>
         reply.code(error instanceof ClientCredentialError ? error.statusCode : 500).send({
           error: { code: error instanceof ClientCredentialError ? error.code : 'UNEXPECTED' },
         }),
@@ -183,6 +185,7 @@ describe
       const authorization = new AuthorizationService(config);
       await registerClientCredentialRoutes(app, db, config, authorization, signer);
       await registerKnowledgeRoutes(app, db, authorization, store, signer);
+      await registerReviewSubmissionRoutes(app, db, config, authorization);
       app.post('/api/v1/model-fixture', { preHandler: requireUser }, async () => ({
         executed: true,
       }));
@@ -340,6 +343,192 @@ describe
         headers: auth(alice.token),
       });
       expect([403, 404]).toContain(stolen.statusCode);
+    });
+    it('requires separate write scopes, preserves idempotency and never admits private report fields', async () => {
+      const reader = await issue();
+      const feedbackKey = await issue('alice', { scopes: ['knowledge:read', 'feedback:submit'] });
+      const input = reviewSubmission({
+        schemaVersion: 1,
+        id: randomUUID(),
+        audience: {
+          serverId,
+          tenantId: tenant,
+          repositoryId: repo,
+          userId: actors.get('alice')!.user.id,
+        },
+        clientId: 'commit-defender',
+        approvedAt: new Date().toISOString(),
+        visibility: 'repository-reviewers',
+        kind: 'feedback',
+        review: {
+          runId: randomUUID(),
+          mode: 'standalone',
+          sourceHash: hash('source'),
+          contextHash: hash('context'),
+          snapshot: null,
+        },
+        feedback: {
+          kind: 'judgment',
+          message: 'User-selected synthetic judgment',
+          findingId: null,
+          rule: null,
+          source: null,
+        },
+      });
+      if (input.kind !== 'feedback') throw Error('Expected feedback fixture');
+      const url = `/api/v1/repositories/${repo}/review-submissions/feedback`;
+      const send = (payload: unknown, token = feedbackKey.token) =>
+        app.inject({ method: 'POST', url, headers: auth(token), payload });
+      expect((await send(input, reader.token)).statusCode).toBe(403);
+      expect(
+        (await app.inject({ method: 'POST', url, headers: web(), payload: input })).statusCode,
+      ).toBe(401);
+      for (const extra of [
+        { chat: 'PRIVATE_CHAT_CANARY' },
+        { memory: 'PRIVATE_MEMORY_CANARY' },
+        { report: { summary: 'PRIVATE_REPORT_CANARY' } },
+        { source: 'PRIVATE_SOURCE_CANARY' },
+      ])
+        expect((await send({ ...input, ...extra })).statusCode).toBe(400);
+      const first = await send(input);
+      expect(first.statusCode, first.body).toBe(201);
+      expect(first.json()).toMatchObject({
+        status: 'submitted',
+        evidence: 'client-reported',
+        kind: 'feedback',
+      });
+      const again = await send(input);
+      expect(again.statusCode, again.body).toBe(200);
+      expect(again.json()).toEqual(first.json());
+      const concurrentKey = await issue('alice', { scopes: ['knowledge:read', 'feedback:submit'] });
+      const parallel = { ...input, id: randomUUID() };
+      const pair = await Promise.all([send(parallel), send(parallel, concurrentKey.token)]);
+      for (const response of pair) expect([200, 201, 409]).toContain(response.statusCode);
+      expect((await send(parallel)).statusCode).toBe(200);
+      expect(
+        (
+          await db.query('select id from client_review_submissions where request_id=$1', [
+            parallel.id,
+          ])
+        ).rowCount,
+      ).toBe(1);
+      await db.query('delete from client_review_submissions where request_id=$1', [parallel.id]);
+
+      expect(
+        (await send({ ...input, feedback: { ...input.feedback, message: 'changed' } })).statusCode,
+      ).toBe(409);
+      expect(
+        (
+          await send({
+            ...input,
+            id: randomUUID(),
+            audience: { ...input.audience, userId: actors.get('bob')!.user.id },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(
+        (
+          await send({
+            ...input,
+            id: randomUUID(),
+            audience: { ...input.audience, repositoryId: secondRepo },
+          })
+        ).statusCode,
+      ).toBe(403);
+      const payloads = (
+        await db.query('select payload from client_review_submissions where request_id=$1', [
+          input.id,
+        ])
+      ).rows;
+      expect(payloads).toHaveLength(1);
+      expect(JSON.stringify(payloads)).not.toContain('PRIVATE_');
+      expect(
+        (
+          await app.inject({
+            url: `/api/v1/repositories/${repo}/review-submissions`,
+            headers: web(),
+          })
+        ).json().items,
+      ).toHaveLength(1);
+      expect(
+        (
+          await app.inject({
+            url: `/api/v1/repositories/${repo}/review-submissions`,
+            headers: web('outsider'),
+          })
+        ).statusCode,
+      ).toBe(404);
+      const result = {
+        ...input,
+        id: randomUUID(),
+        kind: 'result',
+        feedback: undefined,
+        result: { status: 'completed', fileCount: 1, findingCount: 2 },
+      };
+      delete result.feedback;
+      const resultUrl = `/api/v1/repositories/${repo}/review-submissions/results`;
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: resultUrl,
+            headers: auth(feedbackKey.token),
+            payload: result,
+          })
+        ).statusCode,
+      ).toBe(403);
+      const resultKey = await issue('alice', { scopes: ['knowledge:read', 'reviews:submit'] });
+      const submitted = await app.inject({
+        method: 'POST',
+        url: resultUrl,
+        headers: auth(resultKey.token),
+        payload: result,
+      });
+      expect(submitted.statusCode, submitted.body).toBe(201);
+      await db.query('update client_api_keys set revoked_at=clock_timestamp() where id=$1', [
+        feedbackKey.id,
+      ]);
+      expect((await send(input)).statusCode).toBe(403);
+      const replacement = await issue('alice', { scopes: ['knowledge:read', 'feedback:submit'] });
+      expect((await send(input, replacement.token)).json()).toEqual(first.json());
+      const transport = new KnowledgeHttpTransport(
+        new TrustedCentralBinding({
+          serverUrl: origin,
+          audience: input.audience,
+          trustedKeys: new Map([[signer.keyId, signer.publicKeyPem]]),
+          allowLoopbackHttp: true,
+        }),
+        {
+          bindingId: new TrustedCentralBinding({
+            serverUrl: origin,
+            audience: input.audience,
+            trustedKeys: new Map([[signer.keyId, signer.publicKeyPem]]),
+            allowLoopbackHttp: true,
+          }).id,
+          readToken: async () => replacement.token,
+        },
+      );
+      expect(await transport.submitReview(input, new AbortController().signal)).toEqual(
+        first.json(),
+      );
+      await db.query(
+        "update client_review_submissions set expires_at=clock_timestamp()-interval '1 second' where request_id=$1",
+        [input.id],
+      );
+      expect((await send(input, replacement.token)).statusCode).toBe(410);
+      expect(
+        (
+          await app.inject({
+            url: `/api/v1/repositories/${repo}/review-submissions`,
+            headers: web(),
+          })
+        ).json().items,
+      ).toHaveLength(1);
+      await db.query('delete from client_review_submissions where expires_at<=clock_timestamp()');
+      expect(
+        (await db.query('select id from client_review_submissions where request_id=$1', [input.id]))
+          .rowCount,
+      ).toBe(0);
     });
     it('downloads real signed publications over HTTP into the encrypted cache and honors 304', async () => {
       const key = await issue();

@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { Database, DatabaseClient } from '@gcr/db';
 import { z } from 'zod';
-import { clientCredentialInputSchema } from '@gcr/contracts';
+import { clientCredentialInputSchema, type ClientCredentialScope } from '@gcr/contracts';
 import type { AuthUser } from './index.js';
 import { knowledgeUserAllowed } from '../services/knowledge-projection.js';
 
@@ -26,7 +26,7 @@ type Row = {
   tenant_id: string;
   client_id: string;
   name: string;
-  scopes: ['knowledge:read'];
+  scopes: ClientCredentialScope[];
   repository_ids: string[];
   credential_epoch: string;
   auth_mode: 'local' | 'saml';
@@ -199,17 +199,18 @@ export type ClientPrincipal = {
   clientId: string;
   tenantId: string;
   repositoryIds: string[];
-  scopes: ['knowledge:read'];
+  scopes: ClientCredentialScope[];
   expiresAt: string;
 };
 export async function authenticateClientKey(
-  database: Database,
+  database: Pick<Database, 'query'>,
   options: {
     authorization?: string;
     serverId: string;
     requestedServerId?: string;
     authMode: string;
     repositoryId?: string;
+    requiredScope?: ClientCredentialScope;
   },
 ): Promise<ClientPrincipal> {
   const match = /^Bearer (gcr_key_([0-9a-f-]{36})_[A-Za-z0-9_-]{43})$/.exec(
@@ -226,6 +227,8 @@ export async function authenticateClientKey(
   ).rows[0];
   if (!row || row.expired) fail(401, 'CLIENT_AUTHENTICATION_REQUIRED');
   if (row!.revoked_at || row!.auth_mode !== options.authMode) fail(403, 'CLIENT_ACCESS_REVOKED');
+  if (!row!.scopes.includes(options.requiredScope ?? 'knowledge:read'))
+    fail(403, 'CLIENT_SCOPE_DENIED');
   const current = (
     await database.query<{
       id: string;

@@ -80,7 +80,7 @@ export async function registerClientCredentialRoutes(
       serverId: config.KNOWLEDGE_SERVER_ID ?? null,
       methods: enabled ? ['api-key'] : [],
       clientIds: enabled ? ['commit-defender', 'gcr-cli'] : [],
-      scopes: enabled ? ['knowledge:read'] : [],
+      scopes: enabled ? ['knowledge:read', 'reviews:submit', 'feedback:submit'] : [],
     }));
     routes.get(
       '/api/v1/client-auth/me',

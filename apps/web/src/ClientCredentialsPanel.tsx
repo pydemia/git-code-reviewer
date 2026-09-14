@@ -19,6 +19,9 @@ export function ClientCredentialsPanel() {
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState<'commit-defender' | 'gcr-cli'>('commit-defender');
   const [lifetimeDays, setLifetimeDays] = useState(30);
+  const [availableScopes, setAvailableScopes] = useState<string[]>([]);
+  const [submitResults, setSubmitResults] = useState(false);
+  const [submitFeedback, setSubmitFeedback] = useState(false);
   const [issued, setIssued] = useState<{ id: string; token: string } | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [pending, setPending] = useState(false);
@@ -53,6 +56,7 @@ export function ClientCredentialsPanel() {
           loadClientCredentials(active.signal),
         ]);
         if (active.signal.aborted) return;
+        setAvailableScopes(config.scopes);
         setRepositories(repos);
         setRepositoryId(repos[0]?.id ?? '');
         setItems(keys.items);
@@ -95,6 +99,11 @@ export function ClientCredentialsPanel() {
         tenantId: selected.tenantId,
         repositoryIds: [selected.id],
         lifetimeDays,
+        scopes: [
+          'knowledge:read',
+          ...(submitResults ? ['reviews:submit' as const] : []),
+          ...(submitFeedback ? ['feedback:submit' as const] : []),
+        ],
       });
       if (signal.aborted) return;
       setItems((previous) => [result.credential, ...previous]);
@@ -202,6 +211,26 @@ export function ClientCredentialsPanel() {
                   ))}
                 </select>
               </label>
+              <p>기본 권한: 중앙 리뷰 지식 읽기</p>
+              <label>
+                <input
+                  type="checkbox"
+                  disabled={!availableScopes.includes('reviews:submit')}
+                  checked={submitResults}
+                  onChange={(event) => setSubmitResults(event.target.checked)}
+                />
+                리뷰 결과 제출 허용
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  disabled={!availableScopes.includes('feedback:submit')}
+                  checked={submitFeedback}
+                  onChange={(event) => setSubmitFeedback(event.target.checked)}
+                />
+                피드백 제출 허용
+              </label>
+              <p>제출 권한을 추가해도 리뷰 결과나 대화를 자동으로 전송하지 않습니다.</p>
               <div className="profile-actions">
                 <button
                   className="command-button primary"
@@ -303,6 +332,7 @@ export function ClientCredentialsPanel() {
               return (
                 <li key={item.id}>
                   <strong>{item.name}</strong>
+                  <p>{item.scopes.join(', ')}</p>
                   <span>
                     {item.clientId === 'commit-defender' ? 'Commit Defender' : 'GCR CLI'} ·{' '}
                     {item.revokedAt ? '폐기됨' : expired ? '만료됨' : '발급됨'}

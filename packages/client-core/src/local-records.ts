@@ -13,7 +13,7 @@ import {
   syncDirectory,
 } from './private-files.js';
 
-export type LocalRecordKind = 'knowledge' | 'reviews' | 'chats' | 'conversations' | 'settings';
+export type LocalRecordKind = 'knowledge' | 'reviews' | 'chats' | 'conversations' | 'submissions' | 'settings';
 export type LocalRecord =
   { revision: number; deleted: false; value: unknown } | { revision: number; deleted: true };
 export interface LocalRecordOptions {
@@ -194,7 +194,7 @@ export class LocalRecordStore {
   ): Promise<string | undefined> {
     this.assertOpen();
     validateId(id);
-    if (!['knowledge', 'reviews', 'chats', 'conversations', 'settings'].includes(kind)) throw corrupt();
+    if (!['knowledge', 'reviews', 'chats', 'conversations', 'submissions', 'settings'].includes(kind)) throw corrupt();
     const namespace = await privateDirectory(this.directory, kind);
     if (!create) {
       try {
@@ -289,7 +289,7 @@ export class LocalRecordStore {
   }
   async listIds(kind: LocalRecordKind): Promise<string[]> {
     this.assertOpen();
-    if (!['knowledge', 'reviews', 'chats', 'conversations', 'settings'].includes(kind)) throw corrupt();
+    if (!['knowledge', 'reviews', 'chats', 'conversations', 'submissions', 'settings'].includes(kind)) throw corrupt();
     const namespace = await privateDirectory(this.directory, kind);
     const ids = (await readdir(namespace)).filter((name) => name !== '.DS_Store');
     for (const id of ids) validateId(id);

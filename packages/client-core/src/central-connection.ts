@@ -2,6 +2,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   centralConnectionInput,
+  reviewSubmission,
   fallbackReason,
   offlineBehavior,
   type OfflineBehavior,
@@ -277,6 +278,15 @@ export class CentralConnections {
       clientId: value.clientId,
       expiresAt: value.expiresAt,
     };
+  }
+  async submitReview(id: string, value: unknown, signal?: AbortSignal) {
+    const input = reviewSubmission(value);
+    const state = await this.state(id);
+    await this.assert(state);
+    if (input.clientId !== state.value.clientId) throw denied();
+    const result = await this.timed(signal, (s) => this.transport(state).submitReview(input, s));
+    await this.assert(state);
+    return result;
   }
   async historyIdentity(id: string) {
     const state = await this.state(id);

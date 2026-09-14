@@ -1,7 +1,12 @@
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { setTimeout as delay } from 'node:timers/promises';
-import { centralCredentialIdentity } from '@gcr/client-contract';
+import {
+  centralCredentialIdentity,
+  reviewSubmission,
+  reviewSubmissionReceipt,
+} from '@gcr/client-contract';
+import { contentHash } from './local-identity.js';
 import type { IncomingMessage } from 'node:http';
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
 import type { KnowledgeTransport } from './central-cache.js';
@@ -25,6 +30,7 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
     relative: string,
     signal: AbortSignal,
     etag?: string,
+    body?: string,
   ): Promise<IncomingMessage> {
     if (signal.aborted) throw unavailable();
     if (this.credential.bindingId !== this.binding.id)
@@ -49,7 +55,7 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       const req = request(
         target,
         {
-          method: 'GET',
+          method: body === undefined ? 'GET' : 'POST',
           signal,
           ...(target.protocol === 'https:'
             ? { rejectUnauthorized: true, ...(this.ca ? { ca: this.ca } : {}) }
@@ -58,13 +64,16 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
             authorization: `Bearer ${token}`,
             'x-gcr-server-id': this.binding.audience.serverId,
             accept: 'application/json',
+            ...(body === undefined
+              ? {}
+              : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) }),
             ...(etag ? { 'if-none-match': etag } : {}),
           },
         },
         resolve,
       );
       req.on('error', () => reject(unavailable()));
-      req.end();
+      req.end(body);
     });
   }
   private async failure(
@@ -167,6 +176,44 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       response.destroy();
     }
   }
+  /** Explicit write only. Its failures never mutate the knowledge cache. */
+  async submitReview(value: unknown, signal: AbortSignal) {
+    const input = reviewSubmission(value);
+    if (contentHash(input.audience) !== contentHash(this.binding.audience))
+      throw new Error('submission-binding-mismatch');
+    const response = await this.get(
+      `api/v1/repositories/${encodeURIComponent(input.audience.repositoryId)}/review-submissions/${input.kind === 'result' ? 'results' : 'feedback'}`,
+      signal,
+      undefined,
+      JSON.stringify(input),
+    );
+    try {
+      if (response.statusCode !== 200 && response.statusCode !== 201)
+        throw new ReviewSubmissionDeliveryError(response.statusCode ?? 503);
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of response) {
+        const bytes = Buffer.from(chunk);
+        size += bytes.length;
+        if (size > 32768) throw new ReviewSubmissionDeliveryError(503);
+        chunks.push(bytes);
+      }
+      const receipt = reviewSubmissionReceipt(
+        JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))),
+      );
+      if (
+        receipt.requestId !== input.id ||
+        receipt.payloadHash !== contentHash(input) ||
+        contentHash(receipt.audience) !== contentHash(input.audience) ||
+        receipt.clientId !== input.clientId ||
+        receipt.kind !== input.kind
+      )
+        throw new ReviewSubmissionDeliveryError(503);
+      return receipt;
+    } finally {
+      response.destroy();
+    }
+  }
   async identity(signal: AbortSignal) {
     const response = await this.get('api/v1/client-auth/me', signal);
     if (response.statusCode !== 200) {
@@ -220,5 +267,12 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
         }
       })(),
     };
+  }
+}
+
+export class ReviewSubmissionDeliveryError extends Error {
+  constructor(readonly statusCode: number) {
+    super('Review submission was not confirmed.');
+    this.name = 'ReviewSubmissionDeliveryError';
   }
 }

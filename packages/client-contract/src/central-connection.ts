@@ -28,7 +28,7 @@ export const centralCredentialIdentity = object({
   displayName: text(1000),
   tenantId: id,
   repositoryIds: list(id, 100),
-  scopes: list(choice(['knowledge:read']), 1, 1),
+  scopes: list(choice(['knowledge:read', 'reviews:submit', 'feedback:submit']), 3, 1),
   clientId: choice(['gcr-cli', 'commit-defender']),
   keyId: id,
   expiresAt: timestamp,

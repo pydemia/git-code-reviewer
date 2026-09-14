@@ -112,7 +112,7 @@ describe.sequential('client connection management in Chrome', () => {
           serverId: id(4),
           methods: enabled ? ['api-key'] : [],
           clientIds: enabled ? ['commit-defender', 'gcr-cli'] : [],
-          scopes: enabled ? ['knowledge:read'] : [],
+          scopes: enabled ? ['knowledge:read', 'reviews:submit', 'feedback:submit'] : [],
         },
       }),
     );
@@ -156,6 +156,17 @@ describe.sequential('client connection management in Chrome', () => {
     await page.getByLabel('이름', { exact: true }).fill('업무용 Mac');
     await page.getByRole('button', { name: 'API key 발급', exact: true }).click();
   };
+  it('grants result and feedback submission only when the user selects each permission', async () => {
+    await open();
+    expect(await page.getByLabel('리뷰 결과 제출 허용').isChecked()).toBe(false);
+    expect(await page.getByLabel('피드백 제출 허용').isChecked()).toBe(false);
+    await page.getByLabel('피드백 제출 허용').check();
+    await create();
+    expect((requests[0] as { scopes: string[] }).scopes).toEqual([
+      'knowledge:read',
+      'feedback:submit',
+    ]);
+  });
   it('issues a scoped key once, masks/copies/discards it and downloads a token-free pinned configuration', async () => {
     await open();
     await create();

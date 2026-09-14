@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+export const clientCredentialScopeSchema = z.enum([
+  'knowledge:read',
+  'reviews:submit',
+  'feedback:submit',
+]);
+export const clientCredentialScopesSchema = z
+  .array(clientCredentialScopeSchema)
+  .min(1)
+  .max(3)
+  .refine((scopes) => scopes.includes('knowledge:read') && new Set(scopes).size === scopes.length);
+export type ClientCredentialScope = z.infer<typeof clientCredentialScopeSchema>;
+
 export const clientCredentialInputSchema = z
   .object({
     name: z.string().trim().min(1).max(100),
@@ -10,7 +22,7 @@ export const clientCredentialInputSchema = z
       .min(1)
       .max(100)
       .refine((ids) => new Set(ids).size === ids.length),
-    scopes: z.tuple([z.literal('knowledge:read')]).default(['knowledge:read']),
+    scopes: clientCredentialScopesSchema.default(['knowledge:read']),
     lifetimeDays: z.number().int().min(1).max(90).default(30),
   })
   .strict();
@@ -22,7 +34,7 @@ export const clientCredentialSchema = z
     clientId: z.enum(['commit-defender', 'gcr-cli']),
     tenantId: z.string().uuid(),
     repositoryIds: z.array(z.string().uuid()),
-    scopes: z.tuple([z.literal('knowledge:read')]),
+    scopes: clientCredentialScopesSchema,
     createdAt: z.string().datetime(),
     expiresAt: z.string().datetime(),
     revokedAt: z.string().datetime().nullable(),
@@ -48,7 +60,7 @@ export const clientAuthConfigSchema = z
     serverId: z.string().uuid().nullable(),
     methods: z.array(z.literal('api-key')),
     clientIds: z.array(z.enum(['commit-defender', 'gcr-cli'])),
-    scopes: z.array(z.literal('knowledge:read')),
+    scopes: z.array(clientCredentialScopeSchema),
   })
   .strict();
 
