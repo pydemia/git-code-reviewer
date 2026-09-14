@@ -864,6 +864,12 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
           byteLimit * 2 + 1_048_576,
         )
       : '';
+    // Capture selected paths first to preserve their byte/file budget priority.
+    // Once capture is complete, identity and serialization use canonical order:
+    // an explicit selection and all-changes capture of the same input must join.
+    const canonicalFiles = new Map(
+      [...files.entries()].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+    );
     const identity = snapshotIdentity({
       kind: options.kind,
       objectFormat: git.objectFormat,
@@ -879,7 +885,10 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
         baseTree,
         sourceTree,
         ...(committed ? { targetBranch: options.targetBranch ?? null } : {}),
-        sourceFiles: [...files.values()].map((file) => ({ ...file.source, mode: file.mode })),
+        sourceFiles: [...canonicalFiles.values()].map((file) => ({
+          ...file.source,
+          mode: file.mode,
+        })),
         selected,
         limitations,
         policy: options.excludePatterns ?? [],
@@ -891,7 +900,7 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
       git.repository,
       headCommit,
       committed ? (options.targetBranch ?? null) : git.initialBranch,
-      files,
+      canonicalFiles,
       selected,
       limitations,
       diff,

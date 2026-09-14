@@ -752,3 +752,41 @@ describe('durable fixed source payloads', () => {
     20000,
   );
 });
+
+it('canonicalizes captured file order so explicit Stage and all-changes Commit scopes share identity', () => {
+  fixture((f) => {
+    f.write('caller.ts', "import { sum } from './sum.ts';\nexport const total = () => sum([]);\n");
+    f.write('sum.ts', 'export const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);\n');
+    f.write(
+      'sum.test.ts',
+      "import { sum } from './sum.ts';\nif (sum([]) !== 0) throw Error('empty');\n",
+    );
+    f.commit();
+    f.write('sum.ts', 'export const sum = (xs: number[]) => xs.reduce((a, b) => a + b);\n');
+    f.git('add', 'sum.ts');
+    const stage = captureLocalSource({ cwd: f.repo, kind: 'index', paths: ['sum.ts'] });
+    const commit = captureLocalSource({ cwd: f.repo, kind: 'index' });
+    const broader = captureLocalSource({
+      cwd: f.repo,
+      kind: 'index',
+      paths: ['caller.ts', 'sum.ts'],
+    });
+    try {
+      expect(stage.selected).toEqual(commit.selected);
+      expect(stage.identity).toEqual(commit.identity);
+      expect(stage.sourceFiles).toEqual(commit.sourceFiles);
+      expect(stage.freeze()).toEqual(commit.freeze());
+      expect(broader.identity.hash).not.toBe(stage.identity.hash);
+      const restored = restoreLocalSource(stage.freeze());
+      try {
+        expect(restored.freeze()).toEqual(commit.freeze());
+      } finally {
+        restored.close();
+      }
+    } finally {
+      stage.close();
+      commit.close();
+      broader.close();
+    }
+  });
+}, 20000);
