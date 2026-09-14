@@ -193,6 +193,18 @@ describe
       app.post('/api/v1/model-fixture', { preHandler: requireUser }, async () => ({
         executed: true,
       }));
+      app.post(
+        '/api/v1/repositories/:repoId/remote-model-fixture',
+        {
+          preHandler: requireUser,
+          config: { clientModelInvoke: true },
+        },
+        async (request: FastifyRequest) => {
+          if (!request.clientPrincipal)
+            throw new ClientCredentialError(401, 'CLIENT_AUTHENTICATION_REQUIRED');
+          return { admitted: true, repositoryIds: request.clientPrincipal.repositoryIds };
+        },
+      );
       await bindKnowledgeSigner(db, signer);
       for (const [name, actor] of actors) {
         const login = await app.inject({
@@ -285,6 +297,120 @@ describe
           (await app.inject({ method: 'POST', url: '/api/v1/me/client-credentials', ...request }))
             .statusCode,
         );
+    });
+    it('requires explicit model scope and a current reviewer grant, including after key issuance', async () => {
+      const url = `/api/v1/repositories/${repo}/remote-model-fixture`;
+      const readKey = await issue();
+      expect(
+        (await app.inject({ method: 'POST', url, headers: auth(readKey.token) })).statusCode,
+      ).toBe(403);
+      const key = await issue('alice', { scopes: ['knowledge:read', 'ai:invoke'] });
+      expect((await app.inject({ method: 'POST', url, headers: auth(key.token) })).json()).toEqual({
+        admitted: true,
+        repositoryIds: [repo],
+      });
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url,
+            headers: { ...auth(key.token), origin: 'https://attacker.invalid' },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(
+        (await app.inject({ method: 'POST', url, headers: { authorization: 'Bearer invalid' } }))
+          .statusCode,
+      ).toBe(401);
+      expect((await app.inject({ method: 'POST', url, headers: web() })).statusCode).toBe(401);
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/v1/model-fixture',
+            headers: { ...web(), ...auth(key.token) },
+          })
+        ).statusCode,
+      ).toBe(401);
+      expect(
+        (
+          await app.inject({
+            method: 'POST',
+            url: `/api/v1/repositories/${otherRepo}/remote-model-fixture`,
+            headers: auth(key.token),
+          })
+        ).statusCode,
+      ).toBe(403);
+      const subject = actors.get('alice')!.user.subject;
+      await db.query(
+        "update repository_grants set role='viewer' where repository_id=$1 and subject_or_group=$2",
+        [repo, subject],
+      );
+      try {
+        expect(
+          (await app.inject({ method: 'POST', url, headers: auth(key.token) })).statusCode,
+        ).toBe(403);
+        expect((await me(key.token)).statusCode).toBe(200);
+        const denied = await app.inject({
+          method: 'POST',
+          url: '/api/v1/me/client-credentials',
+          headers: web(),
+          payload: { ...scope(), scopes: ['knowledge:read', 'ai:invoke'] },
+        });
+        expect(denied.statusCode, denied.body).toBe(403);
+      } finally {
+        await db.query(
+          "update repository_grants set role='reviewer' where repository_id=$1 and subject_or_group=$2",
+          [repo, subject],
+        );
+      }
+      await db.query('update client_api_keys set revoked_at=clock_timestamp() where id=$1', [
+        key.id,
+      ]);
+      expect((await app.inject({ method: 'POST', url, headers: auth(key.token) })).statusCode).toBe(
+        403,
+      );
+      expect((await me(readKey.token)).json().scopes).toEqual(['knowledge:read']);
+    });
+    it('accepts an effective reviewer group but does not let a viewer group invoke models', async () => {
+      const actor = actors.get('alice')!.user;
+      await db.query(
+        "update repository_grants set role='viewer' where repository_id=$1 and subject_or_group=$2",
+        [repo, actor.subject],
+      );
+      await db.query('update users set groups_json=\'["remote-fixture"]\'::jsonb where id=$1', [
+        actor.id,
+      ]);
+      await db.query(
+        "insert into repository_grants(repository_id,subject_or_group,role) values($1,'group:remote-fixture','reviewer')",
+        [repo],
+      );
+      try {
+        const key = await issue('alice', {
+          scopes: ['knowledge:read', 'reviews:submit', 'feedback:submit', 'ai:invoke'],
+        });
+        const url = `/api/v1/repositories/${repo}/remote-model-fixture`;
+        expect(
+          (await app.inject({ method: 'POST', url, headers: auth(key.token) })).statusCode,
+        ).toBe(200);
+        await db.query(
+          "update repository_grants set role='viewer' where repository_id=$1 and subject_or_group='group:remote-fixture'",
+          [repo],
+        );
+        expect(
+          (await app.inject({ method: 'POST', url, headers: auth(key.token) })).statusCode,
+        ).toBe(403);
+      } finally {
+        await db.query(
+          "delete from repository_grants where repository_id=$1 and subject_or_group='group:remote-fixture'",
+          [repo],
+        );
+        await db.query("update users set groups_json='[]'::jsonb where id=$1", [actor.id]);
+        await db.query(
+          "update repository_grants set role='reviewer' where repository_id=$1 and subject_or_group=$2",
+          [repo, actor.subject],
+        );
+      }
     });
     it('does not use cookies as bearer credentials or allow a valid key to execute another API', async () => {
       const key = await issue();
@@ -490,7 +616,7 @@ describe
         feedback: undefined,
         result: { status: 'completed', fileCount: 1, findingCount: 2 },
       };
-      delete result.feedback;
+      Reflect.deleteProperty(result, 'feedback');
       const resultUrl = `/api/v1/repositories/${repo}/review-submissions/results`;
       expect(
         (

@@ -19,6 +19,24 @@ const fail = (status: ClientCredentialError['statusCode'], code: string): never 
 };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export const clientKeyInput = clientCredentialInputSchema;
+/** Invocation needs an effective reviewer grant in addition to knowledge access.
+ * Model-account selection and external authorization are checked by the job admission path. */
+export async function clientModelRepositoryAllowed(
+  database: Pick<Database, 'query'>,
+  repositoryId: string,
+  userId: string,
+): Promise<boolean> {
+  if (!(await knowledgeUserAllowed(database, repositoryId, userId, 'reader'))) return false;
+  const grant = await database.query(
+    `select u.id from users u where u.id=$2 and (u.role='administrator' or exists(
+      select 1 from repository_grants g where g.repository_id=$1
+      and g.role in ('reviewer','administrator')
+      and (g.subject_or_group=u.oidc_subject or g.subject_or_group in
+        (select 'group:'||value from jsonb_array_elements_text(u.groups_json)))))`,
+    [repositoryId, userId],
+  );
+  return Boolean(grant.rowCount);
+}
 type Row = {
   id: string;
   user_id: string;
@@ -111,6 +129,11 @@ export async function issueClientKey(
         input.tenantId,
       ]);
       if (!r.rowCount || !(await knowledgeUserAllowed(c, repository, options.user.id, 'reader')))
+        fail(403, 'CLIENT_SCOPE_DENIED');
+      if (
+        input.scopes.includes('ai:invoke') &&
+        !(await clientModelRepositoryAllowed(c, repository, options.user.id))
+      )
         fail(403, 'CLIENT_SCOPE_DENIED');
     }
     const count = await c.query<{ count: string }>(
@@ -278,7 +301,12 @@ export async function authenticateClientKey(
       'select id from repositories where id=$1 and tenant_id=$2',
       [id, row!.tenant_id],
     );
-    if (tenant.rowCount && (await knowledgeUserAllowed(database, id, row!.user_id, 'reader')))
+    if (
+      tenant.rowCount &&
+      (options.requiredScope === 'ai:invoke'
+        ? await clientModelRepositoryAllowed(database, id, row!.user_id)
+        : await knowledgeUserAllowed(database, id, row!.user_id, 'reader'))
+    )
       effective.push(id);
   }
   if (options.repositoryId && !effective.includes(options.repositoryId))

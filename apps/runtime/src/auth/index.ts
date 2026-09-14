@@ -40,6 +40,7 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     clientKnowledgeRead?: boolean;
     clientSubmissionScope?: 'reviews:submit' | 'feedback:submit';
+    clientModelInvoke?: boolean;
   }
 }
 
@@ -86,7 +87,8 @@ export async function registerAuthentication(
     ) {
       if (
         request.routeOptions.config.clientKnowledgeRead ||
-        request.routeOptions.config.clientSubmissionScope
+        request.routeOptions.config.clientSubmissionScope ||
+        request.routeOptions.config.clientModelInvoke
       ) {
         if (
           !config.CLIENT_API_KEYS_ENABLED ||
@@ -104,7 +106,9 @@ export async function registerAuthentication(
             ? { requestedServerId: request.headers['x-gcr-server-id'] }
             : {}),
           authMode: config.AUTH_MODE,
-          requiredScope: request.routeOptions.config.clientSubmissionScope ?? 'knowledge:read',
+          requiredScope: request.routeOptions.config.clientModelInvoke
+            ? 'ai:invoke'
+            : (request.routeOptions.config.clientSubmissionScope ?? 'knowledge:read'),
           ...(params.repoId ? { repositoryId: params.repoId } : {}),
         });
         request.user = request.clientPrincipal.user;

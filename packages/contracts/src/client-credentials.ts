@@ -4,11 +4,12 @@ export const clientCredentialScopeSchema = z.enum([
   'knowledge:read',
   'reviews:submit',
   'feedback:submit',
+  'ai:invoke',
 ]);
 export const clientCredentialScopesSchema = z
   .array(clientCredentialScopeSchema)
   .min(1)
-  .max(3)
+  .max(4)
   .refine((scopes) => scopes.includes('knowledge:read') && new Set(scopes).size === scopes.length);
 export type ClientCredentialScope = z.infer<typeof clientCredentialScopeSchema>;
 
