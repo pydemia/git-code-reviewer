@@ -63,3 +63,48 @@ it('exposes fixed read tools, empty resources and no arbitrary tool or resource 
     await bridge.close();
   }
 });
+
+it('advertises ask_user only with an explicit question port and validates arguments before dispatch', async () => {
+  const askUser = vi.fn<(callId: string, argumentsValue: unknown) => Promise<string>>(
+    async () => '{"status":"awaiting_input"}',
+  );
+  const bridge = await startSourceBridge(
+    {
+      async execute() {
+        throw Error('not source');
+      },
+    },
+    { askUser },
+  );
+  const call = async (method: string, params?: object) =>
+    (
+      await fetch(bridge.url, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${bridge.token}` },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 'same-request', method, params }),
+      })
+    ).json();
+  try {
+    expect((await call('tools/list')).result.tools.map((t: { name: string }) => t.name)).toEqual([
+      'list_files',
+      'read_file',
+      'search_code',
+      'ask_user',
+    ]);
+    expect(
+      (
+        await call('tools/call', {
+          name: 'ask_user',
+          arguments: { question: 'Choose?', options: [], grant: 'all' },
+        })
+      ).result.isError,
+    ).toBe(true);
+    expect(askUser).not.toHaveBeenCalled();
+    const params = { name: 'ask_user', arguments: { question: 'Choose?', options: ['Yes', 'No'] } };
+    expect((await call('tools/call', params)).result.isError).toBe(false);
+    await call('tools/call', params);
+    expect(askUser.mock.calls[0]?.[0]).toBe(askUser.mock.calls[1]?.[0]);
+  } finally {
+    await bridge.close();
+  }
+});

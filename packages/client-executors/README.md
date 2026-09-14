@@ -19,3 +19,15 @@ Output token hard caps are unsupported and reported as such. A core `modelCalls`
 The account selection, stdin/ephemeral invocation and original process helper derive from Commit Defender `vscode-extension/src/ai/providers.ts` at `35575ad`, under Apache-2.0. GCR adds source isolation, authenticated MCP transport, capability probing and process-group cleanup. No other CD account adapter is enabled by this package yet.
 
 `scripts/local-executor-smoke.mjs` runs against installed exports, an explicitly selected current Codex account and synthetic Git data. It verifies source/base/caller witnesses after removing the original repository, the partial-cache defect, cancellation during a tool call and timeout while a tool response is held. The actual package version, hashes and verification scope belong in the execution evidence; a workspace build is not an installed artifact.
+
+### Review conversation capability
+
+`prepareCodexAccountExecutor` also probes the real executable's isolated
+conversation tool catalog against a local synthetic provider. Only the fixed
+source tools and the host-owned `ask_user` tool are admitted. A prepared executor
+exposes `conversationCapability: 'checkpoint-tool-v1'` and `converse`, which accepts
+a `ReviewChatQuestionPort`. Ordinary `review` calls continue to expose only the
+three fixed source tools. The question tool is not a permission dialog and cannot
+change approved source, credentials, or executable settings. The core conversation
+runner persists the question and stops the process; user answers resume a new
+isolated invocation.

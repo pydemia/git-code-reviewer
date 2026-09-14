@@ -1,7 +1,12 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { Socket } from 'node:net';
-import type { FixedSourceToolName, FixedSourceToolPort } from '@gcr/client-contract';
+import {
+  reviewChatQuestionInput,
+  type ReviewChatQuestionPort,
+  type FixedSourceToolName,
+  type FixedSourceToolPort,
+} from '@gcr/client-contract';
 
 export const fixedSourceTools = [
   {
@@ -67,11 +72,40 @@ export const fixedSourceTools = [
   },
 ] as const;
 
+export const reviewQuestionTool = {
+  name: 'ask_user',
+  description:
+    'Persist one question requiring user intent and pause this conversation. Stop after calling. The host resumes with the saved answer in a new isolated step; no execution permission can be granted by an answer.',
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['question', 'options'],
+    properties: {
+      question: { type: 'string', minLength: 1, maxLength: 2000 },
+      options: {
+        type: 'array',
+        maxItems: 6,
+        items: { type: 'string', minLength: 1, maxLength: 300 },
+      },
+    },
+  },
+} as const;
+
 /** A process-owned loopback MCP transport. No files, credentials, external URLs or
  * arbitrary MCP servers are accepted. The random bearer is passed to Codex by env. */
-export async function startSourceBridge(port: FixedSourceToolPort) {
+export async function startSourceBridge(
+  port: FixedSourceToolPort,
+  questions?: ReviewChatQuestionPort,
+) {
   const token = randomBytes(32).toString('hex');
   const authorization = Buffer.from(`Bearer ${token}`);
+  const tools = questions ? [...fixedSourceTools, reviewQuestionTool] : fixedSourceTools;
   const sockets = new Set<Socket>();
   let host = '';
   let requestCount = 0;
@@ -141,7 +175,7 @@ export async function startSourceBridge(port: FixedSourceToolPort) {
           result = {};
           break;
         case 'tools/list':
-          result = { tools: fixedSourceTools };
+          result = { tools };
           break;
         case 'resources/list':
           result = { resources: [] };
@@ -151,12 +185,20 @@ export async function startSourceBridge(port: FixedSourceToolPort) {
           break;
         case 'tools/call': {
           const name = params?.name;
-          if (!fixedSourceTools.some((tool) => tool.name === name)) {
+          if (!tools.some((tool) => tool.name === name)) {
             error = { code: -32602, message: 'Unknown source tool.' };
             break;
           }
           try {
-            const text = await port.execute(name as FixedSourceToolName, params?.arguments ?? {});
+            const text =
+              name === 'ask_user' && questions
+                ? await questions.askUser(
+                    createHash('sha256')
+                      .update(JSON.stringify([token, id]))
+                      .digest('hex'),
+                    reviewChatQuestionInput(params?.arguments),
+                  )
+                : await port.execute(name as FixedSourceToolName, params?.arguments ?? {});
             if (typeof text !== 'string' || Buffer.byteLength(text) > 1_048_576)
               throw Error('output');
             result = { content: [{ type: 'text', text }], isError: false };

@@ -139,3 +139,44 @@ Index capture continues to honor `indexFile` or inherited `GIT_INDEX_FILE`, incl
 `ServiceJobs` persists queued sources and receipts in the profile's `local-service` store. A CAS owner record plus process liveness prevents a second live service from replacing the socket. Queued payloads survive restart; previously running receipts become interrupted and are never automatically replayed. Finished/cancelled payloads are purged; failed cleanup is recorded. The full model deduplication and result storage remain host responsibilities, wired by the CLI to `executeReviewRequest` and encrypted history. Shutdown aborts active work, closes clients, releases ownership, clears store keys, and resolves `closed` with an explicit `problem` if cleanup failed.
 
 This service is not a file watcher or managed hook installer. It limits pending/interrupted receipts to 64 and applies per-review budgets. Service registrations also bound shared profile/worktree starts per hour (default 6). A pre-model budget deferral retains encrypted source as queued with a notBefore time; the worker admits other ready requests. User-wide budgets and receipt retention remain pending. Unix permission checks do not establish isolation from other processes running as the same OS user.
+
+### Interactive review conversations
+
+`ReviewConversationStore` stores an immutable source snapshot, its review report,
+execution identity, conversation turns, and pending questions in the encrypted
+`conversations` namespace. Legacy `LocalHistoryStore` transcript archives remain
+separate. A repository-scoped record store is required. For centralized reviews,
+pass the current `CentralAudience` as the third constructor argument; standalone
+and other audiences cannot read, list, or delete those conversations.
+
+Create a conversation while the original snapshot is still available, using the
+report and the same resolved execution policy. `append` accepts a caller-owned turn
+ID for idempotency. `runReviewConversation` requires a `LocalReviewChatExecutor`
+with the verified `checkpoint-tool-v1` capability and a host-owned
+`assertAuthorized` callback. Resolve current context and policy again on resume;
+the saved identity is a comparison value, not authorization. If source, knowledge,
+model, approved paths, or budgets change, start a new review/conversation rather
+than silently changing the existing conversation.
+
+The Codex executor exposes `ask_user` only for `converse`. The host commits the
+question and continuation state before cancelling the model process. Answering the
+question queues the same turn; it does not call a model. A subsequent runner call
+reconstructs the conversation in a new isolated process using the captured source.
+It does not save a provider thread, hidden reasoning, or credentials. Every cited
+source must be read again by the current step. Search matches and historical read
+IDs cannot be used as current-step citations.
+
+Model calls, transferred bytes, tool calls, and execution time share the turn's
+persisted budget across question/answer steps. Waiting for user input consumes no
+execution time. An in-flight step reserves its remaining budget before admission;
+an unconfirmed process failure stays `running` with its reservation. `interrupt`
+requires the observed revision and closes it as `failed/interrupted`, without
+retrying the model. A concurrent cancellation or answer cannot be overwritten by
+a late result. `close` prevents further turns. `remove` uses a caller-supplied
+revision. Hosts should call `prune` at startup and after terminal changes: it uses
+the existing chat retention settings, expires questions after 24 hours, and keeps
+queued/running work until explicitly reconciled.
+
+The library does not install a watcher or Git hook, send central feedback, or make
+source edits. Client UI, CLI/MCP commands, and central feedback are separate P08
+integration work.

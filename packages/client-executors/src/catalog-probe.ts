@@ -49,16 +49,26 @@ export async function probeCodexCatalog(
     canarySources: string[];
     tools: string[];
   }) => void,
+  conversation = false,
 ): Promise<string[]> {
   const canary = `DO_NOT_LOAD_${randomBytes(16).toString('hex')}`;
   for (const name of ['auth', 'cwd']) await mkdir(path.join(root, name), { mode: 0o700 });
   await writeFile(path.join(root, 'auth', 'AGENTS.md'), `${canary}_home`, { mode: 0o600 });
   await writeFile(path.join(root, 'cwd', 'AGENTS.md'), `${canary}_cwd`, { mode: 0o600 });
-  const bridge = await startSourceBridge({
-    async execute() {
-      throw Error('Probe never provides source.');
+  const bridge = await startSourceBridge(
+    {
+      async execute() {
+        throw Error('Probe never provides source.');
+      },
     },
-  });
+    conversation
+      ? {
+          async askUser() {
+            throw Error('Probe does not ask questions.');
+          },
+        }
+      : undefined,
+  );
   const requests: Array<Record<string, unknown>> = [];
   let invalidRequest = false;
   const sockets = new Set<Socket>();
@@ -104,7 +114,7 @@ export async function probeCodexCatalog(
       `developer_instructions = ${JSON.stringify(`${canary}_config`)}\n[mcp_servers.unexpected]\nurl = "http://127.0.0.1:${address.port}/unexpected"\n`,
       { mode: 0o600 },
     );
-    const args = codexReviewArgs(root, bridge.url);
+    const args = codexReviewArgs(root, bridge.url, conversation);
     for (const [name, value] of Object.entries({
       model_provider: 'gcr_fixture',
       'model_providers.gcr_fixture.name': 'GCR synthetic catalog probe',
@@ -150,7 +160,11 @@ export async function probeCodexCatalog(
     )
       throw new ExecutorError('executor-unavailable');
     const names = catalogNames(request);
-    if (JSON.stringify(names) !== JSON.stringify(expectedReviewTools))
+    const expected = [
+      ...expectedReviewTools,
+      ...(conversation ? ['mcp__gcr_source.ask_user'] : []),
+    ].sort();
+    if (JSON.stringify(names) !== JSON.stringify(expected))
       throw new ExecutorError('executor-unavailable');
     return names;
   } finally {

@@ -5,7 +5,7 @@ import { createReadStream, constants } from 'node:fs';
 import { access, mkdtemp, mkdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import type { FixedSourceToolPort } from '@gcr/client-contract';
+import type { FixedSourceToolPort, ReviewChatQuestionPort } from '@gcr/client-contract';
 import {
   codexAccountEnvironment,
   codexReviewArgs,
@@ -15,7 +15,7 @@ import {
 } from './codex-config.js';
 import { probeCodexCatalog } from './catalog-probe.js';
 import { ExecutorError, runManagedProcess } from './process.js';
-import { fixedSourceTools, startSourceBridge } from './source-bridge.js';
+import { fixedSourceTools, reviewQuestionTool, startSourceBridge } from './source-bridge.js';
 import { runIsolatedCodex } from './codex-isolation.js';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -62,6 +62,7 @@ export interface CodexReviewResult {
 }
 
 class CodexAccountExecutor {
+  readonly conversationCapability = 'checkpoint-tool-v1' as const;
   constructor(
     private readonly command: string,
     private readonly fingerprint: string,
@@ -86,7 +87,18 @@ class CodexAccountExecutor {
       },
     };
   }
-  async review(input: CodexReviewRequest): Promise<CodexReviewResult> {
+  review(input: CodexReviewRequest): Promise<CodexReviewResult> {
+    return this.execute(input);
+  }
+  converse(
+    input: CodexReviewRequest & { questions: ReviewChatQuestionPort },
+  ): Promise<CodexReviewResult> {
+    return this.execute(input, input.questions);
+  }
+  private async execute(
+    input: CodexReviewRequest,
+    questions?: ReviewChatQuestionPort,
+  ): Promise<CodexReviewResult> {
     if (input.signal?.aborted) throw new ExecutorError('cancelled');
     if ((await binaryHash(this.command)) !== this.fingerprint)
       throw new ExecutorError('executor-unavailable');
@@ -97,8 +109,8 @@ class CodexAccountExecutor {
       const cwd = path.join(root, 'cwd');
       await mkdir(cwd, { mode: 0o700 });
       await writeFile(path.join(root, 'models.json'), this.catalog, { mode: 0o600 });
-      bridge = await startSourceBridge(input.source);
-      const args = codexReviewArgs(root, bridge.url);
+      bridge = await startSourceBridge(input.source, questions);
+      const args = codexReviewArgs(root, bridge.url, !!questions);
       if (input.responseSchema) {
         const schema = JSON.stringify(input.responseSchema);
         if (Buffer.byteLength(schema) > 65_536) throw new ExecutorError('executor-unavailable');
@@ -216,6 +228,10 @@ export async function prepareCodexAccountExecutor(options: {
     const catalog = reviewModelCatalog(bundled.stdout);
     await writeFile(path.join(root, 'models.json'), catalog, { mode: 0o600 });
     const tools = await probeCodexCatalog(command, root);
+    const conversationRoot = path.join(root, 'conversation');
+    await mkdir(conversationRoot, { mode: 0o700 });
+    await writeFile(path.join(conversationRoot, 'models.json'), catalog, { mode: 0o600 });
+    const conversationTools = await probeCodexCatalog(command, conversationRoot, undefined, true);
     if ((await binaryHash(command)) !== fingerprint)
       throw new ExecutorError('executor-unavailable');
     const environment = codexAccountEnvironment();
@@ -230,6 +246,8 @@ export async function prepareCodexAccountExecutor(options: {
         catalogHash: hash(catalog),
         tools,
         toolDefinitions: fixedSourceTools,
+        conversationTools,
+        questionToolDefinition: reviewQuestionTool,
         settings: codexReviewArgs('/gcr/run', 'http://127.0.0.1/source'),
         isolation: 'macos-global-instruction-deny-v1',
         authHome: environment.CODEX_HOME ?? path.join(os.homedir(), '.codex'),

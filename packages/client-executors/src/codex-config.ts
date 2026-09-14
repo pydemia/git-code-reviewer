@@ -39,7 +39,7 @@ export function reviewModelCatalog(serialized: string): string {
   return JSON.stringify({ models: [selected] });
 }
 
-export function codexReviewArgs(root: string, sourceUrl: string): string[] {
+export function codexReviewArgs(root: string, sourceUrl: string, conversation = false): string[] {
   const args = [
     'exec',
     '--ignore-user-config',
@@ -81,11 +81,17 @@ export function codexReviewArgs(root: string, sourceUrl: string): string[] {
     'mcp_servers.gcr_source.url': sourceUrl,
     'mcp_servers.gcr_source.required': true,
     'mcp_servers.gcr_source.bearer_token_env_var': 'GCR_FIXED_SOURCE_TOKEN',
-    'mcp_servers.gcr_source.enabled_tools': ['list_files', 'read_file', 'search_code'],
+    'mcp_servers.gcr_source.enabled_tools': [
+      'list_files',
+      'read_file',
+      'search_code',
+      ...(conversation ? ['ask_user'] : []),
+    ],
     // This process-owned server is backed by the already-approved fixed source port.
     'mcp_servers.gcr_source.tools.list_files.approval_mode': 'approve',
     'mcp_servers.gcr_source.tools.read_file.approval_mode': 'approve',
     'mcp_servers.gcr_source.tools.search_code.approval_mode': 'approve',
+    ...(conversation ? { 'mcp_servers.gcr_source.tools.ask_user.approval_mode': 'approve' } : {}),
     'mcp_servers.gcr_source.startup_timeout_sec': 5,
     'mcp_servers.gcr_source.tool_timeout_sec': 10,
   };
