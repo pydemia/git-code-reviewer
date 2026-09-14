@@ -55,7 +55,7 @@ Manifest·Skill·메모리 sync
 
 `commitDefender.centralized.authMethod`는 `login` 또는 `api-key`를 선택하는 비밀이 아닌 설정으로 제안한다. 서버가 게시한 실제 구현·활성화된 방식만 표시하며 GCR 내부 client 로그인 모듈이 준비되지 않은 버전에는 login이 가능하다고 표시하지 않는다. Key/token 원문을 VS Code settings나 `.commit-defender/hook.json`에 넣는 설정은 제공하지 않는다. `API key 등록/교체` 명령은 masked 입력으로 받아 OS credential store에 저장한다. Token은 URL query, shell argument, Git 파일, 진단 로그에 기록하지 않는다.
 
-권한 화면은 읽기와 쓰기를 분리한다. 최초 sync의 기본 권한은 `rules:read`, `memories:read`이며, 원문 추가 조회는 `sources:read`, feedback 제출은 `feedback:submit`, 결과 metadata 제출은 `reviews:submit`, 중앙 모델 호출은 `ai:invoke`로 각각 추가 동의한다. Local provider로 리뷰한다면 `ai:invoke`는 필요 없다. 정책 관리 권한은 기본 client credential에 넣지 않는다.
+클라이언트 권한은 `knowledge:read`로 제한한다. 중앙 리뷰·프롬프트 조회만 허용하며 로컬 결과·피드백 제출과 중앙 모델 호출은 제공하지 않는다. 중앙 관리 권한은 별도 웹 사용자 권한으로 처리한다.
 
 ## 브라우저 로그인과 headless 연결
 

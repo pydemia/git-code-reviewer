@@ -14,7 +14,7 @@
 | 인증      | 선택한 모델 provider의 로컬 로그인/API 설정                                 | 중앙 로그인과 모델 provider 로그인을 분리                                    |
 | 리뷰 지식 | Built-in Skill + 사용자가 활성화한 local Skill·memory                       | 유효한 중앙 정책·Skill·집단·본인 개인 메모리 + 충돌하지 않는 local 보완 자료 |
 | 로컬 저장 | 본인 profile·repository별 memory, Skill, 리뷰·대화 이력                     | 독립형 저장소를 유지하면서 중앙 배포 snapshot을 별도로 저장                  |
-| 모델 실행 | 기존 로컬 계정 CLI 또는 사용자가 지정한 API provider                        | 같은 로컬 executor를 기본으로 사용. 중앙 proxy는 별도 선택 사항              |
+| 모델 실행 | 기존 로컬 계정 CLI 또는 사용자가 지정한 API provider                        | 같은 로컬 executor 사용. 중앙 모델 실행 경로 없음              |
 | 서버 장애 | 영향 없음                                                                   | 설정에 따라 유효 cache 사용, standalone fallback 또는 대기                   |
 
 `Standalone`은 중앙 서버에 의존하지 않는다는 뜻이다. 선택한 모델이 외부 API·계정 CLI를 사용하면 그 제공자와의 연결은 여전히 필요하다. 모델을 실행할 수 없을 때는 지식 조회·편집·과거 결과 열람은 가능하지만 AI 리뷰를 완료했다고 표시하지 않는다.
@@ -66,26 +66,24 @@ configuredMode = centralized
 
 Fallback standalone은 built-in/local Skill·local memory만 사용한다. 만료·철회된 중앙 자료를 local 자료로 이름만 바꿔 계속 사용하지 않는다. 해당 결과는 중앙 정책을 충족했다는 증명으로 재사용할 수 없다. 중앙 검증이 필수인 작업에서도 독립형 참고 리뷰와 중앙 검증 미완료 상태를 구분한다.
 
-기본 `modelExecutor=local`이면 서버 장애 중에도 같은 provider를 사용한다. 중앙 proxy를 선택한 경우 유효한 지식 cache만 있어도 모델을 실행할 수 있는 것은 아니다. 연결 설정에서 별도 local executor와 source 전송 범위를 미리 승인한 경우에만 그 경로로 전환한다. 승인하지 않은 다른 제공자로 source를 보내거나 중앙 credential을 로컬로 복사하지 않는다.
+모델 실행은 항상 로컬 executor를 사용한다. 서버 장애나 cache 상태가 모델 실행 위치를 바꾸지 않는다. 실행 가능한 로컬 모델이 없으면 미완료로 처리한다.
 
-중앙 모델 job 제출 후 응답만 끊긴 경우에는 로컬 재실행을 즉시 시작하지 않는다. 기존 job의 상태를 확인하거나 취소를 확인해 중복 호출을 방지한다. 확인이 불가능하면 실행 상태를 미확정으로 표시하고 사용자 재시도 시 중복 실행 가능성을 알린다. Mode/서버 전환 시에도 시작한 리뷰의 context·인가 범위를 중간에 섞지 않는다.
+모드·서버 전환 시 시작한 리뷰의 context·인가 범위를 중간에 섞지 않는다. 중앙 자료 수신 설정과 로컬 모델 설정을 분리한다.
 
 Centralized로 설정된 동안은 backoff·jitter로 재연결하고 정상 sync 후 다음 리뷰부터 중앙 snapshot을 사용한다. 재연결만으로 모델을 호출하거나 과거 standalone 결과를 중앙 리뷰 결과로 승격하지 않는다. 사용자가 standalone으로 전환하면 새 중앙 요청·재시도·feedback 전송을 중단하며, 진행 중 원격 작업은 취소를 시도하고 남은 실행 상태를 별도로 표시한다.
 
 ## 동기화의 단위와 방향
 
-Centralized 모드에서는 중앙 Git Code Reviewer가 배포 원본을 관리하고 Commit Defender의 공통 client core가 읽기 전용 snapshot을 받는다. 로컬에서 승인된 정책·집단 메모리를 직접 수정해 서버와 병합하는 양방향 파일 sync는 하지 않는다. 사용자가 직접 작성한 local 자료는 별도로 저장하고, 중앙 반영을 요청한 정정·예외·새 판단만 feedback 또는 메모리 후보로 제출해 중앙의 검토 절차를 거친다.
+Centralized 모드에서는 중앙 Git Code Reviewer가 발행 원본을 관리하고 Commit Defender의 공통 client core가 읽기 전용 snapshot을 받는다. 사용자가 작성한 로컬 자료와 수정·예외 판단은 로컬에 보관하고 중앙에 제출하지 않는다.
 
 ```text
-GitHub 리뷰·사용자 feedback
+중앙 GitHub 리뷰·중앙에서 작성한 프롬프트
         ↓ 후보 추출·검토·승인
 중앙 정책 / 집단 메모리 / 개인 메모리
         ↓ 불변 bundle 발행
 인증된 manifest → 필요한 bundle만 다운로드
         ↓ 검증·동시 활성화
-로컬 cache → 관련 기준·메모리 선택 → 실제 코드 리뷰
-                                      ↓ 사용자가 제출한 feedback
-                                   중앙 후보 관리
+로컬 cache → 관련 기준·메모리 선택 → 로컬 모델 코드 리뷰
 ```
 
 Sync 자체는 모델을 호출하지 않는다. 승인된 데이터를 선택·직렬화하고 version/hash를 비교하는 서버·client 코드로 처리한다. 원문에서 메모리 후보를 추출하거나 실제 코드를 리뷰하는 모델 실행과 분리한다.
@@ -150,7 +148,7 @@ Component는 독립적으로 바뀌므로 개인 메모리만 바뀌면 개인 b
 
 중앙 로그인과 모델 provider 로그인은 별개다. 신규 `AUTH_MODE=saml`·기존 사용자 DB·웹 session 계약을 기반으로 GCR 내부에 PKCE code flow와 headless/remote CLI의 device flow를 추가한다. SAML assertion은 client sync API의 bearer token으로 사용하지 않는다. Credential을 제거한 remote를 tenant·repository ID에 명시적으로 연결하며 fork·여러 remote·같은 이름의 GHES repository를 임의로 하나로 합치지 않는다. 인증 방식은 `commitDefender.centralized.authMethod`로 선택하며 서버가 아직 구현하지 않은 방식은 비활성화한다. Standalone에는 중앙 인증·Keycloak을 요구하지 않는다.
 
-기본 scope는 `rules:read`, `memories:read`이며 개인 메모리 owner는 request body가 아니라 인증된 사용자에서 정한다. 원문 조회는 `sources:read`, feedback은 `feedback:submit`, 결과 제출은 `reviews:submit`, 중앙 모델 호출은 `ai:invoke`로 분리한다. 모든 manifest·artifact·source 요청에서 credential의 현재 상태와 tenant membership·repository grant·요청 scope를 확인한다.
+클라이언트 scope는 `knowledge:read`다. 모든 manifest·artifact·source 요청에서 credential의 현재 상태와 tenant membership·repository grant·요청 scope를 확인한다. 클라이언트에 쓰기·모델 실행 권한을 부여하지 않는다.
 
 | 제안 API                                                          | 역할                                                             |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -162,7 +160,6 @@ Component는 독립적으로 바뀌므로 개인 메모리만 바뀌면 개인 b
 | `GET /api/v1/repositories/:id/review-knowledge/manifest`          | 인증된 사용자의 정책·집단·개인 bundle 조합. `If-None-Match` 지원 |
 | `GET /api/v1/repositories/:id/review-knowledge/bundles/:bundleId` | Scope·현재 인가 확인 후 불변 artifact 제공                       |
 | `GET /api/v1/repositories/:id/review-knowledge/sources/:sourceId` | 원문 또는 허용된 근거 projection을 명시적으로 조회               |
-| `POST /api/v1/repositories/:id/review-knowledge/feedback`         | 선택한 판단에 대한 정정·예외·메모리 후보 제출                    |
 
 기존 기획의 공용/개인 `rule-manifest` 분리 제안은 위 사용자별 조합 manifest로 구체화한다. Code 교환·기기 승인·token 갱신·폐기는 GCR 자체 인증 모듈에서 처리한다. 저장 artifact와 권한 경계는 계속 분리한다. UUID나 content hash를 아는 것만으로 다운로드할 수 없고, 개인 bundle에 공개 object URL을 발급하지 않는다. 사용자 응답을 공용 CDN cache에서 재사용하지 않도록 하며 로컬 cache도 계정별로 나눈다.
 
@@ -244,9 +241,9 @@ Centralized에서 MVP 제안값은 최초 연결·client 시작·수동 sync 시
 
 만료됐거나 sync가 처음부터 성공하지 않은 경우 중앙 기준을 적용했다고 표시하지 않는다. `cache-then-standalone` 등 사용자가 확인한 fallback 설정에 따라 local 자료만으로 독립형 리뷰를 수행할 수 있지만 중앙 기준 충족 결과로 재사용하지 않는다. 이 설정은 독립형 실행에 대한 사전 선택이며 중앙 자료 접근 권한이나 다른 모델 제공자로의 전송 동의를 대신하지 않는다. 이미 offline client가 읽거나 복사한 데이터의 즉시 회수는 보장하지 않는다.
 
-Commit Defender에는 실행 모드·서버 주소 입력, 연결 서버·repository·계정, 각 bundle 버전, 마지막 sync·만료 시각, 집단/개인/local 항목 수, 오류, `연결 테스트`·`지금 동기화`·`사용한 기준 보기`·`연결 해제`를 표시한다. Local Memory·Local Skills 관리 화면은 standalone에서도 사용할 수 있어야 한다. 중앙에서 받은 항목은 출처와 readonly 상태를 표시하고 local 편집 화면과 구분한다. 중앙에는 정책·메모리의 승인·퇴역·예외 처리와 client sync 상태를 제공한다. 사용자는 상세 판단에서 원문과 적용 이유를 확인하고 정정 요청을 보낼 수 있다.
+Commit Defender에는 실행 모드·서버 주소 입력, 연결 서버·repository·계정, 각 bundle 버전, 마지막 sync·만료 시각, 집단/개인/local 항목 수, 오류, `연결 테스트`·`지금 동기화`·`사용한 기준 보기`·`연결 해제`를 표시한다. Local Memory·Local Skills 관리 화면은 standalone에서도 사용할 수 있어야 한다. 중앙에서 받은 항목은 출처와 readonly 상태를 표시하고 local 편집 화면과 구분한다. 중앙에는 정책·메모리의 승인·퇴역·예외 처리와 client sync 상태를 제공한다. 사용자는 상세 판단에서 원문과 적용 이유를 확인하고 개인 판단을 로컬에 기록한다.
 
-Feedback은 원문 bundle을 직접 수정하는 patch가 아니다. 사용자가 고른 내용에 snapshot·memory/rule 참조와 idempotency key를 붙여 제출한다. 후보에서 개인 메모리 또는 승인된 집단 메모리로 반영된 뒤 다음 sync에서 내려온다. Standalone에서 만든 local 자료는 연결·복구 시 자동 업로드하지 않는다. 사용자가 중앙 제출을 요청한 항목만 대상 서버·계정에 묶어 보관하며, 연결 대상이 바뀌면 전송을 보류해 재확인한다. 로컬 diff·대화 전체의 자동 업로드는 기본 동작으로 넣지 않는다.
+로컬 피드백·예외·개인 메모리는 로컬에 보관한다. 재연결이나 사용자 조작에 따른 중앙 제출·재시도 기능을 제공하지 않는다.
 
 ## 구현 순서와 검증
 
