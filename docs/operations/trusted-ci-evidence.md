@@ -52,3 +52,5 @@ GitHub 읽기에는 저장소의 등록 자격 증명 또는 배포 GitHub App�
 ## 구현 및 운영 상태
 
 수집기·검증기·사용자 조회 API·화면·Helm 설정과 서명 유틸리티를 구현했다. 실제 운영 CI 생산자, 공개키, workflow 및 환경 명세가 정해지기 전에는 `not-configured`가 정상 상태다. 합성 서명과 격리된 GitHub 응답, 로컬 DB·브라우저 검증은 실제 CI의 측정 정확도나 생산자 격리 검증을 대신하지 않는다. P13-C02 전체 완료 판정은 실제 생산자 연결과 운영 근거 확인 후에 한다.
+
+PRISM-DEV 배포: `0.8.0-alpha.60`, chart `0.10.56`, Helm revision `70`, DB schema `52` (2026-09-15 07:19 KST). 수집기 기본 정책은 빈 배열이다. 검증 증거는 [P13-C02 기록](../../.documents/execution/preventive-review/evidence/P13-trusted-ci.json)에 있다.
