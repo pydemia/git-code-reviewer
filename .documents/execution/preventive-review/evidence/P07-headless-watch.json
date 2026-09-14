@@ -1,0 +1,126 @@
+{
+  "scope": "P07-C03 headless CLI watch; CD settings integration remains incomplete",
+  "sourceCommit": "7cad26df59a20944f4dd6ce60f8728a0984c5ada",
+  "clientVersion": "0.1.0-alpha.29",
+  "cliVersion": "0.1.0-alpha.25",
+  "packages": [
+    {
+      "name": "@gcr/client-contract",
+      "version": "0.1.0-alpha.29",
+      "file": "gcr-client-contract-0.1.0-alpha.29.tgz",
+      "sha256": "8c0b6720b05003db7e6502a5cb6356563c9e64381925af46244e274f529671a1"
+    },
+    {
+      "name": "@gcr/client-core",
+      "version": "0.1.0-alpha.29",
+      "file": "gcr-client-core-0.1.0-alpha.29.tgz",
+      "sha256": "96843e9b9418e7ea0d6bf2731f8718d5e1a3be90b73bd906e8c4c6b26b686258"
+    },
+    {
+      "name": "@gcr/client-executors",
+      "version": "0.1.0-alpha.29",
+      "file": "gcr-client-executors-0.1.0-alpha.29.tgz",
+      "sha256": "f2860e1cfea8bfd3ddf9cbff4be28b1ca095ee13d5bf824694a09b9e9b78f5c3"
+    },
+    {
+      "name": "@gcr/cli",
+      "version": "0.1.0-alpha.25",
+      "file": "gcr-cli-0.1.0-alpha.25.tgz",
+      "sha256": "a2217910a1686a9009df17d333d8530ccc2a8bde9e23bd15c801c13d82f3a13d"
+    }
+  ],
+  "installation": {
+    "consumer": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-headless-watch/consumer",
+    "cliBytesMatchArchive": true,
+    "cliSha256": "7c5fc4944d96245f692522bd8697df16d7c5632e7c91ea1e449060f846324c26",
+    "globalCliReplaced": false,
+    "commitDefenderVersion": "2.7.1",
+    "commitDefenderRuntimeChanged": false,
+    "serverRedeployed": false
+  },
+  "verification": {
+    "tests": 27,
+    "files": {
+      "service-watch": 8,
+      "automatic-source": 5,
+      "local-service": 8,
+      "cli-service": 6
+    },
+    "node": "22.23.2",
+    "packageImportRuntimes": [
+      "18.20.8",
+      "22.23.2"
+    ],
+    "sourceAndTestTypecheck": "passed",
+    "changedFilesLint": "passed",
+    "processRestart": "Actual service process SIGKILL with pending Stage observation; restart delivered one completed receipt",
+    "lostAcknowledgement": "Injected failure after durable submit; restart reused receipt; interrupted request was not retried",
+    "revocation": "Queue rechecks durable watch revocation after injected cancellation failure; unrelated Commit receipt remains runnable",
+    "initialFailures": [
+      "Snapshot read result was asserted as a string instead of a tagged object",
+      "Test memory-key adapter returned its backing buffer; second close zeroed test key. Adapter now copies reads."
+    ],
+    "finalResult": "27 passed; previous failures not counted as passed"
+  },
+  "actualReview": {
+    "runId": "d987dc62-c073-4e90-89ef-72bc62e42129",
+    "status": "completed",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "trigger": "save",
+    "durationMs": 73792,
+    "findings": 1,
+    "sourceReads": [
+      {
+        "path": "sum.ts",
+        "side": "source"
+      },
+      {
+        "path": "sum.ts",
+        "side": "base"
+      },
+      {
+        "path": "caller.ts",
+        "side": "source"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "source"
+      },
+      {
+        "path": "package.json",
+        "side": "source"
+      },
+      {
+        "path": "caller.ts",
+        "side": "base"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "base"
+      },
+      {
+        "path": "package.json",
+        "side": "base"
+      }
+    ],
+    "testCommandsExecuted": false,
+    "durableReviewRequests": 1,
+    "generation": 1,
+    "commandExitedBeforeWrite": true,
+    "sameBytesReusedReceipt": true,
+    "cleanup": "service stopped; owned fixture and keys removed",
+    "removedProfileKeys": 3
+  },
+  "localEvidence": {
+    "directory": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-headless-watch",
+    "nativeSha256": "62200dd64c34e5395547fa8f45e1e652b1cc68389bfd0fffdd3520caa4cf37d7"
+  },
+  "remaining": [
+    "CD Save/Auto Save event provenance and headless handoff",
+    "partial-hunk unstage",
+    "OS login autostart and Linux actual executor",
+    "user-wide budget, receipt retention and other-UID actual checks",
+    "All remaining P00-P13 plan requirements remain in scope"
+  ]
+}
