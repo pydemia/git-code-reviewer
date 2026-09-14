@@ -7,7 +7,11 @@ import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { analyzeSnapshot, modelReviewFromText } from '@gcr/analysis-engine';
 import type { ReviewReport } from '@gcr/review-contract';
-import type { GitHubReader, GitHubReviewPublisher } from '@gcr/github';
+import {
+  GitHubAccessTokenClient,
+  type GitHubReader,
+  type GitHubReviewPublisher,
+} from '@gcr/github';
 import Fastify from 'fastify';
 import { createServer } from '../../../web/src/review-criteria-test-server.js';
 import { chromium } from 'playwright';
@@ -16,7 +20,11 @@ import { EventHub } from '../events/index.js';
 import { AuthorizationService } from './authorization.js';
 import { registerAnalysisRoutes } from '../routes/analyses.js';
 import { loadReviewRecurrence } from './review-recurrence.js';
-import { enqueueReviewPublication, publishReviewToGitHub } from './review-publication.js';
+import {
+  enqueueLatestReviewPublication,
+  enqueueReviewPublication,
+  publishReviewToGitHub,
+} from './review-publication.js';
 
 const url = process.env.GCR_TEST_DATABASE_URL;
 describe.skipIf(!url).sequential('public review recurrence and managed publication', () => {
@@ -442,4 +450,190 @@ describe.skipIf(!url).sequential('public review recurrence and managed publicati
       await app.close();
     }
   }, 30_000);
+  it('uses the real publisher guard with persisted ownership and preserves a newer target during the remote read', async () => {
+    const fresh = await create('c'.repeat(40), 41);
+    await persist(fresh);
+    await db.query("update analysis_runs set created_at='2031-01-01T00:00:00Z' where id=$1", [
+      fresh.analysisRevisionId,
+    ]);
+    await enqueueReviewPublication(db, fresh.analysisRevisionId, pr, true);
+    const calls: string[] = [];
+    const publisher = new GitHubAccessTokenClient('owned-fixture', async (url, init) => {
+      const method = init?.method ?? 'GET';
+      calls.push(method);
+      if (String(url).endsWith('/pulls/1'))
+        return Response.json({
+          number: 1,
+          state: 'open',
+          head: { sha: 'd'.repeat(40) },
+          base: { repo: { full_name: 'owned/recurrence' } },
+        });
+      return Response.json([]);
+    });
+    const job = {
+      id: randomUUID(),
+      payload: { analysisId: fresh.analysisRevisionId, pullRequestId: pr },
+    };
+    await publishReviewToGitHub(db, publisher, config, job, store);
+    expect(calls.every((method) => method === 'GET')).toBe(true);
+    const skipped = (
+      await db.query(
+        'select state,last_error_code,published_analysis_run_id from github_review_publications where pull_request_id=$1',
+        [pr],
+      )
+    ).rows[0];
+    expect(skipped).toMatchObject({
+      state: 'disabled',
+      last_error_code: 'GITHUB_REVIEW_HEAD_CHANGED',
+    });
+    expect(skipped.published_analysis_run_id).not.toBe(fresh.analysisRevisionId);
+    const newer = await create('c'.repeat(40), 42);
+    await persist(newer);
+    await db.query("update analysis_runs set created_at='2032-01-01T00:00:00Z' where id=$1", [
+      newer.analysisRevisionId,
+    ]);
+    const racing = new GitHubAccessTokenClient('owned-fixture', async (url, init) => {
+      const method = init?.method ?? 'GET';
+      expect(method).toBe('GET');
+      if (String(url).endsWith('/pulls/1')) {
+        await enqueueReviewPublication(db, newer.analysisRevisionId, pr, true);
+        return Response.json({
+          number: 1,
+          state: 'open',
+          head: { sha: 'c'.repeat(40) },
+          base: { repo: { full_name: 'owned/recurrence' } },
+        });
+      }
+      return Response.json([]);
+    });
+    await publishReviewToGitHub(db, racing, config, job, store);
+    expect(
+      (
+        await db.query(
+          'select state,target_analysis_run_id,last_error_code from github_review_publications where pull_request_id=$1',
+          [pr],
+        )
+      ).rows[0],
+    ).toEqual({
+      state: 'pending',
+      target_analysis_run_id: newer.analysisRevisionId,
+      last_error_code: null,
+    });
+    const methods: string[] = [];
+    const valid = new GitHubAccessTokenClient('owned-fixture', async (url, init) => {
+      const method = init?.method ?? 'GET';
+      methods.push(method);
+      if (String(url).endsWith('/pulls/1'))
+        return Response.json({
+          number: 1,
+          state: 'open',
+          head: { sha: 'c'.repeat(40) },
+          base: { repo: { full_name: 'owned/recurrence' } },
+        });
+      if (method === 'GET') return Response.json([]);
+      return Response.json({
+        id: 42,
+        html_url: 'https://example.invalid/comment/42',
+        body: 'owned',
+      });
+    });
+    await publishReviewToGitHub(
+      db,
+      valid,
+      config,
+      { id: randomUUID(), payload: { analysisId: newer.analysisRevisionId, pullRequestId: pr } },
+      store,
+    );
+    expect(methods).toEqual(['GET', 'PATCH']);
+    expect(
+      (
+        await db.query(
+          'select state,published_analysis_run_id from github_review_publications where pull_request_id=$1',
+          [pr],
+        )
+      ).rows[0],
+    ).toEqual({ state: 'published', published_analysis_run_id: newer.analysisRevisionId });
+    const closed = await create('c'.repeat(40), 43);
+    await persist(closed);
+    await db.query("update analysis_runs set created_at='2033-01-01T00:00:00Z' where id=$1", [
+      closed.analysisRevisionId,
+    ]);
+    await enqueueReviewPublication(db, closed.analysisRevisionId, pr, true);
+    const disabled = new GitHubAccessTokenClient('owned-fixture', async (url, init) => {
+      expect(init?.method ?? 'GET').toBe('GET');
+      if (String(url).endsWith('/pulls/1')) {
+        await db.query('update repositories set review_publishing_enabled=false where id=$1', [
+          repo,
+        ]);
+        return Response.json({
+          number: 1,
+          state: 'open',
+          head: { sha: 'c'.repeat(40) },
+          base: { repo: { full_name: 'owned/recurrence' } },
+        });
+      }
+      return Response.json([]);
+    });
+    try {
+      await publishReviewToGitHub(
+        db,
+        disabled,
+        config,
+        { id: randomUUID(), payload: { analysisId: closed.analysisRevisionId, pullRequestId: pr } },
+        store,
+      );
+      expect(
+        (
+          await db.query(
+            'select state,last_error_code from github_review_publications where pull_request_id=$1',
+            [pr],
+          )
+        ).rows[0],
+      ).toEqual({ state: 'disabled', last_error_code: 'GITHUB_REVIEW_TARGET_CHANGED' });
+    } finally {
+      await db.query('update repositories set review_publishing_enabled=true where id=$1', [repo]);
+    }
+  }, 30000);
+  it('selects the latest public current-head report and does not queue or publish a closed PR', async () => {
+    const publicReport = await create('c'.repeat(40), 44);
+    await persist(publicReport);
+    const privateReport = await create('c'.repeat(40), 45, false, user);
+    await persist(privateReport);
+    await db.query("update analysis_runs set created_at='2034-01-01T00:00:00Z' where id=$1", [
+      publicReport.analysisRevisionId,
+    ]);
+    await db.query("update analysis_runs set created_at='2035-01-01T00:00:00Z' where id=$1", [
+      privateReport.analysisRevisionId,
+    ]);
+    expect(await enqueueLatestReviewPublication(db, repo, true)).toBe(true);
+    expect(
+      (
+        await db.query(
+          'select target_analysis_run_id from github_review_publications where pull_request_id=$1',
+          [pr],
+        )
+      ).rows[0].target_analysis_run_id,
+    ).toBe(publicReport.analysisRevisionId);
+    await db.query("update pull_requests set state='closed' where id=$1", [pr]);
+    try {
+      expect(await enqueueLatestReviewPublication(db, repo, true)).toBe(false);
+      expect(await enqueueReviewPublication(db, publicReport.analysisRevisionId, pr, true)).toBe(
+        false,
+      );
+      const fetch = vi.fn(async () => Response.json({}));
+      await publishReviewToGitHub(
+        db,
+        new GitHubAccessTokenClient('owned-fixture', fetch),
+        config,
+        {
+          id: randomUUID(),
+          payload: { analysisId: publicReport.analysisRevisionId, pullRequestId: pr },
+        },
+        store,
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      await db.query("update pull_requests set state='open' where id=$1", [pr]);
+    }
+  }, 30000);
 });

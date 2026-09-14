@@ -134,15 +134,26 @@ export type PullRequestCommentPublication = {
   outcome: 'created' | 'updated';
 };
 
+export type PullRequestCommentInput = {
+  pullNumber: number;
+  expectedHeadSha: string;
+  marker: string;
+  body: string;
+  existingCommentId?: number | null;
+  /** Revalidate local publication ownership after the remote read and before each write. */
+  beforeWrite?: () => Promise<void>;
+};
+
+export class GitHubPublicationSupersededError extends Error {
+  constructor(public readonly reason: 'head-changed' | 'pull-closed' | 'target-changed') {
+    super(`Review publication skipped: ${reason}`);
+  }
+}
+
 export interface GitHubReviewPublisher {
   upsertPullRequestComment(
     target: RepositoryTarget,
-    input: {
-      pullNumber: number;
-      marker: string;
-      body: string;
-      existingCommentId?: number | null;
-    },
+    input: PullRequestCommentInput,
   ): Promise<PullRequestCommentPublication>;
 }
 
@@ -200,12 +211,7 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
 
   async upsertPullRequestComment(
     target: RepositoryTarget,
-    input: {
-      pullNumber: number;
-      marker: string;
-      body: string;
-      existingCommentId?: number | null;
-    },
+    input: PullRequestCommentInput,
   ): Promise<PullRequestCommentPublication> {
     return upsertPullRequestComment(target, input, (url, init) =>
       this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
@@ -312,12 +318,7 @@ export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublis
 
   async upsertPullRequestComment(
     target: RepositoryTarget,
-    input: {
-      pullNumber: number;
-      marker: string;
-      body: string;
-      existingCommentId?: number | null;
-    },
+    input: PullRequestCommentInput,
   ): Promise<PullRequestCommentPublication> {
     return upsertPullRequestComment(target, input, (url, init) =>
       this.authenticatedRequest(url, init),
@@ -505,22 +506,25 @@ async function paginatedRequest<T extends z.ZodTypeAny>(
 
 async function upsertPullRequestComment(
   target: RepositoryTarget,
-  input: {
-    pullNumber: number;
-    marker: string;
-    body: string;
-    existingCommentId?: number | null;
-  },
+  input: PullRequestCommentInput,
   request: AuthenticatedRequest,
 ): Promise<PullRequestCommentPublication> {
   if (!Number.isInteger(input.pullNumber) || input.pullNumber < 1) {
     throw new Error('A positive pull request number is required');
   }
+  if (
+    input.existingCommentId != null &&
+    (!Number.isSafeInteger(input.existingCommentId) || input.existingCommentId < 1)
+  )
+    throw new Error('A positive safe comment ID is required');
+  if (!/^[a-f0-9]{40}$/i.test(input.expectedHeadSha))
+    throw new Error('A full expected head SHA is required');
   if (!input.marker || !input.body.includes(input.marker)) {
     throw new Error('The managed comment marker must be present in the body');
   }
 
   if (input.existingCommentId) {
+    await assertPublicationHead(target, input, request);
     try {
       return await writePullRequestComment(target, input.body, input.existingCommentId, request);
     } catch (error) {
@@ -534,7 +538,38 @@ async function upsertPullRequestComment(
     input.marker,
     request,
   );
+  await assertPublicationHead(target, input, request);
   return writePullRequestComment(target, input.body, recoveredCommentId, request, input.pullNumber);
+}
+
+/** No cached/conditional response can authorize a write. Each retry repeats this read. */
+async function assertPublicationHead(
+  target: RepositoryTarget,
+  input: PullRequestCommentInput,
+  request: AuthenticatedRequest,
+): Promise<void> {
+  const response = await request(repositoryApiUrl(target, `pulls/${input.pullNumber}`), {
+    method: 'GET',
+    signal: AbortSignal.timeout(15_000),
+    headers: { 'cache-control': 'no-cache' },
+  });
+  const current = z
+    .object({
+      number: z.number().int().positive(),
+      state: z.enum(['open', 'closed']),
+      head: z.object({ sha: z.string().regex(/^[a-f0-9]{40}$/i) }),
+      base: z.object({ repo: z.object({ full_name: z.string() }) }),
+    })
+    .parse(await response.json());
+  if (
+    current.number !== input.pullNumber ||
+    current.base.repo.full_name.toLowerCase() !== `${target.owner}/${target.name}`.toLowerCase()
+  )
+    throw new Error('GitHub returned a different pull request identity');
+  if (current.state !== 'open') throw new GitHubPublicationSupersededError('pull-closed');
+  if (current.head.sha.toLowerCase() !== input.expectedHeadSha.toLowerCase())
+    throw new GitHubPublicationSupersededError('head-changed');
+  await input.beforeWrite?.();
 }
 
 async function findManagedPullRequestComment(
@@ -556,7 +591,7 @@ async function findManagedPullRequestComment(
     if (match) return match.id;
     if (comments.length < 100) return null;
   }
-  return null;
+  throw new GitHubConversationLimitError();
 }
 
 async function writePullRequestComment(

@@ -2,7 +2,12 @@ import { createHash, createHmac } from 'node:crypto';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { formatReviewGrade, formatReviewMarkdown } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
-import type { GitHubReader, GitHubReviewPublisher, RepositoryTarget } from '@gcr/github';
+import {
+  GitHubPublicationSupersededError,
+  type GitHubReader,
+  type GitHubReviewPublisher,
+  type RepositoryTarget,
+} from '@gcr/github';
 import { reviewReportSchema, type ReviewFinding, type ReviewReport } from '@gcr/review-contract';
 import type { AppConfig } from '../config.js';
 import { appendEvent } from '../events/index.js';
@@ -57,6 +62,7 @@ export async function enqueueReviewPublication(
      join repositories repository on repository.id = pull_request.repository_id
      where analysis.id = $1 and pull_request.id = $2 and repository.enabled
        and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
+       and pull_request.state = 'open' and repository.deleted_at is null
        and repository.review_publishing_enabled
        and (repository.credential_id is not null or $3::boolean)`,
     [analysisId, pullRequestId, githubAppEnabled],
@@ -113,7 +119,8 @@ export async function enqueueLatestReviewPublication(
        join reports report on report.analysis_run_id = analysis.id
        where request.pull_request_id = pull_request.id
          and analysis.state in ('completed', 'partial')
-       order by analysis.created_at desc limit 1
+         and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
+       order by analysis.created_at desc, analysis.id desc limit 1
      ) latest_analysis on true
      where pull_request.repository_id = $1 and pull_request.state = 'open'`,
       [repositoryId],
@@ -190,8 +197,8 @@ export async function publishReviewToGitHub(
     await connection.query(
       `update github_review_publications set state = 'publishing', last_attempt_at = clock_timestamp(),
          last_error_code = null, last_error_message = null, updated_at = clock_timestamp()
-       where pull_request_id = $1`,
-      [pullRequestId],
+       where pull_request_id = $1 and target_analysis_run_id = $2`,
+      [pullRequestId, analysisId],
     );
 
     const publisher = context.credentialId
@@ -207,12 +214,54 @@ export async function publishReviewToGitHub(
       throw new ReviewPublicationError('GitHub review publisher credential is unavailable', true);
     }
     const existingCommentId = publication?.commentId ? Number(publication.commentId) : null;
-    const result = await publisher.upsertPullRequestComment(context, {
-      pullNumber: context.pullNumber,
-      marker,
-      body,
-      existingCommentId,
-    });
+    let result;
+    try {
+      result = await publisher.upsertPullRequestComment(context, {
+        pullNumber: context.pullNumber,
+        expectedHeadSha: context.headSha,
+        marker,
+        body,
+        existingCommentId,
+        beforeWrite: async () => {
+          // The remote lookup or marker recovery may take time. Recheck the exact
+          // job target and credential selection without holding an SQL transaction over HTTP.
+          const current = await loadPublicationContext(connection, analysisId, pullRequestId);
+          const target = await connection.query(
+            'select 1 from github_review_publications where pull_request_id=$1 and target_analysis_run_id=$2',
+            [pullRequestId, analysisId],
+          );
+          if (
+            !current ||
+            !target.rowCount ||
+            current.credentialId !== context.credentialId ||
+            current.installationId !== context.installationId ||
+            current.apiBaseUrl !== context.apiBaseUrl ||
+            current.owner !== context.owner ||
+            current.name !== context.name ||
+            current.pullNumber !== context.pullNumber
+          )
+            throw new GitHubPublicationSupersededError('target-changed');
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof GitHubPublicationSupersededError)) throw error;
+      const skipped = await connection.query(
+        `update github_review_publications set state='disabled', last_error_code=$3,
+         last_error_message='Publication no longer matches the current pull request or selected target.',
+         updated_at=clock_timestamp() where pull_request_id=$1 and target_analysis_run_id=$2`,
+        [
+          pullRequestId,
+          analysisId,
+          `GITHUB_REVIEW_${error.reason.replaceAll('-', '_').toUpperCase()}`,
+        ],
+      );
+      if (skipped.rowCount)
+        await appendEvent(connection, 'pull_request', pullRequestId, 'github.review.skipped', {
+          analysisId,
+          reason: error.reason,
+        });
+      return;
+    }
 
     await connection.query(
       `update github_review_publications set
@@ -292,6 +341,7 @@ async function loadPublicationContext(
      where analysis.id = $1 and pull_request.id = $2
        and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
        and analysis.state in ('completed', 'partial')
+       and pull_request.state = 'open' and repository.deleted_at is null
        and repository.enabled and repository.review_publishing_enabled and instance.enabled`,
     [analysisId, pullRequestId],
   );
