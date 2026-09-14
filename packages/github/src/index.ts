@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { importPKCS8, SignJWT } from 'jose';
 import { z } from 'zod';
+import { enrichReviewThreads } from './review-threads.js';
 
 const pullSchema = z.object({
   id: z.number(),
@@ -40,6 +41,7 @@ const pullReviewSchema = z.object({
   state: z.string().nullable().optional(),
 });
 const pullReviewCommentSchema = pullIssueCommentSchema.extend({
+  node_id: z.string().optional(),
   path: z.string(),
   line: z.number().int().positive().nullable().optional(),
   original_line: z.number().int().positive().nullable().optional(),
@@ -93,9 +95,11 @@ export type PullRequestMessageProvenance = {
   startSide: 'LEFT' | 'RIGHT' | null;
   subjectType: string | null;
   diffHunk: string | null;
-  // The REST comment endpoints do not supply thread resolution/outdated state.
-  threadResolved: null;
-  threadOutdated: null;
+  commentNodeId?: string;
+  threadId?: string | null;
+  threadObservation?: 'observed' | 'not-observed' | 'unsupported' | 'unavailable' | 'partial';
+  threadResolved: boolean | null;
+  threadOutdated: boolean | null;
 };
 
 export type PullRequestMessageObservation = {
@@ -140,6 +144,12 @@ export interface GitHubReviewPublisher {
       existingCommentId?: number | null;
     },
   ): Promise<PullRequestCommentPublication>;
+}
+
+export class GitHubConversationLimitError extends Error {
+  constructor() {
+    super('Conversation pagination limit reached before complete response');
+  }
 }
 
 export class GitHubRequestError extends Error {
@@ -243,6 +253,7 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
     );
     const response = await this.request(tokenUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(15_000),
       headers: {
         accept: 'application/vnd.github+json',
         authorization: `Bearer ${jwt}`,
@@ -373,10 +384,13 @@ async function listPullRequestMessages(
   pullNumber: number,
   request: AuthenticatedRequest,
 ): Promise<PullRequestMessageObservation[]> {
+  const restSignal = AbortSignal.timeout(60_000);
+  const restRequest: AuthenticatedRequest = (url, init) =>
+    request(url, { ...init, signal: restSignal, redirect: 'error' });
   const [issueComments, reviews, reviewComments] = await Promise.all([
-    paginatedRequest(target, `issues/${pullNumber}/comments`, pullIssueCommentSchema, request),
-    paginatedRequest(target, `pulls/${pullNumber}/reviews`, pullReviewSchema, request),
-    paginatedRequest(target, `pulls/${pullNumber}/comments`, pullReviewCommentSchema, request),
+    paginatedRequest(target, `issues/${pullNumber}/comments`, pullIssueCommentSchema, restRequest),
+    paginatedRequest(target, `pulls/${pullNumber}/reviews`, pullReviewSchema, restRequest),
+    paginatedRequest(target, `pulls/${pullNumber}/comments`, pullReviewCommentSchema, restRequest),
   ]);
   const provenance: PullRequestMessageProvenance = {
     provider: 'github-rest',
@@ -392,7 +406,7 @@ async function listPullRequestMessages(
     threadResolved: null,
     threadOutdated: null,
   };
-  return [
+  const messages = [
     ...issueComments.map((comment) => ({
       githubId: comment.id,
       kind: 'issue-comment' as const,
@@ -451,6 +465,7 @@ async function listPullRequestMessages(
       updatedAt: comment.updated_at,
       provenance: {
         ...provenance,
+        ...(comment.node_id ? { commentNodeId: comment.node_id } : {}),
         reviewGithubId:
           comment.pull_request_review_id == null ? null : String(comment.pull_request_review_id),
         originalCommitSha: comment.original_commit_id ?? null,
@@ -466,6 +481,7 @@ async function listPullRequestMessages(
     (left, right) =>
       left.createdAt.localeCompare(right.createdAt) || left.githubId - right.githubId,
   );
+  return enrichReviewThreads(target, pullNumber, messages, request);
 }
 
 async function paginatedRequest<T extends z.ZodTypeAny>(
@@ -482,9 +498,9 @@ async function paginatedRequest<T extends z.ZodTypeAny>(
     const response = await request(url, { method: 'GET' });
     const body = z.array(schema).parse(await response.json());
     items.push(...body);
-    if (body.length < 100) break;
+    if (body.length < 100) return items;
   }
-  return items;
+  throw new GitHubConversationLimitError();
 }
 
 async function upsertPullRequestComment(

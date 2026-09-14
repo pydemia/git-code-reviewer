@@ -12,6 +12,7 @@ import type { Database, DatabaseClient } from '@gcr/db';
 import type { AppConfig } from '../config.js';
 import { enqueueSnapshot } from './operations.js';
 import { registeredGitHubReader } from './account-registry.js';
+import { syncRepositoryConversations } from './conversation-sync.js';
 
 const schedulerLockId = 746_278_432;
 
@@ -77,22 +78,8 @@ export async function pollRepository(
 
   try {
     const result = await reader.listPulls(repository, pollState.rows[0]?.etag);
-    if (result.outcome === 'updated') {
-      const conversationPulls = await persistPulls(database, repositoryId, result.pulls);
-      if (reader.listPullRequestMessages) {
-        for (const pull of conversationPulls) {
-          const syncStartedAt = new Date();
-          const messages = await reader.listPullRequestMessages(repository, pull.number);
-          await persistPullRequestMessages(
-            database,
-            repositoryId,
-            pull.number,
-            messages,
-            syncStartedAt,
-          );
-        }
-      }
-    }
+    if (result.outcome === 'updated') await persistPulls(database, repositoryId, result.pulls);
+    await syncRepositoryConversations(database, repository, reader);
     await database.query(
       `insert into poll_states(repository_id, next_poll_at, last_polled_at, etag, consecutive_failures, backoff_until, last_outcome, last_error_code, updated_at)
        values ($1, clock_timestamp() + ($2 * interval '1 second'), clock_timestamp(), $3, 0, null, $4, null, clock_timestamp())
@@ -297,6 +284,19 @@ async function persistPulls(
       const previous = current.rows[0];
       // 과거 Closed/Merged PR은 metadata만 동기화하며 분석이나 대화 전체 backfill을 시작하지 않는다.
       if (pull.state === 'open' || previous?.state === 'open') conversationPulls.push(pull);
+      if (pull.state === 'open' || previous?.state === 'open') {
+        await connection.query(
+          `insert into pull_request_conversation_sync(pull_request_id,follow_until)
+           values($1,case when $2='closed' then clock_timestamp()+interval '7 days' end)
+           on conflict(pull_request_id) do update set
+             follow_until=case when $2='open' then null
+               when $3 then clock_timestamp()+interval '7 days' else pull_request_conversation_sync.follow_until end,
+             next_attempt_at=case when $3 then least(pull_request_conversation_sync.next_attempt_at,clock_timestamp())
+               else pull_request_conversation_sync.next_attempt_at end`,
+          [persisted.rows[0]!.id, pull.state, previous?.state !== pull.state],
+        );
+      }
+
       if (
         pull.state === 'open' &&
         (!previous ||
@@ -331,7 +331,8 @@ export async function persistPullRequestMessages(
   pullNumber: number,
   messages: PullRequestMessageObservation[],
   syncStartedAt = new Date(),
-): Promise<void> {
+  claimToken?: string,
+): Promise<boolean> {
   const connection = await database.connect();
   try {
     await connection.query('begin');
@@ -347,7 +348,18 @@ export async function persistPullRequestMessages(
     const context = pull.rows[0];
     if (!context) {
       await connection.query('commit');
-      return;
+      return false;
+    }
+    if (claimToken) {
+      const owned = await connection.query(
+        `select pull_request_id from pull_request_conversation_sync where pull_request_id=$1
+         and claim_token=$2 and claim_until>clock_timestamp() for update`,
+        [context.pullRequestId, claimToken],
+      );
+      if (!owned.rowCount) {
+        await connection.query('rollback');
+        return false;
+      }
     }
     for (const message of messages) {
       const contentHash = createHash('sha256').update(message.body).digest('hex');
@@ -440,6 +452,7 @@ export async function persistPullRequestMessages(
       );
     }
     await connection.query('commit');
+    return true;
   } catch (error) {
     await connection.query('rollback');
     throw error;

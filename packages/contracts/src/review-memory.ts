@@ -171,8 +171,13 @@ export const githubPrMessageProvenanceSchema = z.object({
   startSide: z.enum(['LEFT', 'RIGHT']).nullable(),
   subjectType: z.string().nullable(),
   diffHunk: z.string().nullable(),
-  threadResolved: z.null(),
-  threadOutdated: z.null(),
+  commentNodeId: z.string().optional(),
+  threadId: z.string().nullable().optional(),
+  threadObservation: z
+    .enum(['observed', 'not-observed', 'unsupported', 'unavailable', 'partial'])
+    .optional(),
+  threadResolved: z.boolean().nullable(),
+  threadOutdated: z.boolean().nullable(),
 });
 
 export const githubPrMemorySourceSchema = z.object({
@@ -200,11 +205,21 @@ export const githubPrMemorySourceSchema = z.object({
   state: z.enum(['available', 'saved', 'ignored']),
 });
 
+export const githubPrConversationSyncSchema = z.object({
+  state: z.enum(['unobserved', 'pending', 'syncing', 'current', 'failed', 'expired']),
+  lastAttemptAt: z.string().nullable(),
+  lastSuccessAt: z.string().nullable(),
+  nextAttemptAt: z.string().nullable(),
+  followUntil: z.string().nullable(),
+  errorCode: z.string().nullable(),
+});
+
 export const githubPrMemorySourceListSchema = z.object({
   schemaVersion: z.literal(1),
   repositoryId: z.string().uuid(),
   pullNumber: z.number().int().positive(),
   items: z.array(githubPrMemorySourceSchema),
+  sync: githubPrConversationSyncSchema.optional(),
 });
 
 export const githubPrMemorySourceStateSchema = z

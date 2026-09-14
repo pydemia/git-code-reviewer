@@ -44,7 +44,24 @@ export function GitHubMessageProvenance({ source }: { source: Evidence }) {
           {p.originalCommitSha ? ` @ ${p.originalCommitSha.slice(0, 12)}` : ''}
         </span>
       ) : null}
-      <small>스레드 해결·outdated: 미확인</small>
+      {p.threadObservation === 'observed' ? (
+        <small>
+          스레드: {p.threadResolved ? '해결됨' : '미해결'} ·{' '}
+          {p.threadOutdated ? '이전 변경에 대한 논의' : 'outdated 아님'}
+          {' · 결함 수정 여부는 별도 검증 필요'}
+        </small>
+      ) : (
+        <small>
+          스레드 해결·outdated: 미확인
+          {p.threadObservation === 'unavailable'
+            ? ' · 조회 실패'
+            : p.threadObservation === 'partial'
+              ? ' · 수집 한도 도달'
+              : p.threadObservation === 'unsupported'
+                ? ' · API 미지원'
+                : ''}
+        </small>
+      )}
       {p.diffHunk ? (
         <details>
           <summary>원문 diff</summary>

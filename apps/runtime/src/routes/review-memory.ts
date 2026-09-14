@@ -84,6 +84,7 @@ export async function registerReviewMemoryRoutes(
         repositoryId: repoId,
         pullNumber: number,
         items: result.rows.map(githubSourceView),
+        sync: await readConversationSync(database, repoId, number),
       };
     },
   );
@@ -124,13 +125,11 @@ export async function registerReviewMemoryRoutes(
       return githubPrMessageHistorySchema.parse({
         schemaVersion,
         sourceId,
-        items: rows
-          .slice(0, 50)
-          .map((row) => ({
-            ...row,
-            observedAt: dateString(row.observedAt),
-            syncStartedAt: dateString(row.syncStartedAt),
-          })),
+        items: rows.slice(0, 50).map((row) => ({
+          ...row,
+          observedAt: dateString(row.observedAt),
+          syncStartedAt: dateString(row.syncStartedAt),
+        })),
         nextCursor: rows.length > 50 ? rows[49]!.id : null,
       });
     },
@@ -716,4 +715,36 @@ function duplicateMemory(request: FastifyRequest, reply: FastifyReply) {
 
 function isUniqueViolation(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '23505');
+}
+
+async function readConversationSync(database: Database, repositoryId: string, number: number) {
+  const row = (
+    await database.query(
+      `select s.*,p.state as pr_state,
+       (s.claim_until>clock_timestamp()) as running,
+       (s.follow_until<=clock_timestamp()) as expired,
+       (s.next_attempt_at<=clock_timestamp()) as due
+     from pull_requests p join pull_request_conversation_sync s on s.pull_request_id=p.id
+     where p.repository_id=$1 and p.number=$2`,
+      [repositoryId, number],
+    )
+  ).rows[0];
+  return {
+    state: !row
+      ? 'unobserved'
+      : row.pr_state === 'closed' && row.expired
+        ? 'expired'
+        : row.running
+          ? 'syncing'
+          : row.last_error_code
+            ? 'failed'
+            : !row.last_success_at || row.due
+              ? 'pending'
+              : 'current',
+    lastAttemptAt: dateString(row?.last_attempt_at) ?? null,
+    lastSuccessAt: dateString(row?.last_success_at) ?? null,
+    nextAttemptAt: dateString(row?.next_attempt_at) ?? null,
+    followUntil: dateString(row?.follow_until) ?? null,
+    errorCode: row?.last_error_code ?? null,
+  };
 }

@@ -769,13 +769,13 @@ export async function loadGitHubPrMemorySources(
   repositoryId: string,
   pullNumber: number,
   signal: AbortSignal,
-): Promise<GitHubPrMemorySource[]> {
+): Promise<ReturnType<typeof githubPrMemorySourceListSchema.parse>> {
   return githubPrMemorySourceListSchema.parse(
     await fetchJson(
       `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources`,
       signal,
     ),
-  ).items;
+  );
 }
 
 export async function createReviewMemoryCandidate(

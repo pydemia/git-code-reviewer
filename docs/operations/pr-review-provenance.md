@@ -2,7 +2,9 @@
 
 중앙 GitHub/GHES 수집은 REST의 리뷰 상태, 리뷰 ID, 답글 대상, 현재/원래 commit·줄 범위와 diff hunk를 보관한다. 본문이 없는 제출된 승인·기각 리뷰도 수집하며 원문 공백을 유지한다. 제출 시각이 없는 pending review는 수집하지 않는다. 원래 줄 번호를 현재 줄 번호로 대체하지 않는다.
 
-API에서 제공하지 않은 thread resolved/outdated 상태는 null이다. 승인, merge, 줄 번호 누락이나 목록에서 빠진 사실을 결함 해결·삭제로 추정하지 않는다. GraphQL thread 상태와 삭제/접근 불가 확인, 최근 종료 PR 증분 회수는 후속 P12 범위다.
+REST inline comment의 node_id와 GraphQL comment id를 연결해 thread id·isResolved·isOutdated를 읽는다. GitHub와 GHES의 같은 origin에 있는 GraphQL endpoint만 사용하며 설치 경로 prefix를 보존한다. 댓글 본문이나 토큰을 query URL에 넣지 않고 읽기 query와 기존 GitHub credential만 사용한다.
+
+관측된 상태는 `threadObservation=observed`와 boolean으로 표시한다. API 미지원·오류·없는 PR·부분 응답·cursor 반복·페이지 중 상태/범위 변경은 값을 추정하지 않고 unknown으로 남긴다. 스레드/댓글 pagination은 한 PR에서 합계 최대 20개 GraphQL 요청, 요청 전체 20초와 응답당 2 MiB로 제한한다. 한도에 도달하면 partial이며 앞 페이지만 읽고 전체 수집 성공으로 표시하지 않는다. 승인, merge, 해결된 스레드나 줄 번호 누락은 코드 결함 수정의 증명이 아니다. 원문 삭제/접근 불가 확인은 별도 후속 범위다.
 
 ## 저장과 조회
 
@@ -21,3 +23,13 @@ PR 대화 화면에서 현재/원래 위치, 리뷰 상태, 답글 대상을 보
 기존 승인된 기준 또는 memory projection의 출처 관측이 달라지면 다음 발행에서 해당 내용을 제외한다. 기존 불변 bundle을 수정하지 않고 재검토·재승인하도록 한다. Legacy 자료의 첫 metadata 관측도 출처 변경이므로 승인된 항목의 재검토가 필요할 수 있다. 중앙에서 새로운 기준을 승인·발행하면 로컬이 기존 단방향 동기화로 받는다. 로컬 source·결과·대화는 중앙으로 보내지 않는다.
 
 REST 필드의 의미는 [GitHub review 문서](https://docs.github.com/en/rest/pulls/reviews?apiVersion=2022-11-28)와 [review comment 문서](https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28)를 따른다.
+
+## PR 대화의 주기 수집과 재시도
+
+Migration 0047의 `pull_request_conversation_sync`는 PR 목록 ETag와 별도로 due time·성공/실패·실행권을 저장한다. 목록이 304여도 due 대화를 읽으며 원천 수집 한 건의 실패가 다른 PR 처리나 저장된 metadata를 되돌리지 않는다. PR당 실패 backoff는 30초부터 최대 30분이다.
+
+한 repository poll에서 최대 10개 PR을 due 순서로 처리한다. 실행권은 DB에서 획득하고 2분 후 만료된다. 재시작·다중 poller에서도 같은 PR을 동시에 소유하지 않으며 이전 소유자의 늦은 응답은 저장·성공 처리를 할 수 없다. REST 수집은 60초, endpoint별 최대 20페이지다. 끝을 확인하기 전에 REST 페이지 한도에 도달하면 CONVERSATION_PAGE_LIMIT으로 남기며 부분 대화를 전체 성공으로 취급하지 않는다.
+
+추적하던 open PR은 종료를 관측한 뒤 7일 동안 후속 논의를 읽고 reopen하면 다시 계속 추적한다. Migration에서는 기존 open PR과 최근 7일 안에 갱신됐으며 이미 원문을 수집한 closed PR만 등록한다. 처음 발견한 과거 closed PR은 metadata만 보관한다. 관리자 범위 지정 없는 전체 과거 대화 backfill은 하지 않는다.
+
+PR 대화 화면의 원문 수집 상태는 대기·수집 중·최근 성공·실패/재시도·기간 만료와 마지막 성공 시각을 표시한다. 원문 수집 성공과 GraphQL 스레드 관측 여부는 구분한다. 많은 페이지의 cursor를 다음 작업으로 넘겨 재개하는 backfill, 명시적 삭제/접근 불가 확인과 webhook 보정은 남은 P12-C02 범위다.

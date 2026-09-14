@@ -23,6 +23,8 @@ export function ReviewMemoryPanel({
   const analysisId = data.analysis?.id;
   const [memory, setMemory] = useState<ReviewMemoryList | null>(null);
   const [sources, setSources] = useState<GitHubPrMemorySource[]>([]);
+  const [conversationSync, setConversationSync] =
+    useState<Awaited<ReturnType<typeof loadGitHubPrMemorySources>>['sync']>();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -36,7 +38,8 @@ export function ReviewMemoryPanel({
         loadGitHubPrMemorySources(data.pull.repositoryId, data.pull.number, activeSignal),
       ]);
       setMemory(nextMemory);
-      setSources(nextSources);
+      setSources(nextSources.items);
+      setConversationSync(nextSources.sync);
       setStatus('ready');
     },
     [analysisId, data.pull.number, data.pull.repositoryId],
@@ -152,6 +155,27 @@ export function ReviewMemoryPanel({
           <strong>PR 대화</strong>
           <span>GitHub에서 수집한 검토 대화</span>
         </header>
+        {conversationSync ? (
+          <p className="memory-empty">
+            대화 원문 수집:{' '}
+            {
+              {
+                unobserved: '수집 대상 아님',
+                pending: '대기',
+                syncing: '수집 중',
+                current: '최근 수집 성공',
+                failed: '실패 · 재시도 예정',
+                expired: '종료 후 추적 기간 만료',
+              }[conversationSync.state]
+            }
+            {conversationSync.lastSuccessAt
+              ? ` · 마지막 성공 ${conversationSync.lastSuccessAt}`
+              : ' · 성공 기록 없음'}
+            {conversationSync.errorCode === 'CONVERSATION_PAGE_LIMIT'
+              ? ' · 페이지 한도에 도달해 전체 수집을 완료하지 못했습니다.'
+              : ''}
+          </p>
+        ) : null}
         <div className="memory-source-list">
           {sources.map((source) => (
             <article className={`memory-source ${source.state}`} key={source.id}>

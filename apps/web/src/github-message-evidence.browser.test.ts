@@ -33,8 +33,10 @@ const source = {
     startSide: null,
     subjectType: 'line',
     diffHunk: '@@ -1 +1 @@\n+ <script>window.injected=true</script>',
-    threadResolved: null,
-    threadOutdated: null,
+    threadObservation: 'observed',
+    threadId: 'T-observed',
+    threadResolved: true,
+    threadOutdated: true,
   },
 };
 const snapshot = {
@@ -52,7 +54,14 @@ const snapshot = {
   htmlUrl: source.htmlUrl,
   githubCreatedAt: source.githubCreatedAt,
   githubUpdatedAt: source.githubUpdatedAt,
-  provenance: { ...source.provenance, reviewState: 'CHANGES_REQUESTED' },
+  provenance: {
+    ...source.provenance,
+    reviewState: 'CHANGES_REQUESTED',
+    threadObservation: 'unavailable',
+    threadId: null,
+    threadResolved: null,
+    threadOutdated: null,
+  },
 };
 
 describe.sequential('PR message evidence in Chrome', () => {
@@ -131,6 +140,8 @@ describe.sequential('PR message evidence in Chrome', () => {
     await page.goto(origin + '/__pr-evidence');
     await page.getByText('리뷰 상태: 승인', { exact: true }).waitFor();
     expect(requests).toHaveLength(0);
+    await page.getByText(/스레드: 해결됨/).waitFor();
+    expect(await page.getByText(/결함 수정 여부는 별도 검증 필요/).count()).toBe(1);
     expect(await page.getByText(/현재 위치:/).textContent()).toContain('현재 줄 미확인');
     expect(await page.getByText(/원래 위치:/).textContent()).toContain(':40–42');
     const disclosure = page.getByText('수집한 변경 이력', { exact: true });
@@ -144,14 +155,14 @@ describe.sequential('PR message evidence in Chrome', () => {
     await page.getByRole('button', { name: '최근 이력', exact: true }).click();
     await page.getByText(/과거 원문 <script>/).waitFor();
     expect(requests.every((value) => value.startsWith('GET '))).toBe(true);
-    await mkdir('artifacts/operations/P12-review-provenance', { recursive: true });
+    await mkdir('artifacts/operations/P12-thread-sync', { recursive: true });
     for (const width of [1100, 420]) {
       await page.setViewportSize({ width, height: 900 });
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);
       await page.screenshot({
-        path: `artifacts/operations/P12-review-provenance/evidence-${width}.png`,
+        path: `artifacts/operations/P12-thread-sync/evidence-${width}.png`,
         fullPage: true,
       });
     }
