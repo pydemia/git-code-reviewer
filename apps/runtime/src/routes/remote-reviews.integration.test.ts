@@ -496,6 +496,51 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
       await root.end();
     }
   });
+  it('lists only currently authorized central model metadata without admitting or invoking a job', async () => {
+    const auth = await key(),
+      body = input();
+    const binding = new TrustedCentralBinding({
+      serverUrl: origin,
+      allowLoopbackHttp: true,
+      audience: body.payload.audience,
+      trustedKeys: new Map([['fixture', generateKeyPairSync('ed25519').publicKey]]),
+    });
+    const client = new KnowledgeHttpTransport(binding, {
+      bindingId: binding.id,
+      readToken: async () => auth.token,
+    });
+    const result = await client.remoteReviewModels('commit-defender', new AbortController().signal);
+    expect(result).toMatchObject({
+      enabled: true,
+      outputTokenLimit: false,
+      models: [{ accountId: account, name: 'gpt-6-astra', allowedEfforts: ['high', 'xhigh'] }],
+    });
+    expect(JSON.stringify(result)).not.toContain('credential');
+    expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('0');
+    expect((await db.query('select count(*) from model_request_ledger')).rows[0].count).toBe('0');
+    const readOnly = await key('alice', ['knowledge:read']);
+    expect(
+      (await app.inject({ url: `${base()}/models`, headers: headers(readOnly.token) })).statusCode,
+    ).toBe(403);
+    expect(
+      (
+        await app.inject({
+          url: `/api/v1/repositories/${otherRepo}/remote-reviews/models`,
+          headers: headers(auth.token),
+        })
+      ).statusCode,
+    ).toBe(403);
+    await db.query('update chat_account_assignments set enabled=false where scope_id=$1', [
+      users.get('alice')!.user.id,
+    ]);
+    expect(
+      (await client.remoteReviewModels('commit-defender', new AbortController().signal)).models,
+    ).toEqual([]);
+    config.REMOTE_REVIEWS_ENABLED = false;
+    expect(
+      await client.remoteReviewModels('commit-defender', new AbortController().signal),
+    ).toMatchObject({ enabled: false, models: [] });
+  });
   it('stores encrypted source once and recovers a lost acknowledgement by client request ID after key rotation', async () => {
     const first = await key(),
       body = input();

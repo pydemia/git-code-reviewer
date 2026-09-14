@@ -7,6 +7,7 @@ import {
   reviewSubmissionReceipt,
   reviewSubmissionStatus,
   remoteReviewHandle,
+  remoteReviewModels,
   type RemoteReviewHandle,
   type RemoteReviewRequest,
 } from '@gcr/client-contract';
@@ -309,7 +310,14 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       for await (const chunk of response) {
         const bytes = Buffer.from(chunk);
         size += bytes.length;
-        if (size > (success && route.endsWith('/result') ? 16 * 1024 * 1024 + 65536 : 32768))
+        if (
+          size >
+          (success && route.endsWith('/result')
+            ? 16 * 1024 * 1024 + 65536
+            : success && route.endsWith('/models')
+              ? 2 * 1024 * 1024
+              : 32768)
+        )
           throw new RemoteReviewDeliveryError('delivery-unconfirmed');
         chunks.push(bytes);
       }
@@ -337,6 +345,23 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       throw new RemoteReviewDeliveryError('delivery-unconfirmed');
     } finally {
       response?.destroy();
+    }
+  }
+  async remoteReviewModels(clientId: 'commit-defender' | 'gcr-cli', signal: AbortSignal) {
+    const raw = await this.remoteJson(
+      `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/remote-reviews/models`,
+      signal,
+    );
+    try {
+      const result = remoteReviewModels(raw);
+      if (
+        result.clientId !== clientId ||
+        contentHash(result.audience) !== contentHash(this.binding.audience)
+      )
+        throw new Error('mismatch');
+      return result;
+    } catch {
+      throw new RemoteReviewDeliveryError('response-mismatch');
     }
   }
   async submitRemoteReview(value: RemoteReviewRequest, signal: AbortSignal) {

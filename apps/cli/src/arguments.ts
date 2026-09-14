@@ -24,7 +24,7 @@ Commands:
   mcp [--allow-review] [--allow-submissions]  Stdio server bound to this worktree
   remote-review preview --account-id <id>  Preview exact source/context upload; no model call
   remote-review submit|retry --input <preview.json|-> --confirm-hash <sha256>
-  remote-review status|wait|result|cancel <request-id> | list
+  remote-review status|wait|result|cancel <request-id> | list|models
   review                               Review and save an encrypted terminal report
   push-review                          Review every ref from pre-push stdin (foreground)
   service start|run|status|stop          Manage the profile's independent local service

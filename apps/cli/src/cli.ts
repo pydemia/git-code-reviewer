@@ -254,9 +254,17 @@ export async function executeCli(
       if (
         !string('connection') ||
         extra.length ||
-        !['preview', 'submit', 'retry', 'status', 'wait', 'result', 'cancel', 'list'].includes(
-          action ?? '',
-        ) ||
+        ![
+          'preview',
+          'submit',
+          'retry',
+          'status',
+          'wait',
+          'result',
+          'cancel',
+          'list',
+          'models',
+        ].includes(action ?? '') ||
         (['status', 'wait', 'result', 'cancel'].includes(action ?? '') ? !id : id !== undefined) ||
         (action !== 'preview' && previewOptions.some((k) => values[k] !== undefined)) ||
         (action !== 'wait' && values['wait-timeout-ms'] !== undefined) ||
@@ -315,6 +323,12 @@ export async function executeCli(
       return connections;
     };
     if (command === 'remote-review' && positionals[0] !== 'preview') {
+      if (positionals[0] === 'models') {
+        const models = await (
+          await centralConnections()
+        ).remoteReviewModels(string('connection')!, dependencies.signal);
+        return { value: models, exitCode: models.enabled ? 0 : 2 };
+      }
       const remote = await RemoteReviewClient.open({
         scope: repositoryScope!,
         dataDirectory,

@@ -9,6 +9,7 @@ import type { AppConfig } from '../config.js';
 import type { AuthorizationService } from '../services/authorization.js';
 import {
   cancelRemoteReviewJob,
+  listRemoteReviewModels,
   readRemoteReviewJob,
   RemoteReviewJobError,
   submitRemoteReviewJob,
@@ -62,13 +63,16 @@ export async function registerRemoteReviewRoutes(
         statusCode = 413;
         code = 'REMOTE_REVIEW_UPLOAD_TOO_LARGE';
       }
-      return reply
-        .code(statusCode)
-        .send({
-          error: { code, message: '중앙 리뷰 요청을 처리하지 못했습니다.', requestId: request.id },
-        });
+      return reply.code(statusCode).send({
+        error: { code, message: '중앙 리뷰 요청을 처리하지 못했습니다.', requestId: request.id },
+      });
     });
     const base = '/api/v1/repositories/:repoId/remote-reviews';
+    routes.get(
+      `${base}/models`,
+      { preHandler: requireUser, config: { clientModelInvoke: true } },
+      async (request) => listRemoteReviewModels(database, config, authorization, caller(request)),
+    );
     routes.post(
       base,
       {

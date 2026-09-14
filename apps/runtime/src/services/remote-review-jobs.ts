@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { Database, DatabaseClient } from '@gcr/db';
 import {
   remoteReviewResult,
+  remoteReviewModels,
+  REMOTE_REVIEW_MAX_BYTES,
   remoteReviewStatus,
   type RemoteReviewPayload,
   type RemoteReviewStatus,
@@ -183,6 +185,49 @@ async function find(c: DatabaseClient, values: string[]): Promise<Metadata> {
       row.id,
     ])
   ).rows[0]!;
+}
+
+/** Metadata only: current client/repository/model grants, no decryption or provider call. */
+export async function listRemoteReviewModels(
+  database: Database,
+  config: AppConfig,
+  authorization: AuthorizationService,
+  caller: RemoteReviewCaller,
+) {
+  return access(database, config, authorization, caller, 'ai:invoke', async (c, principal) => {
+    const accounts = config.REMOTE_REVIEWS_ENABLED
+      ? await listAvailableChatAccounts(c, principal.user.id)
+      : [];
+    return remoteReviewModels({
+      schemaVersion: 1,
+      audience: {
+        serverId: config.KNOWLEDGE_SERVER_ID!,
+        tenantId: principal.tenantId,
+        userId: principal.user.id,
+        repositoryId: caller.repositoryId,
+      },
+      clientId: principal.clientId,
+      enabled: config.REMOTE_REVIEWS_ENABLED,
+      outputTokenLimit: false,
+      limits: {
+        modelCalls: 10,
+        durationMs: 600000,
+        uploadBytes: REMOTE_REVIEW_MAX_BYTES,
+        userHourlyCalls: config.REMOTE_REVIEW_USER_HOURLY_CALLS,
+        repositoryHourlyCalls: config.REMOTE_REVIEW_REPOSITORY_HOURLY_CALLS,
+      },
+      models: accounts.flatMap((account) =>
+        account.models.map((model) => ({
+          accountId: account.id,
+          accountName: account.displayName,
+          name: model.id,
+          displayName: model.displayName,
+          allowedEfforts: model.allowedEfforts,
+          defaultEffort: model.defaultEffort,
+        })),
+      ),
+    });
+  });
 }
 
 export async function submitRemoteReviewJob(

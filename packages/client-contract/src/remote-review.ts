@@ -22,6 +22,40 @@ import { localKnowledge } from './knowledge.js';
 import { signedKnowledgeManifest } from './knowledge-manifest.js';
 
 export const REMOTE_REVIEW_MAX_BYTES = 8 * 1024 * 1024;
+const remoteEffort = choice(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+/** Authorized registry metadata; listing does not probe credentials or promise available quota. */
+export const remoteReviewModels = object({
+  schemaVersion: literal(1),
+  audience: centralAudience,
+  clientId: choice(['commit-defender', 'gcr-cli']),
+  enabled: boolean,
+  outputTokenLimit: literal(false),
+  limits: object({
+    modelCalls: integer(1, 10),
+    durationMs: integer(1000, 600000),
+    uploadBytes: integer(1, REMOTE_REVIEW_MAX_BYTES),
+    userHourlyCalls: integer(1),
+    repositoryHourlyCalls: integer(1),
+  }),
+  models: list(
+    refined(
+      object({
+        accountId: id,
+        accountName: text(256, 1),
+        name: text(256, 1),
+        displayName: text(256, 1),
+        allowedEfforts: list(remoteEffort, 6, 1),
+        defaultEffort: remoteEffort,
+      }),
+      (value, at) => {
+        if (!value.allowedEfforts.includes(value.defaultEffort))
+          fail(at, 'default effort unavailable');
+      },
+    ),
+    1024,
+  ),
+});
+export type RemoteReviewModels = ReturnType<typeof remoteReviewModels>;
 export const remoteReviewDocument = object({
   id,
   kind: choice(['instructions', 'memory', 'skill']),

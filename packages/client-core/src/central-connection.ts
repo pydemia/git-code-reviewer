@@ -310,6 +310,15 @@ export class CentralConnections {
       signal,
     );
   }
+  async remoteReviewModels(id: string, signal?: AbortSignal) {
+    const state = await this.state(id);
+    await this.assert(state);
+    return this.submissionOperation(
+      state,
+      (transport, s) => transport.remoteReviewModels(state.value.clientId, s),
+      signal,
+    );
+  }
   async submitRemoteReview(id: string, value: RemoteReviewRequest, signal?: AbortSignal) {
     value = validateRemoteReviewRequest(value, value.payload);
     return this.remoteOperation(

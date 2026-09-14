@@ -306,6 +306,36 @@ beforeAll(async () => {
       return;
     }
     if (req.url?.includes('/remote-reviews')) {
+      if (req.url.endsWith('/models')) {
+        res.end(
+          JSON.stringify({
+            schemaVersion: 1,
+            audience,
+            clientId: 'gcr-cli',
+            enabled: true,
+            outputTokenLimit: false,
+            limits: {
+              modelCalls: 10,
+              durationMs: 600000,
+              uploadBytes: 8388608,
+              userHourlyCalls: 60,
+              repositoryHourlyCalls: 300,
+            },
+            models: [
+              {
+                accountId: 'account',
+                accountName: 'Fixture',
+                name: 'gpt-6-astra',
+                displayName: 'Astra',
+                allowedEfforts: ['high', 'xhigh'],
+                defaultEffort: 'xhigh',
+              },
+            ],
+          }),
+        );
+        return;
+      }
+
       const chunks: Buffer[] = [];
       req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
       req.on('end', () => {
@@ -400,7 +430,7 @@ beforeAll(async () => {
           userId: wrongIdentity ? 'other' : 'alice',
           displayName: 'Fixture',
           repositoryIds: ['repo'],
-          scopes: ['knowledge:read'],
+          scopes: ['knowledge:read', 'ai:invoke'],
           clientId: identityClientId,
           keyId,
           expiresAt: new Date(Date.now() + 7200_000).toISOString(),
@@ -481,6 +511,10 @@ describe.sequential('explicit connected CLI over HTTPS', () => {
       id = await connect(profile),
       before = models;
     const base = ['remote-review', '--connection', id];
+    expect((await invoke(profile, [...base, 'models'])).value).toMatchObject({
+      enabled: true,
+      models: [{ accountId: 'account' }],
+    });
     const preview = await invoke(profile, [...base, 'preview', '--account-id', 'account']);
     expect(preview.exitCode, JSON.stringify(preview.value)).toBe(0);
     const proposal = preview.value as { payload: RemoteReviewPayload; payloadHash: string };

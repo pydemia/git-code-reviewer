@@ -41,7 +41,7 @@ gcr history --cwd /path/to/repo
 
 개발 소스의 `remote-review`는 지식 모드와 별도로 중앙 모델 실행을 명시한다. `--mode standalone`은 로컬 지식을, `--mode centralized`는 선택한 중앙 기준을 사용한다. 두 경우 모두 명시한 `--connection`의 서버로 승인된 자료를 전송한다. 일반 `review`의 기존 executor 선택은 바꾸지 않는다. 현재 PRISM 배포본과 설치된 CLI에는 아직 이 경로를 전달하지 않았다.
 
-먼저 서버에 할당된 계정 ID와 `knowledge:read`·`ai:invoke` 권한이 있는 연결을 준비한다. 계정 선택 UI·가용 모델 조회는 후속 작업이며 캐시 동기화 성공만으로 중앙 모델의 실행 가능 여부를 판단하지 않는다.
+먼저 서버에 할당된 계정 ID와 `knowledge:read`·`ai:invoke` 권한이 있는 연결을 준비한다. `remote-review models --connection CONNECTION_ID`로 현재 할당된 계정·모델·effort와 서버의 실행 활성화 여부를 조회한다. 목록 조회는 credential이나 모델 quota를 검사하지 않으며 실제 전송 시 인가를 다시 확인한다. 캐시 동기화 성공만으로 중앙 모델의 실행 가능 여부를 판단하지 않는다.
 
 ```sh
 umask 077

@@ -22,7 +22,7 @@ import {
 } from './client-credentials.js';
 import { registerReviewSubmissionRoutes } from '../routes/review-submissions.js';
 import { registerReviewCriteriaRoutes } from '../routes/review-criteria.js';
-import { reviewSubmission, reviewSubmissionStatus } from '@gcr/client-contract';
+import { centralCredentialIdentity, reviewSubmission, reviewSubmissionStatus } from '@gcr/client-contract';
 import { registerKnowledgeRoutes } from '../routes/review-knowledge.js';
 import { AuthorizationService } from '../services/authorization.js';
 import {
@@ -305,6 +305,7 @@ describe
         (await app.inject({ method: 'POST', url, headers: auth(readKey.token) })).statusCode,
       ).toBe(403);
       const key = await issue('alice', { scopes: ['knowledge:read', 'ai:invoke'] });
+      expect(centralCredentialIdentity((await me(key.token)).json()).scopes).toEqual(['knowledge:read', 'ai:invoke']);
       expect((await app.inject({ method: 'POST', url, headers: auth(key.token) })).json()).toEqual({
         admitted: true,
         repositoryIds: [repo],
@@ -371,6 +372,21 @@ describe
         403,
       );
       expect((await me(readKey.token)).json().scopes).toEqual(['knowledge:read']);
+    });
+    it('advertises optional central execution scope only while remote reviews are enabled', async () => {
+      const initial = config.REMOTE_REVIEWS_ENABLED;
+      try {
+        config.REMOTE_REVIEWS_ENABLED = false;
+        expect(
+          (await app.inject({ url: '/api/v1/client-auth/config' })).json().scopes,
+        ).not.toContain('ai:invoke');
+        config.REMOTE_REVIEWS_ENABLED = true;
+        expect((await app.inject({ url: '/api/v1/client-auth/config' })).json().scopes).toContain(
+          'ai:invoke',
+        );
+      } finally {
+        config.REMOTE_REVIEWS_ENABLED = initial;
+      }
     });
     it('accepts an effective reviewer group but does not let a viewer group invoke models', async () => {
       const actor = actors.get('alice')!.user;
