@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "phase": "P13",
+  "commit": "P13-C01 per-finding public criterion assessments",
+  "phaseComplete": false,
+  "goalComplete": false,
+  "sourceCommit": "adb36a2979bfa29882945cd96f772ecb8ebb08cb",
+  "releasePinCommit": "37c85dbc338ebccce867c2b2cbabbdb7afc8495e",
+  "feature": "Bind model criterion assessments to immutable public policy revision and matching source targets; expose reasons, counter-evidence and hashes in report/API/web/Markdown",
+  "tests": {
+    "suites": 18,
+    "passed": 235,
+    "failed": 0,
+    "skipped": 0,
+    "databaseFixture": {
+      "startedAt": "2026-09-14T19:47:56.941Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-14T19:48:34.316Z"
+    },
+    "builds": [
+      "contracts",
+      "review-contract",
+      "analysis-engine",
+      "runtime",
+      "web",
+      "full immutable image workspace build"
+    ],
+    "focusedEslint": true,
+    "helmLint": true,
+    "browser": {
+      "realReportAndSharedKnowledgeApi": true,
+      "widths": [
+        1360,
+        420
+      ],
+      "criterionJudgmentReasonsCounterEvidenceHashes": true,
+      "noHorizontalOverflow": true,
+      "screenshotSha1360": "fd4ef83120b73cf71d25810304402fcd1f632938bca212d10f177544ead59981",
+      "screenshotSha420": "82929ea3157d6aa156ddf9c0657445e85c0abff5a7e587b79c7ac5ccad4c95df"
+    },
+    "regressions": [
+      "Wrong identity/revision/hash/path/side/context and missing anchor cannot link",
+      "Unreviewed counter-evidence only permits uncertain outcome",
+      "P0 only permits satisfied outcome",
+      "Duplicate judgments do not inflate criterion counts",
+      "Invalid linkage makes analysis partial without raw identifiers",
+      "Titles and source/pin/context hashes come only from trusted selection",
+      "Summary inputs exclude unbound criterion references",
+      "Legacy report fields remain optional",
+      "Queued publication survives retirement/republication and API roundtrip",
+      "Markdown escapes model content and mentions"
+    ],
+    "fixtureCorrections": [
+      "Mock category follows supplied Skill perspective",
+      "Owned shared-criterion fixture uses a separate rigorous prompt version after earlier lean filter test",
+      "Live Markdown assertion accounts for escaped punctuation; failed owned fixture and files were cleaned before retry"
+    ]
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T19:58:33.840865+00:00",
+    "release": {
+      "revision": 66,
+      "updated": "2026-09-15T04:55:12.363101+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.52",
+      "app_version": "0.8.0-alpha.56",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:339e3908ac3ef59130a8c84841fb709d870b2203086af0eb4d1247f72aba267d",
+      "source": "adb36a2979bfa29882945cd96f772ecb8ebb08cb",
+      "version": "0.8.0-alpha.56",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:339e3908ac3ef59130a8c84841fb709d870b2203086af0eb4d1247f72aba267d"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "adb36a2979bfa29882945cd96f772ecb8ebb08cb",
+        "org.opencontainers.image.version": "0.8.0-alpha.56"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 50,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-7799b68846-xgptb",
+        "imageDigest": "sha256:339e3908ac3ef59130a8c84841fb709d870b2203086af0eb4d1247f72aba267d",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-b84746d9d-wn97j",
+        "imageDigest": "sha256:339e3908ac3ef59130a8c84841fb709d870b2203086af0eb4d1247f72aba267d",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, schema50 preservation and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:904d5d681638d991433cbe68225b9ce41b356c86862879c6b3ecfd63d342dc84",
+    "chartSha256": "05a39d325e21333ce074b3fbc67733744540b5dbf520a9b33af0a0655c6c2c68"
+  },
+  "live": {
+    "requestId": "abfaeed8-e6f8-448f-bddc-ef50b123b0d4",
+    "status": "passed",
+    "version": "0.8.0-alpha.56",
+    "checks": [
+      "trusted-https-session-login",
+      "published-code-source-capture",
+      "trusted-https-source-list-with-exact-diff-and-shas",
+      "multiple-source-decision-remains-draft",
+      "unevaluated-activation-rejected",
+      "synthetic-engine-finding-linkage",
+      "trusted-https-finding-assessment-and-markdown",
+      "published-shared-pin-and-resolver",
+      "trusted-https-selected-criteria-provenance",
+      "personal-context-absent",
+      "anonymous-and-revoked-repository-source-read-denied"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "sourceSelection": "Owned synthetic complete-file input; real Git blob reconstruction is covered by native integration tests",
+    "releases": [
+      {
+        "component": "collective",
+        "id": "d2ccc755-eea4-414f-8cdb-634cab0b104e",
+        "sequence": 1,
+        "hash": "f6476db5453b1aa8afddcf812df5c5eb8fb8d8446bb03f2b9dc7a932aa6914d5"
+      },
+      {
+        "component": "policy",
+        "id": "3a718294-42e0-4c87-9b8e-7034650a368c",
+        "sequence": 2,
+        "hash": "0f2732a9850027b6ad894af2c52f2aaeed63f9a040ffaae496091218897438c2"
+      }
+    ],
+    "ownedServerRowsRemoved": true,
+    "ownedPublishedFilesRemoved": [
+      "review-knowledge/2b468f54-51bc-4c9c-9db6-0928e318bbd9/6f62bf729c372630084e45f3f58cbb3668e69c26dbfc2be1b050f6d338476b0c.json",
+      "review-knowledge/a3a47baf-e46c-4f23-b45b-55add1b55f3c/f6476db5453b1aa8afddcf812df5c5eb8fb8d8446bb03f2b9dc7a932aa6914d5.json",
+      "analyses/f68b72bc-302f-43cc-a2f1-bc69f5d90bde/report.79e0eaba3aaac66f07358190aa52c98bf8d891b50f82eb32a196fe3393d63cd4.v1.json",
+      "review-knowledge/2b468f54-51bc-4c9c-9db6-0928e318bbd9/0f2732a9850027b6ad894af2c52f2aaeed63f9a040ffaae496091218897438c2.json"
+    ],
+    "finishedAt": "2026-09-14T19:57:16.539Z"
+  },
+  "cleanup": {
+    "status": "passed",
+    "at": "2026-09-14T19:57:54.040609+00:00",
+    "ownedResourcesRemoved": [
+      "deployment/gcr-prism-criteria0",
+      "pod/gcr-criteria-image-smoke",
+      "configmap/gcr-criteria-image-smoke",
+      "networkpolicy/gcr-criteria-image-smoke",
+      "configmap/gcr-criteria-build-ca",
+      "serviceaccount/gcr-criteria-build"
+    ],
+    "ownedBuildPodsAbsent": true
+  },
+  "retiringRuntimePods": {
+    "retiring": [
+      {
+        "name": "git-code-reviewer-worker-5fd8cb474-7g5gs",
+        "deletionTimestamp": "2026-09-14T20:55:48Z",
+        "graceSeconds": 3600,
+        "containers": [
+          {
+            "name": "source-sandbox",
+            "ready": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T19:32:46Z"
+              }
+            }
+          },
+          {
+            "name": "worker",
+            "ready": false,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T19:32:45Z"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "forcedTermination": false
+  },
+  "database": {
+    "schema": 50,
+    "newMigration": false,
+    "allExistingChecksumsPreserved": true
+  },
+  "client": {
+    "commitDefender": "2.9.4",
+    "installedLibraries": "0.1.0-alpha.37",
+    "cli": "0.1.0-alpha.33",
+    "unchanged": true,
+    "noForcedReload": true,
+    "localModelAndAccountUnchanged": true
+  },
+  "architecture": {
+    "centralToLocalDownloadsOnly": true,
+    "localSourceResultFeedbackUploads": false,
+    "centralExecutionForLocalClients": false,
+    "P10AndP08UpstreamWithdrawnNotCompleted": true
+  },
+  "limitations": [
+    "Criterion linkage validates identity and target, not model reasoning or actual defects",
+    "No actual external GitHub or paid model calls in verification",
+    "Live report uses owned synthetic source and model; real Git acquisition and actual worker persistence covered by native integration tests",
+    "Real client/central model comparison, trusted CI, recurrence, managed publishing and metrics remain",
+    "No retroactive judgments for legacy reports"
+  ]
+}
