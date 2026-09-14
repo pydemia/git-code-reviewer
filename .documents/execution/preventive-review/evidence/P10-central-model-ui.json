@@ -1,0 +1,175 @@
+{
+  "recordedAt": "2026-09-14T15:37:12.141373+00:00",
+  "scope": "P10-C04 manual staged central executor and installed Commit Defender 2.9.0; P00-P13 remains active",
+  "sourceCommits": {
+    "gitCodeReviewer": "2d8089b82f3046d34ddc276b18d156d3d4714456",
+    "commitDefender": "c6d973008a4aae24635abba08e9e170c358c840f"
+  },
+  "delivery": {
+    "client": "0.1.0-alpha.33",
+    "cli": "0.1.0-alpha.29",
+    "extension": "2.9.0",
+    "vsix": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P10-central-model-ui/commit-defender-2.9.0.vsix",
+    "vsixSha256": "c5b1bd9d08004c1fe722120702638828455f212ba19e7512508dbfaedf05cf7b"
+  },
+  "behavior": [
+    "Explicit staged local/central executor selection, authorized connection/account/model/effort, full exact upload approval",
+    "Fresh model grants and central context are checked before approval; profile/connection changes stop preparation or reject results",
+    "Frozen source survives later Git changes, no local provider execution or automatic remote fallback",
+    "Durable request metadata supports status/result/cancellation after lost acknowledgement or extension restart without new POST",
+    "Cancellation uses an independent bounded connection operation; unknown outcomes retain request ID",
+    "Central results use existing summary, findings and session history; reanalysis preserves central execution and requires fresh approval",
+    "Feedback reanalysis refuses a different required central snapshot; central follow-up chat is explicitly unavailable",
+    "ai:invoke identity decoder compatibility fixed in GCR alpha.33, copied vendor bytes checked against manifest and source commit"
+  ],
+  "verification": {
+    "regression": {
+      "tests": 206,
+      "pass": 206,
+      "fail": 0,
+      "skipped": 0
+    },
+    "regressionMethod": "Initial execution passed the first six suites (79 cases), then failed at the client delivery version/provenance check. After updating the alpha.33 pin and adding its actual GCR source provenance, resumed from client-contract through all remaining suites (127 cases). Failed and repeated attempts are not added to passed counts.",
+    "remoteCasesIncluded": 9,
+    "uiFinalRepeat": 1,
+    "typecheck": true,
+    "testTypecheck": true,
+    "buildAndPackage": true,
+    "browser": {
+      "status": "passed",
+      "browser": "152.0.7977.84",
+      "checks": [
+        "escaped source renders as text under actual CSP",
+        "approval sends exact payload hash",
+        "approval button disabled after submission",
+        "cancel action",
+        "no browser script errors"
+      ],
+      "vscodeApi": "test stub; native host activation tested separately",
+      "actualModelCalls": 0
+    },
+    "extensionHosts": [
+      {
+        "status": "passed",
+        "vscode": "1.90.2",
+        "node": "20.9.0",
+        "electron": "29.4.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.9.0",
+        "delivery": "packaged-extension",
+        "commandCount": 28,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      },
+      {
+        "status": "passed",
+        "vscode": "1.135.0",
+        "node": "24.18.1",
+        "electron": "42.8.1",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.9.0",
+        "delivery": "packaged-extension",
+        "commandCount": 28,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      }
+    ]
+  },
+  "installation": {
+    "version": "2.9.0",
+    "path": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.9.0",
+    "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P10-central-model-ui/installed-backup-2.8.1",
+    "vsixSha256": "c5b1bd9d08004c1fe722120702638828455f212ba19e7512508dbfaedf05cf7b",
+    "packageMatchesExceptVSCodeMetadata": true,
+    "fileHashes": {
+      "readme.md": "caf07d060eaf265b29f2333619cc4360c80afd662009e8e07b6dff656ab14624",
+      "gear-settings-svgrepo-com.svg": "63f5dddb385ee497406a836eeaca06e76894deaac6f57a172491abaac6120a16",
+      "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/hook-cli.js": "f43f5adc8cf9a2296050e904a600d71dd6fa6847f4a767d43763364ceb904363",
+      "out/standalone-review-worker.js": "d566007c757194ed8b412fe3c71eb84433f02b9efe9fe93514d7291606d6772d",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "out/review-chat-worker.js": "ecc7e393c4226081d3b4a107e7c36da20531907db05e45be567e554cce34e66b",
+      "out/extension.js": "0e8c3845437c94da3c1b39eb9f3241fbf477e1938e8e033f831af340c1426c1b",
+      "docs/automatic-reviews.md": "0df472bb3db236ef34ba19e3d4998c719d8662d76c75ed7cadf65d76b495328d",
+      "docs/review-conversations.md": "659846084bec1a612105db33e05d3a251e107a68fbaa812a9ac9b458e8c3c711",
+      "docs/central-review.md": "35e651fa2db31da5200aa1681fceeffc8ba90a56bbc5e91c50a5ac4784166d20",
+      "docs/model-credentials.md": "20609945e9a5679b31e64bbd1318f933c8d1dbc761b230f2eae48a0dfaac054d",
+      "docs/review-submissions.md": "493f511dbec18b63c623f91deb547b2a131765567825e5f917baddf49121ef7c",
+      "docs/standalone-review.md": "5f34b97fcd103cfb8350c77a89a6e9ff229103f9ea554ac4cb4901b76bf84b65",
+      "media/icon.png": "08e5c0ab7e5fb8d9fa4ecd588bfbe943de623c023df5ab58f18c9a6d2509c5eb",
+      "media/shield.svg": "2010a057014fec006c2e21bd99b4920eca6f62557bdbf40aba8107174322f317",
+      "media/icon.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/checklist.svg": "21dd71ecaf23a444021007f6e19b051977bac55cf9bc2a4b353e191f6fd2585a",
+      "media/icon-options/E-prism.svg": "4c8e90762a1461742c2c536f79db5f08073a494ba396610329c87a30bb1a72f4",
+      "media/icon-options/C4-split.svg": "00d7331f1e3bd832a3c3f150074786166935e8f6b95b964a243778e0dbb29358",
+      "media/icon-options/C3-ring.svg": "06136d4882b76fe4bfdd9fa3912615e28505bcf22cfb336dfe23236421bb3cc6",
+      "media/icon-options/B-terminal.svg": "3997643541cc731d198e42ac8870cd2ccaf3f952717f1567aab6f18fbe8ad489",
+      "media/icon-options/C-sunset.svg": "27d42d0ef7711cf14529285e183ab7d78c87d8a887ee6586bc2937d6426ae92e",
+      "media/icon-options/C2-faceted.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/icon-options/C5-stroke.svg": "7d555608dd8c17829b267acf4edd1bcd2e819de9b3d8d5c8e0dcbb7b0757d07f",
+      "media/icon-options/C1-razor.svg": "aaa7d9373c99e2cbd3d0856437c0748e5e51522941a797828b1101bcd08e998b",
+      "media/icon-options/D-arctic.svg": "da4073ab7183ba9e93cf5f8bf43b5db309bc52cd05942dfb30989820bd3f0c39",
+      "media/icon-options/A-apex.svg": "159597f286f7c1d4198dfb990d776279e5966d772aefc4b2e43117eb6e579375",
+      "third-party/gcr-cli/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr-cli/NOTICE": "20250998d1506d715bd504d0c929a503b26290c51e370ab48fc9d69866f268bc",
+      "third-party/gcr-cli/manifest.json": "fd709278095c81cd96b0e910e6906d81c080ab1bc3d6af7f3294e52b4e05e02b",
+      "third-party/gcr/README.md": "58b8540f5d0a7cccccdf6cb8c3376b5b5262cdbd1e939891e15c86cd8f7c6253",
+      "third-party/gcr/client-contract/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-executors/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-core/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/gcr-service/main.mjs": "02893df16a08f1aa889052c7bf47a1ff280393d833227405f77b862f53509747",
+      "out/gcr-service/manifest.json": "3ec53596918f1ba59c7240c3531726e74595701af063b9e4c4d72ac3460f37f7"
+    },
+    "forcedReload": false,
+    "globalCliReplaced": false,
+    "serverRedeployed": false
+  },
+  "actualAccountCalls": 0,
+  "remaining": [
+    "Actual registered user account execution through the deployed server and interactive native VS Code flow",
+    "Docker image build capability: last build failed writing containerd metadata with I/O error; current host disk has 6.6 GiB available. No new image build success or Helm rollout is claimed",
+    "PRISM currently remains on Helm revision 58 / app alpha.47 / schema 45; runtime source has schema 49 and central executor is disabled by default",
+    "Move central preparation source capture off the extension host event loop; large-worktree responsiveness is not verified by small fixtures",
+    "Recovery currently opens verified server summary and depends on result retention; it does not persist a local central-model conversation or reconstruct captured-source history",
+    "P03-P09 remaining authentication/operational/platform/release acceptance; P11-P13 runner, learning, PR integration"
+  ],
+  "logs": {
+    "cd-p10-host-minimum-final.log": "48580c7ae9eadbfba764bcbbe9a8238b3956d45cf68d9f15953aea0187de27c8",
+    "installation.json": "115cd3d833b4de984fec20bf2e62c582bbe3366c3ec1a74fb152f71875ec41e0",
+    "cd-p10-regression-rest.log": "19b31f03604e3e4552dd29018198d8da734626b4ca082806777599b511891fb4",
+    "cd-p10-final-test-types.log": "94a675c65e196cf9bdf6298614759db9788af5c76e8b34df3ac9503a2f94f66c",
+    "cd-p10-install.log": "40c11921e605a29ce5c10fe92345a4dcd8c3d07553edc92145ff855715588731",
+    "extension-host-current.json": "37d39a3081cccb3e8a9f0b67a46e6a425d31e4889ccef81097799f593816efe4",
+    "approval-chrome.json": "5778e6bc0156bd693538291a119b8e2bce1ca8594cb9975c342e20ea3bc073e8",
+    "extension-host-minimum.json": "b9f17298b0b91fbd94ecbdff8ee970be875d4bef6e2f481b5d2a942fec2aa370",
+    "gcr-p10-approval-browser.mjs": "4a7f635f1bdadee23e631a0a4d6fbc242cddc64387fbdbd636c70704405110f1",
+    "cd-p10-vsix.log": "9988e013b8c28c411a95c1defd9930beea269b0e489e7111c4fb9cec0cda811b",
+    "cd-p10-approval-browser.log": "7bc3294deb29716fa90ab28cd1d1623f67b0db5a9a157ea00e52eaab44a38e4c",
+    "cd-p10-host-current-final.log": "1be6838be54b1c615bdb8830fa6aca2c3f09aaf6d5c6027f0adde0944ffb3e5b",
+    "cd-p10-regression-final.log": "9a01d3ca6024a1db77b65b07ba067380669d1fa597783b86e37bedb98ddca32a",
+    "approval-chrome.png": "d96a197edec60c456199f64a0866623e9cd43312188424b7153c163036fd36e7",
+    "cd-p10-ui-final.log": "93479b8e0a6c9e5ba74fd261c89c30b839a79aa7b36d4d6b1f953d644644cca1"
+  }
+}
