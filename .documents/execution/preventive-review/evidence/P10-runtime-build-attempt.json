@@ -1,0 +1,21 @@
+{
+  "recordedAt": "2026-09-14T14:31:53.800029+00:00",
+  "sourceRevision": "42157251baf2b937127694d369e1beb9c53778a2",
+  "intendedImage": "docker.io/pydemia/git-code-reviewer:0.8.0-alpha.48",
+  "platform": "linux/amd64",
+  "status": "failed",
+  "exitCode": 1,
+  "error": "write /var/lib/desktop-containerd/daemon/io.containerd.metadata.v1.bolt/meta.db: input/output error",
+  "hostDisk": {
+    "size": "460Gi",
+    "used": "400Gi",
+    "available": "7.3Gi",
+    "capacity": "99%",
+    "mount": "/System/Volumes/Data"
+  },
+  "causeConfirmed": false,
+  "logSha256": "b5a81dce840b72096e31252f91554b68b55b4dd73a7e8f05548801693c0d2ea5",
+  "imagePushed": false,
+  "deploymentChanged": false,
+  "remainingAction": "Restore Docker storage/build capability; continue CD/CLI remote executor independently. Do not delete unrelated Docker data or user files."
+}
