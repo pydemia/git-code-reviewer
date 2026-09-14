@@ -1142,6 +1142,9 @@ export async function executeCli(
               ? 'unavailable'
               : 'failed',
         ...(error instanceof ReviewRequestError && error.retryAt ? { retryAt: error.retryAt } : {}),
+        ...(error instanceof ReviewRequestError && error.code === 'request-deferred'
+          ? { deferredReason: error.deferredReason ?? 'review-budget' }
+          : {}),
         ...(error instanceof CentralConnectionSetupError
           ? { connectionId: error.connectionId }
           : {}),

@@ -20,13 +20,17 @@ process.once('message', async (input) => {
         },
       },
     });
-    const row = await queue.enqueue(input.identity, input.reason);
-    const claim = await queue.claim(row.key, { leaseMs: 1000 });
-    if (claim.kind === 'acquired' && input.begin) await queue.begin(claim.lease, input.reason);
-    process.send({
-      kind: claim.kind,
-      ...(claim.kind === 'acquired' ? { lease: claim.lease } : {}),
-    });
+    if (input.priorityOnly) {
+      process.send({ priority: await queue.prioritizeManual() });
+    } else {
+      const row = await queue.enqueue(input.identity, input.reason);
+      const claim = await queue.claim(row.key, { leaseMs: 1000 });
+      if (claim.kind === 'acquired' && input.begin) await queue.begin(claim.lease, input.reason);
+      process.send({
+        kind: claim.kind,
+        ...(claim.kind === 'acquired' ? { lease: claim.lease } : {}),
+      });
+    }
   } catch (error) {
     process.send({ error: error.code ?? 'unexpected' });
   } finally {

@@ -67,6 +67,7 @@ async function fixture() {
     },
   };
   let calls = 0,
+    preparations = 0,
     release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -116,7 +117,13 @@ async function fixture() {
     },
   };
   const common = ['--cwd', repo, '--data-dir', data, '--profile', profile];
-  const dependencies = { keys, prepareExecutor: async () => executor };
+  const dependencies = {
+    keys,
+    prepareExecutor: async () => {
+      preparations++;
+      return executor;
+    },
+  };
   const cli = (args: string[]) => executeCli([...args, ...common], dependencies);
   let stop = new AbortController();
   let running = executeCli(['service', 'run', ...common], {
@@ -143,7 +150,17 @@ async function fixture() {
       (result) => result.exitCode === 0,
     );
   };
-  return { root, repo, git, cli, release, restart, calls: () => calls, observed };
+  return {
+    root,
+    repo,
+    git,
+    cli,
+    release,
+    restart,
+    calls: () => calls,
+    preparations: () => preparations,
+    observed,
+  };
 }
 it('runs explicit external-file watching through CLI commands, the service queue and the shared review runner', async () => {
   const f = await fixture();
@@ -330,4 +347,37 @@ it('defers a new source at the shared hourly limit without invoking another mode
   expect((deferred.value as ServiceJob).notBefore).toBeGreaterThan(Date.now());
   expect(f.calls()).toBe(1);
   expect((await f.cli(['service', 'cancel', '--id', second])).exitCode).toBe(0);
+}, 40000);
+it('waits for a foreground manual review before preparing or starting an automatic service review', async () => {
+  const f = await fixture();
+  expect((await f.cli(['service', 'allow', '--trigger', 'commit'])).exitCode).toBe(0);
+  const manual = f.cli(['review']);
+  const id = randomUUID();
+  try {
+    await until(
+      async () => f.calls(),
+      (value) => value === 1,
+    );
+    const preparations = f.preparations();
+    fs.writeFileSync(path.join(f.repo, 'a.ts'), 'export const a=3;\n');
+    f.git('add', '.');
+    expect((await f.cli(['enqueue', '--trigger', 'commit', '--request-id', id])).exitCode).toBe(0);
+    const deferred = await until(
+      () => f.cli(['service', 'job', '--id', id]),
+      (value) => (value.value as ServiceJob)?.waitingReason === 'manual-priority',
+    );
+    expect((deferred.value as ServiceJob).state).toBe('queued');
+    expect(f.calls()).toBe(1);
+    expect(f.preparations()).toBe(preparations);
+  } finally {
+    f.release();
+    expect((await manual).exitCode).toBe(0);
+  }
+  const finished = await until(
+    () => f.cli(['service', 'job', '--id', id]),
+    (value) => (value.value as ServiceJob)?.state === 'finished',
+  );
+  expect((finished.value as ServiceJob).result?.status).toBe('completed');
+  expect((finished.value as ServiceJob).waitingReason).toBeUndefined();
+  expect(f.calls()).toBe(2);
 }, 40000);

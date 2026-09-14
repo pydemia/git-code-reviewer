@@ -33,6 +33,7 @@ async function git(cwd: string, args: string[], input?: string, allow = [0]) {
           GIT_CONFIG_GLOBAL: '/dev/null',
           GIT_OPTIONAL_LOCKS: '0',
           GIT_NO_LAZY_FETCH: '1',
+          GIT_NO_REPLACE_OBJECTS: '1',
           GIT_TERMINAL_PROMPT: '0',
           GIT_ALLOW_PROTOCOL: '',
         },
@@ -127,16 +128,85 @@ export async function observeAutomaticRepository(
   if (head !== endHead || index !== endIndex) throw new SourceCaptureError('source-unavailable');
   return { root, indexPath, head, fingerprint: contentHash({ head, index }), changes };
 }
-/** Whole-file unstaging/removal and index stat refreshes add no reviewable input. */
-export function newlyStagedPaths(previous: AutomaticRepository, current: AutomaticRepository) {
+/** A partial unstage lies on a shortest line-edit path from the previous index
+ * back to its fixed base. New lines or removal of unchanged base lines do not.
+ * Compare immutable blobs; the working tree never supplies this decision. */
+export async function newlyStagedPaths(
+  previous: Pick<AutomaticRepository, 'root' | 'head' | 'fingerprint' | 'changes'>,
+  current: Pick<AutomaticRepository, 'root' | 'head' | 'fingerprint' | 'changes'>,
+) {
   if (
     previous.root !== current.root ||
     previous.head !== current.head ||
     previous.fingerprint === current.fingerprint
   )
     return [];
-  const before = new Map(previous.changes.map((c) => [c.path, contentHash(c)]));
-  return current.changes.filter((c) => before.get(c.path) !== contentHash(c)).map((c) => c.path);
+  const before = new Map(previous.changes.map((c) => [c.path, c]));
+  const lineCounts = new Map<string, number>();
+  const distances = new Map<string, number>();
+  const deadline = Date.now() + 20000;
+  const lines = async (oid: string) => {
+    if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(oid))
+      throw new SourceCaptureError('source-unavailable');
+    if (/^0+$/.test(oid)) return 0;
+    const cached = lineCounts.get(oid);
+    if (cached !== undefined) return cached;
+    if (Date.now() > deadline) throw new SourceCaptureError('source-unavailable');
+    const size = Number(await git(current.root, ['cat-file', '-s', oid]));
+    if (!Number.isSafeInteger(size) || size < 0 || size > 2 * 1024 * 1024)
+      throw new SourceCaptureError('source-unavailable');
+    const text = await git(current.root, ['cat-file', 'blob', oid]);
+    if (text.includes('\0')) throw new SourceCaptureError('source-unavailable');
+    const count = (text.match(/\n/g)?.length ?? 0) + Number(!!text && !text.endsWith('\n'));
+    lineCounts.set(oid, count);
+    return count;
+  };
+  const distance = async (left: string, right: string) => {
+    if (left === right) return 0;
+    const key = [left, right].sort().join(':');
+    const cached = distances.get(key);
+    if (cached !== undefined) return cached;
+    const leftLines = await lines(left),
+      rightLines = await lines(right);
+    if (/^0+$/.test(left) || /^0+$/.test(right)) return leftLines + rightLines;
+    if (Date.now() > deadline) throw new SourceCaptureError('source-unavailable');
+    const stat = await git(current.root, [
+      'diff',
+      '--numstat',
+      '--no-renames',
+      '--no-ext-diff',
+      '--no-textconv',
+      '--no-color',
+      '--diff-algorithm=minimal',
+      left,
+      right,
+      '--',
+    ]);
+    const row = stat.match(/^(\d+)\t(\d+)\t[^\n]*\n?$/);
+    if (!row) throw new SourceCaptureError('source-unavailable');
+    const value = Number(row[1]) + Number(row[2]);
+    distances.set(key, value);
+    return value;
+  };
+  const added: string[] = [];
+  for (const change of current.changes) {
+    const old = before.get(change.path);
+    if (old && contentHash(old) === contentHash(change)) continue;
+    if (
+      !old ||
+      old.oldOid !== change.oldOid ||
+      old.oldMode !== change.oldMode ||
+      (change.mode !== old.mode && change.mode !== change.oldMode)
+    ) {
+      added.push(change.path);
+      continue;
+    }
+    const original = await distance(old.oldOid, old.oid);
+    const remaining = await distance(change.oldOid, change.oid);
+    const reverted = await distance(old.oid, change.oid);
+    if (remaining + reverted !== original) added.push(change.path);
+  }
+  return added;
 }
 async function workingTreeChanged(root: string, file: string) {
   const head = (await git(root, ['rev-parse', '--verify', 'HEAD'], undefined, [0, 128])).trim();

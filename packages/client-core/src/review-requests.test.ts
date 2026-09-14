@@ -71,6 +71,125 @@ function changed() {
   value.identity.source.hash = 'f'.repeat(64);
   return value;
 }
+it('defers automatic admission for every active manual caller without spending its start budget', async () => {
+  const f = await setup(),
+    a = await f.open(),
+    b = await f.open();
+  const first = await a.prioritizeManual(),
+    second = await b.prioritizeManual();
+  const row = await b.enqueue(changed().identity, 'stage');
+  const claim = await b.claim(row.key);
+  if (claim.kind !== 'acquired') throw Error('fixture');
+  await expect(b.begin(claim.lease, 'stage', { maximumReviewsPerHour: 1 })).rejects.toMatchObject({
+    code: 'request-deferred',
+    retryAt: f.now() + 2000,
+  });
+  await a.releaseManualPriority(first);
+  await expect(b.begin(claim.lease, 'stage')).rejects.toMatchObject({ code: 'request-deferred' });
+  await b.releaseManualPriority(second);
+  await b.begin(claim.lease, 'stage', { maximumReviewsPerHour: 1 });
+  expect((await b.get(row.key))?.state).toBe('running');
+  expect(await b.list()).toHaveLength(1);
+});
+it('expires abandoned priority without turning an unknown manual execution into a completed or retryable request', async () => {
+  const f = await setup(),
+    queue = await f.open();
+  const token = await queue.prioritizeManual();
+  const manual = await queue.enqueue(report().identity, 'manual');
+  const claim = await queue.claim(manual.key);
+  if (claim.kind !== 'acquired') throw Error('fixture');
+  await queue.begin(claim.lease, 'manual');
+  f.advance(20000);
+  await queue.prioritizeManual(token);
+  f.advance(30001);
+  await expect(queue.prioritizeManual(token)).rejects.toMatchObject({ code: 'request-lost' });
+  const automatic = await queue.enqueue(changed().identity, 'save');
+  const next = await queue.claim(automatic.key);
+  if (next.kind !== 'acquired') throw Error('fixture');
+  await queue.begin(next.lease, 'save');
+  expect((await queue.get(manual.key))?.state).toBe('running');
+  expect((await queue.claim(manual.key)).kind).toBe('interrupted');
+});
+it('holds manual priority through execution and releases it before a deferred service request resumes', async () => {
+  const f = await setup();
+  let started!: () => void, release!: () => void;
+  const running = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const manual = executeReviewRequest({
+    storage: f.storage,
+    identity: report().identity,
+    reason: 'manual',
+    loadReport: (id) => f.history.getReview(id),
+    saveReport: (value) => f.history.saveReview(value),
+    run: async () => {
+      started();
+      await pending;
+      return report();
+    },
+  });
+  const run = vi.fn(async () => changed());
+  const automatic = {
+    storage: f.storage,
+    identity: changed().identity,
+    reason: 'stage' as const,
+    loadReport: async () => undefined,
+    saveReport: async () => undefined,
+    run,
+  };
+  try {
+    await running;
+    await expect(executeReviewRequest(automatic)).rejects.toMatchObject({
+      code: 'request-deferred',
+    });
+    expect(run).not.toHaveBeenCalled();
+  } finally {
+    release();
+    await manual;
+  }
+  expect(await executeReviewRequest(automatic)).toMatchObject({ reused: false, recorded: true });
+  expect(run).toHaveBeenCalledTimes(1);
+});
+it('observes manual priority held by another OS process and recovers after its lease expires', async () => {
+  const f = await setup(),
+    queue = await f.open();
+  const child = fork(new URL('../test-fixtures/review-request-process.mjs', import.meta.url), [], {
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+  });
+  const stop = async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, 'exit');
+      child.kill('SIGKILL');
+      await exited;
+    }
+  };
+  cleanups.push(stop);
+  const response = once(child, 'message', { signal: AbortSignal.timeout(5000) });
+  child.send({
+    root: f.storage.dataDirectory,
+    scope: f.storage.scope,
+    now: f.now(),
+    priorityOnly: true,
+    keys: [...f.values].map(([key, value]) => [key, value.toString('base64')]),
+  });
+  expect((await response)[0]).toMatchObject({ priority: expect.any(String) });
+  const row = await queue.enqueue(report().identity, 'stage');
+  const claim = await queue.claim(row.key, { leaseMs: 120000 });
+  if (claim.kind !== 'acquired') throw Error('fixture');
+  await expect(queue.begin(claim.lease, 'stage')).rejects.toMatchObject({
+    code: 'request-deferred',
+  });
+  await stop();
+  await expect(queue.begin(claim.lease, 'stage')).rejects.toMatchObject({
+    code: 'request-deferred',
+  });
+  f.advance(30001);
+  await queue.begin(claim.lease, 'stage');
+  expect((await queue.get(row.key))?.state).toBe('running');
+}, 15000);
 it('reconciles the exact saved completion after lease expiry without another model run', async () => {
   const f = await setup(),
     queue = await f.open();

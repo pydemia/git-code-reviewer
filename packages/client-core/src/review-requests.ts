@@ -24,13 +24,15 @@ export class ReviewRequestError extends Error {
       | 'request-lost'
       | 'request-invalid',
     readonly retryAt?: number,
+    readonly deferredReason?: 'manual-priority' | 'review-budget',
   ) {
     super(
       {
         'request-busy': 'Another process is updating this review request.',
         'request-interrupted':
           'A previous process may have started this review. Its outcome must be checked before another execution.',
-        'request-deferred': 'The automatic review budget or minimum interval defers this request.',
+        'request-deferred':
+          'Manual review priority, the automatic budget or minimum interval defers this request.',
         'request-lost': 'This process no longer owns the review request.',
         'request-invalid':
           'The review request does not match its profile, worktree or saved result.',
@@ -49,6 +51,11 @@ export function reviewRequestKey(input: ExecutionIdentity) {
 export type ReviewRequestLease = { key: string; token: string; generation: number };
 export type ReviewStartLimits = { minimumIntervalMs?: number; maximumReviewsPerHour?: number };
 type State = { revision: number; value: ReviewRequestRecord };
+type ManualPriority = {
+  version: 1;
+  observedAt: number;
+  holders: Array<{ token: string; deadline: number }>;
+};
 /** Encrypted per-profile/worktree journal. A running lease never silently
  * reverts to queued: a stopped heartbeat cannot prove that the model stopped. */
 export class ReviewRequests {
@@ -116,6 +123,90 @@ export class ReviewRequests {
       }
     }
     throw new ReviewRequestError('request-busy');
+  }
+  private async priorityState() {
+    // Auxiliary records share the completion-receipt namespace, not the settings
+    // request index, so older readers can still list their existing requests.
+    const row = await this.records.read('chats', 'manual_priority');
+    if (row?.deleted) throw new ReviewRequestError('request-invalid');
+    const value = (row?.value ?? { version: 1, observedAt: 0, holders: [] }) as ManualPriority;
+    if (
+      value.version !== 1 ||
+      !Number.isSafeInteger(value.observedAt) ||
+      value.observedAt < 0 ||
+      !Array.isArray(value.holders) ||
+      value.holders.length > 64 ||
+      value.holders.some(
+        (holder) =>
+          !holder ||
+          !/^[a-f0-9-]{36}$/.test(holder.token) ||
+          !Number.isSafeInteger(holder.deadline) ||
+          holder.deadline < 0 ||
+          holder.deadline > value.observedAt + 30000,
+      ) ||
+      new Set(value.holders.map((holder) => holder.token)).size !== value.holders.length
+    )
+      throw new ReviewRequestError('request-invalid');
+    const now = this.time(value.observedAt);
+    return {
+      revision: row?.revision ?? 0,
+      value: {
+        ...value,
+        observedAt: now,
+        holders: value.holders.filter((holder) => holder.deadline > now),
+      },
+    };
+  }
+  /** A caller renews its priority while waiting for or executing a manual review.
+   * Expiration releases scheduling priority only; it never retries an unknown model. */
+  async prioritizeManual(token?: string) {
+    const selected = token ?? randomUUID();
+    return this.retry(async () => {
+      const state = await this.priorityState();
+      const existing = state.value.holders.find((holder) => holder.token === selected);
+      if (token && !existing) throw new ReviewRequestError('request-lost');
+      if (!existing && state.value.holders.length >= 64)
+        throw new ReviewRequestError('request-busy');
+      state.value.holders = [
+        ...state.value.holders.filter((holder) => holder.token !== selected),
+        { token: selected, deadline: state.value.observedAt + 30000 },
+      ];
+      await this.records.write('chats', 'manual_priority', state.value, state.revision);
+      return selected;
+    });
+  }
+  async releaseManualPriority(token: string) {
+    await this.retry(async () => {
+      const state = await this.priorityState();
+      state.value.holders = state.value.holders.filter((holder) => holder.token !== token);
+      await this.records.write('chats', 'manual_priority', state.value, state.revision);
+    });
+  }
+  async manualPriorityRetryAt() {
+    const state = await this.priorityState();
+    return state.value.holders.length
+      ? Math.min(
+          state.value.observedAt + 2000,
+          ...state.value.holders.map((holder) => holder.deadline),
+        )
+      : undefined;
+  }
+  private async admitAutomatic() {
+    await this.retry(async () => {
+      const state = await this.priorityState();
+      if (state.value.holders.length)
+        throw new ReviewRequestError(
+          'request-deferred',
+          Math.min(
+            state.value.observedAt + 2000,
+            ...state.value.holders.map((holder) => holder.deadline),
+          ),
+          'manual-priority',
+        );
+      // This CAS orders an automatic admission against concurrent manual entry.
+      // Reviews already admitted continue; a later manual request does not kill them.
+      await this.records.write('chats', 'manual_priority', state.value, state.revision);
+    });
   }
   async enqueue(input: ExecutionIdentity, reason: ReviewTrigger) {
     const identity = executionIdentity(input);
@@ -239,6 +330,7 @@ export class ReviewRequests {
       throw new ReviewRequestError('request-invalid');
     const owned = await this.owned(lease);
     if (owned.value.state !== 'claimed') throw new ReviewRequestError('request-lost');
+    if (reason !== 'manual') await this.admitAutomatic();
     await this.retry(async () => {
       await this.owned(lease);
       const row = await this.records.read('settings', 'budget');
@@ -423,6 +515,7 @@ export async function executeReviewRequest(input: {
   input.signal?.addEventListener('abort', cancel, { once: true });
   if (input.signal?.aborted) cancel();
   let lease: ReviewRequestLease | undefined;
+  let manualPriority: string | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let heartbeat: Promise<void> = Promise.resolve();
   let lost = false;
@@ -431,7 +524,10 @@ export async function executeReviewRequest(input: {
   };
   const beat = () => {
     timer = setTimeout(() => {
-      heartbeat = queue.heartbeat(lease!).then(
+      heartbeat = (async () => {
+        if (manualPriority) await queue.prioritizeManual(manualPriority);
+        if (lease) await queue.heartbeat(lease);
+      })().then(
         () => {
           if (!controller.signal.aborted) beat();
         },
@@ -446,6 +542,10 @@ export async function executeReviewRequest(input: {
   try {
     check();
     const request = await queue.enqueue(input.identity, input.reason ?? 'manual');
+    if ((input.reason ?? 'manual') === 'manual') {
+      manualPriority = await queue.prioritizeManual();
+      beat();
+    }
     while (true) {
       check();
       const claimed = await queue.claim(
@@ -473,7 +573,7 @@ export async function executeReviewRequest(input: {
       await input.onRequest?.(claimed.request);
       break;
     }
-    beat();
+    if (!manualPriority) beat();
     await input.assertValid?.();
     check();
     await queue.begin(lease, input.reason ?? 'manual', input.limits);
@@ -512,6 +612,7 @@ export async function executeReviewRequest(input: {
     controller.abort();
     await heartbeat;
     if (lease) await queue.release(lease).catch(() => undefined);
+    if (manualPriority) await queue.releaseManualPriority(manualPriority).catch(() => undefined);
     input.signal?.removeEventListener('abort', cancel);
     queue.close();
   }

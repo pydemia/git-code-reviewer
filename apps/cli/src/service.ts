@@ -195,7 +195,12 @@ export async function executeServiceCommand(
             onReviewRequest: input.bindRequest,
             signal: input.signal,
           });
-          const value = result.value as { runId?: string; status?: string; retryAt?: number };
+          const value = result.value as {
+            runId?: string;
+            status?: string;
+            retryAt?: number;
+            deferredReason?: 'manual-priority' | 'review-budget';
+          };
           return {
             exitCode: result.exitCode,
             status: typeof value?.status === 'string' ? value.status : 'unavailable',
@@ -212,6 +217,7 @@ export async function executeServiceCommand(
               : {}),
             ...(typeof value?.runId === 'string' ? { runId: value.runId } : {}),
             ...(typeof value?.retryAt === 'number' ? { retryAt: value.retryAt } : {}),
+            ...(value?.deferredReason ? { deferredReason: value.deferredReason } : {}),
           };
         },
         reconcile: async ({ job, registration }) => {

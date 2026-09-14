@@ -5,6 +5,8 @@ import {
   observeAutomaticRepository,
   observeAutomaticWorkingTree,
   observeAutomaticFile,
+  newlyStagedPaths,
+  type AutomaticIndexChange,
 } from './automatic-source.js';
 import { captureLocalSource, type FrozenLocalSource } from './source-snapshot.js';
 import { LocalServiceError, type ServiceJobs, type ServiceRegistration } from './service-jobs.js';
@@ -14,6 +16,7 @@ interface Observation {
   head: string | null;
   fingerprint: string;
   files: Array<{ path: string; hash: string | null }>;
+  index?: AutomaticIndexChange[];
 }
 export interface ServiceWatch {
   version: 1;
@@ -99,6 +102,28 @@ export function validateServiceWatch(input: ServiceWatch): ServiceWatch {
     if (file.hash !== null && !/^[a-f0-9]{64}$/.test(file.hash))
       throw new LocalServiceError('service-invalid');
   }
+  if (input.observed.index !== undefined) {
+    if (
+      input.trigger !== 'stage' ||
+      !Array.isArray(input.observed.index) ||
+      input.observed.index.length !== input.observed.files.length
+    )
+      throw new LocalServiceError('service-invalid');
+    for (const change of input.observed.index) {
+      sourcePath(change.path);
+      if (
+        !/^[AMDTU]$/.test(change.status) ||
+        !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(change.oldOid) ||
+        !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(change.oid) ||
+        !/^\d{6}$/.test(change.oldMode) ||
+        !/^\d{6}$/.test(change.mode) ||
+        !input.observed.files.some(
+          (file) => file.path === change.path && file.hash === contentHash(change),
+        )
+      )
+        throw new LocalServiceError('service-invalid');
+    }
+  }
   for (const file of [...input.pendingPaths, ...input.reviewPaths]) sourcePath(file);
   if (input.externalChanges !== undefined && typeof input.externalChanges !== 'boolean')
     throw new LocalServiceError('service-invalid');
@@ -157,6 +182,7 @@ export class ServiceWatcher {
       head: index.head,
       fingerprint: contentHash({ head: index.head, files }),
       files,
+      index: index.changes,
     };
   }
   // Configure/status/disable are called from inside the service mutation queue.
@@ -525,10 +551,24 @@ export class ServiceWatcher {
     }
     if (observed.fingerprint !== current.observed.fingerprint) {
       const live = receipt && ['queued', 'running'].includes(receipt.state);
+      let added = changed.map((file) => file.path);
+      if (current.trigger === 'stage' && observed.head === current.observed.head) {
+        const reg = await this.options.jobs.registration(current.repository);
+        if (!reg) throw new LocalServiceError('service-denied');
+        // Older watches retained hashes only. Establish immutable-blob history
+        // once; preserve already pending work without guessing the missing delta.
+        added =
+          current.observed.index && observed.index
+            ? await newlyStagedPaths(
+                { ...current.observed, root: reg.root, changes: current.observed.index },
+                { ...observed, root: reg.root, changes: observed.index },
+              )
+            : [];
+      }
       const paths = new Set([
         ...current.pendingPaths,
-        ...(live ? current.reviewPaths : []),
-        ...(external ? changed.map((file) => file.path) : []),
+        ...(live && (current.trigger !== 'stage' || added.length) ? current.reviewPaths : []),
+        ...(external ? added : []),
       ]);
       const pendingIntent = current.intent?.id;
       delete current.intent;
@@ -558,8 +598,12 @@ export class ServiceWatcher {
         );
       await this.options.jobs.writeWatch(current);
       current = await this.flushCancellations(current);
-    } else if (contentHash(current) !== contentHash(expected))
-      await this.options.jobs.writeWatch(current);
+    } else {
+      if (current.trigger === 'stage' && !current.observed.index && observed.index)
+        current.observed = observed;
+      if (contentHash(current) !== contentHash(expected))
+        await this.options.jobs.writeWatch(current);
+    }
     return current;
   }
   private async current(expected: ServiceWatch) {

@@ -223,6 +223,7 @@ export async function startLocalService(options: LocalServiceOptions) {
           status: serviceFailure ? 'degraded' : 'running',
           features: [
             'review-start-budget-v1',
+            'manual-review-priority-v1',
             'headless-watch-v1',
             'editor-save-events-v1',
             ...(options.reconcile ? ['review-reconciliation-v1'] : []),

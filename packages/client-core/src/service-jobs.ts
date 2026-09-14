@@ -7,7 +7,7 @@ import {
   type ReviewRequestRecord,
   type ReviewTrigger,
 } from '@gcr/client-contract';
-import { reviewRequestKey } from './review-requests.js';
+import { ReviewRequests, reviewRequestKey } from './review-requests.js';
 import { LocalRecordStore, type LocalRecordOptions } from './local-records.js';
 import { LocalStoreError } from './local-errors.js';
 import { contentHash, defaultLocalDataDirectory, discoverLocalIdentity } from './local-identity.js';
@@ -65,12 +65,14 @@ export interface ServiceJob {
   state: 'queued' | 'running' | 'finished' | 'cancelled' | 'interrupted';
   owner: string | null;
   notBefore?: number;
+  waitingReason?: 'manual-priority' | 'review-budget';
   startedAt?: number;
   result?: {
     exitCode: 0 | 1 | 2;
     status: string;
     runId?: string;
     retryAt?: number;
+    deferredReason?: 'manual-priority' | 'review-budget';
     completionUnconfirmed?: boolean;
   };
   cleanupPending?: boolean;
@@ -130,6 +132,7 @@ export class ServiceJobs {
   private constructor(
     private readonly records: LocalRecordStore,
     readonly profileId: string,
+    private readonly storage: LocalRecordOptions,
   ) {}
   static async open(options: LocalRecordOptions) {
     if (options.scope.kind !== 'profile') throw invalid();
@@ -142,6 +145,7 @@ export class ServiceJobs {
         ),
       }),
       options.scope.profileId,
+      options,
     );
   }
   close() {
@@ -290,6 +294,11 @@ export class ServiceJobs {
     )
       throw invalid();
     reviewTrigger(value.trigger);
+    if (
+      value.waitingReason !== undefined &&
+      !['manual-priority', 'review-budget'].includes(value.waitingReason)
+    )
+      throw invalid();
     if (
       value.execution &&
       (!/^[a-f0-9]{64}$/.test(value.execution.key) ||
@@ -511,14 +520,37 @@ export class ServiceJobs {
         continue;
       }
       if (job.notBefore && job.notBefore > Date.now()) continue;
+      if (job.trigger !== 'manual') {
+        const requests = await ReviewRequests.open({
+          ...this.storage,
+          scope: {
+            kind: 'repository',
+            profileId: this.profileId,
+            repositoryKey: registration.repositoryKey,
+            worktreeKey: registration.worktreeKey,
+          },
+        });
+        let retryAt;
+        try {
+          retryAt = await requests.manualPriorityRetryAt();
+        } finally {
+          requests.close();
+        }
+        if (retryAt) {
+          await this.update({ ...job, notBefore: retryAt, waitingReason: 'manual-priority' }, job);
+          continue;
+        }
+      }
       const row = await this.records.read('chats', `payload_${job.id}`);
       if (!row || row.deleted || contentHash(row.value) !== job.payloadHash) throw invalid();
       const source = restoreLocalSource(row.value);
       source.close();
       const startedAt = Date.now();
-      await this.update({ ...job, state: 'running', owner: token, startedAt }, job);
+      const running = { ...job, state: 'running' as const, owner: token, startedAt };
+      delete running.waitingReason;
+      await this.update(running, job);
       return {
-        job: { ...job, state: 'running' as const, owner: token, startedAt },
+        job: running,
         registration,
         source: row.value as FrozenLocalSource,
       };
@@ -549,12 +581,23 @@ export class ServiceJobs {
     )
       throw invalid();
     if (
+      result.deferredReason !== undefined &&
+      !['manual-priority', 'review-budget'].includes(result.deferredReason)
+    )
+      throw invalid();
+    if (
       result.status === 'deferred' &&
       result.exitCode === 2 &&
       Number.isSafeInteger(result.retryAt) &&
-      result.retryAt! > Date.now()
+      result.retryAt! >= 0
     ) {
-      const queued = { ...job, state: 'queued' as const, owner: null, notBefore: result.retryAt! };
+      const queued = {
+        ...job,
+        state: 'queued' as const,
+        owner: null,
+        notBefore: Math.max(Date.now() + 250, result.retryAt!),
+        waitingReason: result.deferredReason ?? ('review-budget' as const),
+      };
       delete queued.execution;
       return this.update(queued, job);
     }

@@ -120,7 +120,7 @@ Initial connection keeps its registry pending and cache claim held while waiting
 
 `AutomaticReviewScheduler` serializes debounced host events, replaces obsolete work for the same key, fences late results, and waits while a manual review owns execution. Stage priority and durable request `retryAt` scheduling are host inputs. The scheduler does not authorize models, persist source payloads, or run a background service.
 
-`observeAutomaticRepository` reads HEAD and the real Git index path, including linked worktrees. It rejects changing metadata and returns only reviewable staged paths. `newlyStagedPaths` excludes unchanged index content, whole-file unstaging and HEAD transitions; partial-hunk unstaging is not yet distinguished from a new stage. `observeAutomaticFile` applies path/ignore and symlink policy before a bounded read, then returns the saved-byte hash and working-tree change status relative to HEAD. Hosts must revalidate these observations against the captured source before model admission.
+`observeAutomaticRepository` reads HEAD and the real Git index path, including linked worktrees. It rejects changing metadata and returns only reviewable staged paths. `await newlyStagedPaths(previous, current)` excludes unchanged index content, whole-file and partial-hunk unstaging, and HEAD transitions. It compares fixed base/previous/current blobs with Git’s minimal line diff; returning existing changes toward the base does not introduce new review input. Mode changes and mixed new edits still trigger review. Missing objects, binary content or the bounded comparison limit yield an unavailable observation rather than a guessed partial unstage. `observeAutomaticFile` applies path/ignore and symlink policy before a bounded read, then returns the saved-byte hash and working-tree change status relative to HEAD. Hosts must revalidate these observations against the captured source before model admission.
 
 ## Commit and push source inputs
 
@@ -180,3 +180,6 @@ queued/running work until explicitly reconciled.
 The library does not install a watcher or Git hook, send central feedback, or make
 source edits. Client UI, CLI/MCP commands, and central feedback are separate P08
 integration work.
+
+
+Manual review callers using `executeReviewRequest` hold renewable scheduling priority while waiting for an owner or executing. Automatic service work waits before executor preparation, and the common broker checks again at model admission. Priority is scoped to the same profile/repository/worktree and ordered with encrypted CAS writes. Already admitted reviews continue; identical source requests still share their result. Priority leases expire after 30 seconds without renewal. Expiry releases priority only and never marks an unknown model complete or retries it. Older clients do not participate until upgraded.

@@ -89,15 +89,63 @@ it('observes actual staged content, ignores index refresh and whole-file unstagi
   f.write('b.ts', 'export const b=2;\n');
   f.git('add', '.');
   const both = await observeAutomaticRepository(f.repo);
-  expect(newlyStagedPaths(empty, both)).toEqual(['a.ts', 'b.ts']);
+  expect(await newlyStagedPaths(empty, both)).toEqual(['a.ts', 'b.ts']);
   f.git('update-index', '--refresh');
   expect((await observeAutomaticRepository(f.repo)).fingerprint).toBe(both.fingerprint);
   f.git('restore', '--staged', 'a.ts');
   const one = await observeAutomaticRepository(f.repo);
-  expect(newlyStagedPaths(both, one)).toEqual([]);
+  expect(await newlyStagedPaths(both, one)).toEqual([]);
   f.git('commit', '-m', 'one');
   const committed = await observeAutomaticRepository(f.repo);
-  expect(newlyStagedPaths(one, committed)).toEqual([]);
+  expect(await newlyStagedPaths(one, committed)).toEqual([]);
+}, 20000);
+it.each([
+  ['separate replacements', 'A\nb\nC\nd\n', 'a\nb\nC\nd\n', false],
+  ['adjacent replacements', 'A\nB\nc\nd\n', 'a\nB\nc\nd\n', false],
+  ['insertions', 'first\nsecond\na\nb\nc\nd\n', 'second\na\nb\nc\nd\n', false],
+  ['deletions', 'a\nd\n', 'a\nb\nd\n', false],
+  ['mixed unstage and new edit', 'A\nb\nC\nd\n', 'a\nb\nNEW\nd\n', true],
+  ['new deletion of an unchanged line', 'A\nb\nc\nd\n', 'A\nc\nd\n', true],
+  ['new insertion of an existing line', 'A\nb\nc\nd\n', 'A\nb\nb\nc\nd\n', true],
+])(
+  'classifies %s from fixed index blobs',
+  async (_name, staged, partial, shouldReview) => {
+    const f = fixture();
+    f.write('a.ts', 'a\nb\nc\nd\n');
+    f.git('add', 'a.ts');
+    f.git('commit', '-m', 'multiline base');
+    f.write('a.ts', staged);
+    f.git('add', 'a.ts');
+    const before = await observeAutomaticRepository(f.repo);
+    f.write('a.ts', partial);
+    f.git('add', 'a.ts');
+    f.write('a.ts', 'UNRELATED DIRTY EDITOR CONTENT\n');
+    const current = await observeAutomaticRepository(f.repo);
+    expect(await newlyStagedPaths(before, current)).toEqual(shouldReview ? ['a.ts'] : []);
+  },
+  20000,
+);
+it('recognizes partial unstaging of added and deleted files and preserves new mode changes', async () => {
+  const f = fixture();
+  f.write('new.ts', 'first\nsecond\n');
+  f.git('add', 'new.ts');
+  const added = await observeAutomaticRepository(f.repo);
+  f.write('new.ts', 'second\n');
+  f.git('add', 'new.ts');
+  const partial = await observeAutomaticRepository(f.repo);
+  expect(await newlyStagedPaths(added, partial)).toEqual([]);
+  f.git('update-index', '--chmod=+x', 'new.ts');
+  expect(await newlyStagedPaths(partial, await observeAutomaticRepository(f.repo))).toEqual([
+    'new.ts',
+  ]);
+  f.write('b.ts', 'first\nsecond\n');
+  f.git('add', 'b.ts');
+  f.git('commit', '-m', 'base for deletion');
+  f.git('rm', 'b.ts');
+  const deleted = await observeAutomaticRepository(f.repo);
+  f.write('b.ts', 'second\n');
+  f.git('add', 'b.ts');
+  expect(await newlyStagedPaths(deleted, await observeAutomaticRepository(f.repo))).toEqual([]);
 }, 20000);
 it('discovers worktree index paths and a repository opened at a subdirectory', async () => {
   const f = fixture();

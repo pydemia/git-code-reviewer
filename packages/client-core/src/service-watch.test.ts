@@ -87,7 +87,13 @@ async function fixture() {
     new ServiceWatcher({
       jobs,
       serial: (work) => work(),
-      cancel: (id) => jobs.cancel(id),
+      cancel: async (id) => {
+        // Synthetic runner acknowledges an active cancellation with its terminal result.
+        const job = await jobs.job(id);
+        return job?.state === 'running'
+          ? jobs.finish(id, owner, { exitCode: 2, status: 'cancelled' })
+          : jobs.cancel(id);
+      },
       wake() {},
       now: () => now,
     });
@@ -223,6 +229,112 @@ it('whole-file unstage and returning to base withdraw pending work without a rev
   await f.watcher.poll();
   expect(await f.jobs.list()).toEqual([]);
 }, 30000);
+it.each(['queued', 'running', 'finished'] as const)(
+  'partial unstage does not replace a %s Stage receipt, including after restart',
+  async (state) => {
+    const f = await fixture();
+    f.write('a.ts', 'export const a=1;\nexport const extra=1;\n');
+    f.git('add', 'a.ts');
+    f.git('commit', '-m', 'two lines');
+    await f.start();
+    f.write('a.ts', 'export const a=2;\nexport const extra=2;\n');
+    f.git('add', 'a.ts');
+    await f.watcher.poll();
+    f.advance();
+    await f.watcher.poll();
+    const [original] = await f.jobs.list();
+    expect(original?.state).toBe('queued');
+    if (state !== 'queued') await f.jobs.next(f.owner);
+    if (state === 'finished') {
+      await f.jobs.finish(original!.id, f.owner, { exitCode: 0, status: 'completed' });
+    }
+    if (state !== 'running') await f.restart();
+    f.write('a.ts', 'export const a=1;\nexport const extra=2;\n');
+    f.git('add', 'a.ts');
+    f.write('a.ts', 'UNRELATED DIRTY EDITOR CONTENT\n');
+    await f.watcher.poll();
+    f.advance();
+    await f.watcher.poll();
+    expect(await f.jobs.list()).toEqual([
+      expect.objectContaining({
+        id: original!.id,
+        state: state === 'queued' ? 'cancelled' : 'finished',
+      }),
+    ]);
+    expect((await f.jobs.watch(f.reg.key, 'stage'))?.pendingPaths).toEqual([]);
+    f.write('a.ts', 'export const a=1;\nexport const extra=3;\n');
+    f.git('add', 'a.ts');
+    await f.watcher.poll();
+    f.advance();
+    await f.watcher.poll();
+    expect(await f.jobs.list()).toHaveLength(2);
+  },
+  40000,
+);
+it('keeps earlier pending Stage authorization but captures only the remaining staged content', async () => {
+  const f = await fixture();
+  f.write('a.ts', 'first\nsecond\n');
+  f.git('add', 'a.ts');
+  f.git('commit', '-m', 'two lines');
+  await f.start();
+  f.write('a.ts', 'FIRST\nSECOND\n');
+  f.git('add', 'a.ts');
+  await f.watcher.poll();
+  f.write('a.ts', 'first\nSECOND\n');
+  f.git('add', 'a.ts');
+  await f.watcher.poll();
+  f.advance();
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toHaveLength(1);
+  const next = await f.jobs.next(f.owner);
+  const snapshot = restoreLocalSource(next!.source);
+  try {
+    expect(snapshot.readFile('a.ts')).toMatchObject({
+      status: 'available',
+      text: 'first\nSECOND\n',
+    });
+  } finally {
+    snapshot.close();
+  }
+}, 30000);
+it('retains a deferred payload when its short retry time elapsed during caller cleanup', async () => {
+  const f = await fixture();
+  f.write('a.ts', 'export const captured=2;\n');
+  f.git('add', 'a.ts');
+  const snapshot = captureLocalSource({
+    cwd: f.repo,
+    kind: 'index',
+    excludePatterns: f.options.excludePatterns,
+  });
+  const source = snapshot.freeze();
+  snapshot.close();
+  const receipt = await f.jobs.submit({
+    id: randomUUID(),
+    repository: f.reg.key,
+    registrationRevision: f.reg.revision,
+    trigger: 'commit',
+    source,
+  });
+  await f.jobs.next(f.owner);
+  const queued = await f.jobs.finish(receipt.id, f.owner, {
+    exitCode: 2,
+    status: 'deferred',
+    retryAt: Date.now() - 1000,
+    deferredReason: 'manual-priority',
+  });
+  expect(queued).toMatchObject({
+    id: receipt.id,
+    state: 'queued',
+    waitingReason: 'manual-priority',
+  });
+  expect(queued.notBefore).toBeGreaterThan(Date.now());
+  f.write('a.ts', 'export const later=3;\n');
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const next = await f.jobs.next(f.owner);
+  expect(next?.job.id).toBe(receipt.id);
+  expect(next?.job.waitingReason).toBeUndefined();
+  expect(next?.source).toEqual(source);
+}, 20000);
 it('replays the identical durable intent after a lost acknowledgement and never retries an interrupted model', async () => {
   const f = await fixture();
   await f.start();
