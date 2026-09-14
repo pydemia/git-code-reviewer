@@ -8,7 +8,14 @@ import {
   type LocalKnowledge,
   type LocalReviewResponse,
 } from '@gcr/client-contract';
-import { contentHash, type LocalKeyStore, type LocalReviewExecutor } from '@gcr/client-core';
+import {
+  contentHash,
+  LocalRecordStore,
+  ReviewConversationStore,
+  restoreLocalSource,
+  type LocalKeyStore,
+  type LocalReviewExecutor,
+} from '@gcr/client-core';
 import { executeCli } from './cli.js';
 
 let root: string, repo: string, data: string;
@@ -237,6 +244,30 @@ describe('standalone CLI assembly', () => {
       { state: 'finished', reasons: ['manual'], resultId: report.runId },
     ]);
     expect(modelCalls).toBe(1);
+    const client = report.identity.client;
+    const records = await LocalRecordStore.open({
+      scope: {
+        kind: 'repository',
+        profileId: client.profileId,
+        repositoryKey: client.repositoryKey,
+        worktreeKey: client.worktreeKey,
+      },
+      dataDirectory: data,
+      keys,
+    });
+    try {
+      const conversation = await new ReviewConversationStore(records).get(report.runId);
+      expect(conversation.conversation.turns).toEqual([]);
+      const source = restoreLocalSource(conversation.source);
+      try {
+        expect(source.identity).toEqual(report.identity.source);
+        expect(source.readFile('load.py', 'source').status).toBe('available');
+      } finally {
+        source.close();
+      }
+    } finally {
+      records.close();
+    }
   }, 20000);
   it('does not describe an unavailable executor as a completed or clean review', async () => {
     const result = await executeCli(

@@ -21,6 +21,8 @@ import {
   defaultLocalDataDirectory,
   discoverLocalIdentity,
   LocalHistoryStore,
+  ReviewConversationStore,
+  ReviewConversationError,
   LocalKnowledgeStore,
   LocalRecordStore,
   LocalStoreError,
@@ -426,8 +428,14 @@ export async function executeCli(
         requests.close();
       }
     }
+    const conversations = new WeakMap<LocalHistoryStore, ReviewConversationStore>();
     const historyStore = async (isCentral: boolean): Promise<LocalHistoryStore> => {
-      if (!isCentral) return new LocalHistoryStore(await records(repositoryScope!));
+      if (!isCentral) {
+        const local = await records(repositoryScope!);
+        const history = new LocalHistoryStore(local);
+        conversations.set(history, new ReviewConversationStore(local));
+        return history;
+      }
       const identity = await (await centralConnections()).historyIdentity(string('connection')!);
       const centralRecords = await LocalRecordStore.open({
         scope: repositoryScope!,
@@ -435,7 +443,12 @@ export async function executeCli(
         ...(dependencies.keys ? { keys: dependencies.keys } : {}),
       });
       opened.push(centralRecords);
-      return new LocalHistoryStore(centralRecords, undefined, identity.audience);
+      const history = new LocalHistoryStore(centralRecords, undefined, identity.audience);
+      conversations.set(
+        history,
+        new ReviewConversationStore(centralRecords, undefined, identity.audience),
+      );
+      return history;
     };
     if (command === 'result' || command === 'history') {
       let history: LocalHistoryStore | undefined;
@@ -714,6 +727,28 @@ export async function executeCli(
         }),
     });
     const diagnostics = [];
+    if (['completed', 'partial', 'needs-context'].includes(result.report.status)) {
+      try {
+        const store = conversations.get(history)!;
+        try {
+          await store.get(result.report.runId);
+        } catch (error) {
+          if (!(error instanceof ReviewConversationError) || error.code !== 'missing') throw error;
+          await store.create({
+            id: result.report.runId,
+            review: result.report,
+            snapshot,
+            policy: resolution.policy,
+          });
+        }
+        await store.prune();
+      } catch {
+        diagnostics.push({
+          code: 'conversation-save-failed',
+          message: 'The review is available, but its conversation snapshot could not be saved.',
+        });
+      }
+    }
     if (!result.persisted)
       diagnostics.push({
         code: 'history-save-failed',
