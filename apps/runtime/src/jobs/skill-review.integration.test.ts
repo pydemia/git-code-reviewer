@@ -1,3 +1,4 @@
+import { observeReport } from '../services/report-observation.js';
 import { chromium } from 'playwright';
 import { createServer } from '../../../web/src/review-criteria-test-server.js';
 import * as sourceWorkspace from '../services/source-workspace.js';
@@ -389,6 +390,13 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       )
     ).rows[0];
     const report = await artifacts.readJson<ReviewReport>(stored.locator);
+    expect(
+      (
+        await database.query('select observation from reports where analysis_run_id=$1', [
+          report.analysisRevisionId,
+        ])
+      ).rows[0].observation,
+    ).toEqual(observeReport(report));
     expect(report.versions.severity).toBe('rigorous');
     expect(report.versions.prompt).toBe(`tenant-v1:${'a'.repeat(12)}`); // 빈 지침도 version 고정
     expect(report.analysis?.skills).toMatchObject({

@@ -1,0 +1,84 @@
+.review-observations {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+  overflow-wrap: anywhere;
+}
+.review-observations h1 {
+  margin: 0 0 1.5rem;
+}
+.observation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+.observation-controls label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.observation-controls select {
+  max-width: 100%;
+  min-width: 0;
+}
+.review-observation-content section {
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+.review-observation-content h2 {
+  font-size: 1.1rem;
+}
+.review-observation-content dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+}
+.review-observation-content dd {
+  margin: 0.35rem 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.review-observation-content table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.review-observation-content th,
+.review-observation-content td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 600px) {
+  .review-observations {
+    padding: 1rem;
+  }
+  .review-observation-content th,
+  .review-observation-content td {
+    padding: 0.35rem;
+  }
+}
+.observation-controls select,
+.observation-controls button {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: inherit;
+}
+.observation-controls button {
+  cursor: pointer;
+}
+.observation-controls button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.review-observations {
+  height: calc(100dvh - var(--app-header-height));
+  overflow-y: auto;
+  width: 100%;
+}

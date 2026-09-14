@@ -1,4 +1,11 @@
-import { BookOpenText, CircleUserRound, LogOut, Settings, ShieldCheck } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpenText,
+  CircleUserRound,
+  LogOut,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 import { logout, type User } from './api.ts';
 
 type AppHeaderProps = {
@@ -45,6 +52,19 @@ export function AppHeader({
                     ))}
                   </select>
                 </label>
+              ) : null}
+              {user ? (
+                <a
+                  className="header-guide-link"
+                  href="/review-observations"
+                  aria-label="리뷰 관측"
+                  aria-current={
+                    window.location.pathname === '/review-observations' ? 'page' : undefined
+                  }
+                >
+                  <BarChart3 size={15} />
+                  <span>리뷰 관측</span>
+                </a>
               ) : null}
               {user?.role === 'administrator' ? (
                 <a className="icon-button" href="/admin" title="관리" aria-label="관리">

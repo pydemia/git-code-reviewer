@@ -1,3 +1,4 @@
+export * from './review-observations.js';
 import { findingCriteriaSchema } from './finding-criteria.js';
 import { findingOccurrenceSchema, reviewRecurrenceSchema } from './review-recurrence.js';
 export * from './review-recurrence.js';

@@ -1,3 +1,4 @@
+import { knowledgeResponseObserver } from '../services/knowledge-response-observation.js';
 import { readKnowledgeStatus } from '../services/knowledge-status.js';
 import type { Database } from '@gcr/db';
 import type { FilesystemArtifactStore } from '@gcr/artifact-store';
@@ -29,9 +30,11 @@ export async function registerKnowledgeRoutes(
   store: FilesystemArtifactStore,
   signer?: KnowledgeSigner,
 ) {
+  const responseObserver = knowledgeResponseObserver(database);
   const authorize = async (request: FastifyRequest, repoId: string) => {
     if (!(await canReadRepository(database, authorization, request, repoId)))
       throw criteriaNotFound();
+    responseObserver.authorize(request, repoId);
     if (!signer)
       throw new CriterionError(
         503,
@@ -41,6 +44,9 @@ export async function registerKnowledgeRoutes(
     return signer;
   };
   await app.register(async (routes) => {
+    routes.addHook('onResponse', async (request, reply) =>
+      responseObserver.respond(request, reply.statusCode, reply.elapsedTime),
+    );
     routes.addHook('onRequest', async (_request, reply) => {
       reply.header('cache-control', 'private, no-store').header('vary', 'Cookie, Authorization');
     });

@@ -1,3 +1,4 @@
+import { ReviewObservationsPage } from './ReviewObservationsPage.tsx';
 import {
   Activity,
   Brain,
@@ -113,6 +114,7 @@ export function App() {
   if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/profile') return <ProfilePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;
+  if (window.location.pathname === '/review-observations') return <ReviewObservationsPage />;
   if (window.location.pathname === '/review-criteria') return <ReviewCriteriaPage />;
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
   if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;

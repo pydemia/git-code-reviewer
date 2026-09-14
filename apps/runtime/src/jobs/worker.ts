@@ -1,3 +1,4 @@
+import { observeReport } from '../services/report-observation.js';
 import {
   pinSharedKnowledge,
   readSharedKnowledgePin,
@@ -990,8 +991,8 @@ export async function persistAnalysis(
     );
     await connection.query(
       `insert into reports(id, analysis_run_id, schema_version, grade, summary,
-         has_critical_findings, coverage, impact, artifact_id)
-       values ($1,$2,1,$3,$4,$5,$6::jsonb,$7::jsonb,$8)`,
+         has_critical_findings, coverage, impact, artifact_id, observation)
+       values ($1,$2,1,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9::jsonb)`,
       [
         reportId,
         analysisId,
@@ -1001,6 +1002,7 @@ export async function persistAnalysis(
         JSON.stringify(report.coverage),
         JSON.stringify(report.impact),
         reportArtifactId,
+        JSON.stringify(observeReport(report)),
       ],
     );
     for (const finding of report.findings) {

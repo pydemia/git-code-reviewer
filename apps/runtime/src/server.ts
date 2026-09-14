@@ -1,3 +1,4 @@
+import { registerReviewObservationsRoutes } from './routes/review-observations.js';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import fastifyStatic from '@fastify/static';
@@ -204,6 +205,7 @@ export async function buildServer(
   await registerChatRunRoutes(app, database, artifacts, config, authorization);
   await registerReviewMemoryRoutes(app, database, authorization);
   await registerReviewCriteriaRoutes(app, database, authorization, config);
+  await registerReviewObservationsRoutes(app, database, authorization);
   await registerKnowledgeRoutes(app, database, authorization, artifacts, knowledgeSigner);
   await registerReviewSubmissionRoutes(app, database, config, authorization);
 

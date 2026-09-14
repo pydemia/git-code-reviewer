@@ -238,6 +238,24 @@ describe.skipIf(!url).sequential('signed knowledge distribution HTTP API', () =>
       });
     }
   });
+  it('records authorized 200 and 304 server responses without client identities', async () => {
+    await vi.waitFor(async () => {
+      const rows = (
+        await db.query(
+          'select route,status,responses from knowledge_response_observations where repository_id=$1',
+          [repository],
+        )
+      ).rows;
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ route: 'manifest', status: 200 }),
+          expect.objectContaining({ route: 'manifest', status: 304 }),
+          expect.objectContaining({ route: 'bundle', status: 200 }),
+        ]),
+      );
+      expect(rows.some((row) => row.status === 401)).toBe(false);
+    });
+  });
   it('keeps a cached manifest through no-op identity membership and grant refresh', async () => {
     const before = (await manifest()).parsed;
     await db.query(

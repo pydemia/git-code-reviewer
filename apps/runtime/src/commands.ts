@@ -69,6 +69,9 @@ export async function retention(config: AppConfig, reconcile: boolean): Promise<
         )
       ).rowCount ?? 0;
     const workspacesDeleted = await cleanupExpiredWorkspaces(config.WORKSPACE_ROOT);
+    await connection.query(
+      "delete from knowledge_response_observations where day < (clock_timestamp() at time zone 'UTC')::date - 90",
+    );
     const result = reconcile
       ? await reconcileArtifacts(connection, artifacts, config)
       : await applyRetention(connection, artifacts, config);
