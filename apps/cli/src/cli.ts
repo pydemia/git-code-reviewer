@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { open } from 'node:fs/promises';
+import { lstat, open } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
@@ -23,6 +23,7 @@ import {
   defaultLocalDataDirectory,
   discoverLocalIdentity,
   LocalHistoryStore,
+  summarizeLocalReviews,
   ReviewConversationStore,
   ReviewConversationError,
   LocalKnowledgeStore,
@@ -156,6 +157,13 @@ export async function executeCli(
         throw new CliError('usage', 'Numeric options require a positive integer.');
       return Number(value);
     };
+    if (command === 'history' && positionals.length)
+      throw new CliError('usage', 'history takes no positional arguments.');
+    const observationDays = values.stats === true ? (number('days') ?? 30) : undefined;
+    if (observationDays !== undefined && ![7, 30, 90].includes(observationDays))
+      throw new CliError('usage', 'Use --days 7, 30 or 90.');
+    if (values.days !== undefined && values.stats !== true)
+      throw new CliError('usage', '--days requires history --stats.');
     const mode = resolveReviewMode({ mode: string('mode', 'standalone') });
     const behavior =
       values['offline-behavior'] === undefined
@@ -562,7 +570,18 @@ export async function executeCli(
       let history: LocalHistoryStore | undefined;
       let denied: unknown;
       try {
-        history = await historyStore(central);
+        // An empty standalone statistics read must not provision an OS key.
+        const hasLocalHistory =
+          observationDays === undefined ||
+          central ||
+          (await lstat(path.join(dataDirectory, 'profiles', profileId)).then(
+            () => true,
+            (error) => {
+              if (error.code === 'ENOENT') return false;
+              throw error;
+            },
+          ));
+        if (hasLocalHistory) history = await historyStore(central);
       } catch (cause) {
         if (
           !(cause instanceof KnowledgeSyncError) ||
@@ -571,7 +590,17 @@ export async function executeCli(
           throw cause;
         denied = cause;
       }
-      const fallbackHistory = central ? await historyStore(false) : undefined;
+      const hasFallbackHistory =
+        central &&
+        (observationDays === undefined ||
+          (await lstat(path.join(dataDirectory, 'profiles', profileId)).then(
+            () => true,
+            (error) => {
+              if (error.code === 'ENOENT') return false;
+              throw error;
+            },
+          )));
+      const fallbackHistory = hasFallbackHistory ? await historyStore(false) : undefined;
       const isFallback = (report: import('@gcr/client-contract').ClientReviewReport) =>
         report.identity.client.mode === 'standalone' &&
         report.identity.client.execution?.connectionId === string('connection');
@@ -592,6 +621,15 @@ export async function executeCli(
         ...(fallbackHistory ? (await fallbackHistory.listReviews()).filter(isFallback) : []),
       ].sort((a, b) => (b.finishedAt ?? '').localeCompare(a.finishedAt ?? ''));
       if (!reports.length && denied) throw denied;
+      if (observationDays !== undefined)
+        return {
+          value: summarizeLocalReviews(reports, {
+            scope: repositoryScope!,
+            days: observationDays as 7 | 30 | 90,
+            incompleteHistory: !!denied,
+          }),
+          exitCode: 0,
+        };
       return {
         value: reports.map((report) => ({
           runId: report.runId,

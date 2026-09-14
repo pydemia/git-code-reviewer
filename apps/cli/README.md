@@ -225,3 +225,11 @@ gcr service reconcile --id RECEIPT_ID --profile work
 서비스에서 이력·완료 기록 저장이 확인되지 않으면 `completionUnconfirmed: true`와 interrupted 상태를 남긴다. `runId`가 존재해도 완료 receipt로 취급하지 않는다. 복구에 성공하면 원래 결과를 연결하고 source payload를 삭제한다. 구버전에서 완료 receipt 없이 중단된 작업과 모델 종료를 확인할 근거가 없는 작업은 재호출로 복구하지 않는다.
 
 New central connections verify the current worktree's Git remotes against the selected repository's authenticated server identity before saving the API key. Forks, different hosts, ports and installation prefixes are distinct. URL credentials are removed locally and remote URLs are not sent to GCR. If remotes change, review and sync stop with `repository-mismatch`; inspect the remotes and disconnect/reconnect. Existing manual connections remain marked unverified until reconnected.
+
+### 로컬 실행 현황
+
+`gcr history --stats --days 7 --cwd /path/to/repo`는 선택한 프로필·worktree의 암호화 이력에서 완료 시각 기준 최근 7일을 집계한다. `--days`는 7·30·90을 지원하며 생략하면 30일이다. 중앙 연결을 사용한 로컬 실행은 기존 `--mode centralized --connection ID`로 해당 연결의 이력을 선택한다. 모델 호출·동기화·업로드는 수행하지 않는다. 빈 standalone 프로필에는 새 OS 키를 만들지 않는다.
+
+종료 상태·원래 trigger·시작 시각이 있는 기록의 duration 합계·저장된 executor/model·중앙 발행본과 기준 선택 수를 반환한다. 모델 identity나 시작 시각만으로 실제 provider 호출을 추정하지 않는다. finding severity는 모든 outcome을 포함하며 outcome별 수를 따로 제공한다. 실행 간 동일 지적은 별도로 세므로 고유 결함 수가 아니다. 모델별 목록은 32개 그룹까지 표시하고 생략 수를 제공한다.
+
+동일 run ID와 동일 내용은 한 번만 세고 충돌·다른 scope·비종료 기록은 거부한다. 미래 완료 시각은 제외 수로 남긴다. 보존 정책으로 삭제되거나 저장되지 않은 실행은 알 수 없으며 토큰·provider 호출 수·청구 비용은 null이다. 중앙 연결 이력을 읽을 수 없어 로컬 fallback만 반환한 경우 `coverage.incompleteHistory`가 true다. fallback도 없으면 기존 접근 오류를 유지한다.

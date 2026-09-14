@@ -126,6 +126,28 @@ describe('standalone CLI assembly', () => {
     expect(fs.existsSync(data)).toBe(false);
     expect(modelCalls).toBe(0);
   });
+  it('reads empty observations without storage or model work and validates windows first', async () => {
+    const value = await cli(['history', '--stats']);
+    expect(value).toMatchObject({
+      exitCode: 0,
+      value: {
+        days: 30,
+        coverage: { includedRecords: 0 },
+        providerCalls: null,
+        tokenUsage: null,
+        billedCost: null,
+      },
+    });
+    for (const args of [
+      ['--stats', '--days', '1'],
+      ['--days', '7'],
+      ['--stats', 'unexpected'],
+    ])
+      expect((await cli(['history', ...args])).exitCode).toBe(2);
+    expect(fs.existsSync(data)).toBe(false);
+    expect(secrets.size).toBe(0);
+    expect(modelCalls).toBe(0);
+  });
   it('rejects unsupported central mode and invalid options before source/model work', async () => {
     const result = await cli(['review', '--mode', 'centralized']);
     expect(result.exitCode).toBe(2);
@@ -236,6 +258,17 @@ describe('standalone CLI assembly', () => {
     expect((await cli(['history'])).value).toMatchObject([
       { runId: report.runId, status: 'completed', exitCode: 1 },
     ]);
+    const stats = await cli(['history', '--stats', '--days', '7']);
+    expect(stats).toMatchObject({
+      exitCode: 0,
+      value: {
+        days: 7,
+        coverage: { includedRecords: 1 },
+        statuses: { completed: 1 },
+        models: [{ executor: 'fixture', model: 'fixture-model', reviews: 1 }],
+      },
+    });
+    expect(modelCalls).toBe(1);
     const repeat = await cli(['review']);
     expect(repeat.value).toEqual(report);
     expect(repeat.diagnostics).toContainEqual(expect.objectContaining({ code: 'review-reused' }));

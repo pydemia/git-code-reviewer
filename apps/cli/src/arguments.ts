@@ -33,7 +33,7 @@ Commands:
   result <run-id>                       Read a saved report (same review exit code)
   chat read <run-id>                    Read the saved review conversation; no model call
   chat send|answer|resume|cancel|source <run-id> --input <json-file|->
-  history                              List saved review summaries
+  history [--stats --days 7|30|90]      List saved reviews or local-only observations
   memory|skill list|show <id>
   memory|skill create --input <json-file|->
   memory|skill edit <id> --revision <n> --input <json-file|->
@@ -150,7 +150,7 @@ const allowed: Record<string, string[]> = {
   watch: ['trigger', 'external-changes', 'minimum-save-interval-ms'],
   requests: ['key', 'generation'],
   result: [],
-  history: [],
+  history: ['stats', 'days'],
   chat: ['input', 'offline', 'offline-behavior', ...executor, 'timeout-ms', 'allow-path'],
   memory: ['scope', 'input', 'output', 'revision'],
   skill: ['scope', 'input', 'output', 'revision'],
@@ -164,6 +164,7 @@ const multiple = new Set([
   'allow-path',
 ]);
 const boolean = new Set([
+  'stats',
   'json',
   'help',
   'check-executor',

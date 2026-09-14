@@ -368,7 +368,7 @@ beforeAll(async () => {
       );
       return;
     }
-    if (req.url?.includes('/manifest?clientContractVersion=2')) {
+    if (req.url?.includes('/manifest?clientContractVersion=3')) {
       res.end(JSON.stringify(published.signed));
       return;
     }
@@ -1091,6 +1091,23 @@ describe.sequential('explicit connected CLI over HTTPS', () => {
         fallbackReason: 'authentication-required',
       });
       expect(report.identity.context.centralSnapshot).toBeUndefined();
+      const beforeStats = { calls, models };
+      const stats = await invoke('revoked-fallback', [
+        'history',
+        '--stats',
+        '--days',
+        '7',
+        ...args('unused', id).slice(1),
+      ]);
+      expect(stats).toMatchObject({
+        exitCode: 0,
+        value: {
+          coverage: { includedRecords: 1, incompleteHistory: true },
+          knowledge: { local: 1, withLocalFallback: 1 },
+        },
+      });
+      expect({ calls, models }).toEqual(beforeStats);
+
       expect(
         (
           await invoke('revoked-fallback', [
