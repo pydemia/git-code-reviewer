@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 1,
+  "phase": "P13",
+  "commit": "P13-C01 shared published criteria checkpoint",
+  "phaseComplete": false,
+  "goalComplete": false,
+  "sourceCommit": "dfffd20a1de0361a008c0e8e4d21ef823ab92871",
+  "releasePinCommit": "834267040635d17a9ccc40387d2f7f935d3e673d",
+  "feature": "Pin public policy and collective publication bytes and immutable source-verified selection for central PR analyses",
+  "tests": {
+    "suites": 14,
+    "passed": 192,
+    "failed": 0,
+    "skipped": 0,
+    "databaseFixture": {
+      "startedAt": "2026-09-14T19:21:11.617Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-14T19:21:46.707Z"
+    },
+    "builds": [
+      "contracts",
+      "client libraries",
+      "analysis-engine",
+      "runtime",
+      "web",
+      "full immutable image workspace build"
+    ],
+    "focusedEslint": true,
+    "helmLint": true,
+    "browser": {
+      "realSharedKnowledgeApi": true,
+      "widths": [
+        1360,
+        420
+      ],
+      "criterionTitleVersionTargets": true,
+      "noHorizontalOverflow": true,
+      "screenshotSha1360": "9f9f3e998f73764a45f6f906f4992b3a4ff7f0ba20571e700ba9f6cf829c7913",
+      "screenshotSha420": "e73c47320f87e2c44512f6d938b99a3fffc5176d111e7ab55d55b2440c8f83b9"
+    },
+    "regressions": [
+      "Pinned publication survives retirement and republication",
+      "Same-input reanalysis retains immutable pin and selection",
+      "Source acquisition failure makes no model calls and reports partial/unavailable",
+      "Real Git paged reconstruction verifies complete blob; tampering and truncation rejected",
+      "Anonymous and revoked access denied",
+      "Shared selector does not read personal projection",
+      "Expired exception boundary prevents another model call"
+    ],
+    "initialCorrections": [
+      "Owned API fixture enabled flag",
+      "Partial source-failure report shared status changed from ready to unavailable",
+      "Live proof embedded script newline escaping corrected; initial owned fixture cleaned before retry",
+      "Live publication moved from read-only server artifact mount to worker with worker configuration; each failed fixture cleaned before retry"
+    ]
+  },
+  "migrationUpgrade": {
+    "status": "passed",
+    "from": 49,
+    "to": 50,
+    "syntheticOnly": true,
+    "cleanup": true,
+    "legacyAnalysisPreserved": true,
+    "noRetroactiveKnowledgePins": true,
+    "deadlineQueuePreserved": true,
+    "legacySnapshotPreserved": true,
+    "noInventedCodeEvidence": true,
+    "conversationQueuePreserved": true,
+    "legacyRowsPreserved": true,
+    "bodyVersionsPreserved": true,
+    "noInventedObservations": true,
+    "oldChecksumsPreserved": true,
+    "idempotent": true
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T19:36:31.090675+00:00",
+    "release": {
+      "revision": 65,
+      "updated": "2026-09-15T04:32:01.008672+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.51",
+      "app_version": "0.8.0-alpha.55",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:2f8d654b5a0ae0cee856ec3c752d10b872cd1bf6eede3f90fb02f3d5f9091398",
+      "source": "dfffd20a1de0361a008c0e8e4d21ef823ab92871",
+      "version": "0.8.0-alpha.55",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:2f8d654b5a0ae0cee856ec3c752d10b872cd1bf6eede3f90fb02f3d5f9091398"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "dfffd20a1de0361a008c0e8e4d21ef823ab92871",
+        "org.opencontainers.image.version": "0.8.0-alpha.55"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 50,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-64d55cd897-q587d",
+        "imageDigest": "sha256:2f8d654b5a0ae0cee856ec3c752d10b872cd1bf6eede3f90fb02f3d5f9091398",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-5fd8cb474-7g5gs",
+        "imageDigest": "sha256:2f8d654b5a0ae0cee856ec3c752d10b872cd1bf6eede3f90fb02f3d5f9091398",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, schema49-to50 migration and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:10f4e7809f37b44e7bcbebb9803516b4e31f29425d7cf5625968f0d6ea753936",
+    "chartSha256": "6dd4d9ddc37377e6a85845d7fa6eeb38f66147b976a9c0626a8030ed745b48d3"
+  },
+  "live": {
+    "requestId": "3df06678-bec2-416b-8cf4-32ee7cb5c52e",
+    "status": "passed",
+    "version": "0.8.0-alpha.55",
+    "checks": [
+      "trusted-https-session-login",
+      "published-code-source-capture",
+      "trusted-https-source-list-with-exact-diff-and-shas",
+      "multiple-source-decision-remains-draft",
+      "unevaluated-activation-rejected",
+      "published-shared-pin-and-resolver",
+      "trusted-https-selected-criteria-provenance",
+      "personal-context-absent",
+      "anonymous-and-revoked-repository-source-read-denied"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "sourceSelection": "Owned synthetic complete-file input; real Git blob reconstruction is covered by native integration tests",
+    "releases": [
+      {
+        "component": "collective",
+        "id": "741fcf1f-2a87-44ec-a140-30412253553c",
+        "sequence": 1,
+        "hash": "036a50447bbd0092b5b3cb04368230a2969739e55e73d298136ee17bcc2ac4bd"
+      },
+      {
+        "component": "policy",
+        "id": "8a598ed6-3316-43bc-8662-1c8016526edb",
+        "sequence": 1,
+        "hash": "c61b550d6bea5b2cbe25ab411ef85fee7422f73b242c79aafc8291b077f4dc47"
+      }
+    ],
+    "ownedServerRowsRemoved": true,
+    "finishedAt": "2026-09-14T19:35:23.404Z"
+  },
+  "cleanup": {
+    "status": "passed",
+    "at": "2026-09-14T19:36:26.714744+00:00",
+    "ownedResourcesRemoved": [
+      "deployment/gcr-prism-shared0",
+      "pod/gcr-shared-image-smoke",
+      "configmap/gcr-shared-image-smoke",
+      "networkpolicy/gcr-shared-image-smoke",
+      "configmap/gcr-shared-build-ca",
+      "serviceaccount/gcr-shared-build"
+    ],
+    "ownedBuildPodsAbsent": true
+  },
+  "ownedArtifactCleanup": {
+    "status": "passed",
+    "ownedPublishedFilesRemoved": [
+      "review-knowledge/2e26f846-d882-4ab8-b3fc-983564fb6b14/c61b550d6bea5b2cbe25ab411ef85fee7422f73b242c79aafc8291b077f4dc47.json",
+      "review-knowledge/b176347a-6322-49f0-9346-c1dc65d9321f/036a50447bbd0092b5b3cb04368230a2969739e55e73d298136ee17bcc2ac4bd.json"
+    ]
+  },
+  "client": {
+    "commitDefender": "2.9.4",
+    "installedLibraries": "0.1.0-alpha.37",
+    "cli": "0.1.0-alpha.33",
+    "unchanged": true,
+    "preparedLibraries": "0.1.0-alpha.38",
+    "preparedManifest": {
+      "schemaVersion": 1,
+      "version": "0.1.0-alpha.38",
+      "packages": [
+        {
+          "name": "@gcr/client-contract",
+          "version": "0.1.0-alpha.38",
+          "file": "gcr-client-contract-0.1.0-alpha.38.tgz",
+          "sha256": "fda7de43afb00575ad43eda867fb3d19270eeaefcbb410a55178f9c61a17475e"
+        },
+        {
+          "name": "@gcr/client-core",
+          "version": "0.1.0-alpha.38",
+          "file": "gcr-client-core-0.1.0-alpha.38.tgz",
+          "sha256": "02161b76fd347874d31c9594c500a99066091b176ccd209df360d78f10ee44fd"
+        },
+        {
+          "name": "@gcr/client-executors",
+          "version": "0.1.0-alpha.38",
+          "file": "gcr-client-executors-0.1.0-alpha.38.tgz",
+          "sha256": "38295e8c85a53f9d506a7d1e71a1c4c582b6bca6ec7981d252bcb131a2cde706"
+        }
+      ]
+    },
+    "noForcedReload": true,
+    "localModelAndAccountUnchanged": true
+  },
+  "architecture": {
+    "centralToLocalDownloadsOnly": true,
+    "localSourceResultFeedbackUploads": false,
+    "centralExecutionForLocalClients": false,
+    "P10AndP08UpstreamWithdrawnNotCompleted": true
+  },
+  "limitations": [
+    "No actual external GitHub or paid model calls in verification",
+    "Live publication and provenance use owned synthetic complete-file input; real Git acquisition covered by native tests",
+    "Per-finding criterion judgment linkage remains",
+    "Actual client/central model comparison remains",
+    "Trusted CI, recurrence, managed publishing and metrics remain",
+    "Critical withdrawal and offline handling remain"
+  ]
+}
