@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-14T02:12:24.552719+00:00",
+  "scope": "P07 Commit Defender Commit/Push toggles and managed forwarding hooks checkpoint",
+  "gcrSourceCommit": "422ef6dbadc21f56bc63cd6475327932e63404c0",
+  "commitDefenderSourceCommit": "f16c78629e9f49cfa52172f48e8b7b459e233ac1",
+  "clientPackages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.22",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.22",
+        "file": "gcr-client-contract-0.1.0-alpha.22.tgz",
+        "sha256": "6f03eba7d3cbfb4cc9819d148c1fe39ef86cb072fb494dc53cdcf9e987c6614e"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.22",
+        "file": "gcr-client-core-0.1.0-alpha.22.tgz",
+        "sha256": "160b3b878e70612cba76654579539e7e8bb92f347c9fec65120fea3997853c74"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.22",
+        "file": "gcr-client-executors-0.1.0-alpha.22.tgz",
+        "sha256": "8cddf08f69db434a93db349891b105a3411c1b7f47cb0adf62767610159a8a30"
+      }
+    ]
+  },
+  "cliPackages": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.16",
+    "clientVersion": "0.1.0-alpha.22",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.22",
+        "file": "gcr-client-contract-0.1.0-alpha.22.tgz",
+        "sha256": "6f03eba7d3cbfb4cc9819d148c1fe39ef86cb072fb494dc53cdcf9e987c6614e"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.22",
+        "file": "gcr-client-core-0.1.0-alpha.22.tgz",
+        "sha256": "160b3b878e70612cba76654579539e7e8bb92f347c9fec65120fea3997853c74"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.22",
+        "file": "gcr-client-executors-0.1.0-alpha.22.tgz",
+        "sha256": "8cddf08f69db434a93db349891b105a3411c1b7f47cb0adf62767610159a8a30"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.16",
+        "file": "gcr-cli-0.1.0-alpha.16.tgz",
+        "sha256": "08aba98f5a932c0247a00918f2304638c06a343508276ded32ab298f357a3839"
+      }
+    ]
+  },
+  "regression": {
+    "gcrAffectedTestsPassed": 19,
+    "gcrAffectedScope": "CLI service, core service and shared review requests",
+    "commitDefenderFullRun": {
+      "suites": 15,
+      "passed": 160,
+      "failed": 0
+    },
+    "managedHookFinalRun": {
+      "passed": 6,
+      "newCasesBeyondFullRun": 1
+    },
+    "commitDefenderUniqueTestsPassed": 161,
+    "typecheck": "source and tests passed",
+    "toggleMatrix": "16 configuration combinations verified; full combined-trigger execution matrix pending"
+  },
+  "live": {
+    "status": "verified",
+    "vscode": "1.137.0",
+    "node": "v24.18.1",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "modelReviewInvocations": 2,
+    "events": [
+      {
+        "trigger": "commit",
+        "receiptId": "aef9a3db-a654-4e34-ac7c-7e04293542ac",
+        "stateAfterGitReturned": "running",
+        "status": "completed",
+        "runId": "a0598b7b-1107-4e57-a554-7959ba80cce8",
+        "source": {
+          "kind": "index",
+          "hash": "836089ca717faf34f1625ce690739fac2898d4718afaaed62b0beec67c15aa18",
+          "objectFormat": "sha1",
+          "baseCommit": "7597345990fe3e160073287fde000a8e0fb166bb",
+          "baseTree": "333e77353e7f2fc0b8067b758874012dbb3e85c6",
+          "sourceTree": "2ec6204a90c8fccb8e25b96d96a3f59feea361ff"
+        },
+        "findings": 1,
+        "sourceReadCount": 7,
+        "sourceReadPaths": [
+          "caller.ts",
+          "package.json",
+          "sum.test.ts",
+          "sum.ts"
+        ],
+        "testsExecutedByModel": false
+      },
+      {
+        "trigger": "push",
+        "receiptId": "89395616-3431-c23f-f3f2-23736f61d5a4",
+        "stateAfterGitReturned": "running",
+        "status": "completed",
+        "runId": "c600b282-1970-428d-b08f-06df54f513d1",
+        "source": {
+          "kind": "commit-tree",
+          "hash": "2d62cb306db1369f674b52a625996e1097867d52512721354c98b456bccc7af3",
+          "objectFormat": "sha1",
+          "baseCommit": "7597345990fe3e160073287fde000a8e0fb166bb",
+          "baseTree": "333e77353e7f2fc0b8067b758874012dbb3e85c6",
+          "sourceCommit": "f956e046d90728840ef8a70d203448fcb9530bd7",
+          "sourceTree": "2ec6204a90c8fccb8e25b96d96a3f59feea361ff"
+        },
+        "findings": 1,
+        "sourceReadCount": 7,
+        "sourceReadPaths": [
+          "caller.ts",
+          "package.json",
+          "sum.test.ts",
+          "sum.ts"
+        ],
+        "testsExecutedByModel": false
+      }
+    ],
+    "partialCommitTreeMatched": true,
+    "unrelatedIndexPreserved": true,
+    "gitReturnedBeforeReviews": true,
+    "pauseRestoredHooksAndRevokedGrants": true,
+    "cleanup": "service stopped; owned profile keys and records removed",
+    "finishedAt": "2026-09-14T02:06:48.766Z",
+    "rawEvidenceSha256": "21e49ac5aa5e40898bdab66f0e87bfcccb748f2ef90d26c32a5c91288bba0312"
+  },
+  "minimumHost": {
+    "status": "passed",
+    "vscode": "1.90.2",
+    "node": "20.9.0",
+    "electron": "29.4.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "extensionVersion": "2.3.0",
+    "delivery": "packaged-extension",
+    "commandCount": 23,
+    "activation": true,
+    "hookDefault": "disable",
+    "modelCalled": false,
+    "checks": [
+      "activation",
+      "command registration",
+      "clear findings",
+      "cancel without run",
+      "no hook installed",
+      "standalone defaults and user profile",
+      "empty history refresh creates no local store or OS key"
+    ]
+  },
+  "vsix": {
+    "version": "2.3.0",
+    "file": "commit-defender-2.3.0-background-hooks-final.vsix",
+    "sha256": "4d1898d36b1faf67c7926ec3e4287feb59ceaa7fd61e35f6f9c22c7da1507d37"
+  },
+  "installed": {
+    "status": "verified",
+    "extensionPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.3.0",
+    "files": {
+      "extension.js": "780b1746e199d4795a86698eeabf8ec1e3d1a98914195282d76d99209451f3a3",
+      "hook-cli.js": "6be2946447d93816a422851d6fd9f0de8cfd5767f4c25afdddf4ea9bca1e9252",
+      "standalone-review-worker.js": "4254abdc5ca6f12979dfea82ab3602fae77de4b75634f7006463953055e9f90e",
+      "advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "gcr-service/main.mjs": "94a37fe1be47ee1d7ec2c000675431eeca83434c08e60641b0c57f350afc49c3",
+      "gcr-service/manifest.json": "b54dcc05c0af5423611888275e1185f831340378ff0516cd559a8733620bf15a"
+    }
+  },
+  "remaining": [
+    "four-trigger combined execution and overlapping request release gate",
+    "user-wide call/token budgets",
+    "headless Save/Stage watch and OS login lifecycle",
+    "partial-hunk unstage and missed host events",
+    "interrupted result reconciliation and receipt retention",
+    "actual other-UID IPC rejection",
+    "central offline hook selection",
+    "public Marketplace release and the remaining P00-P13 plan"
+  ]
+}
