@@ -13,6 +13,16 @@ import {
 import { knowledgeAudience } from './knowledge-manifest.js';
 import { offlineBehavior } from './review-execution.js';
 const keys = list(object({ id, pem: text(4096, 1) }), 16, 1);
+export const centralRepositoryIdentity = object({
+  schemaVersion: literal(1),
+  serverId: id,
+  tenantId: id,
+  repositoryId: id,
+  instanceId: id,
+  webBaseUrl: text(4096, 1),
+  owner: text(100, 1),
+  name: text(100, 1),
+});
 export const centralConnectionInput = object({
   serverUrl: text(4096, 1),
   serverId: id,
@@ -42,6 +52,12 @@ export const centralConnectionRecord = object({
   trustedKeys: keys,
   ca: union(text(65536, 1), literal(null)),
   offlineBehavior: optional(offlineBehavior),
+  repositoryBinding: optional(
+    object({
+      identity: centralRepositoryIdentity,
+      remotesHash: sha256,
+    }),
+  ),
   credentialReference: id,
   keyId: id,
   clientId: choice(['gcr-cli', 'commit-defender']),

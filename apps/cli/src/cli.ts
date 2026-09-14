@@ -238,6 +238,7 @@ export async function executeCli(
     const centralConnections = async () => {
       if (!connections) {
         connections = await CentralConnections.open({
+          repositoryRoot: cwd,
           scope: repositoryScope!,
           dataDirectory,
           ...(dependencies.keys ? { keys: dependencies.keys } : {}),

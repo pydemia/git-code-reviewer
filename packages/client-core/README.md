@@ -185,3 +185,7 @@ integration work.
 
 
 Manual review callers using `executeReviewRequest` hold renewable scheduling priority while waiting for an owner or executing. Automatic service work waits before executor preparation, and the common broker checks again at model admission. Priority is scoped to the same profile/repository/worktree and ordered with encrypted CAS writes. Already admitted reviews continue; identical source requests still share their result. Priority leases expire after 30 seconds without renewal. Expiry releases priority only and never marks an unknown model complete or retries it. Older clients do not participate until upgraded.
+
+Repository-aware hosts pass `repositoryRoot` to `CentralConnections.open`. When a new connection has Git remotes, the client reads the selected repository identity from `GET /api/v1/client-repositories/:repoId` and compares effective fetch URLs locally. It never uploads remote URLs or source. Matching ignores URL credentials, query strings and fragments and accepts standard GitHub HTTPS/SSH forms. Nonstandard ports and installation path prefixes remain distinct.
+
+The stored binding includes the authenticated repository identity and a hash of normalized remotes. Changing a remote or receiving a different repository identity on sync requires reconnection; signed offline cache does not bypass this check. Disconnect remains available after a mismatch. Existing records and explicit connections without remotes remain manual and are not labeled as verified; reconnect with remotes to establish a binding.

@@ -5,6 +5,7 @@ export class KnowledgeSyncError extends Error {
   constructor(
     readonly code:
       | 'invalid-binding'
+      | 'repository-mismatch'
       | 'busy'
       | 'disabled'
       | 'authentication-required'

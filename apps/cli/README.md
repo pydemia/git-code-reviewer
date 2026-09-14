@@ -223,3 +223,5 @@ gcr service reconcile --id RECEIPT_ID --profile work
 복구는 실행 세대별 완료 receipt의 보고서 ID/hash와 실제 암호화 이력을 대조한다. 현재 작업 파일을 캡처하거나 모델을 준비·재호출하지 않는다. 살아 있는 lease, 저장 보고서나 receipt의 부재는 unresolved/interrupted로 유지한다. 다른 generation의 결과·변조된 보고서·철회된 중앙 권한은 거부한다. CLI `requests reconcile`은 확인한 원본 보고서와 request를 반환하며 성공은 exit 0, 미해결·오류는 exit 2다. 서비스 명령은 receipt가 finished로 확인된 경우에만 exit 0이다. 보고서 자체의 partial/failed 상태는 그대로 유지한다.
 
 서비스에서 이력·완료 기록 저장이 확인되지 않으면 `completionUnconfirmed: true`와 interrupted 상태를 남긴다. `runId`가 존재해도 완료 receipt로 취급하지 않는다. 복구에 성공하면 원래 결과를 연결하고 source payload를 삭제한다. 구버전에서 완료 receipt 없이 중단된 작업과 모델 종료를 확인할 근거가 없는 작업은 재호출로 복구하지 않는다.
+
+New central connections verify the current worktree's Git remotes against the selected repository's authenticated server identity before saving the API key. Forks, different hosts, ports and installation prefixes are distinct. URL credentials are removed locally and remote URLs are not sent to GCR. If remotes change, review and sync stop with `repository-mismatch`; inspect the remotes and disconnect/reconnect. Existing manual connections remain marked unverified until reconnected.

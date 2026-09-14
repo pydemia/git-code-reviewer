@@ -47,6 +47,7 @@ const error = (code: KnowledgeSyncError['code']) =>
     code,
     {
       'invalid-binding': 'Invalid central binding.',
+      'repository-mismatch': 'Local Git remotes no longer match the selected repository.',
       busy: 'Another process owns the current synchronization.',
       disabled: 'Central connection is disabled.',
       'authentication-required': 'Central authentication is required.',

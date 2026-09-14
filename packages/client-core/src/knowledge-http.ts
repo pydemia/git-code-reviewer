@@ -3,6 +3,7 @@ import { request as httpsRequest } from 'node:https';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   centralCredentialIdentity,
+  centralRepositoryIdentity,
   reviewSubmissionReceipt,
   reviewSubmissionStatus,
 } from '@gcr/client-contract';
@@ -259,6 +260,42 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       );
     } catch {
       throw unavailable();
+    } finally {
+      response.destroy();
+    }
+  }
+  async repository(signal: AbortSignal) {
+    const response = await this.get(
+      `api/v1/client-repositories/${encodeURIComponent(this.binding.audience.repositoryId)}`,
+      signal,
+    );
+    try {
+      if (response.statusCode !== 200) {
+        await this.failure(response);
+        throw unavailable();
+      }
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of response) {
+        const bytes = Buffer.from(chunk);
+        size += bytes.length;
+        if (size > 16384) throw unavailable();
+        chunks.push(bytes);
+      }
+      const result = centralRepositoryIdentity(
+        JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))),
+      );
+      const audience = this.binding.audience;
+      if (
+        result.serverId !== audience.serverId ||
+        result.tenantId !== audience.tenantId ||
+        result.repositoryId !== audience.repositoryId
+      )
+        throw new KnowledgeSyncError(
+          'invalid-binding',
+          'Repository identity does not match the authenticated connection.',
+        );
+      return result;
     } finally {
       response.destroy();
     }

@@ -250,6 +250,35 @@ describe
         await db.query('update repositories set enabled=true where id=$1', [repo]);
       }
     });
+    it('returns only the selected authorized repository identity through a read-only client route', async () => {
+      const key = await issue();
+      const url = `/api/v1/client-repositories/${repo}`;
+      const response = await app.inject({ url, headers: auth(key.token) });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+      expect(response.json()).toMatchObject({
+        schemaVersion: 1,
+        serverId,
+        tenantId: tenant,
+        repositoryId: repo,
+        webBaseUrl: 'https://fixture.invalid/',
+      });
+      expect(response.json().owner).toBeTruthy();
+      expect(response.body).not.toContain(key.token);
+      for (const id of [secondRepo, otherRepo, randomUUID()])
+        expect(
+          (await app.inject({ url: `/api/v1/client-repositories/${id}`, headers: auth(key.token) }))
+            .statusCode,
+        ).toBe(403);
+      expect((await app.inject({ url, headers: web() })).statusCode).toBe(401);
+      const revoked = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/me/client-credentials/' + key.id,
+        headers: web(),
+      });
+      expect(revoked.statusCode).toBe(204);
+      expect((await app.inject({ url, headers: auth(key.token) })).statusCode).toBe(403);
+    });
     it('advertises only the implemented key flow and returns a secret once without storing or listing it', async () => {
       expect((await app.inject('/api/v1/client-auth/config')).json().methods).toEqual(['api-key']);
       const key = await issue();

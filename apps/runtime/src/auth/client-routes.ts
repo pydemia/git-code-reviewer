@@ -14,7 +14,7 @@ import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from '../routes/worklist.js';
 import { readFile } from 'node:fs/promises';
 import { X509Certificate } from 'node:crypto';
-import { centralConnectionInput } from '@gcr/client-contract';
+import { centralConnectionInput, centralRepositoryIdentity } from '@gcr/client-contract';
 import type { KnowledgeSigner } from '../services/knowledge-manifest.js';
 
 export async function loadClientConnectionCa(file?: string): Promise<string | null> {
@@ -112,6 +112,50 @@ export async function registerClientCredentialRoutes(
         .parse(request.query);
       return { schemaVersion: 1, ...(await listClientKeys(database, request.user!.id, cursor)) };
     });
+    routes.get(
+      '/api/v1/client-repositories/:repoId',
+      { config: { clientKnowledgeRead: true }, preHandler: requireUser },
+      async (request) => {
+        const { repoId } = z.object({ repoId: z.string().uuid() }).parse(request.params);
+        const principal = request.clientPrincipal;
+        if (!principal) throw new ClientCredentialError(401, 'CLIENT_AUTHENTICATION_REQUIRED');
+        if (
+          !principal.repositoryIds.includes(repoId) ||
+          !(await canReadRepository(database, authorization, request, repoId))
+        )
+          throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+        const row = (
+          await database.query<{
+            tenant_id: string;
+            instance_id: string;
+            web_base_url: string;
+            owner: string;
+            name: string;
+          }>(
+            `select r.tenant_id,r.instance_id,i.web_base_url,r.owner,r.name from repositories r
+           join github_instances i on i.id=r.instance_id where r.id=$1 and r.tenant_id=$2
+           and r.deleted_at is null and r.enabled and i.enabled`,
+            [repoId, principal.tenantId],
+          )
+        ).rows[0];
+        if (!row) throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+        const webBase = new URL(row.web_base_url);
+        webBase.username = '';
+        webBase.password = '';
+        webBase.search = '';
+        webBase.hash = '';
+        return centralRepositoryIdentity({
+          schemaVersion: 1,
+          serverId: config.KNOWLEDGE_SERVER_ID,
+          tenantId: row.tenant_id,
+          repositoryId: repoId,
+          instanceId: row.instance_id,
+          webBaseUrl: webBase.href,
+          owner: row.owner,
+          name: row.name,
+        });
+      },
+    );
     routes.get('/api/v1/me/client-connection-config', { preHandler: web }, async (request) => {
       const { repositoryId } = z
         .object({ repositoryId: z.string().uuid() })

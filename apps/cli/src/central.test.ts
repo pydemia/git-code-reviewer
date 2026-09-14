@@ -334,6 +334,23 @@ beforeAll(async () => {
       });
       return;
     }
+    if (req.url === '/base/api/v1/client-repositories/repo') {
+      expect(req.method).toBe('GET');
+      expect(req.headers['content-length']).toBeUndefined();
+      res.end(
+        JSON.stringify({
+          schemaVersion: 1,
+          serverId: 'server',
+          tenantId: 'tenant',
+          repositoryId: 'repo',
+          instanceId: 'github',
+          webBaseUrl: 'https://github.example',
+          owner: 'team',
+          name: 'reviewer',
+        }),
+      );
+      return;
+    }
     if (req.url === '/base/api/v1/client-auth/me') {
       res.end(
         JSON.stringify({
@@ -419,6 +436,68 @@ const args = (command: string, id: string) => [
 ];
 const test = (name: string, fn: () => Promise<void>) => it(name, fn, 30000);
 describe.sequential('explicit connected CLI over HTTPS', () => {
+  test('binds a matching remote and rejects mismatches and later remote changes before model execution', async () => {
+    const git = (...args: string[]) =>
+      execFileSync('git', ['-C', repo, ...args], { stdio: 'pipe' });
+    const profile = 'remote-binding';
+    let id: string | undefined;
+    git(
+      'remote',
+      'add',
+      'origin',
+      'https://user:PRIVATE_REMOTE_TOKEN@github.example/fork/reviewer.git',
+    );
+    try {
+      const before = secrets.size;
+      const rejected = await invoke(profile, [
+        'central',
+        'connect',
+        '--mode',
+        'centralized',
+        '--input',
+        configFile,
+        '--api-key-stdin',
+      ]);
+      expect(rejected.exitCode).toBe(2);
+      expect(JSON.stringify(rejected)).not.toContain('PRIVATE_REMOTE_TOKEN');
+      expect(secrets.size).toBe(before);
+      git('remote', 'set-url', 'origin', 'git@github.example:team/reviewer.git');
+      id = await connect(profile);
+      const status = await invoke(profile, [
+        'central',
+        'status',
+        '--mode',
+        'centralized',
+        '--connection',
+        id,
+      ]);
+      expect(status.value).toMatchObject({
+        repositoryBinding: { identity: { repositoryId: 'repo', owner: 'team', name: 'reviewer' } },
+      });
+      expect((await invoke(profile, args('context', id))).exitCode).toBe(0);
+      git('remote', 'set-url', 'origin', 'git@another.example:team/reviewer.git');
+      const beforeModels = models;
+      const result = await invoke(profile, [...args('review', id), '--offline']);
+      expect(result.exitCode).toBe(2);
+      expect(models).toBe(beforeModels);
+      expect(JSON.stringify(result)).toContain('repository-mismatch');
+    } finally {
+      if (id)
+        expect(
+          (
+            await invoke(profile, [
+              'central',
+              'disconnect',
+              '--mode',
+              'centralized',
+              '--connection',
+              id,
+            ])
+          ).exitCode,
+        ).toBe(0);
+      git('remote', 'remove', 'origin');
+    }
+  });
   test('executes an explicitly registered CD connection in the service while ordinary CLI access remains denied', async () => {
     const profileId = 'cd-service',
       identity = discoverLocalIdentity(repo, profileId);

@@ -12,7 +12,7 @@ import {
   type CentralConnectionRecord,
 } from '@gcr/client-contract';
 import { LocalRecordStore, type LocalRecordOptions } from './local-records.js';
-import { defaultLocalDataDirectory } from './local-identity.js';
+import { contentHash, defaultLocalDataDirectory } from './local-identity.js';
 import {
   PlatformCentralCredentialStore,
   validateCentralApiKey,
@@ -21,6 +21,11 @@ import {
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
 import { CentralKnowledgeCache } from './central-cache.js';
 import { KnowledgeHttpTransport, ReviewSubmissionDeliveryError } from './knowledge-http.js';
+import {
+  assertRepositoryBinding,
+  localRepositoryRemotes,
+  repositoryBinding,
+} from './repository-binding.js';
 const denied = () =>
   new KnowledgeSyncError(
     'authentication-required',
@@ -41,10 +46,12 @@ export class CentralConnections {
   private readonly invalid = new Set<string>();
   private constructor(
     private readonly records: LocalRecordStore,
-    private readonly options: LocalRecordOptions,
+    private readonly options: LocalRecordOptions & { repositoryRoot?: string },
     private readonly credentials: CentralCredentialStore,
   ) {}
-  static async open(options: LocalRecordOptions & { credentials?: CentralCredentialStore }) {
+  static async open(
+    options: LocalRecordOptions & { credentials?: CentralCredentialStore; repositoryRoot?: string },
+  ) {
     if (options.scope.kind !== 'repository') throw denied();
     const records = await LocalRecordStore.open({
       ...options,
@@ -81,6 +88,8 @@ export class CentralConnections {
     return { revision: row.revision, value };
   }
   private async assert(state: State, pending = false) {
+    if (state.value.repositoryBinding)
+      assertRepositoryBinding(state.value.repositoryBinding, this.options.repositoryRoot);
     if (
       this.invalid.has(state.value.credentialReference) ||
       Date.parse(state.value.expiresAt) <= Date.now()
@@ -190,6 +199,21 @@ export class CentralConnections {
       audience: { ...bootstrap.audience, userId: identity.userId },
       trustedKeys: bootstrap.verificationKeys(),
     });
+    const remotes = this.options.repositoryRoot
+      ? localRepositoryRemotes(this.options.repositoryRoot)
+      : [];
+    const mapped = remotes.length
+      ? repositoryBinding(
+          await this.timed(signal, (s) =>
+            new KnowledgeHttpTransport(
+              binding,
+              { bindingId: binding.id, readToken: async () => apiKey },
+              config.ca ?? undefined,
+            ).repository(s),
+          ),
+          remotes,
+        )
+      : undefined;
     const previous = await this.records.read('settings', binding.id);
     if (
       previous &&
@@ -213,6 +237,7 @@ export class CentralConnections {
       })),
       ca: config.ca,
       offlineBehavior: behavior,
+      ...(mapped ? { repositoryBinding: mapped } : {}),
       credentialReference: 'gcr-' + randomUUID(),
       keyId: identity.keyId,
       clientId,
@@ -275,6 +300,7 @@ export class CentralConnections {
       serverUrl: value.serverUrl,
       audience: value.audience,
       offlineBehavior: value.offlineBehavior ?? 'pause',
+      repositoryBinding: value.repositoryBinding ?? null,
       keyId: value.keyId,
       clientId: value.clientId,
       expiresAt: value.expiresAt,
@@ -421,6 +447,14 @@ export class CentralConnections {
     await this.assert(state);
     const cache = await this.cache(state.value);
     try {
+      if (state.value.repositoryBinding) {
+        const identity = await this.timed(signal, (s) => this.transport(state).repository(s));
+        if (contentHash(identity) !== contentHash(state.value.repositoryBinding.identity))
+          throw new KnowledgeSyncError(
+            'repository-mismatch',
+            'Central repository identity changed. Verify the Git remote and reconnect.',
+          );
+      }
       await cache.synchronize(this.transport(state), signal ? { signal } : {});
       await this.assert(state);
       return this.status(id);
