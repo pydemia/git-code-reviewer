@@ -8,6 +8,8 @@ export type ModelBudget = {
   wait?: boolean;
   concurrency?: number;
   lane?: 'batch' | 'interactive';
+  /** Persist/revalidate execution ownership after capacity admission, before any provider send. */
+  beforeSend?: () => Promise<void>;
 };
 const budgetContext = new AsyncLocalStorage<ModelBudget>();
 export function withModelBudget<Result>(
@@ -100,6 +102,8 @@ export function admittedFetch(
     };
     try {
       init?.signal?.throwIfAborted();
+      await budget.beforeSend?.();
+      signal.throwIfAborted();
       await database.query("update model_request_ledger set state='sent' where id=$1", [
         reservation,
       ]);

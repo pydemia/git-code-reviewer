@@ -35,7 +35,7 @@ import {
 } from '../services/criterion-generation.js';
 import { assertJobLease, checkpointReviewModel } from '../services/analysis-checkpoint.js';
 import { recoverExpiredJobs } from './recovery.js';
-import { expireRemoteReviewJobs } from '../services/remote-review-jobs.js';
+import { recoverRemoteReviewLeases } from '../services/remote-review-execution.js';
 import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
 import {
   createReviewModel,
@@ -181,7 +181,7 @@ export async function runWorker(
     }
     if (Date.now() - lastRecoveryAt > 10000) {
       await recoverExpiredJobs(database);
-      await expireRemoteReviewJobs(database);
+      await recoverRemoteReviewLeases(database);
       lastRecoveryAt = Date.now();
     }
     if (

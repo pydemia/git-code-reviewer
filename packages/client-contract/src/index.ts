@@ -30,3 +30,4 @@ export * from './review-request.js';
 export * from './review-chat.js';
 export * from './review-submission.js';
 export * from './remote-review.js';
+export * from './source-tools.js';

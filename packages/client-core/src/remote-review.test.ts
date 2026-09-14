@@ -85,6 +85,16 @@ describe('explicit central review transfer', () => {
   it('allows local knowledge with an independently chosen central executor', () => {
     expect(validateRemoteReviewRequest(request(), expected).payload.client.mode).toBe('standalone');
   });
+  it('permits an explicitly uncapped token budget without discarding a supplied cap', () => {
+    const value = payload();
+    delete value.budget.outputTokensPerCall;
+    expect(validateRemoteReviewRequest(request(value), expected).payload.budget).not.toHaveProperty(
+      'outputTokensPerCall',
+    );
+    expect(
+      validateRemoteReviewRequest(request(), expected).payload.budget.outputTokensPerCall,
+    ).toBe(4096);
+  });
   it('returns detached data and does not issue approval while preparing source', () => {
     const root = mkdtempSync(path.join(tmpdir(), 'gcr-remote-source-'));
     try {

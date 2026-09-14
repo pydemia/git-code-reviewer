@@ -16,6 +16,17 @@ import {
   remoteReviewEncryptionPurpose,
 } from '../services/remote-review-jobs.js';
 import { registerRemoteReviewRoutes } from './remote-reviews.js';
+import {
+  claimRemoteReviewJob,
+  completeRemoteReviewJob,
+  deferRemoteReviewJob,
+  fenceRemoteReviewInvocation,
+  heartbeatRemoteReviewJob,
+  loadRemoteReviewPayload,
+  recoverRemoteReviewLeases,
+} from '../services/remote-review-execution.js';
+import { admittedFetch, ModelCapacityError, withModelBudget } from '../services/model-admission.js';
+import { centralReviewExecutorConfigHash } from '../services/central-review-executor.js';
 
 const databaseUrl = process.env.GCR_TEST_DATABASE_URL;
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -106,7 +117,6 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
         durationMs: 120000,
         sourceBytes: 1048576,
         toolCalls: 100,
-        outputTokensPerCall: 4096,
       },
       retention: { sourceSeconds: 3600, resultSeconds: 86400 },
     };
@@ -114,6 +124,44 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
       payload,
       approval: { payloadHash: contentHash(payload), approvedAt: new Date().toISOString() },
     };
+  };
+  const reportFor = (body: ReturnType<typeof input>) => {
+    const source = body.payload.source.files[0]!.metadata,
+      at = new Date().toISOString();
+    return clientReviewReport({
+      contractVersion: 1,
+      runId: randomUUID(),
+      identity: {
+        client: body.payload.client,
+        source: body.payload.source.snapshot,
+        context: { hash: contentHash(body.payload.context), entries: [], required: [] },
+        reviewProfile: { id: 'fixture', revision: 1, hash: hash('profile') },
+        executor: {
+          id: 'central',
+          version: 'fixture',
+          model: 'gpt-6-astra',
+          configHash: centralReviewExecutorConfigHash(
+            body.payload.model,
+            body.payload.budget.modelCalls,
+          ),
+        },
+        toolsHash: hash('tools'),
+      },
+      status: 'completed',
+      trigger: 'manual',
+      requestedAt: at,
+      startedAt: at,
+      finishedAt: at,
+      durationMs: 0,
+      summary: 'Synthetic result fixture',
+      sourceFiles: [source],
+      files: [{ source, status: 'completed', summary: 'Synthetic coverage' }],
+      excluded: [],
+      problems: [],
+      findings: [],
+      evidence: [],
+      questions: [],
+    });
   };
   const approve = (value: ReturnType<typeof input>) => {
     value.approval.payloadHash = contentHash(value.payload);
@@ -496,6 +544,9 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
       stale = input();
     stale.approval.approvedAt = '2020-01-01T00:00:00.000Z';
     expect((await submit(auth.token, stale)).statusCode).toBe(409);
+    const capped = input();
+    capped.payload.budget.outputTokensPerCall = 4096;
+    expect((await submit(auth.token, approve(capped))).statusCode).toBe(422);
     const tampered = input();
     tampered.payload.source.files[0]!.text += 'modified';
     expect((await submit(auth.token, tampered)).statusCode).toBe(400);
@@ -605,44 +656,189 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
     expect((await get(auth.token, body)).statusCode).toBe(200);
     expect((await cancel(auth.token, body)).json().state).toBe('cancelled');
   });
+  it('claims a job once, checks its original key and account again, and rejects another owner', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    const claims = await Promise.all([
+      claimRemoteReviewJob(db, config, 'worker-a'),
+      claimRemoteReviewJob(db, config, 'worker-b'),
+    ]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    const claim = claims.find(Boolean)!;
+    expect(await loadRemoteReviewPayload(db, config, authorization, claim)).toEqual(body.payload);
+    await expect(
+      heartbeatRemoteReviewJob(db, config, authorization, { ...claim, executor: 'wrong' }),
+    ).rejects.toThrow('REMOTE_REVIEW_LEASE_LOST');
+    await db.query('update chat_account_assignments set enabled=false');
+    await expect(fenceRemoteReviewInvocation(db, config, authorization, claim)).rejects.toThrow(
+      'REMOTE_REVIEW_ACCOUNT_DENIED',
+    );
+    await db.query('update chat_account_assignments set enabled=true');
+    await db.query('update client_api_keys set revoked_at=clock_timestamp() where id=$1', [
+      auth.id,
+    ]);
+    const replacement = await key();
+    expect((await get(replacement.token, body)).statusCode).toBe(200);
+    await expect(loadRemoteReviewPayload(db, config, authorization, claim)).rejects.toThrow(
+      'CLIENT_ACCESS_REVOKED',
+    );
+    expect(
+      (await db.query('select invocation_started_at from client_review_jobs')).rows[0]
+        .invocation_started_at,
+    ).toBe(null);
+  });
+  it('reclaims pre-send lease loss with a new owner but never retries an invoked job', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    const old = (await claimRemoteReviewJob(db, config, 'worker'))!;
+    await db.query(
+      "update client_review_jobs set lease_until=clock_timestamp()-interval '1 second'",
+    );
+    expect(await recoverRemoteReviewLeases(db)).toBe(1);
+    const current = (await claimRemoteReviewJob(db, config, 'worker'))!;
+    expect(current.executor).not.toBe(old.executor);
+    await expect(fenceRemoteReviewInvocation(db, config, authorization, old)).rejects.toThrow(
+      'REMOTE_REVIEW_LEASE_LOST',
+    );
+    await fenceRemoteReviewInvocation(db, config, authorization, current);
+    expect(await deferRemoteReviewJob(db, current, new Date())).toBe(false);
+    await db.query(
+      "update client_review_jobs set lease_until=clock_timestamp()-interval '1 second'",
+    );
+    expect(await recoverRemoteReviewLeases(db)).toBe(1);
+    expect((await get(auth.token, body)).json().state).toBe('uncertain');
+    expect(await claimRemoteReviewJob(db, config, 'third')).toBe(null);
+    await expect(
+      completeRemoteReviewJob(db, config, authorization, current, reportFor(body)),
+    ).rejects.toThrow('REMOTE_REVIEW_LEASE_LOST');
+    expect(
+      (await db.query('select source_ciphertext from client_review_jobs')).rows[0]
+        .source_ciphertext,
+    ).toBe(null);
+  });
+  it('fences only after model capacity admission and releases the reservation when reauthorization rejects the send', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+    const quota = randomUUID();
+    const held = (
+      await db.query('select reserve_model_request($1,$2,10,10,false,1) as id', [
+        quota,
+        randomUUID(),
+      ])
+    ).rows[0].id;
+    const fetcher = vi.fn(async () => new Response('synthetic'));
+    const request = () =>
+      withModelBudget(
+        {
+          runKey: `remote:${claim.id}`,
+          maxCalls: 2,
+          wait: false,
+          concurrency: 1,
+          beforeSend: () => fenceRemoteReviewInvocation(db, config, authorization, claim),
+        },
+        () =>
+          admittedFetch(
+            db,
+            quota,
+            fetcher,
+          )('https://fixture.invalid/responses', { method: 'POST', body: '{}' }),
+      );
+    await expect(request()).rejects.toBeInstanceOf(ModelCapacityError);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(
+      (await db.query('select invocation_started_at from client_review_jobs')).rows[0]
+        .invocation_started_at,
+    ).toBe(null);
+    await db.query("select finish_model_request($1,'completed',null)", [held]);
+    await db.query('update chat_account_assignments set enabled=false');
+    await expect(request()).rejects.toThrow('REMOTE_REVIEW_ACCOUNT_DENIED');
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(
+      (
+        await db.query(
+          "select count(*) from model_request_ledger where quota_key=$1 and state in ('reserved','sent')",
+          [quota],
+        )
+      ).rows[0].count,
+    ).toBe('0');
+  });
+  it('persists the send fence before fetch, commits an encrypted report atomically, and prevents completion after cancellation', async () => {
+    const auth = await key(),
+      body = input();
+    await submit(auth.token, body);
+    const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+    const fetcher = vi.fn(async () => {
+      expect(
+        (await db.query('select invocation_started_at from client_review_jobs')).rows[0]
+          .invocation_started_at,
+      ).not.toBe(null);
+      return new Response('synthetic');
+    });
+    const result = await withModelBudget(
+      {
+        runKey: `remote:${claim.id}`,
+        maxCalls: 2,
+        wait: false,
+        beforeSend: () => fenceRemoteReviewInvocation(db, config, authorization, claim),
+      },
+      () =>
+        admittedFetch(
+          db,
+          randomUUID(),
+          fetcher,
+        )('https://fixture.invalid/responses', { method: 'POST', body: '{}' }),
+    );
+    await result.text();
+    const wrong = reportFor(body);
+    wrong.identity.source.hash = 'f'.repeat(64);
+    await expect(completeRemoteReviewJob(db, config, authorization, claim, wrong)).rejects.toThrow(
+      'REMOTE_REVIEW_RESULT_MISMATCH',
+    );
+    const wrongAccount = reportFor(body);
+    wrongAccount.identity.executor.configHash = '0'.repeat(64);
+    await expect(
+      completeRemoteReviewJob(db, config, authorization, claim, wrongAccount),
+    ).rejects.toThrow('REMOTE_REVIEW_RESULT_MISMATCH');
+    const report = reportFor(body);
+    await completeRemoteReviewJob(db, config, authorization, claim, report);
+    expect((await get(auth.token, body, 'result')).json().report).toEqual(report);
+    expect(
+      (await db.query('select source_ciphertext,lease_until from client_review_jobs')).rows[0],
+    ).toEqual({ source_ciphertext: null, lease_until: null });
+    expect(await claimRemoteReviewJob(db, config, 'other')).toBe(null);
+    const next = input();
+    await submit(auth.token, next);
+    const second = (await claimRemoteReviewJob(db, config, 'worker'))!;
+    await fenceRemoteReviewInvocation(db, config, authorization, second);
+    await cancel(auth.token, next);
+    await expect(
+      completeRemoteReviewJob(db, config, authorization, second, reportFor(next)),
+    ).rejects.toThrow('REMOTE_REVIEW_LEASE_LOST');
+  });
+  it('defers only a live pre-send owner and respects the scheduled retry time', async () => {
+    const auth = await key();
+    await submit(auth.token);
+    const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+    expect(await deferRemoteReviewJob(db, claim, new Date(Date.now() + 60000))).toBe(true);
+    expect(await claimRemoteReviewJob(db, config, 'other')).toBe(null);
+    await expect(heartbeatRemoteReviewJob(db, config, authorization, claim)).rejects.toThrow(
+      'REMOTE_REVIEW_LEASE_LOST',
+    );
+    await db.query(
+      "update client_review_jobs set next_attempt_at=clock_timestamp()-interval '1 second'",
+    );
+    expect(await claimRemoteReviewJob(db, config, 'other')).not.toBe(null);
+  });
   it('decrypts a completed fixture report, detects substitution and purges expired results', async () => {
     const auth = await key(),
       body = input();
     await submit(auth.token, body);
     const row = (await db.query('select * from client_review_jobs')).rows[0];
-    const source = body.payload.source.files[0]!.metadata,
-      at = new Date().toISOString();
-    const report = clientReviewReport({
-      contractVersion: 1,
-      runId: randomUUID(),
-      identity: {
-        client: body.payload.client,
-        source: body.payload.source.snapshot,
-        context: { hash: contentHash(body.payload.context), entries: [], required: [] },
-        reviewProfile: { id: 'fixture', revision: 1, hash: hash('profile') },
-        executor: {
-          id: 'central',
-          version: 'fixture',
-          model: 'gpt-6-astra',
-          configHash: hash('executor'),
-        },
-        toolsHash: hash('tools'),
-      },
-      status: 'completed',
-      trigger: 'manual',
-      requestedAt: at,
-      startedAt: at,
-      finishedAt: at,
-      durationMs: 0,
-      summary: 'Synthetic result fixture',
-      sourceFiles: [source],
-      files: [{ source, status: 'completed', summary: 'Synthetic coverage' }],
-      excluded: [],
-      problems: [],
-      findings: [],
-      evidence: [],
-      questions: [],
-    });
+    const report = reportFor(body);
     const encrypted = encryptCredential(
       canonicalJson(report),
       encryptionKey,

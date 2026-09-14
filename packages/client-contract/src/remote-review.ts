@@ -6,6 +6,7 @@ import {
   list,
   literal,
   object,
+  optional,
   refined,
   sha256,
   sourcePath,
@@ -54,7 +55,7 @@ export const remoteReviewPayload = refined(
       durationMs: integer(1000, 600000),
       sourceBytes: integer(1, 33554432),
       toolCalls: integer(1, 1000),
-      outputTokensPerCall: integer(1, 32768),
+      outputTokensPerCall: optional(integer(1, 32768)),
     }),
     retention: object({
       sourceSeconds: integer(60, 86400),

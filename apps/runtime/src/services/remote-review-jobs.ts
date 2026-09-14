@@ -223,6 +223,8 @@ export async function submitRemoteReviewJob(
     }
     if (!config.REMOTE_REVIEWS_ENABLED)
       throw new RemoteReviewJobError(503, 'REMOTE_REVIEWS_DISABLED');
+    if (payload.budget.outputTokensPerCall !== undefined)
+      throw new RemoteReviewJobError(422, 'REMOTE_REVIEW_OUTPUT_TOKEN_LIMIT_UNSUPPORTED');
     assertFreshRemoteReviewApproval(request);
     const account = (await listAvailableChatAccounts(c, principal.user.id)).find(
       (account) => account.id === payload.model.accountId,

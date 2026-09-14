@@ -248,6 +248,29 @@ export async function authenticateClientKey(
       [match![2], hash(match![1]!), options.serverId],
     )
   ).rows[0];
+  return authorizeClientKeyRow(database, row, options);
+}
+
+/** Worker-only revalidation of a key already bound to a durably admitted job.
+ * This does not authenticate an HTTP caller and must never be exposed as a login path. */
+export async function revalidateClientKeyGrant(
+  database: Pick<Database, 'query'>,
+  options: { keyId: string; serverId: string; authMode: string; repositoryId: string },
+): Promise<ClientPrincipal> {
+  const row = (
+    await database.query<Row & { expired: boolean }>(
+      `select ${fields},expires_at<=clock_timestamp() as expired from client_api_keys where id=$1 and server_id=$2`,
+      [options.keyId, options.serverId],
+    )
+  ).rows[0];
+  return authorizeClientKeyRow(database, row, { ...options, requiredScope: 'ai:invoke' });
+}
+
+async function authorizeClientKeyRow(
+  database: Pick<Database, 'query'>,
+  row: (Row & { expired: boolean }) | undefined,
+  options: { authMode: string; repositoryId?: string; requiredScope?: ClientCredentialScope },
+): Promise<ClientPrincipal> {
   if (!row || row.expired) fail(401, 'CLIENT_AUTHENTICATION_REQUIRED');
   if (row!.revoked_at || row!.auth_mode !== options.authMode) fail(403, 'CLIENT_ACCESS_REVOKED');
   if (!row!.scopes.includes(options.requiredScope ?? 'knowledge:read'))
