@@ -156,7 +156,7 @@ Component는 독립적으로 바뀌므로 개인 메모리만 바뀌면 개인 b
 | `GET /api/v1/client-auth/authorize`                               | GCR 계정 로그인·PKCE client 승인 시작                            |
 | `POST /api/v1/client-auth/device`                                 | GCR의 headless device 연결 승인 요청                             |
 | `POST /api/v1/client-auth/token`                                  | GCR의 code 교환·access/refresh token 발급·갱신                   |
-| `POST /api/v1/client-repositories/resolve`                        | Git repository와 중앙 repository를 연결                          |
+| `GET /api/v1/client-repositories/:repoId` | 인가된 중앙 저장소 식별 정보를 내려받아 로컬 Git remote와 비교 |
 | `GET /api/v1/repositories/:id/review-knowledge/manifest`          | 인증된 사용자의 정책·집단·개인 bundle 조합. `If-None-Match` 지원 |
 | `GET /api/v1/repositories/:id/review-knowledge/bundles/:bundleId` | Scope·현재 인가 확인 후 불변 artifact 제공                       |
 | `GET /api/v1/repositories/:id/review-knowledge/sources/:sourceId` | 원문 또는 허용된 근거 projection을 명시적으로 조회               |

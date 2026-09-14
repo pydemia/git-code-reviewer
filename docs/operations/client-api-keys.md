@@ -38,3 +38,9 @@ URL의 base path를 유지하고 GET만 사용하며 redirect를 따라가지 �
 검증에는 격리된 실제 PostgreSQL, 실제 local 로그인과 key 발급 API, 로컬 HTTP listener, signed publication·암호화 cache, 별도 TLS listener와 임시 인증서를 사용한다. SAML key의 freshness/epoch 검증은 저장된 합성 identity fixture를 사용한다. 이 테스트는 실제 Keycloak 로그인→client 승인이나 macOS/Linux 설치 client의 검증을 대체하지 않는다. 테스트에서 외부 모델을 호출하지 않는다.
 
 키 관리 UI, PKCE·device·refresh family, OS broker·CD/CLI 연결 화면, remote 매핑, 중앙 context resolver와 실제 리뷰 및 배포가 남아 있다. [검증 증거](../../.documents/execution/preventive-review/evidence/P04-client-api-keys.json)를 따른다.
+
+## Repository identity for local binding
+
+`GET /api/v1/client-repositories/:repoId` accepts a `knowledge:read` client key and returns the authorized server/tenant/repository/instance identity plus the GitHub web base URL, owner and repository name. It checks current key scope, tenant membership, repository grants and enabled state. Browser cookies alone do not authorize this route. The response is private/no-store, and URL userinfo, query and fragment are excluded.
+
+Clients compare effective Git fetch remotes locally. They do not send remote URLs to this API. New connections with remotes record a binding; later remote changes or changed server identity on synchronization require reconnection. Existing records without binding stay explicitly manual/unverified.
