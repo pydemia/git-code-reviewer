@@ -1,3 +1,4 @@
+import { sharedKnowledgeView } from '../services/analysis-shared-knowledge.js';
 import { expandRelationships } from '@gcr/analysis-engine';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { formatReviewMarkdown, schemaVersion } from '@gcr/contracts';
@@ -76,6 +77,16 @@ export async function registerAnalysisRoutes(
     },
   );
 
+  app.get(
+    '/api/v1/analyses/:analysisId/shared-knowledge',
+    { preHandler: requireUser },
+    async (request, reply) => {
+      const { analysisId } = analysisParams.parse(request.params);
+      const context = await authorizedContext(database, authorization, request, analysisId);
+      if (!context) return hiddenNotFound(request, reply);
+      return sharedKnowledgeView(database, analysisId, context.repositoryId);
+    },
+  );
   app.get('/api/v1/analyses/:analysisId', { preHandler: requireUser }, async (request, reply) => {
     const { analysisId } = analysisParams.parse(request.params);
     const context = await authorizedContext(database, authorization, request, analysisId);

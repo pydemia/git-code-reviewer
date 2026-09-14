@@ -5633,3 +5633,5 @@ body.workspace-resizing:has(.resize-bottom) {
   border-top: 1px solid var(--border);
   overflow-wrap: anywhere;
 }
+
+.shared-knowledge-panel { overflow-wrap: anywhere; }

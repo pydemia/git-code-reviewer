@@ -18,7 +18,7 @@ import {
 } from '@gcr/client-contract';
 import { CentralKnowledgeCache, type KnowledgeTransport } from './central-cache.js';
 import { TrustedCentralBinding } from './central-binding.js';
-import { selectCentralKnowledge } from './central-selection.js';
+import { selectCentralKnowledge, selectSharedKnowledge } from './central-selection.js';
 import { resolveCentralContext, resolveLocalContext } from './review-context.js';
 import { resolveLocalExecutionPolicy } from './review-policy.js';
 import { runLocalReview, type LocalReviewExecutor } from './review-runner.js';
@@ -694,4 +694,25 @@ describe('authorized central snapshot review', () => {
     expect(result.status).toBe('cancelled');
     late();
   });
+});
+
+it('uses identical public applicability and exception rules while never reading a personal projection', () => {
+  const all = bundles();
+  const selected = [file('a.ts'), file('b.ts')];
+  const date = '2030-01-02T00:00:00.000Z';
+  const publicOnly = {
+    ...all,
+    personal: { ...all.personal, component: 'personal' as const, memories: [] },
+  };
+  const input = { selected, branch: 'feature', now: date, byteLimit: 65536 };
+  const expected = selectCentralKnowledge({ ...input, bundles: publicOnly });
+  const shared = { policy: all.policy, collective: all.collective };
+  Object.defineProperty(shared, 'personal', {
+    get: () => {
+      throw Error('Personal projection must not be read');
+    },
+  });
+  expect(selectSharedKnowledge({ ...input, bundles: shared })).toEqual(expected);
+  expect(expected.items.filter((i) => i.kind === 'policy').map((i) => i.id)).toEqual(['criterion']);
+  expect(expected.items.some((i) => i.component === 'personal')).toBe(false);
 });

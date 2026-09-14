@@ -1,4 +1,19 @@
-import { randomUUID } from 'node:crypto';
+import { chromium } from 'playwright';
+import { createServer } from '../../../web/src/review-criteria-test-server.js';
+import * as sourceWorkspace from '../services/source-workspace.js';
+import { claimKnowledgePublication, publishKnowledge } from '../services/knowledge-publication.js';
+import {
+  createCriterion,
+  lockCriterion,
+  evaluateCriterion,
+  actOnCriterion,
+} from '../services/review-criteria.js';
+import {
+  criterionCreateSchema,
+  criterionEvaluationCreateSchema,
+  analysisSharedKnowledgeSchema,
+} from '@gcr/contracts';
+import { randomUUID, createHash } from 'node:crypto';
 import { listSnapshotChangeSources } from '../services/criterion-code-sources.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -444,7 +459,7 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       expect(first.revision).toBe(2);
       const pins = `snapshot_id, profile, model_profile, prompt_version_id, prompt_hash,
         provider_version_id, provider_hash, policy_hash, skill_version_id, skill_bundle,
-        skill_hash, severity_level, memory_hash, memory_context, memory_owner_user_id`;
+        skill_hash, severity_level, memory_hash, memory_context, memory_owner_user_id, shared_knowledge, shared_knowledge_hash`;
       expect(
         (await database.query(`select ${pins} from analysis_runs where id=$1`, [first.analysisId]))
           .rows,
@@ -603,4 +618,378 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       (await artifacts.readJson<ReviewReport>(stored.locator)).versions.severity,
     ).toBeUndefined();
   });
+  it('carries published public criteria from queue through actual worker model inputs and report provenance', async () => {
+    const repositoryId = (await database.query('select id from repositories limit 1')).rows[0].id;
+    const c = await database.connect();
+    let criterion: string;
+    try {
+      await c.query('begin');
+      criterion = await createCriterion(
+        c,
+        repositoryId,
+        userId,
+        criterionCreateSchema.parse({
+          document: {
+            title: 'Shared public criterion',
+            topicKey: 'test.shared',
+            requirement: 'PUBLIC_CRITERION_MARKER: inspect caller',
+            rationale: 'Do not generalize past findings',
+            severity: 'P2',
+            appliesTo: {},
+            counterEvidence: ['Caller may prevent the condition'],
+            reviewSteps: ['Read current caller'],
+          },
+          decision: {
+            outcome: 'design-decision',
+            reasoning: 'Synthetic central publication',
+            sources: [{ kind: 'manual', content: 'RAW_SOURCE_MUST_NOT_REACH_MODEL' }],
+          },
+        }),
+      );
+      let version = 1;
+      await evaluateCriterion(
+        c,
+        await lockCriterion(c, repositoryId, criterion, version),
+        userId,
+        criterionEvaluationCreateSchema.parse({
+          expectedVersion: version,
+          note: 'Synthetic evaluation',
+          cases: ['defect', 'fixed', 'normal', 'counter-evidence'].map((kind) => ({
+            kind,
+            name: kind,
+            source: 'fixture',
+            observed: kind === 'defect' ? 'finding' : 'clear',
+            evidence: 'Synthetic observation',
+          })),
+        }),
+      );
+      version++;
+      for (const action of ['evaluate', 'shadow', 'activate'] as const) {
+        await actOnCriterion(c, await lockCriterion(c, repositoryId, criterion, version), userId, {
+          expectedVersion: version,
+          action,
+          note: 'Synthetic approval',
+        });
+        version++;
+      }
+      await c.query('commit');
+    } catch (e) {
+      await c.query('rollback');
+      throw e;
+    } finally {
+      c.release();
+    }
+    const publish = async (component: string) => {
+      const id = (
+        await database.query('select request_review_knowledge($1,$2,null,$3) as id', [
+          repositoryId,
+          component,
+          'worker-proof',
+        ])
+      ).rows[0].id;
+      await database.query(
+        "update review_knowledge_scopes set retry_after='infinity' where id<>$1",
+        [id],
+      );
+      const claim = await claimKnowledgePublication(database);
+      expect(claim?.id).toBe(id);
+      expect(await publishKnowledge(database, artifacts, claim!)).not.toBe('failed');
+    };
+    await publish('policy');
+    await publish('collective');
+    const originalJob = (
+      await database.query("select * from jobs where type='snapshot.materialize' limit 1")
+    ).rows[0];
+    const job = (
+      await database.query(
+        "insert into jobs(type,payload,priority,dedupe_key,state,attempt_count,lease_owner,lease_expires_at) values('snapshot.materialize',$1::jsonb,1,$2,'running',1,'shared-proof',clock_timestamp()+interval '1 hour') returning *",
+        [JSON.stringify(originalJob.payload), 'shared-proof:' + randomUUID()],
+      )
+    ).rows[0];
+    const attempt = (
+      await database.query(
+        "insert into job_attempts(job_id,attempt_number,executor) values($1,1,'shared-proof') returning id",
+        [job.id],
+      )
+    ).rows[0].id;
+    await executeSnapshotJob(
+      database,
+      null,
+      artifacts,
+      { ...config, KNOWLEDGE_PUBLICATION_ENABLED: true },
+      path.join(directory, 'shared-snapshot'),
+      { ...job, attempt_id: attempt },
+    );
+    const run = (
+      await database.query(
+        "select * from analysis_runs where shared_knowledge->>'status'='ready' order by created_at desc limit 1",
+      )
+    ).rows[0];
+    expect(run).toBeDefined();
+    expect(run.memory_context).toEqual([]);
+    expect(run.memory_owner_user_id).toBeNull();
+    const pinned = structuredClone(run.shared_knowledge);
+    await expect(
+      database.query("update analysis_runs set shared_knowledge='{}' where id=$1", [run.id]),
+    ).rejects.toMatchObject({ code: '23514' });
+    await database.query("update review_rules set state='retired' where id=$1", [criterion]);
+    await publish('policy');
+    expect(
+      (await database.query('select shared_knowledge from analysis_runs where id=$1', [run.id]))
+        .rows[0].shared_knowledge,
+    ).toEqual(pinned);
+    const queued = (
+      await database.query("select * from jobs where payload->>'analysisId'=$1", [run.id])
+    ).rows[0];
+    const runAttempt = (
+      await database.query(
+        "insert into job_attempts(job_id,attempt_number,executor) values($1,1,'shared-model') returning id",
+        [queued.id],
+      )
+    ).rows[0].id;
+    await database.query(
+      "update jobs set state='running',attempt_count=1,lease_owner='shared-model',lease_expires_at=clock_timestamp()+interval '1 hour' where id=$1",
+      [queued.id],
+    );
+    const identity = (
+      await database.query(
+        'select r.head_sha,s.merge_base_sha from snapshots s join snapshot_requests r on r.id=s.request_id where s.id=$1',
+        [run.snapshot_id],
+      )
+    ).rows[0];
+    const lease = { release: async () => {} };
+    const workspace = vi
+      .spyOn(sourceWorkspace, 'acquireSourceWorkspace')
+      .mockResolvedValue(
+        lease as Awaited<ReturnType<typeof sourceWorkspace.acquireSourceWorkspace>>,
+      );
+    const text = 'export function load() { return contract; }\n',
+      hash = createHash('sha256').update(text).digest('hex');
+    const blob = createHash('sha1')
+      .update(`blob ${Buffer.byteLength(text)}\0`)
+      .update(text)
+      .digest('hex');
+    const reader = vi
+      .spyOn(sourceWorkspace, 'executeSourceTool')
+      .mockImplementation(async (_config, _workspace, input) => ({
+        id: hash.slice(0, 24),
+        path: input.path,
+        revision: input.revision,
+        sha: input.revision === 'head' ? identity.head_sha : identity.merge_base_sha,
+        startLine: 1,
+        endLine: 2,
+        content: text,
+        hash,
+        blob,
+        truncated: false,
+      }));
+    const before = calls.length;
+    try {
+      await executeAnalysisJob(
+        database,
+        artifacts,
+        { ...config, GITHUB_MODE: 'disabled', KNOWLEDGE_PUBLICATION_ENABLED: true },
+        { ...queued, attempt_count: 1, attempt_id: runAttempt },
+      );
+    } finally {
+      workspace.mockRestore();
+      reader.mockRestore();
+    }
+    const messages = JSON.stringify(calls.slice(before));
+    expect(messages).toContain('PUBLIC_CRITERION_MARKER');
+    expect(messages).not.toContain('RAW_SOURCE_MUST_NOT_REACH_MODEL');
+    expect(messages).toContain('Caller may prevent the condition');
+    const selection = (
+      await database.query('select * from analysis_shared_selections where analysis_id=$1', [
+        run.id,
+      ])
+    ).rows[0];
+    expect(selection.context.selection.items.some((i: { id: string }) => i.id === criterion)).toBe(
+      true,
+    );
+    const saved = (
+      await database.query(
+        'select a.locator from reports r join artifacts a on a.id=r.artifact_id where r.analysis_run_id=$1',
+        [run.id],
+      )
+    ).rows[0];
+    const report = await artifacts.readJson<ReviewReport>(saved.locator);
+    expect(report.versions.sharedKnowledge).toBe(run.shared_knowledge_hash);
+    expect(report.versions.sharedSelection).toBe(selection.context_hash);
+    const failed = (
+      await database.query(
+        "insert into analysis_runs(snapshot_id,analysis_key,state,shared_knowledge,shared_knowledge_hash,skill_bundle,skill_hash) select snapshot_id,$2,'queued',shared_knowledge,shared_knowledge_hash,skill_bundle,skill_hash from analysis_runs where id=$1 returning id",
+        [run.id, 'source-unavailable:' + randomUUID()],
+      )
+    ).rows[0];
+    const unavailable = vi
+      .spyOn(sourceWorkspace, 'acquireSourceWorkspace')
+      .mockRejectedValue(Error('Synthetic unavailable source'));
+    const priorCalls = calls.length;
+    try {
+      await executeAnalysisJob(
+        database,
+        artifacts,
+        { ...config, GITHUB_MODE: 'disabled', KNOWLEDGE_PUBLICATION_ENABLED: true },
+        {
+          ...queued,
+          payload: { ...queued.payload, analysisId: failed.id },
+          attempt_count: 1,
+          attempt_id: runAttempt,
+        },
+      );
+    } finally {
+      unavailable.mockRestore();
+    }
+    expect(calls.length).toBe(priorCalls);
+    const failedRow = (
+      await database.query(
+        'select r.state,a.locator from analysis_runs r join reports report on report.analysis_run_id=r.id join artifacts a on a.id=report.artifact_id where r.id=$1',
+        [failed.id],
+      )
+    ).rows[0];
+    expect(failedRow.state).toBe('partial');
+    const failedReport = await artifacts.readJson<ReviewReport>(failedRow.locator);
+    expect(failedReport.versions.sharedKnowledgeStatus).toBe('unavailable');
+    expect(failedReport.coverage.limitations.join(' ')).toContain('공용 기준 리뷰는 미완료');
+    const originalState = (
+      await database.query('select state from analysis_runs where id=$1', [run.id])
+    ).rows[0].state;
+    await database.query("update analysis_runs set state='partial' where id=$1", [run.id]);
+    const retry = await queueIncompleteAnalysisReanalysis(database, run.id, randomUUID());
+    expect(
+      (
+        await database.query(
+          'select shared_knowledge,shared_knowledge_hash from analysis_runs where id=$1',
+          [retry.analysisId],
+        )
+      ).rows,
+    ).toEqual(
+      (
+        await database.query(
+          'select shared_knowledge,shared_knowledge_hash from analysis_runs where id=$1',
+          [run.id],
+        )
+      ).rows,
+    );
+    expect(
+      (
+        await database.query(
+          'select context_hash from analysis_shared_selections where analysis_id=$1',
+          [retry.analysisId],
+        )
+      ).rows[0].context_hash,
+    ).toBe(selection.context_hash);
+    await database.query('update analysis_runs set state=$2 where id=$1', [run.id, originalState]);
+    let viewerEnabled = true,
+      viewerPresent = true;
+    const app = Fastify();
+    app.decorateRequest('user', null);
+    app.addHook('onRequest', async (request) => {
+      if (!viewerPresent) return;
+      request.user = {
+        id: userId,
+        subject: 'synthetic:worker',
+        displayName: 'Fixture',
+        role: 'administrator',
+        enabled: viewerEnabled,
+        tenantIds: [],
+        tenants: [],
+        groups: [],
+      };
+    });
+    await registerAnalysisRoutes(
+      app,
+      database,
+      new EventHub(database),
+      artifacts,
+      config,
+      new AuthorizationService(config),
+    );
+    try {
+      const response = await app.inject({ url: `/api/v1/analyses/${run.id}/shared-knowledge` });
+      expect(response.statusCode, response.body).toBe(200);
+      const view = analysisSharedKnowledgeSchema.parse(response.json());
+      expect(view.status).toBe('selected');
+      expect(view.selection!.hash).toBe(selection.context_hash);
+      const incomplete = await app.inject({
+        url: `/api/v1/analyses/${failed.id}/shared-knowledge`,
+      });
+      expect(incomplete.json().status).toBe('unavailable');
+      viewerEnabled = false;
+      expect(
+        (await app.inject({ url: `/api/v1/analyses/${run.id}/shared-knowledge` })).statusCode,
+      ).toBe(404);
+      viewerEnabled = true;
+      viewerPresent = false;
+      expect(
+        (await app.inject({ url: `/api/v1/analyses/${run.id}/shared-knowledge` })).statusCode,
+      ).toBe(401);
+      viewerPresent = true;
+
+      expect(response.body).not.toContain('RAW_SOURCE_MUST_NOT_REACH_MODEL');
+      await app.listen({ host: '127.0.0.1', port: 0 });
+      const address = app.server.address();
+      if (!address || typeof address === 'string') throw Error('Owned server required');
+      const vite = await createServer({
+        root: path.resolve('apps/web'),
+        server: {
+          host: '127.0.0.1',
+          port: 0,
+          proxy: { '/api': `http://127.0.0.1:${address.port}` },
+        },
+        plugins: [
+          {
+            name: 'owned-shared-component',
+            configureServer(server) {
+              server.middlewares.use('/__shared-proof', async (_request, response) => {
+                response.setHeader('content-type', 'text/html');
+                response.end(
+                  await server.transformIndexHtml(
+                    '/__shared-proof',
+                    `<!doctype html><html lang="ko"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><main id="root"></main><script type="module">import React from 'react';import {createRoot} from 'react-dom/client';import {SharedKnowledgePanel} from '/src/SharedKnowledgePanel.tsx';import '/src/styles.css';createRoot(document.getElementById('root')).render(React.createElement(SharedKnowledgePanel,{analysisId:'${run.id}'}));</script></body></html>`,
+                  ),
+                );
+              });
+            },
+          },
+        ],
+      });
+      let browser;
+      try {
+        await vite.listen();
+        const web = vite.httpServer!.address();
+        if (!web || typeof web === 'string') throw Error('Owned browser server required');
+        browser = await chromium.launch({ channel: 'chrome', headless: true });
+        const page = await browser.newPage();
+        await page.goto(`http://127.0.0.1:${web.port}/__shared-proof`);
+        await page.getByText('공용 리뷰 기준 버전', { exact: true }).click();
+        await page.getByText('집단 Memory · 발행', { exact: false }).waitFor();
+        await page.getByText('검토 기준 · Shared public criterion · v1', { exact: true }).click();
+        expect(await page.locator('body').innerText()).toContain(criterion);
+        expect(await page.locator('body').innerText()).not.toContain(
+          'RAW_SOURCE_MUST_NOT_REACH_MODEL',
+        );
+        for (const width of [1360, 420]) {
+          await page.setViewportSize({ width, height: 900 });
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+          ).toBe(true);
+          if (process.env.GCR_SHARED_PROOF_DIR) {
+            await import('node:fs/promises').then((fs) =>
+              fs.mkdir(process.env.GCR_SHARED_PROOF_DIR!, { recursive: true }),
+            );
+            await page.screenshot({
+              path: path.join(process.env.GCR_SHARED_PROOF_DIR, `shared-${width}.png`),
+            });
+          }
+        }
+      } finally {
+        await browser?.close();
+        await vite.close();
+      }
+    } finally {
+      await app.close();
+    }
+  }, 60000);
 });

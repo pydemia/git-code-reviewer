@@ -28,7 +28,8 @@
     "jose": "^6.1.0",
     "openid-client": "^6.8.7",
     "xml-crypto": "6.1.2",
-    "zod": "^4.1.11"
+    "zod": "^4.1.11",
+    "@gcr/client-core": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.20.5"

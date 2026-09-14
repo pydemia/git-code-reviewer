@@ -1,3 +1,4 @@
+import { SharedKnowledgePanel } from './SharedKnowledgePanel.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
@@ -153,6 +154,12 @@ export function ReviewReportPanel({
       aria-label={section === 'summary' ? 'PR 검토 요약' : '검토 의견 목록'}
       ref={panel}
     >
+      {section === 'summary' ? (
+        <SharedKnowledgePanel
+          key={report.analysisRevisionId}
+          analysisId={report.analysisRevisionId}
+        />
+      ) : null}
       {section === 'summary' ? (
         <header className="structured-report-heading">
           <div className="report-title-row">

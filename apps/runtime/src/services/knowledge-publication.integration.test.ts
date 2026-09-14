@@ -1,3 +1,9 @@
+import {
+  pinSharedKnowledge,
+  readSharedKnowledgePin,
+  selectPinnedSharedKnowledge,
+} from './analysis-shared-knowledge.js';
+import { selectSharedKnowledge } from '@gcr/client-core';
 import { reconcileCriterionDeadlines } from './criterion-recheck.js';
 import {
   captureSnapshotChangeSource,
@@ -608,6 +614,85 @@ describe.skipIf(!url).sequential('immutable knowledge publication', () => {
     expect(after.row.last_error).toBe('PUBLICATION_INVALID');
     expect(after.row.requested_revision).not.toBe(after.row.published_revision);
   }, 30000);
+  it('pins only actual published public bundles and retains old bytes after retirement and republishing', async () => {
+    const repository = await repo();
+    const id = await activate(repository);
+    await publish(repository);
+    await publish(repository, 'collective');
+    const personalId = await memory(repository, alice, 'decision', 'PRIVATE PERSONAL CONTENT');
+    await approve(repository, personalId, alice);
+    await publish(repository, 'personal', alice);
+    const pinned = await pinSharedKnowledge(db, store, {
+      tenantId: tenant,
+      repositoryId: repository,
+      branch: 'feature',
+      enabled: true,
+    });
+    expect(pinned.value.status).toBe('ready');
+    expect(JSON.stringify(pinned)).not.toContain(personalId);
+    expect(JSON.stringify(pinned)).not.toContain('PRIVATE PERSONAL CONTENT');
+    expect(readSharedKnowledgePin(pinned.value, pinned.hash)).toEqual(pinned.value);
+    const selected = [
+      {
+        source: {
+          path: 'cache.py',
+          side: 'source' as const,
+          hash: hash('cache'),
+          byteLength: 5,
+          lineCount: 1,
+        },
+        text: 'cache',
+      },
+    ];
+    const now = new Date().toISOString();
+    const choice = selectPinnedSharedKnowledge(pinned.value, selected, now);
+    expect(choice).toEqual(
+      selectSharedKnowledge({
+        bundles: {
+          policy: centralKnowledgeBundle(pinned.value.bundles.policy),
+          collective: centralKnowledgeBundle(pinned.value.bundles.collective),
+        },
+        selected,
+        branch: 'feature',
+        now,
+        byteLimit: 65536,
+      }),
+    );
+    expect(choice.items.filter((i) => i.kind === 'policy').map((i) => i.id)).toContain(id);
+    await txn(async (c) =>
+      actOnCriterion(c, await lockCriterion(c, repository, id, 5), admin, {
+        expectedVersion: 5,
+        action: 'retire',
+        note: 'Retired after analysis queued',
+      }),
+    );
+    await publish(repository);
+    const fresh = await pinSharedKnowledge(db, store, {
+      tenantId: tenant,
+      repositoryId: repository,
+      branch: 'feature',
+      enabled: true,
+    });
+    expect(fresh.hash).not.toBe(pinned.hash);
+    expect(selectPinnedSharedKnowledge(pinned.value, selected, now)).toEqual(choice);
+    expect(
+      selectPinnedSharedKnowledge(fresh.value, selected, now).items.filter(
+        (i) => i.kind === 'policy',
+      ),
+    ).toEqual([]);
+    const broken = await pinSharedKnowledge(
+      db,
+      { readText: async () => '{"personal":"leak"}' },
+      { tenantId: tenant, repositoryId: repository, branch: 'feature', enabled: true },
+    );
+    expect(broken.value).toMatchObject({ status: 'unavailable', bundles: {}, releases: [] });
+    expect(() => readSharedKnowledgePin(pinned.value, '0'.repeat(64))).toThrow(
+      'analysis_shared_knowledge_hash',
+    );
+    expect(() => selectPinnedSharedKnowledge(pinned.value, selected, now, 0)).toThrow(
+      'shared_knowledge_incomplete',
+    );
+  });
   it('consumes retired and superseded revision deadlines without requesting publication', async () => {
     const repository = await repo(),
       input = candidate();

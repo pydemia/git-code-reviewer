@@ -1,9 +1,19 @@
+import {
+  pinSharedKnowledge,
+  readSharedKnowledgePin,
+  prepareSharedAnalysisKnowledge,
+  withSharedKnowledge,
+} from '../services/analysis-shared-knowledge.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { captureSnapshotChangeSource } from '../services/criterion-code-sources.js';
 import { reconcileCriterionDeadlines } from '../services/criterion-recheck.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
+import {
+  analyzeSnapshot,
+  validateReviewSkillBundle,
+  type AnalysisFile,
+} from '@gcr/analysis-engine';
 import { defaultReviewSeverityLevel, type ReviewSeverityLevel } from '@gcr/contracts';
 import { FilesystemArtifactStore, type ArtifactCommit } from '@gcr/artifact-store';
 import type { Database, DatabaseClient } from '@gcr/db';
@@ -551,10 +561,12 @@ async function persistMaterialization(
         repository_id: string;
         pull_title: string;
         requested_by: string | null;
+        branch: string | null;
       }>(
         `select active_prompt.id, active_prompt.content_hash, active_prompt.severity_level,
                 repository.tenant_id, repository.id as repository_id,
-                pull_request.title as pull_title, operation.requested_by
+                pull_request.title as pull_title, operation.requested_by,
+                case when pull_request.head_sha=request.head_sha then pull_request.head_ref else null end as branch
          from snapshot_requests request
          join pull_requests pull_request on pull_request.id = request.pull_request_id
          join repositories repository on repository.id = pull_request.repository_id
@@ -574,16 +586,33 @@ async function persistMaterialization(
       const providerVersionId = activeProvider?.id ?? null;
       const providerHash =
         activeProvider?.configurationHash ?? deploymentProvider.configurationHash;
-      const skills = await getEffectiveReviewSkills(connection);
-      memoryOwnerUserId = prompt.rows[0]?.requested_by ?? null;
-      const memory = await recallReviewMemories(connection, {
+      const shared = await pinSharedKnowledge(connection, artifacts, {
         tenantId: prompt.rows[0]!.tenant_id,
         repositoryId: prompt.rows[0]!.repository_id,
-        ...(memoryOwnerUserId ? { ownerUserId: memoryOwnerUserId } : {}),
-        filePaths: materialization.files.map(({ path: filePath }) => filePath),
-        queryText: prompt.rows[0]!.pull_title,
-        approvedBefore: new Date(),
+        branch: prompt.rows[0]!.branch,
+        enabled: config.KNOWLEDGE_PUBLICATION_ENABLED,
       });
+      const skills =
+        shared.value.status === 'ready'
+          ? {
+              versionId: null,
+              bundle: validateReviewSkillBundle(
+                (shared.value.bundles.policy as { skills: unknown }).skills,
+              ),
+            }
+          : await getEffectiveReviewSkills(connection);
+      memoryOwnerUserId = prompt.rows[0]?.requested_by ?? null;
+      const memory =
+        shared.value.status === 'ready' && !memoryOwnerUserId
+          ? { items: [], hash: createHash('sha256').update('[]').digest('hex') }
+          : await recallReviewMemories(connection, {
+              tenantId: prompt.rows[0]!.tenant_id,
+              repositoryId: prompt.rows[0]!.repository_id,
+              ...(memoryOwnerUserId ? { ownerUserId: memoryOwnerUserId } : {}),
+              filePaths: materialization.files.map(({ path: filePath }) => filePath),
+              queryText: prompt.rows[0]!.pull_title,
+              approvedBefore: new Date(),
+            });
       const modelProfile = activeProvider
         ? activeProvider.mode === 'chatgpt-account'
           ? `chatgpt-account:${activeProvider.modelName}:${activeProvider.reasoningEffort}`
@@ -596,19 +625,19 @@ async function persistMaterialization(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
            prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
            skill_version_id, skill_bundle, skill_hash, severity_level, memory_hash,
-           memory_context, memory_owner_user_id
+           memory_context, memory_owner_user_id, shared_knowledge, shared_knowledge_hash
          ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
-           $11, $12, $13, $14::jsonb, $15)
+           $11, $12, $13, $14::jsonb, $15, $16::jsonb, $17)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v7:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}`,
+          `analysis:${snapshotId}:default:v8:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v4:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}`,
+          `default-v5:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
@@ -616,6 +645,8 @@ async function persistMaterialization(
           memory.hash,
           JSON.stringify(memory.items),
           memoryOwnerUserId,
+          JSON.stringify(shared.value),
+          shared.hash,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -692,6 +723,9 @@ export async function executeAnalysisJob(
   const identity = await database.query<{
     base_sha: string;
     head_sha: string;
+    merge_base_sha: string;
+    shared_knowledge: unknown;
+    shared_knowledge_hash: string | null;
     prompt_instructions: string | null;
     prompt_version: number | null;
     prompt_hash: string;
@@ -702,13 +736,14 @@ export async function executeAnalysisJob(
     skill_bundle: unknown;
     skill_hash: string | null;
     tenantId: string;
+    repositoryId: string;
     credentialId: string | null;
     installationId: string;
     memory_context: import('../services/review-memory.js').ReviewMemoryProjection[];
   }>(
-    `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
+    `select sr.base_sha, sr.head_sha, snapshot.merge_base_sha, analysis.shared_knowledge, analysis.shared_knowledge_hash, prompt.instructions as prompt_instructions,
             prompt.version as prompt_version, analysis.prompt_hash, analysis.severity_level,
-            analysis.provider_version_id, repository.tenant_id as "tenantId",
+            analysis.provider_version_id, repository.tenant_id as "tenantId", repository.id as "repositoryId",
             analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
             skills.version as skill_version,
             repository.credential_id as "credentialId",
@@ -733,7 +768,7 @@ export async function executeAnalysisJob(
       ? withAnalysisSourceContext(baseModel, database, artifacts, config, analysisId, snapshotId)
       : null;
   const contextualModel = sourceContext?.model ?? baseModel;
-  const model = contextualModel
+  let model = contextualModel
     ? checkpointReviewModel(
         contextualModel,
         database,
@@ -763,6 +798,41 @@ export async function executeAnalysisJob(
     const id = fileIds.get(file.path);
     return id ? [{ id, ...file }] : [];
   });
+  const sharedPin = readSharedKnowledgePin(row.shared_knowledge, row.shared_knowledge_hash);
+  if (
+    sharedPin &&
+    (sharedPin.repositoryId !== row.repositoryId || sharedPin.tenantId !== row.tenantId)
+  )
+    throw Error('shared_knowledge_scope');
+  const contextLimitations: string[] = [];
+  let sharedValidUntil: string | null = null;
+  let sharedSelectionHash: string | null = null;
+  if (sharedPin && sharedPin.status !== 'disabled') {
+    try {
+      const selection = await prepareSharedAnalysisKnowledge(
+        database,
+        config,
+        analysisId,
+        snapshotId,
+        sharedPin,
+        files,
+        { head: row.head_sha, mergeBase: row.merge_base_sha },
+      );
+      sharedValidUntil = selection.validUntil;
+      sharedSelectionHash = (
+        await database.query<{ context_hash: string }>(
+          'select context_hash from analysis_shared_selections where analysis_id=$1',
+          [analysisId],
+        )
+      ).rows[0]!.context_hash;
+      if (model) model = withSharedKnowledge(model, selection);
+    } catch {
+      model = undefined;
+      contextLimitations.push(
+        '고정된 공용 리뷰 기준이나 동일 Git SHA의 전체 원문을 확인하지 못했습니다. 공용 기준 리뷰는 미완료입니다. 새 분석을 요청해 발행·출처·예외 시각을 다시 확인하세요.',
+      );
+    }
+  }
   await updateAnalysisState(database, job, 'analyzing', 'review', 25);
   try {
     const output = await withModelBudget(
@@ -791,6 +861,7 @@ export async function executeAnalysisJob(
           patch: diff.patch,
           files,
           memory: row.memory_context,
+          contextLimitations,
           fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
           ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
           ...(model ? { model } : {}),
@@ -819,6 +890,25 @@ export async function executeAnalysisJob(
           },
         }),
     );
+    if (sharedPin) {
+      output.report.versions.sharedKnowledge = row.shared_knowledge_hash!;
+      output.report.versions.sharedKnowledgeStatus = sharedSelectionHash
+        ? 'selected'
+        : sharedPin.status === 'ready'
+          ? 'unavailable'
+          : sharedPin.status;
+      if (sharedSelectionHash) output.report.versions.sharedSelection = sharedSelectionHash;
+    }
+    if (sharedValidUntil && sharedValidUntil <= new Date().toISOString()) {
+      output.state = 'partial';
+      output.report.coverage.truncated = true;
+      output.report.coverage.limitations.push(
+        '검토 중 공용 기준의 예외·만료 시각에 도달했습니다. 새 분석이 필요합니다.',
+      );
+      output.graph.coverage.truncated = true;
+      if (output.report.analysis && output.report.analysis.status === 'pass')
+        output.report.analysis.status = 'incomplete';
+    }
     await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
     if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
     await persistAnalysis(

@@ -56,6 +56,7 @@ export type AnalysisInput = {
   severityLevel?: ReviewSeverityLevel;
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
   memory?: ReviewMemoryProjection[];
+  contextLimitations?: string[];
   budgets?: Partial<AnalysisBudgets>;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 };
@@ -95,7 +96,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
   const eligible = classified.filter((file) => file.analyzable);
   const selected = eligible.slice(0, budgets.maxFiles);
   const bytes = selected.reduce((total, file) => total + Buffer.byteLength(file.patch), 0);
-  const limitations: string[] = [];
+  const limitations: string[] = [...(input.contextLimitations ?? [])];
   if (eligible.length > selected.length)
     limitations.push(`file budget: ${eligible.length - selected.length}개 file 생략`);
   if (bytes > budgets.maxBytes) limitations.push('canonical diff byte budget 초과');

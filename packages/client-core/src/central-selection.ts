@@ -63,21 +63,47 @@ function matches(
   );
 }
 /** Deterministic grouping follows applicability. Scope symbols/contracts are lexical candidates, never proof of a current defect. */
-export function selectCentralKnowledge(input: {
-  bundles: Record<'policy' | 'collective' | 'personal', CentralKnowledgeBundle>;
+type SelectionInput = {
   selected: Array<{ source: SourceFile; text: string }>;
   branch: string | null;
   now: string;
   byteLimit: number;
-}): CentralSelection {
+};
+export function selectCentralKnowledge(
+  input: SelectionInput & {
+    bundles: Record<'policy' | 'collective' | 'personal', CentralKnowledgeBundle>;
+  },
+): CentralSelection {
+  const personal = centralKnowledgeBundle(input.bundles.personal);
+  if (personal.component !== 'personal') throw Error('central-precedence-contract-required');
+  return selectKnowledge({ ...input, bundles: { ...input.bundles, personal } });
+}
+/** Public PR analyses never read or construct a personal projection. */
+export function selectSharedKnowledge(
+  input: SelectionInput & {
+    bundles: Record<'policy' | 'collective', CentralKnowledgeBundle>;
+  },
+): CentralSelection {
+  return selectKnowledge({
+    ...input,
+    bundles: { policy: input.bundles.policy, collective: input.bundles.collective },
+  });
+}
+function selectKnowledge(
+  input: SelectionInput & {
+    bundles: Record<'policy' | 'collective', CentralKnowledgeBundle> & {
+      personal?: CentralKnowledgeBundle;
+    };
+  },
+): CentralSelection {
   const policy = centralKnowledgeBundle(input.bundles.policy),
     collective = centralKnowledgeBundle(input.bundles.collective),
-    personal = centralKnowledgeBundle(input.bundles.personal);
+    personal = input.bundles.personal ? centralKnowledgeBundle(input.bundles.personal) : undefined;
   if (
     policy.component !== 'policy' ||
     collective.component !== 'collective' ||
-    personal.component !== 'personal' ||
-    [policy, collective, personal].some((b) => b.schemaVersion !== 2)
+    (personal && personal.component !== 'personal') ||
+    [policy, collective, ...(personal ? [personal] : [])].some((b) => b.schemaVersion !== 2)
   )
     throw Error('central-precedence-contract-required');
   if (
@@ -89,7 +115,7 @@ export function selectCentralKnowledge(input: {
   )
     throw Error('invalid-central-selection');
   if (
-    [collective, personal].some(
+    [collective, ...(personal ? [personal] : [])].some(
       (b) => b.tenantId !== policy.tenantId || b.repositoryId !== policy.repositoryId,
     )
   )
@@ -183,7 +209,7 @@ export function selectCentralKnowledge(input: {
     targets: Target[];
   }> = [];
   const seen = new Set<string>();
-  for (const bundle of [collective, personal])
+  for (const bundle of [collective, ...(personal ? [personal] : [])])
     for (const memory of bundle.memories) {
       if (seen.has(memory.id)) throw Error('duplicate-central-memory');
       seen.add(memory.id);
