@@ -13,6 +13,7 @@ import {
 import type { DatabaseClient } from '@gcr/db';
 import type { z } from 'zod';
 import { listSnapshotChangeSources } from './criterion-code-sources.js';
+import { requireCurrentCriterionSources } from './criterion-recheck.js';
 
 type Connection = Pick<DatabaseClient, 'query'>;
 type Source = z.infer<typeof criterionSourceSchema>;
@@ -278,6 +279,7 @@ export async function evaluateCriterion(
     throw conflict(
       '평가 기록은 후보 상태에서 추가할 수 있습니다. 내용을 재검토하려면 새 버전을 등록해 주세요.',
     );
+  await requireCurrentCriterionSources(connection, rule);
   const cases = input.cases.map((item) => ({ ...item, sourceHash: criteriaHash(item.source) }));
   const passed = cases.every(
     (item) => item.observed === (item.kind === 'defect' ? 'finding' : 'clear'),
@@ -305,6 +307,7 @@ export async function actOnCriterion(
   input: CriterionAction,
 ) {
   const { action, note } = input;
+  if (action !== 'retire') await requireCurrentCriterionSources(connection, rule);
   if (action === 'approve-owner') {
     if (rule.state !== 'evaluated')
       throw conflict('평가를 통과한 버전에 책임자 승인을 기록할 수 있습니다.');

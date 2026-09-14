@@ -1,4 +1,5 @@
 import { CriterionSourceEvidence } from './CriterionSourceEvidence.tsx';
+import { CriterionRecheckPanel } from './CriterionRecheckPanel.tsx';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   criterionEvaluationCreateSchema,
@@ -60,6 +61,7 @@ export function ReviewCriteriaPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [onlyRechecks, setOnlyRechecks] = useState(false);
   const generation = useRef(0);
 
   useEffect(() => {
@@ -160,6 +162,30 @@ export function ReviewCriteriaPage() {
     }
   };
 
+  const edit = async () => {
+    if (!detail) return;
+    const current = ++generation.current;
+    setBusy(true);
+    setError('');
+    try {
+      const signal = new AbortController().signal;
+      const [next, available] = await Promise.all([
+        loadCriterion(repositoryId, detail.criterion.id, signal),
+        loadCriterionSources(repositoryId, signal),
+      ]);
+      if (current === generation.current) {
+        setDetail(next);
+        setSources(available);
+        setAccess(next.capabilities);
+        setEditing(true);
+      }
+    } catch (cause) {
+      if (current === generation.current) setError(message(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       <AppHeader user={user} />
@@ -248,20 +274,31 @@ export function ReviewCriteriaPage() {
                   {access.manage ? ' PR 논의나 검토 기록에서 첫 후보를 등록하세요.' : ''}
                 </p>
               ) : null}
-              {items.map((rule) => (
-                <button
-                  type="button"
-                  className={`criteria-list-item ${detail?.criterion.id === rule.id ? 'selected' : ''}`}
-                  key={rule.id}
-                  disabled={busy}
-                  onClick={() => void open(rule.id)}
-                >
-                  <strong>{rule.document.title}</strong>
-                  <span>
-                    {stateLabels[rule.state]} · {rule.document.severity} · v{rule.revision}
-                  </span>
-                </button>
-              ))}
+              <label className="criteria-recheck-filter">
+                <input
+                  type="checkbox"
+                  checked={onlyRechecks}
+                  onChange={(event) => setOnlyRechecks(event.target.checked)}
+                />{' '}
+                재검토 필요만 표시
+              </label>
+              {items
+                .filter((rule) => !onlyRechecks || rule.reviewStatus?.requiresReview)
+                .map((rule) => (
+                  <button
+                    type="button"
+                    className={`criteria-list-item ${detail?.criterion.id === rule.id ? 'selected' : ''}`}
+                    key={rule.id}
+                    disabled={busy}
+                    onClick={() => void open(rule.id)}
+                  >
+                    <strong>{rule.document.title}</strong>
+                    <span>
+                      {stateLabels[rule.state]} · {rule.document.severity} · v{rule.revision}
+                      {rule.reviewStatus?.requiresReview ? ' · 재검토 필요' : ''}
+                    </span>
+                  </button>
+                ))}
               {items.length === 100 ? <small>최근 변경한 기준 100개를 표시합니다.</small> : null}
             </aside>
             <section className="criteria-detail" aria-label="기준 상세">
@@ -293,7 +330,7 @@ export function ReviewCriteriaPage() {
                   userId={user?.id ?? null}
                   busy={busy}
                   onMutation={mutation}
-                  onEdit={() => setEditing(true)}
+                  onEdit={() => void edit()}
                   onAction={(action, note) =>
                     mutation(
                       () =>
@@ -399,6 +436,7 @@ function CriterionView({
         기준의 활성 상태와 번들 발행은 별개입니다. 현재 발행 버전은 위의 리뷰 지식 배포에서 확인할
         수 있습니다.
       </p>
+      <CriterionRecheckPanel status={rule.reviewStatus} />
       <p className="criteria-prose">{rule.document.requirement}</p>
       <h3>기준의 이유</h3>
       <p className="criteria-prose">{rule.document.rationale}</p>
@@ -468,10 +506,18 @@ function CriterionView({
       ) : null}
       {access.manage && rule.state === 'draft' ? (
         <>
-          <button disabled={busy} onClick={() => setEvaluationOpen((value) => !value)}>
+          <button
+            disabled={busy || rule.reviewStatus?.promotionBlocked}
+            onClick={() => setEvaluationOpen((value) => !value)}
+          >
             평가 기록 추가
           </button>
-          {evaluationOpen ? <EvaluationForm busy={busy} onSubmit={onEvaluate} /> : null}
+          {evaluationOpen ? (
+            <EvaluationForm
+              busy={busy || Boolean(rule.reviewStatus?.promotionBlocked)}
+              onSubmit={onEvaluate}
+            />
+          ) : null}
         </>
       ) : null}
       {actions.length ? (
@@ -489,7 +535,11 @@ function CriterionView({
             {actions.map(([action, label]) => (
               <button
                 key={action}
-                disabled={busy || !note.trim()}
+                disabled={
+                  busy ||
+                  !note.trim() ||
+                  (action !== 'retire' && rule.reviewStatus?.promotionBlocked)
+                }
                 onClick={() => void onAction(action, note.trim())}
               >
                 {label}

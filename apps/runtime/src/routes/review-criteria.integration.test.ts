@@ -1219,6 +1219,189 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       )[0],
     };
   };
+  const currentDetail = async (rule: CriterionDetail) =>
+    criterionDetailSchema.parse(
+      (await app.inject({ url: `${base()}/${rule.criterion.id}`, headers: headers() })).json(),
+    );
+  it('blocks stale source evaluation and approval, refreshes new revisions, and redacts unavailable history', async () => {
+    const item = await codeSource();
+    const input = fixture();
+    input.decision.sources = [
+      { kind: 'snapshot-change', id: item.file, contentHash: item.source!.contentHash },
+    ];
+    let draft = await create(input);
+    let evaluated = await transition(await recordEvaluation(await create(input)), 'evaluate');
+    const shadow = await transition(
+      await transition(await recordEvaluation(await create(input)), 'evaluate'),
+      'shadow',
+    );
+    expect(draft.criterion.reviewStatus).toMatchObject({
+      requiresReview: false,
+      promotionBlocked: false,
+      sources: [{ status: 'current' }],
+    });
+    const changedContent = item.content + '# changed evidence\n';
+    await database.query(
+      'update snapshot_change_sources set content=$2,content_hash=$3 where file_id=$1',
+      [
+        item.file,
+        changedContent,
+        criteriaHash({ content: changedContent, codeChange: item.source!.codeChange }),
+      ],
+    );
+    const record = await app.inject({
+      method: 'POST',
+      url: `${base()}/${draft.criterion.id}/evaluations`,
+      headers: headers(),
+      payload: { expectedVersion: draft.criterion.version, ...evaluation() },
+    });
+    expect(record.statusCode).toBe(409);
+    expect(record.json().error.code).toBe('CRITERION_RECHECK_REQUIRED');
+    for (const [rule, command, actor] of [
+      [draft, 'evaluate', 'maintainer'],
+      [evaluated, 'approve-owner', 'owner'],
+      [evaluated, 'shadow', 'maintainer'],
+      [shadow, 'activate', 'maintainer'],
+    ] as const) {
+      const response = await action(rule, command, actor);
+      expect(response.statusCode).toBe(409);
+      expect(response.json().error.code).toBe('CRITERION_RECHECK_REQUIRED');
+    }
+    const stale = await currentDetail(draft);
+    expect(stale.criterion.reviewStatus).toMatchObject({
+      requiresReview: true,
+      promotionBlocked: true,
+      sources: [{ status: 'changed' }],
+    });
+    expect(stale.revisions[0]!.decision.sources[0]!.content).toBe(item.content);
+    const fresh = (await listSnapshotChangeSources(database, repositoryId, item.file))[0]!;
+    const revised = await app.inject({
+      method: 'POST',
+      url: `${base()}/${draft.criterion.id}/revisions`,
+      headers: headers(),
+      payload: {
+        ...input,
+        expectedVersion: draft.criterion.version,
+        decision: {
+          ...input.decision,
+          sources: [{ kind: 'snapshot-change', id: item.file, contentHash: fresh.contentHash }],
+        },
+      },
+    });
+    expect(revised.statusCode, revised.body).toBe(201);
+    draft = criterionDetailSchema.parse(revised.json());
+    expect(draft.criterion.reviewStatus?.promotionBlocked).toBe(false);
+    expect((await action(draft, 'evaluate')).statusCode).toBe(409);
+    draft = await recordEvaluation(draft);
+    expect(draft.evaluations[0]!.revision).toBe(2);
+    await database.query('delete from snapshot_files where id=$1', [item.file]);
+    expect(
+      (await database.query('select 1 from snapshot_files where id=$1', [item.file])).rowCount,
+    ).toBe(0);
+    const hidden = await currentDetail(draft);
+    expect(hidden.criterion.reviewStatus?.sources[0]?.status).toBe('unavailable');
+    for (const revision of hidden.revisions) {
+      expect(revision.decision.sources[0]).toMatchObject({
+        unavailable: true,
+        baseSha: null,
+        headSha: null,
+      });
+      expect(revision.decision.sources[0]!.codeChange).toBeUndefined();
+      expect(revision.decision.sources[0]!.content).not.toContain('cache[');
+    }
+    expect(
+      (
+        await database.query('select sources from review_decisions where id=$1', [
+          draft.revisions[0]!.decision.id,
+        ])
+      ).rows[0].sources[0].content,
+    ).toBe(changedContent);
+    const list = criterionListSchema.parse(
+      (await app.inject({ url: base(), headers: headers() })).json(),
+    );
+    expect(list.items.find((r) => r.id === draft.criterion.id)?.reviewStatus?.requiresReview).toBe(
+      true,
+    );
+    evaluated = await transition(evaluated, 'retire');
+    expect(evaluated.criterion.reviewStatus?.requiresReview).toBe(false);
+  });
+  it('redacts a formerly collective memory when it becomes personal', async () => {
+    const source = (
+      await database.query('select * from review_memories where id=$1', [collectiveMemoryId])
+    ).rows[0];
+    const input = fixture();
+    input.decision.sources = [{ kind: 'memory', id: source.id, contentHash: source.content_hash }];
+    const rule = await create(input);
+    await database.query(
+      "update review_memories set scope='personal',owner_user_id=$2 where id=$1",
+      [source.id, actors.get('maintainer')!.id],
+    );
+    try {
+      const hidden = await currentDetail(rule);
+      expect(hidden.revisions[0]!.decision.sources[0]).toMatchObject({ unavailable: true });
+      expect(hidden.revisions[0]!.decision.sources[0]!.content).not.toBe(source.summary);
+      expect(hidden.criterion.reviewStatus?.promotionBlocked).toBe(true);
+    } finally {
+      await database.query(
+        "update review_memories set scope='collective',owner_user_id=null where id=$1",
+        [source.id],
+      );
+    }
+  });
+  it.each(['snapshot_files', 'snapshots', 'snapshot_requests'] as const)(
+    'queues source invalidation while %s deletion still executes',
+    async (table) => {
+      const item = await codeSource();
+      const input = fixture();
+      input.decision.sources = [
+        { kind: 'snapshot-change', id: item.file, contentHash: item.source!.contentHash },
+      ];
+      const rule = await create(input);
+      const revision = async () =>
+        Number(
+          (
+            await database.query(
+              "select requested_revision from review_knowledge_scopes where repository_id=$1 and component='policy'",
+              [repositoryId],
+            )
+          ).rows[0].requested_revision,
+        );
+      const before = await revision();
+      const id =
+        table === 'snapshot_files'
+          ? item.file
+          : table === 'snapshots'
+            ? item.snapshot
+            : item.request;
+      await database.query(`delete from ${table} where id=$1`, [id]);
+      expect((await database.query(`select 1 from ${table} where id=$1`, [id])).rowCount).toBe(0);
+      expect(await revision()).toBeGreaterThan(before);
+      expect((await currentDetail(rule)).criterion.reviewStatus?.promotionBlocked).toBe(true);
+    },
+  );
+  it('marks review dates for attention without blocking current source promotion', async () => {
+    const input = fixture();
+    input.document.reviewAfter = '2020-01-01T00:00:00.000Z';
+    let rule = await create(input);
+    expect(rule.criterion.reviewStatus).toMatchObject({
+      reviewDateReached: true,
+      requiresReview: true,
+      promotionBlocked: false,
+    });
+    rule = await transition(
+      await transition(await transition(await recordEvaluation(rule), 'evaluate'), 'shadow'),
+      'activate',
+    );
+    expect(rule.criterion.state).toBe('active');
+    expect(
+      (
+        await database.query(
+          "select due_at from review_criterion_deadlines where rule_id=$1 and kind='review-date'",
+          [rule.criterion.id],
+        )
+      ).rows[0].due_at.toISOString(),
+    ).toBe(input.document.reviewAfter);
+  });
   it('pins central code changes with discussion sources and keeps the snapshot when the PR advances', async () => {
     const item = await codeSource();
     expect(item.source!.content).toBe(item.content);
@@ -1840,6 +2023,70 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
           fullPage: false,
         });
       }
+      // A fresh API load must expose rechecks and refresh sources before revision authoring.
+      const recheckInput = fixture();
+      recheckInput.document.title = '출처 변경 재검토 브라우저';
+      recheckInput.decision.sources = [
+        {
+          kind: 'snapshot-change',
+          id: browserCode.file,
+          contentHash: browserCode.source!.contentHash,
+        },
+      ];
+      const recheckRule = await create(recheckInput);
+      await database.query('delete from snapshot_change_sources where file_id=$1', [
+        browserCode.file,
+      ]);
+      await page.reload();
+      await page.getByLabel('재검토 필요만 표시', { exact: true }).check();
+      expect(await page.getByRole('button', { name: /브라우저 검증: 테넌트 캐시/ }).count()).toBe(
+        0,
+      );
+      await page.getByRole('button', { name: /출처 변경 재검토 브라우저/ }).click();
+      await page.getByRole('heading', { name: '재검토가 필요합니다', exact: true }).waitFor();
+      expect(
+        await page.getByRole('button', { name: '평가 기록 추가', exact: true }).isDisabled(),
+      ).toBe(true);
+      await page.getByLabel('검토 메모', { exact: true }).fill('Source must be rechecked');
+      expect(
+        await page.getByRole('button', { name: '평가 통과 처리', exact: true }).isDisabled(),
+      ).toBe(true);
+      expect(await page.getByRole('button', { name: '퇴역', exact: true }).isEnabled()).toBe(true);
+      expect(await page.locator('.criteria-source').innerText()).not.toContain('cache[');
+      for (const width of [1360, 420]) {
+        await page.setViewportSize({ width, height: 1050 });
+        await page
+          .getByRole('region', { name: '기준 재검토', exact: true })
+          .scrollIntoViewIfNeeded();
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+        ).toBe(true);
+        if (process.env.GCR_RECHECK_PROOF_DIR) {
+          await mkdir(process.env.GCR_RECHECK_PROOF_DIR, { recursive: true });
+          await page.screenshot({
+            path: path.join(process.env.GCR_RECHECK_PROOF_DIR, `recheck-${width}.png`),
+          });
+        }
+      }
+      const replacementContent = browserCode.content + '# refreshed evidence\n';
+      await captureSnapshotChangeSource(database, browserCode.file, replacementContent);
+      await page.getByRole('button', { name: '새 버전 작성', exact: true }).click();
+      await page.getByLabel('재검토 시각 (선택)').fill('2030-01-02T15:04:05');
+      const revisionForm = page.locator('.criteria-form');
+      await revisionForm.getByText('PR 논의·코드 변경·집단 메모리 선택', { exact: true }).click();
+      const refreshed = revisionForm
+        .locator('.criteria-source-option')
+        .filter({ hasText: `PR #${browserCode.number}` });
+      await refreshed.locator('input[type="checkbox"]').check();
+      expect(await refreshed.innerText()).toContain('# refreshed evidence');
+      await page.getByRole('button', { name: '후보 저장', exact: true }).click();
+      await page.getByText('후보 버전을 저장했습니다.', { exact: true }).waitFor();
+      const revised = await currentDetail(recheckRule);
+      expect(revised.criterion.revision).toBe(2);
+      expect(revised.criterion.reviewStatus?.requiresReview).toBe(false);
+      expect(revised.criterion.document.reviewAfter).not.toBeNull();
+      expect(revised.revisions[0]!.decision.sources[0]!.content).toBe(replacementContent);
+      expect(revised.evaluations).toEqual([]);
       await context.close();
     } finally {
       const page = browser?.contexts()[0]?.pages()[0];

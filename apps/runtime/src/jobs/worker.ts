@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { captureSnapshotChangeSource } from '../services/criterion-code-sources.js';
+import { reconcileCriterionDeadlines } from '../services/criterion-recheck.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
@@ -192,6 +193,7 @@ export async function runWorker(
       knowledgeRunning = true;
       const task = (async () => {
         if (Date.now() >= nextManifestCleanupAt) {
+          await reconcileCriterionDeadlines(database);
           await removeExpiredKnowledgeManifests(database);
           nextManifestCleanupAt = Date.now() + 60000;
         }

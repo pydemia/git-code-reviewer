@@ -8,6 +8,8 @@ import {
   criterionExceptionRevokeSchema,
   criterionRoleAssignmentSchema,
   criterionGenerationCreateSchema,
+  criterionSourceSchema,
+  type CriterionSummary,
 } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -36,6 +38,7 @@ import {
   enqueueCriterionGeneration,
   generationSelection,
 } from '../services/criterion-generation.js';
+import { criterionReviewStatus, criterionSourceInspector } from '../services/criterion-recheck.js';
 
 const repositoryParams = z.object({ repoId: z.string().uuid() });
 const ruleParams = repositoryParams.extend({ ruleId: z.string().uuid() });
@@ -130,10 +133,43 @@ export async function registerReviewCriteriaRoutes(
         `select ${generationSelection} from review_criterion_generations where rule_id=$1 and state='completed' limit 1`,
         [ruleId],
       );
+      const now = (await connection.query<{ now: Date }>('select statement_timestamp() as now'))
+        .rows[0]!.now;
+      const inspect = criterionSourceInspector(connection, repositoryId);
+      const current = revisions.rows[0]!;
+      const reviewStatus = await criterionReviewStatus(
+        connection,
+        rule.rows[0],
+        z.array(criterionSourceSchema).parse(current.decision.sources),
+        current.decision.sourceHash,
+        now,
+        inspect,
+      );
+      for (const revision of revisions.rows) {
+        const visible = [];
+        for (const source of z.array(criterionSourceSchema).parse(revision.decision.sources)) {
+          const state = await inspect(source);
+          visible.push(
+            state.status === 'unavailable'
+              ? {
+                  kind: source.kind,
+                  id: source.id,
+                  contentHash: source.contentHash,
+                  label: '사용할 수 없는 출처',
+                  content: '출처에 접근할 수 없거나 더 이상 기준 출처로 사용할 수 없습니다.',
+                  baseSha: null,
+                  headSha: null,
+                  unavailable: true,
+                }
+              : source,
+          );
+        }
+        revision.decision.sources = visible;
+      }
       await connection.query('commit');
       return {
         schemaVersion: 1,
-        criterion: rule.rows[0],
+        criterion: { ...rule.rows[0], reviewStatus },
         generation: generation.rows[0] ?? null,
         capabilities: access,
         feedback: feedback.rows,
@@ -194,11 +230,37 @@ export async function registerReviewCriteriaRoutes(
     routes.get(base, { preHandler: requireUser }, async (request) => {
       const { repoId } = repositoryParams.parse(request.params);
       const access = await capabilities(request, repoId);
-      const items = await database.query(
-        `select ${criterionSelection} ${criterionJoins} where r.repository_id = $1 order by r.updated_at desc, r.id limit 100`,
-        [repoId],
-      );
-      return { schemaVersion: 1, items: items.rows, capabilities: access };
+      const c = await database.connect();
+      try {
+        await c.query('begin isolation level repeatable read read only');
+        const items = await c.query<CriterionSummary & { sources: unknown; sourceHash: string }>(
+          `select ${criterionSelection},decision.sources,decision.source_hash as "sourceHash" ${criterionJoins} where r.repository_id = $1 order by r.updated_at desc, r.id limit 100`,
+          [repoId],
+        );
+        const now = (await c.query<{ now: Date }>('select statement_timestamp() as now')).rows[0]!
+          .now;
+        const inspect = criterionSourceInspector(c, repoId);
+        const visible = [];
+        for (const { sources, sourceHash, ...rule } of items.rows)
+          visible.push({
+            ...rule,
+            reviewStatus: await criterionReviewStatus(
+              c,
+              rule,
+              z.array(criterionSourceSchema).parse(sources),
+              sourceHash,
+              now,
+              inspect,
+            ),
+          });
+        await c.query('commit');
+        return { schemaVersion: 1, items: visible, capabilities: access };
+      } catch (error) {
+        await c.query('rollback');
+        throw error;
+      } finally {
+        c.release();
+      }
     });
     routes.get(`${base}/sources`, { preHandler: requireUser }, async (request) => {
       const { repoId } = repositoryParams.parse(request.params);

@@ -323,7 +323,7 @@ export async function projectKnowledge(connection: Connection, scope: KnowledgeS
       expires_at: Date;
       approved_by: string;
     }>(
-      `select e.* from review_rule_exceptions e where e.rule_id=$1 and e.revision=$2 and exists(select 1 from review_rule_feedback f where f.id=e.request_id and f.created_by<>e.approved_by) and not exists(select 1 from review_rule_exception_revocations v where v.exception_id=e.id) order by e.id`,
+      `select e.* from review_rule_exceptions e where e.rule_id=$1 and e.revision=$2 and e.expires_at>statement_timestamp() and exists(select 1 from review_rule_feedback f where f.id=e.request_id and f.created_by<>e.approved_by) and not exists(select 1 from review_rule_exception_revocations v where v.exception_id=e.id) order by e.id`,
       [rule.id, rule.current_revision],
     );
     for (const exception of rows.rows) {

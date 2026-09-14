@@ -237,6 +237,22 @@ export const criterionGenerationListSchema = z.object({
 export type CriterionGenerationCreate = z.infer<typeof criterionGenerationCreateSchema>;
 export type CriterionGeneration = z.infer<typeof criterionGenerationSchema>;
 
+export const criterionReviewStatusSchema = z.object({
+  checkedAt: z.string().datetime({ offset: true }),
+  requiresReview: z.boolean(),
+  promotionBlocked: z.boolean(),
+  reviewDateReached: z.boolean(),
+  expiredExceptions: z.number().int().nonnegative(),
+  sourceSetChanged: z.boolean(),
+  sources: z.array(
+    z.object({
+      kind: criterionSourceSchema.shape.kind,
+      id: z.string().uuid().nullable(),
+      status: z.enum(['current', 'changed', 'unavailable']),
+    }),
+  ),
+});
+export type CriterionReviewStatus = z.infer<typeof criterionReviewStatusSchema>;
 export const criterionSummarySchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
@@ -250,6 +266,7 @@ export const criterionSummarySchema = z.object({
   outcome: reviewDecisionOutcomeSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
+  reviewStatus: criterionReviewStatusSchema.optional(),
 });
 export const criterionCapabilitiesSchema = z.object({
   manage: z.boolean(),
@@ -314,7 +331,7 @@ export const criterionDetailSchema = z.object({
         reasoning: text(4000),
         origin: z.enum(['maintainer-curated', 'model-candidate']),
         sourceHash: hash,
-        sources: z.array(criterionSourceSchema),
+        sources: z.array(criterionSourceSchema.extend({ unavailable: z.boolean().optional() })),
       }),
     }),
   ),

@@ -1,3 +1,4 @@
+import { reconcileCriterionDeadlines } from './criterion-recheck.js';
 import {
   captureSnapshotChangeSource,
   listSnapshotChangeSources,
@@ -23,6 +24,7 @@ import {
 import { criterionCreateSchema, criterionEvaluationCreateSchema } from '@gcr/contracts';
 import {
   createCriterion,
+  reviseCriterion,
   lockCriterion,
   evaluateCriterion,
   actOnCriterion,
@@ -606,6 +608,81 @@ describe.skipIf(!url).sequential('immutable knowledge publication', () => {
     expect(after.row.last_error).toBe('PUBLICATION_INVALID');
     expect(after.row.requested_revision).not.toBe(after.row.published_revision);
   }, 30000);
+  it('consumes retired and superseded revision deadlines without requesting publication', async () => {
+    const repository = await repo(),
+      input = candidate();
+    input.document.reviewAfter = '2020-01-01T00:00:00.000Z';
+    const retired = await activate(repository, input);
+    await txn(async (c) => {
+      const rule = await lockCriterion(c, repository, retired, 5);
+      await actOnCriterion(c, rule, admin, {
+        expectedVersion: rule.version,
+        action: 'retire',
+        note: 'Synthetic retirement',
+      });
+    });
+    const revised = await txn((c) => createCriterion(c, repository, admin, input));
+    input.document.reviewAfter = null;
+    await txn(async (c) =>
+      reviseCriterion(c, await lockCriterion(c, repository, revised, 1), admin, input),
+    );
+    const initial = await publish(repository);
+    expect(await reconcileCriterionDeadlines(db)).toBe(2);
+    expect((await read(initial.row.id)).row.requested_revision).toBe(
+      initial.row.requested_revision,
+    );
+    expect(await reconcileCriterionDeadlines(db)).toBe(0);
+  });
+  it('consumes due boundaries once across workers and keeps rules after review dates and exception expiry', async () => {
+    const repository = await repo(),
+      input = candidate();
+    input.document.reviewAfter = '2020-01-01T00:00:00.000Z';
+    const criterion = await activate(repository, input);
+    const initial = await publish(repository);
+    const request = (
+      await db.query(
+        `insert into review_rule_feedback(rule_id,revision,request,created_by) values($1,1,'{"kind":"exception","message":"Historical approved exception"}',$2) returning id`,
+        [criterion, alice],
+      )
+    ).rows[0].id;
+    const exception = (
+      await db.query(
+        `insert into review_rule_exceptions(rule_id,revision,request_id,applies_to,reason,starts_at,expires_at,approved_by) values($1,1,$2,'{"filePaths":["cache.py"],"languages":[],"symbols":[],"contracts":[],"branches":[]}','Historical approved exception','2020-01-01','2020-01-02',$3) returning id`,
+        [criterion, request, bob],
+      )
+    ).rows[0].id;
+    const before = await read(initial.row.id);
+    const processed = await Promise.all([
+      reconcileCriterionDeadlines(db, 1),
+      reconcileCriterionDeadlines(db, 1),
+    ]);
+    expect(processed).toEqual([1, 1]);
+    expect(await reconcileCriterionDeadlines(db)).toBe(1);
+    expect(await reconcileCriterionDeadlines(db)).toBe(0);
+    const queued = await read(initial.row.id);
+    expect(Number(queued.row.requested_revision)).toBe(Number(before.row.requested_revision) + 3);
+    expect(queued.row.current_release_id).toBe(initial.row.current_release_id);
+    expect(
+      (
+        await db.query('select processed_at from review_criterion_deadlines where rule_id=$1', [
+          criterion,
+        ])
+      ).rows.every((r) => r.processed_at instanceof Date),
+    ).toBe(true);
+    const published = await publish(repository);
+    expect(
+      published.bundle.component === 'policy' && published.bundle.criteria.map((r) => r.id),
+    ).toContain(criterion);
+    expect(published.bytes).not.toContain(exception);
+    expect(
+      (await db.query('select 1 from review_rule_exceptions where id=$1', [exception])).rowCount,
+    ).toBe(1);
+    expect(
+      (await db.query('select state from review_rules where id=$1', [criterion])).rows[0].state,
+    ).toBe('active');
+    expect(await store.readText(initial.row.locator)).toBe(initial.bytes);
+    await expect(reconcileCriterionDeadlines(db, 101)).rejects.toThrow('Invalid deadline batch');
+  });
   it('publishes only approved criteria from pinned code and withdraws unavailable code on the next release', async () => {
     const repository = await repo();
     const pr = (
@@ -677,7 +754,16 @@ describe.skipIf(!url).sequential('immutable knowledge publication', () => {
     await expect(
       issueKnowledgeManifest(db, store, signing, repository, admin, 2),
     ).rejects.toMatchObject({ statusCode: 426 });
+    await db.query('update snapshot_change_sources set content=content where file_id=$1', [file]);
+    expect((await read(initial.row.id)).row.requested_revision).toBe(
+      initial.row.requested_revision,
+    );
     await db.query('delete from snapshot_change_sources where file_id=$1', [file]);
+    const queued = await read(initial.row.id);
+    expect(Number(queued.row.requested_revision)).toBeGreaterThan(
+      Number(initial.row.requested_revision),
+    );
+    expect(queued.row.current_release_id).toBe(initial.row.current_release_id);
     const withdrawn = await publish(repository);
     expect(withdrawn.bundle.component === 'policy' && withdrawn.bundle.criteria).toEqual([]);
     expect(withdrawn.row.release_sequence).toBeGreaterThan(initial.row.release_sequence);

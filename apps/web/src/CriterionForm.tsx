@@ -16,6 +16,11 @@ function lines(value: string) {
     .map((line) => line.trim())
     .filter(Boolean);
 }
+function localDateTime(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+}
 export function CriterionForm({
   detail,
   submissionSource,
@@ -49,6 +54,7 @@ export function CriterionForm({
         ...(observationHash ? { observationHash } : {}),
       }));
     const manual = submissionSource ?? get('source').trim();
+    const reviewAfter = get('reviewAfter');
     const parsed = criterionCreateSchema.safeParse({
       document: {
         title: get('title'),
@@ -57,7 +63,7 @@ export function CriterionForm({
         rationale: get('rationale'),
         severity: get('severity'),
         enforcement: 'advisory',
-        reviewAfter: existing?.reviewAfter ?? null,
+        reviewAfter: reviewAfter ? new Date(reviewAfter).toISOString() : null,
         counterEvidence: lines(get('counterEvidence')),
         reviewSteps: lines(get('reviewSteps')),
         appliesTo: Object.fromEntries(
@@ -152,6 +158,19 @@ export function CriterionForm({
             </select>
           </label>
         </div>
+        <label>
+          재검토 시각 (선택)
+          <input
+            name="reviewAfter"
+            type="datetime-local"
+            step="1"
+            defaultValue={localDateTime(existing?.reviewAfter)}
+          />
+          <small>
+            브라우저의 현지 시각입니다. 날짜가 지나면 재검토 대상으로 표시하며 기준 적용은
+            유지합니다.
+          </small>
+        </label>
         <label>
           판단 근거
           <textarea
