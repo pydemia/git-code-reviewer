@@ -1,0 +1,534 @@
+{
+  "scope": "P07 manual review priority, partial-hunk unstage and verified CD 2.8.1 installation; full P00-P13 remains active",
+  "sourceCommits": {
+    "gitCodeReviewer": "674e9363aa0ca8366a1c55c887e8bcee0e813593",
+    "commitDefender": "13a7bcd9bb6976c2cb2b0a791e5212825ea1b81c"
+  },
+  "clientVersion": "0.1.0-alpha.31",
+  "cliVersion": "0.1.0-alpha.27",
+  "extensionVersion": "2.8.1",
+  "packages": [
+    {
+      "name": "@gcr/client-contract",
+      "version": "0.1.0-alpha.31",
+      "file": "gcr-client-contract-0.1.0-alpha.31.tgz",
+      "sha256": "6af26f59caf354d3c0f500835203216dee3f91d5af07869d1cd55cbd1097d338"
+    },
+    {
+      "name": "@gcr/client-core",
+      "version": "0.1.0-alpha.31",
+      "file": "gcr-client-core-0.1.0-alpha.31.tgz",
+      "sha256": "75b193221c730b317764c5368b28eebd32ccaa50472c64f04bb78efab3c853bc"
+    },
+    {
+      "name": "@gcr/client-executors",
+      "version": "0.1.0-alpha.31",
+      "file": "gcr-client-executors-0.1.0-alpha.31.tgz",
+      "sha256": "4933d28b15387c5b00e67b92857fa96df4ac698c1fda9975af8ab60cc93b79eb"
+    },
+    {
+      "name": "@gcr/cli",
+      "version": "0.1.0-alpha.27",
+      "file": "gcr-cli-0.1.0-alpha.27.tgz",
+      "sha256": "fcad88b1b135d25ffb34af15791d7db5046741073745f2da45ae04e64f08e720"
+    }
+  ],
+  "vsix": {
+    "file": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-review-priority/commit-defender-2.8.1.vsix",
+    "sha256": "8632d8ebd74c0edf2dd2074abfd61902470bcaa843f50549e33df50918e21acb"
+  },
+  "behavior": {
+    "unstage": "Compare immutable base/previous/current Git blobs using minimal line edit distance. Pure partial unstage adds no new Stage request; mixed new input still does. Earlier unsubmitted Stage authorization is retained for its remaining staged content; obsolete queued/running receipts are cancelled without an unstage-only replacement.",
+    "bounds": "Text comparison is bounded to 2 MiB per blob and a 20-second observation budget with 10-second Git command timeouts. Unavailable objects/binary content/limits yield an unavailable observation, not a guessed unstage.",
+    "legacyWatch": "Hash-only observations establish blob history once, retaining already pending paths without guessing the missing delta.",
+    "manualPriority": "Encrypted CAS orders manual interest against automatic model admission in the same profile/repository/worktree. The service also checks before executor preparation; already admitted reviews continue. Heartbeat renews 30-second manual priority while waiting or running.",
+    "expiredPriority": "Expiry releases scheduling priority only. Existing unknown model execution is still interrupted on lease inspection and is never implicitly retried.",
+    "waitingReason": "Service receipts and extension status distinguish manual-priority from review-budget. A retry timestamp that expires during caller cleanup keeps the payload queued."
+  },
+  "verification": {
+    "gcr": {
+      "uniquePassed": 65,
+      "sourceObservation": 13,
+      "integration": {
+        "passed": 51,
+        "reviewRequests": 19,
+        "serviceWatch": 17,
+        "localService": 8,
+        "cliService": 7
+      },
+      "additionalLateRetry": 1,
+      "repeatedRunsNotAdded": true,
+      "sourceBuild": "passed",
+      "changedTestTypes": "passed",
+      "changedSourceLint": "passed",
+      "isolatedPackageImports": [
+        "18.20.8",
+        "22.23.2"
+      ],
+      "isolatedCliInstall": "passed on Node 22.23.2"
+    },
+    "commitDefender": {
+      "regression": {
+        "tests": 197,
+        "pass": 197,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      },
+      "sourceBuildAndTestTypes": "passed",
+      "triggerMatrix": {
+        "passed": 16,
+        "syntheticExecutorCalls": 28,
+        "serviceReceipts": 64,
+        "rows": [
+          {
+            "mask": 0,
+            "enabled": [],
+            "calls": 0,
+            "serviceJobs": 0,
+            "requests": []
+          },
+          {
+            "mask": 1,
+            "enabled": [
+              "save"
+            ],
+            "calls": 1,
+            "serviceJobs": 1,
+            "requests": [
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 2,
+            "enabled": [
+              "stage"
+            ],
+            "calls": 1,
+            "serviceJobs": 1,
+            "requests": [
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 3,
+            "enabled": [
+              "save",
+              "stage"
+            ],
+            "calls": 2,
+            "serviceJobs": 2,
+            "requests": [
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 4,
+            "enabled": [
+              "commit"
+            ],
+            "calls": 1,
+            "serviceJobs": 3,
+            "requests": [
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 5,
+            "enabled": [
+              "save",
+              "commit"
+            ],
+            "calls": 2,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 6,
+            "enabled": [
+              "stage",
+              "commit"
+            ],
+            "calls": 1,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 7,
+            "enabled": [
+              "save",
+              "stage",
+              "commit"
+            ],
+            "calls": 2,
+            "serviceJobs": 5,
+            "requests": [
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 8,
+            "enabled": [
+              "push"
+            ],
+            "calls": 1,
+            "serviceJobs": 3,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              }
+            ]
+          },
+          {
+            "mask": 9,
+            "enabled": [
+              "save",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 10,
+            "enabled": [
+              "stage",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 11,
+            "enabled": [
+              "save",
+              "stage",
+              "push"
+            ],
+            "calls": 3,
+            "serviceJobs": 5,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 12,
+            "enabled": [
+              "commit",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 6,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 13,
+            "enabled": [
+              "save",
+              "commit",
+              "push"
+            ],
+            "calls": 3,
+            "serviceJobs": 7,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 14,
+            "enabled": [
+              "stage",
+              "commit",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 7,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 15,
+            "enabled": [
+              "save",
+              "stage",
+              "commit",
+              "push"
+            ],
+            "calls": 3,
+            "serviceJobs": 8,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "nativeHosts": [
+      {
+        "status": "passed",
+        "vscode": "1.90.2",
+        "node": "20.9.0",
+        "electron": "29.4.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.8.1",
+        "delivery": "packaged-extension",
+        "commandCount": 26,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      },
+      {
+        "status": "passed",
+        "vscode": "1.135.0",
+        "node": "24.18.1",
+        "electron": "42.8.1",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.8.1",
+        "delivery": "packaged-extension",
+        "commandCount": 26,
+        "activation": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key"
+        ]
+      }
+    ],
+    "actualModelCallsThisDelivery": 0,
+    "scope": "Synthetic executors, real Git index, encrypted CAS, real process termination and CLI/service IPC validate the new behavior. Native hosts validate final artifact activation and defaults; no new actual-account model quality claim.",
+    "priorActualModelEvidence": "P07-editor-save.json and P07-source-order.json",
+    "testHarnessCorrections": [
+      "The late-retry fixture initially omitted the registered exclusion policy; submit correctly denied it. The corrected fixture passed.",
+      "The temporary test TypeScript config initially lacked the workspace Node type root; the corrected configuration passed."
+    ]
+  },
+  "installation": {
+    "version": "2.8.1",
+    "path": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.8.1",
+    "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-review-priority/installed-backup-2.8.0",
+    "runtimeHashes": {
+      "out/extension.js": "ed36d10f587ae2e4e20aef2eeb54a52eb9b7a94f63635179aae8dd34c53fe6b4",
+      "out/standalone-review-worker.js": "70a01202f3c113b381092d64feaf4a11090f4139bc474f08d1a861279882cb5b",
+      "out/review-chat-worker.js": "e46d30f38dc9c3193bbd831d269ca08fdb84332a4bac878395dbaf13bff2d690",
+      "out/hook-cli.js": "0371cc6224ec0f4fa7ff3ed934bed77237d324ae68cbccc239592cdec44a7552",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "out/gcr-service/main.mjs": "291254cded725d5bbb4fb1b7a727ddbcb0e1a7aeb69c2012e92065de9cefcfb4",
+      "out/gcr-service/manifest.json": "27ec98c81835f225bb804fd81b6a904ee5a51a18d460fde91ee5ba9512f00a6f"
+    },
+    "packageMatchesExceptVSCodeMetadata": true,
+    "forcedReload": false,
+    "globalCliReplaced": false,
+    "serverRedeployed": false
+  },
+  "localEvidence": {
+    "directory": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-review-priority",
+    "sha256": {
+      "gcr-priority-integration.log": "f1958830f2704e2f2e3e0f810351d28e19072d567e70ab719bc6028f11479256",
+      "gcr-unstage-source.log": "deb071dc39d51dd4ba4ced2d6a4d94bc35fc79211f7b95aae6ed8a3ca6942b59",
+      "gcr-priority-late-retry.log": "8a6c33f3eca3661cf7a4f6ab5a044c9c4fbb08954926630b152f5f6ee4b186fc",
+      "gcr-priority-late-retry-final.log": "47986075e1bb1c167ac349bbe5947baf7c8b1dafc610f07ccf77a1eadae3b91e",
+      "gcr-priority-test-types-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gcr-priority-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gcr-priority-pack.log": "780381558f80c9445fdb94eb6705afa97051c415b39d4af0682b6ff7db63c8db",
+      "consumer.log": "b054234406ba4d944277813d5ad493ba8327f1301d7b12d9085bc93fc042d7a9",
+      "cd-priority-tests.log": "bcd4333ebd4aa2ad92b0328f8c7c87d4ed0e9bc6f3e5799a80364b9687cd1d5c",
+      "cd-priority-matrix.log": "d0947e2be11c2cac17e255b7e076118dba7f4116ad14f7fe6b9d692c6aff514a",
+      "minimum-host.json": "467aa197c03bb9b4af53a28be712775bf7c12717b0fbf13a4f5c471af22dcbe4",
+      "current-host.json": "0f802db5c53c20b66b24e2151a5409d8a5d33e76d21e1aa5a12f9321cb45d82b",
+      "installation.json": "e12c55e629e1cae55b9b20f7deca5bfd05681421b28748eddfcb56868155724b"
+    }
+  },
+  "remaining": [
+    "Complete editor startup/failed handoff/crash provenance and multi-window lifecycle verification",
+    "User-wide call/token/time budgets and request/history retention",
+    "OS login autostart, Linux actual executor and other-UID IPC validation",
+    "P03-P06 operational gates and P09 public release",
+    "P10-P13 central model execution, runner, learning and central PR integration"
+  ],
+  "deploymentScope": "Client/extension delivery only. PRISM runtime/Helm/DB TLS settings unchanged. No public Marketplace publication.",
+  "overallProgress": "Estimated 50-55% of the full P00-P13 scope; not an audited count of completed requirements."
+}
