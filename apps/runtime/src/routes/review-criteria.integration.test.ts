@@ -511,6 +511,67 @@ describe.skipIf(!databaseUrl).sequential('repository review criteria workflow', 
       entry.hash,
     );
   });
+  it.each(['create-candidate', 'link-feedback'] as const)(
+    'preserves %s links until repository cascades finish without permitting orphaned intake',
+    async (kind) => {
+      const entry = await submitted(kind === 'link-feedback' ? 'correction' : 'judgment');
+      const draft = fixture();
+      const rule = kind === 'link-feedback' ? await create() : undefined;
+      const response = await reviewSubmissionRequest(
+        entry,
+        rule
+          ? { action: kind, ruleId: rule.criterion.id, expectedVersion: rule.criterion.version }
+          : {
+              action: kind,
+              document: draft.document,
+              outcome: draft.decision.outcome,
+              reasoning: draft.decision.reasoning,
+            },
+      );
+      expect(response.statusCode, response.body).toBe(200);
+      const decision = response.json().decision;
+      const c = await database.connect();
+      try {
+        await c.query('begin');
+        if (decision.feedbackId) {
+          await expect(
+            c.query('delete from review_rule_feedback where id=$1', [decision.feedbackId]),
+          ).rejects.toMatchObject({ message: 'Review criteria history is immutable' });
+        } else {
+          await c.query('delete from review_rules where id=$1', [decision.ruleId]);
+          await expect(c.query('set constraints all immediate')).rejects.toMatchObject({
+            code: '23503',
+            constraint: 'client_review_submission_decisions_rule_id_fkey',
+          });
+        }
+        await c.query('rollback');
+        await c.query('begin');
+        await c.query('delete from repositories where id=$1', [repositoryId]);
+        await c.query('set constraints all immediate');
+        expect(
+          (await c.query('select 1 from client_review_submissions where id=$1', [entry.id]))
+            .rowCount,
+        ).toBe(0);
+        expect(
+          (
+            await c.query(
+              'select 1 from client_review_submission_decisions where submission_id=$1',
+              [entry.id],
+            )
+          ).rowCount,
+        ).toBe(0);
+        expect(
+          (await c.query('select 1 from review_rules where id=$1', [decision.ruleId])).rowCount,
+        ).toBe(0);
+      } finally {
+        // Keep the shared repository fixture for the other workflow scenarios.
+        await c.query('rollback');
+        c.release();
+      }
+      expect((await inspectSubmission(entry.id)).decision.ruleId).toBe(decision.ruleId);
+      await database.query('delete from client_review_submissions where id=$1', [entry.id]);
+    },
+  );
   it('does not turn result counts into criteria and denies expired intake, bearer administrators, and revoked membership', async () => {
     const entry = await submitted('result'),
       draft = fixture();
