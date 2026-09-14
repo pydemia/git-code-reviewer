@@ -1,5 +1,11 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import path from 'node:path';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { FilesystemArtifactStore } from '@gcr/artifact-store';
+import { executeRemoteReviewJob } from '../services/remote-review-worker.js';
+import { runWorker } from '../jobs/worker.js';
+import { resolveChatAccountSelection } from '../services/account-registry.js';
 import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabase, runMigrations, type Database } from '@gcr/db';
@@ -215,6 +221,114 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
         payloadHash: value.approval.payloadHash,
       },
     });
+  const event = (value: object) => `data: ${JSON.stringify(value)}\n\n`;
+  const completeStream = (text: string) =>
+    event({ type: 'response.output_text.delta', delta: text }) +
+    event({ type: 'response.completed', response: {} });
+  async function providerFixture(
+    handler: (
+      body: { input: Record<string, unknown>[]; model: string; reasoning: { effort: string } },
+      reply: FastifyReply,
+    ) => Promise<unknown>,
+  ) {
+    const directory = await mkdtemp(path.join(tmpdir(), 'gcr-remote-worker-'));
+    const provider = Fastify();
+    const requests: unknown[] = [];
+    provider.post('/responses', async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = request.body as Parameters<typeof handler>[0];
+      requests.push(body);
+      reply.type('text/event-stream');
+      return handler(body, reply);
+    });
+    const endpoint = await provider.listen({ host: '127.0.0.1', port: 0 });
+    const upstream = randomUUID();
+    const token = `header.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.synthetic`;
+    const auth = encryptCredential(
+      JSON.stringify({
+        auth_mode: 'chatgpt',
+        tokens: {
+          access_token: token,
+          refresh_token: 'synthetic-never-refreshed',
+          account_id: upstream,
+        },
+        last_refresh: new Date().toISOString(),
+      }),
+      encryptionKey,
+      'chat-account',
+    );
+    await db.query(
+      'update chat_accounts set endpoint=$1,credential_ciphertext=$2,credential_iv=$3,credential_auth_tag=$4 where id=$5',
+      [
+        endpoint + '/',
+        auth.credentialCiphertext,
+        auth.credentialIv,
+        auth.credentialAuthTag,
+        account,
+      ],
+    );
+    return {
+      requests,
+      quota: hash(`chatgpt:${upstream}`),
+      artifacts: new FilesystemArtifactStore(directory),
+      settings: {
+        ...config,
+        WORKSPACE_ROOT: path.join(directory, 'work'),
+        ARTIFACT_ROOT: directory,
+        HOST: '127.0.0.1',
+        WORKER_HEALTH_PORT: 0,
+        GITHUB_MODE: 'disabled' as const,
+        KNOWLEDGE_PUBLICATION_ENABLED: false,
+        CHAT_AGENT_ENABLED: false,
+        WORKER_CONCURRENCY: 1,
+      },
+      async close() {
+        await provider.close();
+        await rm(directory, { recursive: true, force: true });
+      },
+    };
+  }
+  const reviewHandler: Parameters<typeof providerFixture>[0] = async (body) => {
+    expect(body.model).toBe('gpt-6-astra');
+    expect(body.reasoning.effort).toBe('xhigh');
+    const output = body.input.find((item) => item.type === 'function_call_output');
+    if (!output)
+      return (
+        event({
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: 'source-read',
+            name: 'read_file',
+            arguments: '{"path":"app.ts"}',
+          },
+        }) + event({ type: 'response.completed', response: {} })
+      );
+    const read = JSON.parse(String(output.output));
+    expect(read.text).toContain('synthetic-source-only');
+    return completeStream(
+      JSON.stringify({
+        summary: 'Synthetic registered-provider review',
+        files: [
+          {
+            path: 'app.ts',
+            side: 'source',
+            complete: true,
+            summary: 'Read approved bytes',
+            readIds: [read.readId],
+          },
+        ],
+        findings: [],
+        questions: [],
+      }),
+    );
+  };
+  async function until(check: () => Promise<boolean> | boolean) {
+    const deadline = Date.now() + 10000;
+    while (!(await check())) {
+      if (Date.now() > deadline) throw Error('Fixture observation timeout');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
   beforeAll(async () => {
     const url = new URL(databaseUrl!);
     if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
@@ -926,6 +1040,242 @@ describe.skipIf(!databaseUrl).sequential('durable remote review HTTP admission',
     );
     expect(await claimRemoteReviewJob(db, config, 'other')).not.toBe(null);
   });
+  it('runs the real worker loop from HTTP admission through registered provider tools to encrypted result', async () => {
+    const fixture = await providerFixture(reviewHandler),
+      stop = new AbortController();
+    const auth = await key(),
+      body = input();
+    expect((await submit(auth.token, body)).statusCode).toBe(201);
+    const running = runWorker(fixture.settings, { signal: stop.signal });
+    try {
+      await until(async () => (await get(auth.token, body)).json().state === 'completed');
+      const result = (await get(auth.token, body, 'result')).json();
+      expect(result.report.status).toBe('completed');
+      expect(result.report.identity.context.hash).toBe(remoteReviewContextHash(body.payload));
+      expect(fixture.requests).toHaveLength(2);
+      expect((await submit(auth.token, body)).statusCode).toBe(200);
+      expect((await db.query('select count(*) from client_review_jobs')).rows[0].count).toBe('1');
+      expect(
+        (
+          await db.query(
+            "select count(*) from model_request_ledger where quota_key=$1 and state='completed'",
+            [fixture.quota],
+          )
+        ).rows[0].count,
+      ).toBe('2');
+    } finally {
+      stop.abort();
+      await running;
+      await fixture.close();
+    }
+  }, 15000);
+  it('defers capacity before any send and later completes the same request without re-reserving admission', async () => {
+    const fixture = await providerFixture(reviewHandler);
+    try {
+      const auth = await key(),
+        body = input();
+      await submit(auth.token, body);
+      const held = (
+        await db.query('select reserve_model_request($1,$2,2,1,false,1) as id', [
+          fixture.quota,
+          'held-' + randomUUID(),
+        ])
+      ).rows[0].id;
+      const first = (await claimRemoteReviewJob(db, config, 'worker'))!;
+      expect(
+        await executeRemoteReviewJob(db, config, authorization, fixture.artifacts, first),
+      ).toBe('deferred');
+      expect(fixture.requests).toHaveLength(0);
+      expect(
+        (
+          await db.query(
+            'select state,invocation_started_at,reserved_model_calls from client_review_jobs',
+          )
+        ).rows[0],
+      ).toEqual({ state: 'queued', invocation_started_at: null, reserved_model_calls: 2 });
+      await db.query("select finish_model_request($1,'completed',null)", [held]);
+      await db.query('update client_review_jobs set next_attempt_at=clock_timestamp()');
+      const second = (await claimRemoteReviewJob(db, config, 'worker'))!;
+      expect(second.id).toBe(first.id);
+      expect(
+        await executeRemoteReviewJob(db, config, authorization, fixture.artifacts, second),
+      ).toBe('completed');
+      expect(fixture.requests).toHaveLength(2);
+    } finally {
+      await fixture.close();
+    }
+  }, 15000);
+  it.each(['cancel', 'revoke'] as const)(
+    'aborts a live registered HTTP stream after %s',
+    async (action) => {
+      let entered = false,
+        disconnected = false;
+      const fixture = await providerFixture(async (_body, reply) => {
+        reply.hijack();
+        reply.raw.writeHead(200, { 'content-type': 'text/event-stream' });
+        reply.raw.write(': pending\n\n');
+        reply.raw.on('close', () => {
+          disconnected = true;
+        });
+        entered = true;
+      });
+      try {
+        const auth = await key(),
+          body = input();
+        await submit(auth.token, body);
+        const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+        const running = executeRemoteReviewJob(db, config, authorization, fixture.artifacts, claim);
+        await until(() => entered);
+        if (action === 'cancel') await cancel(auth.token, body);
+        else
+          await db.query('update client_api_keys set revoked_at=clock_timestamp() where id=$1', [
+            auth.id,
+          ]);
+        expect(await running).toBe(action === 'cancel' ? 'cancelled' : 'failed');
+        await until(() => disconnected);
+        expect(
+          (await db.query('select reason,source_ciphertext from client_review_jobs')).rows[0],
+        ).toEqual({
+          reason: action === 'cancel' ? 'cancelled' : 'authorization-revoked',
+          source_ciphertext: null,
+        });
+        expect(await claimRemoteReviewJob(db, config, 'other')).toBeNull();
+      } finally {
+        await fixture.close();
+      }
+    },
+    15000,
+  );
+  it.each(['interrupted', 'invalid-output'] as const)(
+    'settles a provider %s without starting the job again',
+    async (mode) => {
+      const fixture = await providerFixture(async (_body, reply) =>
+        mode === 'invalid-output'
+          ? completeStream('not-json')
+          : reply.send(event({ type: 'response.output_text.delta', delta: 'unfinished' })),
+      );
+      try {
+        const auth = await key(),
+          body = input();
+        await submit(auth.token, body);
+        const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+        expect(
+          await executeRemoteReviewJob(db, config, authorization, fixture.artifacts, claim),
+        ).toBe(mode === 'interrupted' ? 'uncertain' : 'failed');
+        expect((await get(auth.token, body)).json().reason).toBe(
+          mode === 'interrupted' ? 'execution-lost' : 'invalid-output',
+        );
+        expect(fixture.requests).toHaveLength(1);
+        expect(await claimRemoteReviewJob(db, config, 'other')).toBeNull();
+      } finally {
+        await fixture.close();
+      }
+    },
+    15000,
+  );
+  it('fails expired approved context before loading a model or sending source', async () => {
+    const fixture = await providerFixture(reviewHandler);
+    try {
+      const auth = await key(),
+        body = input();
+      body.payload.context.resolved!.validUntil = '2020-01-01T00:00:00.000Z';
+      expect((await submit(auth.token, approve(body))).statusCode).toBe(201);
+      const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+      const resolver = vi.fn(resolveChatAccountSelection);
+      expect(
+        await executeRemoteReviewJob(db, config, authorization, fixture.artifacts, claim, {
+          resolveAccount: resolver,
+        }),
+      ).toBe('failed');
+      expect(resolver).not.toHaveBeenCalled();
+      expect(fixture.requests).toHaveLength(0);
+      expect((await get(auth.token, body)).json().reason).toBe('context-unavailable');
+    } finally {
+      await fixture.close();
+    }
+  });
+  it('enforces the approved model-turn limit without a whole-job retry', async () => {
+    const fixture = await providerFixture(reviewHandler);
+    try {
+      const auth = await key(),
+        body = input();
+      body.payload.budget.modelCalls = 1;
+      await submit(auth.token, approve(body));
+      const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+      expect(
+        await executeRemoteReviewJob(db, config, authorization, fixture.artifacts, claim),
+      ).toBe('failed');
+      expect((await get(auth.token, body)).json().reason).toBe('budget-exhausted');
+      expect(fixture.requests).toHaveLength(1);
+    } finally {
+      await fixture.close();
+    }
+  });
+  it('defers shutdown before any provider send and returns the same queued request', async () => {
+    const fixture = await providerFixture(reviewHandler);
+    try {
+      const auth = await key(),
+        body = input();
+      await submit(auth.token, body);
+      const claim = (await claimRemoteReviewJob(db, config, 'worker'))!,
+        stop = new AbortController();
+      stop.abort();
+      expect(
+        await executeRemoteReviewJob(db, config, authorization, fixture.artifacts, claim, {
+          signal: stop.signal,
+        }),
+      ).toBe('deferred');
+      expect(fixture.requests).toHaveLength(0);
+      expect((await get(auth.token, body)).json().state).toBe('queued');
+    } finally {
+      await fixture.close();
+    }
+  });
+  it('retains uncertainty when a timed-out model dependency does not finish cleanup', async () => {
+    const fixture = await providerFixture(reviewHandler);
+    let release!: () => void,
+      returned = false;
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      const auth = await key(),
+        body = input();
+      body.payload.budget.durationMs = 1000;
+      await submit(auth.token, approve(body));
+      const claim = (await claimRemoteReviewJob(db, config, 'worker'))!;
+      const resolveAccount: typeof resolveChatAccountSelection = async (...args) => {
+        const selection = await resolveChatAccountSelection(...args);
+        if (!selection) throw Error('fixture');
+        return {
+          ...selection,
+          model: {
+            name: selection.modelName,
+            generate: (request) => selection.model.generate(request),
+            turn: async (request) => {
+              const result = await selection.model.turn!(request);
+              await blocked;
+              returned = true;
+              return result;
+            },
+          },
+        };
+      };
+      expect(
+        await executeRemoteReviewJob(db, config, authorization, fixture.artifacts, claim, {
+          resolveAccount,
+        }),
+      ).toBe('uncertain');
+      expect(returned).toBe(false);
+      expect(fixture.requests).toHaveLength(1);
+      expect((await get(auth.token, body)).json().reason).toBe('execution-lost');
+      expect(await claimRemoteReviewJob(db, config, 'other')).toBeNull();
+    } finally {
+      release();
+      await until(() => returned);
+      await fixture.close();
+    }
+  }, 15000);
   it('decrypts a completed fixture report, detects substitution and purges expired results', async () => {
     const auth = await key(),
       body = input();

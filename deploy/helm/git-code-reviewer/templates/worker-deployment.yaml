@@ -58,6 +58,13 @@ spec:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }}-identity }
             {{- end }}
           env:
+            {{- include "git-code-reviewer.remoteReviewEnv" . | nindent 12 }}
+            {{- if (default dict .Values.remoteReviews).enabled }}
+            - name: CLIENT_API_KEYS_ENABLED
+              value: {{ .Values.clientApiKeys.enabled | quote }}
+            - name: KNOWLEDGE_SERVER_ID
+              value: {{ .Values.knowledgeDistribution.serverId | quote }}
+            {{- end }}
             {{- include "git-code-reviewer.databaseEnv" . | nindent 12 }}
             {{- include "git-code-reviewer.identity.env" (dict "root" . "server" false) | nindent 12 }}
             {{- if .Values.worker.databasePoolMax }}

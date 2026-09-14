@@ -190,6 +190,7 @@ export const remoteReviewStatus = refined(
         'budget-exhausted',
         'model-failed',
         'invalid-output',
+        'context-unavailable',
       ]),
     }),
     object({ ...receipt, state: literal('cancelled'), reason: literal('cancelled') }),

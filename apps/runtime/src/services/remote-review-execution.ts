@@ -317,3 +317,33 @@ export async function deferRemoteReviewJob(
   );
   return Boolean(result.rowCount);
 }
+
+/** Settle only the still-owned execution, after the caller has attempted transport cleanup. */
+export async function settleRemoteReviewJob(
+  database: Pick<Database, 'query'>,
+  claim: RemoteReviewClaim,
+  input: {
+    reason:
+      | 'authorization-revoked'
+      | 'account-unavailable'
+      | 'budget-exhausted'
+      | 'model-failed'
+      | 'invalid-output'
+      | 'context-unavailable';
+    uncertain: boolean;
+    drained: boolean;
+  },
+): Promise<'failed' | 'cancelled' | 'uncertain' | 'lost'> {
+  const result = await database.query<{ state: 'failed' | 'cancelled' | 'uncertain' }>(
+    `update client_review_jobs set
+      state=case when state='cancel-requested' and $5 then 'cancelled'
+        when invocation_started_at is not null and ($4 or not $5) then 'uncertain' else 'failed' end,
+      reason=case when state='cancel-requested' and $5 then 'cancelled'
+        when invocation_started_at is not null and ($4 or not $5) then 'execution-lost' else $3 end,
+      source_ciphertext=null,source_iv=null,source_tag=null,lease_until=null,executor=null,updated_at=clock_timestamp()
+    where id=$1 and executor=$2 and state in ('running','cancel-requested') and lease_until>clock_timestamp()
+    returning state`,
+    [claim.id, claim.executor, input.reason, input.uncertain, input.drained],
+  );
+  return result.rows[0]?.state ?? 'lost';
+}

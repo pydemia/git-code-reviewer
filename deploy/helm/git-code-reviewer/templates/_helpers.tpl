@@ -207,7 +207,23 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{- include "git-code-reviewer.databaseVolumeMount" . | nindent 4 }}
 {{- end }}
 
+{{- define "git-code-reviewer.remoteReviewEnv" -}}
+{{- $remote := default dict .Values.remoteReviews -}}
+- name: REMOTE_REVIEWS_ENABLED
+  value: {{ default false $remote.enabled | quote }}
+- name: REMOTE_REVIEW_USER_HOURLY_CALLS
+  value: {{ default 60 $remote.userHourlyCalls | quote }}
+- name: REMOTE_REVIEW_REPOSITORY_HOURLY_CALLS
+  value: {{ default 300 $remote.repositoryHourlyCalls | quote }}
+{{- end -}}
+
 {{- define "git-code-reviewer.validate" -}}
+{{- $remote := default dict .Values.remoteReviews -}}
+{{- if $remote.enabled -}}
+{{- if or (not .Values.clientApiKeys.enabled) (not .Values.credentialRegistry.enabled) (not .Values.modelAdmission.enabled) (not .Values.knowledgeDistribution.serverId) (not (has .Values.auth.mode (list "local" "saml"))) -}}
+{{- fail "remoteReviews requires client API keys, encrypted credential registry, model admission, server identity and local/SAML authentication" -}}
+{{- end -}}
+{{- end -}}
 {{- include "git-code-reviewer.identity.validate" . -}}
 {{- $isolated := default dict .Values.database.isolated -}}
 {{- $tls := default dict .Values.database.tls -}}

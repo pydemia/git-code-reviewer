@@ -35,6 +35,10 @@ chatAgent:
   sandboxStorage: 10Gi
 modelAdmission:
   enabled: false
+remoteReviews:
+  enabled: false
+  userHourlyCalls: 60
+  repositoryHourlyCalls: 300
 
 worker:
   replicas: 2

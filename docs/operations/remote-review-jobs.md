@@ -1,6 +1,6 @@
 # 중앙 리뷰 작업 접수
 
-현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터, 업로드된 소스의 공통 리뷰 입력 복원이 구현되어 있다. 승인된 로컬 컨텍스트와 중앙 knowledge pin의 복원도 구현했다. Worker의 자동 실행 루프 연결은 아직 남아 있다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
+현재는 작업 접수·조회·취소, 보존 처리, 실행 소유권과 registered model 어댑터, 업로드된 소스의 공통 리뷰 입력 복원이 구현되어 있다. 승인된 로컬 컨텍스트와 중앙 knowledge pin의 복원도 구현했다. Worker가 이 경로를 자동 실행하도록 연결했다. 실제 계정과 배포 검증은 아직 남아 있다. `REMOTE_REVIEWS_ENABLED`는 기본 `false`이며 중앙 모델 실행까지 검증하기 전에 운영 환경에서 켜지 않는다.
 
 ## API
 
@@ -51,7 +51,7 @@ Migration 0048은 provider 요청 시작 시각과 다음 접수 가능 시각�
 
 Lease가 만료된 작업은 요청 시작 기록이 없을 때만 queued로 복구한다. 기록이 있으면 uncertain으로 남기고 소스를 지운다. 이전 owner는 새 owner의 lease 갱신·모델 전송·완료 저장을 할 수 없다. 완료 저장은 현재 인가와 승인된 client/source/model/account 설정, 파일 범위를 대조하고 암호화된 report와 terminal receipt를 같은 transaction에 기록한다. 취소 이후 늦게 도착한 report는 저장하지 않는다.
 
-`createCentralReviewExecutor`는 공통 `list_files`, `read_file`, `search_code` 선언과 source port만 사용한다. Registered model의 turn과 source tool 응답을 이어 주고 호출 횟수·시간·출력 바이트를 제한한다. Shell이나 별도 source 수집기는 제공하지 않는다. 아직 이 어댑터를 queued upload부터 자동 실행하는 end-to-end 경로는 없으며 실제 계정 호출·배포 검증은 남아 있다.
+`createCentralReviewExecutor`는 공통 `list_files`, `read_file`, `search_code` 선언과 source port만 사용한다. Registered model의 turn과 source tool 응답을 이어 주고 호출 횟수·시간·출력 바이트를 제한한다. Shell이나 별도 source 수집기는 제공하지 않는다. Worker 연결은 아래 실행 절차를 따르며 실제 계정 호출·배포 검증은 남아 있다.
 
 
 ## 승인된 소스 복원
@@ -77,4 +77,15 @@ Centralized context는 manifest와 선택 당시 시각·byte budget·branch, �
 
 복원된 context는 실행 중에도 이 authority를 관측한다. Pin이나 권한을 더 이상 사용할 수 없으면 공통 runner가 취소 신호를 전달한다. 결과의 context hash는 승인된 context 전체와 client/source 범위를 포함하며 작업 완료 저장에서도 대조한다. 원래 클라이언트 context hash는 별도 필드로 보존한다.
 
-소스·컨텍스트·모델 어댑터의 연결 검증은 합성 모델을 사용했다. 실제 worker scheduling·계정 resolver·model admission·heartbeat·취소 후 정리·결과 저장의 자동 연결과 실제 계정 검증, client UI, 패키지/VSIX/Helm 전달은 아직 남아 있다.
+소스·컨텍스트·모델 어댑터의 연결 검증은 합성 모델을 사용했다. Worker scheduling·계정 resolver·model admission·heartbeat·취소 후 정리·결과 저장을 연결했다. 실제 계정 검증, client UI, 패키지/VSIX/Helm 전달은 아직 남아 있다.
+
+
+## Worker 자동 실행
+
+Worker는 중앙 요청과 기존 기준 생성·대화·PR 작업 사이에 실행 기회를 배분하며 전체 `WORKER_CONCURRENCY` 안에서 실행한다. 승인된 소스·context를 복원하고 기존 account registry에서 정확히 지정한 계정·모델·effort를 선택한다. 등록 계정의 admitted HTTP transport와 공통 source tool만 사용한다. 작업 시작부터 승인된 duration을 계산하고 2초마다 소유권·현재 권한·context 유효성을 확인한다. Provider 요청 직전에도 pin과 기존 전송 소유권 fence를 확인한다.
+
+첫 전송 전 용량 부족이면 source와 같은 receipt를 queued로 돌려 재개 시각을 기록한다. 그 뒤 모델 turn 간 용량 대기는 같은 실행과 남은 시간 예산 안에서 처리한다. 이미 전송한 작업 전체를 재실행하지 않는다. 승인 context가 만료되거나 복원되지 않으면 context-unavailable로 종료한다(migration 0049). 잘못된 JSON/출력과 호출 상한 초과는 failed, 종료되지 않은 stream처럼 결과를 확정할 수 없는 전송은 uncertain으로 기록한다.
+
+취소 또는 권한 철회 시 AbortSignal을 보내고 모델 transport 정리를 기다린다. 최대 5초 안에 정리 완료를 확인하지 못한 호출은 uncertain이며 cancelled나 completed로 기록하지 않는다. Cancelled는 이 worker의 전송/실행 종료를 뜻하며 provider 내부 연산 종료나 과금 취소를 보증하지 않는다. 이전 owner와 이미 완료된 receipt는 바꾸지 않는다. Worker 종료가 첫 전송 전이면 같은 요청을 queued로 남긴다.
+
+Helm의 `remoteReviews.enabled`, `userHourlyCalls`, `repositoryHourlyCalls`로 설정하며 기본은 false/60/300이다. Server와 worker의 직접 env에만 실행 활성화 값을 넣고 migration/retention 작업은 중앙 실행을 활성화하지 않는다. 활성화에는 기존 client key·knowledge distribution 설정, 등록 계정 암호화, model admission, local/SAML 인증이 필요하다. Worker에도 client key 활성화와 같은 서버 ID를 전달한다. 배포와 실제 계정 검증 전에는 기본 비활성 값을 유지한다.

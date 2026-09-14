@@ -25,6 +25,30 @@
     "clientApiKeys"
   ],
   "properties": {
+    "remoteReviews": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "userHourlyCalls",
+        "repositoryHourlyCalls"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "userHourlyCalls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "repositoryHourlyCalls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      }
+    },
     "clientApiKeys": {
       "type": "object",
       "required": [

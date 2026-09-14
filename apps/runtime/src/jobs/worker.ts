@@ -35,7 +35,12 @@ import {
 } from '../services/criterion-generation.js';
 import { assertJobLease, checkpointReviewModel } from '../services/analysis-checkpoint.js';
 import { recoverExpiredJobs } from './recovery.js';
-import { recoverRemoteReviewLeases } from '../services/remote-review-execution.js';
+import { executeRemoteReviewJob } from '../services/remote-review-worker.js';
+import { AuthorizationService } from '../services/authorization.js';
+import {
+  claimRemoteReviewJob,
+  recoverRemoteReviewLeases,
+} from '../services/remote-review-execution.js';
 import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
 import {
   createReviewModel,
@@ -116,6 +121,29 @@ export async function runWorker(
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
+  const remoteStop = new AbortController();
+  const remoteAuthorization = new AuthorizationService(config);
+  let preferRemote = true;
+  const startRemote = async () => {
+    const claim = await claimRemoteReviewJob(database, config, executor);
+    if (!claim) return false;
+    const task = executeRemoteReviewJob(database, config, remoteAuthorization, artifacts, claim, {
+      signal: remoteStop.signal,
+    })
+      .then((state) => {
+        health.log.info({ jobId: claim.id, state }, 'remote review settled');
+      })
+      .catch(() => {
+        health.log.error(
+          { jobId: claim.id, code: 'REMOTE_REVIEW_EXECUTION_UNAVAILABLE' },
+          'remote review execution unavailable',
+        );
+      });
+    active.add(task);
+    void task.finally(() => active.delete(task));
+    preferRemote = false;
+    return true;
+  };
   let preferChat = true;
   let preferCriteria = true;
   const startCriteria = async () => {
@@ -128,12 +156,14 @@ export async function runWorker(
     active.add(task);
     void task.finally(() => active.delete(task));
     preferCriteria = false;
+    preferRemote = true;
     return true;
   };
   let activeBatch = 0;
   let lastRecoveryAt = 0;
   const shutdown = stopSignal(options.signal).then(() => {
     stopping = true;
+    remoteStop.abort();
   });
 
   health.get('/health/live', async () => ({ status: 'ok' }));
@@ -213,6 +243,10 @@ export async function runWorker(
     }
     let claimed = false;
     while (!stopping && active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY) {
+      if (preferRemote && (await startRemote())) {
+        claimed = true;
+        continue;
+      }
       if (preferCriteria && (await startCriteria())) {
         claimed = true;
         continue;
@@ -225,6 +259,7 @@ export async function runWorker(
       if (config.CHAT_AGENT_ENABLED && !priorityJob) {
         const run = await claimAgentRun(database, executor);
         if (run) {
+          preferRemote = true;
           preferChat = false;
           preferCriteria = true;
           claimed = true;
@@ -238,12 +273,17 @@ export async function runWorker(
       }
       const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
       if (!job) {
+        if (await startRemote()) {
+          claimed = true;
+          continue;
+        }
         if (await startCriteria()) {
           claimed = true;
           continue;
         }
         break;
       }
+      preferRemote = true;
       preferCriteria = true;
       preferChat = true;
       claimed = true;

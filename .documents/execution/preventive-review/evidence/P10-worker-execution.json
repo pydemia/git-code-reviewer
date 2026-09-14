@@ -1,0 +1,88 @@
+{
+  "recordedAt": "2026-09-14T14:28:39.540513+00:00",
+  "phase": "P10-C02",
+  "complete": false,
+  "scope": "Actual worker scheduling through registered HTTP provider transport and durable result; synthetic provider only, real account and deployment verification pending",
+  "files": {
+    "apps/runtime/src/jobs/worker.ts": "d3c0260da5d5489fb99f114513fc3e9b9995c940239332ae054f897e3a7981d3",
+    "apps/runtime/src/services/remote-review-worker.ts": "d8ccf3e7726770ab0a4495a4e8d7214b48bc4f4b1f8e98bc221ea951f9260873",
+    "apps/runtime/src/services/remote-review-execution.ts": "0d67f1c32c29c55a63c5acc93df32d875c9cb73b925880c6b7de0cd5779c3c72",
+    "apps/runtime/src/routes/remote-reviews.integration.test.ts": "ceca820e42cb7df6f25cadaf9c4890880a48c6cf50dfc3c47e3cd422439325b1",
+    "packages/client-contract/src/remote-review.ts": "43e710faa83e246f9eaab4601ae0d9569215b3515298e8a94e5277566afcbf2e",
+    "packages/db/migrations/0049_remote_review_context_failure.sql": "64afaa2f48b86dca25820d047a0542a863fb6424c6b9c24d351be4a28f044541",
+    "deploy/helm/git-code-reviewer/values.yaml": "671e0a134ba7c233446e5ca48c3ea8b794dc73032a49191158b5b57127474780",
+    "deploy/helm/git-code-reviewer/values.schema.json": "c8b1ac5ec0de429c83266ca474218d90b608bed2c1ab5bbc57e113fb5f58828b",
+    "deploy/helm/git-code-reviewer/templates/_helpers.tpl": "bc023e519c54672bd00d14d80925958a8e5eb4c32a6cb9221ceb0d2095ac54a8",
+    "deploy/helm/git-code-reviewer/templates/server-deployment.yaml": "18cb0bc120ca1d9084a8cad03e59230cc19402d332ee095ec686b78dabdad9db",
+    "deploy/helm/git-code-reviewer/templates/worker-deployment.yaml": "a4b371d1ef4130b7364628e0a37b6014c0ae4d8bb1c81c46d7eb78877e1f1be4"
+  },
+  "tests": {
+    "passed": 46,
+    "failed": 0,
+    "remoteJobApiAndWorker": 32,
+    "modelAdmission": 6,
+    "centralExecutor": 8,
+    "actualUserAccountModelCalls": 0,
+    "provider": "Actual loopback HTTP Responses server using synthetic registered credentials; no local auth.json accessed"
+  },
+  "checks": {
+    "clientPackagesBuild": "passed",
+    "runtimeBuild": "passed",
+    "changedTestsTypecheck": "passed",
+    "changedFilesLint": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "database": {
+    "startedAt": "2026-09-14T14:27:30.245Z",
+    "backend": "native-postgresql",
+    "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+    "cleanup": true,
+    "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+    "commandExitCode": 0,
+    "finishedAt": "2026-09-14T14:27:47.798Z"
+  },
+  "helm": {
+    "modelAdmission.enabled=false": "rejected",
+    "credentialRegistry.enabled=false": "rejected",
+    "remoteReviews.userHourlyCalls=0": "rejected",
+    "defaultServerAndWorker": "disabled, budgets=60/300",
+    "enabledServerAndWorker": "enabled, client keys=true, same explicit server ID, no duplicate env names"
+  },
+  "logs": {
+    "gcr-p10-worker-verified.log": "7d2cfc09b5708788e68c2511cc473b0c2c7141009c93379906a5ad2ce7f9d487",
+    "gcr-p10-worker-verified-db.json": "54daad8b571f427be00e578f653131fe839cbaddc1bc9f5bd1ec0d88bdee9c7d",
+    "gcr-p10-worker-helm-checks.json": "810b67f6b11be8dceffbf34bf36a7869a86ea691ddd22d40b96e23ee5744f17e"
+  },
+  "verified": [
+    "HTTP admission to actual runWorker loop with separate database pool, registered credential decryption and Responses HTTP requests",
+    "Approved fixed-source tool calls feed validated core report and encrypted result API",
+    "Model account and effort stay pinned; paid real account calls are not part of this fixture",
+    "Pre-send capacity deferral keeps one receipt and reservation; same job later completes",
+    "Live HTTP stream cancellation and original-key revocation stop local transport; no automatic replay",
+    "Truncated model stream becomes uncertain; malformed JSON fails invalid-output",
+    "Model turn limit fails budget-exhausted; expired approved context fails before model resolution",
+    "Pre-send worker shutdown defers the same job",
+    "Uncooperative model dependency remains uncertain after timeout and five-second drain window",
+    "Helm enables only server and worker, carries worker client key/server identity, keeps default disabled"
+  ],
+  "observedDeployment": {
+    "context": "PRISM-DEV",
+    "namespace": "git-code-reviewer",
+    "helmRevision": 58,
+    "chart": "0.10.44",
+    "app": "0.8.0-alpha.47",
+    "server": "1/1",
+    "worker": "1/1",
+    "keycloak": "2/2",
+    "postgresql": "1/1",
+    "architecture": "amd64",
+    "dockerServerVersion": "29.3.1"
+  },
+  "deploymentPerformed": false,
+  "remaining": [
+    "Build and verify runtime image with migrations 46-49 and new worker modules",
+    "Actual authorized registered account review/cancellation verification and Helm rollout",
+    "CD/CLI remote executor and approval UI, client package/VSIX delivery",
+    "Full P00-P13 completion requirements remain active"
+  ]
+}
