@@ -111,3 +111,21 @@ Key 입력은 piped stdin만 받으며 terminal의 평문 입력이나 `--api-ke
 중앙 리뷰도 선택한 executor·source 전송 범위·예산을 적용한다. 결과는 `central-review-history/<binding ID>` 아래에 암호화하고 정확한 audience를 검증한다. Standalone 이력 조회에 중앙 결과를 섞지 않는다. 연결 해제는 local memory/Skill과 기존 리뷰 이력을 삭제하지 않으며, 중앙 이력 조회에는 해당 연결의 유효한 인증 상태가 필요하다. Key의 서버 측 폐기는 GCR 관리 화면/API에서 별도로 수행한다. 정리 실패는 반환한 `cacheCleanupPending`·`credentialCleanupPending`으로 확인한다.
 
 CLI 연결과 macOS Keychain은 별도 프로세스로 검증했다. Linux Secret Service adapter의 명령 계약은 테스트했으나 실제 Linux 보안 저장소·중앙 모델 리뷰 검증을 완료한 것은 아니다. 기본 PATH의 Codex가 지원 버전과 다르면 executor를 unavailable로 처리한다. 특정 버전을 이유 없이 허용하거나 다른 계정/provider로 바꾸지 않는다.
+
+## Foreground commit and push reviews
+
+Use `gcr review --trigger commit` from an explicitly configured foreground adapter to review the actual hook index. `GIT_INDEX_FILE` is inherited; `--index-file /absolute/path` selects an explicit alternate index. The snapshot is captured before model execution, so a later working-tree edit does not change the review. The base is the pre-commit HEAD, including for an amend; this reports the amend's new changes rather than inferring a rewritten parent.
+
+`gcr push-review` reads the complete pre-push stream from stdin and processes each ref. It preserves unsupported refs in the result and returns exit 2 if any review is incomplete or an input is unsupported. A deleted ref has no new source to review; it is reported as `ref-deleted`, not as all repository files being deleted. A new ref compares against an explicit empty tree, subject to the existing source limits. At most 64 refs / 256 KiB of input are accepted. Review timeout and source budgets apply separately to each ref.
+
+For an explicit immutable comparison, use:
+
+```sh
+gcr review --source commit-tree --source-commit <full-new-oid> --base-commit <full-old-oid> --trigger push
+```
+
+Use `--base-commit empty` for a declared empty base and `--target-branch <branch>` to select branch-scoped knowledge. `--base <ref>` retains its existing merge-base semantics for index/working-tree reviews and cannot be combined with commit-tree capture.
+
+These commands wait for the review and retain normal review exit codes (0 complete/no follow-up, 1 findings/questions, 2 incomplete/error). They are not the asynchronous advisory hook adapter. Do not install them directly as a pre-commit/pre-push hook unless you intend their waiting and exit behavior. The independent service, default advisory enqueue, and managed hook installation are separate integration work.
+
+The input format follows [Git's pre-push contract](https://git-scm.com/docs/githooks#_pre_push). `scripts/verify-hook-reviews.mjs` verifies a packaged CLI using temporary foreground advisory adapters, a partial commit and a local bare remote, with an explicitly supplied Codex executable. It does not install hooks into the user's repository.

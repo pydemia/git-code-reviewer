@@ -254,3 +254,81 @@ describe('standalone CLI assembly', () => {
     expect(modelCalls).toBe(1);
   });
 });
+
+describe('commit and pre-push foreground reviews', () => {
+  const git = (...args: string[]) =>
+    execFileSync(
+      'git',
+      [
+        '-C',
+        repo,
+        '-c',
+        'core.hooksPath=/dev/null',
+        '-c',
+        'user.name=Fixture',
+        '-c',
+        'user.email=fixture@example.invalid',
+        ...args,
+      ],
+      { encoding: 'utf8', stdio: 'pipe' },
+    ).trim();
+  it('records a commit reason from an explicit index and reuses the identical manual input', async () => {
+    const common = ['--cwd', repo, '--data-dir', data, '--profile', 'commit-hook-test'];
+    const index = git('rev-parse', '--path-format=absolute', '--git-path', 'index');
+    const run = (args: string[]) =>
+      executeCli([...args, ...common], { keys, prepareExecutor: async () => executor });
+    const before = modelCalls;
+    const result = await run(['review', '--trigger', 'commit', '--index-file', index]);
+    const report = clientReviewReport(result.value);
+    expect(report.status).toBe('completed');
+    expect(report.trigger).toBe('commit');
+    expect(clientReviewReport((await run(['review'])).value).runId).toBe(report.runId);
+    expect(modelCalls - before).toBe(1);
+  }, 30000);
+  it('processes all pre-push refs and retains a deletion and an unsupported ref without reviewing them', async () => {
+    const base = git('rev-parse', 'HEAD');
+    const tree = git('write-tree');
+    const source = git('commit-tree', tree, '-p', base, '-m', 'push fixture');
+    const before = modelCalls,
+      stream = `HEAD ${source} refs/heads/first ${base}\nHEAD ${source} refs/heads/second ${base}\n(delete) ${'0'.repeat(40)} refs/heads/gone ${base}\nHEAD ${source} refs/heads/unknown ${'a'.repeat(40)}\n`;
+    const result = await executeCli(
+      ['push-review', '--cwd', repo, '--data-dir', data, '--profile', 'push-hook-test'],
+      { keys, prepareExecutor: async () => executor, readStdin: async () => stream },
+    );
+    expect(result.exitCode).toBe(2);
+    const batch = result.value as {
+      status: string;
+      refs: Array<{ status: string; review?: unknown }>;
+    };
+    expect(batch.status).toBe('incomplete');
+    expect(batch.refs.map((r) => r.status)).toEqual([
+      'ready',
+      'ready',
+      'ref-deleted',
+      'unsupported',
+    ]);
+    for (const entry of batch.refs.slice(0, 2)) {
+      const report = clientReviewReport(entry.review);
+      expect(report.trigger).toBe('push');
+      expect(report.identity.source).toMatchObject({
+        kind: 'commit-tree',
+        sourceCommit: source,
+        baseCommit: base,
+      });
+    }
+    expect(modelCalls - before).toBe(2);
+  }, 30000);
+  it('rejects an incomplete stream and incompatible trigger/source options before model admission', async () => {
+    const before = modelCalls;
+    const result = await executeCli(
+      ['push-review', '--cwd', repo, '--data-dir', data, '--profile', 'push-invalid-test'],
+      { keys, prepareExecutor: async () => executor, readStdin: async () => 'BAD\n' },
+    );
+    expect(result.exitCode).toBe(2);
+    expect((await cli(['review', '--trigger', 'push'])).exitCode).toBe(2);
+    expect(
+      (await cli(['review', '--source', 'working-tree', '--index-file', '/tmp/not-used'])).exitCode,
+    ).toBe(2);
+    expect(modelCalls).toBe(before);
+  });
+});

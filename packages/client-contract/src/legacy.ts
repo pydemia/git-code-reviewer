@@ -78,6 +78,13 @@ export interface CommitDefenderProjection {
   source_anchors: Record<string, { sha256: string; line_count: number; side: 'source' | 'base' }>;
   source_snapshot:
     | { kind: 'index'; base_commit: string | null; base_tree: string; source_tree: string }
+    | {
+        kind: 'commit-tree';
+        base_commit: string | null;
+        base_tree: string;
+        source_commit: string;
+        source_tree: string;
+      }
     | { kind: 'working-tree'; content_sha256: Record<string, string> };
   source_exclusions: ClientReviewReport['excluded'];
   gcr: {
@@ -189,12 +196,20 @@ export function projectCommitDefender(value: ClientReviewReport): CommitDefender
             base_tree: source.baseTree,
             source_tree: source.sourceTree,
           }
-        : {
-            kind: 'working-tree',
-            content_sha256: Object.fromEntries(
-              report.files.map((file) => [file.source.path, file.source.hash]),
-            ),
-          },
+        : source.kind === 'commit-tree'
+          ? {
+              kind: 'commit-tree',
+              base_commit: source.baseCommit,
+              base_tree: source.baseTree,
+              source_commit: source.sourceCommit,
+              source_tree: source.sourceTree,
+            }
+          : {
+              kind: 'working-tree',
+              content_sha256: Object.fromEntries(
+                report.files.map((file) => [file.source.path, file.source.hash]),
+              ),
+            },
     source_exclusions: report.excluded,
     gcr: { report, enforcement: 'advisory', projectionOmissions },
   };

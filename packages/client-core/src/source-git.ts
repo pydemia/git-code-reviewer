@@ -38,7 +38,7 @@ export class SourceGit {
   constructor(
     cwd: string,
     private readonly deadline: number,
-    indexFile = process.env.GIT_INDEX_FILE,
+    indexFile: string | null | undefined = process.env.GIT_INDEX_FILE,
   ) {
     this.root = cwd;
     this.index = path.join(this.directory, 'index');
@@ -95,6 +95,10 @@ export class SourceGit {
       this.environment.GIT_OBJECT_DIRECTORY = objectDirectory;
       this.environment.GIT_ALTERNATE_OBJECT_DIRECTORIES = JSON.stringify(objects);
       this.environment.GIT_INDEX_FILE = this.index;
+      if (indexFile === null) {
+        this.text(['read-tree', '--empty']);
+        return;
+      }
       try {
         const fd = openSync(
           originalIndex,
@@ -147,7 +151,9 @@ export class SourceGit {
           '--no-replace-objects',
           ...(args[0] === 'check-ignore' ? [] : ['--literal-pathspecs']),
           '-C',
-          this.root,
+          args[0] === 'check-ignore' && this.environment.GIT_WORK_TREE
+            ? this.environment.GIT_WORK_TREE
+            : this.root,
           '-c',
           'core.fsmonitor=false',
           '-c',
@@ -256,6 +262,51 @@ export class SourceGit {
         [...entries].map(([file, entry]) => `${entry.mode} ${entry.oid}\t${file}\0`).join(''),
       );
     return this.oid(this.text(['write-tree']).trim());
+  }
+  /** Evaluate only .gitignore files from an immutable tree, without checking out source. */
+  ignoredInTree(tree: GitTree, files: string[]): string[] {
+    if (!files.length) return [];
+    const directory = mkdtempSync(path.join(this.directory, 'ignore-'));
+    let bytes = 0;
+    for (const [file, entry] of tree) {
+      if (
+        path.posix.basename(file) !== '.gitignore' ||
+        entry.type !== 'blob' ||
+        !['100644', '100755'].includes(entry.mode)
+      )
+        continue;
+      const prefix = path.posix.dirname(file);
+      if (prefix !== '.' && !files.some((candidate) => candidate.startsWith(prefix + '/')))
+        continue;
+      if (entry.size === null || entry.size > 1_048_576 || (bytes += entry.size) > 4_194_304)
+        throw new SourceCaptureError('capture-limit');
+      const target = path.resolve(directory, file);
+      if (!target.startsWith(directory + path.sep))
+        throw new SourceCaptureError('source-unavailable');
+      mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+      writeFileSync(
+        target,
+        this.run(['cat-file', 'blob', this.oid(entry.oid)], undefined, 1_048_577),
+        { mode: 0o600 },
+      );
+    }
+    this.environment.GIT_DIR = this.text(['rev-parse', '--absolute-git-dir']).trim();
+    this.environment.GIT_WORK_TREE = directory;
+    try {
+      return this.text(
+        ['check-ignore', '--no-index', '-z', '--stdin'],
+        files.map((file) => `./${file}\0`).join(''),
+        undefined,
+        [0, 1],
+      )
+        .split('\0')
+        .filter(Boolean)
+        .map((file) => file.replace(/^\.\//, ''));
+    } finally {
+      delete this.environment.GIT_WORK_TREE;
+      delete this.environment.GIT_DIR;
+      rmSync(directory, { recursive: true, force: true });
+    }
   }
   close(): void {
     rmSync(this.directory, { recursive: true, force: true });

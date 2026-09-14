@@ -49,9 +49,14 @@ export type FixedSourceRead =
   | { status: 'unavailable'; reason: SourceExclusionReason; detail: string };
 export interface CaptureSourceOptions {
   cwd: string;
-  kind: 'index' | 'working-tree';
+  kind: 'index' | 'working-tree' | 'commit-tree';
   /** Resolve this ref once, then use its merge-base with the captured HEAD. */
   baseRef?: string;
+  /** Exact commit OIDs. Commit-tree capture requires both; null means an empty base. */
+  sourceCommit?: string;
+  baseCommit?: string | null;
+  /** Explicit destination branch for committed-source policy; never inferred from checkout. */
+  targetBranch?: string;
   /** Exact review paths; omitted means changes against base. No directory expansion. */
   paths?: readonly string[];
   /** Only these untracked files may enter a working-tree source view. */
@@ -255,11 +260,25 @@ export type { LocalSourceSnapshot };
 /** Synchronous bounded capture; extension hosts should run it outside their UI event loop. */
 export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnapshot {
   const options = structuredClone(input);
-  if (options.kind !== 'index' && options.kind !== 'working-tree')
+  if (!['index', 'working-tree', 'commit-tree'].includes(options.kind))
+    throw new SourceCaptureError('invalid-source-request');
+  const committed = options.kind === 'commit-tree';
+  const validOid = (value: unknown) =>
+    typeof value === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value);
+  if (
+    committed
+      ? !validOid(options.sourceCommit) ||
+        !(options.baseCommit === null || validOid(options.baseCommit)) ||
+        options.baseRef !== undefined ||
+        options.indexFile !== undefined
+      : options.sourceCommit !== undefined ||
+        options.baseCommit !== undefined ||
+        options.targetBranch !== undefined
+  )
     throw new SourceCaptureError('invalid-source-request');
   const selectedPaths = options.paths === undefined ? undefined : paths(options.paths);
   const untracked = paths(options.includeUntracked);
-  if (options.kind === 'index' && untracked.length)
+  if (options.kind !== 'working-tree' && untracked.length)
     throw new SourceCaptureError('invalid-source-request');
   const policy = sourcePathPolicy(options.excludePatterns);
   const fileLimit = limit(options.limits?.fileBytes, 1_048_576, 4_194_304);
@@ -269,10 +288,25 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
   const deadline = Date.now() + limit(options.limits?.durationMs, 30_000, 120_000);
   if (options.baseRef !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$/.test(options.baseRef))
     throw new SourceCaptureError('invalid-source-request');
-  const git = new SourceGit(options.cwd, deadline, options.indexFile);
+  const git = new SourceGit(options.cwd, deadline, committed ? null : options.indexFile);
   try {
-    const headCommit = git.initialHead;
-    let baseCommit = headCommit;
+    const exactCommit = (oid: string) => {
+      const exact = git.oid(oid);
+      if (git.text(['cat-file', '-t', exact]).trim() !== 'commit')
+        throw new SourceCaptureError('source-unavailable');
+      return exact;
+    };
+    const headCommit = committed ? exactCommit(options.sourceCommit!) : git.initialHead;
+    let baseCommit = committed
+      ? options.baseCommit === null
+        ? null
+        : exactCommit(options.baseCommit!)
+      : headCommit;
+    if (options.targetBranch !== undefined) {
+      if (!options.targetBranch || options.targetBranch.length > 1024)
+        throw new SourceCaptureError('invalid-source-request');
+      git.text(['check-ref-format', `refs/heads/${options.targetBranch}`]);
+    }
     if (options.baseRef) {
       if (!headCommit) throw new SourceCaptureError('source-unavailable');
       const ref = git.oid(
@@ -292,7 +326,11 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
         )
         .trim(),
     );
-    const sourceTree = git.oid(git.text(['write-tree']).trim());
+    const sourceTree = git.oid(
+      git
+        .text(committed ? ['rev-parse', '--verify', `${headCommit}^{tree}`] : ['write-tree'])
+        .trim(),
+    );
     const base = git.tree(baseTree, entryLimit);
     const source = git.tree(sourceTree, entryLimit);
     const skipWorktree = new Set(
@@ -370,6 +408,14 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
         .map((file) => file.replace(/^\.\//, '')))
         for (const side of ['base', 'source'] as const) exclude(file, side, 'git-ignored');
     }
+    if (committed) {
+      // Either side may contain a privacy rule absent from the current checkout.
+      for (const file of new Set([
+        ...git.ignoredInTree(base, eligible),
+        ...git.ignoredInTree(source, eligible),
+      ]))
+        for (const side of ['base', 'source'] as const) exclude(file, side, 'git-ignored');
+    }
     const files = new Map<string, CapturedFile>();
     const known = { base: new Set(base.keys()), source: new Set(source.keys()) };
     if (options.kind === 'working-tree') for (const file of untracked) known.source.add(file);
@@ -435,7 +481,7 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
         const entry = tree.get(file);
         if (
           entry &&
-          (side === 'base' || options.kind === 'index' || entry.mode === '160000') &&
+          (side === 'base' || options.kind !== 'working-tree' || entry.mode === '160000') &&
           (entry.type !== 'blob' || !['100644', '100755'].includes(entry.mode))
         ) {
           exclude(
@@ -552,8 +598,7 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
       }
     }
     if (
-      git.head() !== headCommit ||
-      git.branch() !== git.initialBranch ||
+      (!committed && (git.head() !== headCommit || git.branch() !== git.initialBranch)) ||
       checkIgnore() !== frozenIgnore
     )
       throw new SourceCaptureError('snapshot-changed');
@@ -673,7 +718,8 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
       objectFormat: git.objectFormat,
       baseCommit,
       baseTree,
-      ...(options.kind === 'index' ? { sourceTree } : {}),
+      ...(options.kind !== 'working-tree' ? { sourceTree } : {}),
+      ...(committed ? { sourceCommit: headCommit } : {}),
       hash: contentHash({
         version: 1,
         kind: options.kind,
@@ -681,6 +727,7 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
         baseCommit,
         baseTree,
         sourceTree,
+        ...(committed ? { targetBranch: options.targetBranch ?? null } : {}),
         sourceFiles: [...files.values()].map((file) => ({ ...file.source, mode: file.mode })),
         selected,
         limitations,
@@ -692,7 +739,7 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
       identity,
       git.repository,
       headCommit,
-      git.initialBranch,
+      committed ? (options.targetBranch ?? null) : git.initialBranch,
       files,
       selected,
       limitations,

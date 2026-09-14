@@ -16,6 +16,7 @@ Commands:
   status [--check-executor]            Local identity and supported capabilities
   context                              Fixed snapshot and active knowledge selection
   review                               Review and save an encrypted terminal report
+  push-review                          Review every ref from pre-push stdin (foreground)
   requests                             Inspect durable review ownership and outcomes
   result <run-id>                       Read a saved report (same review exit code)
   history                              List saved review summaries
@@ -34,11 +35,14 @@ Central: --mode centralized is required; connect takes its API key from piped st
          --offline-behavior cache-then-standalone|cache-only|standalone|pause
          New connections default to cache-then-standalone; older connections retain pause.
          connect stores this policy; context/review can override it explicitly.
-Snapshot: --source index|working-tree (default index) --base <ref>
+Snapshot: --source index|working-tree|commit-tree (default index) --base <ref>
+          --index-file <path> (index only; inherited GIT_INDEX_FILE is otherwise honored)
+          commit-tree: --source-commit <oid> --base-commit <oid|empty> [--target-branch <name>]
           --path <exact-path> (repeatable) --include-untracked <path> (working-tree only)
           --exclude <glob> --require-source <source|base>:<path> --require-knowledge <id>
 Review: --executor-path <codex-binary> --model gpt-6-astra --reasoning-effort xhigh
         --retry-finished (explicitly rerun a saved terminal review)
+        --trigger manual|commit|push (default manual; records the invocation reason)
         --allow-path <glob> (default **; includes fixed base and related files)
         --timeout-ms <1..600000> --source-bytes <1..33554432> --tool-calls <1..1000>
 
@@ -53,6 +57,10 @@ const common = ['cwd', 'profile', 'data-dir', 'mode', 'connection', 'json', 'hel
 const snapshot = [
   'source',
   'base',
+  'index-file',
+  'source-commit',
+  'base-commit',
+  'target-branch',
   'path',
   'include-untracked',
   'exclude',
@@ -68,8 +76,22 @@ const allowed: Record<string, string[]> = {
     'offline',
     'offline-behavior',
     'retry-finished',
+    'trigger',
     ...snapshot,
     ...executor,
+    'allow-path',
+    'timeout-ms',
+    'source-bytes',
+    'tool-calls',
+  ],
+  'push-review': [
+    'offline',
+    'offline-behavior',
+    'retry-finished',
+    ...executor,
+    'exclude',
+    'require-source',
+    'require-knowledge',
     'allow-path',
     'timeout-ms',
     'source-bytes',

@@ -574,3 +574,124 @@ describe('immutable local source capture', { timeout: 20_000 }, () => {
       expect(() => sourcePathPolicy([pattern])).toThrow('invalid-source-request');
   });
 });
+
+describe('exact committed source for push reviews', () => {
+  it(
+    'ignores a conflicting checkout and corrupt index and preserves exact force-update base',
+    () =>
+      fixture((f) => {
+        f.write('file.ts', 'export const base=1;\n');
+        f.commit();
+        const base = f.git('rev-parse', 'HEAD');
+        f.write('file.ts', 'export const pushed=2;\n');
+        f.commit();
+        const source = f.git('rev-parse', 'HEAD');
+        f.git('checkout', '--detach', base);
+        f.write('file.ts', 'DO NOT REVIEW WORKING BYTES\n');
+        const index = f.git('rev-parse', '--path-format=absolute', '--git-path', 'index');
+        fs.writeFileSync(index, 'CORRUPT INDEX');
+        const captured = captureLocalSource({
+          cwd: f.repo,
+          kind: 'commit-tree',
+          sourceCommit: source,
+          baseCommit: base,
+          targetBranch: 'release',
+        });
+        try {
+          expect(captured.identity).toMatchObject({
+            kind: 'commit-tree',
+            sourceCommit: source,
+            baseCommit: base,
+            sourceTree: f.git('rev-parse', `${source}^{tree}`),
+          });
+          expect(captured.readFile('file.ts')).toMatchObject({
+            status: 'available',
+            text: 'export const pushed=2;\n',
+          });
+          expect(captured.readFile('file.ts', 'base')).toMatchObject({
+            status: 'available',
+            text: 'export const base=1;\n',
+          });
+          expect(captured.branchName).toBe('release');
+          expect(captured.headCommit).toBe(source);
+          expect(fs.readFileSync(index, 'utf8')).toBe('CORRUPT INDEX');
+        } finally {
+          captured.close();
+        }
+      }),
+    20000,
+  );
+  it(
+    'uses ignore rules from both commit trees even when absent in the checkout',
+    () =>
+      fixture((f) => {
+        f.write('file.ts', 'export const a=1;\n');
+        f.commit();
+        const base = f.git('rev-parse', 'HEAD');
+        f.write('.gitignore', 'private.cfg\n');
+        f.write('private.cfg', 'TREE_PRIVATE_SECRET');
+        f.git('add', '-f', 'private.cfg');
+        f.commit();
+        const source = f.git('rev-parse', 'HEAD');
+        f.git('checkout', '--detach', base);
+        const captured = captureLocalSource({
+          cwd: f.repo,
+          kind: 'commit-tree',
+          sourceCommit: source,
+          baseCommit: base,
+        });
+        try {
+          expect(captured.readFile('private.cfg')).toMatchObject({
+            status: 'unavailable',
+            reason: 'git-ignored',
+          });
+          expect(captured.diff).not.toContain('TREE_PRIVATE_SECRET');
+        } finally {
+          captured.close();
+        }
+      }),
+    20000,
+  );
+  it(
+    'requires explicit exact commit objects and permits a declared empty base',
+    () =>
+      fixture((f) => {
+        f.write('file.ts', 'export const a=1;\n');
+        f.commit();
+        const source = f.git('rev-parse', 'HEAD');
+        expect(() =>
+          captureLocalSource({
+            cwd: f.repo,
+            kind: 'commit-tree',
+            sourceCommit: 'HEAD',
+            baseCommit: null,
+          }),
+        ).toThrow();
+        expect(() =>
+          captureLocalSource({ cwd: f.repo, kind: 'commit-tree', sourceCommit: source }),
+        ).toThrow();
+        expect(() =>
+          captureLocalSource({
+            cwd: f.repo,
+            kind: 'commit-tree',
+            sourceCommit: f.git('rev-parse', 'HEAD^{tree}'),
+            baseCommit: null,
+          }),
+        ).toThrow();
+        const captured = captureLocalSource({
+          cwd: f.repo,
+          kind: 'commit-tree',
+          sourceCommit: source,
+          baseCommit: null,
+        });
+        try {
+          expect(captured.identity.baseCommit).toBeNull();
+          expect(captured.selected).toEqual([{ path: 'file.ts', status: 'A', side: 'source' }]);
+          expect(captured.branchName).toBeNull();
+        } finally {
+          captured.close();
+        }
+      }),
+    20000,
+  );
+});

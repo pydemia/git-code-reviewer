@@ -76,6 +76,13 @@ export const snapshotIdentity = refined(
   union(
     object({ kind: literal('index'), hash: sha256, ...gitBase, sourceTree: gitOid }),
     object({ kind: literal('working-tree'), hash: sha256, ...gitBase }),
+    object({
+      kind: literal('commit-tree'),
+      hash: sha256,
+      ...gitBase,
+      sourceCommit: gitOid,
+      sourceTree: gitOid,
+    }),
   ),
   (value, at) => {
     const size = value.objectFormat === 'sha1' ? 40 : 64;
@@ -83,6 +90,7 @@ export const snapshotIdentity = refined(
       value.baseCommit,
       value.baseTree,
       ...('sourceTree' in value ? [value.sourceTree] : []),
+      ...('sourceCommit' in value ? [value.sourceCommit] : []),
     ];
     if (oids.some((oid) => oid !== null && oid.length !== size))
       fail(at, 'Git object format mismatch');

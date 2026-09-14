@@ -588,3 +588,28 @@ describe('identity, knowledge and policy boundaries', () => {
     );
   });
 });
+
+it('preserves exact committed source identity in the legacy projection and rejects mixed Git formats', () => {
+  const report = fixture();
+  report.identity.source = {
+    ...report.identity.source,
+    kind: 'commit-tree',
+    sourceCommit: 'a'.repeat(40),
+    sourceTree: 'b'.repeat(40),
+  };
+  const decoded = clientReviewReport(report);
+  expect(projectCommitDefender(decoded).source_snapshot).toMatchObject({
+    kind: 'commit-tree',
+    source_commit: 'a'.repeat(40),
+    source_tree: 'b'.repeat(40),
+  });
+  expect(() =>
+    clientReviewReport({
+      ...report,
+      identity: {
+        ...report.identity,
+        source: { ...report.identity.source, sourceCommit: 'a'.repeat(64) },
+      },
+    }),
+  ).toThrow(ContractError);
+});

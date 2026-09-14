@@ -13,6 +13,7 @@ import {
 } from '@gcr/client-contract';
 import {
   captureLocalSource,
+  resolvePrePush,
   defaultLocalDataDirectory,
   discoverLocalIdentity,
   LocalHistoryStore,
@@ -157,7 +158,9 @@ export async function executeCli(
           values.offline ||
           values['offline-behavior'])) ||
       (central &&
-        !['central', 'status', 'context', 'review', 'history', 'result'].includes(command))
+        !['central', 'status', 'context', 'review', 'push-review', 'history', 'result'].includes(
+          command,
+        ))
     )
       throw new CliError(
         'usage',
@@ -389,7 +392,9 @@ export async function executeCli(
             ? (await prepare()).descriptor
             : { status: 'not-checked', model: 'gpt-6-astra', reasoningEffort: 'xhigh' },
           storage: 'not-opened',
-          triggers: 'manual-only',
+          triggers: ['manual', 'commit', 'push'],
+          execution: 'foreground',
+          backgroundService: 'unavailable',
         },
         exitCode: 0,
       };
@@ -466,13 +471,88 @@ export async function executeCli(
         exitCode: 0,
       };
     }
+    if (command === 'push-review') {
+      if (!dependencies.readStdin)
+        throw new CliError('usage', 'push-review requires the complete pre-push stream on stdin.');
+      const plan = resolvePrePush(cwd, await dependencies.readStdin(), many('exclude'));
+      const inherited = Object.entries(values).flatMap(([key, value]) =>
+        value === undefined || value === false
+          ? []
+          : value === true
+            ? [`--${key}`]
+            : (Array.isArray(value) ? value : [value]).flatMap((item) => [
+                `--${key}`,
+                String(item),
+              ]),
+      );
+      const results = [];
+      let exitCode: 0 | 1 | 2 = 0;
+      for (const ref of plan.refs) {
+        if (ref.status !== 'ready' || !ref.capture) {
+          results.push(ref);
+          if (ref.status === 'unsupported') exitCode = 2;
+          continue;
+        }
+        const capture = ref.capture;
+        const result = await executeCli(
+          [
+            'review',
+            ...inherited,
+            '--source',
+            'commit-tree',
+            '--source-commit',
+            capture.sourceCommit!,
+            '--base-commit',
+            capture.baseCommit ?? 'empty',
+            '--trigger',
+            'push',
+            ...(capture.targetBranch ? ['--target-branch', capture.targetBranch] : []),
+          ],
+          dependencies,
+        );
+        results.push({
+          ...ref,
+          review: result.value,
+          exitCode: result.exitCode,
+          diagnostics: result.diagnostics ?? [],
+        });
+        exitCode = Math.max(exitCode, result.exitCode) as 0 | 1 | 2;
+      }
+      return {
+        value: {
+          status: exitCode === 2 ? 'incomplete' : 'processed',
+          objectFormat: plan.objectFormat,
+          refs: results,
+        },
+        exitCode,
+      };
+    }
     const kind = string('source', 'index');
-    if (kind !== 'index' && kind !== 'working-tree')
-      throw new CliError('usage', 'Source must be index or working-tree.');
+    if (kind !== 'index' && kind !== 'working-tree' && kind !== 'commit-tree')
+      throw new CliError('usage', 'Source must be index, working-tree or commit-tree.');
+    const trigger = string('trigger', 'manual');
+    if (!['manual', 'commit', 'push'].includes(trigger!))
+      throw new CliError('usage', 'Unsupported review trigger.');
+    if (string('index-file') && kind !== 'index')
+      throw new CliError('usage', 'An alternate index requires index source.');
+    if (
+      (trigger === 'commit' && kind !== 'index') ||
+      (trigger === 'push' && kind !== 'commit-tree')
+    )
+      throw new CliError(
+        'usage',
+        'Commit reviews require index source; push reviews require exact commit-tree source.',
+      );
     snapshot = captureLocalSource({
       cwd,
       kind,
       ...(string('base') ? { baseRef: string('base')! } : {}),
+      ...(string('source-commit') ? { sourceCommit: string('source-commit')! } : {}),
+      ...(string('base-commit')
+        ? { baseCommit: string('base-commit') === 'empty' ? null : string('base-commit')! }
+        : {}),
+      ...(string('target-branch') ? { targetBranch: string('target-branch')! } : {}),
+      ...(string('index-file') ? { indexFile: string('index-file')! } : {}),
       ...(many('path').length ? { paths: many('path') } : {}),
       includeUntracked: many('include-untracked'),
       excludePatterns: many('exclude'),
@@ -584,6 +664,7 @@ export async function executeCli(
     const result = await executeReviewRequest({
       storage: requestStorage,
       identity: resolution.policy.identity,
+      reason: trigger as 'manual' | 'commit' | 'push',
       retryFinished: values['retry-finished'] === true,
       ...(dependencies.signal ? { signal: dependencies.signal } : {}),
       assertValid: async () => {
@@ -601,6 +682,7 @@ export async function executeCli(
           context: context.context,
           policy: resolution.policy,
           executor,
+          trigger: trigger as 'manual' | 'commit' | 'push',
           signal,
         }),
     });
