@@ -20,6 +20,8 @@ import {
   PlatformLocalKeyStore,
   PlatformCentralCredentialStore,
   discoverLocalIdentity,
+  CentralConnections,
+  callLocalService,
   type CentralCredentialStore,
   type LocalKeyStore,
   type LocalReviewExecutor,
@@ -68,6 +70,7 @@ const submitted = new Map<string, unknown>();
 let submissionError: string | undefined;
 let onInitialManifest: (() => void) | undefined;
 let config: Record<string, unknown>;
+let identityClientId: 'gcr-cli' | 'commit-defender' = 'gcr-cli';
 const descriptor = {
   id: 'synthetic',
   version: '1',
@@ -341,7 +344,7 @@ beforeAll(async () => {
           displayName: 'Fixture',
           repositoryIds: ['repo'],
           scopes: ['knowledge:read'],
-          clientId: 'gcr-cli',
+          clientId: identityClientId,
           keyId,
           expiresAt: new Date(Date.now() + 7200_000).toISOString(),
         }),
@@ -416,6 +419,85 @@ const args = (command: string, id: string) => [
 ];
 const test = (name: string, fn: () => Promise<void>) => it(name, fn, 30000);
 describe.sequential('explicit connected CLI over HTTPS', () => {
+  test('executes an explicitly registered CD connection in the service while ordinary CLI access remains denied', async () => {
+    const profileId = 'cd-service',
+      identity = discoverLocalIdentity(repo, profileId);
+    const connections = await CentralConnections.open({
+      dataDirectory: data,
+      keys,
+      credentials,
+      scope: {
+        kind: 'repository',
+        profileId,
+        repositoryKey: identity.repositoryKey,
+        worktreeKey: identity.worktreeKey,
+      },
+    });
+    const controller = new AbortController();
+    let running: ReturnType<typeof executeCli> | undefined;
+    const common = ['--cwd', repo, '--profile', profileId, '--data-dir', data];
+    const location = { profileId, dataDirectory: data };
+    const wait = async <T>(read: () => Promise<T>, ready: (value: T) => boolean): Promise<T> => {
+      const deadline = Date.now() + 20000;
+      for (;;) {
+        const value = await read();
+        if (ready(value)) return value;
+        if (Date.now() > deadline) throw Error('CD service did not settle');
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+    };
+    try {
+      identityClientId = 'commit-defender';
+      const connection = await connections.connect(config, secret, 'commit-defender');
+      expect((await invoke(profileId, args('context', connection.id))).exitCode).toBe(2);
+      running = executeCli(['service', 'run', ...common], {
+        keys,
+        credentials,
+        signal: controller.signal,
+        prepareExecutor: async () => ({ descriptor, review }),
+      });
+      await wait(
+        () => invoke(profileId, ['service', 'status']),
+        (result) => result.exitCode === 0,
+      );
+      await callLocalService(location, {
+        action: 'register',
+        root: repo,
+        triggers: ['save'],
+        options: {
+          mode: 'centralized',
+          connectionId: connection.id,
+          centralClientId: 'commit-defender',
+          model: 'gpt-6-astra',
+          reasoningEffort: 'xhigh',
+          excludePatterns: [],
+          allowPaths: ['**'],
+          durationMs: 120000,
+          sourceBytes: 1048576,
+          toolCalls: 100,
+        },
+      });
+      const before = models;
+      const queued = await invoke(profileId, ['enqueue', '--trigger', 'save']);
+      expect(queued.exitCode, JSON.stringify(queued.value)).toBe(0);
+      const id = (queued.value as { receipt: { id: string } }).receipt.id;
+      const terminal = await wait(
+        () => invoke(profileId, ['service', 'job', '--id', id]),
+        (result) =>
+          ['finished', 'interrupted', 'cancelled'].includes(
+            (result.value as { state: string }).state,
+          ),
+      );
+      expect(terminal.value).toMatchObject({ state: 'finished', result: { status: 'completed' } });
+      expect(models).toBe(before + 1);
+      expect((await invoke(profileId, args('context', connection.id))).exitCode).toBe(2);
+    } finally {
+      controller.abort();
+      await running;
+      connections.close();
+      identityClientId = 'gcr-cli';
+    }
+  });
   test('reconciles saved central completion only while the original connection remains authorized', async () => {
     for (const revoke of [false, true]) {
       const profile = `central-recovery-${revoke}`,

@@ -198,7 +198,9 @@ gcr watch stop --cwd /path/to/repo
 
 Stage는 실제 index, Save는 디스크의 working tree를 관찰한다. 각 조회가 끝난 뒤 2초 후 다시 조회하고 변경은 3초 debounce 후 공통 서비스 큐로 보낸다. Save 접수 간격은 기본 10분이며 `--minimum-save-interval-ms`로 10000–3600000ms 사이에서 지정한다. 큐에서 실행을 시작한 시각도 이 간격에 반영한다. 여러 파일의 연속 변경은 합치고, whole-file unstage·원본 복원·내용이 같은 재저장·제외된 파일은 새 리뷰 입력을 만들지 않는다. 부분 hunk만 unstage한 경우의 추가 구분은 남아 있다.
 
-파일 시스템은 수동 Save, Auto Save, 다른 프로그램의 쓰기를 구분하지 못한다. 따라서 Save 감시는 `--external-changes`를 명시해야 켤 수 있으며 Auto Save로 기록된 바이트도 포함할 수 있다. 이 명령은 CD의 Save/Auto Save 설정과 아직 연동하지 않는다. CD 이벤트의 출처를 전달하며 headless 감시로 전환하는 기능은 후속 작업이다.
+파일 시스템은 수동 Save, Auto Save, 다른 프로그램의 쓰기를 구분하지 못한다. CLI에서 직접 켜는 Save 감시는 `--external-changes`를 명시해야 하며 Auto Save로 기록된 바이트도 포함할 수 있다. 확장과 연결할 때는 `editor-save-events-v1` 서비스 기능을 사용한다. Editor 세션이 등록된 동안에는 파일 재조회만으로 새 Save를 허용하지 않고 확장이 전달한 저장 이유와 현재 파일 hash를 확인한다. 제외한 Auto Save와 같은 바이트를 외부 변경으로 다시 보내도 허용하지 않는다.
+
+마지막 editor 세션이 정상 해제되면 그 시점의 관측값을 기준으로 외부 감시를 이어간다. 이미 허용한 Save 요청은 확장 종료 후에도 서비스에서 실행한다. 비정상 종료 시 마지막 미분류 변경은 소급 실행하지 않고 `unclassifiedFiles`에 남긴다. 현재 파일을 수동 리뷰하거나 이후 명시적인 새 저장 이벤트로 처리해야 한다. 등록 전·서비스 연결 실패 중에는 저장 이유를 전달할 수 없으므로 이 기능을 전체 editor 생명주기 검증으로 간주하지 않는다. 상태의 `editorSessions`와 `editorTransition`으로 연결·정상 해제·프로세스 종료를 구분한다.
 
 관측값·debounce 대기·제출 intent를 암호화해 저장한다. 서비스가 재시작되면 누락된 변경을 다시 조회하고 이미 제출한 intent는 같은 receipt로 확인한다. 실행 중이던 요청은 `interrupted`로 남겨 결과를 복구하도록 하며 같은 관측 입력으로 모델을 자동 재호출하지 않는다. `watch stop`은 해당 감시가 만든 대기/실행 요청만 취소한다. 일반 enqueue·hook 요청과 서비스 grant는 유지한다.
 

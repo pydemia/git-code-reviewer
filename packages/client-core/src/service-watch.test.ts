@@ -1,4 +1,5 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,6 +8,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { ServiceJobs, type ServiceReviewOptions } from './service-jobs.js';
 import { ServiceWatcher, type WatchTrigger } from './service-watch.js';
 import { captureLocalSource, restoreLocalSource } from './source-snapshot.js';
+import { observeAutomaticFile } from './automatic-source.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -314,3 +316,151 @@ it('invalidates watches on registration revision changes and requires a fresh ba
   await f.watcher.poll();
   expect(await f.jobs.list()).toEqual([]);
 }, 20000);
+
+it('does not reinterpret rejected Auto Save as an external write even when polling precedes the editor event', async () => {
+  const f = await fixture(),
+    id = randomUUID();
+  await f.watcher.configure(f.reg, {
+    triggers: ['save'],
+    externalChanges: true,
+    editor: { id, pid: process.pid, autoSave: false },
+  });
+  f.write('a.ts', 'export const auto=2;\n');
+  await f.watcher.poll();
+  const hash = (await observeAutomaticFile(f.repo, 'a.ts'))!.hash;
+  expect(
+    await f.watcher.editorSave(f.reg, { sessionId: id, file: 'a.ts', hash, reason: 'auto' }),
+  ).toEqual({ status: 'suppressed' });
+  expect(
+    await f.watcher.editorSave(f.reg, { sessionId: id, file: 'a.ts', hash, reason: 'external' }),
+  ).toEqual({ status: 'unchanged' });
+  f.advance(600000);
+  await f.watcher.poll();
+  await f.restart();
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toEqual([]);
+  await expect(
+    f.watcher.editorSave(f.reg, { sessionId: randomUUID(), file: 'a.ts', hash, reason: 'manual' }),
+  ).rejects.toMatchObject({ code: 'service-denied' });
+}, 30000);
+
+it('accepts a manual Save, cancels it on typing, and rejects an obsolete file hash', async () => {
+  const f = await fixture(),
+    id = randomUUID();
+  await f.watcher.configure(f.reg, {
+    triggers: ['save'],
+    externalChanges: false,
+    editor: { id, pid: process.pid, autoSave: false },
+  });
+  f.write('a.ts', 'export const manual=2;\n');
+  const hash = (await observeAutomaticFile(f.repo, 'a.ts'))!.hash;
+  expect(
+    await f.watcher.editorSave(f.reg, { sessionId: id, file: 'a.ts', hash, reason: 'manual' }),
+  ).toEqual({ status: 'pending' });
+  await f.watcher.poll();
+  f.advance();
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toEqual([expect.objectContaining({ state: 'queued' })]);
+  await f.watcher.editorSave(f.reg, { sessionId: id, file: 'a.ts', reason: 'dirty' });
+  expect(await f.jobs.next(f.owner)).toBeUndefined();
+  f.write('a.ts', 'export const later=3;\n');
+  expect(
+    await f.watcher.editorSave(f.reg, { sessionId: id, file: 'a.ts', hash, reason: 'manual' }),
+  ).toEqual({ status: 'superseded' });
+  await f.watcher.poll();
+  f.advance(600000);
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toEqual([expect.objectContaining({ state: 'cancelled' })]);
+}, 30000);
+
+it('keeps two editor sessions guarded until the last clean detach, then reviews subsequent external writes', async () => {
+  const f = await fixture(),
+    first = randomUUID(),
+    second = randomUUID();
+  for (const id of [first, second])
+    await f.watcher.configure(f.reg, {
+      triggers: ['save'],
+      externalChanges: true,
+      editor: { id, pid: process.pid, autoSave: false },
+    });
+  await f.watcher.detachEditor(f.reg, first);
+  f.write('a.ts', 'export const unclassified=2;\n');
+  await f.watcher.poll();
+  f.advance();
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toEqual([]);
+  expect((await f.watcher.status(f.reg.key))[0]?.editorSessions).toBe(1);
+  await f.watcher.detachEditor(f.reg, second);
+  expect((await f.watcher.status(f.reg.key))[0]?.editorTransition?.kind).toBe('clean-detach');
+  f.write('b.ts', 'export const external=2;\n');
+  await f.watcher.poll();
+  f.advance();
+  await f.watcher.poll();
+  const next = await f.jobs.next(f.owner);
+  expect(next!.source.selected.map((file) => file.path)).toEqual(['b.ts']);
+  await f.jobs.finish(next!.job.id, f.owner, { exitCode: 0, status: 'completed' });
+}, 30000);
+
+it('preserves permitted manual work after detach but does not enable external writes without permission', async () => {
+  const f = await fixture(),
+    id = randomUUID();
+  await f.watcher.configure(f.reg, {
+    triggers: ['save'],
+    externalChanges: false,
+    editor: { id, pid: process.pid, autoSave: true },
+  });
+  f.write('a.ts', 'export const auto=2;\n');
+  const hash = (await observeAutomaticFile(f.repo, 'a.ts'))!.hash;
+  await f.watcher.editorSave(f.reg, { sessionId: id, file: 'a.ts', hash, reason: 'auto' });
+  await f.watcher.detachEditor(f.reg, id);
+  f.advance();
+  await f.watcher.poll();
+  const next = await f.jobs.next(f.owner);
+  expect(next!.source.selected.map((file) => file.path)).toEqual(['a.ts']);
+  await f.jobs.finish(next!.job.id, f.owner, { exitCode: 0, status: 'completed' });
+  f.write('b.ts', 'export const external=2;\n');
+  await f.watcher.poll();
+  f.advance(600000);
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toHaveLength(1);
+}, 30000);
+
+it('marks the final unclassified writes of a dead editor instead of treating them as external Save', async () => {
+  const f = await fixture(),
+    id = randomUUID();
+  const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' });
+  await once(child, 'spawn');
+  cleanups.push(async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, 'exit');
+      child.kill('SIGKILL');
+      await exited;
+    }
+  });
+  await f.watcher.configure(f.reg, {
+    triggers: ['save'],
+    externalChanges: true,
+    editor: { id, pid: child.pid!, autoSave: false },
+  });
+  f.write('a.ts', 'export const unknown=2;\n');
+  const exited = once(child, 'exit');
+  child.kill('SIGKILL');
+  await exited;
+  await f.watcher.poll();
+  f.advance();
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toEqual([]);
+  expect((await f.watcher.status(f.reg.key))[0]).toMatchObject({
+    editorSessions: 0,
+    unclassifiedFiles: ['a.ts'],
+    editorTransition: { at: expect.any(Number), kind: 'process-exit' },
+  });
+  await f.restart();
+  f.write('b.ts', 'export const external=2;\n');
+  await f.watcher.poll();
+  f.advance();
+  await f.watcher.poll();
+  const next = await f.jobs.next(f.owner);
+  expect(next!.source.selected.map((file) => file.path)).toEqual(['b.ts']);
+  await f.jobs.finish(next!.job.id, f.owner, { exitCode: 0, status: 'completed' });
+}, 30000);

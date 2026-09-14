@@ -75,6 +75,7 @@ export interface CliDependencies {
   entrypoint?: string;
   serviceStartLimits?: { maximumReviewsPerHour: number };
   onReviewRequest?(request: ReviewRequestRecord): Promise<void>;
+  centralClientId?: 'gcr-cli' | 'commit-defender';
 }
 export interface CliResult {
   value: unknown;
@@ -863,8 +864,14 @@ export async function executeCli(
     const connectionStatus = central
       ? await (await centralConnections()).status(string('connection')!)
       : undefined;
-    if (connectionStatus && connectionStatus.clientId !== 'gcr-cli')
-      throw new KnowledgeSyncError('invalid-binding', 'Choose a GCR CLI connection.');
+    if (
+      connectionStatus &&
+      connectionStatus.clientId !== (dependencies.centralClientId ?? 'gcr-cli')
+    )
+      throw new KnowledgeSyncError(
+        'invalid-binding',
+        'Choose a connection authorized for this client.',
+      );
     const execution = await resolveReviewExecution({
       client: client!,
       configuredMode: mode.mode,

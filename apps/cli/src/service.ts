@@ -190,6 +190,7 @@ export async function executeServiceCommand(
           const result = await review(args, {
             ...dependencies,
             frozenSource: input.source,
+            centralClientId: options.centralClientId ?? 'gcr-cli',
             serviceStartLimits: { maximumReviewsPerHour: options.maximumReviewsPerHour ?? 6 },
             onReviewRequest: input.bindRequest,
             signal: input.signal,
@@ -231,7 +232,7 @@ export async function executeServiceCommand(
               options.mode,
               ...(options.connectionId ? ['--connection', options.connectionId] : []),
             ],
-            dependencies,
+            { ...dependencies, centralClientId: options.centralClientId ?? 'gcr-cli' },
           );
           const value = result.value as { status?: string; report?: unknown };
           if (value.status === 'unresolved') return;

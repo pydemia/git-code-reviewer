@@ -32,6 +32,7 @@ export class LocalServiceError extends Error {
 export interface ServiceReviewOptions {
   mode: 'standalone' | 'centralized';
   connectionId?: string;
+  centralClientId?: 'gcr-cli' | 'commit-defender';
   executorPath?: string;
   model: 'gpt-6-astra';
   reasoningEffort: 'xhigh';
@@ -93,6 +94,9 @@ function reviewOptions(input: ServiceReviewOptions): ServiceReviewOptions {
     value.model !== 'gpt-6-astra' ||
     value.reasoningEffort !== 'xhigh' ||
     (value.mode === 'standalone' && value.connectionId !== undefined) ||
+    (value.centralClientId !== undefined &&
+      (value.mode !== 'centralized' ||
+        !['gcr-cli', 'commit-defender'].includes(value.centralClientId))) ||
     (value.mode === 'centralized' &&
       (typeof value.connectionId !== 'string' ||
         !value.connectionId ||

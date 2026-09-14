@@ -224,6 +224,7 @@ export async function startLocalService(options: LocalServiceOptions) {
           features: [
             'review-start-budget-v1',
             'headless-watch-v1',
+            'editor-save-events-v1',
             ...(options.reconcile ? ['review-reconciliation-v1'] : []),
           ],
           pid: process.pid,
@@ -266,6 +267,8 @@ export async function startLocalService(options: LocalServiceOptions) {
       }
       case 'watch-start':
       case 'watch-stop':
+      case 'watch-editor-save':
+      case 'watch-editor-detach':
       case 'watch-status': {
         if (typeof request.root !== 'string') throw new LocalServiceError('service-invalid');
         const identity = discoverLocalIdentity(request.root, options.profileId);
@@ -280,7 +283,17 @@ export async function startLocalService(options: LocalServiceOptions) {
             triggers: request.triggers,
             externalChanges: request.externalChanges,
             minimumSaveIntervalMs: request.minimumSaveIntervalMs,
+            editor: request.editor,
           });
+        if (request.action === 'watch-editor-save')
+          return watcher.editorSave(registration, {
+            sessionId: request.sessionId,
+            file: request.file,
+            hash: request.hash,
+            reason: request.reason,
+          });
+        if (request.action === 'watch-editor-detach')
+          return watcher.detachEditor(registration, request.sessionId);
         if (request.action === 'watch-stop') await watcher.disable(key);
         return watcher.status(key);
       }

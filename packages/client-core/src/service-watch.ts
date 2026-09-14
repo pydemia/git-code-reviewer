@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { sourcePath } from '@gcr/client-contract';
 import { contentHash } from './local-identity.js';
-import { observeAutomaticRepository, observeAutomaticWorkingTree } from './automatic-source.js';
+import {
+  observeAutomaticRepository,
+  observeAutomaticWorkingTree,
+  observeAutomaticFile,
+} from './automatic-source.js';
 import { captureLocalSource, type FrozenLocalSource } from './source-snapshot.js';
 import { LocalServiceError, type ServiceJobs, type ServiceRegistration } from './service-jobs.js';
 
@@ -27,6 +31,36 @@ export interface ServiceWatch {
   cancelIds: string[];
   intent?: { id: string; source: FrozenLocalSource };
   problem?: string;
+  externalChanges?: boolean;
+  editor?: {
+    autoSave: boolean;
+    sessions: Array<{ id: string; pid: number }>;
+    events: Array<{ path: string; hash: string | null; allowed: boolean }>;
+    unclassified: string[];
+    transition?: { at: number; kind: 'attached' | 'clean-detach' | 'process-exit' };
+  };
+}
+const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+function editorSession(input: unknown): { id: string; pid: number; autoSave: boolean } {
+  const value = input as { id: string; pid: number; autoSave: boolean };
+  if (
+    !value ||
+    !uuidPattern.test(value.id) ||
+    !Number.isSafeInteger(value.pid) ||
+    value.pid < 1 ||
+    typeof value.autoSave !== 'boolean'
+  )
+    throw new LocalServiceError('service-invalid');
+  return { id: value.id, pid: value.pid, autoSave: value.autoSave };
+}
+function processAlive(pid: number) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
+    throw error;
+  }
 }
 export function validateServiceWatch(input: ServiceWatch): ServiceWatch {
   const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -66,6 +100,32 @@ export function validateServiceWatch(input: ServiceWatch): ServiceWatch {
       throw new LocalServiceError('service-invalid');
   }
   for (const file of [...input.pendingPaths, ...input.reviewPaths]) sourcePath(file);
+  if (input.externalChanges !== undefined && typeof input.externalChanges !== 'boolean')
+    throw new LocalServiceError('service-invalid');
+  if (input.editor) {
+    if (
+      input.trigger !== 'save' ||
+      typeof input.editor.autoSave !== 'boolean' ||
+      !Array.isArray(input.editor.sessions) ||
+      input.editor.sessions.length > 16 ||
+      !Array.isArray(input.editor.events) ||
+      input.editor.events.length > 512 ||
+      !Array.isArray(input.editor.unclassified) ||
+      input.editor.unclassified.length > 512
+    )
+      throw new LocalServiceError('service-invalid');
+    for (const session of input.editor.sessions)
+      editorSession({ ...session, autoSave: input.editor.autoSave });
+    for (const event of input.editor.events) {
+      sourcePath(event.path);
+      if (
+        typeof event.allowed !== 'boolean' ||
+        (event.hash !== null && !/^[a-f0-9]{64}$/.test(event.hash))
+      )
+        throw new LocalServiceError('service-invalid');
+    }
+    input.editor.unclassified.forEach((file) => sourcePath(file));
+  }
   return input;
 }
 
@@ -106,6 +166,7 @@ export class ServiceWatcher {
       triggers: unknown;
       externalChanges?: unknown;
       minimumSaveIntervalMs?: unknown;
+      editor?: unknown;
     },
   ) {
     if (
@@ -116,9 +177,12 @@ export class ServiceWatcher {
     )
       throw new LocalServiceError('service-invalid');
     const triggers = [...new Set(input.triggers)] as WatchTrigger[];
+    const editor = input.editor === undefined ? undefined : editorSession(input.editor);
+    if (editor && (!triggers.includes('save') || !processAlive(editor.pid)))
+      throw new LocalServiceError('service-denied');
     if (
       triggers.some((t) => !reg.triggers.includes(t)) ||
-      (triggers.includes('save') && input.externalChanges !== true)
+      (triggers.includes('save') && input.externalChanges !== true && !editor)
     )
       throw new LocalServiceError('service-denied');
     const minimumSaveIntervalMs = input.minimumSaveIntervalMs ?? 600000;
@@ -131,12 +195,30 @@ export class ServiceWatcher {
     const replacements: ServiceWatch[] = [];
     for (const trigger of triggers) {
       const old = await this.options.jobs.watch(reg.key, trigger);
+      if (trigger === 'save' && !editor && old?.editor?.sessions.length)
+        throw new LocalServiceError('service-busy');
       if (
         old?.enabled &&
         old.registrationRevision === reg.revision &&
-        old.minimumSaveIntervalMs === minimumSaveIntervalMs
-      )
+        old.minimumSaveIntervalMs === minimumSaveIntervalMs &&
+        (trigger !== 'save' ||
+          ((old.externalChanges ?? true) === (input.externalChanges === true) &&
+            old.editor?.autoSave === editor?.autoSave))
+      ) {
+        if (editor && trigger === 'save') {
+          const sessions = old.editor!.sessions.filter((session) => session.id !== editor.id);
+          const next = {
+            ...old,
+            editor: {
+              ...old.editor!,
+              sessions: [...sessions, { id: editor.id, pid: editor.pid }],
+              transition: { at: this.now(), kind: 'attached' as const },
+            },
+          };
+          await this.options.jobs.writeWatch(next);
+        }
         continue;
+      }
       replacements.push({
         version: 1,
         repository: reg.key,
@@ -150,6 +232,18 @@ export class ServiceWatcher {
         cancelIds: [],
         changedAt: this.now(),
         lastSubmittedAt: 0,
+        externalChanges: trigger === 'save' && input.externalChanges === true,
+        ...(trigger === 'save' && editor
+          ? {
+              editor: {
+                autoSave: editor.autoSave,
+                sessions: [{ id: editor.id, pid: editor.pid }],
+                events: [],
+                unclassified: [],
+                transition: { at: this.now(), kind: 'attached' as const },
+              },
+            }
+          : {}),
       });
     }
     for (const trigger of ['stage', 'save'] as const) {
@@ -187,7 +281,10 @@ export class ServiceWatcher {
         trigger: w.trigger,
         enabled: w.enabled,
         registrationRevision: w.registrationRevision,
-        externalChanges: w.trigger === 'save',
+        externalChanges: w.trigger === 'save' && (w.externalChanges ?? true),
+        editorSessions: w.editor?.sessions.length ?? 0,
+        editorTransition: w.editor?.transition ?? null,
+        unclassifiedFiles: w.editor?.unclassified ?? [],
         minimumSaveIntervalMs: w.minimumSaveIntervalMs,
         observedHash: w.observed.fingerprint,
         pendingFiles: w.pendingPaths.length,
@@ -201,6 +298,81 @@ export class ServiceWatcher {
         problem: w.problem ?? null,
       })),
     );
+  }
+  /** Editor events carry hashes, never document text. All methods use the service mutation queue. */
+  async editorSave(
+    reg: ServiceRegistration,
+    input: { sessionId: unknown; file: unknown; hash?: unknown; reason: unknown },
+  ) {
+    const state = await this.editorState(reg, input.sessionId);
+    const file = sourcePath(input.file);
+    if (!['manual', 'auto', 'external', 'dirty'].includes(String(input.reason)))
+      throw new LocalServiceError('service-invalid');
+    const observed = await observeAutomaticFile(reg.root, file, reg.options.excludePatterns);
+    if (!observed) return { status: 'excluded' };
+    if (input.reason !== 'dirty' && input.hash !== observed.hash) return { status: 'superseded' };
+    const allowed =
+      input.reason === 'manual' ||
+      (input.reason === 'auto' && state.editor!.autoSave) ||
+      (input.reason === 'external' && state.externalChanges === true);
+    const previous = state.editor!.events.find((event) => event.path === file);
+    if (input.reason !== 'dirty' && previous?.hash === observed.hash)
+      return { status: 'unchanged' };
+    const events = [
+      ...state.editor!.events.filter((event) => event.path !== file),
+      { path: file, hash: observed.hash, allowed },
+    ];
+    const pending = new Set(state.pendingPaths);
+    if (allowed && observed.changed) pending.add(file);
+    else pending.delete(file);
+    const receipt = state.receiptId ? await this.options.jobs.job(state.receiptId) : undefined;
+    const cancel =
+      receipt && ['queued', 'running'].includes(receipt.state) && state.reviewPaths.includes(file);
+    const next: ServiceWatch = {
+      ...state,
+      changedAt: this.now(),
+      pendingPaths: [...pending].sort(),
+      editor: {
+        ...state.editor!,
+        events,
+        unclassified: state.editor!.unclassified.filter((p) => p !== file),
+      },
+      cancelIds: [
+        ...new Set([
+          ...state.cancelIds,
+          ...(cancel ? [receipt.id] : []),
+          ...(state.intent ? [state.intent.id] : []),
+        ]),
+      ],
+    };
+    delete next.intent;
+    await this.options.jobs.writeWatch(next);
+    await this.flushCancellations(next);
+    return { status: allowed && observed.changed ? 'pending' : 'suppressed' };
+  }
+  async detachEditor(reg: ServiceRegistration, sessionId: unknown) {
+    const state = await this.editorState(reg, sessionId);
+    const observed = await this.observe(reg, 'save');
+    // Observe under the guard before releasing it. Writes not classified by the
+    // editor during shutdown cannot become retrospective external Save requests.
+    const next = await this.applyObservation(state, observed);
+    next.editor!.sessions = next.editor!.sessions.filter((session) => session.id !== sessionId);
+    next.editor!.transition = { at: this.now(), kind: 'clean-detach' };
+    await this.options.jobs.writeWatch(next);
+    return this.status(reg.key);
+  }
+  private async editorState(reg: ServiceRegistration, sessionId: unknown) {
+    const state = await this.options.jobs.watch(reg.key, 'save');
+    const session = state?.editor?.sessions.find((s) => s.id === sessionId);
+    if (
+      !state?.enabled ||
+      state.registrationRevision !== reg.revision ||
+      !reg.triggers.includes('save') ||
+      !session ||
+      !processAlive(session.pid)
+    )
+      throw new LocalServiceError('service-denied');
+    return state;
   }
   start() {
     if (this.stopped || this.timer || this.polling) return;
@@ -269,42 +441,7 @@ export class ServiceWatcher {
         const expected = state;
         const updated = await serial(async () => {
           if (this.stopped || !(await this.current(expected))) return;
-          let current = structuredClone(expected);
-          delete current.problem;
-          const receipt = current.receiptId ? await jobs.job(current.receiptId) : undefined;
-          // A budget-delayed receipt can start long after submission. Preserve
-          // its actual service start in the durable Save interval as well.
-          current.lastSubmittedAt = Math.max(current.lastSubmittedAt, receipt?.startedAt ?? 0);
-          if (observed.fingerprint !== current.observed.fingerprint) {
-            const before = new Map(current.observed.files.map((f) => [f.path, f.hash]));
-            const changed = observed.files
-              .filter(
-                (f) =>
-                  observed.head !== current.observed.head ||
-                  !before.has(f.path) ||
-                  before.get(f.path) !== f.hash,
-              )
-              .map((f) => f.path);
-            const live = receipt && ['queued', 'running'].includes(receipt.state);
-            const paths = new Set([
-              ...current.pendingPaths,
-              ...(live ? current.reviewPaths : []),
-              ...changed,
-            ]);
-            current = {
-              ...current,
-              observed,
-              changedAt: this.now(),
-              pendingPaths: observed.files.filter((f) => paths.has(f.path)).map((f) => f.path),
-              cancelIds: live
-                ? [...new Set([...current.cancelIds, receipt.id])]
-                : current.cancelIds,
-            };
-            // A removed/returned-to-base file also supersedes the old frozen input.
-            await jobs.writeWatch(current);
-            current = await this.flushCancellations(current);
-          } else if (contentHash(current) !== contentHash(expected)) await jobs.writeWatch(current);
-          return current;
+          return this.applyObservation(expected, observed);
         });
         if (
           !updated ||
@@ -355,6 +492,75 @@ export class ServiceWatcher {
         });
       }
     }
+  }
+  private async applyObservation(expected: ServiceWatch, observed: Observation) {
+    let current = structuredClone(expected);
+    delete current.problem;
+    const receipt = current.receiptId ? await this.options.jobs.job(current.receiptId) : undefined;
+    current.lastSubmittedAt = Math.max(current.lastSubmittedAt, receipt?.startedAt ?? 0);
+    const guarded = !!current.editor?.sessions.length;
+    const external = current.trigger === 'stage' || (!guarded && (current.externalChanges ?? true));
+    const events = new Map(current.editor?.events.map((event) => [event.path, event]) ?? []);
+    const before = new Map(current.observed.files.map((file) => [file.path, file.hash]));
+    const changed = observed.files.filter(
+      (file) =>
+        observed.head !== current.observed.head ||
+        !before.has(file.path) ||
+        before.get(file.path) !== file.hash,
+    );
+    if (current.editor) {
+      const alive = current.editor.sessions.filter((session) => processAlive(session.pid));
+      if (alive.length !== current.editor.sessions.length) {
+        current.editor.unclassified = [
+          ...new Set([
+            ...current.editor.unclassified,
+            ...changed
+              .filter((file) => events.get(file.path)?.hash !== file.hash)
+              .map((file) => file.path),
+          ]),
+        ];
+        current.editor.sessions = alive;
+        current.editor.transition = { at: this.now(), kind: 'process-exit' };
+      }
+    }
+    if (observed.fingerprint !== current.observed.fingerprint) {
+      const live = receipt && ['queued', 'running'].includes(receipt.state);
+      const paths = new Set([
+        ...current.pendingPaths,
+        ...(live ? current.reviewPaths : []),
+        ...(external ? changed.map((file) => file.path) : []),
+      ]);
+      const pendingIntent = current.intent?.id;
+      delete current.intent;
+      current = {
+        ...current,
+        observed,
+        changedAt: this.now(),
+        pendingPaths: observed.files
+          .filter(
+            (file) =>
+              paths.has(file.path) &&
+              (external ||
+                (events.get(file.path)?.allowed && events.get(file.path)?.hash === file.hash)),
+          )
+          .map((file) => file.path),
+        cancelIds: [
+          ...new Set([
+            ...current.cancelIds,
+            ...(live ? [receipt.id] : []),
+            ...(pendingIntent ? [pendingIntent] : []),
+          ]),
+        ],
+      };
+      if (external && current.editor)
+        current.editor.unclassified = current.editor.unclassified.filter(
+          (file) => !changed.some((f) => f.path === file),
+        );
+      await this.options.jobs.writeWatch(current);
+      current = await this.flushCancellations(current);
+    } else if (contentHash(current) !== contentHash(expected))
+      await this.options.jobs.writeWatch(current);
+    return current;
   }
   private async current(expected: ServiceWatch) {
     const current = await this.options.jobs.watch(expected.repository, expected.trigger);
