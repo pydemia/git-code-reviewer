@@ -1,5 +1,7 @@
 # PRISM-DEV 배포
 
+2026-09-15 01:20 KST: 중앙→로컬 단방향 전파 수정판 alpha.49·chart 0.10.45·Helm revision 59를 배포했다. 클라이언트 키는 읽기 전용이며 로컬 리뷰 결과·피드백 POST와 중앙 모델 실행을 제외한다. DB schema 45·verify-full과 기존 인증·데이터를 유지한다. [검증 기록](../../../docs/operations/one-way-propagation-2026-09-15.md)을 참고한다.
+
 2026-09-14 03:05 KST: GCR alpha.41·chart 0.10.39·Helm revision 53에 지식 bundle 발행·서명·다운로드와 메모리 배포 승인/상태 화면을 배포했다. 실제 worker 발행과 별도 공개키 서명 검증을 수행하고 임시 자료를 정리했다. DB verify-full TLS와 local 인증을 유지한다. [배포 증거](../../../.documents/execution/preventive-review/evidence/P05-knowledge-PRISM-deployment.json)를 참고한다.
 
 2026-09-14: Keycloak을 이 namespace에 별도 Helm release로 배포했다. Identity revision 2이며 GCR·Keycloak DB 연결에 TLS를 적용했다. 실제 앱 SAML 전환은 미완료이고 기존 local 로그인을 유지한다. [배포·검증 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 참고한다.
