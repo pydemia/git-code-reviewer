@@ -1,0 +1,518 @@
+{
+  "schemaVersion": 1,
+  "phase": "P08",
+  "commit": "P08-C05",
+  "status": "passed",
+  "commitComplete": true,
+  "phaseComplete": false,
+  "verifiedAt": "2026-09-14T07:32:18.484426+00:00",
+  "sourceCommit": "714b37d17777fe12a5e9ecbeba81ae76de8f04c7",
+  "deploymentConfigCommit": "e6f4925e5396d9ada90a02e192fedc62a0a269aa",
+  "image": {
+    "digest": "sha256:8ebb5c7a43b7b55f423f2fde79d0b7e9c2f166228438a343c63f62b04aa8f635",
+    "source": "714b37d17777fe12a5e9ecbeba81ae76de8f04c7",
+    "version": "0.8.0-alpha.47",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:1667d3645f2d0d27247a8aef66d8b7d654a1f2be3e0103679ce259891a16324a"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:5b55bd2b0a4b9023b6a11aac9c0acc0e67e4672a582eed0b6bfdef29cf03a784"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "labels": {
+      "org.opencontainers.image.revision": "714b37d17777fe12a5e9ecbeba81ae76de8f04c7",
+      "org.opencontainers.image.version": "0.8.0-alpha.47"
+    },
+    "architecture": "amd64"
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:ab7261ae0cb844476483b70c23108252ad780763e21a2c61b34c6e5564d8565c",
+    "chartSha256": "e9c764fadb4e44eb77a684ae940e9190bf8c2d5cef5374a55f87659caf969137"
+  },
+  "attestations": {
+    "status": "passed",
+    "indexDigest": "sha256:8ebb5c7a43b7b55f423f2fde79d0b7e9c2f166228438a343c63f62b04aa8f635",
+    "attestations": [
+      {
+        "digest": "sha256:cf06e4712b4985744d63b3d5ed996b8fd90023263a91536bb655fa26e3d893e9",
+        "predicateType": "https://spdx.dev/Document"
+      },
+      {
+        "digest": "sha256:109413d14e3f03bb8fee00fa678dbc6660218c3fe623683e9af2ce9277cfa88f",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    ],
+    "tlsVerification": true,
+    "additionalTrust": "existing-corporate-ca-for-this-process-only",
+    "runtime": "v25.9.0"
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T07:22:26.095902+00:00",
+    "release": {
+      "revision": 58,
+      "updated": "2026-09-14T16:20:34.51241+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.44",
+      "app_version": "0.8.0-alpha.47",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:8ebb5c7a43b7b55f423f2fde79d0b7e9c2f166228438a343c63f62b04aa8f635",
+      "source": "714b37d17777fe12a5e9ecbeba81ae76de8f04c7",
+      "version": "0.8.0-alpha.47",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:1667d3645f2d0d27247a8aef66d8b7d654a1f2be3e0103679ce259891a16324a"
+        },
+        {
+          "architecture": "unknown",
+          "os": "unknown",
+          "digest": "sha256:5b55bd2b0a4b9023b6a11aac9c0acc0e67e4672a582eed0b6bfdef29cf03a784"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "714b37d17777fe12a5e9ecbeba81ae76de8f04c7",
+        "org.opencontainers.image.version": "0.8.0-alpha.47"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 172,
+        "after": 172,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 164,
+        "after": 164,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 45,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-67558b446c-9skvn",
+        "imageDigest": "sha256:8ebb5c7a43b7b55f423f2fde79d0b7e9c2f166228438a343c63f62b04aa8f635",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-6d649c8c65-q7l9l",
+        "imageDigest": "sha256:8ebb5c7a43b7b55f423f2fde79d0b7e9c2f166228438a343c63f62b04aa8f635",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Compiled production image: receipt-bound pending and adopted status, authenticated intake, publication, unchanged migrations and resource preservation. CD native UI and actual model integration are recorded separately."
+  },
+  "databaseBackup": {
+    "at": "2026-09-14T07:12:28.313480+00:00",
+    "format": "pg_dump custom / AES-256-GCM",
+    "bytes": 8889664,
+    "plaintextSha256": "0eff096b6dc13607074742a8ef25f617c9e10a95fcebec5dd321fed768e32346",
+    "ciphertextSha256": "d1cbb017aefce5cbcefda888772d1f60bf6065e5540425eafa310bdb703b1fb3",
+    "encryptionReadback": true,
+    "restoreExecuted": false,
+    "keySecret": "git-code-reviewer-identity-preparation-backup",
+    "aad": "gcr-p08-intake-release-alpha47"
+  },
+  "compiledImageChecks": [
+    "migration-45-idempotent-existing-user-preserved",
+    "full-production-server-registration",
+    "local-password-session-login",
+    "anonymous-criteria-401",
+    "cross-origin-mutation-403",
+    "create-and-read-candidate",
+    "new-immutable-revision",
+    "stale-revision-409",
+    "built-criteria-web-route",
+    "non-root-runtime",
+    "idempotent-generation-queue",
+    "compiled-worker-generation-service",
+    "model-candidate-draft-only",
+    "admin-role-list",
+    "server-key-file-loading",
+    "three-component-publication",
+    "ed25519-signed-manifest",
+    "authenticated-304",
+    "scoped-bundle-download-integrity",
+    "publication-status-api",
+    "public-connection-config",
+    "client-key-issue-bearer-v2-revoke",
+    "old-contract-426",
+    "read-key-feedback-denied",
+    "explicit-feedback-scope",
+    "originless-native-submission",
+    "cross-origin-and-originless-cookie-denied",
+    "idempotent-feedback-receipt",
+    "private-field-rejection",
+    "repository-feedback-list",
+    "web-session-intake-only",
+    "intake-create-draft-and-idempotency",
+    "durable-client-reported-source",
+    "read-key-own-receipt-status",
+    "status-web-session-denied",
+    "adopted-status-without-payload"
+  ],
+  "serverIntegrationTests": 13,
+  "clientTests": {
+    "unique": 375,
+    "initialPassed": 373,
+    "initialFailed": 2,
+    "affectedFilesRerunPassed": 16,
+    "note": "Initial process-test failures occurred during a concurrent package build. Exact cause unproven; affected files passed after packaging with Node 22 and one worker."
+  },
+  "clientPackages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.26",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.26",
+        "file": "gcr-client-contract-0.1.0-alpha.26.tgz",
+        "sha256": "417a5af8737ed66528e662e67e4578f77894b5dbbeb3f7a81a54a9ed159529f9"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.26",
+        "file": "gcr-client-core-0.1.0-alpha.26.tgz",
+        "sha256": "abb3e87482f161b1cf02eab67790a3e9cfb8382834b8c1576d7c8d31769514b4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.26",
+        "file": "gcr-client-executors-0.1.0-alpha.26.tgz",
+        "sha256": "81e642e7ac627698c3d54ef0f3bb0adf2bc24c99400dd382e19ed9eaa7511260"
+      }
+    ]
+  },
+  "liveStatus": {
+    "requestId": "6236ae3f-da42-4ab4-9c61-284ba60e478a",
+    "status": "passed",
+    "version": "0.8.0-alpha.47",
+    "clientVersion": "0.1.0-alpha.26",
+    "checks": [
+      "trusted-https-session-login",
+      "downloaded-public-configuration-matches-independent-CA-and-key",
+      "read-only-key-denied",
+      "live-receipt-bound-pending-status",
+      "macos-keychain-connection",
+      "explicit-encrypted-queue-no-auto-send",
+      "actual-https-feedback-receipt",
+      "idempotent-repeat",
+      "web-repository-candidate-list",
+      "live-adopted-status-without-submitted-prose",
+      "web-intake-create-draft",
+      "intake-idempotence",
+      "independent-activation-gates",
+      "manual-evaluation-shadow-activation",
+      "current-intake-rule-status",
+      "new-signed-bundle-in-real-client-cache",
+      "live-status-matches-signed-synchronized-policy",
+      "explicit-minimal-result-submission",
+      "revocation-rejects-status-and-offline-review"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "receipt": {
+      "audience": {
+        "repositoryId": "9d508f13-4e48-42c6-9fc6-96b490e686be",
+        "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+        "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+        "userId": "ba9ea415-4ed8-4249-b75a-d05bb24a743b"
+      },
+      "clientId": "gcr-cli",
+      "evidence": "client-reported",
+      "expiresAt": "2026-10-14T07:22:49.639Z",
+      "id": "dce6f894-8b20-4842-af54-79b4d84dc6a2",
+      "kind": "feedback",
+      "payloadHash": "6461e6510d3e82ed6036e5118c2656589cb8deba1affd8fd2e54d0551c2d296b",
+      "receivedAt": "2026-09-14T07:22:49.639Z",
+      "requestId": "8390110b-2bcb-46e4-bb31-a34062eb0811",
+      "schemaVersion": 1,
+      "status": "submitted"
+    },
+    "intake": {
+      "submissionId": "dce6f894-8b20-4842-af54-79b4d84dc6a2",
+      "ruleId": "a12ec329-8678-4617-8532-fe4609d9407f",
+      "state": "active",
+      "previousSnapshot": "9d234c3e-9ea9-4e7e-a85f-cbcb573bdc8b",
+      "snapshotId": "04b571f3-c619-4e59-9df8-8d860453d464",
+      "sourceProvenance": "client-reported",
+      "actualModelReReview": false
+    },
+    "ownedKeychainEntriesRemoved": true,
+    "ownedRepositoryAndUserRemoved": true,
+    "ownedLocalFilesRemoved": true,
+    "verifiedAt": "2026-09-14T07:22:59.186Z"
+  },
+  "nativeCD": {
+    "version": "2.5.0",
+    "vsixSha256": "89b090537137be9b47360b93ea658eca06193eae7bfd17b18e1cb729d25130d4",
+    "files": {
+      "out/extension.js": "94c0d1c30bc363b5006e059602d854e007f5d1b39fa7166a7fee64e30f1225cd",
+      "out/hook-cli.js": "9429ddd93db7a17b5c4c5827797864be10d99c5eba1a794da1ec4cce34ead416",
+      "out/standalone-review-worker.js": "9502416671fdeed9a2c2218456f59ab6e0ff1a70c642352afcefc09c806f24f3",
+      "out/review-chat-worker.js": "3510f5b2436dbf541da1fe994237165ad5c17cf1e099c8d4dff8c0ffe990b65a",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "out/gcr-service/main.mjs": "c855b77e9a66bd8059cd1c395bec8eeeca30ceb6a7275bc3eba9c481f98b66bf",
+      "out/gcr-service/manifest.json": "928770b3fbceb28a714559a52d3644c33531fedfa08aa8a72b78c3ace3d362e3"
+    }
+  },
+  "nativeUITest": {
+    "status": "passed",
+    "vscode": "1.135.0",
+    "syntheticReview": true,
+    "externalModelCalls": 0,
+    "connectionId": "d3b29c7ba3213bfe85c185b89d17cf3c48428364903dc3d332edb8c1c8ce6fad",
+    "stage": "selection-change-closed-panel",
+    "publishedSnapshot": "snapshot-2",
+    "localCandidateId": "ac9ba9da-0f1e-44bf-8cc2-518e8fdec987",
+    "extensionVersion": "2.5.0",
+    "requestId": "2c15d95e-7644-453b-ac3a-3bc8fac2bbad",
+    "receipt": {
+      "audience": {
+        "repositoryId": "repository",
+        "serverId": "server",
+        "tenantId": "tenant",
+        "userId": "alice"
+      },
+      "clientId": "commit-defender",
+      "evidence": "client-reported",
+      "expiresAt": "2026-10-14T07:16:26.811Z",
+      "id": "08c9d7ce-b28f-44a3-8eb4-b66185fe4fd0",
+      "kind": "feedback",
+      "payloadHash": "70d3639bcb922ee1edff1bb956de6f93e7de5d18a03c2b6799263c05e485e546",
+      "receivedAt": "2026-09-14T07:16:26.811Z",
+      "requestId": "2c15d95e-7644-453b-ac3a-3bc8fac2bbad",
+      "schemaVersion": 1,
+      "status": "submitted"
+    },
+    "submissionCalls": 1,
+    "reviewStatusCalls": 4,
+    "credentialRemoved": true,
+    "fixtureAndKeysRemoved": true,
+    "ui": {
+      "verified": true,
+      "preview": true,
+      "confirmation": true,
+      "noHtmlInjection": true,
+      "outboxReopen": true,
+      "localCandidate": true,
+      "explicitSubmission": true,
+      "pendingStatus": true,
+      "publicationRequired": true,
+      "explicitSynchronization": true,
+      "retiredCriterionPreventsRereview": true
+    }
+  },
+  "cdRegressionTests": 176,
+  "minimumVSCode": {
+    "status": "passed",
+    "vscode": "1.90.2",
+    "node": "20.9.0",
+    "electron": "29.4.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "extensionVersion": "2.5.0",
+    "delivery": "packaged-extension",
+    "commandCount": 25,
+    "activation": true,
+    "hookDefault": "disable",
+    "modelCalled": false,
+    "checks": [
+      "activation",
+      "command registration",
+      "clear findings",
+      "cancel without run",
+      "no hook installed",
+      "standalone defaults and user profile",
+      "empty history refresh creates no local store or OS key"
+    ]
+  },
+  "cdInstallation": {
+    "status": "passed",
+    "version": "2.5.0",
+    "vsixSha256": "89b090537137be9b47360b93ea658eca06193eae7bfd17b18e1cb729d25130d4",
+    "installedFilesMatch": true,
+    "previousVersionBackup": "test-results/P08-status-previous-install-2.4.0",
+    "forcedWindowReload": false,
+    "globalCliChanged": false
+  },
+  "livePrismCD": {
+    "status": "passed",
+    "vscode": "1.135.0",
+    "syntheticInitialReview": true,
+    "actualFollowupReview": true,
+    "externalModelCalls": 1,
+    "connectionId": "00500916fe187c2478a6ff89d18814794401eb5ec861bf2673b606f4cf012a54",
+    "stage": "review-terminal",
+    "reviewStatus": "completed",
+    "runId": "8960d5aa-b91e-489c-a36b-49c91deb1b2a",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "snapshotId": "05519007-4569-4972-8f0f-05e966fa83bf",
+    "ruleId": "1fb999ec-81b9-41a2-86b6-66a6efb50dee",
+    "findingCount": 1,
+    "reportSha256": "586f6bb38a612ffc7153e99048de105fbd20e2814bee2d1c204da75f0b0fae99",
+    "credentialRemoved": true,
+    "fixtureAndKeysRemoved": true,
+    "centralCleanup": {
+      "ownedRepositoryAndUserRemoved": true,
+      "ownedLocalFilesRemoved": true
+    },
+    "ui": {
+      "verified": true,
+      "explicitSubmission": true,
+      "realPrismApproval": true,
+      "explicitSynchronization": true,
+      "explicitModelRereview": true
+    }
+  },
+  "liveAdoption": {
+    "receipt": {
+      "schemaVersion": 1,
+      "id": "9eafd6b7-dad4-4a1d-b36d-027a73f278bd",
+      "requestId": "c6c8d956-37d5-45dc-8f1e-e307fb64984d",
+      "payloadHash": "96a1a163846b8a3ac5d93bdb9701db415ee461693db20c4a0d99e2f17a4ac4bf",
+      "audience": {
+        "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+        "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+        "userId": "56b9f534-3bf4-4ec3-8a5d-da573530be23",
+        "repositoryId": "124ada7b-0bf7-4d75-8654-4d9a4ea3e6de"
+      },
+      "clientId": "commit-defender",
+      "kind": "feedback",
+      "status": "submitted",
+      "evidence": "client-reported",
+      "receivedAt": "2026-09-14T07:27:31.769Z",
+      "expiresAt": "2026-10-14T07:27:31.769Z"
+    },
+    "ruleId": "1fb999ec-81b9-41a2-86b6-66a6efb50dee",
+    "snapshotId": "05519007-4569-4972-8f0f-05e966fa83bf",
+    "initialSnapshotId": "1b23a06a-5dd6-4b60-b3c1-87c2468e4b07",
+    "manualEvaluation": true,
+    "modelGeneratedCriterion": false
+  },
+  "actualReview": {
+    "runId": "8960d5aa-b91e-489c-a36b-49c91deb1b2a",
+    "status": "completed",
+    "startedAt": "2026-09-14T07:27:41.150Z",
+    "finishedAt": "2026-09-14T07:29:03.871Z",
+    "durationMs": 82721,
+    "executor": {
+      "id": "codex-account",
+      "version": "0.154.0/gcr-fixed-source-v1",
+      "model": "gpt-6-astra",
+      "configHash": "95003ab856d63f9107eadd31ae43217b9b2531b34db246483434e16e0e31f3a4"
+    },
+    "centralSnapshot": {
+      "id": "05519007-4569-4972-8f0f-05e966fa83bf",
+      "hash": "79035b03715721fcd16fa8d783c45149d1837d5aeb9254aa6c9573bec2d674ad",
+      "audience": {
+        "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+        "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+        "userId": "56b9f534-3bf4-4ec3-8a5d-da573530be23",
+        "repositoryId": "124ada7b-0bf7-4d75-8654-4d9a4ea3e6de"
+      },
+      "authorizationRevision": "75",
+      "offlineValidUntil": "2026-09-15T07:27:35.017Z"
+    },
+    "findingCount": 1,
+    "sourceReadCount": 6,
+    "reportFileSha256": "691645fe7ad582c4f0bb31dc9311a93c8cd19d97bd985699f9d062244b20c4ee",
+    "testExecutionClaimed": false
+  },
+  "ownedCleanupReadback": {
+    "6236ae3f-da42-4ab4-9c61-284ba60e478a": {
+      "users": 0,
+      "repositories": 0
+    },
+    "3e71cf24-3b82-48dc-9600-2c65b4a34e05": {
+      "users": 0,
+      "repositories": 0
+    }
+  },
+  "externalModelCallsThisCheckpoint": 1,
+  "limitations": [
+    "Initial report and four manual evaluation cases are synthetic. Only the follow-up review is an actual model call.",
+    "Central adoption/evaluation/activation used the real authorized HTTPS API. CD submission, status, synchronization and re-review used its native webview.",
+    "One fixture does not establish general model accuracy or executed test evidence.",
+    "P08-C04/C06, earlier phase residual gates and P09-P13 remain open."
+  ]
+}

@@ -7,12 +7,13 @@ Clients submit only after the user confirms the destination, repository visibili
 | `POST /api/v1/repositories/:repoId/review-submissions/results` | `reviews:submit` | Store status and file/finding counts for a selected review |
 | `POST /api/v1/repositories/:repoId/review-submissions/feedback` | `feedback:submit` | Store an explicit correction, exception proposal or judgment |
 | `GET /api/v1/repositories/:repoId/review-submissions` | Authorized web session | List submissions visible to repository reviewers; UUID cursor pagination |
+| `GET /api/v1/repositories/:repoId/review-submissions/:submissionId/status` | `knowledge:read` from the submitting user/client | Read receipt-bound adoption and current criterion/feedback status |
 
 Writes require a bearer key and `X-GCR-Server-Id`. A browser session cannot substitute for a client credential. Each write rechecks the current user, credential, tenant and repository authorization. The payload audience and client ID must match the key. Issuing a key does not start an upload, review or watcher.
 
 The strict wire contract is `reviewSubmission` in `@gcr/client-contract`. Common data consists of an idempotency ID, destination audience, client ID, confirmation time, repository visibility and review run/source/context/snapshot references. A result contains only status and counts. Feedback contains the selected message, optional finding/rule references and an optional source location. Report summaries, finding descriptions, source bodies, model transcripts and local or personal knowledge entries are not accepted fields. Free-text feedback is the content the user explicitly elects to share; the contract does not claim to detect every secret a user might enter.
 
-Receipts always identify the evidence as `client-reported`. A source hash or historical manifest reference does not prove that a model or test ran. Rule references must belong to the repository and revision; retained manifests must match the owner/repository/hash. Expired manifests may already have been removed, so those references remain unverified. Submissions do not approve an exception, modify an active criterion, or create an automatic model-generation job. Maintainer review and the approval/publication UI are the following P08-C05 integration.
+Receipts always identify the evidence as `client-reported`. A source hash or historical manifest reference does not prove that a model or test ran. Rule references must belong to the repository and revision; retained manifests must match the owner/repository/hash. Expired manifests may already have been removed, so those references remain unverified. Submissions do not approve an exception, modify an active criterion, or create an automatic model-generation job. Maintainer review and the approval/publication UI are separate authorized actions described below.
 
 The same payload and ID return the same receipt across API key rotation. Server, tenant, repository, user and client ID scope the idempotency key. A changed payload returns 409. Concurrent serialization conflicts may also require retrying the same request. A disconnected client or revoked key cannot use a cached synchronization grant to submit. HTTP bodies are limited to 32 KiB; each user can submit up to 1,000 new records per day. Stored payloads and receipts expire after 30 days, disappear from listing at expiry, and are removed by the existing retention command. Confirmation older than 30 days is rejected. Idempotency is guaranteed during that retention period.
 
@@ -36,7 +37,7 @@ Raw submissions and intake dispositions expire after 30 days. Explicitly adopted
 
 Delivery receipts still mean **received**, not **approved**. Refresh intake status to see the linked rule's current draft/evaluated/shadow/active/retired state or a feedback resolution. A correction acknowledgement alone does not revise a criterion. Publication/synchronization and the following client re-review remain separate operations; the P08-C05 end-to-end completion gate requires evidence for that whole cycle.
 
-## PRISM-DEV deployment checkpoint
+## Earlier PRISM-DEV intake checkpoint
 
 Central intake is deployed as `0.8.0-alpha.46`, Helm chart `0.10.43`, revision 57, with migrations through `0045`. Database connections retain `verify-full`. Migration 0045 defers intake rule/feedback foreign-key checks until transaction completion so repository cascades can remove both sides; orphaned links and immutable feedback history remain protected.
 
@@ -50,4 +51,8 @@ The response contains the original receipt, observation time, intake decision, c
 
 `reviewSubmissionPolicyState` compares this status with a verified signed cache. Draft/retired criteria, undecided or rejected feedback, acknowledgement without a newer revision, and expired/revoked/future or superseded exceptions do not count as an available adopted change. The current criterion ID/revision/source hash must match the policy; an approved exception must also be present. Cache presence does not prove applicability to a particular source. Status reads do not synchronize or start a model. CD exposes synchronization and re-review as separate explicit actions and pins re-review to the inspected snapshot.
 
-This API and client alpha.26 are a source checkpoint. The alpha.46 deployment described above does not yet include the status endpoint.
+The status API is deployed on PRISM-DEV as **alpha.47 / chart 0.10.44 / Helm revision 58**, using client alpha.26. Migration count remains 45 and database TLS remains `verify-full`. Commit Defender **2.5.0** is installed from the verified VSIX; existing windows were not forcibly reloaded.
+
+[Follow-up delivery evidence](../../.documents/execution/preventive-review/evidence/P08-followup-status.json) records actual HTTPS pending/adopted status, criterion activation and signed synchronization, credential revocation, and the native CD workflow. In VS Code 1.135.0, the packaged extension submitted a judgment, synchronized the criterion after authorized central adoption/evaluation/activation, and explicitly launched one Astra/xhigh re-review from the same webview. The completed report used the confirmed snapshot and criterion, read source/base, caller and test files, and identified the tenant cache-key regression. The initial report/manual evaluation were synthetic; the follow-up model call was real and did not execute tests. Owned users, repositories, OS credentials and local profiles were removed after terminal completion.
+
+This meets the P08-C05 feedback-cycle gate. P08-C04/C06 and the other phases remain open; it is not a public Marketplace release or a claim of general model accuracy.
