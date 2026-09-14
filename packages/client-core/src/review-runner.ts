@@ -19,7 +19,7 @@ import {
   type LocalExecutorDescriptor,
 } from './review-policy.js';
 import { LocalReviewSourcePort, type LocalSourceReadObservation } from './review-source-port.js';
-import type { ReviewSourceView } from './review-source.js';
+import type { LocalSourceSnapshot } from './source-snapshot.js';
 
 /** Implemented by client-executors; core does not import a provider or discover credentials. */
 export interface LocalReviewExecutor {
@@ -33,7 +33,7 @@ export interface LocalReviewExecutor {
   }): Promise<{ raw: string; model: string }>;
 }
 export interface RunLocalReviewInput {
-  snapshot: ReviewSourceView;
+  snapshot: LocalSourceSnapshot;
   context: LocalReviewContext;
   policy: LocalExecutionPolicy;
   executor: LocalReviewExecutor;
@@ -313,10 +313,14 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
         code: 'missing-context',
         message: 'Review has an unresolved required question or conflicting evidence.',
       });
-    if (snapshot.incomplete)
+    if (
+      snapshot.limitations.some((item) =>
+        ['unreadable', 'unsupported-source'].includes(item.reason),
+      )
+    )
       report.problems.push({
         code: 'source-truncated',
-        message: 'Some snapshot content could not be captured. Excluded filenames may be withheld.',
+        message: 'Some snapshot content could not be captured; see exclusions.',
       });
     if (portFailure)
       report.problems.push({
@@ -361,7 +365,6 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
           selected.some((change) => [change.path, change.oldPath].includes(source.path)),
         ),
         knowledge: context.knowledge,
-        ...(context.documents.length ? { uploadedDocuments: context.documents } : {}),
         ...(central ? { centralKnowledge: central.items } : {}),
       }),
     ].join('\n\n');

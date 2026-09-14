@@ -53,7 +53,7 @@ export type ChatAccountSelection = {
   model: ChatModel;
 };
 
-export async function listAvailableChatAccounts(database: Pick<Database, 'query'>, userId: string) {
+export async function listAvailableChatAccounts(database: Database, userId: string) {
   const result = await database.query<{
     id: string;
     displayName: string;

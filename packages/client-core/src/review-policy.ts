@@ -10,7 +10,7 @@ import {
 import { builtinReviewSkill } from './builtin-review.js';
 import { canonicalJson, contentHash } from './local-identity.js';
 import { compilePathPatterns } from './source-policy.js';
-import type { ReviewSourceView } from './review-source.js';
+import type { LocalSourceSnapshot } from './source-snapshot.js';
 import type { LocalContextResolution } from './review-context.js';
 import type { ReviewProblem } from './review-mode.js';
 
@@ -183,7 +183,7 @@ class LocalExecutionPolicy {
 export type { LocalExecutionPolicy };
 export interface ResolvePolicyInput {
   context: LocalContextResolution;
-  snapshot: ReviewSourceView;
+  snapshot: LocalSourceSnapshot;
   executor: LocalExecutorDescriptor;
   workspaceTrusted: boolean;
   approval?: ApprovedLocalScope;
@@ -270,7 +270,7 @@ export function resolveLocalExecutionPolicy(input: ResolvePolicyInput): LocalPol
         'Selected review context expired before execution. Resolve context again.',
       );
     if (
-      (context.knowledge.length || context.documents.length || context.central?.items.length) &&
+      (context.knowledge.length || context.central?.items.length) &&
       approval.allowKnowledge !== true
     )
       return unavailable(

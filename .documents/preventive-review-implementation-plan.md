@@ -1,5 +1,12 @@
 # 사전 예방형 리뷰 플랫폼 구현 계획
 
+## 연동 방향 확정 — 2026-09-15 사용자 지시
+
+중앙의 리뷰·리뷰 기준·프롬프트를 로컬이 가져오는 단방향 전파 구조다. Commit Defender와 로컬 CLI/MCP는 로컬에 구성된 모델로 리뷰한다. 중앙 지식 동기화는 모델 실행 위치를 바꾸지 않는다. 로컬 소스·리뷰 결과·피드백·대화·개인 Memory를 중앙으로 제출하지 않으며 자동 또는 수동 업로드 기능을 제공하지 않는다. 로컬 모델이 없거나 실패하면 미완료로 표시하고 중앙 모델로 대체하지 않는다.
+
+기존 P08의 로컬 결과·피드백 제출과 P10의 중앙 모델 실행은 이 지시로 범위에서 제외한다. 이는 구현 완료 처리가 아니며 잘못 확장한 기능을 철회하는 변경이다. 중앙 자체의 PR 리뷰·프롬프트 관리와 발행, 로컬 수신·적용·로컬 리뷰 검증, 나머지 개발·배포 목표는 유지한다. 아래의 과거 제안이나 실행 기록과 충돌하면 이 연동 방향을 따른다.
+
+
 작성일: 2026-09-12
 
 상태: 구현 진행 중. 이 문서는 phase·commit·검증·릴리스 단위를 정의한다. 아래 계획표 자체는 완료 증거가 아니며 실제 변경과 검증은 [P00 실행 기록](./execution/preventive-review/P00.md)과 [P01 실행 기록](./execution/preventive-review/P01.md)에 남긴다. 2026-09-12 사용자의 전체 개발·배포 goal 요청에 따라 현재 세션에서 phase checkpoint를 순차 진행한다.
@@ -22,7 +29,7 @@ Git Code Reviewer(GCR)에 축적한 리뷰 판단을 Commit Defender(CD)의 개�
 
 ### 유지할 제품 계약
 
-- 신규 설치는 `standalone`, 중앙 모델 실행은 선택 사항이다. 기존 CD 사용자의 provider·hook 설정은 보존하며 새 중앙 연결 설정으로 자동 승계하지 않는다.
+- 신규 설치는 `standalone`이며 모든 로컬 리뷰는 로컬 모델로 실행한다. 기존 CD 사용자의 provider·hook 설정은 보존하며 새 중앙 연결 설정으로 자동 승계하지 않는다.
 - 중앙 cache와 사용자가 작성한 local memory·Skill을 분리한다. 연결 복구나 모드 변경만으로 로컬 자료를 업로드하지 않는다.
 - 적용 범위가 같은 판단에서는 집단 메모리를 우선한다. 현재 source와 반증 조건을 확인하며 과거 지적을 기계적으로 반복하거나 생략하지 않는다.
 - Save·Stage·Commit·Push는 독립 선택이고 신규 자동 실행은 모두 off다. 초기 판정은 advisory이며 CLI finding 종료 코드를 hook 차단 코드로 그대로 전달하지 않는다.
@@ -127,7 +134,7 @@ Phase 완료 조건별 근거 / goal 종료 결과
 | P07   | Save·Stage·Commit·Push의 공통 자동 리뷰           | P06                            | 초기                  |
 | P08   | 리뷰 대화·MCP·Skill·명시적 feedback 순환          | P07                            | 초기                  |
 | P09   | 두 환경 E2E·운영 rollout·검증한 VSIX 게시         | P00–P08 완료                   | 초기 출시 완료        |
-| P10   | 선택적 중앙 모델 proxy                            | P09                            | 후속 선택 기능        |
+| P10 | 중앙 모델 실행 철회 | 2026-09-15 사용자 지시 | 범위 제외·완료 아님 |
 | P11   | 격리 runner·재현 근거·선택적 critic               | P09                            | 후속, 원 기획 Phase 3 |
 | P12   | Thread·수정·예외·증분 이력 기반 지속 학습         | P09                            | 후속, 원 기획 Phase 4 |
 | P13   | 중앙 PR 기준 통일·trusted evidence·성과 운영      | P09, P12; 실행 근거 경로는 P11 | 후속, 원 기획 Phase 5 |
@@ -269,12 +276,12 @@ Phase 완료 조건별 근거 / goal 종료 결과
 | --------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P08-C01   | GCR · `feat: persist interactive local review conversations`       | 기존 chat-run의 질문·checkpoint·citation 계약에서 순수 부분 재사용, local 대화 저장·ask_user·응답·재개·취소·예산          | 프로세스 재시작 후 복원, 중복 응답·stale source·철회·질문 미답변 처리. Executor의 대화 지원 capability를 실제 경로로 확인                                  |
 | P08-C02   | CD · `feat: discuss findings with source-linked review chat`       | Finding 질문, 관련 base/source 추가 조회·사용자 확인·재개, Summary/findings/근거·질문 분리, Thinking·진행 상태            | 실제 질문→추가 조회→응답 후 재개, Enter/Shift+Enter, 취소·재연결·위치 이동. 긴 상세 설명과 간결한 요약 형식 유지                                           |
-| P08-C03   | GCR · `feat: add explicit review feedback and result submission`   | Feedback·최소 result metadata API, snapshot/rule/source 참조·idempotency·scope·retention, connection별 offline 제출 queue | 명시적 사용자 제출만 전송. 중복/서버 전환·권한 철회·개인 원문 누출 거부. 모델 동기화 실패와 feedback 실패 분리                                             |
-| P08-C04   | GCR · `feat: expose review workflows through stdio mcp`            | status/sync/context/prepare/review/result/get-rule/submit-review/feedback 도구, 고정 Git root·capability·protocol 호환    | 두 실제 host 연결 또는 지원 host별 재현 기록, 도구 실패·취소·재접속. prepare를 AI 리뷰 완료로 표시하지 않고 self-report는 trusted evidence로 승격하지 않음 |
-| P08-C05   | CD · `feat: submit reviewed feedback as central candidates`        | 오탐·예외·새 판단의 대상 서버/공개 범위·내용 확인, 제출/보류·후속 승인 상태, local memory 생성 선택                       | 사용자 선택→중앙 후보→권한자의 승인→새 bundle sync→재리뷰. 중앙 readonly bundle 직접 patch 없음                                                            |
+| P08-C03 | 철회 | 로컬 결과·피드백의 중앙 제출은 단방향 전파와 맞지 않아 제거 | 클라이언트에 업로드 명령이 없고 전송 API 호출이 발생하지 않음 |
+| P08-C04   | GCR · `feat: expose review workflows through stdio mcp`            | status/sync/context/prepare/review/result/get-rule 도구, 고정 Git root·capability·protocol 호환    | 두 실제 host 연결 또는 지원 host별 재현 기록, 도구 실패·취소·재접속. prepare를 AI 리뷰 완료로 표시하지 않고 self-report는 trusted evidence로 승격하지 않음 |
+| P08-C05 | 철회 | 중앙 제출 UI·대기열·후속 제출 자동 재시도 제거. 개인 판단은 로컬 Memory에 보관 | 기존 제출 이력이 있어도 전송하지 않음 |
 | P08-C06   | GCR · `docs: package preventive review skill and client workflows` | `skills/gcr-prevention`, CLI/MCP 설치·context→review→질문/수정→재리뷰 안내, 지원 executor·OS·권한·예산 명시               | 깨끗한 headless 환경의 실제 설치·도구 호출. Skill 설치만으로 watcher·모델·자동 수정이 활성화되지 않음. 로컬 기록/CLI 결과/UI의 계약 일치                   |
 
-**완료 조건:** 실제 모델 대화의 관련 source 조회와 사용자 응답 후 재개, MCP의 같은 snapshot 리뷰, 명시적 feedback의 승인·재동기화 순환을 검증한다. 공용 결과에 개인 memory·chat 원문을 자동 포함하지 않는다. 자동 코드 수정·commit·PR 게시를 Skill이나 save 이벤트의 부수 효과로 추가하지 않는다.
+**완료 조건:** 실제 모델 대화의 관련 source 조회와 사용자 응답 후 재개, MCP의 같은 snapshot 리뷰, 중앙의 발행 내용이 다음 로컬 리뷰에 반영되는 순환을 검증한다. 공용 결과에 개인 memory·chat 원문을 자동 포함하지 않는다. 자동 코드 수정·commit·PR 게시를 Skill이나 save 이벤트의 부수 효과로 추가하지 않는다.
 
 ### P09. 통합 검증·운영 배포·extension 게시
 
@@ -307,18 +314,9 @@ R03의 인증 경로는 현재 지원하는 CLI 방식과 해당 publisher의 �
 
 P10–P13은 P09를 완료하기 위해 끼워 넣는 선행 과제가 아니다. 기존 모델 API/계정 executor와 로컬 source 조회만으로 초기 실제 리뷰를 제공한다. 후속 phase도 같은 commit·회귀·전달·goal 기록 규칙을 적용한다.
 
-### P10. 선택적 중앙 모델 실행
+### P10. 중앙 모델 실행 — 사용자 지시로 철회
 
-**Goal 목표:** 사용자가 중앙 executor를 명시적으로 선택하면 허용한 source만 GCR로 보내고 중앙의 계정 할당·예산·취소·보존 정책으로 리뷰한다.
-
-| Commit ID | 저장소·제안 메시지                                                | 변경 범위                                                                                                         | Commit 검증                                                                                                                     |
-| --------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| P10-C01   | GCR · `feat: define authorized remote review jobs`                | Client source/context upload·job/status/cancel/result 계약, `ai:invoke`·repo 인가·전송 범위·retention·idempotency | 미커밋 source를 기존 PR snapshot으로 위장하지 않음. Read-only sync credential의 모델 호출 거부·크기/경로/source 검증            |
-| P10-C02   | GCR · `feat: execute client reviews with central model admission` | 중앙 local-review job·worker/checkpoint, 기존 account registry·admission·사용자/repo 예산, source 정리            | 계정 grant 변경·worker crash·capacity 부족·partial 실패. 중앙 credential이 artifact·응답·client에 노출되지 않음                 |
-| P10-C03   | GCR · `feat: add a recoverable central review executor`           | Core remote executor, 접수 후 응답 유실·상태 조회·취소·모델 대체 정책, 장기 context 및 결과 retention             | Job 상태 불명 시 로컬 이중 실행 금지. 캐시 지식만 있을 때 중앙 모델 실행 가능으로 표시하지 않음. 명시 승인된 source 경로만 전송 |
-| P10-C04   | CD · `feat: select and monitor centralized model execution`       | Local/centralized executor 선택·전송 범위·예산·진행/미확정 상태 UI, package pin                                   | 실제 중앙 모델 리뷰, 선택되지 않은 provider 미호출, 서버/계정 전환·취소·fallback 사전 동의 검증                                 |
-
-**완료 조건:** 중앙 credential 복사 없이 실제 리뷰를 수행하고 source·계정·예산 경계와 job 응답 유실을 검증한다. Centralized knowledge sync를 선택했다는 이유로 이 executor를 자동 선택하지 않는다.
+P10-C01–C04의 source 업로드·remote job·중앙 모델 executor·클라이언트 선택 UI는 2026-09-15 단방향 전파 지시에 따라 제거한다. 이 phase를 완료로 집계하지 않는다. 기존 구현 경위는 실행 기록과 Git 이력에 보존하며 배포 대상에서 제외한다.
 
 ### P11. 실행 runner와 검증 근거
 
@@ -406,7 +404,7 @@ CD 기준 `2.3.0`의 `vscode-extension`에는 `npm run build`, `npm test`, `npm 
 | V13     | 여러 창·CLI·hook 중복, queue crash·예산·취소·절전/재시작·stale 결과                     | P07, P09           |
 | V14     | 기존 hook 보존, advisory/대기/timeout, 서비스 부재·unsupported의 정확한 표시            | P07, P09           |
 | V15     | Finding 질문→관련 코드 조회→사용자 답변→재개, CLI/MCP의 같은 core·snapshot              | P08, P09           |
-| V16     | 명시적 feedback→후보→승인→다음 sync, server/account 전환 시 전송 보류                   | P08, P09           |
+| V16 | 중앙에서 리뷰·프롬프트 발행→로컬 수신→로컬 모델 재리뷰. 로컬 내용의 중앙 업로드 없음 | P05–P09 |
 | V17     | 모델 없음/오류/한도·필수 context 누락을 미완료로 표시, 개인 자료의 공용 결과 유출 방지  | P02, P06–P09       |
 | V18     | 최종 VSIX 로컬 설치·CLI 게시·Marketplace 새 설치·서버 rollout·기존 기능 회귀            | P09                |
 
@@ -418,7 +416,7 @@ V01–V18 모두 검증 근거가 있어야 P09를 완료한다. 모의 테스�
 
 | 항목               | 설계 제안                                                                  | 확정 commit      |
 | ------------------ | -------------------------------------------------------------------------- | ---------------- |
-| Mode·executor      | standalone, 로컬 executor 기본; 중앙 모델 선택은 P10 이후                  | P00-C05, P02-C04 |
+| Mode·executor      | standalone, 로컬 executor 사용; 중앙 모델 선택 없음                  | P00-C05, P02-C04 |
 | 신규 자동 리뷰     | Save/Stage/Commit/Push 모두 off, advisory                                  | P07-C04          |
 | Save               | 3초 debounce·최소 10분 간격, Auto Save/외부 변경 off                       | P07-C02, P07-C04 |
 | Stage              | 3초 debounce, 실제 index 변화 확인                                         | P07-C02, P07-C05 |

@@ -36,11 +36,7 @@ const repository = {
 
 describe.sequential('client connection management in Chrome', () => {
   let server: ViteDevServer, browser: Browser, context: BrowserContext, page: Page, origin: string;
-  let items: ClientCredential[],
-    requests: unknown[],
-    enabled: boolean,
-    loseResponse: boolean,
-    remoteEnabled: boolean;
+  let items: ClientCredential[], requests: unknown[], enabled: boolean, loseResponse: boolean;
   let connection: ReturnType<typeof centralConnectionInput>;
   const pageErrors: string[] = [];
   beforeAll(async () => {
@@ -102,7 +98,6 @@ describe.sequential('client connection management in Chrome', () => {
     items = [];
     requests = [];
     enabled = true;
-    remoteEnabled = false;
     loseResponse = false;
     context = await browser.newContext({
       viewport: { width: 1200, height: 1000 },
@@ -117,14 +112,7 @@ describe.sequential('client connection management in Chrome', () => {
           serverId: id(4),
           methods: enabled ? ['api-key'] : [],
           clientIds: enabled ? ['commit-defender', 'gcr-cli'] : [],
-          scopes: enabled
-            ? [
-                'knowledge:read',
-                'reviews:submit',
-                'feedback:submit',
-                ...(remoteEnabled ? ['ai:invoke'] : []),
-              ]
-            : [],
+          scopes: enabled ? ['knowledge:read', 'reviews:submit', 'feedback:submit'] : [],
         },
       }),
     );
@@ -168,28 +156,12 @@ describe.sequential('client connection management in Chrome', () => {
     await page.getByLabel('이름', { exact: true }).fill('업무용 Mac');
     await page.getByRole('button', { name: 'API key 발급', exact: true }).click();
   };
-  it('offers central execution only when enabled and grants it only on explicit selection', async () => {
+  it('issues only read access and exposes no result or feedback upload permission', async () => {
     await open();
-    expect(await page.getByLabel('중앙 모델 리뷰 실행·취소 허용').count()).toBe(0);
-    remoteEnabled = true;
-    await page.reload();
-    const option = page.getByLabel('중앙 모델 리뷰 실행·취소 허용');
-    await option.waitFor();
-    expect(await option.isChecked()).toBe(false);
-    await option.check();
+    expect(await page.getByLabel('리뷰 결과 제출 허용').count()).toBe(0);
+    expect(await page.getByLabel('피드백 제출 허용').count()).toBe(0);
     await create();
-    expect((requests[0] as { scopes: string[] }).scopes).toEqual(['knowledge:read', 'ai:invoke']);
-  });
-  it('grants result and feedback submission only when the user selects each permission', async () => {
-    await open();
-    expect(await page.getByLabel('리뷰 결과 제출 허용').isChecked()).toBe(false);
-    expect(await page.getByLabel('피드백 제출 허용').isChecked()).toBe(false);
-    await page.getByLabel('피드백 제출 허용').check();
-    await create();
-    expect((requests[0] as { scopes: string[] }).scopes).toEqual([
-      'knowledge:read',
-      'feedback:submit',
-    ]);
+    expect((requests[0] as { scopes: string[] }).scopes).toEqual(['knowledge:read']);
   });
   it('issues a scoped key once, masks/copies/discards it and downloads a token-free pinned configuration', async () => {
     await open();

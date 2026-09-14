@@ -40,7 +40,6 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     clientKnowledgeRead?: boolean;
     clientSubmissionScope?: 'reviews:submit' | 'feedback:submit';
-    clientModelInvoke?: boolean;
   }
 }
 
@@ -87,8 +86,7 @@ export async function registerAuthentication(
     ) {
       if (
         request.routeOptions.config.clientKnowledgeRead ||
-        request.routeOptions.config.clientSubmissionScope ||
-        request.routeOptions.config.clientModelInvoke
+        request.routeOptions.config.clientSubmissionScope
       ) {
         if (
           !config.CLIENT_API_KEYS_ENABLED ||
@@ -96,6 +94,8 @@ export async function registerAuthentication(
           !['local', 'saml'].includes(config.AUTH_MODE)
         )
           throw new ClientCredentialError(503, 'CLIENT_AUTH_DISABLED');
+        if (!['GET', 'HEAD'].includes(request.method))
+          throw new ClientCredentialError(403, 'CLIENT_READ_ONLY');
         const params = request.params as { repoId?: string };
         request.clientPrincipal = await authenticateClientKey(database, {
           ...(request.headers.authorization
@@ -106,9 +106,7 @@ export async function registerAuthentication(
             ? { requestedServerId: request.headers['x-gcr-server-id'] }
             : {}),
           authMode: config.AUTH_MODE,
-          requiredScope: request.routeOptions.config.clientModelInvoke
-            ? 'ai:invoke'
-            : (request.routeOptions.config.clientSubmissionScope ?? 'knowledge:read'),
+          requiredScope: request.routeOptions.config.clientSubmissionScope ?? 'knowledge:read',
           ...(params.repoId ? { repositoryId: params.repoId } : {}),
         });
         request.user = request.clientPrincipal.user;

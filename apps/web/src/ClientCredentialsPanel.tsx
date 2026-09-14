@@ -19,10 +19,6 @@ export function ClientCredentialsPanel() {
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState<'commit-defender' | 'gcr-cli'>('commit-defender');
   const [lifetimeDays, setLifetimeDays] = useState(30);
-  const [availableScopes, setAvailableScopes] = useState<string[]>([]);
-  const [submitResults, setSubmitResults] = useState(false);
-  const [submitFeedback, setSubmitFeedback] = useState(false);
-  const [invokeModel, setInvokeModel] = useState(false);
   const [issued, setIssued] = useState<{ id: string; token: string } | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [pending, setPending] = useState(false);
@@ -57,7 +53,6 @@ export function ClientCredentialsPanel() {
           loadClientCredentials(active.signal),
         ]);
         if (active.signal.aborted) return;
-        setAvailableScopes(config.scopes);
         setRepositories(repos);
         setRepositoryId(repos[0]?.id ?? '');
         setItems(keys.items);
@@ -100,12 +95,7 @@ export function ClientCredentialsPanel() {
         tenantId: selected.tenantId,
         repositoryIds: [selected.id],
         lifetimeDays,
-        scopes: [
-          'knowledge:read',
-          ...(submitResults ? ['reviews:submit' as const] : []),
-          ...(submitFeedback ? ['feedback:submit' as const] : []),
-          ...(invokeModel && availableScopes.includes('ai:invoke') ? ['ai:invoke' as const] : []),
-        ],
+        scopes: ['knowledge:read'],
       });
       if (signal.aborted) return;
       setItems((previous) => [result.credential, ...previous]);
@@ -213,37 +203,7 @@ export function ClientCredentialsPanel() {
                   ))}
                 </select>
               </label>
-              <p>기본 권한: 중앙 리뷰 지식 읽기</p>
-              <label>
-                <input
-                  type="checkbox"
-                  disabled={!availableScopes.includes('reviews:submit')}
-                  checked={submitResults}
-                  onChange={(event) => setSubmitResults(event.target.checked)}
-                />
-                리뷰 결과 제출 허용
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  disabled={!availableScopes.includes('feedback:submit')}
-                  checked={submitFeedback}
-                  onChange={(event) => setSubmitFeedback(event.target.checked)}
-                />
-                피드백 제출 허용
-              </label>
-              {availableScopes.includes('ai:invoke') && (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={invokeModel}
-                    onChange={(event) => setInvokeModel(event.target.checked)}
-                  />
-                  중앙 모델 리뷰 실행·취소 허용
-                </label>
-              )}
-              <p>중앙 모델은 클라이언트에서 전송 자료와 계정·예산을 승인한 뒤 실행합니다.</p>
-              <p>제출 권한을 추가해도 리뷰 결과나 대화를 자동으로 전송하지 않습니다.</p>
+              <p>권한: 중앙 리뷰·프롬프트 읽기. 로컬 결과와 소스는 전송하지 않습니다.</p>
               <div className="profile-actions">
                 <button
                   className="command-button primary"

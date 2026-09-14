@@ -18,13 +18,7 @@ Commands:
   prepare                              Save an encrypted fixed source for 24 hours; no model call
   read-source --prepared <id> --file <path> [--side source|base]
   get-rule --prepared <id> --id <rule-id> [--revision <n>]
-  submit-review|feedback preview <run-id> [--input <selection.json|->]
-  submit-review|feedback queue --input <payload.json|-> --confirm-hash <sha256>
-  submit-review|feedback send|show|cancel <id> | list
-  mcp [--allow-review] [--allow-submissions]  Stdio server bound to this worktree
-  remote-review preview --account-id <id>  Preview exact source/context upload; no model call
-  remote-review submit|retry --input <preview.json|-> --confirm-hash <sha256>
-  remote-review status|wait|result|cancel <request-id> | list|models
+  mcp [--allow-review]  Stdio server bound to this worktree
   review                               Review and save an encrypted terminal report
   push-review                          Review every ref from pre-push stdin (foreground)
   service start|run|status|stop          Manage the profile's independent local service
@@ -75,11 +69,7 @@ Watch: start --trigger stage|save (repeatable) requires matching service grants.
        First start baselines existing changes; stop cancels only watch-owned requests.
 
 review explicitly permits the selected account executor to read the approved fixed
-repository snapshot and selected knowledge. Standalone knowledge uses local context.
-remote-review explicitly selects central execution even with standalone knowledge; it
-requires --connection. Its preview includes private source/knowledge in JSON output.
-A failed submit or local Ctrl-C does not confirm server cancellation; use status/cancel.
-No remote-review action falls back to a local model. Other standalone reviews stay local.
+repository snapshot and selected knowledge. Standalone never contacts a central server.
 Centralized requires an explicit connection ID and may synchronize before review.
 Results are JSON; diagnostics go to stderr. Exit 0: complete/no follow-up;
 1: complete/findings or optional questions; 2: incomplete, unavailable or command error.
@@ -107,32 +97,7 @@ const allowed: Record<string, string[]> = {
   prepare: [...snapshot, 'offline', 'offline-behavior'],
   'read-source': ['prepared', 'file', 'side', 'start-line', 'end-line', 'offline'],
   'get-rule': ['prepared', 'id', 'revision', 'offline'],
-  'submit-review': ['input', 'confirm-hash', 'retry-rejected'],
-  feedback: ['input', 'confirm-hash', 'retry-rejected'],
-  mcp: [
-    ...executor,
-    'allow-review',
-    'allow-submissions',
-    'timeout-ms',
-    'source-bytes',
-    'tool-calls',
-  ],
-  'remote-review': [
-    ...snapshot,
-    'prepared',
-    'input',
-    'confirm-hash',
-    'account-id',
-    'model',
-    'reasoning-effort',
-    'model-calls',
-    'timeout-ms',
-    'source-bytes',
-    'tool-calls',
-    'source-retention-seconds',
-    'result-retention-seconds',
-    'wait-timeout-ms',
-  ],
+  mcp: [...executor, 'allow-review', 'timeout-ms', 'source-bytes', 'tool-calls'],
   review: [
     'prepared',
     'offline',
@@ -206,9 +171,7 @@ const boolean = new Set([
   'offline',
   'retry-finished',
   'include-knowledge',
-  'retry-rejected',
   'allow-review',
-  'allow-submissions',
   'external-changes',
 ]);
 export function argumentsFor(argv: string[]) {

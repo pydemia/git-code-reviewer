@@ -12,7 +12,7 @@ import {
   type LocalExecutionPolicy,
   type ReviewRunBudget,
 } from './review-policy.js';
-import type { ReviewSourceView } from './review-source.js';
+import type { LocalSourceSnapshot } from './source-snapshot.js';
 
 /** A successful port return, not an attestation of model understanding or test execution. */
 export interface LocalSourceReadObservation {
@@ -28,7 +28,7 @@ export class LocalReviewSourcePort implements FixedSourceToolPort {
   #receipts: SourceReadReceipt[] = [];
   #reads: LocalSourceReadObservation[] = [];
   constructor(
-    private readonly snapshot: ReviewSourceView,
+    private readonly snapshot: LocalSourceSnapshot,
     private readonly policy: LocalExecutionPolicy,
     private readonly budget: ReviewRunBudget,
   ) {

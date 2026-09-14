@@ -5,7 +5,6 @@ import { execFileSync } from 'node:child_process';
 import { PassThrough } from 'node:stream';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createMcpSession, serveMcpStdio } from './mcp.js';
-import type { CliDependencies, CliResult } from './cli.js';
 let root: string, repo: string;
 beforeAll(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcr-mcp-test-'));
@@ -222,52 +221,26 @@ it('handles a ping and cancellation while a model request runs, without restarti
   expect(calls).toBe(1);
   session.close();
 });
-it('passes the exact explicitly confirmed submission into CLI without file or account overrides', async () => {
-  const messages: Message[] = [],
-    calls: Array<{ args: string[]; input?: unknown }> = [];
-  const execute = async (args: string[], deps?: CliDependencies): Promise<CliResult> => {
-    calls.push({ args, input: deps?.readStdin ? JSON.parse(await deps.readStdin()) : undefined });
-    return { value: { status: 'pending' }, exitCode: 0 };
-  };
-  const session = createMcpSession(
-    ['--cwd', repo, '--mode', 'centralized', '--connection', 'fixed', '--allow-submissions'],
-    {},
-    execute,
-  );
+it('does not expose submission tools or accept the old enable-submissions flag', async () => {
+  expect(() => createMcpSession(['--cwd', repo, '--allow-submissions'])).toThrow();
+  const messages: Message[] = [];
+  let calls = 0;
+  const session = createMcpSession(['--cwd', repo], {}, async () => {
+    calls++;
+    return { value: {}, exitCode: 0 };
+  });
   const send = async (v: unknown) => {
     messages.push(v as Message);
   };
   await initialize(session, send);
-  const payload = { explicit: 'public feedback fixture' };
-  await session.receive(
-    {
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/call',
-      params: {
-        name: 'gcr_submit_feedback',
-        arguments: { action: 'queue', payload, confirmedPayloadHash: 'a'.repeat(64) },
-      },
-    },
-    send,
-  );
-  await session.drain();
-  expect(calls).toHaveLength(1);
-  expect(calls[0]?.input).toEqual(payload);
-  expect(calls[0]?.args).toContain('queue');
-  expect(calls[0]?.args).toContain('fixed');
-  expect(calls[0]?.args).not.toContain('send');
-  await session.receive(
-    {
-      jsonrpc: '2.0',
-      id: 3,
-      method: 'tools/call',
-      params: { name: 'gcr_submit_feedback', arguments: { action: 'send', id: 'id', payload } },
-    },
-    send,
-  );
-  expect(messages.at(-1)?.error?.code).toBe(-32602);
-  expect(calls).toHaveLength(1);
+  for (const name of ['gcr_submit_review', 'gcr_submit_feedback']) {
+    await session.receive(
+      { jsonrpc: '2.0', id: name, method: 'tools/call', params: { name, arguments: {} } },
+      send,
+    );
+    expect(messages.at(-1)?.error).toBeDefined();
+  }
+  expect(calls).toBe(0);
   session.close();
 });
 it('frames fragmented UTF-8 JSON, rejects malformed and unterminated messages and emits only JSON-RPC', async () => {

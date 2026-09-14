@@ -4,9 +4,6 @@ import {
   clientIdentity,
   contextIdentity,
   localKnowledge,
-  remoteReviewResolvedContext,
-  type RemoteReviewResolvedContext,
-  type RemoteReviewPayload,
   sourcePath,
   type ClientIdentity,
   type ContextIdentity,
@@ -20,7 +17,7 @@ import { builtinReviewSkill } from './builtin-review.js';
 import { canonicalJson, contentHash } from './local-identity.js';
 import { compilePathPatterns } from './source-policy.js';
 import { resolveReviewMode, type ReviewProblem } from './review-mode.js';
-import type { ReviewSourceView } from './review-source.js';
+import type { LocalSourceSnapshot } from './source-snapshot.js';
 
 export interface KnowledgeReader {
   entries(): AsyncIterable<LocalKnowledge>;
@@ -31,7 +28,7 @@ export interface RequiredSource {
 }
 export interface LocalContextQuery {
   client: ClientIdentity;
-  snapshot: ReviewSourceView;
+  snapshot: LocalSourceSnapshot;
   settings?: { mode?: unknown; [key: string]: unknown };
   stores: readonly KnowledgeReader[];
   /** Branch observations must belong to this captured HEAD, not a later checkout. */
@@ -63,22 +60,17 @@ interface ContextData {
   sources: ContextSourceRequirement[];
   validUntil: string | null;
   central?: CentralSelection;
-  centralTransfer?: RemoteReviewResolvedContext['central'];
-  documents?: RemoteReviewPayload['context']['documents'];
-  transferable?: boolean;
 }
-export class LocalReviewContext {
+class LocalReviewContext {
   #data: ContextData;
   constructor(
     data: ContextData,
-    private readonly authority?:
-      | (() => Promise<'current' | 'updated' | 'pending'>)
-      | {
-          cache: CentralKnowledgeCache;
-          manifest: SignedKnowledgeManifest;
-          mode: 'online' | 'offline';
-          assertConnection?: () => Promise<void>;
-        },
+    private readonly authority?: {
+      cache: CentralKnowledgeCache;
+      manifest: SignedKnowledgeManifest;
+      mode: 'online' | 'offline';
+      assertConnection?: () => Promise<void>;
+    },
   ) {
     this.#data = structuredClone(data);
   }
@@ -87,42 +79,10 @@ export class LocalReviewContext {
   }
   async observeCentralSnapshot(): Promise<'current' | 'updated' | 'pending'> {
     if (!this.authority) return 'current';
+    await this.authority.assertConnection?.();
     if (this.#data.validUntil && this.#data.validUntil <= new Date().toISOString())
       throw Error('central-context-expired');
-    if (typeof this.authority === 'function') return this.authority();
-    await this.authority.assertConnection?.();
     return this.authority.cache.observeSnapshot(this.authority.manifest, this.authority.mode);
-  }
-  get documents(): RemoteReviewPayload['context']['documents'] {
-    return structuredClone(this.#data.documents ?? []);
-  }
-  /** Export only selected material; omitted local identifiers and store paths stay local. */
-  toRemoteContext(): RemoteReviewPayload['context'] {
-    if (
-      this.#data.transferable !== true ||
-      !this.#data.builtin ||
-      this.#data.identity.required.some((item) => !item.available) ||
-      this.#data.sources.some((item) => !item.available) ||
-      (this.#data.validUntil && this.#data.validUntil <= new Date().toISOString()) ||
-      (this.#data.client.mode === 'centralized' && !this.#data.centralTransfer)
-    )
-      throw Error('context-not-transferable');
-    const builtin = this.#data.builtin;
-    return {
-      provenance: 'client-supplied',
-      documents: this.documents,
-      resolved: remoteReviewResolvedContext({
-        version: 1,
-        client: this.client,
-        sourceHash: this.sourceHash,
-        originalContextHash: this.identity.hash,
-        builtin: { id: builtin.id, revision: builtin.revision, hash: builtin.hash },
-        knowledge: this.knowledge,
-        requiredSources: this.sources.map(({ path, side }) => ({ path, side })),
-        validUntil: this.validUntil,
-        ...(this.#data.centralTransfer ? { central: this.#data.centralTransfer } : {}),
-      }),
-    };
   }
   get client(): ClientIdentity {
     return structuredClone(this.#data.client);
@@ -152,7 +112,7 @@ export class LocalReviewContext {
     return this.#data.validUntil;
   }
 }
-
+export type { LocalReviewContext };
 export type LocalContextResolution =
   | { status: 'ready' | 'needs-context'; problems: ReviewProblem[]; context: LocalReviewContext }
   | { status: 'unavailable'; problems: ReviewProblem[]; context?: never };
@@ -264,7 +224,10 @@ export async function resolveLocalContext(
       const read = input.snapshot.readFile(file.path, file.side);
       if (read.status === 'available') primary.push(read);
       const basePath = file.oldPath ?? file.path;
-      if (file.side === 'source' && input.snapshot.readFile(basePath, 'base').status !== 'absent')
+      if (
+        file.side === 'source' &&
+        input.snapshot.readFile(basePath, 'base').status === 'available'
+      )
         requestedSources.push({ path: basePath, side: 'base' });
     }
     const sources: ContextSourceRequirement[] = [];
@@ -435,7 +398,6 @@ export async function resolveLocalContext(
         omissions,
         sources,
         validUntil: expiry[0] ?? null,
-        transferable: problems.length === 0,
       }),
     };
   } catch {
@@ -501,12 +463,13 @@ export async function resolveCentralContext(
       const read = input.snapshot.readFile(file.path, file.side);
       return read.status === 'available' ? [read] : [];
     });
-    const selection = {
+    const central = selectCentralKnowledge({
+      bundles: pinned.bundles,
+      selected,
       branch: input.snapshot.branchName,
       now: (input.now ?? new Date()).toISOString(),
       byteLimit: Math.max(0, limit - builtinBytes - requiredLocalBytes),
-    };
-    const central = selectCentralKnowledge({ bundles: pinned.bundles, selected, ...selection });
+    });
     let bytes = builtinBytes + central.bytes;
     const knowledge: LocalKnowledge[] = [];
     const omissions = ctx.omissions;
@@ -594,13 +557,7 @@ export async function resolveCentralContext(
           omissions,
           sources: ctx.sources,
           validUntil,
-          transferable: problems.length === 0,
           central,
-          centralTransfer: {
-            manifest: pinned.manifest,
-            selection,
-            selectionHash: contentHash(central),
-          },
         },
         {
           cache: input.cache,

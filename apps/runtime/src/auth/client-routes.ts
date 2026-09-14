@@ -80,14 +80,7 @@ export async function registerClientCredentialRoutes(
       serverId: config.KNOWLEDGE_SERVER_ID ?? null,
       methods: enabled ? ['api-key'] : [],
       clientIds: enabled ? ['commit-defender', 'gcr-cli'] : [],
-      scopes: enabled
-        ? [
-            'knowledge:read',
-            'reviews:submit',
-            'feedback:submit',
-            ...(config.REMOTE_REVIEWS_ENABLED ? ['ai:invoke'] : []),
-          ]
-        : [],
+      scopes: enabled ? ['knowledge:read'] : [],
     }));
     routes.get(
       '/api/v1/client-auth/me',
@@ -146,6 +139,8 @@ export async function registerClientCredentialRoutes(
     });
     routes.post('/api/v1/me/client-credentials', { preHandler: web }, async (request, reply) => {
       const input = clientKeyInput.parse(request.body);
+      if (input.scopes.some((scope) => scope !== 'knowledge:read'))
+        throw new ClientCredentialError(403, 'CLIENT_READ_ONLY');
       for (const id of input.repositoryIds)
         if (!(await canReadRepository(database, authorization, request, id)))
           throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');

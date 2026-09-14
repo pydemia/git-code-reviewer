@@ -14,7 +14,7 @@ export interface ClientPackageInfo {
 
 export const clientContractPackage: ClientPackageInfo = Object.freeze({
   name: '@gcr/client-contract',
-  version: '0.1.0-alpha.33',
+  version: '0.1.0-alpha.35',
   contractVersion: CLIENT_CONTRACT_VERSION,
 });
 export * from './legacy.js';
@@ -29,5 +29,3 @@ export * from './review-execution.js';
 export * from './review-request.js';
 export * from './review-chat.js';
 export * from './review-submission.js';
-export * from './remote-review.js';
-export * from './source-tools.js';

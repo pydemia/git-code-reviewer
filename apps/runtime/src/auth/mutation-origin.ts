@@ -5,18 +5,17 @@ import { isSamlCallback } from './saml-routes.js';
 
 export function registerMutationOriginGuard(app: FastifyInstance, config: AppConfig) {
   app.addHook('onRequest', async (request, reply) => {
-    // Only marked submission/model routes accept origin-less native client writes.
+    // Only marked submission routes accept origin-less native client writes.
     // Their authentication hook and handler still require a scoped bearer key.
-    const nativeWrite =
-      (request.routeOptions.config.clientSubmissionScope ||
-        request.routeOptions.config.clientModelInvoke) &&
+    const nativeSubmission =
+      request.routeOptions.config.clientSubmissionScope &&
       request.headers.authorization !== undefined &&
       request.headers.origin === undefined;
     if (
       (config.NODE_ENV === 'production' || config.AUTH_MODE === 'saml') &&
       !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
       !(config.AUTH_MODE === 'saml' && isSamlCallback(request)) &&
-      !nativeWrite &&
+      !nativeSubmission &&
       !sameOrigin(request, config)
     ) {
       return reply

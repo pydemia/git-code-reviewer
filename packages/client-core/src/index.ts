@@ -2,7 +2,7 @@ import { CLIENT_CONTRACT_VERSION, type ClientPackageInfo } from '@gcr/client-con
 
 export const clientCorePackage: ClientPackageInfo = Object.freeze({
   name: '@gcr/client-core',
-  version: '0.1.0-alpha.33',
+  version: '0.1.0-alpha.35',
   contractVersion: CLIENT_CONTRACT_VERSION,
 });
 
@@ -14,7 +14,6 @@ export * from './local-knowledge.js';
 export * from './local-history.js';
 export * from './source-policy.js';
 export * from './source-snapshot.js';
-export type { ReviewSourceView, FixedSourceLines } from './review-source.js';
 export * from './builtin-review.js';
 export * from './review-mode.js';
 export * from './review-context.js';
@@ -40,7 +39,3 @@ export * from './local-service.js';
 export * from './review-conversations.js';
 export * from './review-chat-runner.js';
 export * from './review-submissions.js';
-export * from './remote-review.js';
-export * from './remote-review-source.js';
-export * from './remote-review-context.js';
-export * from './remote-review-client.js';

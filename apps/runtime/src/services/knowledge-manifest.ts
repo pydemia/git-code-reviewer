@@ -380,55 +380,6 @@ export async function downloadKnowledgeBundle(
 }
 
 /** Bounded cache cleanup; live manifests remain immutable and cannot be removed. */
-/** Validate the exact already-approved online pin; never issue a replacement manifest. */
-export async function observeApprovedKnowledgeManifest(
-  database: Database,
-  expectedServerId: string,
-  expected: SignedKnowledgeManifest,
-): Promise<'current'> {
-  const manifest = signedKnowledgeManifest(expected);
-  if (manifest.payload.audience.serverId !== expectedServerId)
-    throw unavailable('KNOWLEDGE_SERVER_MISMATCH');
-  const { repositoryId, userId, tenantId } = manifest.payload.audience;
-  const c = await database.connect();
-  try {
-    await c.query('begin isolation level repeatable read');
-    const revision = await authorizationRevision(c, repositoryId, userId);
-    await c.query('select pg_advisory_xact_lock_shared(746278433)');
-    const stored = (
-      await c.query<{ manifest: unknown; manifest_hash: string }>(
-        'select manifest,manifest_hash from review_knowledge_manifests where id=$1 and repository_id=$2 and owner_user_id=$3 and refresh_after>clock_timestamp() and expires_at>clock_timestamp()',
-        [manifest.payload.snapshotId, repositoryId, userId],
-      )
-    ).rows[0];
-    if (
-      !stored ||
-      stored.manifest_hash !== manifest.manifestHash ||
-      canonicalKnowledgeJson(signedKnowledgeManifest(stored.manifest)) !==
-        canonicalKnowledgeJson(manifest) ||
-      digest(canonicalKnowledgeJson(manifest.payload)) !== manifest.manifestHash ||
-      manifest.payload.authorizationRevision !== revision
-    )
-      throw unavailable('KNOWLEDGE_APPROVED_SNAPSHOT_UNAVAILABLE');
-    const rows = await coherentComponents(c, repositoryId, userId);
-    if (
-      rows.some(
-        (row) =>
-          row.tenant_id !== tenantId ||
-          row.current_release_id !== manifest.payload.components[row.component].bundleId,
-      )
-    )
-      throw unavailable('KNOWLEDGE_APPROVED_SNAPSHOT_UNAVAILABLE');
-    await c.query('commit');
-    return 'current';
-  } catch (error) {
-    await c.query('rollback');
-    throw error;
-  } finally {
-    c.release();
-  }
-}
-
 export async function removeExpiredKnowledgeManifests(database: Database) {
   const result = await database.query(`delete from review_knowledge_manifests where id in
  (select id from review_knowledge_manifests where expires_at<=clock_timestamp() order by expires_at,id limit 1000 for update skip locked)`);

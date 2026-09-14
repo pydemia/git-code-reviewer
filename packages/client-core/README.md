@@ -1,5 +1,7 @@
 # @gcr/client-core
 
+Central propagation is one-way: download central review knowledge and prompts, then review with the configured local model. Local source, reports, feedback and conversations are never uploaded. Submission commands and central model execution are unavailable.
+
 `LocalReviewSourcePort(snapshot, policy, budget)` implements the contract's process-local fixed source port for executors. It binds the actual repository/worktree and snapshot to the approved policy, paginates file metadata (at most 100 files per page), reads bounded fixed source/base lines and searches only approved files. Each attempt consumes the shared tool budget; returned UTF-8 JSON consumes transmission bytes. Successful port responses produce hash/byte receipts, which do not by themselves prove model receipt or semantic understanding. The caller reserves a logical executor invocation before running it. With an account CLI, `modelCalls` counts those invocations, not the CLI's internal sampling/HTTP requests.
 
 GCR-owned client logic for extension and headless consumers. Local storage supports user-owned memory, review-only Skills, review/chat history and retention. The package captures immutable Git/source views, resolves local context and approves a bounded standalone review. `runLocalReview` assembles an injected executor with those fixed inputs and produces a validated report. Central snapshot synchronization is available through an injected transport; authenticated CD/CLI integration remains P04/P06 work. Chat persistence here is an archive; interactive execution and checkpoints follow in P08.
@@ -177,8 +179,8 @@ revision. Hosts should call `prune` at startup and after terminal changes: it us
 the existing chat retention settings, expires questions after 24 hours, and keeps
 queued/running work until explicitly reconciled.
 
-The library does not install a watcher or Git hook, send central feedback, or make
-source edits. Client UI, CLI/MCP commands, and central feedback are separate P08
+The library does not install a watcher or Git hook, upload local review data, or make
+source edits. Client UI and CLI/MCP commands are separate
 integration work.
 
 

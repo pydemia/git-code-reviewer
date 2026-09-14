@@ -3,21 +3,9 @@ import { request as httpsRequest } from 'node:https';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   centralCredentialIdentity,
-  reviewSubmission,
   reviewSubmissionReceipt,
   reviewSubmissionStatus,
-  remoteReviewHandle,
-  remoteReviewModels,
-  type RemoteReviewHandle,
-  type RemoteReviewRequest,
 } from '@gcr/client-contract';
-import {
-  prepareRemoteReviewHandle,
-  validateRemoteReviewRequest,
-  verifyRemoteReviewStatus,
-  verifyRemoteReviewResult,
-  RemoteReviewDeliveryError,
-} from './remote-review.js';
 import { contentHash } from './local-identity.js';
 import type { IncomingMessage } from 'node:http';
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
@@ -42,7 +30,6 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
     relative: string,
     signal: AbortSignal,
     etag?: string,
-    body?: string,
   ): Promise<IncomingMessage> {
     if (signal.aborted) throw unavailable();
     if (this.credential.bindingId !== this.binding.id)
@@ -67,7 +54,7 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       const req = request(
         target,
         {
-          method: body === undefined ? 'GET' : 'POST',
+          method: 'GET',
           signal,
           ...(target.protocol === 'https:'
             ? { rejectUnauthorized: true, ...(this.ca ? { ca: this.ca } : {}) }
@@ -76,16 +63,13 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
             authorization: `Bearer ${token}`,
             'x-gcr-server-id': this.binding.audience.serverId,
             accept: 'application/json',
-            ...(body === undefined
-              ? {}
-              : { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) }),
             ...(etag ? { 'if-none-match': etag } : {}),
           },
         },
         resolve,
       );
       req.on('error', () => reject(unavailable()));
-      req.end(body);
+      req.end();
     });
   }
   private async failure(
@@ -188,28 +172,14 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       response.destroy();
     }
   }
-  /** Explicit write only. Its failures never mutate the knowledge cache. */
-  async submitReview(value: unknown, signal: AbortSignal) {
-    const input = reviewSubmission(value);
-    if (contentHash(input.audience) !== contentHash(this.binding.audience))
-      throw new Error('submission-binding-mismatch');
-    const response = await this.get(
-      `api/v1/repositories/${encodeURIComponent(input.audience.repositoryId)}/review-submissions/${input.kind === 'result' ? 'results' : 'feedback'}`,
-      signal,
-      undefined,
-      JSON.stringify(input),
-    );
-    const body = await this.submissionJson(response, [200, 201]);
-    const receipt = reviewSubmissionReceipt(body);
-    if (
-      receipt.requestId !== input.id ||
-      receipt.payloadHash !== contentHash(input) ||
-      contentHash(receipt.audience) !== contentHash(input.audience) ||
-      receipt.clientId !== input.clientId ||
-      receipt.kind !== input.kind
-    )
-      throw new ReviewSubmissionDeliveryError(503);
-    return receipt;
+  /** Compatibility entry for old outboxes. Central propagation is read-only; no request is made. */
+  async submitReview(
+    _value: unknown,
+    _signal: AbortSignal,
+  ): Promise<ReturnType<typeof reviewSubmissionReceipt>> {
+    void _value;
+    void _signal;
+    throw new ReviewSubmissionDeliveryError(405);
   }
   async submissionStatus(value: unknown, signal: AbortSignal) {
     const receipt = reviewSubmissionReceipt(value);
@@ -293,120 +263,6 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       response.destroy();
     }
   }
-  private remoteRoute(handle: RemoteReviewHandle) {
-    const h = remoteReviewHandle(handle);
-    if (contentHash(h.audience) !== contentHash(this.binding.audience))
-      throw new RemoteReviewDeliveryError('response-mismatch');
-    return `api/v1/repositories/${encodeURIComponent(h.audience.repositoryId)}/remote-reviews`;
-  }
-  private async remoteJson(route: string, signal: AbortSignal, body?: string): Promise<unknown> {
-    let response: IncomingMessage | undefined;
-    try {
-      response = await this.get(route, signal, undefined, body);
-      const status = response.statusCode ?? 503;
-      const success = status === 200 || (body !== undefined && status === 201);
-      const chunks: Buffer[] = [];
-      let size = 0;
-      for await (const chunk of response) {
-        const bytes = Buffer.from(chunk);
-        size += bytes.length;
-        if (
-          size >
-          (success && route.endsWith('/result')
-            ? 16 * 1024 * 1024 + 65536
-            : success && route.endsWith('/models')
-              ? 2 * 1024 * 1024
-              : 32768)
-        )
-          throw new RemoteReviewDeliveryError('delivery-unconfirmed');
-        chunks.push(bytes);
-      }
-      let value: unknown;
-      try {
-        value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)));
-      } catch {
-        throw new RemoteReviewDeliveryError(success ? 'response-mismatch' : 'http-error', status);
-      }
-      if (!success) {
-        const code = (value as { error?: { code?: unknown } })?.error?.code;
-        const authority =
-          status === 401 && code === 'CLIENT_AUTHENTICATION_REQUIRED'
-            ? 'authentication-required'
-            : status === 403 && code === 'CLIENT_ACCESS_REVOKED'
-              ? 'revoked'
-              : status === 503 && code === 'IDENTITY_UNAVAILABLE'
-                ? 'identity-unavailable'
-                : undefined;
-        throw new RemoteReviewDeliveryError('http-error', status, authority);
-      }
-      return value;
-    } catch (error) {
-      if (error instanceof RemoteReviewDeliveryError) throw error;
-      throw new RemoteReviewDeliveryError('delivery-unconfirmed');
-    } finally {
-      response?.destroy();
-    }
-  }
-  async remoteReviewModels(clientId: 'commit-defender' | 'gcr-cli', signal: AbortSignal) {
-    const raw = await this.remoteJson(
-      `api/v1/repositories/${encodeURIComponent(this.binding.audience.repositoryId)}/remote-reviews/models`,
-      signal,
-    );
-    try {
-      const result = remoteReviewModels(raw);
-      if (
-        result.clientId !== clientId ||
-        contentHash(result.audience) !== contentHash(this.binding.audience)
-      )
-        throw new Error('mismatch');
-      return result;
-    } catch {
-      throw new RemoteReviewDeliveryError('response-mismatch');
-    }
-  }
-  async submitRemoteReview(value: RemoteReviewRequest, signal: AbortSignal) {
-    const input = validateRemoteReviewRequest(value, {
-      audience: this.binding.audience,
-      clientId: value.payload.clientId,
-    });
-    const handle = prepareRemoteReviewHandle(input);
-    return verifyRemoteReviewStatus(
-      handle,
-      await this.remoteJson(this.remoteRoute(handle), signal, JSON.stringify(input)),
-    );
-  }
-  async remoteReviewStatus(handle: RemoteReviewHandle, signal: AbortSignal) {
-    return verifyRemoteReviewStatus(
-      handle,
-      await this.remoteJson(
-        `${this.remoteRoute(handle)}/${encodeURIComponent(handle.requestId)}/status`,
-        signal,
-      ),
-    );
-  }
-  async remoteReviewResult(handle: RemoteReviewHandle, signal: AbortSignal) {
-    return verifyRemoteReviewResult(
-      handle,
-      await this.remoteJson(
-        `${this.remoteRoute(handle)}/${encodeURIComponent(handle.requestId)}/result`,
-        signal,
-      ),
-    );
-  }
-  async cancelRemoteReview(handle: RemoteReviewHandle, signal: AbortSignal) {
-    return verifyRemoteReviewStatus(
-      handle,
-      await this.remoteJson(
-        `${this.remoteRoute(handle)}/${encodeURIComponent(handle.requestId)}/cancel`,
-        signal,
-        JSON.stringify({
-          schemaVersion: 1,
-          requestId: handle.requestId,
-          payloadHash: handle.payloadHash,
-        }),
-      ),
-    );
-  }
   async bundle({
     snapshotId,
     bundleId,
@@ -437,7 +293,11 @@ export class ReviewSubmissionDeliveryError extends Error {
     readonly statusCode: number,
     readonly authorityFailure?: 'revoked' | 'authentication-required' | 'identity-unavailable',
   ) {
-    super('Review submission was not confirmed.');
+    super(
+      statusCode === 405
+        ? 'Central integration is read-only. Local review data stays local.'
+        : 'Review submission was not confirmed.',
+    );
     this.name = 'ReviewSubmissionDeliveryError';
   }
 }

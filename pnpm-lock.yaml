@@ -83,9 +83,6 @@ importers:
       '@gcr/client-contract':
         specifier: workspace:*
         version: link:../../packages/client-contract
-      '@gcr/client-core':
-        specifier: workspace:*
-        version: link:../../packages/client-core
       '@gcr/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

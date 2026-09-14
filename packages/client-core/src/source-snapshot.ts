@@ -26,16 +26,19 @@ import {
 } from './source-policy.js';
 import { SourceGit, type GitEntry, type GitTree } from './source-git.js';
 
-import {
-  fixedSourceLines,
-  type ReviewSourceView,
-  type FixedSourceRead,
-  type SourceChange,
-  type SourceLimitation,
-} from './review-source.js';
-export type { FixedSourceRead, SourceChange, SourceLimitation } from './review-source.js';
-
 type Side = 'base' | 'source';
+export interface SourceLimitation {
+  path: string;
+  side: Side;
+  reason: SourceExclusionReason;
+  detail: string;
+}
+export interface SourceChange {
+  path: string;
+  oldPath?: string;
+  status: 'A' | 'M' | 'D' | 'R' | 'T';
+  side: Side;
+}
 interface CapturedFile {
   source: SourceFile;
   text: string;
@@ -54,6 +57,10 @@ export interface FrozenLocalSource {
   limitations: SourceLimitation[];
   diff: string;
 }
+export type FixedSourceRead =
+  | { status: 'available'; source: SourceFile; text: string }
+  | { status: 'absent' }
+  | { status: 'unavailable'; reason: SourceExclusionReason; detail: string };
 export interface CaptureSourceOptions {
   cwd: string;
   kind: 'index' | 'working-tree' | 'commit-tree';
@@ -105,7 +112,7 @@ function paths(values: readonly string[] = []): string[] {
 }
 
 /** No Git command or original filesystem path is retained after capture returns. */
-class LocalSourceSnapshot implements ReviewSourceView {
+class LocalSourceSnapshot {
   #files: Map<string, CapturedFile>;
   #closed = false;
   #identity: SnapshotIdentity;
@@ -167,12 +174,6 @@ class LocalSourceSnapshot implements ReviewSourceView {
     this.open();
     return structuredClone(this.#limitations);
   }
-  get incomplete(): boolean {
-    this.open();
-    return this.#limitations.some((item) =>
-      ['unreadable', 'unsupported-source'].includes(item.reason),
-    );
-  }
   get diff(): string {
     this.open();
     return this.#diff;
@@ -211,7 +212,29 @@ class LocalSourceSnapshot implements ReviewSourceView {
     return reason ? { status: 'unavailable', reason, detail: reason } : { status: 'absent' };
   }
   readLines(file: string, side: Side = 'source', startLine = 1, endLine = startLine + 159) {
-    return fixedSourceLines(this.readFile(file, side), startLine, endLine);
+    const result = this.readFile(file, side);
+    if (
+      !Number.isSafeInteger(startLine) ||
+      !Number.isSafeInteger(endLine) ||
+      startLine < 1 ||
+      endLine < startLine
+    )
+      throw new SourceCaptureError('invalid-source-request');
+    if (result.status !== 'available') return result;
+    const lines = result.text.split('\n');
+    if (startLine > lines.length) throw new SourceCaptureError('invalid-source-request');
+    const end = Math.min(endLine, startLine + 199, lines.length);
+    const full = lines.slice(startLine - 1, end).join('\n');
+    const text = full.slice(0, 24_000);
+    return {
+      status: 'available' as const,
+      source: result.source,
+      startLine,
+      endLine: startLine + text.split('\n').length - 1,
+      text,
+      excerptHash: hash(text),
+      truncated: text.length !== full.length || end < Math.min(endLine, lines.length),
+    };
   }
   /** Literal text candidates, not a semantic call graph or proof that a defect exists. */
   search(query: string, side: Side = 'source', prefix = '') {

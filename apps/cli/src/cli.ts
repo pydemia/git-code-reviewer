@@ -4,9 +4,6 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   ContractError,
-  reviewSubmission,
-  REMOTE_REVIEW_MAX_BYTES,
-  remoteReviewPayload,
   offlineBehavior,
   localKnowledge,
   localScope,
@@ -18,15 +15,7 @@ import {
 } from '@gcr/client-contract';
 import {
   captureLocalSource,
-  RemoteReviewClient,
-  RemoteReviewClientError,
-  RemoteReviewDeliveryError,
-  RemoteReviewValidationError,
-  prepareRemoteReview,
   contentHash,
-  ReviewSubmissionQueue,
-  ReviewSubmissionQueueError,
-  prepareReviewSubmission,
   restoreLocalSource,
   LocalServiceError,
   type FrozenLocalSource,
@@ -90,11 +79,7 @@ export interface CliResult {
   diagnostics?: unknown[];
   text?: boolean;
 }
-async function jsonInput(
-  file: string,
-  readStdin?: () => Promise<string>,
-  maxBytes = 2_000_000,
-): Promise<unknown> {
+async function jsonInput(file: string, readStdin?: () => Promise<string>): Promise<unknown> {
   let text: string;
   if (file === '-') {
     if (!readStdin) throw new CliError('usage', 'JSON input requires a file or piped stdin.');
@@ -106,27 +91,23 @@ async function jsonInput(
     );
     try {
       const stat = await handle.stat();
-      if (!stat.isFile() || stat.size > maxBytes)
-        throw new CliError(
-          'invalid-input',
-          'Input must be a regular JSON file within the command size limit.',
-        );
-      const buffer = Buffer.alloc(maxBytes + 1);
+      if (!stat.isFile() || stat.size > 2_000_000)
+        throw new CliError('invalid-input', 'Input must be a regular JSON file of at most 2 MB.');
+      const buffer = Buffer.alloc(2_000_001);
       let offset = 0;
       while (offset < buffer.length) {
         const read = await handle.read(buffer, offset, buffer.length - offset, null);
         if (!read.bytesRead) break;
         offset += read.bytesRead;
       }
-      if (offset > maxBytes)
-        throw new CliError('invalid-input', 'JSON input exceeds the command size limit.');
+      if (offset > 2_000_000) throw new CliError('invalid-input', 'JSON input exceeds 2 MB.');
       text = new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, offset));
     } finally {
       await handle.close();
     }
   }
-  if (Buffer.byteLength(text) > maxBytes)
-    throw new CliError('invalid-input', 'JSON input exceeds the command size limit.');
+  if (Buffer.byteLength(text) > 2_000_000)
+    throw new CliError('invalid-input', 'JSON input exceeds 2 MB.');
   try {
     return JSON.parse(text);
   } catch {
@@ -198,20 +179,17 @@ export async function executeCli(
     if (
       (!central &&
         (command === 'central' ||
-          (string('connection') && command !== 'remote-review') ||
+          string('connection') ||
           values.offline ||
           values['offline-behavior'])) ||
       (central &&
         ![
           'central',
-          'remote-review',
           'status',
           'context',
           'prepare',
           'read-source',
           'get-rule',
-          'submit-review',
-          'feedback',
           'review',
           'push-review',
           'history',
@@ -224,59 +202,6 @@ export async function executeCli(
         'usage',
         'Central operations require --mode centralized and a supported central command.',
       );
-    if (command === 'remote-review') {
-      const [action, id, ...extra] = positionals;
-      const previewOptions = [
-        ...[
-          'source',
-          'base',
-          'index-file',
-          'source-commit',
-          'base-commit',
-          'target-branch',
-          'path',
-          'include-untracked',
-          'exclude',
-          'require-source',
-          'require-knowledge',
-        ],
-        'prepared',
-        'account-id',
-        'model',
-        'reasoning-effort',
-        'model-calls',
-        'timeout-ms',
-        'source-bytes',
-        'tool-calls',
-        'source-retention-seconds',
-        'result-retention-seconds',
-      ];
-      if (
-        !string('connection') ||
-        extra.length ||
-        ![
-          'preview',
-          'submit',
-          'retry',
-          'status',
-          'wait',
-          'result',
-          'cancel',
-          'list',
-          'models',
-        ].includes(action ?? '') ||
-        (['status', 'wait', 'result', 'cancel'].includes(action ?? '') ? !id : id !== undefined) ||
-        (action !== 'preview' && previewOptions.some((k) => values[k] !== undefined)) ||
-        (action !== 'wait' && values['wait-timeout-ms'] !== undefined) ||
-        (['submit', 'retry'].includes(action ?? '')
-          ? !string('input') || !string('confirm-hash')
-          : !!string('input') || !!string('confirm-hash'))
-      )
-        throw new CliError(
-          'usage',
-          'Specify a remote-review action, its options and an explicit --connection.',
-        );
-    }
     const cwd = path.resolve(string('cwd', dependencies.cwd ?? process.cwd())!);
     const profileId = string('profile', 'default')!;
     const dataDirectory = path.resolve(string('data-dir', defaultLocalDataDirectory())!);
@@ -322,104 +247,6 @@ export async function executeCli(
       }
       return connections;
     };
-    if (command === 'remote-review' && positionals[0] !== 'preview') {
-      if (positionals[0] === 'models') {
-        const models = await (
-          await centralConnections()
-        ).remoteReviewModels(string('connection')!, dependencies.signal);
-        return { value: models, exitCode: models.enabled ? 0 : 2 };
-      }
-      const remote = await RemoteReviewClient.open({
-        scope: repositoryScope!,
-        dataDirectory,
-        ...(dependencies.keys ? { keys: dependencies.keys } : {}),
-        connectionId: string('connection')!,
-        connections: await centralConnections(),
-      });
-      opened.push(remote);
-      const [action, id] = positionals;
-      let requestId = id;
-      try {
-        if (action === 'list') return { value: await remote.list(), exitCode: 0 };
-        if (action === 'submit' || action === 'retry') {
-          const value = await jsonInput(
-            string('input')!,
-            dependencies.readStdin,
-            REMOTE_REVIEW_MAX_BYTES * 2,
-          );
-          const payload = remoteReviewPayload((value as { payload?: unknown })?.payload);
-          requestId = payload.requestId;
-          const hash = contentHash(payload);
-          if (string('confirm-hash') !== hash)
-            throw new CliError('confirmation-required', 'Confirm the exact preview payload hash.');
-          if (payload.client.mode !== mode.mode)
-            throw new CliError(
-              'remote-mode-mismatch',
-              'Use the knowledge mode recorded in the preview.',
-            );
-          const approvedAt =
-            action === 'retry'
-              ? (await remote.get(requestId)).approvedAt
-              : new Date().toISOString();
-          const request = { payload, approval: { payloadHash: hash, approvedAt } };
-          const result =
-            action === 'retry'
-              ? await remote.retrySubmission(request, dependencies.signal)
-              : await remote.submit(request, dependencies.signal);
-          return {
-            value: {
-              requestId,
-              execution: result.status,
-              cancellationRequested: result.cancellationRequested,
-            },
-            exitCode: 2,
-          };
-        }
-        if (action === 'wait') {
-          const state = await remote.wait(id!, {
-            ...(dependencies.signal ? { signal: dependencies.signal } : {}),
-            timeoutMs: number('wait-timeout-ms') ?? 600000,
-          });
-          if (state.status?.state !== 'completed')
-            return {
-              value: {
-                requestId,
-                execution: state.status,
-                cancellationRequested: state.cancellationRequested,
-              },
-              exitCode: 2,
-            };
-        }
-        if (action === 'result' || action === 'wait') {
-          const result = await remote.result(id!, dependencies.signal);
-          return { value: result, exitCode: reviewExitCode(result.report) };
-        }
-        const result =
-          action === 'cancel'
-            ? await remote.cancel(id!, dependencies.signal)
-            : await remote.refresh(id!, dependencies.signal);
-        return {
-          value: {
-            requestId,
-            execution: result.status,
-            cancellationRequested: result.cancellationRequested,
-          },
-          exitCode: 2,
-        };
-      } catch (error) {
-        if (!(error instanceof RemoteReviewDeliveryError)) throw error;
-        return {
-          value: {
-            status: 'unconfirmed',
-            requestId,
-            error: { code: error.code, httpStatus: error.statusCode },
-            message:
-              'Server outcome is unconfirmed. Inspect this request ID; no local fallback or new request was started.',
-          },
-          exitCode: 2,
-        };
-      }
-    }
     if (command === 'central') {
       const [action, ...extra] = positionals;
       if (
@@ -576,7 +403,7 @@ export async function executeCli(
       return { value, exitCode: 0 };
     }
     if (
-      !['submit-review', 'feedback', 'chat', 'requests', 'remote-review'].includes(command) &&
+      !['chat', 'requests'].includes(command) &&
       positionals.length !== (command === 'result' ? 1 : 0)
     )
       throw new CliError('usage', 'Unexpected positional arguments.');
@@ -730,104 +557,6 @@ export async function executeCli(
         queue.close();
       }
     }
-    if (command === 'submit-review' || command === 'feedback') {
-      if (!central)
-        throw new CliError('usage', 'Submission requires an explicit central connection.');
-      const [action, id, ...extra] = positionals;
-      const kind = command === 'feedback' ? 'feedback' : 'result';
-      if (
-        extra.length ||
-        !['preview', 'queue', 'send', 'show', 'cancel', 'list'].includes(action ?? '') ||
-        (['preview', 'send', 'show', 'cancel'].includes(action ?? '') ? !id : id !== undefined)
-      )
-        throw new CliError('usage', 'Invalid submission action.');
-      if (
-        (action === 'queue') !== !!string('confirm-hash') ||
-        (values['retry-rejected'] && action !== 'send') ||
-        (string('input') && !['queue', 'preview'].includes(action!))
-      )
-        throw new CliError('usage', 'Submission options do not match the action.');
-      const manager = await centralConnections();
-      if (action === 'preview') {
-        const report =
-          (await (await historyStore(true)).getReview(id!)) ??
-          (await (await historyStore(false)).getReview(id!));
-        if (!report) throw new CliError('not-found', 'Saved review was not found.');
-        let selection: Parameters<typeof prepareReviewSubmission>[0]['selection'] = {
-          kind: 'result',
-        };
-        if (kind === 'feedback') {
-          if (!string('input'))
-            throw new CliError('usage', 'Feedback preview requires an explicit selection JSON.');
-          const input = (await jsonInput(string('input')!, dependencies.readStdin)) as Record<
-            string,
-            unknown
-          >;
-          if (
-            !input ||
-            typeof input !== 'object' ||
-            Array.isArray(input) ||
-            Object.keys(input).some(
-              (k) =>
-                !['feedbackKind', 'message', 'findingId', 'includeSourceReference'].includes(k),
-            ) ||
-            !['correction', 'exception', 'judgment'].includes(String(input.feedbackKind)) ||
-            typeof input.message !== 'string' ||
-            (input.findingId !== undefined && typeof input.findingId !== 'string') ||
-            (input.includeSourceReference !== undefined &&
-              typeof input.includeSourceReference !== 'boolean')
-          )
-            throw new CliError('invalid-input', 'Invalid explicit feedback selection.');
-          selection = { kind: 'feedback', ...input } as Extract<
-            Parameters<typeof prepareReviewSubmission>[0]['selection'],
-            { kind: 'feedback' }
-          >;
-        } else if (string('input'))
-          throw new CliError('usage', 'Result preview does not accept input.');
-        const { submission: payload, payloadHash } = prepareReviewSubmission({
-          report,
-          selection,
-          id: randomUUID(),
-          audience: (await manager.historyIdentity(string('connection')!)).audience,
-          clientId: 'gcr-cli',
-          approvedAt: new Date().toISOString(),
-        });
-        return {
-          value: {
-            status: 'confirmation-required',
-            payload,
-            payloadHash,
-            uploaded: false,
-          },
-          exitCode: 0,
-        };
-      }
-      const queue = await ReviewSubmissionQueue.open({
-        ...requestStorage,
-        connectionId: string('connection')!,
-        connections: manager,
-      });
-      opened.push(queue);
-      if (action === 'list')
-        return {
-          value: (await queue.list()).filter((x) => x.value.payload.kind === kind),
-          exitCode: 0,
-        };
-      if (action === 'queue') {
-        if (!string('input')) throw new CliError('usage', 'Queue requires confirmed payload JSON.');
-        const payload = reviewSubmission(await jsonInput(string('input')!, dependencies.readStdin));
-        if (payload.kind !== kind)
-          throw new CliError('invalid-input', 'Submission kind does not match this command.');
-        return { value: await queue.enqueue(payload, string('confirm-hash')!), exitCode: 0 };
-      }
-      const row = await queue.get(id!);
-      if (row.value.payload.kind !== kind)
-        throw new CliError('invalid-input', 'Submission kind does not match this command.');
-      if (action === 'show') return { value: row, exitCode: 0 };
-      if (action === 'cancel') return { value: await queue.cancel(id!), exitCode: 0 };
-      const sent = await queue.send(id!, dependencies.signal, values['retry-rejected'] === true);
-      return { value: sent, exitCode: sent.value.status === 'submitted' ? 0 : 2 };
-    }
     if (command === 'result' || command === 'history') {
       let history: LocalHistoryStore | undefined;
       let denied: unknown;
@@ -961,10 +690,7 @@ export async function executeCli(
           'Prepared reviews cannot replace source or context selection options.',
         );
       prepared = await preparations!.get(string('prepared')!);
-      if (
-        prepared.mode !== mode.mode ||
-        prepared.connectionId !== (central ? (string('connection') ?? null) : null)
-      )
+      if (prepared.mode !== mode.mode || prepared.connectionId !== (string('connection') ?? null))
         throw new CliError(
           'prepared-scope-mismatch',
           'Use the original mode and connection for this prepared review.',
@@ -1079,69 +805,6 @@ export async function executeCli(
         'prepared-context-changed',
         'Central context changed or is being synchronized.',
       );
-    if (command === 'remote-review') {
-      if (context.status !== 'ready')
-        return { value: { status: context.status, problems: context.problems }, exitCode: 2 };
-      if (context.context.client.mode !== mode.mode)
-        throw new CliError(
-          'remote-context-unavailable',
-          'Central execution preview requires the selected knowledge mode without fallback.',
-        );
-      const selected = await (await centralConnections()).status(string('connection')!);
-      if (
-        selected.status !== 'connected' ||
-        selected.clientId !== (dependencies.centralClientId ?? 'gcr-cli')
-      )
-        throw new CliError(
-          'remote-connection-unavailable',
-          'Select a connected credential for this client.',
-        );
-      const accountId = string('account-id');
-      if (!accountId)
-        throw new CliError(
-          'usage',
-          'Preview requires the explicitly selected central --account-id.',
-        );
-      const { payload, payloadHash, bytes } = prepareRemoteReview({
-        schemaVersion: 1,
-        requestId: randomUUID(),
-        audience: selected.audience,
-        clientId: dependencies.centralClientId ?? 'gcr-cli',
-        client: context.context.client,
-        executor: 'central',
-        model: {
-          accountId,
-          name: string('model', 'gpt-6-astra')!,
-          reasoningEffort: string('reasoning-effort', 'xhigh') as 'xhigh',
-        },
-        snapshot,
-        sourceFiles: snapshot.sourceFiles,
-        context: context.context.toRemoteContext(),
-        budget: {
-          modelCalls: number('model-calls') ?? 4,
-          durationMs: number('timeout-ms') ?? 120000,
-          sourceBytes: number('source-bytes') ?? 1048576,
-          toolCalls: number('tool-calls') ?? 100,
-        },
-        retention: {
-          sourceSeconds: number('source-retention-seconds') ?? 3600,
-          resultSeconds: number('result-retention-seconds') ?? 86400,
-        },
-      });
-      return {
-        value: {
-          status: 'confirmation-required',
-          payload,
-          payloadHash,
-          bytes,
-          uploaded: false,
-          modelExecuted: false,
-          outputTokenLimit: 'unsupported',
-          connectionId: selected.id,
-        },
-        exitCode: 0,
-      };
-    }
     if (command === 'prepare') {
       if (context.status !== 'ready')
         return { value: { status: context.status, problems: context.problems }, exitCode: 2 };
@@ -1358,10 +1021,6 @@ export async function executeCli(
       };
     const known =
       error instanceof CliError ||
-      error instanceof RemoteReviewClientError ||
-      error instanceof RemoteReviewValidationError ||
-      error instanceof RemoteReviewDeliveryError ||
-      error instanceof ReviewSubmissionQueueError ||
       error instanceof ReviewConversationError ||
       error instanceof LocalServiceError ||
       error instanceof LocalStoreError ||

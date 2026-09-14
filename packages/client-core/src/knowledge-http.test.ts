@@ -208,11 +208,11 @@ describe('bound central HTTP transport', () => {
   });
   it('preserves base paths, sends only the explicitly bound bearer and supports conditional requests', async () => {
     const requests: {
-      url?: string;
-      authorization?: string;
-      cookie?: string;
-      server?: string | string[];
-      etag?: string;
+      url?: string | undefined;
+      authorization?: string | undefined;
+      cookie?: string | undefined;
+      server?: string | string[] | undefined;
+      etag?: string | undefined;
     }[] = [];
     const origin = await listen(
       httpServer((req, res) => {
@@ -366,61 +366,18 @@ describe('bound central HTTP transport', () => {
   });
 });
 
-it('distinguishes submission scope denial from authenticated revocation and identity unavailability', async () => {
-  let status = 403,
-    code = 'CLIENT_SCOPE_DENIED';
+it('rejects legacy submissions without sending local data over HTTP', async () => {
+  let requests = 0;
   const url = await listen(
-    httpServer((request, response) => {
-      expect(request.method).toBe('POST');
-      request.resume();
-      response.writeHead(status, { 'content-type': 'application/json' });
-      response.end(JSON.stringify({ error: { code, message: 'PRIVATE_DIAGNOSTIC' } }));
+    httpServer((_request, response) => {
+      requests++;
+      response.end('{}');
     }),
   );
-  const input = {
-    schemaVersion: 1,
-    id: 'submission',
-    audience: binding(url).audience,
-    clientId: 'gcr-cli',
-    approvedAt: new Date().toISOString(),
-    visibility: 'repository-reviewers',
-    review: {
-      runId: 'review',
-      mode: 'standalone',
-      sourceHash: 'a'.repeat(64),
-      contextHash: 'b'.repeat(64),
-      snapshot: null,
-    },
-    kind: 'feedback',
-    feedback: {
-      kind: 'judgment',
-      message: 'explicit fixture',
-      findingId: null,
-      rule: null,
-      source: null,
-    },
-  };
-  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
-    statusCode: 403,
-    authorityFailure: undefined,
-  });
-  code = 'CLIENT_ACCESS_REVOKED';
-  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
-    statusCode: 403,
-    authorityFailure: 'revoked',
-  });
-  status = 503;
-  code = 'IDENTITY_UNAVAILABLE';
-  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
-    statusCode: 503,
-    authorityFailure: 'identity-unavailable',
-  });
-  status = 401;
-  code = 'CLIENT_AUTHENTICATION_REQUIRED';
-  await expect(transport(url).submitReview(input, signal())).rejects.toMatchObject({
-    statusCode: 401,
-    authorityFailure: 'authentication-required',
-  });
+  await expect(
+    transport(url).submitReview({ localSource: 'must-stay-local' }, signal()),
+  ).rejects.toMatchObject({ statusCode: 405, authorityFailure: undefined });
+  expect(requests).toBe(0);
 });
 
 it('reads only the bound receipt status and rejects swapped, oversized and revoked responses', async () => {

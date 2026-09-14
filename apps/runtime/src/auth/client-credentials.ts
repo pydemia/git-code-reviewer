@@ -19,24 +19,6 @@ const fail = (status: ClientCredentialError['statusCode'], code: string): never 
 };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export const clientKeyInput = clientCredentialInputSchema;
-/** Invocation needs an effective reviewer grant in addition to knowledge access.
- * Model-account selection and external authorization are checked by the job admission path. */
-export async function clientModelRepositoryAllowed(
-  database: Pick<Database, 'query'>,
-  repositoryId: string,
-  userId: string,
-): Promise<boolean> {
-  if (!(await knowledgeUserAllowed(database, repositoryId, userId, 'reader'))) return false;
-  const grant = await database.query(
-    `select u.id from users u where u.id=$2 and (u.role='administrator' or exists(
-      select 1 from repository_grants g where g.repository_id=$1
-      and g.role in ('reviewer','administrator')
-      and (g.subject_or_group=u.oidc_subject or g.subject_or_group in
-        (select 'group:'||value from jsonb_array_elements_text(u.groups_json)))))`,
-    [repositoryId, userId],
-  );
-  return Boolean(grant.rowCount);
-}
 type Row = {
   id: string;
   user_id: string;
@@ -129,11 +111,6 @@ export async function issueClientKey(
         input.tenantId,
       ]);
       if (!r.rowCount || !(await knowledgeUserAllowed(c, repository, options.user.id, 'reader')))
-        fail(403, 'CLIENT_SCOPE_DENIED');
-      if (
-        input.scopes.includes('ai:invoke') &&
-        !(await clientModelRepositoryAllowed(c, repository, options.user.id))
-      )
         fail(403, 'CLIENT_SCOPE_DENIED');
     }
     const count = await c.query<{ count: string }>(
@@ -248,29 +225,6 @@ export async function authenticateClientKey(
       [match![2], hash(match![1]!), options.serverId],
     )
   ).rows[0];
-  return authorizeClientKeyRow(database, row, options);
-}
-
-/** Worker-only revalidation of a key already bound to a durably admitted job.
- * This does not authenticate an HTTP caller and must never be exposed as a login path. */
-export async function revalidateClientKeyGrant(
-  database: Pick<Database, 'query'>,
-  options: { keyId: string; serverId: string; authMode: string; repositoryId: string },
-): Promise<ClientPrincipal> {
-  const row = (
-    await database.query<Row & { expired: boolean }>(
-      `select ${fields},expires_at<=clock_timestamp() as expired from client_api_keys where id=$1 and server_id=$2`,
-      [options.keyId, options.serverId],
-    )
-  ).rows[0];
-  return authorizeClientKeyRow(database, row, { ...options, requiredScope: 'ai:invoke' });
-}
-
-async function authorizeClientKeyRow(
-  database: Pick<Database, 'query'>,
-  row: (Row & { expired: boolean }) | undefined,
-  options: { authMode: string; repositoryId?: string; requiredScope?: ClientCredentialScope },
-): Promise<ClientPrincipal> {
   if (!row || row.expired) fail(401, 'CLIENT_AUTHENTICATION_REQUIRED');
   if (row!.revoked_at || row!.auth_mode !== options.authMode) fail(403, 'CLIENT_ACCESS_REVOKED');
   if (!row!.scopes.includes(options.requiredScope ?? 'knowledge:read'))
@@ -324,12 +278,7 @@ async function authorizeClientKeyRow(
       'select id from repositories where id=$1 and tenant_id=$2',
       [id, row!.tenant_id],
     );
-    if (
-      tenant.rowCount &&
-      (options.requiredScope === 'ai:invoke'
-        ? await clientModelRepositoryAllowed(database, id, row!.user_id)
-        : await knowledgeUserAllowed(database, id, row!.user_id, 'reader'))
-    )
+    if (tenant.rowCount && (await knowledgeUserAllowed(database, id, row!.user_id, 'reader')))
       effective.push(id);
   }
   if (options.repositoryId && !effective.includes(options.repositoryId))

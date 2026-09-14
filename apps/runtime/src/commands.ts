@@ -6,7 +6,6 @@ import { migrationReadiness, waitForDatabaseState } from './migration-readiness.
 import type { AppConfig } from './config.js';
 import { runWorker } from './jobs/worker.js';
 import { buildServer } from './server.js';
-import { expireRemoteReviewJobs } from './services/remote-review-jobs.js';
 
 export async function serve(config: AppConfig): Promise<void> {
   const app = await buildServer(config);
@@ -63,12 +62,6 @@ export async function retention(config: AppConfig, reconcile: boolean): Promise<
       return;
     }
 
-    let remoteReviewsExpired = 0,
-      remoteBatch = 0;
-    do {
-      remoteBatch = await expireRemoteReviewJobs(connection);
-      remoteReviewsExpired += remoteBatch;
-    } while (remoteBatch === 512);
     const submissionsDeleted =
       (
         await connection.query(
@@ -80,7 +73,7 @@ export async function retention(config: AppConfig, reconcile: boolean): Promise<
       ? await reconcileArtifacts(connection, artifacts, config)
       : await applyRetention(connection, artifacts, config);
     process.stdout.write(
-      `${JSON.stringify({ status: 'completed', mode: reconcile ? 'reconcile' : 'retention', workspacesDeleted, submissionsDeleted, remoteReviewsExpired, ...result })}\n`,
+      `${JSON.stringify({ status: 'completed', mode: reconcile ? 'reconcile' : 'retention', workspacesDeleted, submissionsDeleted, ...result })}\n`,
     );
   } finally {
     await connection.query('select pg_advisory_unlock($1)', [lockId]).catch(() => undefined);

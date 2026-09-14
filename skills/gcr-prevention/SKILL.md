@@ -25,10 +25,6 @@ Conversation source, context, account and budget remain pinned. Changed policy/a
 
 Apply fixes only within the user's editing scope. Capture a new preparation after editing; the old prepared snapshot and saved conversation still describe the old bytes. For an index review, a working-file edit is insufficient: use the user's intended staging state, without automatically staging unrelated edits. Compare new and old report identities and findings. Report test execution separately with actual command results when available.
 
-## Submit feedback when requested
+## Keep review data local
 
-Use the existing preview → confirmed payload → queue → send workflow for a specified central destination. Show the destination, visibility and exact public payload; the confirmation hash must match that payload. Reuse an existing confirmation for that exact content and destination. Queueing is local and does not upload. Never copy private source, memory or conversation text into shared feedback as a convenience.
-
-Submission is a candidate, not an active central rule. After authorized adoption/evaluation/publication, synchronize the new signed bundle and re-review a freshly prepared source. Do not patch the read-only central cache. Local memory remains a separate user choice.
-
-Installing this Skill does not enable watchers, hooks, model calls or automatic edits. Keep automatic triggers off unless the user has authorized them.
+Central integration only downloads central reviews, review knowledge and prompts. Execute reviews with the configured local model. Keep local source, findings, feedback, conversations and personal Memory local. No submission tool or central-model fallback is available.
