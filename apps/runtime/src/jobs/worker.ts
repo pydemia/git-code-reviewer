@@ -3,6 +3,7 @@ import {
   readSharedKnowledgePin,
   prepareSharedAnalysisKnowledge,
   withSharedKnowledge,
+  sharedCriterionContext,
 } from '../services/analysis-shared-knowledge.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { captureSnapshotChangeSource } from '../services/criterion-code-sources.js';
@@ -631,13 +632,13 @@ async function persistMaterialization(
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v8:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}`,
+          `analysis:${snapshotId}:default:v9:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v5:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}`,
+          `default-v6:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
@@ -807,6 +808,7 @@ export async function executeAnalysisJob(
   const contextLimitations: string[] = [];
   let sharedValidUntil: string | null = null;
   let sharedSelectionHash: string | null = null;
+  let sharedCriteria: ReturnType<typeof sharedCriterionContext> | undefined;
   if (sharedPin && sharedPin.status !== 'disabled') {
     try {
       const selection = await prepareSharedAnalysisKnowledge(
@@ -825,6 +827,11 @@ export async function executeAnalysisJob(
           [analysisId],
         )
       ).rows[0]!.context_hash;
+      sharedCriteria = sharedCriterionContext(
+        selection,
+        row.shared_knowledge_hash!,
+        sharedSelectionHash,
+      );
       if (model) model = withSharedKnowledge(model, selection);
     } catch {
       model = undefined;
@@ -862,6 +869,7 @@ export async function executeAnalysisJob(
           files,
           memory: row.memory_context,
           contextLimitations,
+          ...(sharedCriteria ? { sharedCriteria } : {}),
           fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
           ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
           ...(model ? { model } : {}),

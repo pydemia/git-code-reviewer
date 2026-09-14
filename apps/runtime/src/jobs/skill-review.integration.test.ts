@@ -151,6 +151,26 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
         const file = /File: ([^\n]+)/.exec(data)?.[1];
         const side = /side=(head|mergeBase)/.exec(data)?.[1];
         const line = Number(/must be in (\d+)/.exec(data)?.[1]);
+        const sharedLine = instructions.split('\n').find((line) => line.startsWith('{"items":'));
+        const sharedItems = sharedLine
+          ? (JSON.parse(sharedLine).items as Array<{
+              component: string;
+              kind: string;
+              id: string;
+              revision: number;
+              hash: string;
+              targets: Array<{ path: string; side: string }>;
+            }>)
+          : [];
+        const rule = sharedItems.find(
+          (item) =>
+            item.component === 'policy' &&
+            item.kind === 'policy' &&
+            item.targets.some(
+              (target) =>
+                target.path === file && target.side === (side === 'head' ? 'source' : 'base'),
+            ),
+        );
         return Response.json({
           choices: [
             {
@@ -165,9 +185,30 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
                           side,
                           line,
                           end_line: line,
-                          category: 'api-compatibility',
+                          category:
+                            /Allowed perspective names: ([^.]+)/
+                              .exec(instructions)?.[1]
+                              ?.split(',')[0]
+                              ?.trim() ?? 'api-compatibility',
                           priority: 'P2',
                           comment: '검증용 unit입니다. 실제 취약점 판정이 아닙니다.',
+                          ...(rule
+                            ? {
+                                criterion_assessments: [
+                                  {
+                                    id: rule.id,
+                                    revision: rule.revision,
+                                    hash: rule.hash,
+                                    outcome: 'uncertain',
+                                    rationale: '합성 코드에서 추가 확인이 필요한 조건입니다.',
+                                    counterEvidence: {
+                                      status: 'not-reviewed',
+                                      explanation: '실제 caller 실행은 관측하지 않았습니다.',
+                                    },
+                                  },
+                                ],
+                              }
+                            : {}),
                         },
                       ]
                     : [],
@@ -620,6 +661,15 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
   });
   it('carries published public criteria from queue through actual worker model inputs and report provenance', async () => {
     const repositoryId = (await database.query('select id from repositories limit 1')).rows[0].id;
+    // Earlier tests activate lean; this fixture needs its P2 comment retained for linkage assertions.
+    await database.query('update analysis_prompt_versions set active=false where tenant_id=$1', [
+      tenantId,
+    ]);
+    await database.query(
+      `insert into analysis_prompt_versions(tenant_id,version,instructions,severity_level,content_hash,active,created_by,activated_by,activated_at)
+      values($1,3,'Owned shared criterion fixture','rigorous',$2,true,$3,$3,clock_timestamp())`,
+      [tenantId, 'c'.repeat(64), userId],
+    );
     const c = await database.connect();
     let criterion: string;
     try {
@@ -799,6 +849,15 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     expect(messages).toContain('PUBLIC_CRITERION_MARKER');
     expect(messages).not.toContain('RAW_SOURCE_MUST_NOT_REACH_MODEL');
     expect(messages).toContain('Caller may prevent the condition');
+    expect(
+      JSON.stringify(
+        calls
+          .slice(before)
+          .filter((call) =>
+            call.messages[0]!.content.includes('Current analysis stage: overall-summary'),
+          ),
+      ),
+    ).not.toContain('criterion_assessments');
     const selection = (
       await database.query('select * from analysis_shared_selections where analysis_id=$1', [
         run.id,
@@ -816,6 +875,18 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     const report = await artifacts.readJson<ReviewReport>(saved.locator);
     expect(report.versions.sharedKnowledge).toBe(run.shared_knowledge_hash);
     expect(report.versions.sharedSelection).toBe(selection.context_hash);
+    expect(report.findings.length, JSON.stringify(report.coverage)).toBeGreaterThan(0);
+    const linked = report.findings.find((finding) => finding.criteria?.status === 'linked');
+    expect(linked?.criteria?.items[0]).toMatchObject({
+      id: criterion,
+      revision: 1,
+      title: 'Shared public criterion',
+      outcome: 'uncertain',
+      pinHash: run.shared_knowledge_hash,
+      contextHash: selection.context_hash,
+      evaluator: 'model',
+      validation: 'pinned-target',
+    });
     const failed = (
       await database.query(
         "insert into analysis_runs(snapshot_id,analysis_key,state,shared_knowledge,shared_knowledge_hash,skill_bundle,skill_hash) select snapshot_id,$2,'queued',shared_knowledge,shared_knowledge_hash,skill_bundle,skill_hash from analysis_runs where id=$1 returning id",
@@ -912,6 +983,11 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       const view = analysisSharedKnowledgeSchema.parse(response.json());
       expect(view.status).toBe('selected');
       expect(view.selection!.hash).toBe(selection.context_hash);
+      const reportResponse = await app.inject({ url: `/api/v1/analyses/${run.id}` });
+      expect(reportResponse.statusCode).toBe(200);
+      expect(
+        reportResponse.json().findings.find((f: { id: string }) => f.id === linked!.id).criteria,
+      ).toEqual(linked!.criteria);
       const incomplete = await app.inject({
         url: `/api/v1/analyses/${failed.id}/shared-knowledge`,
       });
@@ -947,7 +1023,7 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
                 response.end(
                   await server.transformIndexHtml(
                     '/__shared-proof',
-                    `<!doctype html><html lang="ko"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><main id="root"></main><script type="module">import React from 'react';import {createRoot} from 'react-dom/client';import {SharedKnowledgePanel} from '/src/SharedKnowledgePanel.tsx';import '/src/styles.css';createRoot(document.getElementById('root')).render(React.createElement(SharedKnowledgePanel,{analysisId:'${run.id}'}));</script></body></html>`,
+                    `<!doctype html><html lang="ko"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><main id="root"></main><script type="module">import React from 'react';import {createRoot} from 'react-dom/client';import {SharedKnowledgePanel} from '/src/SharedKnowledgePanel.tsx';import {FindingCriteria} from '/src/FindingCriteria.tsx';import '/src/styles.css';const report=await fetch('/api/v1/analyses/${run.id}').then(r=>r.json());createRoot(document.getElementById('root')).render(React.createElement(React.Fragment,null,React.createElement(SharedKnowledgePanel,{analysisId:'${run.id}'}),...report.findings.filter(f=>f.criteria?.status==='linked').map(f=>React.createElement(FindingCriteria,{key:f.id,criteria:f.criteria}))));</script></body></html>`,
                   ),
                 );
               });
@@ -967,6 +1043,16 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
         await page.getByText('집단 Memory · 발행', { exact: false }).waitFor();
         await page.getByText('검토 기준 · Shared public criterion · v1', { exact: true }).click();
         expect(await page.locator('body').innerText()).toContain(criterion);
+        await page.getByText('공용 기준 판단 · 1개', { exact: true }).first().click();
+        await page
+          .getByText('Shared public criterion · v1 · 판단 미완료', { exact: true })
+          .first()
+          .waitFor();
+        expect(await page.locator('body').innerText()).toContain(
+          '실제 caller 실행은 관측하지 않았습니다.',
+        );
+        await page.getByText('기준·원문 식별 정보', { exact: true }).first().click();
+        expect(await page.locator('body').innerText()).toContain(selection.context_hash);
         expect(await page.locator('body').innerText()).not.toContain(
           'RAW_SOURCE_MUST_NOT_REACH_MODEL',
         );
@@ -981,6 +1067,7 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
             );
             await page.screenshot({
               path: path.join(process.env.GCR_SHARED_PROOF_DIR, `shared-${width}.png`),
+              fullPage: true,
             });
           }
         }

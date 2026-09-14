@@ -16,4 +16,6 @@
 
 공용 library alpha38에 `selectSharedKnowledge`를 추가했다. 기존 centralized selector와 bundle wire 계약은 유지한다. 설치된 Commit Defender 2.9.4의 alpha37과 CLI alpha33을 바꿀 필요는 없으며 이번 배포에서 로컬 모델·계정·확장 호스트를 변경하지 않는다.
 
-남은 범위는 실제 허용 모델·저장소 표본의 client/central 리뷰 대조, 개별 finding과 기준의 판정 연결, trusted CI 근거, 재발·managed comment·관측 가능한 운영 지표다. Critical 철회와 offline 정책도 별도 검증이 필요하다. 이번 checkpoint를 P13 전체 또는 전체 개발 목표의 완료로 집계하지 않는다.
+남은 범위는 실제 허용 모델·저장소 표본의 client/central 리뷰 대조, trusted CI 근거, 재발·managed comment·관측 가능한 운영 지표다. Critical 철회와 offline 정책도 별도 검증이 필요하다. 이번 checkpoint를 P13 전체 또는 전체 개발 목표의 완료로 집계하지 않는다.
+
+개별 지적의 기준 판단 연결·검증·표시는 [중앙 지적의 공용 기준 판단](central-finding-criteria.md)을 따른다. 연결 정보는 모델 판단의 provenance이며 결함 확인을 뜻하지 않는다.

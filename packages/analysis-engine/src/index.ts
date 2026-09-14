@@ -18,6 +18,7 @@ import {
 import { runSkillReview, type SkillReviewOutput } from './skill-review.js';
 import { assembleReviewAnalysis, filterContradictoryPraise } from './report-forms.js';
 import type { ReviewSkillBundle } from '@gcr/review-contract';
+import type { SharedCriterionContext } from '@gcr/review-contract';
 import {
   legacyAnalysisReportSchema,
   normalizeLegacyReport,
@@ -57,6 +58,7 @@ export type AnalysisInput = {
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
   memory?: ReviewMemoryProjection[];
   contextLimitations?: string[];
+  sharedCriteria?: SharedCriterionContext;
   budgets?: Partial<AnalysisBudgets>;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 };
@@ -217,7 +219,12 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       : {}),
     emptyImpact: impact,
     coverage,
+    ...(input.sharedCriteria ? { sharedCriteria: input.sharedCriteria } : {}),
   });
+  if (report.findings.some((finding) => finding.criteria?.rejected))
+    limitations.push(
+      '일부 지적의 공용 기준 연결을 확인하지 못했습니다. 기준 버전·적용 파일·코드 위치·반증 검토 조건을 확인하세요.',
+    );
   report.perFileSummaries = fillPerFileSummaries(report, parsedFiles);
   report.impact = impact;
   report.coverage = coverage;

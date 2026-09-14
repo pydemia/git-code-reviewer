@@ -1,4 +1,5 @@
 import { SharedKnowledgePanel } from './SharedKnowledgePanel.tsx';
+import { FindingCriteria } from './FindingCriteria.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
@@ -91,6 +92,7 @@ function ReviewCommentBlock({
           <ReviewMarkdown text={finding.recommendation} />
         </div>
       ) : null}
+      <FindingCriteria criteria={finding.criteria} />
       <footer>
         <button type="button" className="report-code-link" onClick={() => onSelect(finding)}>
           코드에서 보기 <ArrowUpRight size={13} aria-hidden="true" />

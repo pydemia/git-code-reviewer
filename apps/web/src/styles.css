@@ -5634,4 +5634,19 @@ body.workspace-resizing:has(.resize-bottom) {
   overflow-wrap: anywhere;
 }
 
-.shared-knowledge-panel { overflow-wrap: anywhere; }
+.shared-knowledge-panel {
+  overflow-wrap: anywhere;
+}
+.finding-criteria {
+  overflow-wrap: anywhere;
+  margin-block: 1rem;
+}
+.finding-criteria p {
+  white-space: pre-wrap;
+}
+.finding-criteria section {
+  margin-block: 1rem;
+}
+.finding-criteria dd {
+  margin-inline-start: 1rem;
+}

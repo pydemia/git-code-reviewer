@@ -1,3 +1,5 @@
+import { findingCriteriaSchema } from './finding-criteria.js';
+export * from './finding-criteria.js';
 import { z } from 'zod';
 import { reviewAnalysisSchema } from './review-analysis.js';
 import { defaultReviewSeverityLevel, reviewSeverityLevelSchema } from './review-severity.js';
@@ -488,6 +490,7 @@ export const findingViewSchema = z.object({
   anchor: evidenceLocatorSchema,
   evidence: z.array(evidenceLocatorSchema),
   fingerprint: z.string(),
+  criteria: findingCriteriaSchema.optional(),
   links: z.array(linkViewSchema),
 });
 

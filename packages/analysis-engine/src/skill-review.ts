@@ -248,7 +248,8 @@ export async function runSkillReview(input: {
         JSON.stringify({
           file: file.path,
           coverage: { windowsPlanned: planned.length, windowsReviewed: completed },
-          unit_comment_blocks: units,
+          // Criterion claims are bound after normalization. Do not use unbound claims as summary evidence.
+          unit_comment_blocks: units.map((unit) => ({ ...unit, criterion_assessments: undefined })),
           change: { status: file.status, additions: file.additions, deletions: file.deletions },
         }),
         [file.path],

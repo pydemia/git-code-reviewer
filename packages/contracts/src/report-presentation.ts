@@ -71,7 +71,15 @@ export type ReportContent = Pick<
   findings: Array<
     Pick<
       View['findings'][number],
-      'id' | 'priority' | 'category' | 'anchor' | 'title' | 'problem' | 'impact' | 'recommendation'
+      | 'id'
+      | 'priority'
+      | 'category'
+      | 'anchor'
+      | 'title'
+      | 'problem'
+      | 'impact'
+      | 'recommendation'
+      | 'criteria'
     >
   >;
 };
@@ -282,6 +290,32 @@ export function formatReviewMarkdown(
         ...(finding.impact ? [`**영향**\n\n${narrative(finding.impact)}`] : []),
         ...(finding.recommendation
           ? [`**수정 제안**\n\n${narrative(finding.recommendation)}`]
+          : []),
+        ...(finding.criteria
+          ? [
+              details(
+                '공용 기준 판단',
+                [
+                  '모델 판단이며 기준 버전·적용 파일의 연결만 확인했습니다. 결함 확정이나 테스트 실행 증거는 아닙니다.',
+                  ...(finding.criteria.status === 'not-reported'
+                    ? ['기준별 판단이 보고되지 않았습니다.']
+                    : []),
+                  ...(finding.criteria.rejected
+                    ? [
+                        `연결 조건을 충족하지 못한 판단 ${finding.criteria.rejected}개를 제외했습니다.`,
+                      ]
+                    : []),
+                  ...finding.criteria.items.map((item) =>
+                    [
+                      `**${text(item.title)} · v${item.revision} · ${{ violation: '위반 가능성', satisfied: '충족 판단', uncertain: '판단 미완료' }[item.outcome]}**`,
+                      text(item.rationale),
+                      `반증 ${item.counterEvidence.status === 'reviewed' ? '검토' : '미검토'}: ${text(item.counterEvidence.explanation)}`,
+                      `기준 ID: ${text(item.id)} · hash: ${item.hash}`,
+                    ].join('\n\n'),
+                  ),
+                ].join('\n\n'),
+              ),
+            ]
           : []),
         ...(link ? [`[관련 코드 보기](${link})`] : []),
       ].join('\n\n');
