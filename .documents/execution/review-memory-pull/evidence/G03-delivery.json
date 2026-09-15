@@ -1,0 +1,90 @@
+{
+  "gcrSourceSha": "d1facf90aef744fb21ed881ce4a2dc376707c401",
+  "cdArtifactCommit": "710e15ce69fa7288cb17cc1f494a8758349dae3f",
+  "cdProductSourceCommit": "40e804c",
+  "commonArtifact": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.40",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.40",
+        "file": "gcr-client-contract-0.1.0-alpha.40.tgz",
+        "sha256": "3c841465c2bf3dc57efdbc8af86e7475984e7e7f0a68f92b7d24ac80c0d44a61"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.40",
+        "file": "gcr-client-core-0.1.0-alpha.40.tgz",
+        "sha256": "8677c985f8ee29236f9b488efb896c89f73fdee7fbb82a9fc1a49468642d4bbb"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.40",
+        "file": "gcr-client-executors-0.1.0-alpha.40.tgz",
+        "sha256": "34f62fc97abcdea95f9c52e9496a81400e4bb36a159c68b7aa45136372630b13"
+      }
+    ]
+  },
+  "bundledServiceArtifact": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.35",
+    "clientVersion": "0.1.0-alpha.40",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.40",
+        "file": "gcr-client-contract-0.1.0-alpha.40.tgz",
+        "sha256": "3c841465c2bf3dc57efdbc8af86e7475984e7e7f0a68f92b7d24ac80c0d44a61"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.40",
+        "file": "gcr-client-core-0.1.0-alpha.40.tgz",
+        "sha256": "8677c985f8ee29236f9b488efb896c89f73fdee7fbb82a9fc1a49468642d4bbb"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.40",
+        "file": "gcr-client-executors-0.1.0-alpha.40.tgz",
+        "sha256": "34f62fc97abcdea95f9c52e9496a81400e4bb36a159c68b7aa45136372630b13"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.35",
+        "file": "gcr-cli-0.1.0-alpha.35.tgz",
+        "sha256": "30d50cfc173528e7cc4c78d5518ff76b93d2921387ac12449ff55516fbd4ba7d"
+      }
+    ]
+  },
+  "vsixSha256": "f60f2b07675dd4dfc3e117e1fd9f1dcf6a85b5051a9de9e0faf011b20fbde800",
+  "vsixVersion": "2.11.0",
+  "gcrRuntimeChanged": false,
+  "helmDeploymentRequired": false,
+  "marketplace": {
+    "requested": true,
+    "published": false,
+    "previousVersion": "2.3.0",
+    "credentialMetadataFound": true,
+    "credentialVerification": "timed out during keychain access or verification"
+  },
+  "ownedReaderKeyRevoked": true,
+  "ownedGcrSessionClosed": true,
+  "realModelCalls": 0,
+  "cdProvenanceCommit": "203e2dd",
+  "codexInstalledVersion": "0.154.0",
+  "gcrRuntimeImage": "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
+  "readyReplicas": {
+    "server": 1,
+    "worker": 1,
+    "identity": 2
+  },
+  "readmeBaseCommit": "203e2dd",
+  "regressions": {
+    "cdTests": 203,
+    "passed": 203,
+    "failed": 0,
+    "gcrContractAndHistoryTests": 91,
+    "codexExecutorTests": 8
+  }
+}

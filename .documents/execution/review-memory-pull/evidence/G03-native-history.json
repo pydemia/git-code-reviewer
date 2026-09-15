@@ -1,0 +1,372 @@
+{
+  "status": "passed",
+  "vscode": "1.135.0",
+  "realCentralServer": true,
+  "realModel": false,
+  "modelCalls": 0,
+  "syntheticResponse": true,
+  "sourceFixture": "G03 BlockUpdateRequest",
+  "newCollection": 0,
+  "extension": {
+    "version": "2.11.0",
+    "path": "packaged VSIX in task-owned test directory",
+    "active": true
+  },
+  "workerSha256": "a17892ace9992eafadf4f810775210fbc52eb6a083482bdf04481d4597105bcd",
+  "connectionId": "55bd18c90efe69173ace0950ae7f52f2e0d4c8060ff33767e2586039ee152078",
+  "pulls": [
+    {
+      "number": 917,
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4"
+    },
+    {
+      "number": 915,
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4"
+    }
+  ],
+  "original": {
+    "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+    "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+    "observationHash": "e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7",
+    "url": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279",
+    "offlineExact": true
+  },
+  "nativeOriginalPanel": true,
+  "modelSelection": {
+    "provider": "codex",
+    "model": "synthetic-model",
+    "reasoningEffort": "high"
+  },
+  "report": {
+    "contractVersion": 1,
+    "runId": "9363176c-82ae-48ea-91cf-1c7f32cea282",
+    "identity": {
+      "client": {
+        "mode": "centralized",
+        "profileId": "cd-g03-2e998bb8-1ba2-452b-8f1a-5218b055f73c",
+        "repositoryKey": "d59509d9fa5c645f4bd001a63886261141954a5d1b7fadec64a7b23e86276ec1",
+        "worktreeKey": "1a894d62c05af92cd20c089428191e7704eea6fb1e1ba7a679eaf6ea47053d12",
+        "audience": {
+          "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+          "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+          "userId": "49ba1cc6-5921-4eb1-8a86-2910ca59ee85",
+          "repositoryId": "c4a2bf3b-0c69-40c6-859a-ccea02de1e57"
+        },
+        "execution": {
+          "configuredMode": "centralized",
+          "effectiveMode": "centralized",
+          "knowledgeSource": "central-online",
+          "fallbackReason": null,
+          "connectionId": "55bd18c90efe69173ace0950ae7f52f2e0d4c8060ff33767e2586039ee152078",
+          "lastSynchronizedAt": "2026-09-15T10:34:37.599Z"
+        }
+      },
+      "source": {
+        "kind": "index",
+        "hash": "0ad030507d6bab2926dc38fe5ad699f66ab78c1cc329cdade4c99332cdf06d35",
+        "objectFormat": "sha1",
+        "baseCommit": "17ce10dec23dc2e82aa59e72313bc6f6279c415b",
+        "baseTree": "863143651ff94680520bd2a8f12f3f5c5020f1bc",
+        "sourceTree": "91c41765a61e0a8aba81c3b4aacbbbd19024fb58"
+      },
+      "context": {
+        "hash": "e840a6a8b1f00f8ed0c4f427488712bdadb9e76d08ba5d301557d3c6b5065035",
+        "entries": [
+          {
+            "origin": "builtin",
+            "kind": "skill",
+            "id": "gcr-standalone-review",
+            "revision": 1,
+            "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "correctness",
+            "revision": 2,
+            "hash": "94db57b36a78e52031b16e4ff1f4c5991d637d747ea2d04293dbb693076a8836",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "maintenance",
+            "revision": 2,
+            "hash": "15adce8cd250526247f6d47957064e644c74c3b055df3393d851c468315f8c94",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "optimization",
+            "revision": 2,
+            "hash": "2b55f19da38642374072522ac41e8868c98f04ebe676be90be01bf47ec73aa48",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "overall-summary",
+            "revision": 3,
+            "hash": "f17b91c4f6cc560b6baa1df5d8d0dae285b374ac8f8a0406e76e2c0770b4cf9a",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "review-history",
+            "revision": 2,
+            "hash": "cfbc44036e75a8c1230d6e80ad3a450d545a2f7825c41162496fea54e31c682a",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "security",
+            "revision": 2,
+            "hash": "d5493168788e1a631b0aac184e7ec491339e3b3938ec001adb23d1a992af0a9c",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "setting",
+            "revision": 2,
+            "hash": "d989ccc4d713088d26a1f1cc575034611d9a823be7174fe237b1a112ee87e389",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "total-summary",
+            "revision": 3,
+            "hash": "f6d5431f09c2af51ab2a41252435a137eb560bdd53784d04a6ba791e18be230f",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "unit-comment-block",
+            "revision": 2,
+            "hash": "75aa97865768baaef6c09186029da9e2173a1d5e20840b98878738be97a58dbf",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "memory",
+            "id": "9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+            "revision": 1,
+            "hash": "63d7227b96990a6db7250b1313a40be5285d0c1843cd555ea0c8a455d34635e5",
+            "component": "collective"
+          },
+          {
+            "origin": "central",
+            "kind": "memory",
+            "id": "history-4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+            "revision": 1,
+            "hash": "3a42ebfd03cf5bf744d41ae23944f7a1862229b63ed3c8118fb5a530ef334712",
+            "component": "collective"
+          }
+        ],
+        "centralSnapshot": {
+          "id": "3ef44cb8-6417-46a5-bb93-8e6d211ef6e2",
+          "hash": "ed3f1268cf52c9040843d9b02ce586453e6ffc3ca20bd657dd921fb85d0a325e",
+          "audience": {
+            "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+            "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+            "userId": "49ba1cc6-5921-4eb1-8a86-2910ca59ee85",
+            "repositoryId": "c4a2bf3b-0c69-40c6-859a-ccea02de1e57"
+          },
+          "authorizationRevision": "191",
+          "offlineValidUntil": "2026-09-16T10:34:36.457Z"
+        },
+        "required": [
+          {
+            "kind": "knowledge",
+            "reference": "builtin:gcr-standalone-review",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:2934fd0be7baa084846345613119fcbe9a7250647ee7affbdd54b7a5f7b21117",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:cbfa1d0581e4b140bb5bf427d99fa4c140cd0f58bbf1e453cd5529a33a295cfa",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:correctness",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:maintenance",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:optimization",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:overall-summary",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:review-history",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:security",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:setting",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:total-summary",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:unit-comment-block",
+            "available": true,
+            "reason": ""
+          }
+        ]
+      },
+      "reviewProfile": {
+        "id": "gcr-standalone-review",
+        "revision": 1,
+        "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+      },
+      "executor": {
+        "id": "synthetic-g03-host",
+        "version": "1",
+        "model": "synthetic-model",
+        "configHash": "62fa059b7216863522a065cbcaeb004e594fe50e08130e21946c9b6ec5d77313"
+      },
+      "toolsHash": "9a3751996e0b8d699f0fdca31ffca00fea8c585decd6eac2de2ab5af1635515d"
+    },
+    "status": "completed",
+    "trigger": "manual",
+    "requestedAt": "2026-09-15T10:34:50.784Z",
+    "startedAt": "2026-09-15T10:34:51.168Z",
+    "finishedAt": "2026-09-15T10:34:51.734Z",
+    "durationMs": 949,
+    "summary": "Synthetic response verifies native host context wiring only",
+    "sourceFiles": [
+      {
+        "path": "data-management/mainapp/domains/position_management/block/schema.py",
+        "side": "base",
+        "hash": "43e0084b9e735c4dd26c3a6b2c285f3630e93db605f24aeba86771518d65b196",
+        "byteLength": 112,
+        "lineCount": 5,
+        "gitBlob": "5d73c92013f022d40b815ecda3b442f45b4ed8e1"
+      },
+      {
+        "path": "data-management/mainapp/domains/position_management/block/schema.py",
+        "side": "source",
+        "hash": "c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72",
+        "byteLength": 83,
+        "lineCount": 5,
+        "gitBlob": "d5e704a61d1bbd1982bef376f89563d1df58a3d2"
+      }
+    ],
+    "files": [
+      {
+        "source": {
+          "path": "data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72",
+          "byteLength": 83,
+          "lineCount": 5,
+          "gitBlob": "d5e704a61d1bbd1982bef376f89563d1df58a3d2"
+        },
+        "status": "completed",
+        "summary": "Synthetic"
+      }
+    ],
+    "excluded": [],
+    "problems": [],
+    "findings": [],
+    "evidence": [
+      {
+        "kind": "source-read",
+        "id": "efd0279e-d886-4eaf-9df9-529776cc0a55",
+        "sourceHash": "0ad030507d6bab2926dc38fe5ad699f66ab78c1cc329cdade4c99332cdf06d35",
+        "contextHash": "e840a6a8b1f00f8ed0c4f427488712bdadb9e76d08ba5d301557d3c6b5065035",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:efd0279e-d886-4eaf-9df9-529776cc0a55"
+        },
+        "observedAt": "2026-09-15T10:34:51.349Z",
+        "location": {
+          "path": "data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72",
+          "startLine": 1,
+          "endLine": 5
+        },
+        "observation": "Returned excerpt sha256=c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "f120158d-a76d-4c8f-9873-c4f753629768",
+        "sourceHash": "0ad030507d6bab2926dc38fe5ad699f66ab78c1cc329cdade4c99332cdf06d35",
+        "contextHash": "e840a6a8b1f00f8ed0c4f427488712bdadb9e76d08ba5d301557d3c6b5065035",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:f120158d-a76d-4c8f-9873-c4f753629768"
+        },
+        "observedAt": "2026-09-15T10:34:51.490Z",
+        "location": {
+          "path": "data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "base",
+          "hash": "43e0084b9e735c4dd26c3a6b2c285f3630e93db605f24aeba86771518d65b196",
+          "startLine": 1,
+          "endLine": 5
+        },
+        "observation": "Returned excerpt sha256=43e0084b9e735c4dd26c3a6b2c285f3630e93db605f24aeba86771518d65b196; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "reasoning",
+        "id": "history-4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+        "sourceHash": "0ad030507d6bab2926dc38fe5ad699f66ab78c1cc329cdade4c99332cdf06d35",
+        "contextHash": "e840a6a8b1f00f8ed0c4f427488712bdadb9e76d08ba5d301557d3c6b5065035",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279"
+        },
+        "observedAt": "2026-09-15T10:34:51.168Z",
+        "statement": "{\"usage\":\"Past review context supplied to the model; not proof of a current defect or fix.\",\"sourceId\":\"4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1\",\"pullNumber\":917,\"apiRevision\":\"f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4\",\"contentHash\":\"cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696\",\"observationHash\":\"e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7\",\"repliesComplete\":true,\"replies\":[{\"id\":\"6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3\",\"contentHash\":\"8ca5563c5b37fcd09b0ff2edc4f0fe46e8690223c7a962bf93e24f166b145748\",\"observationHash\":\"0dd6f21c89eea1b1e4ae0b92af5c23a2fbb6933a8e6da4b6f402915b178fd66b\"}]}"
+      }
+    ],
+    "questions": []
+  },
+  "modelEvidence": "synthetic response in real Extension Host; zero real model calls",
+  "finalInstalledWorkerMatchesTestedWorker": true
+}

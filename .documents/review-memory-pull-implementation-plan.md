@@ -1,7 +1,7 @@
 # GCR 리뷰 이력 저장과 Commit Defender pulling 구현 계획
 
 작성일: 2026-09-15
-상태: G01·G02 완료. G03–G04는 미착수이며 기존 전체 개발 goal은 삭제됨. 완료 근거와 검증 범위는 [G01 실행 기록](execution/review-memory-pull/G01.md), [G02 실행 기록](execution/review-memory-pull/G02.md)을 따른다.
+상태: G01·G02 완료. G03 구현과 VSIX 로컬 설치를 진행했으며 실제 모델 검증과 Marketplace 게시가 남아 있다. G04는 미착수다. 근거와 검증 범위는 [G01 실행 기록](execution/review-memory-pull/G01.md), [G02 실행 기록](execution/review-memory-pull/G02.md), [G03 실행 기록](execution/review-memory-pull/G03.md)을 따른다.
 근거: [원래 요구 범위 점검](reviews/original-scope-review-2026-09-15.md)
 
 ## 목적과 적용 순서
@@ -14,7 +14,7 @@ GCR의 기존 PR 리뷰 동작을 유지하면서 과거 리뷰 코멘트를 저
 | --- | --- | --- | --- |
 | G01 | 기존 WIP 보관·분리와 문서 정리, GCR 리뷰 동작 복구·보존 | 없음 | 완료 |
 | G02 | 과거 리뷰 이력 저장·중앙 조회·읽기 API | G01의 운영 복구 | 완료: 실제 두 PR 대조·reader API·출처 지침 1건 발행 |
-| G03 | CD pulling과 기존 로컬 provider 리뷰 연결 | G02의 읽기 계약 | 미착수 |
+| G03 | CD pulling과 기존 로컬 provider 리뷰 연결 | G02의 읽기 계약 | 진행 중: 로컬 설치 완료, 실제 모델 검증·Marketplace 게시 대기 |
 | G04 | 실제 과거 사례로 전체 흐름 검증·최종 전달 | G01–G03 | 미착수 |
 
 한 번에 한 goal만 실행한다. 완료 후 결과를 보고하고 다음 goal은 사용자가 지정했을 때 시작한다. 이 계획의 작성은 네 goal 전체의 실행 요청이 아니다.
@@ -129,6 +129,8 @@ WIP 보관 완료는 P11 기능 완료를 뜻하지 않는다. 실제 Docker 실
 | G03-C03 | GCR 공통 client + CD · `feat: apply central history and skills to local reviews with citations` — 선택한 원문 이력·활성 지침·Skill을 리뷰 문맥에 넣고 사용한 ID/버전을 결과에 기록. 원문 코멘트는 과거 관측으로 취급 | 관련 사례 적용, 무관한 사례 제외, 반박·수정·예외 문맥 보존. 중앙 자료 없음/서버 장애 시 설정된 로컬 동작, 모델 실패 시 미완료, 중앙 모델 대체 실행 없음. 리뷰 중 갱신된 문맥을 섞지 않음 |
 
 **전달 작업 G03-D01:** 변경된 공통 package를 고정 artifact로 만들고 CD VSIX에 포함한다. source/build/package·실제 Extension Host·설치 파일을 확인한다. 사용자의 provider·계정·자동 실행 설정을 유지하며 전역 CLI 교체나 강제 VS Code 재로드를 하지 않는다. 이미 열린 Extension Host의 적용 상태는 설치 상태와 구분한다.
+
+2026-09-15 사용자 추가 요청으로 G03 전달 범위에 Marketplace 게시를 포함한다. 기존 게시 제외 조건은 G03에 적용하지 않는다. 실제 모델 검증과 게시 인증 확인을 마친 동일 VSIX를 게시하고 결과를 기록한다.
 
 **범위 제한:** 복구 대상은 기존에 제품이 지원하던 provider이며 신규 provider framework나 모든 OS에 대한 새 인증 체계는 만들지 않는다. provider마다 관련 코드 조회 기능이 다르면 실제 제공한 입력과 한계를 표시한다. 기존 source 보호 장치를 제거하고 과거 코드를 통째로 되돌리는 방식은 사용하지 않는다. CLI 변경은 CD에 전달하는 공통 계약과 번들 호환성 유지에 필요한 부분으로 한정한다.
 

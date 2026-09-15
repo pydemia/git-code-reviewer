@@ -1,0 +1,13 @@
+{
+  "vsixSha256": "f60f2b07675dd4dfc3e117e1fd9f1dcf6a85b5051a9de9e0faf011b20fbde800",
+  "userSettingsBefore": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "bundleBytesVerified": true,
+  "installedVersionBefore": "2.10.0",
+  "userSettingsAfter": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "installedVersion": "2.11.0",
+  "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.11.0",
+  "installedBundleBytesVerified": true,
+  "forcedReload": false,
+  "existingHostApplied": "not-confirmed; installation and newly launched verification host are separate",
+  "readmeLinksPinnedToArtifactSource": true
+}
