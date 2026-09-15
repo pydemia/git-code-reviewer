@@ -66,6 +66,16 @@ export function AppHeader({
                   <span>리뷰 관측</span>
                 </a>
               ) : null}
+              {user ? (
+                <a
+                  className="header-guide-link"
+                  href="/review-history"
+                  aria-current={window.location.pathname === '/review-history' ? 'page' : undefined}
+                >
+                  <BookOpenText size={15} />
+                  <span>리뷰 이력</span>
+                </a>
+              ) : null}
               {user?.role === 'administrator' ? (
                 <a className="icon-button" href="/admin" title="관리" aria-label="관리">
                   <Settings size={17} />

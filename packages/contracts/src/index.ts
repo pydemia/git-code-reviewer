@@ -794,3 +794,4 @@ export * from './review-submission-intake.js';
 export * from './analysis-shared-knowledge.js';
 
 export * from './trusted-ci.js';
+export * from './review-history.js';

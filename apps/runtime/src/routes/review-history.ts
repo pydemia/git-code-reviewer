@@ -1,3 +1,4 @@
+import { registerHistoryReadRoutes } from './review-history-read.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Database } from '@gcr/db';
 import { z } from 'zod';
@@ -34,30 +35,27 @@ export async function registerReviewHistoryRoutes(
     });
     routes.setErrorHandler((error, request, reply) => {
       if (error instanceof CriterionError)
-        return reply
-          .code(error.statusCode)
-          .send({
-            error: {
-              code: error.code,
-              message: error.message,
-              requestId: request.id,
-              retryable: error.statusCode === 409,
-            },
-          });
+        return reply.code(error.statusCode).send({
+          error: {
+            code: error.code,
+            message: error.message,
+            requestId: request.id,
+            retryable: error.statusCode === 409,
+          },
+        });
       if (error instanceof z.ZodError)
-        return reply
-          .code(400)
-          .send({
-            error: {
-              code: 'INVALID_HISTORY_REQUEST',
-              message: '리뷰 이력 요청 형식을 확인해 주세요.',
-              requestId: request.id,
-              retryable: false,
-            },
-          });
+        return reply.code(400).send({
+          error: {
+            code: 'INVALID_HISTORY_REQUEST',
+            message: '리뷰 이력 요청 형식을 확인해 주세요.',
+            requestId: request.id,
+            retryable: false,
+          },
+        });
       throw error;
     });
     const base = '/api/v1/repositories/:repoId/review-history';
+    await registerHistoryReadRoutes(routes, database, authorize);
     routes.post(`${base}/collections`, { preHandler: requireUser }, async (request, reply) => {
       const { repoId } = repoParams.parse(request.params);
       await authorize(request, repoId, 'maintainer');

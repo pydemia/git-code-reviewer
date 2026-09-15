@@ -1,4 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { registerAuthentication } from '../auth/index.js';
+import { issueClientKey, ClientCredentialError } from '../auth/client-credentials.js';
+import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
 import Fastify from 'fastify';
 import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest';
@@ -286,5 +288,154 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
         ])
       ).rows[0].completed_at,
     ).toBeNull();
+  });
+  it('reads history without an analysis or memory approval and fences pages by revision and repository', async () => {
+    const list = await app.inject({ url: base() + '?limit=1', headers: headers('reader') });
+    expect(list.statusCode, list.body).toBe(200);
+    expect(list.json().items).toHaveLength(1);
+    expect(list.json().nextCursor).toBeTruthy();
+    const next = await app.inject({
+      url: base() + '?limit=1&cursor=' + list.json().nextCursor,
+      headers: headers('reader'),
+    });
+    expect(next.statusCode, next.body).toBe(200);
+    expect(next.json().items[0].id).not.toBe(list.json().items[0].id);
+    const messages = await app.inject({
+      url: base() + '/pulls/7/messages?limit=1',
+      headers: headers('reader'),
+    });
+    expect(messages.statusCode, messages.body).toBe(200);
+    expect(messages.headers['cache-control']).toBe('private, no-store');
+    expect(messages.json().items[0].body).toBeUndefined();
+    const row = (await db.query('select id from github_pr_messages where github_id=201')).rows[0];
+    const detail = await app.inject({
+      url: base() + '/pulls/7/messages/' + row.id,
+      headers: headers('reader'),
+    });
+    expect(detail.statusCode, detail.body).toBe(200);
+    expect(detail.json().item.body).toBe('edited');
+    const history = await app.inject({
+      url: base() + '/pulls/7/messages/' + row.id + '/history',
+      headers: headers('reader'),
+    });
+    expect(history.statusCode, history.body).toBe(200);
+    expect(
+      history
+        .json()
+        .items.some(
+          (x: { snapshot: { upstreamState?: string } }) =>
+            x.snapshot.upstreamState === 'not-returned',
+        ),
+    ).toBe(true);
+    expect(
+      (
+        await app.inject({
+          url: base() + '/pulls/8/messages/' + row.id,
+          headers: headers('reader'),
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (await app.inject({ url: base() + '?localDiff=secret', headers: headers('reader') }))
+        .statusCode,
+    ).toBe(400);
+    await persistPullRequestMessages(
+      db,
+      repo,
+      7,
+      [message('new revision', 201)],
+      new Date(Date.now() + 3600000),
+    );
+    const stale = await app.inject({
+      url: base() + '?cursor=' + list.json().nextCursor,
+      headers: headers('reader'),
+    });
+    expect(stale.statusCode, stale.body).toBe(409);
+    expect((await db.query('select count(*)::int as n from review_memories')).rows[0].n).toBe(0);
+  });
+  it('accepts real existing reader credentials only on GET routes and revokes access immediately', async () => {
+    const serverId = randomUUID(),
+      sessionToken = randomUUID(),
+      hash = (x: string) => createHash('sha256').update(x).digest('hex');
+    await db.query(
+      "insert into local_credentials(user_id,username,password_hash) values($1,'history-reader','owned-test-hash')",
+      [reader.id],
+    );
+    await db.query(
+      "insert into user_sessions(id_hash,user_id,expires_at) values($1,$2,clock_timestamp()+interval '1 hour')",
+      [hash(sessionToken), reader.id],
+    );
+    const key = await issueClientKey(db, {
+      user: reader,
+      sessionToken,
+      serverId,
+      authMode: 'local',
+      requestId: 'history-reader-test',
+      input: {
+        name: 'Owned reader',
+        clientId: 'commit-defender',
+        tenantId: reader.tenantIds[0],
+        repositoryIds: [repo],
+        scopes: ['knowledge:read'],
+        lifetimeDays: 1,
+      },
+    });
+    const cfg = loadConfig({
+      DATABASE_URL: databaseUrl!,
+      AUTH_MODE: 'local',
+      CLIENT_API_KEYS_ENABLED: 'true',
+      NODE_ENV: 'test',
+      PUBLIC_BASE_URL: 'http://127.0.0.1',
+      KNOWLEDGE_PUBLICATION_ENABLED: 'true',
+      KNOWLEDGE_DISTRIBUTION_ENABLED: 'true',
+      KNOWLEDGE_SIGNING_KEY_ID: 'fixture',
+      KNOWLEDGE_SIGNING_KEY_FILE: '/synthetic-not-read',
+      KNOWLEDGE_SERVER_ID: serverId,
+      LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'history-bootstrap',
+      LOCAL_BOOTSTRAP_ADMIN_PASSWORD: 'Owned-only-password-2026!',
+    });
+    const authenticated = Fastify();
+    authenticated.setErrorHandler((error, _request, reply) =>
+      reply
+        .code(error instanceof ClientCredentialError ? error.statusCode : 500)
+        .send({ error: error.message }),
+    );
+    try {
+      await registerAuthentication(authenticated, cfg, db);
+      await registerReviewHistoryRoutes(authenticated, db, new AuthorizationService(cfg));
+      const auth = { authorization: `Bearer ${key.token}`, 'x-gcr-server-id': serverId };
+      const result = await authenticated.inject({ url: base(), headers: auth });
+      expect(result.statusCode, result.body).toBe(200);
+      expect(
+        (
+          await authenticated.inject({
+            method: 'POST',
+            url: base() + '/collections',
+            headers: auth,
+            payload: { requestKey: randomUUID(), pullNumbers: [7] },
+          })
+        ).statusCode,
+      ).toBe(401);
+      expect(
+        (
+          await authenticated.inject({
+            url: '/api/v1/repositories/' + randomUUID() + '/review-history',
+            headers: auth,
+          })
+        ).statusCode,
+      ).toBe(403);
+      await db.query(
+        'delete from repository_grants where repository_id=$1 and subject_or_group=$2',
+        [repo, reader.subject],
+      );
+      const denied = await authenticated.inject({ url: base(), headers: auth });
+      expect(denied.statusCode, denied.body).toBe(403);
+    } finally {
+      await authenticated.close();
+      await db.query(
+        "insert into repository_grants(repository_id,subject_or_group,role) values($1,$2,'reviewer') on conflict do nothing",
+        [repo, reader.subject],
+      );
+    }
   });
 });
