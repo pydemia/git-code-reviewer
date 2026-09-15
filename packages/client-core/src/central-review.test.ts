@@ -243,7 +243,7 @@ describe('central scope and deterministic precedence', () => {
       expect(select(b).items.find((i) => i.id === 'personal')!.targets).toHaveLength(2);
     }
   });
-  it('matches every constrained dimension on the same file including branch and lexical contracts', () => {
+  it('matches every constrained dimension on the same file including branch, while retaining semantic contract conditions', () => {
     const b = bundles();
     memories(b, 'collective')[0]!.content.appliesTo = {
       languages: ['python'],
@@ -257,8 +257,9 @@ describe('central scope and deterministic precedence', () => {
     m.content.appliesTo.languages = ['TypeScript'];
     expect(select(b).precedence).toHaveLength(1);
     expect(select(b, { branch: 'feature' }).precedence).toEqual([]);
-    m.content.appliesTo.contracts = ['absent'];
-    expect(select(b).precedence).toEqual([]);
+    m.content.appliesTo.contracts = ['Request-only validation belongs in the schema'];
+    expect(select(b).precedence).toHaveLength(1);
+    expect(JSON.stringify(select(b).items)).toContain('Request-only validation belongs in the schema');
   });
   it('applies exceptions only to matching files and expires context at time boundaries', () => {
     const b = bundles();

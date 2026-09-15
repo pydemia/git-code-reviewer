@@ -1,4 +1,5 @@
 import { sourceLanguage } from './source-language.js';
+import type { SourceHistoryContext } from './review-history.js';
 export { sourceLanguage } from './source-language.js';
 import {
   clientIdentity,
@@ -60,6 +61,7 @@ interface ContextData {
   sources: ContextSourceRequirement[];
   validUntil: string | null;
   central?: CentralSelection;
+  sourceHistory?: SourceHistoryContext[];
 }
 class LocalReviewContext {
   #data: ContextData;
@@ -95,6 +97,9 @@ class LocalReviewContext {
   }
   get knowledge(): LocalKnowledge[] {
     return structuredClone(this.#data.knowledge);
+  }
+  get sourceHistory(): SourceHistoryContext[] {
+    return structuredClone(this.#data.sourceHistory ?? []);
   }
   get builtin(): typeof builtinReviewSkill | null {
     return structuredClone(this.#data.builtin);
@@ -420,6 +425,7 @@ export async function resolveCentralContext(
     cache: CentralKnowledgeCache;
     freshness: 'online' | 'offline';
     assertConnection?: () => Promise<void>;
+    loadSourceHistory?: (selection: CentralSelection) => Promise<SourceHistoryContext[]>;
   },
 ): Promise<LocalContextResolution> {
   try {
@@ -471,6 +477,14 @@ export async function resolveCentralContext(
       byteLimit: Math.max(0, limit - builtinBytes - requiredLocalBytes),
     });
     let bytes = builtinBytes + central.bytes;
+    const sourceHistory: SourceHistoryContext[] = [];
+    for (const item of (await input.loadSourceHistory?.(central)) ?? []) {
+      if (item.repositoryId !== client.audience.repositoryId) throw Error('history-audience');
+      const size = Buffer.byteLength(canonicalJson(item));
+      if (bytes + size + requiredLocalBytes > limit) continue;
+      sourceHistory.push(structuredClone(item));
+      bytes += size;
+    }
     const knowledge: LocalKnowledge[] = [];
     const omissions = ctx.omissions;
     for (const item of localItems) {
@@ -508,6 +522,16 @@ export async function resolveCentralContext(
         (e) => e.origin !== 'local' || knowledge.some((k) => k.id === e.id),
       ),
       ...central.entries,
+      ...sourceHistory.map((item) => ({
+        origin: 'central' as const,
+        kind: 'memory' as const,
+        component: 'collective' as const,
+        id: `history-${item.source.id}`,
+        revision: 1,
+        // revision is the source-history representation version. The hash pins
+        // the actual API revision, body, observation and captured replies.
+        hash: contentHash(item),
+      })),
     ];
     const identity = contextIdentity({
       entries,
@@ -522,6 +546,7 @@ export async function resolveCentralContext(
         required,
         centralSnapshot,
         central,
+        sourceHistory,
         omissions,
       }),
     });
@@ -549,6 +574,7 @@ export async function resolveCentralContext(
       context: new LocalReviewContext(
         {
           client,
+          sourceHistory,
           sourceHash: ctx.sourceHash,
           identity,
           knowledge,

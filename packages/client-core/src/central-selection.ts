@@ -49,6 +49,7 @@ function matches(
   scope: AppliesTo,
   file: { source: SourceFile; text: string },
   branch: string | null,
+  semanticContracts: boolean,
 ) {
   if (scope.branches.length && (!branch || !compilePathPatterns(scope.branches)(branch)))
     return false;
@@ -59,14 +60,18 @@ function matches(
         (language) => language.toLowerCase() === sourceLanguage(file.source.path),
       )) &&
     (!scope.symbols.length || scope.symbols.some((symbol) => file.text.includes(symbol))) &&
-    (!scope.contracts.length || scope.contracts.some((contract) => file.text.includes(contract)))
+    (semanticContracts ||
+      !scope.contracts.length ||
+      scope.contracts.some((contract) => file.text.includes(contract)))
   );
 }
-/** Deterministic grouping follows applicability. Scope symbols/contracts are lexical candidates, never proof of a current defect. */
+/** Contract descriptions are semantic conditions supplied to the reviewer, not literal code needles.
+ * Deterministic grouping follows applicability. Scope symbols are lexical candidates, never proof of a current defect. */
 type SelectionInput = {
   selected: Array<{ source: SourceFile; text: string }>;
   branch: string | null;
   now: string;
+  semanticContracts?: boolean;
   byteLimit: number;
 };
 export function selectCentralKnowledge(
@@ -76,7 +81,11 @@ export function selectCentralKnowledge(
 ): CentralSelection {
   const personal = centralKnowledgeBundle(input.bundles.personal);
   if (personal.component !== 'personal') throw Error('central-precedence-contract-required');
-  return selectKnowledge({ ...input, bundles: { ...input.bundles, personal } });
+  return selectKnowledge({
+    ...input,
+    semanticContracts: true,
+    bundles: { ...input.bundles, personal },
+  });
 }
 /** Public PR analyses never read or construct a personal projection. */
 export function selectSharedKnowledge(
@@ -139,7 +148,7 @@ function selectKnowledge(
   const requiredFailures = new Set<string>();
   const applicability = (scope: AppliesTo) =>
     input.selected
-      .filter((file) => matches(scope, file, input.branch))
+      .filter((file) => matches(scope, file, input.branch, input.semanticContracts ?? false))
       .map(({ source }) => ({ path: source.path, side: source.side, hash: source.hash }));
   for (const skill of policy.skills.skills) {
     const item: CentralReviewItem = {
