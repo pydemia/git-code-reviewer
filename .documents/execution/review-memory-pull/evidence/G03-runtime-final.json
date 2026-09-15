@@ -1,0 +1,32 @@
+{
+  "context": "PRISM-DEV",
+  "namespace": "git-code-reviewer",
+  "helmRedeployed": false,
+  "deployments": [
+    {
+      "name": "git-code-reviewer-identity",
+      "ready": 2,
+      "desired": 2,
+      "images": [
+        "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+      ]
+    },
+    {
+      "name": "git-code-reviewer-server",
+      "ready": 1,
+      "desired": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker",
+      "ready": 1,
+      "desired": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
+        "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+      ]
+    }
+  ]
+}

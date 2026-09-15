@@ -1,64 +1,64 @@
 {
-  "gcrSourceSha": "d1facf90aef744fb21ed881ce4a2dc376707c401",
-  "cdArtifactCommit": "710e15ce69fa7288cb17cc1f494a8758349dae3f",
+  "gcrSourceSha": "46c11f075aa270671578246ed6de7a62ea25a136",
+  "cdArtifactCommit": "ab41dc90772599f5c3c9f3a7a2ff22097ac8909e",
   "cdProductSourceCommit": "40e804c",
   "commonArtifact": {
     "schemaVersion": 1,
-    "version": "0.1.0-alpha.40",
+    "version": "0.1.0-alpha.41",
     "packages": [
       {
         "name": "@gcr/client-contract",
-        "version": "0.1.0-alpha.40",
-        "file": "gcr-client-contract-0.1.0-alpha.40.tgz",
-        "sha256": "3c841465c2bf3dc57efdbc8af86e7475984e7e7f0a68f92b7d24ac80c0d44a61"
+        "version": "0.1.0-alpha.41",
+        "file": "gcr-client-contract-0.1.0-alpha.41.tgz",
+        "sha256": "53fa9805436fc75e25b633a89e19e6e390de48daa242109c494a237cc15800ef"
       },
       {
         "name": "@gcr/client-core",
-        "version": "0.1.0-alpha.40",
-        "file": "gcr-client-core-0.1.0-alpha.40.tgz",
-        "sha256": "8677c985f8ee29236f9b488efb896c89f73fdee7fbb82a9fc1a49468642d4bbb"
+        "version": "0.1.0-alpha.41",
+        "file": "gcr-client-core-0.1.0-alpha.41.tgz",
+        "sha256": "ab44a9170518ed397292ed946c1779ad9c2a3c74ac31e001bb0bc2e1c618f768"
       },
       {
         "name": "@gcr/client-executors",
-        "version": "0.1.0-alpha.40",
-        "file": "gcr-client-executors-0.1.0-alpha.40.tgz",
-        "sha256": "34f62fc97abcdea95f9c52e9496a81400e4bb36a159c68b7aa45136372630b13"
+        "version": "0.1.0-alpha.41",
+        "file": "gcr-client-executors-0.1.0-alpha.41.tgz",
+        "sha256": "40e1062006a83e5226a799c86ccbf028ed7c69a7b1d2d2511cfaef18e74f62c1"
       }
     ]
   },
   "bundledServiceArtifact": {
     "schemaVersion": 1,
-    "cliVersion": "0.1.0-alpha.35",
-    "clientVersion": "0.1.0-alpha.40",
+    "cliVersion": "0.1.0-alpha.36",
+    "clientVersion": "0.1.0-alpha.41",
     "packages": [
       {
         "name": "@gcr/client-contract",
-        "version": "0.1.0-alpha.40",
-        "file": "gcr-client-contract-0.1.0-alpha.40.tgz",
-        "sha256": "3c841465c2bf3dc57efdbc8af86e7475984e7e7f0a68f92b7d24ac80c0d44a61"
+        "version": "0.1.0-alpha.41",
+        "file": "gcr-client-contract-0.1.0-alpha.41.tgz",
+        "sha256": "53fa9805436fc75e25b633a89e19e6e390de48daa242109c494a237cc15800ef"
       },
       {
         "name": "@gcr/client-core",
-        "version": "0.1.0-alpha.40",
-        "file": "gcr-client-core-0.1.0-alpha.40.tgz",
-        "sha256": "8677c985f8ee29236f9b488efb896c89f73fdee7fbb82a9fc1a49468642d4bbb"
+        "version": "0.1.0-alpha.41",
+        "file": "gcr-client-core-0.1.0-alpha.41.tgz",
+        "sha256": "ab44a9170518ed397292ed946c1779ad9c2a3c74ac31e001bb0bc2e1c618f768"
       },
       {
         "name": "@gcr/client-executors",
-        "version": "0.1.0-alpha.40",
-        "file": "gcr-client-executors-0.1.0-alpha.40.tgz",
-        "sha256": "34f62fc97abcdea95f9c52e9496a81400e4bb36a159c68b7aa45136372630b13"
+        "version": "0.1.0-alpha.41",
+        "file": "gcr-client-executors-0.1.0-alpha.41.tgz",
+        "sha256": "40e1062006a83e5226a799c86ccbf028ed7c69a7b1d2d2511cfaef18e74f62c1"
       },
       {
         "name": "@gcr/cli",
-        "version": "0.1.0-alpha.35",
-        "file": "gcr-cli-0.1.0-alpha.35.tgz",
-        "sha256": "30d50cfc173528e7cc4c78d5518ff76b93d2921387ac12449ff55516fbd4ba7d"
+        "version": "0.1.0-alpha.36",
+        "file": "gcr-cli-0.1.0-alpha.36.tgz",
+        "sha256": "ac88579a248a073e98ee950b14d91136c2c19d42f3415559dbcac00af7a2e023"
       }
     ]
   },
-  "vsixSha256": "f60f2b07675dd4dfc3e117e1fd9f1dcf6a85b5051a9de9e0faf011b20fbde800",
-  "vsixVersion": "2.11.0",
+  "vsixSha256": "2d3a4626b8ad2875792a3c7f87d047c9000a12ce73af5f1b843610ebe25b5cf0",
+  "vsixVersion": "2.11.1",
   "gcrRuntimeChanged": false,
   "helmDeploymentRequired": false,
   "marketplace": {
@@ -74,7 +74,7 @@
   },
   "ownedReaderKeyRevoked": true,
   "ownedGcrSessionClosed": true,
-  "cdProvenanceCommit": "203e2dd",
+  "cdProvenanceCommit": "ab41dc90772599f5c3c9f3a7a2ff22097ac8909e",
   "codexInstalledVersion": "0.154.0",
   "gcrRuntimeImage": "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
   "readyReplicas": {
@@ -82,17 +82,19 @@
     "worker": 1,
     "identity": 2
   },
-  "readmeBaseCommit": "203e2dd",
+  "readmeBaseCommit": "ab41dc9",
   "regressions": {
     "cdTests": 203,
     "passed": 203,
     "failed": 0,
     "gcrContractAndHistoryTests": 91,
-    "codexExecutorTests": 8
+    "codexExecutorTests": 8,
+    "gcrFocusedOutputFixTests": 38,
+    "passiveObserverTests": 1
   },
-  "realCliReviewInvocations": 3,
+  "realCliReviewInvocations": 7,
   "providerHttpRequestCount": null,
-  "realReviewCompleted": false,
+  "realReviewCompleted": true,
   "actualModelSelection": {
     "provider": "codex",
     "model": "gpt-5.6-luna",
@@ -133,8 +135,70 @@
       "durationMs": 300038,
       "evidence": "G03-native-model-luna-timeout.json",
       "diagnosis": "Source/base reads completed; no complete model response before the 300-second limit. Cause remains undetermined."
+    },
+    {
+      "attempt": 4,
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "high",
+      "freshness": "offline",
+      "status": "failed",
+      "durationMs": 180050,
+      "problems": [
+        "timeout"
+      ],
+      "evidence": "G03-native-luna-diagnostic.json",
+      "diagnostic": true
+    },
+    {
+      "attempt": 5,
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "high",
+      "freshness": "offline",
+      "status": "failed",
+      "durationMs": 60807,
+      "problems": [
+        "invalid-output"
+      ],
+      "evidence": "G03-native-schema-comparison.json",
+      "diagnostic": true
+    },
+    {
+      "attempt": 6,
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "high",
+      "freshness": "offline",
+      "status": "partial",
+      "durationMs": 67153,
+      "problems": [
+        "response-incomplete",
+        "missing-context"
+      ],
+      "evidence": "G03-native-schema-prompt.json",
+      "diagnostic": true
+    },
+    {
+      "attempt": 7,
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "high",
+      "freshness": "online",
+      "status": "completed",
+      "diagnostic": false,
+      "durationMs": 79275,
+      "evidence": "G03-native-model-final.json",
+      "problems": []
     }
   ],
-  "cdVerificationSourceSha": "0b74ebc3a2c6d2f6410d4d4ccc1fa243536a3571",
-  "g03Completion": "incomplete: no completed actual account-model review"
+  "cdVerificationSourceSha": "ab41dc90772599f5c3c9f3a7a2ff22097ac8909e",
+  "g03Completion": "complete",
+  "previousDelivery": {
+    "vsixVersion": "2.11.0",
+    "vsixSha256": "f60f2b07675dd4dfc3e117e1fd9f1dcf6a85b5051a9de9e0faf011b20fbde800",
+    "gcrSourceSha": "d1facf90aef744fb21ed881ce4a2dc376707c401",
+    "cdArtifactCommit": "710e15ce69fa7288cb17cc1f494a8758349dae3f",
+    "commonVersion": "0.1.0-alpha.40"
+  },
+  "gcrExecutorFixCommit": "f19ed34",
+  "installedWorkerSha256": "555bdcb283488ab3a2ddb23e6c728316bd14d576ef6b12357b47c710e2a1b958",
+  "finalNativeHostEvidence": "G03-native-model-final.json",
+  "existingUserHostApplied": "not confirmed; no forced reload"
 }

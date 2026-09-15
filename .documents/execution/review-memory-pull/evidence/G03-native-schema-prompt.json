@@ -1,0 +1,446 @@
+{
+  "status": "failed",
+  "vscode": "1.135.0",
+  "realCentralServer": true,
+  "realModel": true,
+  "modelCalls": 1,
+  "syntheticResponse": false,
+  "sourceFixture": "G03 BlockUpdateRequest",
+  "newCollection": 0,
+  "extension": {
+    "version": "2.11.0",
+    "path": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.11.0",
+    "active": true
+  },
+  "workerSha256": "a17892ace9992eafadf4f810775210fbc52eb6a083482bdf04481d4597105bcd",
+  "connectionId": "55bd18c90efe69173ace0950ae7f52f2e0d4c8060ff33767e2586039ee152078",
+  "pulls": [
+    {
+      "number": 917,
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4"
+    },
+    {
+      "number": 915,
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4"
+    }
+  ],
+  "original": {
+    "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+    "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+    "observationHash": "e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7",
+    "url": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279",
+    "offlineExact": true
+  },
+  "historyPrefetchedOnlineForSignedOfflineReview": true,
+  "nativeOriginalPanel": true,
+  "passiveCliObserver": {
+    "wrapper": "/Users/a09255/git/commit-defender-preventive-review/vscode-extension/test/g03-observed-worker.cjs",
+    "installedWorker": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.11.0/out/standalone-review-worker.js",
+    "eventFile": "/Users/a09255/git/commit-defender-preventive-review/vscode-extension/test-results/G03-cli-events-6.jsonl",
+    "invocationArgumentsAndStreamsUnchanged": false,
+    "outputSchemaDiagnosticOmission": true,
+    "schemaSuppliedInPrompt": true
+  },
+  "modelSelection": {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "high"
+  },
+  "report": {
+    "contractVersion": 1,
+    "runId": "afe7056c-6576-4647-800f-a683da39ead5",
+    "identity": {
+      "client": {
+        "mode": "centralized",
+        "profileId": "cd-g03-849524de-92d2-4d19-b577-ee7f5214c200",
+        "repositoryKey": "5a49f6ce41dccc243aaf5ade34d296bdd6d0263cf56f8e602b9f1aba9e825f0a",
+        "worktreeKey": "7da2db55876ef9b41cb5806e9539414166090209a07c6d7467509863b7623b2f",
+        "audience": {
+          "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+          "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+          "userId": "49ba1cc6-5921-4eb1-8a86-2910ca59ee85",
+          "repositoryId": "c4a2bf3b-0c69-40c6-859a-ccea02de1e57"
+        },
+        "execution": {
+          "configuredMode": "centralized",
+          "effectiveMode": "centralized",
+          "knowledgeSource": "central-cache",
+          "fallbackReason": null,
+          "connectionId": "55bd18c90efe69173ace0950ae7f52f2e0d4c8060ff33767e2586039ee152078",
+          "lastSynchronizedAt": "2026-09-15T11:57:41.680Z"
+        }
+      },
+      "source": {
+        "kind": "index",
+        "hash": "af72df60b0ac5153a493e4c78a553a30288b4ec93c763f461a12f10b4def61f8",
+        "objectFormat": "sha1",
+        "baseCommit": "500c0bc7452f5090b59f4e7819bffacf4ba92960",
+        "baseTree": "863143651ff94680520bd2a8f12f3f5c5020f1bc",
+        "sourceTree": "91c41765a61e0a8aba81c3b4aacbbbd19024fb58"
+      },
+      "context": {
+        "hash": "e792e7ab82d4cfc5d8c890c7d9e2461ff07e6073d8367b959963f0ea8af14493",
+        "entries": [
+          {
+            "origin": "builtin",
+            "kind": "skill",
+            "id": "gcr-standalone-review",
+            "revision": 1,
+            "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "correctness",
+            "revision": 2,
+            "hash": "94db57b36a78e52031b16e4ff1f4c5991d637d747ea2d04293dbb693076a8836",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "maintenance",
+            "revision": 2,
+            "hash": "15adce8cd250526247f6d47957064e644c74c3b055df3393d851c468315f8c94",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "optimization",
+            "revision": 2,
+            "hash": "2b55f19da38642374072522ac41e8868c98f04ebe676be90be01bf47ec73aa48",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "overall-summary",
+            "revision": 3,
+            "hash": "f17b91c4f6cc560b6baa1df5d8d0dae285b374ac8f8a0406e76e2c0770b4cf9a",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "review-history",
+            "revision": 2,
+            "hash": "cfbc44036e75a8c1230d6e80ad3a450d545a2f7825c41162496fea54e31c682a",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "security",
+            "revision": 2,
+            "hash": "d5493168788e1a631b0aac184e7ec491339e3b3938ec001adb23d1a992af0a9c",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "setting",
+            "revision": 2,
+            "hash": "d989ccc4d713088d26a1f1cc575034611d9a823be7174fe237b1a112ee87e389",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "total-summary",
+            "revision": 3,
+            "hash": "f6d5431f09c2af51ab2a41252435a137eb560bdd53784d04a6ba791e18be230f",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "unit-comment-block",
+            "revision": 2,
+            "hash": "75aa97865768baaef6c09186029da9e2173a1d5e20840b98878738be97a58dbf",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "memory",
+            "id": "9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+            "revision": 1,
+            "hash": "63d7227b96990a6db7250b1313a40be5285d0c1843cd555ea0c8a455d34635e5",
+            "component": "collective"
+          },
+          {
+            "origin": "central",
+            "kind": "memory",
+            "id": "history-4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+            "revision": 1,
+            "hash": "30bc0993e1bcf224ad3d4a1dc3d215205050c32c2e306cef6dedb194f596a8db",
+            "component": "collective"
+          }
+        ],
+        "centralSnapshot": {
+          "id": "27ce602b-ccd1-417b-ad7a-64feaee49d46",
+          "hash": "e3dfb4fc4fdbd9be596b7fcbccaa5f8d80007e6f30387892dd3a3552d60a3f5a",
+          "audience": {
+            "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+            "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+            "userId": "49ba1cc6-5921-4eb1-8a86-2910ca59ee85",
+            "repositoryId": "c4a2bf3b-0c69-40c6-859a-ccea02de1e57"
+          },
+          "authorizationRevision": "191",
+          "offlineValidUntil": "2026-09-16T11:57:40.284Z"
+        },
+        "required": [
+          {
+            "kind": "knowledge",
+            "reference": "builtin:gcr-standalone-review",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:2934fd0be7baa084846345613119fcbe9a7250647ee7affbdd54b7a5f7b21117",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:cbfa1d0581e4b140bb5bf427d99fa4c140cd0f58bbf1e453cd5529a33a295cfa",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:correctness",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:maintenance",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:optimization",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:overall-summary",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:review-history",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:security",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:setting",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:total-summary",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:unit-comment-block",
+            "available": true,
+            "reason": ""
+          }
+        ]
+      },
+      "reviewProfile": {
+        "id": "gcr-standalone-review",
+        "revision": 1,
+        "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+      },
+      "executor": {
+        "id": "codex-account",
+        "version": "0.154.0/gcr-fixed-source-v1",
+        "model": "gpt-5.6-luna",
+        "configHash": "838836f3d470bc6e0951548e041dc7c14b29d599902e706bf9c8abf6231a4a83"
+      },
+      "toolsHash": "a513433d103e1ec0e9eaa1e19ff43bde71ade9a4d33bebf6df2cfcbc31c97a87"
+    },
+    "status": "partial",
+    "trigger": "manual",
+    "requestedAt": "2026-09-15T11:57:58.949Z",
+    "startedAt": "2026-09-15T11:57:59.246Z",
+    "finishedAt": "2026-09-15T11:59:06.102Z",
+    "durationMs": 67153,
+    "summary": "`BlockUpdateRequest.name`\uc758 \ucd5c\uc18c \uae38\uc774 \uac80\uc99d\uc774 \uc81c\uac70\ub41c \ud68c\uadc0\ub97c \ud655\uc778\ud588\uc2b5\ub2c8\ub2e4. \ub2e4\ub9cc authorized snapshot\uc5d0 callers\uc640 tests\uac00 \uc5c6\uc5b4 \uc804\uccb4 \uc601\ud5a5 \ubc94\uc704 \uac80\ud1a0\ub294 \ubd88\uc644\uc804\ud569\ub2c8\ub2e4.",
+    "sourceFiles": [
+      {
+        "path": "data-management/mainapp/domains/position_management/block/schema.py",
+        "side": "base",
+        "hash": "43e0084b9e735c4dd26c3a6b2c285f3630e93db605f24aeba86771518d65b196",
+        "byteLength": 112,
+        "lineCount": 5,
+        "gitBlob": "5d73c92013f022d40b815ecda3b442f45b4ed8e1"
+      },
+      {
+        "path": "data-management/mainapp/domains/position_management/block/schema.py",
+        "side": "source",
+        "hash": "c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72",
+        "byteLength": 83,
+        "lineCount": 5,
+        "gitBlob": "d5e704a61d1bbd1982bef376f89563d1df58a3d2"
+      }
+    ],
+    "files": [
+      {
+        "source": {
+          "path": "data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72",
+          "byteLength": 83,
+          "lineCount": 5,
+          "gitBlob": "d5e704a61d1bbd1982bef376f89563d1df58a3d2"
+        },
+        "status": "partial",
+        "summary": "`name` \uac80\uc99d \ubcc0\uacbd\uc740 \ud655\uc778\ud588\uc73c\ub098 \uad00\ub828 callers\uc640 tests\uac00 snapshot\uc5d0 \uc5c6\uc5b4 \uc601\ud5a5 \ubc94\uc704 \uac80\ud1a0\uac00 \ubd88\uc644\uc804\ud569\ub2c8\ub2e4."
+      }
+    ],
+    "excluded": [],
+    "problems": [
+      {
+        "code": "response-incomplete",
+        "message": "One or more selected file reviews are incomplete."
+      },
+      {
+        "code": "missing-context",
+        "message": "Review has an unresolved required question or conflicting evidence."
+      }
+    ],
+    "findings": [
+      {
+        "id": "f4a8b2f7-7445-4734-93cb-ff6ae4c25253",
+        "title": "`name`\uc758 \ube48 \ubb38\uc790\uc5f4 \uac80\uc99d\uc774 \uc81c\uac70\ub428",
+        "problem": "\ud604\uc7ac `BlockUpdateRequest`\ub294 `name: str`\ub9cc \uc120\uc5b8\ud574 `name=\"\"`\uc744 \ud5c8\uc6a9\ud569\ub2c8\ub2e4. fixed base\uc5d0\uc11c\ub294 `Field(min_length=1)`\ub85c \ube48 \ubb38\uc790\uc5f4\uc744 \uac70\ubd80\ud588\uc2b5\ub2c8\ub2e4.",
+        "impact": "\ube48 \uc774\ub984\uc774 \uc694\uccad \uac80\uc99d\uc744 \ud1b5\uacfc\ud574 \uc774\ud6c4 update \ucc98\ub9ac\ub098 \uc800\uc7a5 \uacc4\uce35\uc73c\ub85c \uc804\ub2ec\ub420 \uc218 \uc788\uc73c\uba70, \uae30\uc874 API \uc785\ub825 \uacc4\uc57d\uc774 \uc644\ud654\ub429\ub2c8\ub2e4.",
+        "recommendation": "`Field`\ub97c \ub2e4\uc2dc import\ud558\uace0 `name: str = Field(min_length=1)`\uc744 \ubcf5\uc6d0\ud558\uc2ed\uc2dc\uc624.",
+        "category": "correctness",
+        "severity": "P2",
+        "outcome": "violation",
+        "confidence": "high",
+        "followUp": "required",
+        "anchor": {
+          "path": "data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72",
+          "startLine": 4,
+          "endLine": 4
+        },
+        "anchorValidation": {
+          "status": "verified",
+          "checks": [
+            "fixed-source-hash",
+            "selected-file",
+            "returned-read-range"
+          ],
+          "reason": "Anchor matches a non-truncated source read. This does not prove the finding."
+        },
+        "evidenceAssessment": {
+          "level": "source-confirmed",
+          "rationale": "\ud604\uc7ac source\uc758 line 4\uc5d0\ub294 \uae38\uc774 \uc81c\uc57d\uc774 \uc5c6\ub294 `str`\ub9cc \uc788\uace0, fixed base\uc758 line 1\uacfc 4\uc5d0\ub294 `Field(min_length=1)`\uc774 \uc788\uc74c\uc744 \uc9c1\uc811 \ud655\uc778\ud588\uc2b5\ub2c8\ub2e4. \ub530\ub77c\uc11c \ube48 \ubb38\uc790\uc5f4 \uc785\ub825\uc5d0\uc11c \uac80\uc99d \uacb0\uacfc\uac00 \ubcc0\uacbd\ub418\ub294 \ud68c\uadc0\ub294 source\uc640 base\ub9cc\uc73c\ub85c \ud655\uc815\ub429\ub2c8\ub2e4. authorized snapshot\uc5d0\ub294 callers\ub098 tests\uac00 \uc5c6\uc5b4 \uc2e4\uc81c \uc800\uc7a5\u00b7\uc751\ub2f5 \uc601\ud5a5\uc740 \ucd94\uac00 \ud655\uc778\uc774 \ud544\uc694\ud569\ub2c8\ub2e4.",
+          "conditions": [
+            "\ud638\ucd9c\uc790\uac00 `BlockUpdateRequest`\ub85c \ube48 `name`\uc744 \uc804\ub2ec\ud558\ub294 \uacbd\uc6b0"
+          ],
+          "evidenceIds": [
+            "af6fe2ff-66e5-4f6b-9277-204f69c89931",
+            "e4ad40cd-fdf3-4946-9638-521c887603cc"
+          ],
+          "counterEvidence": {
+            "status": "reviewed",
+            "summary": "fixed base\uc5d0\uc11c \ub3d9\uc77c \ud544\ub4dc\uc5d0 `Field(min_length=1)` \uc81c\uc57d\uc774 \ud655\uc778\ub418\uc5b4, \uc774\ubc88 source \ubcc0\uacbd\uc774 \uae30\uc874 \uc81c\uc57d\uc744 \uc81c\uac70\ud588\ub2e4\ub294 \ubc18\uc99d\uc740 \uc5c6\uc2b5\ub2c8\ub2e4.",
+            "evidenceIds": [
+              "e4ad40cd-fdf3-4946-9638-521c887603cc"
+            ]
+          }
+        },
+        "policy": {
+          "enforcement": "advisory"
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "source-read",
+        "id": "af6fe2ff-66e5-4f6b-9277-204f69c89931",
+        "sourceHash": "af72df60b0ac5153a493e4c78a553a30288b4ec93c763f461a12f10b4def61f8",
+        "contextHash": "e792e7ab82d4cfc5d8c890c7d9e2461ff07e6073d8367b959963f0ea8af14493",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:af6fe2ff-66e5-4f6b-9277-204f69c89931"
+        },
+        "observedAt": "2026-09-15T11:58:16.938Z",
+        "location": {
+          "path": "data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72",
+          "startLine": 1,
+          "endLine": 5
+        },
+        "observation": "Returned excerpt sha256=c28d3a88ed631e74c3fcf810a37ec053e807c320778c0dc12746099737b22a72; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "e4ad40cd-fdf3-4946-9638-521c887603cc",
+        "sourceHash": "af72df60b0ac5153a493e4c78a553a30288b4ec93c763f461a12f10b4def61f8",
+        "contextHash": "e792e7ab82d4cfc5d8c890c7d9e2461ff07e6073d8367b959963f0ea8af14493",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:e4ad40cd-fdf3-4946-9638-521c887603cc"
+        },
+        "observedAt": "2026-09-15T11:58:20.963Z",
+        "location": {
+          "path": "data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "base",
+          "hash": "43e0084b9e735c4dd26c3a6b2c285f3630e93db605f24aeba86771518d65b196",
+          "startLine": 1,
+          "endLine": 5
+        },
+        "observation": "Returned excerpt sha256=43e0084b9e735c4dd26c3a6b2c285f3630e93db605f24aeba86771518d65b196; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "reasoning",
+        "id": "history-4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+        "sourceHash": "af72df60b0ac5153a493e4c78a553a30288b4ec93c763f461a12f10b4def61f8",
+        "contextHash": "e792e7ab82d4cfc5d8c890c7d9e2461ff07e6073d8367b959963f0ea8af14493",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279"
+        },
+        "observedAt": "2026-09-15T11:57:59.246Z",
+        "statement": "{\"usage\":\"Past review context supplied to the model; not proof of a current defect or fix.\",\"sourceId\":\"4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1\",\"pullNumber\":917,\"apiRevision\":\"f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4\",\"contentHash\":\"cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696\",\"observationHash\":\"e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7\",\"repliesComplete\":true,\"replies\":[{\"id\":\"6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3\",\"contentHash\":\"8ca5563c5b37fcd09b0ff2edc4f0fe46e8690223c7a962bf93e24f166b145748\",\"observationHash\":\"0dd6f21c89eea1b1e4ae0b92af5c23a2fbb6933a8e6da4b6f402915b178fd66b\"}]}"
+      }
+    ],
+    "questions": [
+      {
+        "id": "5ebffeb7-5ac3-4015-8b1d-3dc3c33fbbc3",
+        "prompt": "\uad00\ub828 callers\uc640 tests\uac00 authorized fixed snapshot\uc5d0 \ud3ec\ud568\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4. `BlockUpdateRequest` \uc0dd\uc131\u00b7\uc800\uc7a5 \uacbd\ub85c\uc640 \ube48 \ubb38\uc790\uc5f4 \uacbd\uacc4\uac12 \ud14c\uc2a4\ud2b8\uac00 \uc788\ub294 \uace0\uc815 \ud30c\uc77c\uc744 \ucd94\uac00\ub85c \uc81c\uacf5\ud574 \uc2e4\uc81c \uc601\ud5a5 \ubc94\uc704\ub97c \ud655\uc778\ud560\uae4c\uc694?",
+        "required": true
+      }
+    ]
+  },
+  "failure": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'partial'\n- 'completed'\n",
+  "modelCallCountMeaning": "One real account CLI review invocation; provider HTTP request count was not measured."
+}

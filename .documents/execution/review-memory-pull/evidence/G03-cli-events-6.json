@@ -1,0 +1,320 @@
+{
+  "attempt": 6,
+  "rawTextPersisted": false,
+  "events": [
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.985Z",
+      "channel": "stdout",
+      "event": "thread.started"
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.988Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "error",
+      "codes": [
+        "instruction-read"
+      ]
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.988Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "error"
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.991Z",
+      "channel": "stdout",
+      "event": "turn.started"
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.994Z",
+      "channel": "stdout",
+      "event": "error"
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.994Z",
+      "channel": "stdout",
+      "event": "turn.failed"
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.999Z",
+      "channel": "stderr",
+      "event": "stream-end",
+      "bytes": 0
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.999Z",
+      "channel": "stdout",
+      "event": "stream-end",
+      "bytes": 1020
+    },
+    {
+      "invocation": 1,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:56.999Z",
+      "event": "process-exit",
+      "code": 1,
+      "signal": null
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.387Z",
+      "channel": "stdout",
+      "event": "thread.started"
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.388Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "error",
+      "codes": [
+        "instruction-read"
+      ]
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.388Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "error"
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.388Z",
+      "channel": "stdout",
+      "event": "turn.started"
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.391Z",
+      "channel": "stdout",
+      "event": "error"
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.391Z",
+      "channel": "stdout",
+      "event": "turn.failed"
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.395Z",
+      "channel": "stderr",
+      "event": "stream-end",
+      "bytes": 0
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.395Z",
+      "channel": "stdout",
+      "event": "stream-end",
+      "bytes": 1046
+    },
+    {
+      "invocation": 2,
+      "kind": "loopback-probe",
+      "at": "2026-09-15T11:57:57.395Z",
+      "event": "process-exit",
+      "code": 1,
+      "signal": null
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:09.349Z",
+      "channel": "stdout",
+      "event": "thread.started"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:09.498Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "error",
+      "codes": [
+        "instruction-read"
+      ]
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:09.498Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "error"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:09.498Z",
+      "channel": "stdout",
+      "event": "turn.started"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:16.929Z",
+      "channel": "stdout",
+      "event": "item.started",
+      "item": "mcp_tool_call",
+      "status": "in_progress",
+      "tool": "read_file"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:16.962Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "mcp_tool_call",
+      "status": "completed",
+      "tool": "read_file"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:20.824Z",
+      "channel": "stdout",
+      "event": "item.started",
+      "item": "mcp_tool_call",
+      "status": "in_progress",
+      "tool": "read_file"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:20.964Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "mcp_tool_call",
+      "status": "completed",
+      "tool": "read_file"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:25.145Z",
+      "channel": "stdout",
+      "event": "item.started",
+      "item": "mcp_tool_call",
+      "status": "in_progress",
+      "tool": "search_code"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:25.419Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "mcp_tool_call",
+      "status": "completed",
+      "tool": "search_code"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:28.735Z",
+      "channel": "stdout",
+      "event": "item.started",
+      "item": "mcp_tool_call",
+      "status": "in_progress",
+      "tool": "search_code"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:28.867Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "mcp_tool_call",
+      "status": "completed",
+      "tool": "search_code"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:35.649Z",
+      "channel": "stdout",
+      "event": "item.started",
+      "item": "mcp_tool_call",
+      "status": "in_progress",
+      "tool": "list_files"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:58:35.869Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "mcp_tool_call",
+      "status": "completed",
+      "tool": "list_files"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:59:05.506Z",
+      "channel": "stdout",
+      "event": "item.completed",
+      "item": "agent_message"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:59:05.536Z",
+      "channel": "stdout",
+      "event": "turn.completed"
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:59:05.563Z",
+      "channel": "stderr",
+      "event": "stream-end",
+      "bytes": 0
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:59:05.563Z",
+      "channel": "stdout",
+      "event": "stream-end",
+      "bytes": 8807
+    },
+    {
+      "invocation": 3,
+      "kind": "account-review",
+      "at": "2026-09-15T11:59:05.563Z",
+      "event": "process-exit",
+      "code": 0,
+      "signal": null
+    }
+  ]
+}
