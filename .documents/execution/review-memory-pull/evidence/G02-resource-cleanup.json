@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "at": "2026-09-15T08:54:02.045277+00:00",
+  "ownedResourcesRemoved": [
+    "pod/gcr-g02-final-image-smoke",
+    "configmap/gcr-g02-final-image-smoke",
+    "networkpolicy/gcr-g02-final-image-smoke",
+    "deployment/gcr-prism-g020",
+    "pod/gcr-g02-image-smoke",
+    "configmap/gcr-g02-image-smoke",
+    "networkpolicy/gcr-g02-image-smoke",
+    "configmap/gcr-g02-build-ca",
+    "serviceaccount/gcr-g02-build"
+  ],
+  "ownedBuildPodsAbsent": true
+}

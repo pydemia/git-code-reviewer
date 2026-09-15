@@ -1,0 +1,131 @@
+{
+  "status": "passed",
+  "at": "2026-09-15T08:52:33.742143+00:00",
+  "release": {
+    "revision": 73,
+    "updated": "2026-09-15T17:48:57.139509+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.59",
+    "app_version": "0.8.0-alpha.63",
+    "description": "Upgrade complete"
+  },
+  "image": {
+    "digest": "sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
+    "source": "776642502607bf4a9d099f1143a2faa243cb0392",
+    "version": "0.8.0-alpha.63",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "labels": {
+      "org.opencontainers.image.description": "Browser-based pull request review service for GitHub Enterprise Server",
+      "org.opencontainers.image.revision": "776642502607bf4a9d099f1143a2faa243cb0392",
+      "org.opencontainers.image.source": "https://github.com/pydemia/git-code-reviewer",
+      "org.opencontainers.image.title": "Git Code Reviewer",
+      "org.opencontainers.image.version": "0.8.0-alpha.63"
+    },
+    "architecture": "amd64"
+  },
+  "tables": {
+    "users": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "chat_accounts": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "analysis_runs": {
+      "before": 183,
+      "after": 183,
+      "existingRowsPreserved": true
+    },
+    "reports": {
+      "before": 175,
+      "after": 175,
+      "existingRowsPreserved": true
+    },
+    "repository_grants": {
+      "before": 2,
+      "after": 2,
+      "existingRowsPreserved": true
+    },
+    "tenant_memberships": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "review_memories": {
+      "before": 4,
+      "after": 4,
+      "existingRowsPreserved": true
+    },
+    "localCredentials": {
+      "before": 6,
+      "after": 6,
+      "existingRowsPreserved": true
+    }
+  },
+  "migrationCount": 53,
+  "oldMigrationChecksumsPreserved": true,
+  "unrelatedSettingsPreserved": true,
+  "existingSecretsRoutesPVCsPreserved": true,
+  "ciPoliciesUnconfigured": true,
+  "endpoints": {
+    "/health/startup": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/live": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/ready": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/system": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/analyses/00000000-0000-4000-8000-000000000001/ci-validation": {
+      "status": 401,
+      "tlsVerified": true
+    },
+    "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+      "status": 401,
+      "tlsVerified": true
+    },
+    "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+      "status": 401,
+      "tlsVerified": true
+    }
+  },
+  "assetsMatchVerifiedImage": true,
+  "runtime": {
+    "server": {
+      "pod": "git-code-reviewer-server-598b8899f6-rt8l7",
+      "imageDigest": "sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
+      "compiledMatchesImageProof": true,
+      "trustedCiModulesMatchImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    },
+    "worker": {
+      "pod": "git-code-reviewer-worker-8494f5dfcd-hsddh",
+      "imageDigest": "sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
+      "compiledMatchesImageProof": true,
+      "trustedCiModulesMatchImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    }
+  },
+  "identityReady": 2,
+  "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, schema53 with original 52 migration checksums preserved and configuration/data preservation. Paid model execution is not part of this verification."
+}

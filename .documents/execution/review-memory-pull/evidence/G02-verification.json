@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "baselineRegression": {
+    "files": 10,
+    "tests": 145,
+    "evidence": {
+      "startedAt": "2026-09-15T08:36:14.469Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-15T08:36:32.112Z"
+    }
+  },
+  "compatibility": {
+    "files": 5,
+    "tests": 65,
+    "evidence": {
+      "startedAt": "2026-09-15T08:39:49.688Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-15T08:39:55.156Z"
+    }
+  },
+  "legacyBodyHistory": {
+    "files": 1,
+    "tests": 10,
+    "overlap": "Repeats 9 history cases; adds 1 legacy body history case.",
+    "evidence": {
+      "startedAt": "2026-09-15T08:43:51.057Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-15T08:44:00.097Z"
+    }
+  },
+  "build": "packages/runtime/web passed; final image rebuilt from clean git archive",
+  "lint": "changed TypeScript ESLint and diff checks passed",
+  "helmTest": "Succeeded at 2026-09-15T17:52:36+09:00",
+  "realAuthentication": "pending-valid-existing-GCR-credential; bootstrap credential did not match; no login attempt or password change",
+  "runnerAbsentInSourceAndImage": true,
+  "clientPackagesAndCDSourceUnchanged": true
+}

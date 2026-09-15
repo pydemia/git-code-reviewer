@@ -1,0 +1,554 @@
+{
+  "at": "2026-09-15T08:53:25.273Z",
+  "repositoryId": "c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+  "readOnly": true,
+  "githubWrites": 0,
+  "pulls": [
+    {
+      "number": 917,
+      "upstreamCount": 45,
+      "storedCount": 46,
+      "upstreamReplies": 10,
+      "matches": [
+        {
+          "githubId": "5566385857",
+          "kind": "issue-comment",
+          "sourceId": "5b5546bb-60fd-4bb8-b111-676cf91e4768",
+          "contentHash": "b26f380d442d589551ee7523e06cc4aa0f2caa6f61cee2d309afe190f134656e",
+          "storedHash": "b26f380d442d589551ee7523e06cc4aa0f2caa6f61cee2d309afe190f134656e",
+          "replyTo": null
+        },
+        {
+          "githubId": "5566501022",
+          "kind": "issue-comment",
+          "sourceId": "034cc98d-d460-46cd-b6b7-23919e55557b",
+          "contentHash": "f4bead226fa2408900b7a150b1caf669eccbe3cb46c37a5d56e86f8ccd5bdd45",
+          "storedHash": "f4bead226fa2408900b7a150b1caf669eccbe3cb46c37a5d56e86f8ccd5bdd45",
+          "replyTo": null
+        },
+        {
+          "githubId": "3956969298",
+          "kind": "review-comment",
+          "sourceId": "0373e4b8-94dc-4382-91de-cd0b5f5b71eb",
+          "contentHash": "32d0fbe756b0d8e0d6f0d75cc3b34ac8adc85ae7c410792d02851c0737e351dc",
+          "storedHash": "32d0fbe756b0d8e0d6f0d75cc3b34ac8adc85ae7c410792d02851c0737e351dc",
+          "replyTo": null
+        },
+        {
+          "githubId": "5140603075",
+          "kind": "review",
+          "sourceId": "01527870-2ec6-4ecf-8c0b-13712bb64e23",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3956986106",
+          "kind": "review-comment",
+          "sourceId": "84009b8d-7338-460d-9935-aa3655cebfbc",
+          "contentHash": "488ad0e3919698ba0ef7f8d0fc35f3c019f2ee6a5837c4f094eb1ee376910a79",
+          "storedHash": "488ad0e3919698ba0ef7f8d0fc35f3c019f2ee6a5837c4f094eb1ee376910a79",
+          "replyTo": "3956969298"
+        },
+        {
+          "githubId": "5140622113",
+          "kind": "review",
+          "sourceId": "8e84a062-c806-4042-916a-d9e1d3d5aefe",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3957054283",
+          "kind": "review-comment",
+          "sourceId": "0780d81f-5da5-4647-a47b-12a26aa6f80a",
+          "contentHash": "1d8a4d191c23e08a4035c5c2b793339e46d4704fecc1dbf37bceb5e6381bae86",
+          "storedHash": "1d8a4d191c23e08a4035c5c2b793339e46d4704fecc1dbf37bceb5e6381bae86",
+          "replyTo": "3956969298"
+        },
+        {
+          "githubId": "5140699926",
+          "kind": "review",
+          "sourceId": "5eb04d72-6137-4e40-8210-b8646efde9af",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964179204",
+          "kind": "review-comment",
+          "sourceId": "7f9ee0c4-4aff-40ce-992e-321ce68581cf",
+          "contentHash": "5eaa45b87c719c61ded9a5dd9644be0caccf84b1920417ac43de1c9629be5c4e",
+          "storedHash": "5eaa45b87c719c61ded9a5dd9644be0caccf84b1920417ac43de1c9629be5c4e",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149205770",
+          "kind": "review",
+          "sourceId": "57c3fabc-7a64-48ae-9167-a078d276bbaa",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964601740",
+          "kind": "review-comment",
+          "sourceId": "7ba88bbe-fe3b-42c8-a62f-9b0b93e40589",
+          "contentHash": "439ca26944f4cefe67b68de56ed5aa4ed20e1657c3cbd0369335fbfca3dc7d0c",
+          "storedHash": "439ca26944f4cefe67b68de56ed5aa4ed20e1657c3cbd0369335fbfca3dc7d0c",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149695611",
+          "kind": "review",
+          "sourceId": "c15cc801-2500-4670-9def-ecffda10ff38",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149729555",
+          "kind": "review",
+          "sourceId": "2534ac1d-e2d9-4850-a908-88b8f96b686d",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964628888",
+          "kind": "review-comment",
+          "sourceId": "1e8fcdf9-169f-4241-8f90-6650772e4bd0",
+          "contentHash": "ce90e0368d6e895ac74b0c3776f0ddad24e96396673867aac9af1173739e044d",
+          "storedHash": "ce90e0368d6e895ac74b0c3776f0ddad24e96396673867aac9af1173739e044d",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149774586",
+          "kind": "review",
+          "sourceId": "516701ff-9ce2-482a-a98e-92f7641dc7f8",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964665642",
+          "kind": "review-comment",
+          "sourceId": "99fb51f1-8aee-40c9-817c-ee83f98edfbe",
+          "contentHash": "7a7306c3f6b4a9b9502e6132eed60a55694093f72c44520d419e3809fe0301fb",
+          "storedHash": "7a7306c3f6b4a9b9502e6132eed60a55694093f72c44520d419e3809fe0301fb",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964697403",
+          "kind": "review-comment",
+          "sourceId": "0bd34646-68c8-4983-bff5-5b4b36230000",
+          "contentHash": "76713aff99dcdc8c2fbcf79880921abd05fe7b1ef16c82417fda92c81a3add75",
+          "storedHash": "76713aff99dcdc8c2fbcf79880921abd05fe7b1ef16c82417fda92c81a3add75",
+          "replyTo": "3964179204"
+        },
+        {
+          "githubId": "3964697439",
+          "kind": "review-comment",
+          "sourceId": "55acbe28-d5d7-4e0a-b285-19a1182d803b",
+          "contentHash": "98df805d21d855a3294678aeef42ef1b517485ec0137b42a82056302ce20d725",
+          "storedHash": "98df805d21d855a3294678aeef42ef1b517485ec0137b42a82056302ce20d725",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149812767",
+          "kind": "review",
+          "sourceId": "f0d513d1-74c1-4b23-8f55-95d4b49cd171",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149812812",
+          "kind": "review",
+          "sourceId": "6e847b9a-8ea3-445d-a43e-b57de9cbc5b6",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964700801",
+          "kind": "review-comment",
+          "sourceId": "9c75afbd-25d8-48fa-b1f3-119a102294eb",
+          "contentHash": "5b517dc232d06d07fbcaea031e20408564987fc4ae0d099c65d7b88e32db9606",
+          "storedHash": "5b517dc232d06d07fbcaea031e20408564987fc4ae0d099c65d7b88e32db9606",
+          "replyTo": "3964601740"
+        },
+        {
+          "githubId": "5149817181",
+          "kind": "review",
+          "sourceId": "2c77d062-e733-41f1-b915-8cf17d6531bc",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964710888",
+          "kind": "review-comment",
+          "sourceId": "cd1f7745-ad6f-4622-bfed-c011b0555a41",
+          "contentHash": "656479f8c0ae38aee6f27ab9aedc659041b46c0514e225b47a082e1ba6cacfb8",
+          "storedHash": "656479f8c0ae38aee6f27ab9aedc659041b46c0514e225b47a082e1ba6cacfb8",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149830492",
+          "kind": "review",
+          "sourceId": "7430971c-9b59-4752-a156-82d7e8cec7c6",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964729892",
+          "kind": "review-comment",
+          "sourceId": "3e4b5971-cbe5-49e1-9646-0a88e7ef614a",
+          "contentHash": "47aa46ac562f2b991992de41b2f9a426948d07a7059e58ca36b84180abe7c831",
+          "storedHash": "47aa46ac562f2b991992de41b2f9a426948d07a7059e58ca36b84180abe7c831",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149854313",
+          "kind": "review",
+          "sourceId": "a8bfe855-adb3-48ef-a68f-f2dd4d90c47d",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964749847",
+          "kind": "review-comment",
+          "sourceId": "3df704b1-10cf-4725-a78b-a77e6e4fc8c8",
+          "contentHash": "95506472f8e9f808ee82324bc20086fe051048d7c63c38dacdb089709efee18a",
+          "storedHash": "95506472f8e9f808ee82324bc20086fe051048d7c63c38dacdb089709efee18a",
+          "replyTo": null
+        },
+        {
+          "githubId": "5149876569",
+          "kind": "review",
+          "sourceId": "d7806806-3ea5-4c61-8cc3-507dc87f930c",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964788468",
+          "kind": "review-comment",
+          "sourceId": "91825847-0dbb-46e3-b75e-c252f26bd0fc",
+          "contentHash": "ec66924072438d0e4e169c864eac6040464e81d482e9d94850ffde3473e3e925",
+          "storedHash": "ec66924072438d0e4e169c864eac6040464e81d482e9d94850ffde3473e3e925",
+          "replyTo": "3964628888"
+        },
+        {
+          "githubId": "5149923983",
+          "kind": "review",
+          "sourceId": "10d8f8d3-76c4-46c6-b4bd-b0ef429b7b3b",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964906359",
+          "kind": "review-comment",
+          "sourceId": "2d6ea618-dc2a-4c39-a43a-cf7a23bbae32",
+          "contentHash": "842625298ee8efaf1dda25634083ec7cccec9a8301a428a0a46dc56eeec585b6",
+          "storedHash": "842625298ee8efaf1dda25634083ec7cccec9a8301a428a0a46dc56eeec585b6",
+          "replyTo": "3964665642"
+        },
+        {
+          "githubId": "5150068027",
+          "kind": "review",
+          "sourceId": "e28273da-7a58-4183-a757-50944fe44b2f",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3964961412",
+          "kind": "review-comment",
+          "sourceId": "f7e810d6-1aaa-4619-8a4a-0016ed98778d",
+          "contentHash": "d6176d6fdbd4b1426868926b1395c1b5187bed764fb226e12823c2c1cd15b691",
+          "storedHash": "d6176d6fdbd4b1426868926b1395c1b5187bed764fb226e12823c2c1cd15b691",
+          "replyTo": "3964697439"
+        },
+        {
+          "githubId": "5150135409",
+          "kind": "review",
+          "sourceId": "5bba5b74-3a0d-4647-b47a-db68d09b1ad8",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3965343153",
+          "kind": "review-comment",
+          "sourceId": "5b64099e-77a3-4ead-b9b2-d99fb443c882",
+          "contentHash": "b182a211dbc7aacae7174965f94c496251782cf4708c0819321a4ac866f4b7aa",
+          "storedHash": "b182a211dbc7aacae7174965f94c496251782cf4708c0819321a4ac866f4b7aa",
+          "replyTo": "3964710888"
+        },
+        {
+          "githubId": "5150607225",
+          "kind": "review",
+          "sourceId": "73d4e9dd-e3f8-43e9-97d6-294ab8011ffb",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3966645488",
+          "kind": "review-comment",
+          "sourceId": "e5311c04-cfa0-4dc4-95d2-0cd897f11e9c",
+          "contentHash": "0718a8cfe110c6f3374b27b48edc554de60f2b5b2ad8cf0f5fb570f25d8c1fca",
+          "storedHash": "0718a8cfe110c6f3374b27b48edc554de60f2b5b2ad8cf0f5fb570f25d8c1fca",
+          "replyTo": "3964729892"
+        },
+        {
+          "githubId": "5152206563",
+          "kind": "review",
+          "sourceId": "30787b73-e929-40a1-85ef-72065232f722",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3967618767",
+          "kind": "review-comment",
+          "sourceId": "6f109ec1-6748-485d-ac4d-a7243f620474",
+          "contentHash": "c7368396e499ae70188c24ac233709b09c7001e576080d220a37fa15e318cff0",
+          "storedHash": "c7368396e499ae70188c24ac233709b09c7001e576080d220a37fa15e318cff0",
+          "replyTo": null
+        },
+        {
+          "githubId": "5153377408",
+          "kind": "review",
+          "sourceId": "7f78c10d-d3c7-430e-a045-1afd17067604",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "5153674617",
+          "kind": "review",
+          "sourceId": "ab3d9a07-ac3f-4305-a267-c5216a09be78",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3967869279",
+          "kind": "review-comment",
+          "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+          "storedHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+          "replyTo": null
+        },
+        {
+          "githubId": "3968842864",
+          "kind": "review-comment",
+          "sourceId": "6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "contentHash": "8ca5563c5b37fcd09b0ff2edc4f0fe46e8690223c7a962bf93e24f166b145748",
+          "storedHash": "8ca5563c5b37fcd09b0ff2edc4f0fe46e8690223c7a962bf93e24f166b145748",
+          "replyTo": "3967869279"
+        },
+        {
+          "githubId": "5154824682",
+          "kind": "review",
+          "sourceId": "a9ec60fd-273f-4323-a7b7-a2a58e4b7b2a",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "5155317887",
+          "kind": "review",
+          "sourceId": "aba09a5e-28ed-40f4-9fbb-a60a9282fe64",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        }
+      ],
+      "differences": [],
+      "absent": [
+        {
+          "id": "575e43a7-db81-4b6f-8ead-69054c5eb330",
+          "githubId": "3964581198",
+          "kind": "review-comment",
+          "contentHash": "08dea872e7b27dbf2481806e78d983d7899e1709fd0dc5cbb263c1cc3363142e",
+          "upstreamState": "not-returned"
+        }
+      ],
+      "coverage": {
+        "pull_request_id": "39a205c6-8eb2-46c5-98d6-80c9a0c82134",
+        "sync_started_at": "2026-09-15T08:43:11.643Z",
+        "observed_at": "2026-09-15T08:43:13.496Z",
+        "message_count": 45
+      },
+      "counts": {
+        "versions": 58,
+        "observations": 46
+      }
+    },
+    {
+      "number": 915,
+      "upstreamCount": 16,
+      "storedCount": 16,
+      "upstreamReplies": 3,
+      "matches": [
+        {
+          "githubId": "5565326981",
+          "kind": "issue-comment",
+          "sourceId": "031f6fb9-5207-41af-bb75-e159065f97ba",
+          "contentHash": "0d5a54a66b134fd37077069fead19d4d41f846eba33a6e6368b07bc6177236bb",
+          "storedHash": "0d5a54a66b134fd37077069fead19d4d41f846eba33a6e6368b07bc6177236bb",
+          "replyTo": null
+        },
+        {
+          "githubId": "3950260702",
+          "kind": "review-comment",
+          "sourceId": "bd78b133-43b9-4c72-8832-611c652f9867",
+          "contentHash": "b3670601d2a47c8f431f0f5a9ad6ee2d17919743b08d3307ab54775892b11c54",
+          "storedHash": "b3670601d2a47c8f431f0f5a9ad6ee2d17919743b08d3307ab54775892b11c54",
+          "replyTo": null
+        },
+        {
+          "githubId": "5132611384",
+          "kind": "review",
+          "sourceId": "927b95ce-0fbb-4c07-ad26-52568685354c",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "5132725973",
+          "kind": "review",
+          "sourceId": "12114ca2-ae6e-4097-85df-8b8378021b32",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3950361183",
+          "kind": "review-comment",
+          "sourceId": "9b3e8d79-c58a-46dd-94eb-66d62b3eb8ae",
+          "contentHash": "bf5883b840f8d72a053d0bc7fb600e710638e192f647b4af1985761dbb5b7188",
+          "storedHash": "bf5883b840f8d72a053d0bc7fb600e710638e192f647b4af1985761dbb5b7188",
+          "replyTo": null
+        },
+        {
+          "githubId": "5571746846",
+          "kind": "issue-comment",
+          "sourceId": "05465641-e52f-4f8a-8fc1-a6df7806c123",
+          "contentHash": "17794b1fb754f8908d6fe0b9b6f762abac7484e1519903f9eb61967285d76481",
+          "storedHash": "17794b1fb754f8908d6fe0b9b6f762abac7484e1519903f9eb61967285d76481",
+          "replyTo": null
+        },
+        {
+          "githubId": "3953686277",
+          "kind": "review-comment",
+          "sourceId": "dd8efcb9-d878-4238-84d0-39981589b270",
+          "contentHash": "2b057f6fe4dc65c2289a1f386914b7151f6dc8e30e8f652cf868b64ab2457c90",
+          "storedHash": "2b057f6fe4dc65c2289a1f386914b7151f6dc8e30e8f652cf868b64ab2457c90",
+          "replyTo": "3950361183"
+        },
+        {
+          "githubId": "5136512244",
+          "kind": "review",
+          "sourceId": "a2af90f9-cf10-42ab-86c1-f79fe6df3036",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3956176392",
+          "kind": "review-comment",
+          "sourceId": "833ef13f-d483-492b-8c14-987f3cf2aee4",
+          "contentHash": "55d189f07c1c991a1f08de00c3570c1d530d79fa595503d035e8fa685c66ae0e",
+          "storedHash": "55d189f07c1c991a1f08de00c3570c1d530d79fa595503d035e8fa685c66ae0e",
+          "replyTo": "3950260702"
+        },
+        {
+          "githubId": "5139599976",
+          "kind": "review",
+          "sourceId": "e9a8eb2f-52b8-474b-9c31-e1c438321992",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "5582313998",
+          "kind": "issue-comment",
+          "sourceId": "91660988-20e9-4f6b-b9ee-5c81861748e6",
+          "contentHash": "b58207252a48961a4e7ee8072ff319cb322207ae5240851691f923a5c201be49",
+          "storedHash": "b58207252a48961a4e7ee8072ff319cb322207ae5240851691f923a5c201be49",
+          "replyTo": null
+        },
+        {
+          "githubId": "3956784021",
+          "kind": "review-comment",
+          "sourceId": "d073c027-016d-4ab0-8fd8-1284ff0c5cfa",
+          "contentHash": "1b9c99afcb4516909f511d60590d9e0cfb579585134d0deccbeb176fe6eba3b9",
+          "storedHash": "1b9c99afcb4516909f511d60590d9e0cfb579585134d0deccbeb176fe6eba3b9",
+          "replyTo": null
+        },
+        {
+          "githubId": "5140402827",
+          "kind": "review",
+          "sourceId": "027269a2-d7f9-4f3a-80f1-f977c8a30d55",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "3957322585",
+          "kind": "review-comment",
+          "sourceId": "d7e6c48d-c056-4ce4-a89d-3c231b95ccfd",
+          "contentHash": "ee1ac1ea166292dd575ba4ec5e48551f9ca5314f3c7c9c258edc2e5f4a89aff6",
+          "storedHash": "ee1ac1ea166292dd575ba4ec5e48551f9ca5314f3c7c9c258edc2e5f4a89aff6",
+          "replyTo": "3956784021"
+        },
+        {
+          "githubId": "5141010561",
+          "kind": "review",
+          "sourceId": "124ed91d-14d3-4b90-9af4-03f87af130d6",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        },
+        {
+          "githubId": "5141091957",
+          "kind": "review",
+          "sourceId": "5b649ec4-8e61-4748-bcaa-aeca8ad41487",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "storedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "replyTo": null
+        }
+      ],
+      "differences": [],
+      "absent": [],
+      "coverage": {
+        "pull_request_id": "e48a2a47-5ff4-46e8-af24-44eda4f77758",
+        "sync_started_at": "2026-09-15T08:47:32.662Z",
+        "observed_at": "2026-09-15T08:47:33.884Z",
+        "message_count": 16
+      },
+      "counts": {
+        "versions": 17,
+        "observations": 16
+      }
+    }
+  ],
+  "guidanceSource": {
+    "id": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+    "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+    "observationHash": "e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7",
+    "htmlUrl": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279",
+    "path": "data-management/mainapp/domains/position_management/block/schema.py",
+    "upstreamState": "present",
+    "bodyHashVerified": true,
+    "threadOutdated": true
+  }
+}

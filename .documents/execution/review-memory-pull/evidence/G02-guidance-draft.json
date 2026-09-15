@@ -1,0 +1,44 @@
+{
+  "status": "prepared-not-activated",
+  "source": {
+    "id": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+    "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+    "observationHash": "e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7",
+    "htmlUrl": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279",
+    "path": "data-management/mainapp/domains/position_management/block/schema.py",
+    "upstreamState": "present",
+    "bodyHashVerified": true,
+    "threadOutdated": true
+  },
+  "content": {
+    "summary": "BlockUpdateRequest의 요청 값 검증은 Pydantic validator에서 수행한다",
+    "detail": "PR #917의 리뷰는 schema.py의 validate_block_update_type_rules를 BlockUpdateRequest의 model_validator 또는 field_validator로 옮기도록 요청했다. 이 지침은 요청 필드만으로 판정할 수 있는 검증에 한정한다. 작성자의 수정 답글과 thread 상태만으로 현재 코드의 수정 여부를 확정하지 않는다.",
+    "recommendation": "BlockUpdateRequest 변경을 검토할 때 필드 자체의 제약은 field_validator, 여러 요청 필드 사이의 제약은 model_validator에서 검증하는지 확인한다. service에 같은 요청 값 검증이 남아 있으면 schema로 옮길 수 있는지 검토한다. 실제 요청 생성 경로와 누락·null 입력의 의미를 함께 확인한다.",
+    "categories": [
+      "validation"
+    ],
+    "appliesTo": {
+      "languages": [
+        "Python"
+      ],
+      "filePaths": [
+        "data-management/mainapp/domains/position_management/block/schema.py",
+        "data-management/mainapp/domains/position_management/block/service.py"
+      ],
+      "symbols": [
+        "BlockUpdateRequest",
+        "validate_block_update_type_rules"
+      ],
+      "contracts": [
+        "BlockUpdateRequest의 요청 값만으로 판단할 수 있는 필드·필드 간 검증"
+      ],
+      "branches": []
+    },
+    "counterEvidence": [
+      "DB 조회, 권한, 저장된 block 상태가 필요한 검증은 요청 schema만으로 판단할 수 없으므로 이 지침에 따라 일괄 이동하지 않는다.",
+      "해당 제약이 기존 validator 또는 호출 전에 이미 검증되는 경우 중복 검증을 요구하지 않는다.",
+      "부분 수정에서 미전달 값과 명시적 null을 구분해야 하면 현재 Pydantic 설정과 호출 경로를 먼저 확인한다."
+    ],
+    "expiresAt": null
+  }
+}
