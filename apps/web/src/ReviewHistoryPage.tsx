@@ -1,3 +1,4 @@
+import { HistoryGuidancePanel } from './HistoryGuidancePanel.tsx';
 import { useEffect, useState } from 'react';
 import type {
   ReviewHistoryMessage,
@@ -455,7 +456,7 @@ export function HistorySource({
               이전 관측 더 보기
             </button>
           ) : null}
-          <div data-history-guidance-source={item.id} data-can-manage={manage} />
+          <HistoryGuidancePanel repositoryId={repo} source={item} manage={manage} />
         </>
       ) : (
         <p role="status">원문을 불러오는 중입니다.</p>

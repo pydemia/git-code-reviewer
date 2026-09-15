@@ -1,3 +1,4 @@
+import { registerHistoryGuidanceRoutes } from './review-history-guidance.js';
 import { registerHistoryReadRoutes } from './review-history-read.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Database } from '@gcr/db';
@@ -56,6 +57,7 @@ export async function registerReviewHistoryRoutes(
     });
     const base = '/api/v1/repositories/:repoId/review-history';
     await registerHistoryReadRoutes(routes, database, authorize);
+    await registerHistoryGuidanceRoutes(routes, database, authorize);
     routes.post(`${base}/collections`, { preHandler: requireUser }, async (request, reply) => {
       const { repoId } = repoParams.parse(request.params);
       await authorize(request, repoId, 'maintainer');

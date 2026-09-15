@@ -1,3 +1,8 @@
+import { projectKnowledge, type KnowledgeScope } from '../services/knowledge-projection.js';
+import { recallReviewMemories } from '../services/review-memory.js';
+import { centralKnowledgeBundle } from '@gcr/client-contract';
+import { chromium } from 'playwright';
+import { createServer } from '../../../web/src/review-criteria-test-server.js';
 import { registerAuthentication } from '../auth/index.js';
 import { issueClientKey, ClientCredentialError } from '../auth/client-credentials.js';
 import { randomUUID, createHash } from 'node:crypto';
@@ -98,6 +103,27 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
             : null;
     });
     await registerReviewHistoryRoutes(app, db, new AuthorizationService(config()));
+    app.get('/api/v1/me', async (request) => ({ schemaVersion: 1, ...request.user }));
+    app.get('/api/v1/repositories', async () => ({
+      schemaVersion: 1,
+      items: [
+        {
+          id: repo,
+          githubId: '1',
+          tenantId: tenant,
+          tenantSlug: 'default',
+          tenantName: 'Default',
+          owner: 'fixture',
+          name: 'history',
+          webBaseUrl: 'https://github.example',
+          lastPolledAt: null,
+          nextPollAt: null,
+          pollOutcome: null,
+          pollError: null,
+        },
+      ],
+      nextCursor: null,
+    }));
   });
   afterAll(async () => {
     await app?.close();
@@ -438,4 +464,268 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       );
     }
   });
+  it('activates public source guidance once, publishes existing contract, excludes changed sources and retains history', async () => {
+    const row = (await db.query('select * from github_pr_messages where github_id=201')).rows[0];
+    const payload = {
+      sourceId: row.id,
+      contentHash: row.content_hash,
+      observationHash: row.observation_hash,
+      content: {
+        summary: 'Check schema validation',
+        detail: 'Source-based guidance',
+        recommendation: 'Inspect request validators',
+        categories: ['validation'],
+        appliesTo: {
+          languages: ['Python'],
+          filePaths: ['src/test.ts'],
+          symbols: [],
+          contracts: ['Request-only validation'],
+          branches: [],
+        },
+        counterEvidence: ['Validation requires database state'],
+        expiresAt: null,
+      },
+    };
+    const create = () =>
+      app.inject({ method: 'POST', url: base() + '/guidance', headers: headers(), payload });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: base() + '/guidance',
+          headers: headers('reader'),
+          payload,
+        })
+      ).statusCode,
+    ).toBe(404);
+    const created = await create();
+    expect(created.statusCode, created.body).toBe(201);
+    const id = created.json().id;
+    expect((await create()).json().id).toBe(id);
+    expect(created.json().publicationRequested).toBe(false);
+    const activation = () =>
+      app.inject({
+        method: 'POST',
+        url: base() + '/guidance/' + id + '/activate',
+        headers: headers(),
+        payload: { revision: 1 },
+      });
+    const active = await activation();
+    expect(active.statusCode, active.body).toBe(200);
+    expect(active.json().publicationRequested).toBe(true);
+    expect((await activation()).statusCode).toBe(200);
+    expect(
+      (
+        await db.query(
+          "select count(*)::int as n from review_memory_events where memory_id=$1 and action='activated'",
+          [id],
+        )
+      ).rows[0].n,
+    ).toBe(1);
+    const scope = (
+      await db.query<KnowledgeScope>(
+        "select * from review_knowledge_scopes where repository_id=$1 and component='collective'",
+        [repo],
+      )
+    ).rows[0];
+    const projection = await projectKnowledge(db, scope);
+    const bundle = centralKnowledgeBundle(JSON.parse(projection.bytes));
+    expect(bundle.component).toBe('collective');
+    expect(projection.bytes).toContain('Check schema validation');
+    expect(projection.bytes).toContain('Validation requires database state');
+    expect(projection.bytes).not.toContain('new revision');
+    const read = await app.inject({ url: base() + '/guidance/' + id, headers: headers('reader') });
+    expect(read.statusCode).toBe(200);
+    expect(read.json().source.id).toBe(row.id);
+    const tenant = reader.tenantIds[0];
+    expect(
+      (
+        await recallReviewMemories(db, {
+          tenantId: tenant,
+          repositoryId: repo,
+          filePaths: ['src/test.ts'],
+        })
+      ).items.some((x) => x.id === id),
+    ).toBe(true);
+    await persistPullRequestMessages(db, repo, 7, [], new Date(Date.now() + 7200000), undefined, {
+      complete: true,
+    });
+    expect(
+      (await app.inject({ url: base() + '/guidance/' + id, headers: headers('reader') })).json()
+        .needsReview,
+    ).toBe(true);
+    expect((await projectKnowledge(db, scope)).bytes).not.toContain('Check schema validation');
+    expect(
+      (
+        await recallReviewMemories(db, {
+          tenantId: tenant,
+          repositoryId: repo,
+          filePaths: ['src/test.ts'],
+        })
+      ).items.some((x) => x.id === id),
+    ).toBe(false);
+    expect((await activation()).statusCode).toBe(409);
+    expect((await create()).statusCode).toBe(409);
+    const retired = await app.inject({
+      method: 'POST',
+      url: base() + '/guidance/' + id + '/retire',
+      headers: headers(),
+      payload: { revision: 1 },
+    });
+    expect(retired.statusCode, retired.body).toBe(200);
+    expect(
+      (await db.query('select body from github_pr_messages where id=$1', [row.id])).rows[0].body,
+    ).toBe('new revision');
+    // Existing personal/manual rows are not exposed by this public history guidance API.
+    const privateRow = (
+      await db.query(
+        `insert into review_memories(tenant_id,repository_id,scope,owner_user_id,kind,state,summary,search_text,aggregation_key,content_hash,source_kind) values($1,$2,'personal',$3,'decision','candidate','PRIVATE_HISTORY_SENTINEL','private',$4,$4,'manual') returning id`,
+        [tenant, repo, reader.id, 'f'.repeat(64)],
+      )
+    ).rows[0];
+    const list = await app.inject({ url: base() + '/guidance', headers: headers('reader') });
+    expect(list.body).not.toContain('PRIVATE_HISTORY_SENTINEL');
+    expect(
+      (await app.inject({ url: base() + '/guidance/' + privateRow.id, headers: headers() }))
+        .statusCode,
+    ).toBe(404);
+  });
+  it('keeps a stale draft inactive without leaving a publication projection', async () => {
+    await persistPullRequestMessages(
+      db,
+      repo,
+      8,
+      [message('draft source', 301)],
+      new Date(Date.now() + 8000000),
+      undefined,
+      { complete: true },
+    );
+    const row = (await db.query('select * from github_pr_messages where github_id=301')).rows[0];
+    const created = await app.inject({
+      method: 'POST',
+      url: base() + '/guidance',
+      headers: headers(),
+      payload: {
+        sourceId: row.id,
+        contentHash: row.content_hash,
+        observationHash: row.observation_hash,
+        content: {
+          summary: 'Draft',
+          detail: '',
+          recommendation: 'Check',
+          categories: [],
+          appliesTo: {
+            languages: [],
+            filePaths: ['src/test.ts'],
+            symbols: [],
+            contracts: [],
+            branches: [],
+          },
+          counterEvidence: ['Counterexample'],
+          expiresAt: null,
+        },
+      },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    await persistPullRequestMessages(
+      db,
+      repo,
+      8,
+      [message('edited draft source', 301)],
+      new Date(Date.now() + 9000000),
+      undefined,
+      { complete: true },
+    );
+    const activation = await app.inject({
+      method: 'POST',
+      url: base() + '/guidance/' + created.json().id + '/activate',
+      headers: headers(),
+      payload: { revision: 1 },
+    });
+    expect(activation.statusCode, activation.body).toBe(409);
+    expect(
+      (await db.query('select state from review_memories where id=$1', [created.json().id])).rows[0]
+        .state,
+    ).toBe('candidate');
+    expect(
+      (
+        await db.query('select 1 from review_knowledge_memory_projections where memory_id=$1', [
+          created.json().id,
+        ])
+      ).rowCount,
+    ).toBe(0);
+  });
+  it('opens stored source and activates guidance from the central screen at desktop and mobile widths', async () => {
+    await app.listen({ host: '127.0.0.1', port: 0 });
+    const address = app.server.address();
+    if (!address || typeof address === 'string') throw Error('Owned server');
+    const vite = await createServer({
+      root: path.resolve('apps/web'),
+      server: { host: '127.0.0.1', port: 0, proxy: { '/api': `http://127.0.0.1:${address.port}` } },
+    });
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+    try {
+      await vite.listen();
+      const web = vite.httpServer!.address();
+      if (!web || typeof web === 'string') throw Error('Owned web');
+      browser = await chromium.launch({ channel: 'chrome', headless: true });
+      const context = await browser.newContext({
+        viewport: { width: 1360, height: 1000 },
+        extraHTTPHeaders: headers(),
+      });
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(`http://127.0.0.1:${web.port}/review-history`);
+      await page
+        .locator('.history-messages article')
+        .filter({ hasText: 'edited draft source' })
+        .getByRole('button', { name: '원문·변경 이력 보기', exact: true })
+        .click();
+      await page.getByText('원문을 바탕으로 지침 작성', { exact: true }).click();
+      await page.getByLabel('지침 요약', { exact: true }).fill('Browser source guidance');
+      await page.getByLabel('검토 지침', { exact: true }).fill('Review the request validator');
+      await page
+        .getByLabel('적용 조건 · 한 줄에 하나', { exact: true })
+        .fill('Request validation only');
+      await page
+        .getByLabel('반증 지침 · 한 줄에 하나', { exact: true })
+        .fill('A database lookup is required');
+      await page.getByRole('button', { name: '지침 초안 저장', exact: true }).click();
+      await page.getByRole('button', { name: '활성화·발행', exact: true }).click();
+      await page.getByText('지침을 활성화하고 발행을 요청했습니다.', { exact: true }).waitFor();
+      expect(errors).toEqual([]);
+      if (process.env.GCR_HISTORY_SCREENSHOT)
+        await page.screenshot({
+          path: process.env.GCR_HISTORY_SCREENSHOT.replace('.png', '-desktop.png'),
+          fullPage: true,
+        });
+      await page.setViewportSize({ width: 420, height: 900 });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      if (process.env.GCR_HISTORY_SCREENSHOT)
+        await page.screenshot({ path: process.env.GCR_HISTORY_SCREENSHOT, fullPage: true });
+      await context.close();
+      const readerContext = await browser.newContext({ extraHTTPHeaders: headers('reader') });
+      const readerPage = await readerContext.newPage();
+      await readerPage.goto(`http://127.0.0.1:${web.port}/review-history`);
+      await readerPage
+        .locator('.history-messages article')
+        .filter({ hasText: 'edited draft source' })
+        .getByRole('button', { name: '원문·변경 이력 보기', exact: true })
+        .click();
+      await readerPage.getByText('Browser source guidance', { exact: true }).waitFor();
+      expect(await readerPage.getByText('원문을 바탕으로 지침 작성', { exact: true }).count()).toBe(
+        0,
+      );
+      expect(
+        await readerPage.getByRole('button', { name: '지침 비활성화', exact: true }).count(),
+      ).toBe(0);
+      await readerContext.close();
+    } finally {
+      await browser?.close();
+      await vite.close();
+    }
+  }, 60000);
 });

@@ -79,7 +79,7 @@ async function memorySourceFingerprint(
   if (memory.sourceKind === 'github-pr-message') {
     if (!memory.sourceGithubPrMessageId) return null;
     rows = await connection.query(
-      `select body,content_hash,path,line,side,commit_sha,observation_hash from github_pr_messages m where id=$1 and repository_id=$2 and content_hash=$3
+      `select body,content_hash,path,line,side,commit_sha,observation_hash from github_pr_messages m where id=$1 and repository_id=$2 and content_hash=$3 and upstream_state='present'
       and not exists(select 1 from github_pr_message_user_states s where s.message_id=m.id and s.user_id=$4 and s.state='ignored')`,
       [
         memory.sourceGithubPrMessageId,

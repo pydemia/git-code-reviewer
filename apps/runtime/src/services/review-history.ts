@@ -93,9 +93,9 @@ export async function historyPull(c: Connection, repoId: string, number: number)
     (select count(*)::int from github_pr_messages m where m.pull_request_id=p.id) as messages,
     (select count(*)::int from github_pr_messages m where m.pull_request_id=p.id and m.in_reply_to_github_id is not null) as replies,
     (select count(*)::int from github_pr_messages m where m.pull_request_id=p.id and m.upstream_state='not-returned') as missing,
-    c.observed_at,c.sync_started_at,c.message_count,s.last_error_code,s.claim_until,
+    c.observed_at,c.sync_started_at,c.message_count,case when c.sync_started_at is null or s.last_attempt_at>=c.sync_started_at then s.last_error_code else null end as last_error_code,s.claim_until,
     (select j.state from review_history_collection_items i join jobs j on j.id=i.job_id where i.pull_request_id=p.id order by j.created_at desc limit 1) as job_state,
-    (select j.last_error->>'code' from review_history_collection_items i join jobs j on j.id=i.job_id where i.pull_request_id=p.id and i.completed_at is null order by j.created_at desc limit 1) as job_error
+    (select case when i.completed_at is null and (c.sync_started_at is null or j.created_at>=c.sync_started_at) then j.last_error->>'code' else null end from review_history_collection_items i join jobs j on j.id=i.job_id where i.pull_request_id=p.id order by j.created_at desc limit 1) as job_error
     from pull_requests p left join review_history_coverage c on c.pull_request_id=p.id
     left join pull_request_conversation_sync s on s.pull_request_id=p.id where p.repository_id=$1 and p.number=$2`,
       [repoId, number],

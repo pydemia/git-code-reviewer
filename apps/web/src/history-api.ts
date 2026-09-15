@@ -57,3 +57,51 @@ export const loadHistoryCollection = async (repo: string, id: string, signal: Ab
   (await fetchJson(`${base(repo)}/collections/${id}`, signal)) as HistoryCollection;
 export const retryHistoryCollection = async (repo: string, id: string) =>
   (await mutateJson(`${base(repo)}/collections/${id}/retry`, 'POST', {})) as HistoryCollection;
+
+export type HistoryGuidance = {
+  schemaVersion: 1;
+  repositoryId: string;
+  id: string;
+  revision: number;
+  state: string;
+  needsReview: boolean;
+  publicationRequested: boolean;
+  content: import('@gcr/client-contract').CentralMemoryContent;
+  source: {
+    id: string;
+    pullNumber: number;
+    htmlUrl: string;
+    contentHash: string;
+    observationHash: string | null;
+    upstreamState: 'present' | 'not-returned';
+  };
+};
+export const loadHistoryGuidance = async (
+  repo: string,
+  source: string,
+  signal: AbortSignal,
+  cursor?: string | null,
+) =>
+  (await fetchJson(
+    `${base(repo)}/guidance?sourceId=${source}${cursor ? '&cursor=' + encodeURIComponent(cursor) : ''}`,
+    signal,
+  )) as { items: HistoryGuidance[]; nextCursor: string | null };
+export const createHistoryGuidance = async (
+  repo: string,
+  source: { id: string; contentHash: string; observationHash: string | null },
+  content: HistoryGuidance['content'],
+) =>
+  (await mutateJson(`${base(repo)}/guidance`, 'POST', {
+    sourceId: source.id,
+    contentHash: source.contentHash,
+    observationHash: source.observationHash,
+    content,
+  })) as HistoryGuidance;
+export const changeHistoryGuidance = async (
+  repo: string,
+  item: HistoryGuidance,
+  action: 'activate' | 'retire',
+) =>
+  (await mutateJson(`${base(repo)}/guidance/${item.id}/${action}`, 'POST', {
+    revision: item.revision,
+  })) as HistoryGuidance;
