@@ -5,6 +5,6 @@ export { ExecutorError } from './process.js';
 
 export const clientExecutorsPackage: ClientPackageInfo = Object.freeze({
   name: '@gcr/client-executors',
-  version: '0.1.0-alpha.41',
+  version: '0.1.0-alpha.42',
   contractVersion: CLIENT_CONTRACT_VERSION,
 });
