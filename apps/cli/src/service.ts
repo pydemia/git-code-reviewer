@@ -271,8 +271,8 @@ export async function executeServiceCommand(
         throw new CliError('usage', 'Allow requires explicit --trigger values.');
       const options: ServiceReviewOptions = {
         mode: text('mode', 'standalone') as ServiceReviewOptions['mode'],
-        model: text('model', 'gpt-6-astra'),
-        reasoningEffort: text('reasoning-effort', 'xhigh'),
+        model: text('model') ?? 'gpt-6-astra',
+        reasoningEffort: text('reasoning-effort') ?? 'xhigh',
         excludePatterns: many('exclude'),
         allowPaths: many('allow-path').length ? many('allow-path') : ['**'],
         durationMs: number('timeout-ms', 120000),
