@@ -12,6 +12,7 @@ import {
   historyPull,
   historyMessage,
   historyObservations,
+  historyBodyVersions,
   historyCursor,
   readHistoryCursor,
 } from '../services/review-history.js';
@@ -151,6 +152,17 @@ export async function registerHistoryReadRoutes(
     await authorize(request, repoId);
     return withHistoryRead(database, (c) =>
       historyObservations(c, repoId, number, sourceId, cursor),
+    );
+  });
+  routes.get(`${base}/pulls/:number/messages/:sourceId/versions`, options, async (request) => {
+    const { repoId, number, sourceId } = messageParams.parse(request.params);
+    const { cursor } = z
+      .object({ cursor: z.string().max(2048).optional() })
+      .strict()
+      .parse(request.query);
+    await authorize(request, repoId);
+    return withHistoryRead(database, (c) =>
+      historyBodyVersions(c, repoId, number, sourceId, cursor),
     );
   });
 }

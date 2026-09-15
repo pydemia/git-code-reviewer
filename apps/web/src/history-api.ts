@@ -1,4 +1,5 @@
 import {
+  reviewHistoryBodyVersionListSchema,
   reviewHistoryPullListSchema,
   reviewHistoryMessageListSchema,
   reviewHistoryMessageDetailSchema,
@@ -105,3 +106,17 @@ export const changeHistoryGuidance = async (
   (await mutateJson(`${base(repo)}/guidance/${item.id}/${action}`, 'POST', {
     revision: item.revision,
   })) as HistoryGuidance;
+
+export const loadHistoryBodyVersions = async (
+  repo: string,
+  number: number,
+  id: string,
+  signal: AbortSignal,
+  cursor?: string | null,
+) =>
+  reviewHistoryBodyVersionListSchema.parse(
+    await fetchJson(
+      `${base(repo)}/pulls/${number}/messages/${id}/versions${suffix(cursor)}`,
+      signal,
+    ),
+  );

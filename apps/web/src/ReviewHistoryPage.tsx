@@ -14,6 +14,7 @@ import {
   loadHistoryMessage,
   loadHistoryMessages,
   loadHistoryObservations,
+  loadHistoryBodyVersions,
   loadHistoryPulls,
   retryHistoryCollection,
   type HistoryCollection,
@@ -378,6 +379,9 @@ export function HistorySource({
   onClose: () => void;
   manage: boolean;
 }) {
+  const [versions, setVersions] = useState<Awaited<
+    ReturnType<typeof loadHistoryBodyVersions>
+  > | null>(null);
   const [item, setItem] = useState<ReviewHistoryMessage | null>(null),
     [history, setHistory] = useState<Awaited<ReturnType<typeof loadHistoryObservations>> | null>(
       null,
@@ -389,11 +393,13 @@ export function HistorySource({
     void Promise.all([
       loadHistoryMessage(repo, number, sourceId, c.signal),
       loadHistoryObservations(repo, number, sourceId, c.signal),
+      loadHistoryBodyVersions(repo, number, sourceId, c.signal),
     ])
-      .then(([s, h]) => {
+      .then(([s, h, v]) => {
         if (c.signal.aborted) return;
         setItem(s.item);
         setHistory(h);
+        setVersions(v);
       })
       .catch((e) => {
         if (!c.signal.aborted) setError(errorMessage(e));
@@ -436,6 +442,47 @@ export function HistorySource({
           </p>
           <pre className="history-body">{item.body || '(본문 없음)'}</pre>
           <GitHubMessageProvenance source={item} />
+          <h4>저장된 본문 버전</h4>
+          <p>
+            본문 버전에는 저장 당시 확인된 본문과 위치만 표시합니다. 당시의 스레드 상태는 추정하지
+            않습니다.
+          </p>
+          {versions?.items.map((v) => (
+            <details key={v.id}>
+              <summary>{new Date(v.observedAt).toLocaleString()} · 본문 버전</summary>
+              <pre className="history-body">{v.body || '(본문 없음)'}</pre>
+              <p>
+                {v.path ?? '파일 위치 미확인'}
+                {v.line ? `:${v.line}` : ''}
+                {v.side ? ` · ${v.side}` : ''}
+              </p>
+              {v.commitSha ? <p>commit {v.commitSha}</p> : null}
+            </details>
+          ))}
+          {versions?.nextCursor ? (
+            <button
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void loadHistoryBodyVersions(
+                  repo,
+                  number,
+                  sourceId,
+                  new AbortController().signal,
+                  versions.nextCursor,
+                )
+                  .then((next) =>
+                    setVersions((v) =>
+                      v ? { ...next, items: [...v.items, ...next.items] } : next,
+                    ),
+                  )
+                  .catch((e) => setError(errorMessage(e)))
+                  .finally(() => setBusy(false));
+              }}
+            >
+              이전 본문 버전 더 보기
+            </button>
+          ) : null}
           <h4>수집 이후의 관측 이력</h4>
           <p>수집 이전에 수정·삭제된 내용은 복원된 것으로 표시하지 않습니다.</p>
           {history?.items.map((h) => (

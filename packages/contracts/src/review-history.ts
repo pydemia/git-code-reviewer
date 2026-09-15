@@ -60,3 +60,25 @@ export const reviewHistoryObservationListSchema = githubPrMessageHistorySchema.e
 export type ReviewHistoryPull = z.infer<typeof reviewHistoryPullSchema>;
 export type ReviewHistoryMessage = z.infer<typeof reviewHistoryMessageSchema>;
 export type ReviewHistoryMessageSummary = z.infer<typeof reviewHistoryMessageSummarySchema>;
+
+/** Body versions predate REST/thread observations; absent metadata is not reconstructed. */
+export const reviewHistoryBodyVersionListSchema = z.object({
+  schemaVersion: z.literal(1),
+  repositoryId: z.string().uuid(),
+  sourceId: z.string().uuid(),
+  revision: z.string(),
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      body: z.string(),
+      contentHash: z.string().regex(/^[a-f0-9]{64}$/),
+      path: z.string().nullable(),
+      line: z.number().int().nullable(),
+      side: z.enum(['LEFT', 'RIGHT']).nullable(),
+      commitSha: z.string().nullable(),
+      githubUpdatedAt: z.string(),
+      observedAt: z.string(),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+});

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Database, DatabaseClient } from '@gcr/db';
 import { z } from 'zod';
 import {
+  reviewHistoryBodyVersionListSchema,
   reviewHistoryPullSchema,
   reviewHistoryMessageSchema,
   reviewHistoryObservationListSchema,
@@ -33,6 +34,7 @@ export async function historyRevision(c: Connection, repoId: string) {
       `select
     (select coalesce(max(o.id),0)::text from github_pr_message_observations o join github_pr_messages m on m.id=o.message_id where m.repository_id=$1) as observation,
     (select count(*)::text from github_pr_messages where repository_id=$1) as messages,
+    (select count(*)::text from github_pr_message_versions v join github_pr_messages m on m.id=v.message_id where m.repository_id=$1) as versions,
     (select count(*)::text from pull_requests where repository_id=$1) as pulls,
     (select max(github_updated_at)::text from pull_requests where repository_id=$1) as updated`,
       [repoId],
@@ -202,5 +204,39 @@ export async function historyObservations(
       .map((x) => ({ ...x, observedAt: utc(x.observedAt), syncStartedAt: utc(x.syncStartedAt) })),
     nextCursor:
       rows.length > 10 ? historyCursor(repoId, `observations:${id}`, revision, rows[9].id) : null,
+  });
+}
+
+export async function historyBodyVersions(
+  c: Connection,
+  repoId: string,
+  number: number,
+  id: string,
+  cursor?: string,
+) {
+  await historyMessage(c, repoId, number, id);
+  const revision = await historyRevision(c, repoId);
+  const last = readHistoryCursor(cursor, repoId, `body-versions:${id}`, revision);
+  if (last) z.string().uuid().parse(last);
+  const rows = (
+    await c.query(
+      `select id,body,content_hash as "contentHash",path,line,side,commit_sha as "commitSha",github_updated_at as "githubUpdatedAt",observed_at as "observedAt" from github_pr_message_versions where message_id=$1 and ($2::uuid is null or (observed_at,id)<(select observed_at,id from github_pr_message_versions where id=$2 and message_id=$1)) order by observed_at desc,id desc limit 11`,
+      [id, last],
+    )
+  ).rows;
+  return reviewHistoryBodyVersionListSchema.parse({
+    schemaVersion: 1,
+    repositoryId: repoId,
+    sourceId: id,
+    revision,
+    items: rows
+      .slice(0, 10)
+      .map((x) => ({
+        ...x,
+        githubUpdatedAt: utc(x.githubUpdatedAt),
+        observedAt: utc(x.observedAt),
+      })),
+    nextCursor:
+      rows.length > 10 ? historyCursor(repoId, `body-versions:${id}`, revision, rows[9].id) : null,
   });
 }

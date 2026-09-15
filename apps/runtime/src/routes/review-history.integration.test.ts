@@ -379,6 +379,65 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
     expect(stale.statusCode, stale.body).toBe(409);
     expect((await db.query('select count(*)::int as n from review_memories')).rows[0].n).toBe(0);
   });
+
+  it('reads legacy body versions that have no REST observation without inventing thread history', async () => {
+    const row = (await db.query('select * from github_pr_messages where github_id=201')).rows[0];
+    const body = 'Legacy body before observation collection';
+    await db.query(
+      `insert into github_pr_message_versions(message_id,content_hash,body,path,github_updated_at,observed_at) values($1,$2,$3,'old/path.py','2026-01-01','2026-01-02')`,
+      [row.id, createHash('sha256').update(body).digest('hex'), body],
+    );
+    const response = await app.inject({
+      url: base() + '/pulls/7/messages/' + row.id + '/versions',
+      headers: headers('reader'),
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().items.some((v: { body: string }) => v.body === body)).toBe(true);
+    expect(response.json().items.find((v: { body: string }) => v.body === body).path).toBe(
+      'old/path.py',
+    );
+    const observations = await app.inject({
+      url: base() + '/pulls/7/messages/' + row.id + '/history',
+      headers: headers('reader'),
+    });
+    expect(observations.body).not.toContain(body);
+    expect(
+      (
+        await app.inject({
+          url: base() + '/pulls/8/messages/' + row.id + '/versions',
+          headers: headers('reader'),
+        })
+      ).statusCode,
+    ).toBe(404);
+    for (let i = 0; i < 12; i++)
+      await db.query(
+        `insert into github_pr_message_versions(message_id,content_hash,body,github_updated_at) values($1,$2,$3,'2026-01-01')`,
+        [
+          row.id,
+          createHash('sha256')
+            .update('body' + i)
+            .digest('hex'),
+          'body' + i,
+        ],
+      );
+    const first = await app.inject({
+      url: base() + '/pulls/7/messages/' + row.id + '/versions',
+      headers: headers('reader'),
+    });
+    expect(first.json().items).toHaveLength(10);
+    const second = await app.inject({
+      url: base() + '/pulls/7/messages/' + row.id + '/versions?cursor=' + first.json().nextCursor,
+      headers: headers('reader'),
+    });
+    expect(second.statusCode, second.body).toBe(200);
+    expect(
+      second
+        .json()
+        .items.some((v: { id: string }) =>
+          first.json().items.some((x: { id: string }) => x.id === v.id),
+        ),
+    ).toBe(false);
+  });
   it('accepts real existing reader credentials only on GET routes and revokes access immediately', async () => {
     const serverId = randomUUID(),
       sessionToken = randomUUID(),
