@@ -6,7 +6,12 @@ import { access, mkdtemp, mkdir, realpath, rm, stat, writeFile } from 'node:fs/p
 import os from 'node:os';
 import path from 'node:path';
 import type { FixedSourceToolPort, ReviewChatQuestionPort } from '@gcr/client-contract';
-import { codexAccountEnvironment, codexReviewArgs, reviewModelCatalog } from './codex-config.js';
+import {
+  codexAccountEnvironment,
+  codexReviewArgs,
+  codexReviewPrompt,
+  reviewModelCatalog,
+} from './codex-config.js';
 import { probeCodexCatalog } from './catalog-probe.js';
 import { ExecutorError, runManagedProcess } from './process.js';
 import { fixedSourceTools, reviewQuestionTool, startSourceBridge } from './source-bridge.js';
@@ -107,20 +112,14 @@ class CodexAccountExecutor {
       await writeFile(path.join(root, 'models.json'), this.catalog, { mode: 0o600 });
       bridge = await startSourceBridge(input.source, questions);
       const args = codexReviewArgs(root, bridge.url, !!questions, this.model, this.effort);
-      if (input.responseSchema) {
-        const schema = JSON.stringify(input.responseSchema);
-        if (Buffer.byteLength(schema) > 65_536) throw new ExecutorError('executor-unavailable');
-        const file = path.join(root, 'response-schema.json');
-        await writeFile(file, schema, { mode: 0o600 });
-        args.push('--output-schema', file);
-      }
+      const prompt = codexReviewPrompt(input.prompt, input.responseSchema);
       args.push('-');
       const response = await runIsolatedCodex({
         command: this.command,
         args,
         cwd,
         env: { ...this.environment, GCR_FIXED_SOURCE_TOKEN: bridge.token },
-        stdin: input.prompt,
+        stdin: prompt,
         timeoutMs: input.timeoutMs,
         ...(input.signal ? { signal: input.signal } : {}),
       });
@@ -266,6 +265,7 @@ export async function prepareCodexAccountExecutor(options: {
           options.reasoningEffort,
         ),
         isolation: 'macos-global-instruction-deny-v1',
+        responseFormat: 'prompt-json-schema-v1',
         authHome: environment.CODEX_HOME ?? path.join(os.homedir(), '.codex'),
       }),
     );

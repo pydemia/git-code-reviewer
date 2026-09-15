@@ -1,5 +1,25 @@
 import { expect, it } from 'vitest';
-import { codexReviewArgs, reviewModelCatalog } from './codex-config.js';
+import { codexReviewArgs, codexReviewPrompt, reviewModelCatalog } from './codex-config.js';
+
+it('retains the response contract in stdin with a bounded schema and no CLI schema option', () => {
+  const schema = {
+    type: 'object',
+    properties: { summary: { type: 'string' } },
+    required: ['summary'],
+    additionalProperties: false,
+  };
+  const prompt = 'Review only the captured source. $() `literal`';
+  expect(codexReviewPrompt(prompt)).toBe(prompt);
+  const framed = codexReviewPrompt(prompt, schema);
+  expect(framed.startsWith(prompt + '\n\n')).toBe(true);
+  expect(JSON.parse(framed.slice(framed.lastIndexOf('\n') + 1))).toEqual(schema);
+  expect(codexReviewArgs('/tmp/review', 'http://127.0.0.1/source')).not.toContain(
+    '--output-schema',
+  );
+  expect(() => codexReviewPrompt(prompt, { description: 'x'.repeat(65_536) })).toThrow(
+    'executor-unavailable',
+  );
+});
 
 it('preserves selected model and effort while restricting the existing source harness', () => {
   const catalog = JSON.stringify({
