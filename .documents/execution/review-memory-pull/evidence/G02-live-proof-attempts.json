@@ -1,0 +1,30 @@
+{
+  "scope": "Verification harness corrections only; no product code or deployment changes. No collection or guidance mutation in attempts 1 and 2.",
+  "attempts": [
+    {
+      "attempt": 1,
+      "loginSucceeded": true,
+      "failure": "PostgreSQL MD5 unavailable; cleanup assertion expected 401 instead of existing revoked-key 403 contract.",
+      "ownedKeyId": "c5646136-6cdb-4661-bbb7-f104031f0cf1",
+      "ownedKeyRevoked": true,
+      "ownedSessionRemoved": true,
+      "sessionIdentification": "Exact owned auth.login audit req-bo at 2026-09-15T09:12:42.320Z, session created 09:12:42.298Z and last seen 09:12:42.509Z; one matching row removed.",
+      "existingSessionsUntouched": true
+    },
+    {
+      "attempt": 2,
+      "failure": {
+        "message": "could not identify an ordering operator for type json",
+        "code": "42883"
+      },
+      "ownedKeyId": "b955cf8d-308d-4f97-b173-9f043c764705",
+      "ownedKeyRevoked": true,
+      "ownedSessionClosed": true
+    },
+    {
+      "attempt": 3,
+      "status": "passed",
+      "evidence": "G02-live-proof.json"
+    }
+  ]
+}

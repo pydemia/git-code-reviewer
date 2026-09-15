@@ -43,7 +43,8 @@
   "build": "packages/runtime/web passed; final image rebuilt from clean git archive",
   "lint": "changed TypeScript ESLint and diff checks passed",
   "helmTest": "Succeeded at 2026-09-15T17:52:36+09:00",
-  "realAuthentication": "pending-valid-existing-GCR-credential; bootstrap credential did not match; no login attempt or password change",
+  "realAuthentication": "passed-existing-admin-login-and-scoped-knowledge-reader; see G02-live-proof.json",
   "runnerAbsentInSourceAndImage": true,
-  "clientPackagesAndCDSourceUnchanged": true
+  "clientPackagesAndCDSourceUnchanged": true,
+  "actualGuidancePublication": "passed-one-source-linked-guidance-and-signed-collective-bundle"
 }

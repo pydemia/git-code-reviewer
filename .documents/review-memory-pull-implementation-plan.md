@@ -1,7 +1,7 @@
 # GCR 리뷰 이력 저장과 Commit Defender pulling 구현 계획
 
 작성일: 2026-09-15
-상태: G01 완료, G02 구현·배포 완료 후 실제 인증·지침 발행 검증 대기. G03–G04는 미착수이며 기존 전체 개발 goal은 삭제됨. 완료 근거는 [G01 실행 기록](execution/review-memory-pull/G01.md), G02의 구현·배포·남은 검증은 [G02 실행 기록](execution/review-memory-pull/G02.md)을 따른다.
+상태: G01·G02 완료. G03–G04는 미착수이며 기존 전체 개발 goal은 삭제됨. 완료 근거와 검증 범위는 [G01 실행 기록](execution/review-memory-pull/G01.md), [G02 실행 기록](execution/review-memory-pull/G02.md)을 따른다.
 근거: [원래 요구 범위 점검](reviews/original-scope-review-2026-09-15.md)
 
 ## 목적과 적용 순서
@@ -13,7 +13,7 @@ GCR의 기존 PR 리뷰 동작을 유지하면서 과거 리뷰 코멘트를 저
 | Goal | 결과 | 의존성 | 현재 상태 |
 | --- | --- | --- | --- |
 | G01 | 기존 WIP 보관·분리와 문서 정리, GCR 리뷰 동작 복구·보존 | 없음 | 완료 |
-| G02 | 과거 리뷰 이력 저장·중앙 조회·읽기 API | G01의 운영 복구 | 실제 인증·지침 발행 검증 대기 |
+| G02 | 과거 리뷰 이력 저장·중앙 조회·읽기 API | G01의 운영 복구 | 완료: 실제 두 PR 대조·reader API·출처 지침 1건 발행 |
 | G03 | CD pulling과 기존 로컬 provider 리뷰 연결 | G02의 읽기 계약 | 미착수 |
 | G04 | 실제 과거 사례로 전체 흐름 검증·최종 전달 | G01–G03 | 미착수 |
 

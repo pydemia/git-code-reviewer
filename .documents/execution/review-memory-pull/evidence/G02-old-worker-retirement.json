@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-15T09:06:08.145341+00:00",
+  "oldPodsAbsent": true,
+  "oldPodNames": [
+    "git-code-reviewer-worker-6847557848-qjjb8",
+    "git-code-reviewer-worker-78dd7c75fb-k2krb"
+  ],
+  "currentPod": "git-code-reviewer-worker-8494f5dfcd-hsddh",
+  "ready": true,
+  "restarts": 0,
+  "forcedDeletion": false,
+  "manualProcessTermination": false
+}

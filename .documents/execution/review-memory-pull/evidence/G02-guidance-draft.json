@@ -1,5 +1,5 @@
 {
-  "status": "prepared-not-activated",
+  "status": "activated-and-published",
   "source": {
     "id": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
     "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
@@ -40,5 +40,7 @@
       "부분 수정에서 미전달 값과 명시적 null을 구분해야 하면 현재 Pydantic 설정과 호출 경로를 먼저 확인한다."
     ],
     "expiresAt": null
-  }
+  },
+  "guidanceId": "9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+  "publicationEvidence": "G02-live-proof.json"
 }
