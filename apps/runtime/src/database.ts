@@ -17,7 +17,13 @@ export function runtimeDatabase(
     }
   }
   if (config.DATABASE_ISOLATED_ROLES) options.expectedRole = role;
-  return createDatabase(config.DATABASE_URL, max, options);
+  const database = createDatabase(config.DATABASE_URL, max, options);
+  // pg removes broken idle clients itself. Handle the pool event without dumping
+  // the attached client, which can contain connection credentials.
+  database.on('error', () => {
+    process.stderr.write('{"level":"error","code":"DATABASE_IDLE_CONNECTION_LOST"}\n');
+  });
+  return database;
 }
 
 export async function openRuntimeDatabase(config: AppConfig, max: number): Promise<Database> {

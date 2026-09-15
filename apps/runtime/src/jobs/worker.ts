@@ -156,138 +156,147 @@ export async function runWorker(
       ? { status: 'ok' }
       : reply.code(503).send({ status: 'degraded' }),
   );
-  await health.listen({ host: config.HOST, port: config.WORKER_HEALTH_PORT });
+  try {
+    await health.listen({ host: config.HOST, port: config.WORKER_HEALTH_PORT });
 
-  while (!stopping) {
-    lastLoopAt = Date.now();
-    if (identityConfig && identityAdmin && !identityRunning && Date.now() >= nextIdentityAt) {
-      identityRunning = true;
-      // One sequential pass gives provisioning, reactivation and revocation a
-      // turn. Independent timers could repeatedly contend for the realm lease.
-      const identityTask = (async () => {
-        const phases = [
-          () => processIdentityOperation(database, identityConfig.binding, identityAdmin),
-          ...(identitySecurity
-            ? [
-                () =>
-                  processIdentityReactivation(database, identityConfig.binding, identitySecurity),
-                () => reconcileIdentitySecurity(database, identityConfig.binding, identitySecurity),
-              ]
-            : []),
-        ];
-        for (const phase of phases) {
-          if (stopping) break;
-          try {
-            await phase();
-          } catch {
+    while (!stopping) {
+      lastLoopAt = Date.now();
+      if (identityConfig && identityAdmin && !identityRunning && Date.now() >= nextIdentityAt) {
+        identityRunning = true;
+        // One sequential pass gives provisioning, reactivation and revocation a
+        // turn. Independent timers could repeatedly contend for the realm lease.
+        const identityTask = (async () => {
+          const phases = [
+            () => processIdentityOperation(database, identityConfig.binding, identityAdmin),
+            ...(identitySecurity
+              ? [
+                  () =>
+                    processIdentityReactivation(database, identityConfig.binding, identitySecurity),
+                  () =>
+                    reconcileIdentitySecurity(database, identityConfig.binding, identitySecurity),
+                ]
+              : []),
+          ];
+          for (const phase of phases) {
+            if (stopping) break;
+            try {
+              await phase();
+            } catch {
+              health.log.error(
+                { code: 'IDENTITY_RECONCILIATION_UNAVAILABLE' },
+                'identity background phase paused',
+              );
+            }
+          }
+        })().finally(() => {
+          nextIdentityAt = Date.now() + 2000;
+          identityRunning = false;
+          active.delete(identityTask);
+        });
+        active.add(identityTask);
+      }
+      if (Date.now() - lastRecoveryAt > 10000) {
+        await recoverExpiredJobs(database);
+        lastRecoveryAt = Date.now();
+      }
+      if (
+        config.KNOWLEDGE_PUBLICATION_ENABLED &&
+        !knowledgeRunning &&
+        Date.now() >= nextKnowledgeAt &&
+        active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY
+      ) {
+        knowledgeRunning = true;
+        const task = (async () => {
+          if (Date.now() >= nextManifestCleanupAt) {
+            await reconcileCriterionDeadlines(database);
+            await removeExpiredKnowledgeManifests(database);
+            nextManifestCleanupAt = Date.now() + 60000;
+          }
+          await publishNextKnowledge(database, artifacts);
+        })()
+          .catch(() => {
             health.log.error(
-              { code: 'IDENTITY_RECONCILIATION_UNAVAILABLE' },
-              'identity background phase paused',
+              { code: 'KNOWLEDGE_PUBLICATION_UNAVAILABLE' },
+              'knowledge publication paused',
             );
+          })
+          .finally(() => {
+            knowledgeRunning = false;
+            nextKnowledgeAt = Date.now() + 2000;
+            active.delete(task);
+          });
+        active.add(task);
+      }
+      let claimed = false;
+      while (!stopping && active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY) {
+        if (preferCriteria && (await startCriteria())) {
+          claimed = true;
+          continue;
+        }
+        const batchAvailable =
+          !config.CHAT_AGENT_ENABLED ||
+          config.WORKER_CONCURRENCY === 1 ||
+          activeBatch < config.WORKER_CONCURRENCY - 1;
+        const priorityJob =
+          !preferChat && batchAvailable ? await claimJob(database, executor) : null;
+        if (config.CHAT_AGENT_ENABLED && !priorityJob) {
+          const run = await claimAgentRun(database, executor);
+          if (run) {
+            preferChat = false;
+            preferCriteria = true;
+            claimed = true;
+            const task = executeAgentRun(database, config, run).catch(() =>
+              health.log.error({ runId: run.id }, 'chat run failed'),
+            );
+            active.add(task);
+            void task.finally(() => active.delete(task));
+            continue;
           }
         }
-      })().finally(() => {
-        nextIdentityAt = Date.now() + 2000;
-        identityRunning = false;
-        active.delete(identityTask);
-      });
-      active.add(identityTask);
-    }
-    if (Date.now() - lastRecoveryAt > 10000) {
-      await recoverExpiredJobs(database);
-      lastRecoveryAt = Date.now();
-    }
-    if (
-      config.KNOWLEDGE_PUBLICATION_ENABLED &&
-      !knowledgeRunning &&
-      Date.now() >= nextKnowledgeAt &&
-      active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY
-    ) {
-      knowledgeRunning = true;
-      const task = (async () => {
-        if (Date.now() >= nextManifestCleanupAt) {
-          await reconcileCriterionDeadlines(database);
-          await removeExpiredKnowledgeManifests(database);
-          nextManifestCleanupAt = Date.now() + 60000;
+        const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
+        if (!job) {
+          if (await startCriteria()) {
+            claimed = true;
+            continue;
+          }
+          break;
         }
-        await publishNextKnowledge(database, artifacts);
-      })()
-        .catch(() => {
-          health.log.error(
-            { code: 'KNOWLEDGE_PUBLICATION_UNAVAILABLE' },
-            'knowledge publication paused',
-          );
-        })
-        .finally(() => {
-          knowledgeRunning = false;
-          nextKnowledgeAt = Date.now() + 2000;
-          active.delete(task);
-        });
-      active.add(task);
-    }
-    let claimed = false;
-    while (!stopping && active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY) {
-      if (preferCriteria && (await startCriteria())) {
+        preferCriteria = true;
+        preferChat = true;
         claimed = true;
-        continue;
+        const task = executeJob(
+          database,
+          github,
+          artifacts,
+          config,
+          executor,
+          job,
+          health.log,
+          () => stopping,
+        ).catch((error: unknown) => {
+          health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
+        });
+        active.add(task);
+        activeBatch++;
+        void task.finally(() => {
+          active.delete(task);
+          activeBatch--;
+        });
       }
-      const batchAvailable =
-        !config.CHAT_AGENT_ENABLED ||
-        config.WORKER_CONCURRENCY === 1 ||
-        activeBatch < config.WORKER_CONCURRENCY - 1;
-      const priorityJob = !preferChat && batchAvailable ? await claimJob(database, executor) : null;
-      if (config.CHAT_AGENT_ENABLED && !priorityJob) {
-        const run = await claimAgentRun(database, executor);
-        if (run) {
-          preferChat = false;
-          preferCriteria = true;
-          claimed = true;
-          const task = executeAgentRun(database, config, run).catch(() =>
-            health.log.error({ runId: run.id }, 'chat run failed'),
-          );
-          active.add(task);
-          void task.finally(() => active.delete(task));
-          continue;
-        }
+      if (!claimed || active.size >= config.WORKER_CONCURRENCY) {
+        await Promise.race([shutdown, delay(500), ...active]);
       }
-      const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
-      if (!job) {
-        if (await startCriteria()) {
-          claimed = true;
-          continue;
-        }
-        break;
-      }
-      preferCriteria = true;
-      preferChat = true;
-      claimed = true;
-      const task = executeJob(
-        database,
-        github,
-        artifacts,
-        config,
-        executor,
-        job,
-        health.log,
-        () => stopping,
-      ).catch((error: unknown) => {
-        health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
-      });
-      active.add(task);
-      activeBatch++;
-      void task.finally(() => {
-        active.delete(task);
-        activeBatch--;
-      });
     }
-    if (!claimed || active.size >= config.WORKER_CONCURRENCY) {
-      await Promise.race([shutdown, delay(500), ...active]);
+  } finally {
+    // A dead loop must not leave a live health server that prevents restart.
+    stopping = true;
+    await health.close();
+    try {
+      await Promise.allSettled(active);
+    } finally {
+      await database.end();
     }
   }
-
-  await Promise.all(active);
-  await health.close();
-  await database.end();
 }
 
 export async function claimJob(database: Database, executor: string): Promise<ClaimedJob | null> {
