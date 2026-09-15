@@ -31,6 +31,7 @@ export * from './central-connection.js';
 export * from './repository-binding.js';
 export * from './knowledge-sync-loop.js';
 export * from './review-execution.js';
+export * from './review-history.js';
 export * from './review-requests.js';
 export * from './automatic-scheduler.js';
 export * from './automatic-source.js';

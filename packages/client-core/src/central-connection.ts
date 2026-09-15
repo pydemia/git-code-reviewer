@@ -10,7 +10,9 @@ import {
   centralConnectionRecord,
   centralConnectionReference,
   type CentralConnectionRecord,
+  decodeReviewHistory,
 } from '@gcr/client-contract';
+import { historyReadRoute } from './review-history.js';
 import { LocalRecordStore, type LocalRecordOptions } from './local-records.js';
 import { contentHash, defaultLocalDataDirectory } from './local-identity.js';
 import {
@@ -372,6 +374,105 @@ export class CentralConnections {
     const state = await this.state(id);
     await this.assert(state);
     return { id: state.value.id, audience: state.value.audience };
+  }
+  /** Raw history has no publication approval. Its encrypted local copy is gated
+   * by the same connection generation and signed authorization lease as knowledge. */
+  async readHistory(
+    id: string,
+    value: unknown,
+    freshness: 'online' | 'offline' = 'online',
+    signal?: AbortSignal,
+  ) {
+    const state = await this.state(id);
+    await this.assert(state);
+    const { request } = historyReadRoute(state.value.audience.repositoryId, value);
+    const access = await this.review(id, freshness, signal);
+    const cache = access.cache;
+    const pinned = await cache.read(freshness);
+    const { generation } = await cache.connectionState();
+    const records = await LocalRecordStore.open({
+      ...this.options,
+      dataDirectory: path.join(
+        this.options.dataDirectory ?? defaultLocalDataDirectory(),
+        'central-pr-history',
+        id,
+      ),
+    });
+    const key = contentHash(request);
+    try {
+      const old = await records.read('settings', key);
+      if (freshness === 'offline') {
+        const stored = (old && !old.deleted ? old.value : undefined) as
+          | { generation?: number; expiresAt?: string; fetchedAt?: string; data?: unknown }
+          | undefined;
+        if (
+          old?.deleted ||
+          !stored ||
+          stored.generation !== generation ||
+          typeof stored.expiresAt !== 'string' ||
+          Date.parse(stored.expiresAt) <= Date.now()
+        )
+          throw new KnowledgeSyncError(
+            'cache-unavailable',
+            'This history page is not available in the authorized cache.',
+          );
+        const data = decodeReviewHistory(request, stored.data);
+        if (data.repositoryId !== state.value.audience.repositoryId) throw denied();
+        await this.assert(state);
+        await cache.observeSnapshot(pinned.manifest, freshness);
+        return { data, cached: true, fetchedAt: stored.fetchedAt!, expiresAt: stored.expiresAt };
+      }
+      let data;
+      try {
+        data = await this.timed(signal, (s) => this.transport(state).history(request, s));
+      } catch (error) {
+        if (
+          error instanceof KnowledgeSyncError &&
+          ['authentication-required', 'revoked', 'identity-unavailable'].includes(error.code)
+        ) {
+          await cache.rejectAuthority(
+            generation,
+            error.code as 'authentication-required' | 'revoked' | 'identity-unavailable',
+          );
+          if (error.code !== 'identity-unavailable') {
+            this.invalid.add(state.value.credentialReference);
+            try {
+              await this.records.write(
+                'settings',
+                id,
+                { ...state.value, status: 'disconnected' },
+                state.revision,
+              );
+            } catch {
+              /* A changed connection wins. */
+            }
+            try {
+              await this.credentials.remove(state.value.credentialReference);
+            } catch {
+              /* Disconnect can retry cleanup. */
+            }
+          }
+        }
+        throw error;
+      }
+      await this.assert(state);
+      await cache.observeSnapshot(pinned.manifest, freshness);
+      if ((await cache.connectionState()).generation !== generation) throw denied();
+      const fetchedAt = new Date().toISOString(),
+        expiresAt = pinned.manifest.payload.offlineValidUntil;
+      // Manual navigation caches at most 128 distinct pages per connection.
+      if (old || (await records.listIds('settings')).length < 128)
+        await records.write(
+          'settings',
+          key,
+          { generation, fetchedAt, expiresAt, data },
+          old?.revision ?? 0,
+        );
+      await this.assert(state);
+      return { data, cached: false, fetchedAt, expiresAt };
+    } finally {
+      records.close();
+    }
   }
   async status(id: string) {
     const state = await this.state(id);

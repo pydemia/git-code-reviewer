@@ -9,6 +9,9 @@ import {
   KNOWLEDGE_CLIENT_CONTRACT_VERSION,
 } from '@gcr/client-contract';
 import { contentHash } from './local-identity.js';
+import { createHash } from 'node:crypto';
+import { decodeReviewHistory } from '@gcr/client-contract';
+import { historyReadRoute } from './review-history.js';
 import type { IncomingMessage } from 'node:http';
 import { KnowledgeSyncError, TrustedCentralBinding } from './central-binding.js';
 import type { KnowledgeTransport } from './central-cache.js';
@@ -182,6 +185,64 @@ export class KnowledgeHttpTransport implements KnowledgeTransport {
       response.destroy();
     }
   }
+  /** Read a bounded page of repository history using the existing reader credential. */
+  async history(value: unknown, signal: AbortSignal) {
+    const { request, route } = historyReadRoute(this.binding.audience.repositoryId, value);
+    const response = await this.get(route, signal);
+    if (response.statusCode !== 200) {
+      const { status } = await this.failure(response);
+      throw new KnowledgeSyncError(
+        status === 401
+          ? 'authentication-required'
+          : status === 403
+            ? 'revoked'
+            : status === 409
+              ? 'superseded'
+              : status === 426
+                ? 'incompatible'
+                : 'unavailable',
+        'Review history could not be read.',
+      );
+    }
+    try {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of response) {
+        const bytes = Buffer.from(chunk);
+        size += bytes.length;
+        if (size > 8_388_608) throw Error('history-limit');
+        chunks.push(bytes);
+      }
+      const data = decodeReviewHistory(
+        request,
+        JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))),
+      );
+      if (data.repositoryId !== this.binding.audience.repositoryId) throw Error('history-audience');
+      if ('sourceId' in data && data.sourceId !== request.sourceId) throw Error('history-source');
+      if ('pullNumber' in data && data.pullNumber !== request.pullNumber)
+        throw Error('history-pull');
+      if ('pull' in data && data.pull.number !== request.pullNumber) throw Error('history-pull');
+      if (request.kind === 'guidance-detail' && 'id' in data && data.id !== request.guidanceId)
+        throw Error('history-guidance');
+      if ('item' in data && data.item.id !== request.sourceId) throw Error('history-source');
+      const bodies = 'item' in data ? [data.item] : 'items' in data ? data.items : [];
+      for (const entry of bodies) {
+        const item = 'snapshot' in entry ? entry.snapshot : entry;
+        if (
+          'body' in item &&
+          'contentHash' in item &&
+          createHash('sha256').update(item.body).digest('hex') !== item.contentHash
+        )
+          throw Error('history-body-hash');
+      }
+      return data;
+    } catch {
+      throw new KnowledgeSyncError('invalid-bundle', 'Review history response is invalid.');
+    } finally {
+      response.destroy();
+    }
+  }
+
   /** Compatibility entry for old outboxes. Central propagation is read-only; no request is made. */
   async submitReview(
     _value: unknown,
