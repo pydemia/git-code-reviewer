@@ -42,6 +42,7 @@ export async function syncRepositoryConversations(
         messages,
         started,
         claim.claim_token,
+        { complete: true },
       );
       if (!saved) continue;
       await database.query(

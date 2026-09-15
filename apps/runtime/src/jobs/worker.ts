@@ -1,3 +1,7 @@
+import {
+  executeHistoryCollectionJob,
+  HistoryCollectionError,
+} from '../services/review-history-collection.js';
 import { observeReport } from '../services/report-observation.js';
 import {
   pinSharedKnowledge,
@@ -74,6 +78,7 @@ type JobPayload = {
   operationId?: string;
   pullRequestId: string;
   snapshotRequestId?: string;
+  historyCollectionId?: string;
   analysisId?: string;
   snapshotId?: string;
   memoryOwnerUserId?: string;
@@ -83,7 +88,7 @@ type JobPayload = {
 
 type ClaimedJob = {
   id: string;
-  type: 'snapshot.materialize' | 'analysis.run' | 'github.review.publish';
+  type: 'snapshot.materialize' | 'analysis.run' | 'github.review.publish' | 'history.collect';
   payload: JobPayload;
   attempt_count: number;
   max_attempts: number;
@@ -302,7 +307,7 @@ export async function claimJob(database: Database, executor: string): Promise<Cl
     const result = await connection.query<Omit<ClaimedJob, 'attempt_id'>>(
       `with candidate as (
          select id from jobs
-         where type in ('snapshot.materialize', 'analysis.run', 'github.review.publish')
+         where type in ('snapshot.materialize', 'analysis.run', 'github.review.publish', 'history.collect')
            and state = 'queued' and available_at <= clock_timestamp()
            and attempt_count < max_attempts
          order by priority, available_at, created_at
@@ -365,6 +370,8 @@ async function executeJob(
       await executeSnapshotJob(database, github, artifacts, config, workspace, job);
     } else if (job.type === 'analysis.run') {
       await executeAnalysisJob(database, artifacts, config, job, draining);
+    } else if (job.type === 'history.collect') {
+      await executeHistoryCollectionJob(database, github, config, job);
     } else {
       await publishReviewToGitHub(database, github, config, job, artifacts);
     }
@@ -1222,20 +1229,26 @@ async function failJob(database: Database, job: ClaimedJob, error: unknown) {
 
 async function recordJobFailure(database: DatabaseClient, job: ClaimedJob, error: unknown) {
   const retryable =
-    error instanceof GitHubRequestError
+    error instanceof HistoryCollectionError
       ? error.retryable
-      : error instanceof ReviewPublicationError
+      : error instanceof GitHubRequestError
         ? error.retryable
-        : true;
+        : error instanceof ReviewPublicationError
+          ? error.retryable
+          : true;
   const terminal = job.attempt_count >= job.max_attempts || !retryable;
   const code =
-    job.type === 'snapshot.materialize'
-      ? 'SNAPSHOT_FAILED'
-      : job.type === 'analysis.run'
-        ? 'ANALYSIS_FAILED'
-        : error instanceof GitHubRequestError && error.status === 403
-          ? 'GITHUB_REVIEW_PERMISSION_DENIED'
-          : 'GITHUB_REVIEW_PUBLISH_FAILED';
+    job.type === 'history.collect'
+      ? error instanceof HistoryCollectionError
+        ? error.code
+        : 'HISTORY_READ_FAILED'
+      : job.type === 'snapshot.materialize'
+        ? 'SNAPSHOT_FAILED'
+        : job.type === 'analysis.run'
+          ? 'ANALYSIS_FAILED'
+          : error instanceof GitHubRequestError && error.status === 403
+            ? 'GITHUB_REVIEW_PERMISSION_DENIED'
+            : 'GITHUB_REVIEW_PUBLISH_FAILED';
   const retryAfterSeconds =
     error instanceof GitHubRequestError && error.retryAfterSeconds
       ? error.retryAfterSeconds
@@ -1255,6 +1268,7 @@ async function recordJobFailure(database: DatabaseClient, job: ClaimedJob, error
       retryAfterSeconds,
     ],
   );
+  if (job.type === 'history.collect') return;
   if (job.type === 'github.review.publish') {
     const analysisId = job.payload.analysisId ?? null;
     const pullRequestId = job.payload.pullRequestId ?? null;

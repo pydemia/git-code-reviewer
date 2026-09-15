@@ -181,6 +181,7 @@ export const githubPrMessageProvenanceSchema = z.object({
 });
 
 export const githubPrMemorySourceSchema = z.object({
+  upstreamState: z.enum(['present', 'not-returned']).optional(),
   id: z.string().uuid(),
   pullRequestId: z.string().uuid(),
   kind: z.enum(['issue-comment', 'review', 'review-comment']),

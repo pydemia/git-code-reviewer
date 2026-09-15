@@ -1,3 +1,4 @@
+import { registerReviewHistoryRoutes } from './routes/review-history.js';
 import { registerReviewObservationsRoutes } from './routes/review-observations.js';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -204,6 +205,7 @@ export async function buildServer(
   await registerChatRoutes(app, database, eventHub, artifacts, config, chatModel, authorization);
   await registerChatRunRoutes(app, database, artifacts, config, authorization);
   await registerReviewMemoryRoutes(app, database, authorization);
+  await registerReviewHistoryRoutes(app, database, authorization);
   await registerReviewCriteriaRoutes(app, database, authorization, config);
   await registerReviewObservationsRoutes(app, database, authorization);
   await registerKnowledgeRoutes(app, database, authorization, artifacts, knowledgeSigner);

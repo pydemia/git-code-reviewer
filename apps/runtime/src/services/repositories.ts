@@ -13,6 +13,7 @@ import type { AppConfig } from '../config.js';
 import { enqueueSnapshot } from './operations.js';
 import { registeredGitHubReader } from './account-registry.js';
 import { syncRepositoryConversations } from './conversation-sync.js';
+import { assertJobLease, type JobLease } from './analysis-checkpoint.js';
 
 const schedulerLockId = 746_278_432;
 
@@ -332,10 +333,12 @@ export async function persistPullRequestMessages(
   messages: PullRequestMessageObservation[],
   syncStartedAt = new Date(),
   claimToken?: string,
+  options: { complete?: boolean; lease?: JobLease } = {},
 ): Promise<boolean> {
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    if (options.lease) await assertJobLease(connection, options.lease);
     const pull = await connection.query<{ pullRequestId: string; tenantId: string }>(
       `select pull_request.id as "pullRequestId", repository.tenant_id as "tenantId"
          from pull_requests pull_request
@@ -396,6 +399,7 @@ export async function persistPullRequestMessages(
            in_reply_to_github_id = excluded.in_reply_to_github_id,
            html_url = excluded.html_url, github_updated_at = excluded.github_updated_at,
            provenance = excluded.provenance, observation_hash = excluded.observation_hash,
+           upstream_state = 'present',
            last_sync_started_at = excluded.last_sync_started_at, last_observed_at = clock_timestamp()
          where (github_pr_messages.last_sync_started_at is null
                 or github_pr_messages.last_sync_started_at < excluded.last_sync_started_at
@@ -450,6 +454,64 @@ export async function persistPullRequestMessages(
           message.updatedAt,
         ],
       );
+    }
+    if (options.complete) {
+      const previous = (
+        await connection.query(
+          'select sync_started_at from review_history_coverage where pull_request_id=$1',
+          [context.pullRequestId],
+        )
+      ).rows[0];
+      if (!previous || new Date(previous.sync_started_at) < syncStartedAt) {
+        const identities = messages.map((m) => `${m.kind}:${m.githubId}`);
+        const missing = (
+          await connection.query(
+            `select m.*,o.snapshot from github_pr_messages m left join lateral
+           (select snapshot from github_pr_message_observations where message_id=m.id order by id desc limit 1) o on true
+           where m.pull_request_id=$1 and m.upstream_state='present'
+             and (m.last_sync_started_at is null or m.last_sync_started_at<$2)
+             and not ((m.kind||':'||m.github_id::text)=any($3::text[])) for update of m`,
+            [context.pullRequestId, syncStartedAt, identities],
+          )
+        ).rows;
+        for (const row of missing) {
+          const snapshot = {
+            ...(row.snapshot ?? {
+              githubId: String(row.github_id),
+              kind: row.kind,
+              authorLogin: row.author_login,
+              authorType: row.author_type,
+              body: row.body,
+              contentHash: row.content_hash,
+              path: row.path,
+              line: row.line,
+              side: row.side,
+              commitSha: row.commit_sha,
+              inReplyToGithubId:
+                row.in_reply_to_github_id == null ? null : String(row.in_reply_to_github_id),
+              htmlUrl: row.html_url,
+              githubCreatedAt: new Date(row.github_created_at).toISOString(),
+              githubUpdatedAt: new Date(row.github_updated_at).toISOString(),
+              provenance: row.provenance,
+            }),
+            upstreamState: 'not-returned',
+          };
+          const hash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
+          await connection.query(
+            "update github_pr_messages set upstream_state='not-returned',observation_hash=$2,last_sync_started_at=$3 where id=$1",
+            [row.id, hash, syncStartedAt],
+          );
+          await connection.query(
+            'insert into github_pr_message_observations(message_id,observation_hash,snapshot,sync_started_at) values($1,$2,$3::jsonb,$4)',
+            [row.id, hash, JSON.stringify(snapshot), syncStartedAt],
+          );
+        }
+        await connection.query(
+          `insert into review_history_coverage(pull_request_id,sync_started_at,message_count) values($1,$2,$3)
+          on conflict(pull_request_id) do update set sync_started_at=excluded.sync_started_at,observed_at=clock_timestamp(),message_count=excluded.message_count`,
+          [context.pullRequestId, syncStartedAt, identities.length],
+        );
+      }
     }
     await connection.query('commit');
     return true;

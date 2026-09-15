@@ -20,7 +20,7 @@ export async function recoverExpiredJobs(database: Database) {
       };
     }>(
       `select * from jobs where state='running' and lease_expires_at<clock_timestamp()
-       and type in ('analysis.run','snapshot.materialize','github.review.publish')
+       and type in ('analysis.run','snapshot.materialize','github.review.publish','history.collect')
        order by lease_expires_at for update skip locked limit 20`,
     );
     for (const job of expired.rows) {
