@@ -8,19 +8,21 @@ export const CODEX_REVIEW_INSTRUCTIONS =
 
 /** Preserve model/protocol metadata from this executable's bundled catalog, while
  * selecting an application-owned review harness. This does not change the model. */
-export function reviewModelCatalog(serialized: string): string {
+export function reviewModelCatalog(
+  serialized: string,
+  modelName: string = CODEX_REVIEW_MODEL,
+  effort: string = CODEX_REVIEW_EFFORT,
+): string {
   const value = JSON.parse(serialized) as { models?: unknown[] } | unknown[];
   const models = Array.isArray(value) ? value : value.models;
   const model = models?.find(
     (item) =>
-      !!item &&
-      typeof item === 'object' &&
-      (item as Record<string, unknown>).slug === CODEX_REVIEW_MODEL,
+      !!item && typeof item === 'object' && (item as Record<string, unknown>).slug === modelName,
   ) as Record<string, unknown> | undefined;
   if (
     !model ||
     !Array.isArray(model.supported_reasoning_levels) ||
-    !model.supported_reasoning_levels.some((value) => value?.effort === CODEX_REVIEW_EFFORT)
+    !model.supported_reasoning_levels.some((value) => value?.effort === effort)
   )
     throw new ExecutorError('executor-unavailable');
   const selected = {
@@ -39,7 +41,13 @@ export function reviewModelCatalog(serialized: string): string {
   return JSON.stringify({ models: [selected] });
 }
 
-export function codexReviewArgs(root: string, sourceUrl: string, conversation = false): string[] {
+export function codexReviewArgs(
+  root: string,
+  sourceUrl: string,
+  conversation = false,
+  model: string = CODEX_REVIEW_MODEL,
+  effort: string = CODEX_REVIEW_EFFORT,
+): string[] {
   const args = [
     'exec',
     '--ignore-user-config',
@@ -53,13 +61,13 @@ export function codexReviewArgs(root: string, sourceUrl: string, conversation = 
     '--color',
     'never',
     '--model',
-    CODEX_REVIEW_MODEL,
+    model,
   ];
   const config: Record<string, string | number | boolean | string[]> = {
     model_provider: 'openai',
     instructions: CODEX_REVIEW_INSTRUCTIONS,
     developer_instructions: '',
-    model_reasoning_effort: CODEX_REVIEW_EFFORT,
+    model_reasoning_effort: effort,
     model_catalog_json: path.join(root, 'models.json'),
     project_doc_max_bytes: 0,
     web_search: 'disabled',

@@ -34,8 +34,8 @@ export interface ServiceReviewOptions {
   connectionId?: string;
   centralClientId?: 'gcr-cli' | 'commit-defender';
   executorPath?: string;
-  model: 'gpt-6-astra';
-  reasoningEffort: 'xhigh';
+  model: string;
+  reasoningEffort: string;
   excludePatterns: string[];
   allowPaths: string[];
   durationMs: number;
@@ -93,8 +93,9 @@ function reviewOptions(input: ServiceReviewOptions): ServiceReviewOptions {
   if (
     !value ||
     !['standalone', 'centralized'].includes(value.mode) ||
-    value.model !== 'gpt-6-astra' ||
-    value.reasoningEffort !== 'xhigh' ||
+    typeof value.model !== 'string' ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(value.model) ||
+    !['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].includes(value.reasoningEffort) ||
     (value.mode === 'standalone' && value.connectionId !== undefined) ||
     (value.centralClientId !== undefined &&
       (value.mode !== 'centralized' ||

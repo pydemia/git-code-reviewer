@@ -6,13 +6,7 @@ import { access, mkdtemp, mkdir, realpath, rm, stat, writeFile } from 'node:fs/p
 import os from 'node:os';
 import path from 'node:path';
 import type { FixedSourceToolPort, ReviewChatQuestionPort } from '@gcr/client-contract';
-import {
-  codexAccountEnvironment,
-  codexReviewArgs,
-  CODEX_REVIEW_MODEL,
-  CODEX_REVIEW_EFFORT,
-  reviewModelCatalog,
-} from './codex-config.js';
+import { codexAccountEnvironment, codexReviewArgs, reviewModelCatalog } from './codex-config.js';
 import { probeCodexCatalog } from './catalog-probe.js';
 import { ExecutorError, runManagedProcess } from './process.js';
 import { fixedSourceTools, reviewQuestionTool, startSourceBridge } from './source-bridge.js';
@@ -55,8 +49,8 @@ export interface CodexReviewRequest {
 }
 export interface CodexReviewResult {
   raw: string;
-  model: typeof CODEX_REVIEW_MODEL;
-  reasoningEffort: typeof CODEX_REVIEW_EFFORT;
+  model: string;
+  reasoningEffort: string;
   elapsedMs: number;
   usage?: { inputTokens: number; outputTokens: number; cachedInputTokens: number };
 }
@@ -70,12 +64,14 @@ class CodexAccountExecutor {
     private readonly configHash: string,
     private readonly environment: NodeJS.ProcessEnv,
     private readonly cliVersion: string,
+    private readonly model: string,
+    private readonly effort: string,
   ) {}
   get descriptor() {
     return {
       id: 'codex-account',
       version: `${this.cliVersion}/gcr-fixed-source-v1`,
-      model: CODEX_REVIEW_MODEL,
+      model: this.model,
       configHash: this.configHash,
       capabilities: {
         available: true,
@@ -110,7 +106,7 @@ class CodexAccountExecutor {
       await mkdir(cwd, { mode: 0o700 });
       await writeFile(path.join(root, 'models.json'), this.catalog, { mode: 0o600 });
       bridge = await startSourceBridge(input.source, questions);
-      const args = codexReviewArgs(root, bridge.url, !!questions);
+      const args = codexReviewArgs(root, bridge.url, !!questions, this.model, this.effort);
       if (input.responseSchema) {
         const schema = JSON.stringify(input.responseSchema);
         if (Buffer.byteLength(schema) > 65_536) throw new ExecutorError('executor-unavailable');
@@ -155,8 +151,8 @@ class CodexAccountExecutor {
         counters.every((value) => Number.isSafeInteger(value) && (value as number) >= 0);
       return {
         raw: final.text,
-        model: CODEX_REVIEW_MODEL,
-        reasoningEffort: CODEX_REVIEW_EFFORT,
+        model: this.model,
+        reasoningEffort: this.effort,
         elapsedMs: Math.round(performance.now() - started),
         ...(validUsage
           ? {
@@ -190,8 +186,8 @@ export async function prepareCodexAccountExecutor(options: {
   reasoningEffort: string;
 }): Promise<CodexAccountExecutor> {
   if (
-    options.model !== CODEX_REVIEW_MODEL ||
-    options.reasoningEffort !== CODEX_REVIEW_EFFORT ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(options.model) ||
+    !['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].includes(options.reasoningEffort) ||
     process.platform !== 'darwin'
   )
     throw new ExecutorError('executor-unavailable');
@@ -225,13 +221,27 @@ export async function prepareCodexAccountExecutor(options: {
       outputBytes: 2_097_152,
     });
     if (bundled.code !== 0) throw new ExecutorError('executor-unavailable');
-    const catalog = reviewModelCatalog(bundled.stdout);
+    const catalog = reviewModelCatalog(bundled.stdout, options.model, options.reasoningEffort);
     await writeFile(path.join(root, 'models.json'), catalog, { mode: 0o600 });
-    const tools = await probeCodexCatalog(command, root);
+    const tools = await probeCodexCatalog(
+      command,
+      root,
+      undefined,
+      false,
+      options.model,
+      options.reasoningEffort,
+    );
     const conversationRoot = path.join(root, 'conversation');
     await mkdir(conversationRoot, { mode: 0o700 });
     await writeFile(path.join(conversationRoot, 'models.json'), catalog, { mode: 0o600 });
-    const conversationTools = await probeCodexCatalog(command, conversationRoot, undefined, true);
+    const conversationTools = await probeCodexCatalog(
+      command,
+      conversationRoot,
+      undefined,
+      true,
+      options.model,
+      options.reasoningEffort,
+    );
     if ((await binaryHash(command)) !== fingerprint)
       throw new ExecutorError('executor-unavailable');
     const environment = codexAccountEnvironment();
@@ -248,7 +258,13 @@ export async function prepareCodexAccountExecutor(options: {
         toolDefinitions: fixedSourceTools,
         conversationTools,
         questionToolDefinition: reviewQuestionTool,
-        settings: codexReviewArgs('/gcr/run', 'http://127.0.0.1/source'),
+        settings: codexReviewArgs(
+          '/gcr/run',
+          'http://127.0.0.1/source',
+          false,
+          options.model,
+          options.reasoningEffort,
+        ),
         isolation: 'macos-global-instruction-deny-v1',
         authHome: environment.CODEX_HOME ?? path.join(os.homedir(), '.codex'),
       }),
@@ -260,6 +276,8 @@ export async function prepareCodexAccountExecutor(options: {
       configHash,
       environment,
       cliVersion,
+      options.model,
+      options.reasoningEffort,
     );
   } catch (error) {
     if (error instanceof ExecutorError) throw error;

@@ -42,11 +42,11 @@ it.skipIf(process.platform !== 'darwin')(
     }
   },
 );
-it('rejects a different model or reasoning effort before executing an account command', async () => {
+it('rejects malformed model or reasoning effort before executing an account command', async () => {
   await expect(
     prepareCodexAccountExecutor({
       executablePath: '/nonexistent',
-      model: 'another-model',
+      model: '../another-model',
       reasoningEffort: 'xhigh',
     }),
   ).rejects.toMatchObject({ code: 'executor-unavailable' });
@@ -54,7 +54,7 @@ it('rejects a different model or reasoning effort before executing an account co
     prepareCodexAccountExecutor({
       executablePath: '/nonexistent',
       model: 'gpt-6-astra',
-      reasoningEffort: 'high',
+      reasoningEffort: 'unsupported-effort',
     }),
   ).rejects.toMatchObject({ code: 'executor-unavailable' });
 });

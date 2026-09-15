@@ -50,6 +50,8 @@ export async function probeCodexCatalog(
     tools: string[];
   }) => void,
   conversation = false,
+  model: string = CODEX_REVIEW_MODEL,
+  effort: string = CODEX_REVIEW_EFFORT,
 ): Promise<string[]> {
   const canary = `DO_NOT_LOAD_${randomBytes(16).toString('hex')}`;
   for (const name of ['auth', 'cwd']) await mkdir(path.join(root, name), { mode: 0o700 });
@@ -114,7 +116,7 @@ export async function probeCodexCatalog(
       `developer_instructions = ${JSON.stringify(`${canary}_config`)}\n[mcp_servers.unexpected]\nurl = "http://127.0.0.1:${address.port}/unexpected"\n`,
       { mode: 0o600 },
     );
-    const args = codexReviewArgs(root, bridge.url, conversation);
+    const args = codexReviewArgs(root, bridge.url, conversation, model, effort);
     for (const [name, value] of Object.entries({
       model_provider: 'gcr_fixture',
       'model_providers.gcr_fixture.name': 'GCR synthetic catalog probe',
@@ -154,8 +156,8 @@ export async function probeCodexCatalog(
     if (
       invalidRequest ||
       !request ||
-      request.model !== CODEX_REVIEW_MODEL ||
-      (request.reasoning as { effort?: unknown } | undefined)?.effort !== CODEX_REVIEW_EFFORT ||
+      request.model !== model ||
+      (request.reasoning as { effort?: unknown } | undefined)?.effort !== effort ||
       JSON.stringify(request).includes(canary)
     )
       throw new ExecutorError('executor-unavailable');
