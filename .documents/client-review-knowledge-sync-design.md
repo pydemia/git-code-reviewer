@@ -1,8 +1,12 @@
 # Commit Defender의 리뷰 정책·메모리 동기화 설계
 
+2026-09-15 재계획: [리뷰 이력 저장·CD pulling 구현 계획](review-memory-pull-implementation-plan.md)을 현재 재개 범위로 사용한다. 아래는 기존 설계의 참고 기록이다. 새 계획의 원문 히스토리 조회, 기존 로컬 provider 유지, 승인 절차 단순화와 충돌하면 새 계획을 따른다. 아래의 과거 구현 상태 문구를 현재 완료 여부로 사용하지 않는다.
+
 작성일: 2026-09-11  
 상태: 구현 계획. 아래 client API·저장 구조·동기화 프로토콜은 아직 구현되지 않음.  
 관련 문서: [플랫폼 기획](./preventive-review-platform-plan.md), [Commit Defender 재사용 검토](./commit-defender-integration-assessment.md), [로컬 VS Code 검증·CLI 게시 절차](./client-extension-release-plan.md)
+
+중앙에서 발행한 리뷰·리뷰 기준·프롬프트를 로컬이 가져오는 단방향 전파 구조다. 로컬 리뷰는 로컬에 설정된 모델·계정으로 실행한다. 로컬 소스·리뷰 결과·피드백·대화·개인 Memory를 중앙으로 업로드하지 않는다.
 
 ## 실행 모드와 서버 설정
 
@@ -27,7 +31,6 @@ Commit Defender 설정에 다음 항목을 추가한다. 기존 `commitDefender.
 | `commitDefender.centralized.serverUrl`           | 기본 빈 문자열                                  | Git Code Reviewer의 base URL. Centralized 최초 연결 시 입력        |
 | `commitDefender.centralized.offlineBehavior`     | `cache-then-standalone` 기본                    | 유효 cache 우선, 사용할 수 없으면 local 자료만으로 standalone 실행 |
 | 같은 설정의 다른 값                              | `cache-only`, `standalone`, `pause`             | Cache만 허용 / 연결 실패 시 곧바로 standalone / 연결 복구까지 대기 |
-| `commitDefender.centralized.modelExecutor`       | `local` 기본 / `centralized`                    | 정책 sync 위치와 모델 실행 위치를 독립적으로 선택                  |
 | `commitDefender.centralized.syncIntervalSeconds` | `300` 제안                                      | Centralized 모드에서만 background sync. Sync 자체는 모델 미호출    |
 
 설정 예시는 다음과 같으며 실제 서버 주소는 사용자가 입력한다. 이 문서의 URL을 제품에 기본 연결 대상으로 등록하지 않는다.
@@ -37,7 +40,6 @@ Commit Defender 설정에 다음 항목을 추가한다. 기존 `commitDefender.
   "commitDefender.mode": "centralized",
   "commitDefender.centralized.serverUrl": "https://review.example.com",
   "commitDefender.centralized.offlineBehavior": "cache-then-standalone",
-  "commitDefender.centralized.modelExecutor": "local",
   "commitDefender.centralized.syncIntervalSeconds": 300
 }
 ```
@@ -256,6 +258,6 @@ Commit Defender에는 실행 모드·서버 주소 입력, 연결 서버·reposi
 | CD 수동 리뷰 연결 | Sync 상태 UI, 고정 context, 집단 우선 resolver, local executor adapter   | 실제 source·base와 메모리를 사용한 리뷰. sync 단독 실행의 LLM 호출 수는 0                          |
 | 자동 시점·운영    | Save·Stage·Commit·Push, stale·재시도·offline·feedback                    | Toggle off에서 자동 리뷰 미실행, 권한 철회 후 context 사용 중단, 결과에 사용 버전 기록             |
 
-Fallback 검증에는 서버 정상·일반 장애·첫 sync 실패·cache 없음/만료/손상·401/403·모델 executor 부재를 포함한다. 중앙 cache와 local 자료 분리, 서버/계정 전환 시 token 비전송, 복구 후 다음 리뷰의 모드, 중앙 job 응답 유실 시 중복 실행 방지, standalone에서 만든 자료의 미승인 업로드 방지도 확인한다. 두 모드 모두 Save·Stage·Commit·Push의 사용자 선택과 공통 예산을 지킨다.
+Fallback 검증에는 서버 정상·일반 장애·첫 sync 실패·cache 없음/만료/손상·401/403·모델 executor 부재를 포함한다. 중앙 cache와 local 자료 분리, 서버/계정 전환 시 token 비전송, 복구 후 다음 리뷰의 모드, 로컬 모델 실패 시 중앙 모델 대체 실행 없음, 두 모드 모두 로컬 자료 업로드 없음도 확인한다. 두 모드 모두 Save·Stage·Commit·Push의 사용자 선택과 공통 예산을 지킨다.
 
 우선 full bundle·조건부 polling으로 완성한다. SSE 갱신 알림, shard/delta, 고급 검색은 크기·부하를 측정한 뒤 추가한다. Sync를 완성하려고 vector DB나 별도 상시 AI agent를 먼저 도입하지 않는다.

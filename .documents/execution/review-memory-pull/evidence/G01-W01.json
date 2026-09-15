@@ -1,0 +1,34 @@
+{
+  "baseCommit": "f8d2048c0795402cf9ad874a09dfbba0cc0cf2dc",
+  "wipBranch": "codex/wip-local-check-runner",
+  "wipCommit": "82c2436a4e4d71620c72d20c48bede220fac9d6b",
+  "wipWorktree": "/Users/a09255/git/git-code-reviewer-wip-runner",
+  "executionBranch": "codex/review-memory-pull-g01",
+  "executionWorktree": "/Users/a09255/git/git-code-reviewer-g01",
+  "files": {
+    "apps/cli/src/arguments.ts": "355eb240140c7481567ffb8c21c468d6806e3e3c9bbf04da8641f94f542324ce",
+    "apps/cli/src/cli.ts": "840e268d0d0bb095297dc9134c512632bc847b48f618bd2532bbca33fde870b9",
+    "packages/client-contract/src/index.ts": "a54c3b01dcd722162eef781fc0adccfe0d214363d0f8157b37f071cbeef941bd",
+    "packages/client-core/src/index.ts": "8ec6d35c52af4d3ee42e36e727702ad90a3dc8e863d14048573b439b6db6a4e8",
+    "apps/cli/src/runner.ts": "570d9e74ab401f9d4e29e0c308dcf3952d174c3e7630df237fa6630f6136f655",
+    "apps/cli/src/runner.test.ts": "18b3c438e71809e2ecebee4e520d264c30ba0dbe4a84f0b06f60dcb6ef75eaee",
+    "packages/client-contract/src/check-runner.ts": "12de54313fed37e9c493dd38fe6df18c7df0e26af602bf7c64e2e53f991c7e39",
+    "packages/client-core/src/check-runner-docker.ts": "4f07eb9f9220f43495bc1e6b487c975464359e6ecc144a065f0cdbb2fb8d4df8",
+    "packages/client-core/src/check-runner-store.ts": "859670a57a7e1a77fc1bd7094ccf92d4ac8a44dee2a3a887a414075fe829974d",
+    "packages/client-core/src/check-runner.test.ts": "511b69d69f956d7516f42bb8502882943919c3a94ab97c202af144d71a404dac",
+    "packages/client-core/test/check-runner-fixture.ts": "d8635b1c151fa9cc413de429b3df14cf083260deae897867df4a06035e54a75a"
+  },
+  "verification": {
+    "gitBlobHashesMatch": true,
+    "gitArchiveRestorationHashesMatch": true,
+    "originalCheckoutUnchanged": true,
+    "executionTrackedEntryPointsMatchBase": true,
+    "runnerFilesAbsentInExecutionTree": true,
+    "sourceDependenciesOrBuildArtifactsCopied": false
+  },
+  "limitations": [
+    "Historical synthetic tests: 27 passed; real Docker execution unverified.",
+    "WIP feature is not complete, packaged, installed or deployed.",
+    "Runner development remains paused."
+  ]
+}

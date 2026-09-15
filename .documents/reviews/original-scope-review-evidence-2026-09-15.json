@@ -1,0 +1,287 @@
+{
+  "recordedAt": "2026-09-15T05:08:15.562015+00:00",
+  "scope": "Read-only product scope audit; no code/deployment changes, paid model calls or provider writes. Test fixtures use synthetic HTTP/model ports. Production SQL ran in read-only transactions.",
+  "gcrHead": "f8d2048",
+  "commitDefenderHead": "8bb3916",
+  "versions": {
+    "gcr": "0.8.0-alpha.60",
+    "commitDefenderInstalled": "2.10.0"
+  },
+  "database": {
+    "at": "2026-09-15T05:06:02.694Z",
+    "config": {
+      "authMode": "local",
+      "databaseTlsMode": "verify-full",
+      "knowledgePublication": true,
+      "trustedCiPolicies": 0
+    },
+    "counts": {
+      "repositories": 3,
+      "pull_requests": 1189,
+      "github_pr_messages": 235,
+      "github_pr_message_versions": 282,
+      "github_pr_message_observations": 232,
+      "review_memories": 4,
+      "review_knowledge_memory_projections": 0,
+      "review_rules": 0,
+      "review_knowledge_releases": 8,
+      "analysis_runs": 178,
+      "reports": 169
+    },
+    "memories": [
+      {
+        "scope": "personal",
+        "state": "candidate",
+        "source_kind": "finding",
+        "n": 4
+      }
+    ],
+    "knowledgeReleases": [
+      {
+        "component": "collective",
+        "scopes": 2,
+        "published": 2
+      },
+      {
+        "component": "policy",
+        "scopes": 2,
+        "published": 2
+      }
+    ],
+    "prHistoryCoverage": [
+      {
+        "state": "closed",
+        "prs": 1181,
+        "with_comments": 65
+      },
+      {
+        "state": "open",
+        "prs": 8,
+        "with_comments": 5
+      }
+    ],
+    "sync": [
+      {
+        "tracked": 71,
+        "ever_succeeded": 71,
+        "failing": 0
+      }
+    ],
+    "jobs": [
+      {
+        "state": "failed",
+        "n": 8
+      },
+      {
+        "state": "completed",
+        "n": 506
+      },
+      {
+        "state": "running",
+        "n": 1
+      }
+    ],
+    "analyses": [
+      {
+        "state": "analyzing",
+        "n": 1
+      },
+      {
+        "state": "failed",
+        "n": 8
+      },
+      {
+        "state": "completed",
+        "n": 119
+      },
+      {
+        "state": "partial",
+        "n": 50
+      }
+    ]
+  },
+  "databaseDetail": {
+    "at": "2026-09-15T05:07:15.372Z",
+    "messages": [
+      {
+        "kind": "review",
+        "n": 114
+      },
+      {
+        "kind": "review-comment",
+        "n": 47
+      },
+      {
+        "kind": "issue-comment",
+        "n": 74
+      }
+    ],
+    "running": [
+      {
+        "type": "analysis.run",
+        "state": "running",
+        "created_at": "2026-09-15T02:33:19.530Z",
+        "updated_at": "2026-09-15T02:34:49.585Z",
+        "heartbeat_at": "2026-09-15T02:34:49.585Z",
+        "lease_expires_at": "2026-09-15T02:35:19.585Z",
+        "lease_expired": true
+      }
+    ],
+    "waits": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "wait_event": null,
+        "n": 1
+      },
+      {
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead",
+        "n": 4
+      }
+    ],
+    "repositoryCoverage": [
+      {
+        "repository_ordinal": 1,
+        "enabled": true,
+        "prs": 235,
+        "published_shared_components": 2
+      },
+      {
+        "repository_ordinal": 2,
+        "enabled": true,
+        "prs": 952,
+        "published_shared_components": 2
+      },
+      {
+        "repository_ordinal": 3,
+        "enabled": false,
+        "prs": 2,
+        "published_shared_components": 0
+      }
+    ]
+  },
+  "pods": [
+    {
+      "name": "git-code-reviewer-identity-8486b74564-f7hsr",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "keycloak",
+          "ready": true,
+          "restarts": 0,
+          "lastTermination": {
+            "reason": null,
+            "exitCode": null,
+            "finishedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-identity-8486b74564-v2jnx",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "keycloak",
+          "ready": true,
+          "restarts": 0,
+          "lastTermination": {
+            "reason": null,
+            "exitCode": null,
+            "finishedAt": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-postgresql-0",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "postgresql",
+          "ready": true,
+          "restarts": 1,
+          "lastTermination": {
+            "reason": "OOMKilled",
+            "exitCode": 137,
+            "finishedAt": "2026-09-15T02:34:51Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-server-db98c7fbf-r5gwp",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "server",
+          "ready": true,
+          "restarts": 3,
+          "lastTermination": {
+            "reason": "Error",
+            "exitCode": 1,
+            "finishedAt": "2026-09-15T02:35:09Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker-7c7fc4bf59-9h2gb",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "source-sandbox",
+          "ready": true,
+          "restarts": 0,
+          "lastTermination": {
+            "reason": null,
+            "exitCode": null,
+            "finishedAt": null
+          }
+        },
+        {
+          "name": "worker",
+          "ready": false,
+          "restarts": 1,
+          "lastTermination": {
+            "reason": "Error",
+            "exitCode": 1,
+            "finishedAt": "2026-09-15T02:34:51Z"
+          }
+        }
+      ]
+    }
+  ],
+  "freshTests": {
+    "gcr": {
+      "suites": 4,
+      "passed": 68,
+      "failed": 0,
+      "files": [
+        "packages/client-core/src/knowledge-http.test.ts",
+        "packages/client-core/src/central-review.test.ts",
+        "apps/runtime/src/services/review-memory.test.ts",
+        "apps/runtime/src/services/analysis-shared-knowledge.test.ts"
+      ]
+    },
+    "commitDefender": {
+      "suites": 3,
+      "passed": 31,
+      "failed": 0,
+      "scripts": [
+        "test:central-review",
+        "test:central-view",
+        "test:review-backend"
+      ]
+    }
+  },
+  "limitations": [
+    "No historical GitHub completeness comparison",
+    "No new end-to-end test with real historical comments and a paid local model",
+    "Installed files do not prove which code an already-open Extension Host has loaded",
+    "Worker readiness failure observed; root cause not established",
+    "Existing uncommitted P11 runner changes were preserved and not certified by this audit"
+  ]
+}
