@@ -1,3 +1,4 @@
+import { canonicalKnowledgeJson } from '@gcr/client-contract';
 import { observeReport } from '../services/report-observation.js';
 import { chromium } from 'playwright';
 import { createServer } from '../../../web/src/review-criteria-test-server.js';
@@ -532,11 +533,16 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
         [queued.id],
       );
       await database.query('update repositories set review_publishing_enabled=true');
-      await executeAnalysisJob(database, artifacts, config, {
-        ...queued,
-        attempt_count: 1,
-        attempt_id: attempt.id,
-      });
+      await executeAnalysisJob(
+        database,
+        artifacts,
+        { ...config, GITHUB_MODE: 'disabled', KNOWLEDGE_PUBLICATION_ENABLED: true },
+        {
+          ...queued,
+          attempt_count: 1,
+          attempt_id: attempt.id,
+        },
+      );
       expect(
         (
           await database.query('select count(*)::int as n from reports where analysis_run_id=$1', [
@@ -920,17 +926,77 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
     } finally {
       unavailable.mockRestore();
     }
-    expect(calls.length).toBe(priorCalls);
+    expect(calls.length).toBeGreaterThan(priorCalls);
+    expect(JSON.stringify(calls.slice(priorCalls))).not.toContain(
+      'Pinned published review criteria',
+    );
     const failedRow = (
       await database.query(
         'select r.state,a.locator from analysis_runs r join reports report on report.analysis_run_id=r.id join artifacts a on a.id=report.artifact_id where r.id=$1',
         [failed.id],
       )
     ).rows[0];
-    expect(failedRow.state).toBe('partial');
+    expect(failedRow.state).toBe('completed');
     const failedReport = await artifacts.readJson<ReviewReport>(failedRow.locator);
     expect(failedReport.versions.sharedKnowledgeStatus).toBe('unavailable');
-    expect(failedReport.coverage.limitations.join(' ')).toContain('공용 기준 리뷰는 미완료');
+    expect(failedReport.coverage.limitations.join(' ')).not.toContain('model review가 비활성화');
+    expect(failedReport.findings.some((finding) => finding.criteria?.status === 'linked')).toBe(
+      false,
+    );
+    // Missing, damaged and foreign optional bundles cannot suppress the base review.
+    const missingPin = {
+      ...pinned,
+      status: 'unavailable',
+      reason: 'Publication missing',
+      releases: [],
+      bundles: {},
+    };
+    const foreignPin = { ...pinned, repositoryId: randomUUID() };
+    for (const [name, value, damaged] of [
+      ['missing-publication', missingPin, false],
+      ['damaged-hash', pinned, true],
+      ['foreign-scope', foreignPin, false],
+    ] as const) {
+      const hash = damaged
+        ? '0'.repeat(64)
+        : createHash('sha256').update(canonicalKnowledgeJson(value)).digest('hex');
+      const baseOnly = (
+        await database.query(
+          "insert into analysis_runs(snapshot_id,analysis_key,state,shared_knowledge,shared_knowledge_hash,skill_bundle,skill_hash) select snapshot_id,$2,'queued',$3::jsonb,$4,skill_bundle,skill_hash from analysis_runs where id=$1 returning id",
+          [run.id, name + ':' + randomUUID(), JSON.stringify(value), hash],
+        )
+      ).rows[0];
+      const prior = calls.length;
+      await executeAnalysisJob(
+        database,
+        artifacts,
+        { ...config, GITHUB_MODE: 'disabled', KNOWLEDGE_PUBLICATION_ENABLED: true },
+        {
+          ...queued,
+          attempt_count: 1,
+          attempt_id: runAttempt,
+          payload: { ...queued.payload, analysisId: baseOnly.id },
+        },
+      );
+      expect(calls.length, name).toBeGreaterThan(prior);
+      expect(JSON.stringify(calls.slice(prior)), name).not.toContain(
+        'Pinned published review criteria',
+      );
+      const saved = (
+        await database.query(
+          'select r.state,a.locator from analysis_runs r join reports report on report.analysis_run_id=r.id join artifacts a on a.id=report.artifact_id where r.id=$1',
+          [baseOnly.id],
+        )
+      ).rows[0];
+      expect(saved.state, name).toBe('completed');
+      const report = await artifacts.readJson<ReviewReport>(saved.locator);
+      expect(report.versions.sharedKnowledgeStatus, name).toBe('unavailable');
+      expect(report.versions.sharedSelection, name).toBeUndefined();
+      expect(
+        report.findings.some((finding) => finding.criteria?.status === 'linked'),
+        name,
+      ).toBe(false);
+    }
     const originalState = (
       await database.query('select state from analysis_runs where id=$1', [run.id])
     ).rows[0].state;

@@ -358,7 +358,9 @@ export async function sharedKnowledgeView(c: Connection, analysisId: string, rep
   )
     throw Error('shared_context_hash');
   const incomplete =
-    pin?.status === 'ready' && !row.context && ['failed', 'partial'].includes(row.state);
+    pin?.status === 'ready' &&
+    !row.context &&
+    ['completed', 'failed', 'partial'].includes(row.state);
   return analysisSharedKnowledgeSchema.parse({
     schemaVersion: 1,
     analysisId,
@@ -372,7 +374,7 @@ export async function sharedKnowledgeView(c: Connection, analysisId: string, rep
             ? 'unavailable'
             : 'queued',
     reason: incomplete
-      ? '공용 기준 또는 원문 확인이 완료되지 않았습니다. 분석의 미완료 사유를 확인하세요.'
+      ? '공용 기준 또는 원문을 확인하지 못해 적용하지 않았습니다. 기본 리뷰 결과와 별개의 상태입니다.'
       : (pin?.reason ?? '공용 발행본 고정 기능 도입 전의 분석입니다.'),
     pinHash: row.shared_knowledge_hash,
     branch: pin?.branch ?? null,

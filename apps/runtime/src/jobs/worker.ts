@@ -12,11 +12,7 @@ import { captureSnapshotChangeSource } from '../services/criterion-code-sources.
 import { reconcileCriterionDeadlines } from '../services/criterion-recheck.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  analyzeSnapshot,
-  validateReviewSkillBundle,
-  type AnalysisFile,
-} from '@gcr/analysis-engine';
+import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
 import { defaultReviewSeverityLevel, type ReviewSeverityLevel } from '@gcr/contracts';
 import { FilesystemArtifactStore, type ArtifactCommit } from '@gcr/artifact-store';
 import type { Database, DatabaseClient } from '@gcr/db';
@@ -606,15 +602,8 @@ async function persistMaterialization(
         branch: prompt.rows[0]!.branch,
         enabled: config.KNOWLEDGE_PUBLICATION_ENABLED,
       });
-      const skills =
-        shared.value.status === 'ready'
-          ? {
-              versionId: null,
-              bundle: validateReviewSkillBundle(
-                (shared.value.bundles.policy as { skills: unknown }).skills,
-              ),
-            }
-          : await getEffectiveReviewSkills(connection);
+      // Keep the base Skill binding independent of optional published knowledge.
+      const skills = await getEffectiveReviewSkills(connection);
       memoryOwnerUserId = prompt.rows[0]?.requested_by ?? null;
       const memory =
         shared.value.status === 'ready' && !memoryOwnerUserId
@@ -812,12 +801,20 @@ export async function executeAnalysisJob(
     const id = fileIds.get(file.path);
     return id ? [{ id, ...file }] : [];
   });
-  const sharedPin = readSharedKnowledgePin(row.shared_knowledge, row.shared_knowledge_hash);
-  if (
-    sharedPin &&
-    (sharedPin.repositoryId !== row.repositoryId || sharedPin.tenantId !== row.tenantId)
-  )
-    throw Error('shared_knowledge_scope');
+  let sharedPin: ReturnType<typeof readSharedKnowledgePin> = null;
+  let sharedKnowledgeUnavailable = false;
+  try {
+    sharedPin = readSharedKnowledgePin(row.shared_knowledge, row.shared_knowledge_hash);
+    if (
+      sharedPin &&
+      (sharedPin.repositoryId !== row.repositoryId || sharedPin.tenantId !== row.tenantId)
+    )
+      throw Error('shared_knowledge_scope');
+  } catch {
+    // Invalid optional data must never enter the model or disable the base review.
+    sharedPin = null;
+    sharedKnowledgeUnavailable = true;
+  }
   const contextLimitations: string[] = [];
   let sharedValidUntil: string | null = null;
   let sharedSelectionHash: string | null = null;
@@ -847,10 +844,10 @@ export async function executeAnalysisJob(
       );
       if (model) model = withSharedKnowledge(model, selection);
     } catch {
-      model = undefined;
-      contextLimitations.push(
-        '고정된 공용 리뷰 기준이나 동일 Git SHA의 전체 원문을 확인하지 못했습니다. 공용 기준 리뷰는 미완료입니다. 새 분석을 요청해 발행·출처·예외 시각을 다시 확인하세요.',
-      );
+      sharedKnowledgeUnavailable = true;
+      sharedValidUntil = null;
+      sharedSelectionHash = null;
+      sharedCriteria = undefined;
     }
   }
   await updateAnalysisState(database, job, 'analyzing', 'review', 25);
@@ -911,14 +908,18 @@ export async function executeAnalysisJob(
           },
         }),
     );
-    if (sharedPin) {
-      output.report.versions.sharedKnowledge = row.shared_knowledge_hash!;
-      output.report.versions.sharedKnowledgeStatus = sharedSelectionHash
-        ? 'selected'
-        : sharedPin.status === 'ready'
-          ? 'unavailable'
-          : sharedPin.status;
+    if (sharedPin || sharedKnowledgeUnavailable) {
+      if (row.shared_knowledge_hash)
+        output.report.versions.sharedKnowledge = row.shared_knowledge_hash;
+      output.report.versions.sharedKnowledgeStatus = sharedKnowledgeUnavailable
+        ? 'unavailable'
+        : sharedSelectionHash
+          ? 'selected'
+          : sharedPin!.status;
       if (sharedSelectionHash) output.report.versions.sharedSelection = sharedSelectionHash;
+      if (sharedKnowledgeUnavailable)
+        output.report.versions.sharedKnowledgeReason =
+          '공용 리뷰 자료를 확인하지 못해 적용하지 않았습니다. 기본 리뷰 결과와 별개의 상태입니다.';
     }
     if (sharedValidUntil && sharedValidUntil <= new Date().toISOString()) {
       output.state = 'partial';
