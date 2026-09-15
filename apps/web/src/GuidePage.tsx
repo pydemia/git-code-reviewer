@@ -51,6 +51,8 @@ export function GuidePage() {
           <DocumentationNav currentPath="/guide" />
           <p className="guide-nav-section-title">사용 가이드 목차</p>
           <a href="#start">시작하기</a>
+          <a href="#cd-connection">CD 설치와 연결</a>
+          <a href="#history-guidance">원문에서 지침 활용까지</a>
           <a href="#profile">개인 프로필</a>
           <a href="#ghes-credential">GHES credential</a>
           <a href="#register-repository">Repository 등록</a>
@@ -84,6 +86,56 @@ export function GuidePage() {
               <p>허용된 PR의 finding, diff, Git graph, evidence와 Chat을 사용합니다.</p>
             </div>
           </header>
+
+          <section className="guide-section" id="cd-connection">
+            <h2>CD 설치와 연결</h2>
+            <p>
+              처음 사용하는 경우 <a href="/getting-started">설치·연결 가이드</a>에서 GCR의
+              Compose·Helm 설치, CD VSIX 설치와 모델 설정을 먼저 확인하세요.
+              <a href="/architecture">아키텍처</a>에는 저장 위치와 데이터 흐름을 정리했습니다.
+            </p>
+            <ol>
+              <li>
+                CD의 User Settings에서 provider·model·reasoning을 선택하고 수동 리뷰를 확인합니다.
+              </li>
+              <li>
+                GCR의 내 프로필 → 클라이언트 연결에서 Commit Defender용 reader key와 저장소 연결
+                JSON을 각각 준비합니다.
+              </li>
+              <li>
+                CD의 Central Review Connection → Connect with API key…에서 JSON을 선택하고 key를
+                별도 입력합니다.
+              </li>
+              <li>
+                Connection status의 저장소·사용자·유효기간을 확인한 뒤 Browse PR review history로
+                원문을 조회합니다.
+              </li>
+            </ol>
+            <p>
+              GCR key는 중앙 자료 읽기 권한입니다. 모델 로그인이나 GitHub PAT를 대신하지 않습니다.
+              연결 후에도 CD의 로컬 모델 선택은 유지되고 소스·diff·리뷰 결과·대화는 GCR로 전송되지
+              않습니다. 승인한 소스와 문맥은 사용자가 선택한 모델 provider로 전달됩니다.
+            </p>
+          </section>
+          <section className="guide-section" id="history-guidance">
+            <h2>원문에서 지침 활용까지</h2>
+            <p>
+              상단 <a href="/review-history">리뷰 이력</a>에서 PR 코멘트·답글·본문 버전·출처를
+              읽습니다. 원문 조회에는 분석 결과나 메모리 승인이 필요하지 않습니다. 관리자는 원문에
+              연결한 지침의 적용 조건과 반증을 확인해 활성화·발행하고 CD는 관련 자료를 로컬에서
+              선택합니다.
+            </p>
+            <p>
+              예를 들어 요청 필드 검증 지침에는 “이미 validator가 처리하면 중복 지적하지 않음”과 “DB
+              상태·권한 검증은 제외” 같은 조건을 함께 둡니다. 과거의 수정 답글만 믿지 말고 현재
+              호출부와 계약을 확인하세요. CD 결과의 전체 요약에서 적용·충족·제외 판단을 읽고
+              Evidence의 원문 URL·revision/hash를 대조합니다.
+            </p>
+            <p>
+              자료 제공 기록은 판단의 정확성이나 테스트 실행을 증명하지 않습니다. 온라인 manifest의
+              5분 만료, 권한 철회, 모델 실패로 중단된 리뷰는 완료로 처리하지 않습니다.
+            </p>
+          </section>
 
           <section className="guide-section" id="profile">
             <div className="guide-section-heading">

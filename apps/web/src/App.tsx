@@ -112,6 +112,10 @@ export function App() {
     return <ProductDocumentPage documentId="introduction" />;
   if (window.location.pathname === '/features')
     return <ProductDocumentPage documentId="features" />;
+  if (window.location.pathname === '/getting-started')
+    return <ProductDocumentPage documentId="gettingStarted" />;
+  if (window.location.pathname === '/architecture')
+    return <ProductDocumentPage documentId="architecture" />;
   if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/profile') return <ProfilePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;

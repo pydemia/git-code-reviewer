@@ -1,5 +1,7 @@
 import introduction from '../../../docs/product/introduction.md?raw';
 import features from '../../../docs/product/features.md?raw';
+import gettingStarted from '../../../docs/product/getting-started.md?raw';
+import architecture from '../../../docs/product/architecture.md?raw';
 
 export function documentHeadingId(title: string) {
   return title
@@ -22,6 +24,16 @@ function documentContent(markdown: string) {
 }
 
 export const productDocuments = {
+  gettingStarted: {
+    path: '/getting-started',
+    label: '설치·연결',
+    ...documentContent(gettingStarted),
+  },
+  architecture: {
+    path: '/architecture',
+    label: '아키텍처',
+    ...documentContent(architecture),
+  },
   introduction: {
     path: '/introduction',
     label: 'Introduction',

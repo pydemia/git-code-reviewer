@@ -98,7 +98,13 @@ export function AppHeader({
                   className="header-guide-link"
                   href="/guide"
                   aria-current={
-                    ['/guide', '/introduction', '/features'].includes(window.location.pathname)
+                    [
+                      '/guide',
+                      '/introduction',
+                      '/features',
+                      '/getting-started',
+                      '/architecture',
+                    ].includes(window.location.pathname)
                       ? 'page'
                       : undefined
                   }

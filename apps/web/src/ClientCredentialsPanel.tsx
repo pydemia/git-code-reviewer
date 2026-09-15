@@ -131,7 +131,13 @@ export function ClientCredentialsPanel() {
         <KeyRound size={18} />
         <div>
           <h2 id="client-credentials-title">클라이언트 연결</h2>
-          <p>Commit Defender와 GCR CLI에 저장소의 중앙 리뷰 지식 읽기 권한을 부여합니다.</p>
+          <p>
+            Commit Defender와 GCR CLI에 원문 이력·Skill·프롬프트·활성 지침의 읽기 권한을 부여합니다.
+            모델 계정은 클라이언트에서 따로 선택합니다.
+          </p>
+          <p>
+            <a href="/getting-started">설치·연결 절차와 사용 예시</a>
+          </p>
         </div>
       </div>
       {state === 'loading' && <p role="status">연결 정보를 불러오는 중입니다.</p>}
@@ -151,6 +157,11 @@ export function ClientCredentialsPanel() {
               {notice.text}
             </p>
           )}
+          <ol>
+            <li>사용할 클라이언트와 저장소를 선택하고 API key를 발급합니다.</li>
+            <li>같은 저장소의 공개 연결 JSON을 다운로드합니다. JSON에는 key 원문이 없습니다.</li>
+            <li>CD의 Central Review Connection에서 JSON을 선택하고 key를 별도 입력합니다.</li>
+          </ol>
           <form onSubmit={create}>
             <fieldset disabled={pending || !!issued}>
               <legend>새 API key</legend>

@@ -11,12 +11,24 @@ const plugins = [remarkGfm];
 const documentLinks: Record<string, string> = {
   'introduction.md': '/introduction',
   'features.md': '/features',
+  'getting-started.md': '/getting-started',
+  'architecture.md': '/architecture',
 };
+function documentHref(href: string | undefined) {
+  if (!href) return undefined;
+  const [file, fragment] = href.split('#', 2);
+  const page = documentLinks[file!];
+  if (page) return page + (fragment ? '#' + fragment : '');
+  if (href.startsWith('../operations/'))
+    return (
+      'https://github.com/pydemia/git-code-reviewer/blob/codex/review-memory-pull-g01/docs/' +
+      href.slice(3)
+    );
+  return href;
+}
 const components: Components = {
   h2: ({ children }) => <h2 id={documentHeadingId(String(children))}>{children}</h2>,
-  a: ({ href, children }) => (
-    <a href={href ? (documentLinks[href] ?? href) : undefined}>{children}</a>
-  ),
+  a: ({ href, children }) => <a href={documentHref(href)}>{children}</a>,
   table: ({ children }) => (
     <div className="guide-table-wrap" role="region" aria-label="기능 안내 표" tabIndex={0}>
       <table className="guide-table">{children}</table>

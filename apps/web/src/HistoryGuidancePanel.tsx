@@ -65,7 +65,8 @@ export function HistoryGuidancePanel({
       <h4>이 원문에 연결된 지침</h4>
       <p>
         지침은 원문과 적용 조건을 확인한 관리자가 활성화하며, 중앙에서 클라이언트가 읽을 수 있도록
-        발행합니다.
+        발행합니다. 원문 읽기에는 승인이 필요하지 않으며 이 지침은 개인 메모리의 집단 승격과
+        별도입니다.
       </p>
       {error ? <p role="alert">{error}</p> : null}
       {notice ? <p role="status">{notice}</p> : null}
@@ -228,19 +229,29 @@ export function HistoryGuidancePanel({
             </label>
             <label>
               적용 파일 · 한 줄에 하나
-              <textarea value={paths} onChange={(e) => setPaths(e.target.value)} />
+              <textarea
+                value={paths}
+                onChange={(e) => setPaths(e.target.value)}
+                placeholder="예: **/schema.py"
+              />
             </label>
             <label>
               적용 조건 · 한 줄에 하나
               <textarea
                 required
+                placeholder="예: 요청 필드만으로 검증 여부를 결정할 수 있는 경우"
                 value={conditions}
                 onChange={(e) => setConditions(e.target.value)}
               />
             </label>
             <label>
               반증 지침 · 한 줄에 하나
-              <textarea required value={counter} onChange={(e) => setCounter(e.target.value)} />
+              <textarea
+                placeholder="예: 이미 validator가 검증하거나 DB 상태 조회가 필요한 경우에는 적용하지 않음"
+                required
+                value={counter}
+                onChange={(e) => setCounter(e.target.value)}
+              />
             </label>
             <p>
               resolved·merged 여부만으로 수정이 검증됐다고 판단하지 않습니다. 기존 지침을 바꾸려면

@@ -51,7 +51,12 @@ export function ReviewHistoryPage() {
         <h1>리뷰 이력</h1>
         <p>
           PR 코멘트 원문과 답글, 수집 이후의 변경 이력을 조회합니다. 분석 결과나 메모리 승인 없이
-          읽을 수 있습니다.
+          읽을 수 있습니다. 원문은 과거 관측이며 답글의 수정 주장이나 PR 병합만으로 현재 코드가
+          수정됐다고 판단하지 않습니다.
+        </p>
+        <p>
+          <a href="/guide#history-guidance">지침 작성과 CD 활용 방법</a> ·{' '}
+          <a href="/getting-started">설치·연결 가이드</a>
         </p>
         {error ? <p role="alert">{error}</p> : null}
         <label>
@@ -222,7 +227,12 @@ function HistoryRepository({ repositoryId: repo }: { repositoryId: string }) {
               <span>{coverageLabel(p)}</span>
             </button>
           ))}
-          {!loading && !pulls.length ? <p>조회할 PR이 없습니다.</p> : null}
+          {!loading && !pulls.length ? (
+            <p>
+              저장된 PR 이력이 없습니다. 선택한 저장소와 수집 범위를 확인하세요. 추가 과거 수집은
+              관리자가 PR 번호와 한도를 지정해 요청합니다.
+            </p>
+          ) : null}
           {cursor ? (
             <button disabled={busy} onClick={() => void more()}>
               이전 PR 더 보기
