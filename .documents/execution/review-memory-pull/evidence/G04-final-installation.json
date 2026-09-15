@@ -1,0 +1,24 @@
+{
+  "version": "2.11.3",
+  "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.11.3",
+  "vsixPath": "/Users/a09255/git/commit-defender-preventive-review/vscode-extension/test-results/commit-defender-2.11.3.vsix",
+  "vsixSha256": "0e7123c5ba5fd62d5a17df3307c6a50df3ea170dbedb3435eab2e673a7825333",
+  "files": {
+    "out/extension.js": "3994902f282c65a6bccd0f9a84109daf2a2f30583fa65f8fb04c55a5dd3c5f55",
+    "out/hook-cli.js": "16d3a00add98314451757edfbb933c9394f55f82e63220ae4f169d50f2462bc9",
+    "out/standalone-review-worker.js": "f1a45c8ca4dcf062a99b1e82c1b5433bb0f7e06562ee9babb177e0aa57c57809",
+    "out/review-chat-worker.js": "ff882addbc09adcbd176098a3d6341edc1cdbc54d2bb0172db23082aef0ce4a2",
+    "out/gcr-service/main.mjs": "fe2b430440d8d7a40436ac95d16fa236fcf0393f2439683cc49f99f18b1d0dde",
+    "out/gcr-service/manifest.json": "a6cd70ecbb75296c639b414b22467da83aab3bd7e0bf1d64b8cd32debca89b84"
+  },
+  "userSettingsSha256": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "modelWorkerIdenticalTo2_11_2": true,
+  "forcedReload": false,
+  "marketplacePublished": false,
+  "existingUserHost": {
+    "pid": 954,
+    "version": "unconfirmed",
+    "reloadPerformed": false
+  },
+  "cdSourceSha": "4d48073149128af6207c9ac6cbdb0de8b0fc45fb"
+}

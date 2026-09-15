@@ -1,0 +1,71 @@
+{
+  "gcrSourceSha": "efd53207819c2105f0034a13f1be193f4a972e4c",
+  "cdSourceSha": "4d48073149128af6207c9ac6cbdb0de8b0fc45fb",
+  "clientManifest": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.42",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.42",
+        "file": "gcr-client-contract-0.1.0-alpha.42.tgz",
+        "sha256": "4aea0700c870f04b61102dc337b340772fa43fe23fc2891494ef651836c9afd5"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.42",
+        "file": "gcr-client-core-0.1.0-alpha.42.tgz",
+        "sha256": "66017d84c62c442393b6ef3b091b806211b8ff7fec55a1ff043b3c44e0d89e53"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.42",
+        "file": "gcr-client-executors-0.1.0-alpha.42.tgz",
+        "sha256": "fdccedd098f0ee3c756c87bde9c111c6f06a6d657689580585f8d87ac62d12ee"
+      }
+    ]
+  },
+  "cliManifest": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.37",
+    "clientVersion": "0.1.0-alpha.42",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.42",
+        "file": "gcr-client-contract-0.1.0-alpha.42.tgz",
+        "sha256": "4aea0700c870f04b61102dc337b340772fa43fe23fc2891494ef651836c9afd5"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.42",
+        "file": "gcr-client-core-0.1.0-alpha.42.tgz",
+        "sha256": "66017d84c62c442393b6ef3b091b806211b8ff7fec55a1ff043b3c44e0d89e53"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.42",
+        "file": "gcr-client-executors-0.1.0-alpha.42.tgz",
+        "sha256": "fdccedd098f0ee3c756c87bde9c111c6f06a6d657689580585f8d87ac62d12ee"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.37",
+        "file": "gcr-cli-0.1.0-alpha.37.tgz",
+        "sha256": "5a9f0aee5066643b0b33e3c3b3e8dbba7a726cbe48dc6718078738456c4b0a70"
+      }
+    ]
+  },
+  "cdVersion": "2.11.3",
+  "runtimeSourceSha": "776642502607bf4a9d099f1143a2faa243cb0392",
+  "runtimeImage": "sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
+  "helmRevision": 73,
+  "runtimeVersion": "0.8.0-alpha.63",
+  "chartVersion": "0.10.59",
+  "runtimeSourceDiff": [],
+  "redeployed": false,
+  "marketplacePublished": false,
+  "cdPackageCommit": "57220c48302d04bb25f48244d0d5e8e4a1189b05",
+  "vsixSha256": "0e7123c5ba5fd62d5a17df3307c6a50df3ea170dbedb3435eab2e673a7825333",
+  "cdVerificationSourceSha": "f62948be89f3d608c452532e25e0169f320f496a"
+}

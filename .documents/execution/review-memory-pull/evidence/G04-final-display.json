@@ -1,0 +1,38 @@
+{
+  "installedVersion": "2.11.3",
+  "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.11.3",
+  "modelCalls": 0,
+  "realExtensionHost": true,
+  "results": [
+    {
+      "input": "G04-final-defect.json",
+      "runId": "ef6114c6-47ae-4466-ae83-2ec63e70ab47",
+      "modelStatus": "completed",
+      "workerMatchesActualRun": true,
+      "installedSummaryCommandOpenedNativeTab": true,
+      "sameSourceRendererContainsSummarySourceAndVersion": true,
+      "rendererHtmlSha256": "b310fba6a6b0cb9838b8a4f5c022dbbf5d46f04bef7bf30be58b4959677543eb",
+      "limitation": "Native tab creation observed; HTML assertions use the identical source renderer, not a DOM screenshot."
+    },
+    {
+      "input": "G04-final-fixed.json",
+      "runId": "60b219af-5592-4877-8d84-9b5ac8d563c7",
+      "modelStatus": "completed",
+      "workerMatchesActualRun": true,
+      "installedSummaryCommandOpenedNativeTab": true,
+      "sameSourceRendererContainsSummarySourceAndVersion": true,
+      "rendererHtmlSha256": "2333c0eebffdcea908ba760d6417cc2fadac4ae58fa600f6919447588702415d",
+      "limitation": "Native tab creation observed; HTML assertions use the identical source renderer, not a DOM screenshot."
+    },
+    {
+      "input": "G04-final-unrelated.json",
+      "runId": "c2f106ae-9850-482c-a041-557c84926a79",
+      "modelStatus": "completed",
+      "workerMatchesActualRun": true,
+      "installedSummaryCommandOpenedNativeTab": true,
+      "sameSourceRendererContainsSummarySourceAndVersion": true,
+      "rendererHtmlSha256": "71a92b08469342e054d5607757ee28e57e48992c5acf446924f09fd259abaad9",
+      "limitation": "Native tab creation observed; HTML assertions use the identical source renderer, not a DOM screenshot."
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "productFix": "7c94029",
+  "productSource": "efd5320",
+  "runtimeChanged": false,
+  "gcrFocused": {
+    "files": 3,
+    "tests": 57,
+    "passed": 57,
+    "logSha256": "cb707747fa12d78eda2d0cf61bb260b46adec16a49cc8508565d32e3655c795c"
+  },
+  "typecheck": true,
+  "changedSourceEslint": true,
+  "cleanConsumerClients": true,
+  "cleanConsumerCli": true,
+  "limitations": [
+    "Synthetic executor regression proves prompt/decoder wiring only, not A05 model judgment.",
+    "Fixture boundary tests are fixed model context; only Python syntax was checked, tests were not executed."
+  ],
+  "cdArtifactRegression": {
+    "tests": 57,
+    "pass": 57,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "groups": 5,
+    "logSha256": "c4d6f4ddd6147369b56c65d7e6dd984967a339519bb691318da910f1aa505006"
+  },
+  "cdSummaryRegression": {
+    "tests": 32,
+    "passed": 32,
+    "failed": 0,
+    "logSha256": "c22a8b9f0caabc25bfa023f256c696f6820a6070d1827083149fb35207aeb95a",
+    "firstAttempt": "UI fixture lacked a required central snapshot; corrected fixture only, then all passed"
+  },
+  "cdTypechecks": [
+    "product",
+    "test",
+    "display-host"
+  ]
+}

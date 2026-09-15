@@ -1,0 +1,9 @@
+{
+  "tests": 57,
+  "pass": 57,
+  "fail": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "groups": 5,
+  "logSha256": "c4d6f4ddd6147369b56c65d7e6dd984967a339519bb691318da910f1aa505006"
+}

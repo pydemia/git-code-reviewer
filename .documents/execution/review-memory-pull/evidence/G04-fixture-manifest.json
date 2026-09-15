@@ -1,0 +1,45 @@
+{
+  "cases": [
+    {
+      "name": "defect",
+      "target": "data-management/mainapp/domains/position_management/block/schema.py",
+      "baseFiles": {
+        "data-management/mainapp/domains/position_management/block/schema.py": "8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab",
+        "data-management/mainapp/domains/position_management/block/service.py": "35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba",
+        "data-management/mainapp/domains/position_management/block/api.py": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c",
+        "data-management/mainapp/domains/position_management/block/repository.py": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374",
+        "tests/test_block_update.py": "e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252",
+        "pyproject.toml": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b"
+      },
+      "sourceHash": "4c51afd728488ee93326bb1caa2e8f39bb5819a9a6536b6856cc1ff6f1edb31b"
+    },
+    {
+      "name": "fixed",
+      "target": "data-management/mainapp/domains/position_management/block/schema.py",
+      "baseFiles": {
+        "data-management/mainapp/domains/position_management/block/schema.py": "4c51afd728488ee93326bb1caa2e8f39bb5819a9a6536b6856cc1ff6f1edb31b",
+        "data-management/mainapp/domains/position_management/block/service.py": "35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba",
+        "data-management/mainapp/domains/position_management/block/api.py": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c",
+        "data-management/mainapp/domains/position_management/block/repository.py": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374",
+        "tests/test_block_update.py": "e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252",
+        "pyproject.toml": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b"
+      },
+      "sourceHash": "8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab"
+    },
+    {
+      "name": "unrelated",
+      "target": "data-management/mainapp/domains/position_management/block/service.py",
+      "baseFiles": {
+        "data-management/mainapp/domains/position_management/block/schema.py": "8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab",
+        "data-management/mainapp/domains/position_management/block/service.py": "35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba",
+        "data-management/mainapp/domains/position_management/block/api.py": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c",
+        "data-management/mainapp/domains/position_management/block/repository.py": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374",
+        "tests/test_block_update.py": "f8cf0a19d06a0813042d6ae1220663a0a54344fb7bd41df1345d50fe2c752ab7",
+        "pyproject.toml": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b"
+      },
+      "sourceHash": "b513a8dc452442aee1ebfa176b63e4ec930714128f6004e117276206645e1dc8"
+    }
+  ],
+  "pythonSyntaxValid": true,
+  "fixtureTestsExecuted": false
+}

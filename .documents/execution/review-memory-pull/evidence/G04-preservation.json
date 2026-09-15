@@ -1,0 +1,22 @@
+{
+  "/Users/a09255/git/git-code-reviewer": {
+    "runnerFilesCompared": 11,
+    "mismatches": []
+  },
+  "/Users/a09255/git/git-code-reviewer-wip-runner": {
+    "runnerFilesCompared": 11,
+    "mismatches": []
+  },
+  "executionRunnerFilesAbsent": [
+    "apps/cli/src/runner.ts",
+    "apps/cli/src/runner.test.ts",
+    "packages/client-contract/src/check-runner.ts",
+    "packages/client-core/src/check-runner-docker.ts",
+    "packages/client-core/src/check-runner-store.ts",
+    "packages/client-core/src/check-runner.test.ts",
+    "packages/client-core/test/check-runner-fixture.ts"
+  ],
+  "userSettingsSha256": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "accountModelCliSettingsChanged": false,
+  "otherUserWorktreesEdited": false
+}

@@ -1,0 +1,20 @@
+{
+  "installedVersion": "2.11.1",
+  "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.11.1",
+  "vsixSha256": "2d3a4626b8ad2875792a3c7f87d047c9000a12ce73af5f1b843610ebe25b5cf0",
+  "bytesMatch": true,
+  "settingsBefore": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "codexHome": "/Users/a09255/.codex",
+  "existingUserHostPid": "954",
+  "existingHostLogs": [
+    {
+      "path": "/Users/a09255/Library/Application Support/Code/logs/20260913T231233/window4/exthost/exthost.log",
+      "lines": [
+        "2026-09-13 23:12:56.034 [info] Extension host with pid 954 started",
+        "2026-09-13 23:13:02.055 [info] ExtensionService#_doActivateExtension pydemia.commit-defender, startup: true, activationEvent: 'workspaceContains:.git'"
+      ]
+    }
+  ],
+  "existingHostVersion": "unconfirmed; no forced reload",
+  "productChanged": false
+}
