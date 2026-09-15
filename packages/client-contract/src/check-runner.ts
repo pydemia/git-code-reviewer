@@ -1,0 +1,98 @@
+import {
+  boolean,
+  choice,
+  id,
+  integer,
+  list,
+  literal,
+  object,
+  sha256,
+  text,
+  timestamp,
+  union,
+} from './codec.js';
+
+/** Local user configuration. A downloaded rule or model response never grants these permissions. */
+export const checkRunnerProfile = object({
+  version: literal(1),
+  id: text(64, 1, /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/),
+  name: text(160, 1),
+  image: text(512, 1, /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/),
+  command: text(1024, 1, /^\/[a-zA-Z0-9_./+-]+$/),
+  // eslint-disable-next-line no-control-regex -- OS argument strings cannot contain NUL.
+  args: list(text(4096, 0, /^[^\u0000]*$/), 64),
+  network: literal('none'),
+  source: literal('read-only'),
+  workingDirectory: choice(['source', 'scratch-copy']),
+  resources: object({
+    cpuMillis: integer(100, 2000),
+    memoryMiB: integer(32, 2048),
+    pids: integer(16, 256),
+    scratchMiB: integer(16, 512),
+    timeoutMs: integer(1000, 600000),
+    outputBytes: integer(1024, 1048576),
+  }),
+  assertion: object({ name: text(256, 1), inputs: text(4096, 1), expected: text(4096, 1) }),
+});
+export type CheckRunnerProfile = ReturnType<typeof checkRunnerProfile>;
+export const approvedCheckRunner = object({
+  repositoryKey: sha256,
+  worktreeKey: sha256,
+  clientProfileId: id,
+  version: literal(1),
+  profile: checkRunnerProfile,
+  profileHash: sha256,
+  approvedAt: timestamp,
+  authority: literal('local-user'),
+  enabled: literal(true),
+});
+export type ApprovedCheckRunner = ReturnType<typeof approvedCheckRunner>;
+export const checkRunnerObservation = object({
+  repositoryKey: sha256,
+  worktreeKey: sha256,
+  clientProfileId: id,
+  version: literal(1),
+  id,
+  profile: checkRunnerProfile,
+  profileHash: sha256,
+  sourceHash: sha256,
+  contextHash: sha256,
+  filesHash: sha256,
+  side: choice(['base', 'source']),
+  startedAt: timestamp,
+  finishedAt: timestamp,
+  status: choice(['completed', 'unavailable', 'timed-out', 'cancelled', 'output-limit', 'error']),
+  reason: text(4096),
+  exitCode: union(integer(0, 255), literal(null)),
+  stdout: text(1048576),
+  stderr: text(1048576),
+  outputTruncated: boolean,
+  environment: union(
+    object({
+      imageId: text(71, 71, /^sha256:[a-f0-9]{64}$/),
+      engineVersion: text(128, 1),
+      kernelVersion: text(256, 1),
+      architecture: text(64, 1),
+      securityOptions: list(text(512), 32),
+      isolation: literal('docker-linux'),
+      network: literal('none'),
+      rootFilesystem: literal('read-only'),
+      user: literal('65534:65534'),
+      capabilities: literal('none'),
+      noNewPrivileges: literal(true),
+      seccomp: literal('filter'),
+      cgroups: literal('v2'),
+    }),
+    literal(null),
+  ),
+  environmentHash: union(sha256, literal(null)),
+  missingSources: list(
+    object({ path: text(4096, 1), side: choice(['base', 'source']), reason: text(128, 1) }),
+    20000,
+  ),
+  cleanup: choice(['complete', 'not-needed', 'pending']),
+  remainingDirectory: union(text(4096, 1), literal(null)),
+  remainingContainer: union(text(128, 1, /^gcr-check-[a-f0-9-]+$/), literal(null)),
+  assessment: literal('execution-observation'),
+});
+export type CheckRunnerObservation = ReturnType<typeof checkRunnerObservation>;

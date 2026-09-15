@@ -33,6 +33,9 @@ Commands:
   result <run-id>                       Read a saved report (same review exit code)
   chat read <run-id>                    Read the saved review conversation; no model call
   chat send|answer|resume|cancel|source <run-id> --input <json-file|->
+  runner profiles|approve --input <profile.json>|revoke <id>
+  runner run <id> --prepared <id> [--side base|source|both]  Local isolated checks
+  runner result <id>                   Read a locally saved execution observation
   history [--stats --days 7|30|90]      List saved reviews or local-only observations
   memory|skill list|show <id>
   memory|skill create --input <json-file|->
@@ -150,6 +153,7 @@ const allowed: Record<string, string[]> = {
   watch: ['trigger', 'external-changes', 'minimum-save-interval-ms'],
   requests: ['key', 'generation'],
   result: [],
+  runner: ['input', 'prepared', 'side'],
   history: ['stats', 'days'],
   chat: ['input', 'offline', 'offline-behavior', ...executor, 'timeout-ms', 'allow-path'],
   memory: ['scope', 'input', 'output', 'revision'],

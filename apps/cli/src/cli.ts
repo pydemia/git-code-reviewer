@@ -1,3 +1,4 @@
+import { executeRunnerCommand } from './runner.js';
 import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import path from 'node:path';
@@ -15,6 +16,8 @@ import {
 } from '@gcr/client-contract';
 import {
   captureLocalSource,
+  CheckRunnerError,
+  type DockerCommand,
   contentHash,
   restoreLocalSource,
   LocalServiceError,
@@ -58,6 +61,8 @@ import { executeChat } from './chat.js';
 
 export interface CliDependencies {
   cwd?: string;
+  /** Trusted test/host port, never selected by CLI arguments. */
+  checkRunnerCommand?: DockerCommand;
   signal?: AbortSignal;
   keys?: LocalKeyStore;
   credentials?: CentralCredentialStore;
@@ -134,6 +139,8 @@ export async function executeCli(
       };
     const { command, values, positionals } = argumentsFor(argv);
     if (command === 'help' || values.help) return { value: help, exitCode: 0, text: true };
+    if (command === 'runner')
+      return await executeRunnerCommand({ command, values, positionals }, dependencies);
     if (command === 'mcp')
       throw new CliError('stdio-required', 'Start MCP using the gcr executable.');
     if (['service', 'watch', 'enqueue', 'enqueue-push'].includes(command))
@@ -1060,6 +1067,7 @@ export async function executeCli(
       };
     const known =
       error instanceof CliError ||
+      error instanceof CheckRunnerError ||
       error instanceof ReviewConversationError ||
       error instanceof LocalServiceError ||
       error instanceof LocalStoreError ||

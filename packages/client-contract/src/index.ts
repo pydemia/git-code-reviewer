@@ -29,3 +29,4 @@ export * from './review-execution.js';
 export * from './review-request.js';
 export * from './review-chat.js';
 export * from './review-submission.js';
+export * from './check-runner.js';

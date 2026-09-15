@@ -41,3 +41,5 @@ export * from './local-service.js';
 export * from './review-conversations.js';
 export * from './review-chat-runner.js';
 export * from './review-submissions.js';
+export * from './check-runner-store.js';
+export * from './check-runner-docker.js';
