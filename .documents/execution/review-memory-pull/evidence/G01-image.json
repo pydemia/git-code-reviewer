@@ -1,0 +1,21 @@
+{
+  "digest": "sha256:4e31905a1e9e2830231c7fa2142234c3304bfbed126fa29bdc278023736240fe",
+  "source": "d8405efdd4581c08096ab3344c1fbb00016832dc",
+  "version": "0.8.0-alpha.61",
+  "images": [
+    {
+      "architecture": "amd64",
+      "os": "linux",
+      "digest": "sha256:4e31905a1e9e2830231c7fa2142234c3304bfbed126fa29bdc278023736240fe"
+    }
+  ],
+  "buildMetadataMatches": true,
+  "labels": {
+    "org.opencontainers.image.description": "Browser-based pull request review service for GitHub Enterprise Server",
+    "org.opencontainers.image.revision": "d8405efdd4581c08096ab3344c1fbb00016832dc",
+    "org.opencontainers.image.source": "https://github.com/pydemia/git-code-reviewer",
+    "org.opencontainers.image.title": "Git Code Reviewer",
+    "org.opencontainers.image.version": "0.8.0-alpha.61"
+  },
+  "architecture": "amd64"
+}

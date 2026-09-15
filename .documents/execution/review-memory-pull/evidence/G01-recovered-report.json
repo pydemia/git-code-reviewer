@@ -1,0 +1,32 @@
+{
+  "at": "2026-09-15T07:51:04.177Z",
+  "versions": {
+    "analyzer": "bounded-lexical-v1",
+    "relationship": "relationship-v1",
+    "verifier": "evidence-v1",
+    "model": "chatgpt-account:gpt-5.6-terra:medium",
+    "review": "model",
+    "severity": "moderate",
+    "policy": "skill-review-v1",
+    "prompt": "builtin-v1",
+    "skills": "dc25811a1b436f80576aa2a129c7a2431dbb52638ee66820065dfe82ef4a947c",
+    "report": "commit-defender-total-summary-v1",
+    "sharedKnowledge": "3e8b9af5c405ebf06f152b479e0d7d940399579dd9cc9afe793622143adf466d",
+    "sharedKnowledgeStatus": "selected",
+    "sharedSelection": "4302f3cee729fe1cb51be2cfbc00d2d27f88c38c3e423307a608886e99d4772a"
+  },
+  "coverage": {
+    "filesChanged": 4,
+    "filesExamined": 4,
+    "objectsExamined": 10,
+    "relationsExamined": 6,
+    "truncated": true,
+    "limitations": [
+      "일부 지적의 공용 기준 연결을 확인하지 못했습니다. 기준 버전·적용 파일·코드 위치·반증 검토 조건을 확인하세요."
+    ]
+  },
+  "findings": 1,
+  "criteria": {
+    "unavailable": 1
+  }
+}

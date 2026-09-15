@@ -1,0 +1,14 @@
+{
+  "pod": "git-code-reviewer-worker-7c7fc4bf59-9h2gb",
+  "alreadyTerminating": true,
+  "noLiveJobLeases": true,
+  "graceSeconds": 30,
+  "reason": "The replaced worker had no live job leases and its recovered job was already terminal. Its leaked worker process was stopped. The existing source broker schedules exit 650 seconds after SIGTERM; its configured shutdown behavior is preserved. No node restart or API force deletion.",
+  "at": "2026-09-15T07:50:35.853059+00:00",
+  "oldContainerCommandsVerified": true,
+  "workerProcessStopped": true,
+  "brokerShutdownDelaySeconds": 650,
+  "brokerState": "terminated after existing shutdown timer",
+  "oldPodAbsent": true,
+  "verifiedAt": "2026-09-15T07:57:57.929742+00:00"
+}

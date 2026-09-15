@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "at": "2026-09-15T07:48:26.788967+00:00",
+  "ownedResourcesRemoved": [
+    "deployment/gcr-prism-g010",
+    "pod/gcr-g01-image-smoke",
+    "configmap/gcr-g01-image-smoke",
+    "networkpolicy/gcr-g01-image-smoke",
+    "configmap/gcr-g01-build-ca",
+    "serviceaccount/gcr-g01-build"
+  ],
+  "ownedBuildPodsAbsent": true,
+  "ownedPythonEnvironmentRemoved": true
+}

@@ -1,0 +1,300 @@
+{
+  "at": "2026-09-15T07:49:01.692Z",
+  "job": [
+    {
+      "id": "f90dfba0-298d-430a-89ea-4e6e6aebaaea",
+      "type": "analysis.run",
+      "state": "completed",
+      "attempt_count": 2,
+      "recovery_count": 1,
+      "heartbeat_at": "2026-09-15T07:48:34.027Z",
+      "lease_expires_at": null,
+      "last_error": {
+        "code": "WORKER_LEASE_EXPIRED",
+        "retryable": true
+      }
+    }
+  ],
+  "analysis": [
+    {
+      "id": "3fc73277-6934-4cf8-8275-241ee842b6a4",
+      "state": "partial",
+      "stage": "published",
+      "progress": 100,
+      "finished_at": "2026-09-15T07:48:43.110Z",
+      "limitations": [
+        "일부 지적의 공용 기준 연결을 확인하지 못했습니다. 기준 버전·적용 파일·코드 위치·반증 검토 조건을 확인하세요."
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "executor": "git-code-reviewer-worker-7c7fc4bf59-9h2gb:7",
+      "started_at": "2026-09-15T02:33:19.578Z",
+      "ended_at": "2026-09-15T07:46:10.405Z",
+      "outcome": "interrupted",
+      "error_code": "WORKER_LEASE_EXPIRED"
+    },
+    {
+      "attempt_number": 2,
+      "executor": "git-code-reviewer-worker-6847557848-qjjb8:7",
+      "started_at": "2026-09-15T07:46:24.017Z",
+      "ended_at": "2026-09-15T07:48:43.136Z",
+      "outcome": "completed",
+      "error_code": null
+    }
+  ],
+  "checkpoints": [
+    {
+      "input_hash": "118ecfb3ae9be2232027906a58aa7d2a0a3750dd0d1e5b752a9d62dfba0b1384",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:41.137Z",
+      "resultHash": "8f5d5ede790689a1bf940c97b46d478b562bc28e99b6604f6b4bb8a3e2b6372c"
+    },
+    {
+      "input_hash": "155b58cadf6ae2beb4f780d9872d285f4694b42d75fc620f23207ba35aa29fc5",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:35.072Z",
+      "resultHash": "4e825a5c14ec2b6ed73d6e5fef398f8c1f1375836bdc09fb4f08bcb445322352"
+    },
+    {
+      "input_hash": "21b8550626ae5570bdcee904621d988a6013815567377f6e9c25e8ce62ccea09",
+      "stage": "overall-summary",
+      "created_at": "2026-09-15T07:48:37.570Z",
+      "resultHash": "291fbec0241cbbdbb8ed40fb356532d23bb9f79f8c1a8a9620a28cf994939b3d"
+    },
+    {
+      "input_hash": "252f7974bc1218b4feaa4b2406ab5bd5cb917646d2b44ad605bdf5fff73e4f8b",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:48:01.800Z",
+      "resultHash": "3a3ebfe413b83115313f471d078f76be74a25ef8bdca6d58a7452adbff5cfe5d"
+    },
+    {
+      "input_hash": "31be54fca2901e4119e4f142f02034f16476340e15b80c6760c16e2b050c4333",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:41.594Z",
+      "resultHash": "82afb4cf99a010dc1688f847971282688940f01f99e997bce42959dea48e6162"
+    },
+    {
+      "input_hash": "3628b3cf6bc2e94a1c2c1f64f9c623c56aaf2214520aa11f2209710338a5bb2a",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:55.077Z",
+      "resultHash": "fba59e2310131fb12c4ce6a60aa1c2cfd8435d2585825428b2ceaf3075c4436c"
+    },
+    {
+      "input_hash": "3938479a90b2b056d66b29ac80080c5e9f87e46703d5f97951713f5d0ff027fb",
+      "stage": "total-summary",
+      "created_at": "2026-09-15T07:48:42.856Z",
+      "resultHash": "59c616ca3d97cbe35579a93ae24b25f0e6b5a71587c8e5c946148c4ca6cdf844"
+    },
+    {
+      "input_hash": "4fceb9315e752cc7c469b4b833585a48029b4eeda79dc6f8b5346d93a4d2dc43",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:48:32.756Z",
+      "resultHash": "db1f06ae9c6f964ac0c138a10ed538aeff0c50b02b702136e8d78455b343bf65"
+    },
+    {
+      "input_hash": "65f090f96e1086cd6172d60db38d319d8cc398826d896a1796a139c945996c4b",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:48:22.986Z",
+      "resultHash": "80b8db31ae9a3c270953d74c945742edd4c3fc7a3baf24a00eec637d0dee152f"
+    },
+    {
+      "input_hash": "6a8c7ce9b386fbd4a47904194b3bfa853f242cd04875571f04cb8a12940f6338",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:30.245Z",
+      "resultHash": "9f24eaaf8366595812d53336994ff7e29d1b21dbd884ab5afee0b3df9a2b8f34"
+    },
+    {
+      "input_hash": "7bc6053186587bf1d1820084509be6b2ea3cf735cb0c0fba2cd63785a19e654f",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:30.873Z",
+      "resultHash": "3ca0688c3d0e7aa1de1efedf4ea3f3977bd6d5878608697ccb08cc3558e530c1"
+    },
+    {
+      "input_hash": "a912b33e30666ae62ab1fb862f6500c6049e96447229cc28a408d5740a4db0c3",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:46.955Z",
+      "resultHash": "6e49cef4efa2cc649e665d0005702f7499e50cd2034c78ca8b2c9912fd2ce3b4"
+    },
+    {
+      "input_hash": "a93823aa9cf251c43bf49e6efa77f10a5d07ec0e0302cc73e379a4fa7b47b278",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:47:52.077Z",
+      "resultHash": "bbb69ff18eb719e26e9229fc7a38cc2af783834dead6a8ca56b3e9a1520bad79"
+    },
+    {
+      "input_hash": "e77698c116c658c098ef03258cab1952c97408674543b3a842599d43a0094dfa",
+      "stage": "overall-summary",
+      "created_at": "2026-09-15T07:47:33.514Z",
+      "resultHash": "9f24eaaf8366595812d53336994ff7e29d1b21dbd884ab5afee0b3df9a2b8f34"
+    },
+    {
+      "input_hash": "e8e48a172e201a0cf2c9864f086a4332fcbf45414a611148bfde518e10f1f381",
+      "stage": "overall-summary",
+      "created_at": "2026-09-15T07:47:33.989Z",
+      "resultHash": "3ca0688c3d0e7aa1de1efedf4ea3f3977bd6d5878608697ccb08cc3558e530c1"
+    },
+    {
+      "input_hash": "f391f6bb7ff2593e5ea99a251ce8c2b63b5674ecc0271e6e28abf97c51f56692",
+      "stage": "unit-comment-block",
+      "created_at": "2026-09-15T07:48:17.984Z",
+      "resultHash": "5428bd459735fea09d0d3042f952926c5dc57e12bf26f231d91e28362116eb02"
+    },
+    {
+      "input_hash": "fb0c3469415775a87fc6468e8a41a1a55991038c1efcdcdbc0a61682a201a1c7",
+      "stage": "overall-summary",
+      "created_at": "2026-09-15T07:47:54.870Z",
+      "resultHash": "afd5eb8ca9980c0e51c97d419568bccccc089d71f1440b305c48d5c3454d429f"
+    }
+  ],
+  "ledger": [
+    {
+      "id": "833144f9-05f5-4bf0-ba5d-a5a544bc346f",
+      "state": "interrupted",
+      "created_at": "2026-09-15T02:34:49.542Z",
+      "finished_at": "2026-09-15T07:47:25.606Z"
+    },
+    {
+      "id": "968986e3-0c3b-4bc6-94e3-fcd9bc8de020",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:25.636Z",
+      "finished_at": "2026-09-15T07:47:30.236Z"
+    },
+    {
+      "id": "02d04b7b-ac35-493e-9ec4-d658531fc080",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:27.134Z",
+      "finished_at": "2026-09-15T07:47:30.867Z"
+    },
+    {
+      "id": "16e26c48-9761-4804-aa41-c765d88fa334",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:28.751Z",
+      "finished_at": "2026-09-15T07:47:41.130Z"
+    },
+    {
+      "id": "4d1b2447-4929-4535-bf64-f46e035b8a05",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:30.222Z",
+      "finished_at": "2026-09-15T07:47:35.066Z"
+    },
+    {
+      "id": "c34ebbe3-c990-41d6-be7a-a70e388e7bd5",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:30.291Z",
+      "finished_at": "2026-09-15T07:47:33.507Z"
+    },
+    {
+      "id": "d680a0b6-4ec3-4f85-9ebf-ccc322d48b8d",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:31.177Z",
+      "finished_at": "2026-09-15T07:47:33.983Z"
+    },
+    {
+      "id": "02f92aa1-4b00-47d5-ab66-8845430b2f3d",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:36.816Z",
+      "finished_at": "2026-09-15T07:47:41.589Z"
+    },
+    {
+      "id": "f7094bb5-7a2d-4a98-a8df-fc9a52fd26f0",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:42.836Z",
+      "finished_at": "2026-09-15T07:47:46.949Z"
+    },
+    {
+      "id": "786a7d28-7e61-493b-bf17-bcc418db3595",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:44.273Z",
+      "finished_at": "2026-09-15T07:47:52.068Z"
+    },
+    {
+      "id": "fd1483e7-21fc-40ea-81e3-bc8ea26b03be",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:48.472Z",
+      "finished_at": "2026-09-15T07:47:55.071Z"
+    },
+    {
+      "id": "c10455ae-cfd0-4d70-869a-4ed61633323a",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:52.108Z",
+      "finished_at": "2026-09-15T07:47:54.801Z"
+    },
+    {
+      "id": "20ff9ab4-7561-4434-8057-27a0c8d3f08b",
+      "state": "completed",
+      "created_at": "2026-09-15T07:47:56.720Z",
+      "finished_at": "2026-09-15T07:48:01.793Z"
+    },
+    {
+      "id": "30ad23c5-62fd-4906-8b76-6b0fb90e44be",
+      "state": "completed",
+      "created_at": "2026-09-15T07:48:03.321Z",
+      "finished_at": "2026-09-15T07:48:17.977Z"
+    },
+    {
+      "id": "a9abeb11-3d75-4373-aa50-59fb16cd403f",
+      "state": "completed",
+      "created_at": "2026-09-15T07:48:19.427Z",
+      "finished_at": "2026-09-15T07:48:22.980Z"
+    },
+    {
+      "id": "1eb58a80-26dc-417c-8cef-7d930f281443",
+      "state": "completed",
+      "created_at": "2026-09-15T07:48:26.458Z",
+      "finished_at": "2026-09-15T07:48:32.747Z"
+    },
+    {
+      "id": "573d4ba9-a17e-4089-ad62-374ca9353f0b",
+      "state": "completed",
+      "created_at": "2026-09-15T07:48:32.791Z",
+      "finished_at": "2026-09-15T07:48:37.549Z"
+    },
+    {
+      "id": "97393c16-a652-42aa-8809-3324236056cc",
+      "state": "completed",
+      "created_at": "2026-09-15T07:48:37.778Z",
+      "finished_at": "2026-09-15T07:48:42.843Z"
+    }
+  ],
+  "reports": [
+    {
+      "id": "1b711386-1621-4194-b1fd-4bedf0e4316f",
+      "created_at": "2026-09-15T07:48:42.969Z"
+    }
+  ],
+  "events": [
+    {
+      "type": "job.lease_recovered",
+      "payload": {
+        "state": "queued",
+        "recoveryCount": 1
+      },
+      "created_at": "2026-09-15T07:46:10.411Z"
+    }
+  ],
+  "publication": [],
+  "originalQueue": [
+    {
+      "id": "3a3ece8f-2090-4575-a921-2b62ec09f535",
+      "state": "completed",
+      "attempt_count": 1,
+      "recovery_count": 0
+    },
+    {
+      "id": "c2ad403a-6009-4578-9c9b-04a0a748e329",
+      "state": "completed",
+      "attempt_count": 1,
+      "recovery_count": 0
+    },
+    {
+      "id": "e1b0713e-5a73-4b07-8a2a-b3054d9534d4",
+      "state": "completed",
+      "attempt_count": 1,
+      "recovery_count": 0
+    }
+  ],
+  "expiredJobs": []
+}

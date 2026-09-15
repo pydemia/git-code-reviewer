@@ -1,0 +1,22 @@
+{
+  "freshBuild": true,
+  "userInstallationUnchanged": true,
+  "packages": {
+    "gcr-cli-0.1.0-alpha.34.tgz": {
+      "sha256": "0c513a67c7df0ce5b733749ee6aa0e60aef78a4cac72cad23fea4bb0f37de1c8",
+      "runnerAbsent": true
+    },
+    "gcr-client-contract-0.1.0-alpha.39.tgz": {
+      "sha256": "e8c00d8818bded91b0902ff897cf7aa2919ecbee5a1dea78a35ba89a9ddf692b",
+      "runnerAbsent": true
+    },
+    "gcr-client-core-0.1.0-alpha.39.tgz": {
+      "sha256": "70678a55fa9349acfd81ad4409628788041a4a14d5dde2014b3c36a13fbe3985",
+      "runnerAbsent": true
+    },
+    "gcr-client-executors-0.1.0-alpha.39.tgz": {
+      "sha256": "555ec88b4bf952bbfbf42d0d08908bca118a464271bae46872097991d1629629",
+      "runnerAbsent": true
+    }
+  }
+}
