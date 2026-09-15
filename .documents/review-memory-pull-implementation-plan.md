@@ -1,7 +1,7 @@
 # GCR 리뷰 이력 저장과 Commit Defender pulling 구현 계획
 
 작성일: 2026-09-15
-상태: G01·G02 완료. G03 구현과 VSIX 로컬 설치를 진행했으며 실제 모델 검증과 Marketplace 게시가 남아 있다. G04는 미착수다. 근거와 검증 범위는 [G01 실행 기록](execution/review-memory-pull/G01.md), [G02 실행 기록](execution/review-memory-pull/G02.md), [G03 실행 기록](execution/review-memory-pull/G03.md)을 따른다.
+상태: G01·G02 완료. G03 구현과 VSIX 로컬 설치는 완료했으나 실제 계정 모델 리뷰가 취소·시간 초과로 끝나 G03은 미완료다. 최신 검증 선택은 사용자 지정 `gpt-5.6-luna / high`다. Marketplace 게시는 별도 작업으로 보류한다. G04는 미착수다. 근거와 검증 범위는 [G01 실행 기록](execution/review-memory-pull/G01.md), [G02 실행 기록](execution/review-memory-pull/G02.md), [G03 실행 기록](execution/review-memory-pull/G03.md)을 따른다.
 근거: [원래 요구 범위 점검](reviews/original-scope-review-2026-09-15.md)
 
 ## 목적과 적용 순서
@@ -14,7 +14,7 @@ GCR의 기존 PR 리뷰 동작을 유지하면서 과거 리뷰 코멘트를 저
 | --- | --- | --- | --- |
 | G01 | 기존 WIP 보관·분리와 문서 정리, GCR 리뷰 동작 복구·보존 | 없음 | 완료 |
 | G02 | 과거 리뷰 이력 저장·중앙 조회·읽기 API | G01의 운영 복구 | 완료: 실제 두 PR 대조·reader API·출처 지침 1건 발행 |
-| G03 | CD pulling과 기존 로컬 provider 리뷰 연결 | G02의 읽기 계약 | 진행 중: 로컬 설치 완료, 실제 모델 검증·Marketplace 게시 대기 |
+| G03 | CD pulling과 기존 로컬 provider 리뷰 연결 | G02의 읽기 계약 | 미완료: 로컬 설치 완료, Luna/high 실제 리뷰 시간 초과 |
 | G04 | 실제 과거 사례로 전체 흐름 검증·최종 전달 | G01–G03 | 미착수 |
 
 한 번에 한 goal만 실행한다. 완료 후 결과를 보고하고 다음 goal은 사용자가 지정했을 때 시작한다. 이 계획의 작성은 네 goal 전체의 실행 요청이 아니다.

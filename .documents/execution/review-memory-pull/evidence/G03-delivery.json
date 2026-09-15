@@ -62,15 +62,18 @@
   "gcrRuntimeChanged": false,
   "helmDeploymentRequired": false,
   "marketplace": {
-    "requested": true,
+    "requested": false,
     "published": false,
     "previousVersion": "2.3.0",
     "credentialMetadataFound": true,
-    "credentialVerification": "timed out during keychain access or verification"
+    "credentialVerification": "timed out during keychain access or verification",
+    "deferredByUser": true,
+    "requiredForG03": false,
+    "previouslyRequested": true,
+    "status": "deferred to a separate task by user"
   },
   "ownedReaderKeyRevoked": true,
   "ownedGcrSessionClosed": true,
-  "realModelCalls": 0,
   "cdProvenanceCommit": "203e2dd",
   "codexInstalledVersion": "0.154.0",
   "gcrRuntimeImage": "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
@@ -86,5 +89,52 @@
     "failed": 0,
     "gcrContractAndHistoryTests": 91,
     "codexExecutorTests": 8
-  }
+  },
+  "realCliReviewInvocations": 3,
+  "providerHttpRequestCount": null,
+  "realReviewCompleted": false,
+  "actualModelSelection": {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "high",
+    "account": "existing default ~/.codex ChatGPT account",
+    "selectionSource": "latest explicit user request; global configuration preserved"
+  },
+  "realReviewResults": [
+    {
+      "attempt": 1,
+      "freshness": "online",
+      "status": "cancelled",
+      "durationMs": 283528,
+      "evidence": "G03-native-model-online-expiry.json",
+      "diagnosis": "Initial online manifest refreshAfter deadline matched cancellation time.",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "high"
+    },
+    {
+      "attempt": 2,
+      "freshness": "offline",
+      "status": "failed",
+      "problem": "timeout",
+      "durationMs": 600074,
+      "evidence": "G03-native-model-cached-timeout.json",
+      "diagnosis": "No complete model response before the 600-second execution limit. Cause after successful source/base reads remains undetermined.",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "high"
+    },
+    {
+      "attempt": 3,
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "high",
+      "freshness": "offline",
+      "status": "failed",
+      "limitMs": 300000,
+      "problem": "timeout",
+      "durationMs": 300038,
+      "evidence": "G03-native-model-luna-timeout.json",
+      "diagnosis": "Source/base reads completed; no complete model response before the 300-second limit. Cause remains undetermined."
+    }
+  ],
+  "cdVerificationSourceSha": "0b74ebc3a2c6d2f6410d4d4ccc1fa243536a3571",
+  "g03Completion": "incomplete: no completed actual account-model review"
 }
