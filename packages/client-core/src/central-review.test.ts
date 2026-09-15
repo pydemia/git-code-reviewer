@@ -21,6 +21,7 @@ import { TrustedCentralBinding } from './central-binding.js';
 import { selectCentralKnowledge, selectSharedKnowledge } from './central-selection.js';
 import { resolveCentralContext, resolveLocalContext } from './review-context.js';
 import { resolveLocalExecutionPolicy } from './review-policy.js';
+import type { SourceHistoryContext } from './review-history.js';
 import { runLocalReview, type LocalReviewExecutor } from './review-runner.js';
 import { contentHash, discoverLocalIdentity } from './local-identity.js';
 import { captureLocalSource, type LocalSourceSnapshot } from './source-snapshot.js';
@@ -259,7 +260,9 @@ describe('central scope and deterministic precedence', () => {
     expect(select(b, { branch: 'feature' }).precedence).toEqual([]);
     m.content.appliesTo.contracts = ['Request-only validation belongs in the schema'];
     expect(select(b).precedence).toHaveLength(1);
-    expect(JSON.stringify(select(b).items)).toContain('Request-only validation belongs in the schema');
+    expect(JSON.stringify(select(b).items)).toContain(
+      'Request-only validation belongs in the schema',
+    );
   });
   it('applies exceptions only to matching files and expires context at time boundaries', () => {
     const b = bundles();
@@ -416,9 +419,15 @@ const descriptor = {
     outputTokenLimit: false,
   },
 };
-async function runFixture(work: LocalReviewExecutor['review']) {
+async function runFixture(
+  work: LocalReviewExecutor['review'],
+  history: SourceHistoryContext[] = [],
+) {
   const f = await setup();
-  const result = await resolveCentralContext(f.query);
+  const result = await resolveCentralContext({
+    ...f.query,
+    loadSourceHistory: async () => history,
+  });
   if (result.status !== 'ready') throw Error(JSON.stringify(result.problems));
   const policy = resolveLocalExecutionPolicy({
     context: result,
@@ -564,6 +573,9 @@ describe('authorized central snapshot review', () => {
   it('passes scoped central material to the approved executor with real fixed-source/base reads', async () => {
     const f: Awaited<ReturnType<typeof runFixture>> = await runFixture(async (request) => {
       expect(request.prompt).toContain('centralKnowledge');
+      expect(request.prompt).not.toContain(
+        'Include this assessment even when there are no findings',
+      );
       expect(request.prompt).toContain('collective full decision');
       expect(request.prompt).toContain('personal counter-evidence');
       expect(request.prompt).not.toContain('personal full decision');
@@ -573,6 +585,61 @@ describe('authorized central snapshot review', () => {
     expect(result.status).toBe('completed');
     expect(result.evidence).toHaveLength(2);
     expect(result.identity.context.hash).toBe(f.context.identity.hash);
+  });
+  it('retains a source-linked exclusion assessment in a completed zero-finding review', async () => {
+    const sourceId = '22222222-2222-4222-8222-222222222222';
+    const url = 'https://github.com/example/repo/pull/917#discussion_r1';
+    const history: SourceHistoryContext = {
+      format: 'review-history-source-v1',
+      repositoryId: audience.repositoryId,
+      pullNumber: 917,
+      apiRevision: contentHash('history'),
+      replies: [],
+      repliesComplete: true,
+      source: {
+        id: sourceId,
+        pullRequestId: sourceId,
+        kind: 'review-comment',
+        githubId: '1',
+        authorLogin: 'reviewer',
+        authorType: 'User',
+        body: 'Check request-only validation',
+        contentHash: contentHash('Check request-only validation'),
+        observationHash: contentHash('observed'),
+        htmlUrl: url,
+        path: 'a.ts',
+        line: 1,
+        side: 'RIGHT',
+        commitSha: null,
+        inReplyToGithubId: null,
+        parentId: null,
+        reviewSourceId: null,
+        replyCount: 0,
+        githubCreatedAt: now(),
+        githubUpdatedAt: now(),
+        lastObservedAt: now(),
+        upstreamState: 'present',
+        provenance: null,
+      },
+    };
+    const assessment = `Excluded ${sourceId} ${url}: this change checks stored state, not request fields.`;
+    const f = await runFixture(
+      async (request) => {
+        expect(request.prompt).toContain('Include this assessment even when there are no findings');
+        const data = JSON.parse(request.prompt.split('\n\n').at(-1)!);
+        expect(data.sourceHistory).toEqual([history]);
+        const response = await answer(request);
+        const body = JSON.parse(response.raw);
+        body.summary = assessment;
+        return { ...response, raw: JSON.stringify(body) };
+      },
+      [history],
+    );
+    const result = await f.run();
+    expect(result.status).toBe('completed');
+    expect(result.findings).toEqual([]);
+    expect(result.summary).toBe(assessment);
+    expect(result.identity.context.entries.some((e) => e.id === `history-${sourceId}`)).toBe(true);
   });
   it('finishes ordinary updates with the pinned prompt and marks results superseded', async () => {
     const f: Awaited<ReturnType<typeof runFixture>> = await runFixture(async (request) => {
