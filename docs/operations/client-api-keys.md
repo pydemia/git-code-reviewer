@@ -1,6 +1,6 @@
 # Client API key와 지식 다운로드
 
-이 문서는 P04/P06 source checkpoint의 구현 계약이다. PRISM-DEV의 API key 활성화, 웹 key 관리 화면, Commit Defender/CLI의 연결 UI·credential broker·실제 중앙 리뷰 완료를 뜻하지 않는다.
+현재 reader key의 서버·transport 계약이다. 사용자 발급·연결 절차는 [클라이언트 연결](client-connections.md), 설치와 예시는 [설치·연결 가이드](../product/getting-started.md)를 따른다. 실제 전달 검증 범위는 G03/G04 실행 기록에 구분한다.
 
 `CLIENT_API_KEYS_ENABLED`와 Helm `clientApiKeys.enabled`는 기본 false다. 활성화하려면 지식 발행·배포와 signing server ID, `local` 또는 `saml` 인증, HTTPS public URL이 필요하다. Runtime의 비운영 환경에서만 명시적인 loopback HTTP fixture를 허용하며 Helm 활성화는 HTTPS를 요구한다. 기존 migration 0001–0040을 수정하지 않고 0041에 `client_api_keys`를 추가한다.
 
@@ -16,18 +16,18 @@
 
 `GET /api/v1/client-auth/config`는 실제 활성화된 방법만 게시한다. 현재 `api-key`만 구현했으며 PKCE·device·refresh flow는 게시하지 않는다. `GET /api/v1/client-auth/me`는 bearer principal의 user·tenant·실효 repository·scope·key 만료를 반환한다.
 
-키는 `Authorization: Bearer <token>`과 `X-GCR-Server-ID`로 전달한다. Bearer 인증이 허용된 route는 client `me`, repository별 지식 `manifest`, `bundles`뿐이다. Authorization header가 있으면 웹 쿠키·proxy assertion·development 사용자로 인증을 대체하지 않는다. 키로 사용자 관리·메모리 승인·모델 실행 API를 호출할 수 없다. 기존 웹의 지식 조회는 기존 세션으로 계속 동작한다.
+키는 `Authorization: Bearer <token>`과 `X-GCR-Server-ID`로 전달한다. Bearer 읽기 경로는 client `me`, client repository identity, repository별 지식 `manifest`·`bundles`, 원문 이력·답글·본문 버전·관측·출처 연결 지침이다. Authorization header가 있으면 웹 쿠키·proxy assertion·development 사용자로 인증을 대체하지 않는다. 키로 사용자 관리·메모리 승인·모델 실행 API를 호출할 수 없다. 기존 웹의 지식 조회는 기존 세션으로 계속 동작한다.
 
 매 요청에서 발급 server·auth mode·user epoch, 키 만료/폐기, 현재 user·tenant·repository·membership·grant를 확인한다. Local 키는 비밀번호 변경 시각까지 정확히 비교한다. PostgreSQL의 microsecond를 JavaScript Date로 잘라 저장하지 않는다. SAML 키는 발급 session의 identity ID·security epoch를 고정하고 현재 identity 활성·검증 상태와 freshness를 확인한다. 개인 bundle owner는 bearer user로 결정하며 요청 body나 다른 웹 쿠키로 바뀌지 않는다. HTTP 304 전에도 동일하게 인가한다.
 
-| 조건 | 결과 |
-| --- | --- |
-| 없는/틀린/만료된 키, 다른 server audience | 401 |
-| 폐기·user epoch 변경·계정 비활성·비밀번호/identity epoch 변경·범위 이탈 | 403 |
-| SAML security freshness 만료 | 503 `IDENTITY_UNAVAILABLE` |
-| 지원하지 않는 client contract | 426 |
+| 조건                                                                    | 결과                       |
+| ----------------------------------------------------------------------- | -------------------------- |
+| 없는/틀린/만료된 키, 다른 server audience                               | 401                        |
+| 폐기·user epoch 변경·계정 비활성·비밀번호/identity epoch 변경·범위 이탈 | 403                        |
+| SAML security freshness 만료                                            | 503 `IDENTITY_UNAVAILABLE` |
+| 지원하지 않는 client contract                                           | 426                        |
 
-DB에서 확인한 발급 범위와 현재 권한의 교집합이 적용된다. 요청이 이미 시작된 뒤의 철회를 모든 in-flight 응답에 소급 취소한다고 주장하지 않는다. 진행 중 리뷰 context 폐기는 P06-C04에서 연결한다.
+DB에서 확인한 발급 범위와 현재 권한의 교집합이 적용된다. 요청이 이미 시작된 뒤의 철회를 모든 in-flight 응답에 소급 취소한다고 주장하지 않는다. 클라이언트는 현재 연결·서명/lease와 이미 관측한 철회를 확인해 진행 중 중앙 자료 사용을 중단한다. offline 상태에서 새 서버 철회를 즉시 발견한다고 보장하지 않는다.
 
 ## Client HTTP transport
 

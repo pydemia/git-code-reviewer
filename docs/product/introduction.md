@@ -56,6 +56,14 @@ Interactive Chat이 활성화된 환경에서는 snapshot의 base·merge-base·h
 
 관리자는 테넌트, 사용자, GitHub 연결, repository polling, 분석 Provider, tenant별 프롬프트와 분석 수준, 분석 Skills, ChatGPT accounts와 집단 메모리를 관리합니다. 공용 분석과 개인화 분석의 접근 범위를 구분하며 개인화 분석은 GitHub의 공용 리뷰 댓글로 게시하지 않습니다.
 
+## Commit Defender와 함께 사용
+
+GCR는 중앙 PR 분석과 과거 리뷰 원문을 보관하고 CD는 개발자의 변경을 로컬에서 준비해 선택한 모델 provider로 리뷰합니다. CD는 GCR의 원문·Skill·프롬프트·활성 지침을 읽기 전용으로 가져옵니다. 중앙에 등록한 모델 계정이 CD의 계정·모델을 대신하지 않습니다.
+
+원문 조회에는 메모리 승인이 필요하지 않습니다. 관리자는 원문에 연결한 지침의 적용 조건·반증을 확인한 뒤 활성화·발행할 수 있습니다. CD 결과에는 사용 자료의 출처와 버전, 모델의 현재 코드 적용 판단이 남습니다. 로컬 코드·diff·리뷰 결과·대화·개인 Memory는 GCR로 전송하지 않으며 승인된 소스와 문맥은 선택한 모델 provider로 전달됩니다.
+
+[설치·연결 가이드](getting-started.md)에서 두 제품의 설치와 첫 리뷰를, [아키텍처](architecture.md)에서 데이터 경계를 확인하세요.
+
 ## 다음 문서
 
 - [기능 목록](features.md): 실제 메뉴별 기능과 사용 범위를 확인합니다.

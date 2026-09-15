@@ -124,6 +124,30 @@ Workspace의 Repository Memory에는 현재 분석에 고정된 항목이 표시
 
 실제 저장·승인 순서는 [Memory 사용 가이드](/guide#review-memory)에서 확인하세요.
 
+## 리뷰 이력 · 원문과 출처 연결 지침
+
+**메뉴 위치:** 상단 → 리뷰 이력
+
+| 기능                  | 입력·권한                            | 결과와 한계                                                                  |
+| --------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
+| PR·코멘트 조회        | 접근 가능한 repository의 reader      | review·inline·일반 코멘트, 답글, 원문 URL. 분석 결과나 메모리 승인 없이 조회 |
+| 본문 버전·thread 관측 | PR와 source ID                       | 저장된 이전 본문과 수집 당시 상태. 수집 이전의 사라진 본문은 복원하지 않음   |
+| 제한된 과거 수집      | 관리 권한, 명시한 PR 번호 최대 20개  | 기존 job 복구·pagination 한도 적용. 전체 과거 PR을 자동 일괄 수집하지 않음   |
+| 출처 연결 지침        | 관리 권한, 실제 원문, 적용 조건·반증 | 초안 저장 후 활성화·발행. 개인 후보의 집단 승격과 별도 경로                  |
+| 변경된 출처           | 저장한 source/guidance 버전          | 재검토 표시와 발행/리뷰 보강 제외. 옛 원문을 새 판단으로 덮어쓰지 않음       |
+
+`not-returned`는 최근 완료한 수집 응답에 나타나지 않았다는 뜻이며 삭제 이유의 확정 판정이 아닙니다. 답글의 수정 주장, resolved·outdated·merged 상태도 현재 결함 수정의 증거와 구분합니다.
+
+## Commit Defender · 중앙 자료 내려받기
+
+**서버 메뉴:** 내 프로필 → 클라이언트 연결. **CD 메뉴:** Central Review Connection.
+
+공개 연결 JSON과 `commit-defender`용 reader key를 각각 준비합니다. `knowledge:read` key는 원문·지식 조회 권한이며 수집·지침 작성·모델 실행 권한이 아닙니다. 서버에서 client API key 기능이 활성화돼 있어야 합니다.
+
+CD는 Skill·프롬프트·활성 지침을 받고 관련 원문을 로컬에서 선택합니다. 리뷰마다 source/base·문맥과 자료 버전을 고정하며 전체 요약과 Evidence에 출처 ID/URL·revision/hash와 적용 판단을 표시합니다. 원문 누락, 서버 장애, 권한 철회와 모델 실패는 구분합니다. 이미 무효화된 cache는 재사용하지 않습니다.
+
+GCR 연결 여부와 관계없이 CD의 provider/model/reasoning 선택은 유지됩니다. 로컬 코드·diff·질문·결과·대화·개인 Memory를 GCR에 올리거나 중앙 모델에 리뷰를 대행시키지 않습니다. 사용자가 선택한 provider로의 모델 호출은 별도입니다. 내려받은 검증 지침을 임의 코드로 실행하지 않습니다. [설치와 사용 예시](getting-started.md)를 참고하세요.
+
 ## 내 프로필 · 개인 설정
 
 **메뉴 위치:** 상단 → 내 프로필
@@ -170,6 +194,6 @@ PR 댓글 구성은 다음과 같습니다.
 
 ## 지원 범위와 구현 계획
 
-현재 제공 범위는 PR snapshot 분석, 보고서·코드 탐색, 로컬 Git 기반 Interactive Chat, 개인·집단 메모리와 PR 대화 수집·관리입니다. Interactive Chat은 운영자가 기능 flag와 격리된 source sandbox를 함께 활성화해야 합니다. 비활성 환경에서는 기존 보고서 기반 Chat을 유지합니다.
+현재 제공 범위는 PR snapshot 분석, 보고서·코드 탐색, 로컬 Git 기반 Interactive Chat, 개인·집단 메모리, 과거 PR 원문·답글·본문 버전 조회, 출처 연결 지침과 CD 읽기 전용 pulling입니다. Interactive Chat은 운영자가 기능 flag와 격리된 source sandbox를 함께 활성화해야 합니다. 비활성 환경에서는 기존 보고서 기반 Chat을 유지합니다.
 
 코드 수정, 임의 shell 명령, dependency 설치와 테스트 실행은 제공하지 않습니다. 현재 화면의 Tests와 Chat의 테스트 조회는 정적 해석입니다. 심층 symbol graph 탐색, 공유 Git mirror, 장기 대화 압축과 과거 모든 대화의 근거 탭 복원은 후속 범위입니다.

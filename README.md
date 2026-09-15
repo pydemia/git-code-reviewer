@@ -1,26 +1,23 @@
 # Git Code Reviewer
 
-사내 GitHub Enterprise Server의 PR을 중앙에서 분석하고 browser review workspace와 GHES PR timeline에 결과를 제공하는 Kubernetes 기반 웹서비스입니다. 대상 repository의 CI와 webhook 없이 polling, isolated clone, evidence 기반 report, 관리형 PR 요약 댓글과 Chat을 제공합니다.
+GitHub·GitHub Enterprise Server의 PR을 수집·분석하고 보고서와 과거 리뷰 이력을 제공하는 웹서비스입니다. Commit Defender는 중앙 원문·Skill·활성 지침을 내려받아 사용자가 선택한 로컬 provider로 리뷰합니다. CD 연결은 중앙 모델 대행이나 로컬 소스·결과 업로드를 추가하지 않습니다.
 
 ## 제품 안내
 
 - [Introduction](docs/product/introduction.md): 제품 목적, 검토 흐름과 개인·집단 메모리 소개
 - [기능 목록](docs/product/features.md): 실제 메뉴별 제공 기능과 현재 지원 범위
-- 앱 상단의 `문서`에서 `Introduction`, `기능 목록`, `사용 가이드`를 전환한다. 직접 경로는 `/introduction`, `/features`, `/guide`다.
+- 앱 상단의 `문서`에서 Introduction, 설치·연결, 아키텍처, 기능 목록과 사용 가이드를 전환합니다. 직접 경로는 `/introduction`, `/getting-started`, `/architecture`, `/features`, `/guide`입니다.
 
-Introduction과 기능 목록은 Markdown 원문을 앱에서 함께 사용하므로 문서를 수정하면 다음 빌드에 반영된다.
+제품 문서는 Markdown 원문을 앱과 저장소에서 함께 사용합니다. 화면의 새 설명은 다음 Web 빌드·배포에 반영됩니다.
 
-## 기준 문서
+## 설치와 사용 문서
 
-1. [제품 정의](PRODUCT.md)
-2. [제품·시스템 Blueprint](.documents/blueprint.md)
-3. [요구사항 명세서](.documents/requirements-specification.md)
-4. [기능 설계서](.documents/functional-design.md)
-5. [Review Workspace UI 설계](.documents/ui-implementation-design.md)
-6. [구현 계획서](.documents/implementation-plan.md)
-7. [설계 검토 처리 결정](.documents/design-review-resolution-2026-09-02.md)
-8. [테넌시·인가·프롬프트 설계](.documents/tenancy-identity-authorization-prompt-design.md)
-9. [Agent handoff](.documents/handoff.md)
+- [설치·연결 가이드](docs/product/getting-started.md): GCR Compose·소스·Helm 설치, 첫 설정, CD VSIX 설치, 모델 선택, reader 연결과 사용 예시
+- [아키텍처](docs/product/architecture.md): 중앙 PR 리뷰와 로컬 리뷰의 역할, 원문·지침·cache·권한과 모델 통신 경계
+- [문서 색인](docs/README.md): 역할과 작업별 how-to·운영 문서
+- [CD 설치·기능 문서](https://github.com/pydemia/commit-defender/blob/codex/review-memory-pull-g03/README.md)
+
+현재 사용 계약은 위 문서와 구현 소스를 따릅니다. [제품 정의](PRODUCT.md), `.documents`의 초기 Blueprint·기능 설계·구현 계획은 변경 배경입니다. 단방향 리뷰 이력 활용으로 정리한 현재 범위와 실제 전달 상태는 [review-memory-pull 계획](.documents/review-memory-pull-implementation-plan.md)과 [G04 실행 기록](.documents/execution/review-memory-pull/G04.md)에서 확인할 수 있습니다.
 
 ## Visual
 
@@ -28,7 +25,7 @@ Introduction과 기능 목록은 Markdown 원문을 앱에서 함께 사용하�
 - [Review Workspace preview](.documents/visuals/review-workspace-preview.png)
 - [Logical/Kubernetes architecture](.documents/visuals/git-code-reviewer.drawio)
 
-초기 아이디어인 `.documents/idea.md`는 배경 자료이며, 현재 제품 범위는 위 기준 문서가 우선합니다.
+초기 아이디어인 `.documents/idea.md`는 배경 자료이며, 현재 제품 범위는 설치·연결 가이드와 기능 목록, 실제 구현을 기준으로 확인합니다.
 
 ## 개발과 배포
 
@@ -46,12 +43,15 @@ Introduction과 기능 목록은 Markdown 원문을 앱에서 함께 사용하�
 
 Review workspace의 `Memory` 탭은 사용자별 검토 이력과 GitHub PR 대화를 개인 메모리 후보로 관리하고, 여러 사용자의 승인을 repository 집단 메모리 후보로 집계한다. 분석과 Chat은 현재 코드 근거를 먼저 사용하며 집단 메모리, 개인 메모리 순으로 과거 판단을 참고한다. 관리자 승인은 `Administration → Repository Memory`에서 처리한다. 저장·검색·원문 버전 정책은 [Review Memory 설계](.documents/review-memory-design.md)를 참조한다.
 
+상단의 `리뷰 이력`은 분석 결과나 메모리 승인 없이 원문·답글·본문 버전·출처를 읽는 별도 경로입니다. 원문 연결 지침은 적용 조건과 반증을 확인한 관리자가 활성화·발행할 수 있으며 개인 메모리의 집단 승격을 먼저 거치지 않습니다. `내 프로필 → 클라이언트 연결`의 공개 연결 JSON과 CD용 `knowledge:read` key로 이 자료를 내려받습니다.
+
 기본 관점 6개는 Commit Defender 원문의 점검 항목과 Tone을 한국어로 옮겼다. `분석 프롬프트`에서 tenant별 Severity Level(lean·generous·moderate·rigorous·severe, 기본 moderate)을 고를 수 있다. 지침과 수준은 함께 version으로 저장하고 새 분석 queue에 고정한다. 수준별 범위와 기존 custom Skill 적용 방법은 [분석 수준 설계](.documents/analysis-severity-level.md)를 참조한다.
 
 ```bash
 export POSTGRES_PASSWORD='local-only-password'
 docker compose -f compose.dev.yaml up -d postgres
 cp .env.example .env
+# .env의 DATABASE_URL 비밀번호를 POSTGRES_PASSWORD와 맞춘다.
 set -a; source .env; set +a
 corepack pnpm install --frozen-lockfile
 pnpm migrate
