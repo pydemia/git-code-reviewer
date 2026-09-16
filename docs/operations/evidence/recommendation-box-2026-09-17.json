@@ -1,0 +1,180 @@
+{
+  "version": "0.8.0-alpha.67",
+  "chartVersion": "0.10.63",
+  "helmRevision": 77,
+  "imageSource": "36b251748701a2be54d06474d39b82e4920d747a",
+  "deploymentSource": "0200941bcdd9b73101147c70315c1411a9e4184b",
+  "imageDigest": "sha256:e68fa38cf45261909cc39c85d0db7712083be46f09564243663ddd88764e887b",
+  "chartDigest": "sha256:62b4059117dc5003d5714eedbbf2515e6effe10e4cbfaf3e3b7a4469c99f76ef",
+  "chartSha256": "2a223b59d4062dc295e5eacfcdaaa34c40538bfca0f03953019c92ba22d1caf7",
+  "liveVerification": {
+    "recordedAt": "2026-09-16T15:23:11.013Z",
+    "version": "0.8.0-alpha.67",
+    "sessions": [
+      {
+        "scheme": "https",
+        "login": 200,
+        "me": 200,
+        "cookieName": "gcr_session",
+        "secure": true,
+        "httpOnly": true,
+        "sameSite": "Lax",
+        "invalidOrigins": 403,
+        "credentialManagement": 200,
+        "logout": {
+          "status": 204,
+          "meAfter": 401
+        }
+      },
+      {
+        "scheme": "http",
+        "login": 200,
+        "me": 200,
+        "cookieName": "gcr_http_session",
+        "secure": false,
+        "httpOnly": true,
+        "sameSite": "Lax",
+        "invalidOrigins": 403,
+        "credentialManagement": 401,
+        "logout": {
+          "status": 204,
+          "meAfter": 401
+        }
+      }
+    ],
+    "history": [
+      {
+        "number": 917,
+        "messages": 46,
+        "replies": 10,
+        "coverage": "collected"
+      },
+      {
+        "number": 915,
+        "messages": 16,
+        "replies": 3,
+        "coverage": "collected"
+      }
+    ],
+    "browser": {
+      "engine": "Chrome",
+      "origin": "http://pr-review.prism.ai",
+      "secureContext": false,
+      "history": "passed",
+      "observations": "passed",
+      "sizes": [
+        {
+          "width": 1440,
+          "fits": true
+        },
+        {
+          "width": 420,
+          "fits": true
+        }
+      ],
+      "pageErrors": [],
+      "apiMutations": []
+    },
+    "extraCollection": 0,
+    "modelCalls": 0,
+    "recommendationBoxes": 19
+  },
+  "tests": {
+    "markdown": 4,
+    "historyIntegration": 10,
+    "webTypecheck": "passed",
+    "changedTypescriptLint": "passed",
+    "webBuild": "passed",
+    "helmLint": "passed",
+    "helmConnection": "passed"
+  },
+  "preservation": {
+    "tables": {
+      "users": {
+        "count": 7,
+        "unchanged": true
+      },
+      "chat_accounts": {
+        "count": 7,
+        "unchanged": true
+      },
+      "analysis_runs": {
+        "count": 193,
+        "unchanged": true
+      },
+      "reports": {
+        "count": 185,
+        "unchanged": true
+      },
+      "repository_grants": {
+        "count": 2,
+        "unchanged": true
+      },
+      "tenant_memberships": {
+        "count": 7,
+        "unchanged": true
+      },
+      "review_memories": {
+        "count": 5,
+        "unchanged": true
+      },
+      "local_credentials": {
+        "count": 6,
+        "unchanged": true
+      },
+      "review_rules": {
+        "count": 0,
+        "unchanged": true
+      },
+      "review_rule_revisions": {
+        "count": 0,
+        "unchanged": true
+      },
+      "review_knowledge_releases": {
+        "count": 10,
+        "unchanged": true
+      },
+      "review_history_collections": {
+        "count": 1,
+        "unchanged": true
+      }
+    },
+    "migrationsUnchanged": true,
+    "migrationCount": 53,
+    "tls": {
+      "ssl": true,
+      "version": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384"
+    },
+    "tlsMode": "verify-full",
+    "helmChangedFields": [
+      "image.tag",
+      "image.digest"
+    ]
+  },
+  "screenshots": {
+    "history-desktop.png": "86adff51f0e688d28f7cde2faecb1e7f1c7814f3d80cdcee88d4100a33b0c9c9",
+    "recommendation-mobile.png": "6f65dd37fff1edf8befc737d474736095e1346306911b99e9988282426f10506",
+    "live-history-mobile.png": "207d90f1f4bef03da6bab4f5ee9ac872dd3b20ab4ed0a8893f6606af3b8158ea",
+    "history-conversation.png": "104c735404ceca4e4095349d601154cba752354d0236de42ff7615dddda945cf",
+    "live-observations-desktop.png": "69ff3f8ae7503a60d897573cb53a67260a20d1ac537919691a8abb9236c30eee",
+    "live-observations-mobile.png": "407869570a688d734ee7552fa89c96701fb50aa57ff7a7f27e507acb79134098",
+    "history.png": "9a5e4410658a1de451e8963ab5ae98b1477a74add129b4d771b97360240060c5",
+    "live-history-desktop.png": "32c4a9b57d7899a7918063eadeec1bb242a924003187993cc49818d22078e1a6",
+    "recommendation-desktop.png": "78125ed10d07e996f2e178db8f217647c75716faaff56f1c2774c6bc0224bb8d",
+    "live-history-mobile-source.png": "32aabb009d84ec5a343cfcbbcde958fa270e050d619def110751b2ee07e8800f"
+  },
+  "guide": {
+    "repository": "agent-skills",
+    "branch": "codex/reference-led-frontend",
+    "source": "c7a7beb",
+    "export": "af229fb",
+    "skill": "reference-led-frontend",
+    "tests": {
+      "passed": 20,
+      "skipped": 3,
+      "failed": 0
+    },
+    "installedSha256": "82b699e3e522c7618be6a1a9f916211af03f4a513b9e5faabb02e9e144175c08"
+  }
+}

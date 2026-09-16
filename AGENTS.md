@@ -1,5 +1,6 @@
 # 프런트엔드 작업
 
+- 재사용 가이드는 `agent-skills`의 `reference-led-frontend` 스킬과 `prompts/reference-led-frontend.md`에 저장한다. 설치된 경우 `$reference-led-frontend`를 적용하고 아래 프로젝트별 선호를 함께 따른다.
 - UI/UX와 프런트엔드 기능을 개편할 때 `agent-skills`의 관련 스킬을 사용한다. 설계는 `product-ui-ux-design`, 마크업·레이아웃·접근성은 `web-publishing`, 컴포넌트·상태·API 연동은 `frontend-development`를 적용한다. 새로운 참고 자료 조사가 필요하면 `reference-research`를 사용한다.
 - 로컬 `../agent-skills`의 해당 `SKILL.md`를 확인한다. 현재 checkout에 없는 스킬은 원격 추적 브랜치의 파일을 읽되 사용자의 checkout과 변경을 임의로 바꾸지 않는다.
 - 실제로 확인한 제품 화면·컴포넌트와 기존 제품의 승인된 디자인을 근거로 설계한다. 사용한 reference와 어떤 구조·동작을 적용했는지 작업 기록에 남긴다.
