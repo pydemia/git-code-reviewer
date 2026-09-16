@@ -29,7 +29,8 @@ const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const manifests = await Promise.all(
   packages.map((name) => json(join(root, 'packages', name, 'package.json'))),
 );
-const version = manifests[1].version;
+// The highest-level package pins both lower layers, which can keep their bytes.
+const version = manifests[2].version;
 const names = manifests.map((manifest) => manifest.name);
 const versions = Object.fromEntries(manifests.map((manifest) => [manifest.name, manifest.version]));
 for (const [index, manifest] of manifests.entries()) {

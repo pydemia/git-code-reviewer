@@ -29,7 +29,7 @@ const run = (command, argv, cwd = root) => {
 };
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const cli = await json(join(root, 'apps/cli/package.json'));
-const client = await json(join(root, 'packages/client-core/package.json'));
+const client = await json(join(root, 'packages/client-executors/package.json'));
 assert.equal(cli.name, '@gcr/cli');
 assert.equal(cli.engines.node, '>=22.0.0');
 if (args.includes('--reuse-clients')) run('pnpm', ['build:clients']);
