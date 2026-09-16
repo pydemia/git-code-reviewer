@@ -1,0 +1,702 @@
+{
+  "recordedAt": "2026-09-16T08:05:54.420354+00:00",
+  "scope": "W04 macOS compatibility regression only; Windows manual cleanup separate",
+  "environment": {
+    "os": "macOS 26.3.2",
+    "build": "25D2140",
+    "architecture": "arm64",
+    "node": "25.9.0",
+    "pnpm": "10.17.1",
+    "git": "2.50.1 (Apple Git-155)"
+  },
+  "source": {
+    "gcrBaseline": "ffb0ed30117742ccaeed24fd0643408b52daf5da",
+    "gcrVerificationCommit": "6c945067847bf6c68fb0044346c2b78897606098",
+    "cdBaseline": "53a98161f1db535507c4aa6f887ee11863f26360",
+    "gcrProduct": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "cdProduct": "2c2a40647c72e9ae00489ba0a5efaa7c3351792c",
+    "cdPackaging": "722b55cb6d93269aa76bf298e9e9531dc9ac7ecc"
+  },
+  "changes": {
+    "product": false,
+    "test": "unsupported OS rejection now uses freebsd instead of newly supported win32",
+    "smoke": "scripts/macos-w04-package-smoke.mjs; fixed package real macOS checks",
+    "dependencies": "pnpm frozen install restored missing workspace link; no lockfile changes",
+    "newPackageOrVsix": false,
+    "installation": false,
+    "modelCalls": 0,
+    "productionRequests": 0
+  },
+  "gcr": {
+    "finalCounts": {
+      "passed": 92,
+      "failed": 0,
+      "skipped": 1,
+      "pending": 0
+    },
+    "suites": {
+      "central-credentials.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "central OS credential adapter reopens Windows reader credentials in a new process and deletes missing entries idempotently",
+            "status": "skipped"
+          },
+          {
+            "name": "central OS credential adapter uses a separate darwin namespace and stdin for secret writes",
+            "status": "passed"
+          },
+          {
+            "name": "central OS credential adapter uses a separate linux namespace and stdin for secret writes",
+            "status": "passed"
+          },
+          {
+            "name": "central OS credential adapter rejects multiline/keychain-command injection and hides OS diagnostics",
+            "status": "passed"
+          },
+          {
+            "name": "central OS credential adapter distinguishes missing entries from malformed stored credentials",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-tests.json",
+        "logSha256": "5ef0838de79aff986175e5f51097e1b2f59c1e0be95f6666923bbad532cbb768"
+      },
+      "local-foundation.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "local identity and private storage publication hashes canonical JSON independently of object insertion order and refuses non-JSON/cyclic/oversized inputs",
+            "status": "passed"
+          },
+          {
+            "name": "local identity and private storage publication separates same-name clones and worktrees and keeps repository identity independent of remote credentials",
+            "status": "passed"
+          },
+          {
+            "name": "local identity and private storage publication publishes exactly one complete revision in a write race and never replaces a committed name",
+            "status": "passed"
+          },
+          {
+            "name": "local identity and private storage publication refuses symlink and shared-permission storage instead of repairing or following it",
+            "status": "passed"
+          },
+          {
+            "name": "OS key store command boundary darwin writes a key through stdin and checks read-back without placing it in process arguments",
+            "status": "passed"
+          },
+          {
+            "name": "OS key store command boundary linux writes a key through stdin and checks read-back without placing it in process arguments",
+            "status": "passed"
+          },
+          {
+            "name": "OS key store command boundary does not accept an interactive tool exit 0 when the key was not actually saved",
+            "status": "passed"
+          },
+          {
+            "name": "OS key store command boundary distinguishes not-found from locked/unavailable and never exposes helper output in its error",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-rerun.json",
+        "logSha256": "7d028ed00f9c329175b4790ec7d09d33073f7d884a488e27e1d9fe211498562d"
+      },
+      "local-history.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "restores full review/chat history and retention settings after reopening",
+            "status": "passed"
+          },
+          {
+            "name": "keeps failed and cancelled reports as history without upgrading their status",
+            "status": "passed"
+          },
+          {
+            "name": "prunes by age and count using persisted policy and leaves local knowledge outside history retention",
+            "status": "passed"
+          },
+          {
+            "name": "rejects another repository/profile and malformed messages or retention policy",
+            "status": "passed"
+          },
+          {
+            "name": "protects chat revisions and retains a concurrent update when retention saw an older revision",
+            "status": "passed"
+          },
+          {
+            "name": "reports retention failure separately from a successfully saved review",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-tests.json",
+        "logSha256": "5ef0838de79aff986175e5f51097e1b2f59c1e0be95f6666923bbad532cbb768"
+      },
+      "local-records.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "encrypted local revisions restores after reopen, stores no plaintext/key bytes, and does not serialize its master key",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions elects one OS key reference and commits one winner under concurrent first-open/write",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions captures mutable caller data before asynchronous I/O",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions keeps tombstone markers after body cleanup so stale writers cannot recreate a removed revision",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions preserves the previous revision on disk failure and reports an ambiguous committed revision without deleting it",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions reports pending cleanup without hiding that deletion already committed",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions binds encrypted data to profile/repository/worktree and refuses copied records",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions rejects a modified latest ciphertext even after its public digest is rewritten; no old revision fallback",
+            "status": "passed"
+          },
+          {
+            "name": "encrypted local revisions never generates a replacement key or plaintext store when an existing OS key is missing/locked",
+            "status": "passed"
+          },
+          {
+            "name": "refuses a missing key reference over existing data instead of creating a new master key",
+            "status": "passed"
+          },
+          {
+            "name": "moves a reader to the committed tombstone when concurrent cleanup removes its selected body",
+            "status": "passed"
+          },
+          {
+            "name": "user-owned local knowledge persists candidate/edit/activation/archive/delete with explicit revision conflicts",
+            "status": "passed"
+          },
+          {
+            "name": "user-owned local knowledge stores full review-only Skill text and imports/exports explicitly without reusing scope or activation",
+            "status": "passed"
+          },
+          {
+            "name": "user-owned local knowledge filters expired context, preserves import dates, and allows explicitly clearing an expiry",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-tests.json",
+        "logSha256": "5ef0838de79aff986175e5f51097e1b2f59c1e0be95f6666923bbad532cbb768"
+      },
+      "local-review-observations.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "counts terminal states and recorded duration without inferring provider calls or billing",
+            "status": "passed"
+          },
+          {
+            "name": "uses the inclusive finish window, excludes future records, and deduplicates exact run IDs",
+            "status": "passed"
+          },
+          {
+            "name": "rejects conflicting duplicates and other profile or worktree records even outside the window",
+            "status": "passed"
+          },
+          {
+            "name": "distinguishes downloaded knowledge, offline cache and local fallback without claiming quality",
+            "status": "passed"
+          },
+          {
+            "name": "keeps finding outcomes separate and bounds model groups without losing review totals",
+            "status": "passed"
+          },
+          {
+            "name": "rejects invalid windows, oversized input, and duration overflow",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-tests.json",
+        "logSha256": "5ef0838de79aff986175e5f51097e1b2f59c1e0be95f6666923bbad532cbb768"
+      },
+      "local-service.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "retains headless Stage observation after submitting clients exit and across service process restart",
+            "status": "passed"
+          },
+          {
+            "name": "recovers a report persisted immediately before SIGKILL without a second executor invocation",
+            "status": "passed"
+          },
+          {
+            "name": "requires explicit registration and trigger permission, persists an idempotent receipt, and runs after disconnect",
+            "status": "passed"
+          },
+          {
+            "name": "recovers queued source after SIGKILL but never reruns a receipt that had started",
+            "status": "passed"
+          },
+          {
+            "name": "revoking a registration aborts running work and cancels its queued generation",
+            "status": "passed"
+          },
+          {
+            "name": "refuses a second live owner without disrupting the original socket",
+            "status": "passed"
+          },
+          {
+            "name": "preserves a regular file at the socket path and releases the failed startup owner",
+            "status": "passed"
+          },
+          {
+            "name": "settles shutdown and disconnects partial clients even when releasing ownership fails",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-tests.json",
+        "logSha256": "5ef0838de79aff986175e5f51097e1b2f59c1e0be95f6666923bbad532cbb768"
+      },
+      "source-snapshot.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "immutable local source capture freezes partial stage, base and related source independently of later HEAD/index/working edits",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture uses saved working contents, explicit untracked inclusion and fixed related contents",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture retains deleted base, renamed source and unchanged consumers without private descendants in a patch",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture handles sha1 initial commits and intent-to-add without changing index or object storage",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture handles sha256 initial commits and intent-to-add without changing index or object storage",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture reads a version4 index and preserves fixed related source",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture reads a split index and preserves fixed related source",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture reads a sparse index and preserves fixed related source",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture separates linked worktree and alternate index, including environment-driven hook use",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture resolves the base ref once and compares against merge-base, not unrelated branch changes",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture distinguishes secret, ignored, generated, binary, invalid UTF-8, symlink, LFS and submodule sources",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture does not invoke repository filters, textconv, hooks, fsmonitor, external diff or fetch",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture reports missing objects and refuses unmerged indexes without a working-tree fallback",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture keeps empty/BOM/CRLF text hashes exact, bounds reads and excludes oversized context explicitly",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture rejects working-tree parent symlinks at the read boundary",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture rejects files that grow while reading without allocating the new size",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture treats index removal as deletion unless the now-untracked file is explicitly included",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture refuses a head change during capture",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture refuses a ignore change during capture",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture refuses a branch change during capture",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture bounds index reads and refuses symlink/FIFO indexes without following or blocking",
+            "status": "passed"
+          },
+          {
+            "name": "immutable local source capture validates deny patterns and protects private defaults from user overrides",
+            "status": "passed"
+          },
+          {
+            "name": "exact committed source for push reviews ignores a conflicting checkout and corrupt index and preserves exact force-update base",
+            "status": "passed"
+          },
+          {
+            "name": "exact committed source for push reviews uses ignore rules from both commit trees even when absent in the checkout",
+            "status": "passed"
+          },
+          {
+            "name": "exact committed source for push reviews requires explicit exact commit objects and permits a declared empty base",
+            "status": "passed"
+          },
+          {
+            "name": "durable fixed source payloads restores exact reads after the original repository and temporary index are gone",
+            "status": "passed"
+          },
+          {
+            "name": "durable fixed source payloads rejects changed source bytes, patches and selected paths before restoring a payload",
+            "status": "passed"
+          },
+          {
+            "name": "canonicalizes captured file order so explicit Stage and all-changes Commit scopes share identity",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-tests.json",
+        "logSha256": "5ef0838de79aff986175e5f51097e1b2f59c1e0be95f6666923bbad532cbb768"
+      },
+      "codex-isolation.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "denies automatic instruction reads without copying or modifying the account namespace",
+            "status": "passed"
+          },
+          {
+            "name": "rejects malformed model or reasoning effort before executing an account command",
+            "status": "passed"
+          },
+          {
+            "name": "checks the bundled catalog only for verified exact versions: codex-cli 0.153.4",
+            "status": "passed"
+          },
+          {
+            "name": "checks the bundled catalog only for verified exact versions: codex-cli 0.154.0",
+            "status": "passed"
+          },
+          {
+            "name": "checks the bundled catalog only for verified exact versions: codex-cli 0.154.1",
+            "status": "passed"
+          },
+          {
+            "name": "checks the bundled catalog only for verified exact versions: codex-cli 0.154.0-preview",
+            "status": "passed"
+          },
+          {
+            "name": "checks the bundled catalog only for verified exact versions: 0.154.0",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-rerun.json",
+        "logSha256": "7d028ed00f9c329175b4790ec7d09d33073f7d884a488e27e1d9fe211498562d"
+      },
+      "process.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "writes prompt over stdin, keeps argv literal and captures bounded streams",
+            "status": "passed"
+          },
+          {
+            "name": "does not start a cancelled request and reports a missing executable without raw errors",
+            "status": "passed"
+          },
+          {
+            "name": "enforces a combined stdout/stderr byte limit",
+            "status": "passed"
+          },
+          {
+            "name": "kills a SIGTERM-ignoring descendant on timeout",
+            "status": "passed"
+          },
+          {
+            "name": "kills a SIGTERM-ignoring descendant on cancelled",
+            "status": "passed"
+          },
+          {
+            "name": "kills a SIGTERM-ignoring descendant on leader-exit",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "gcr-rerun.json",
+        "logSha256": "7d028ed00f9c329175b4790ec7d09d33073f7d884a488e27e1d9fe211498562d"
+      },
+      "codex-config.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "retains the response contract in stdin with a bounded schema and no CLI schema option",
+            "status": "passed"
+          },
+          {
+            "name": "preserves selected model and effort while restricting the existing source harness",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "executor-contracts.json",
+        "logSha256": "2dab1edfce7dce87d27a1cd35b5b467e7323fe7c4d3137bc3e86575720902a97"
+      },
+      "source-bridge.test.ts": {
+        "status": "passed",
+        "cases": [
+          {
+            "name": "requires its ephemeral bearer and rejects browser origins before invoking any source port",
+            "status": "passed"
+          },
+          {
+            "name": "exposes fixed read tools, empty resources and no arbitrary tool or resource dispatch",
+            "status": "passed"
+          },
+          {
+            "name": "advertises ask_user only with an explicit question port and validates arguments before dispatch",
+            "status": "passed"
+          }
+        ],
+        "evidenceLog": "executor-contracts.json",
+        "logSha256": "2dab1edfce7dce87d27a1cd35b5b467e7323fe7c4d3137bc3e86575720902a97"
+      }
+    },
+    "initialAttempt": {
+      "passed": 73,
+      "failed": 1,
+      "skipped": 1,
+      "executorSuitesLoadFailed": 2,
+      "cause": "stale unsupported-Windows assertion and pre-existing missing workspace dependency link",
+      "preservedLogSha256": "5ef0838de79aff986175e5f51097e1b2f59c1e0be95f6666923bbad532cbb768"
+    },
+    "sourceBuild": "passed after frozen dependency install",
+    "sourceBuildLogSha256": "35a0895c031f73edc47251391fbc10ad3b884395cf030414692d0de22812d00a"
+  },
+  "cd": {
+    "typecheck": "passed",
+    "suites": {
+      "model-credentials": {
+        "tests": 13,
+        "pass": 13,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logSha256": "7837e6f9fb94904157ab137994a81022354d19e1afb4d6f34c1a00916b378753"
+      },
+      "automatic-review": {
+        "tests": 17,
+        "pass": 17,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logSha256": "2b9552766ebaa1f9b3379bb90ee02403c23880a7c7d029e6e73496864c2e8300"
+      },
+      "background-recovery": {
+        "tests": 9,
+        "pass": 9,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logSha256": "00c379dbebecbe78f98f55291e5a85f87c183a8124eb8513b6050c552dae627a"
+      },
+      "managed-hooks": {
+        "tests": 6,
+        "pass": 6,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logSha256": "918817843b49ad23c45ea7cae467f6c0b2566545f449eca4ff356084a2779f8f"
+      },
+      "review-outcome": {
+        "tests": 23,
+        "pass": 23,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "logSha256": "eefa9c7f6d83b1b7181eb428fd28df12ce58f1ef91e91316d6d8c690fff12a4b"
+      }
+    },
+    "existingHookBundleReused": true,
+    "mockVsCode": "automatic-review and background-recovery; not a new Extension Host validation"
+  },
+  "packedKeychainPersistence": {
+    "platform": "darwin",
+    "node": "v25.9.0",
+    "packageVersion": "0.1.0-alpha.49",
+    "keyStore": "macOS Keychain",
+    "restoredInNewProcess": true,
+    "concurrentWriters": 8,
+    "committed": 1,
+    "conflicts": 7,
+    "deletionRestoredInNewProcess": true,
+    "syntheticData": true,
+    "modelCalls": 0,
+    "cleanup": "completed"
+  },
+  "packedNative": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v25.9.0",
+    "core": "0.1.0-alpha.49",
+    "executors": "0.1.0-alpha.49",
+    "realKeychain": true,
+    "realModelCalls": 0,
+    "productionRequests": 0,
+    "checks": [
+      "Keychain-backed persistence, corrupt ciphertext rejection, missing-key rejection without regeneration",
+      "actual Keychain reader credential write/reopen/delete",
+      "frozen core Unix socket private ownership, duplicate owner denial, stop/restart/close with real Keychain",
+      "frozen executor macOS sandbox instruction boundary, native timeout and cancelled status"
+    ],
+    "moduleHashes": {
+      "/Users/a09255/git/commit-defender-windows-macos/vscode-extension/node_modules/@gcr/client-core/dist/index.js": "cb70675dbf78e83c3011b1de152e9422ae1027af890dee9a4bbe712ba8a83c3e",
+      "/Users/a09255/git/commit-defender-windows-macos/vscode-extension/node_modules/@gcr/client-executors/dist/index.js": "29e28502548f028c02f1a5460d7145893731b555654e476c6a998b827fd76cce",
+      "/Users/a09255/git/commit-defender-windows-macos/vscode-extension/node_modules/@gcr/client-executors/dist/process.js": "a61072f9b51054a6d1a425870d5a4729fab23f097f5c4875be1bb1bd3bae2f67",
+      "/Users/a09255/git/commit-defender-windows-macos/vscode-extension/node_modules/@gcr/client-executors/dist/codex-isolation.js": "c1449996c6de34a63f1b837980294aa5ea28ac6da2d522c3aa2f91273c271092"
+    },
+    "cleanup": {
+      "temporaryRootRemoved": true,
+      "keychainReferencesRemoved": 2,
+      "readerCredentialRemoved": true,
+      "ownedServiceClosed": true
+    },
+    "status": "passed"
+  },
+  "executedSmokeScriptSha256": "b4c3e6cbd836275ccc333f8c7b677816672000eb127f9cf0a1dabd7174b904d2",
+  "committedSmokeScriptSha256": "d32dea6a8577db3f6286901b85894ebb319407421cc20d76fd44a28a1ea492ff",
+  "scriptFormatting": "prettier only after execution",
+  "packages": [
+    {
+      "path": "vscode-extension/vendor/gcr/0.1.0-alpha.48/gcr-client-contract-0.1.0-alpha.48.tgz",
+      "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8",
+      "version": "0.1.0-alpha.48"
+    },
+    {
+      "path": "vscode-extension/vendor/gcr/0.1.0-alpha.49/gcr-client-contract-0.1.0-alpha.48.tgz",
+      "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8",
+      "version": "0.1.0-alpha.48"
+    },
+    {
+      "path": "vscode-extension/vendor/gcr-cli/0.1.0-alpha.38/gcr-client-contract-0.1.0-alpha.48.tgz",
+      "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8",
+      "version": "0.1.0-alpha.48"
+    },
+    {
+      "path": "vscode-extension/vendor/gcr/0.1.0-alpha.49/gcr-client-core-0.1.0-alpha.49.tgz",
+      "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4",
+      "version": "0.1.0-alpha.49"
+    },
+    {
+      "path": "vscode-extension/vendor/gcr-cli/0.1.0-alpha.38/gcr-client-core-0.1.0-alpha.49.tgz",
+      "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4",
+      "version": "0.1.0-alpha.49"
+    },
+    {
+      "path": "vscode-extension/vendor/gcr/0.1.0-alpha.49/gcr-client-executors-0.1.0-alpha.49.tgz",
+      "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47",
+      "version": "0.1.0-alpha.49"
+    },
+    {
+      "path": "vscode-extension/vendor/gcr-cli/0.1.0-alpha.38/gcr-client-executors-0.1.0-alpha.49.tgz",
+      "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47",
+      "version": "0.1.0-alpha.49"
+    },
+    {
+      "path": "vscode-extension/vendor/gcr-cli/0.1.0-alpha.38/gcr-cli-0.1.0-alpha.38.tgz",
+      "sha256": "01a7e41379e9f1f22d76a16cf89090345df986a1a2e542c147cb76d7d09631e5",
+      "version": "0.1.0-alpha.38"
+    }
+  ],
+  "sourceVsPackage": {
+    "comparedJavaScriptFiles": 66,
+    "byteIdentical": 65,
+    "difference": {
+      "file": "client-core/builtin-review.js",
+      "reason": "Windows-built multiline prompt retains CRLF; macOS compile uses LF. Normalized text identical; bytes and builtin content hash differ. Frozen artifacts reused unchanged.",
+      "sourceSha256": "20435c702bd38e224c1428c942628933d1f1081ca7c3733c430ca8d611b220d7",
+      "packageSha256": "70dd9ebc81528f7d79d98f26105ea30028cd9783ad756a4fc2aa0882e901b4da"
+    }
+  },
+  "privateCli": {
+    "version": "0.1.0-alpha.38",
+    "bundleSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364",
+    "help": "passed; extracted original tgz, no rebuild"
+  },
+  "linux": {
+    "rerun": false,
+    "reason": "no product changes; only stale test expectation and macOS smoke added",
+    "reused": [
+      {
+        "file": "W03-validation.json",
+        "sha256": "89684e50472b76c6396f62a63fbbedcd3a2aed86dc9fb84d31d013ccb55947b3"
+      },
+      {
+        "file": "W04-validation.json",
+        "sha256": "a2fa457d94dd4570a949e00e4500c12c507dfabaad350f5f910e9b8771b594c5"
+      }
+    ],
+    "scope": "existing ARM64 container service/hooks/outcome; not desktop Secret Service or Linux Codex support"
+  },
+  "preservation": {
+    "userFiles": [
+      {
+        "name": "config.toml",
+        "unchanged": true
+      },
+      {
+        "name": "auth.json",
+        "unchanged": true
+      },
+      {
+        "name": "settings.json",
+        "unchanged": true
+      },
+      {
+        "name": ".gitconfig",
+        "unchanged": true
+      }
+    ],
+    "installedExtensionsUnchanged": true,
+    "packageHashesUnchanged": true,
+    "fixtureProcessesRemaining": [],
+    "userHostReloaded": false,
+    "originalWindowsFoldersTouched": false
+  },
+  "acceptance": {
+    "W-A09": "passed for required macOS regressions plus existing scoped Linux evidence",
+    "W-A10": "macOS resources cleaned; original 19 Windows folders still require manual cleanup",
+    "macosGoalComplete": true,
+    "w04OverallComplete": false
+  },
+  "limitations": [
+    "Windows-only credential native test skipped on macOS; prior Windows evidence reused",
+    "OS Keychain locked/error status is command-mocked; actual user Keychain was not locked",
+    "Codex boundary uses native Node marker and synthetic catalog fixtures, not an additional real model call",
+    "No VSIX installation or new Extension Host; previously open user Host version is unverified",
+    "Original Windows folder cleanup was not attempted"
+  ]
+}
