@@ -3,7 +3,7 @@ import { CLIENT_CONTRACT_VERSION, type ClientPackageInfo } from '@gcr/client-con
 
 export const clientCorePackage: ClientPackageInfo = Object.freeze({
   name: '@gcr/client-core',
-  version: '0.1.0-alpha.46',
+  version: '0.1.0-alpha.47',
   contractVersion: CLIENT_CONTRACT_VERSION,
 });
 
