@@ -1,18 +1,24 @@
 {
-  "checkedAt": "2026-09-16T05:15:49.304Z",
-  "status": "Verified code/harness delivery; final evidence documentation commit follows",
+  "checkedAt": "2026-09-16T05:18:49.550Z",
+  "status": "Code, harness and final verification evidence pushed and remotely verified",
   "repositories": [
     {
       "repository": "git-code-reviewer",
       "branch": "codex/windows-native-support",
       "verifiedRemoteCodeAndHarnessDelivery": "a423a77d9123cb345057c9ac9eed27ed04407256",
-      "verificationSource": "a423a77d9123cb345057c9ac9eed27ed04407256"
+      "verificationSource": "a423a77d9123cb345057c9ac9eed27ed04407256",
+      "verifiedEvidenceDelivery": "96581979ef5370d699218545613fa0ad37d0a36b",
+      "remoteEqualsLocal": true,
+      "worktreeCleanAtDelivery": true
     },
     {
       "repository": "commit-defender",
       "branch": "codex/windows-native-support",
       "verifiedRemoteCodeAndHarnessDelivery": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e",
-      "verificationSource": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e"
+      "verificationSource": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e",
+      "verifiedEvidenceDelivery": "4e40e611355fd3ca20c91f1f4e00e2e299f8fafd",
+      "remoteEqualsLocal": true,
+      "worktreeCleanAtDelivery": true
     }
   ],
   "productArtifacts": "W02-artifact-linkage.json",
@@ -22,5 +28,14 @@
   "productSourceAncestryChecked": true,
   "productRuntimeChangedAfterValidation": false,
   "rebuildOrReinstallForDocumentation": false,
-  "forcePush": false
+  "forcePush": false,
+  "note": "The following documentation-only audit commit records these verified delivery SHAs; no product or verification execution code changed.",
+  "documentChecks": {
+    "changedFilesAcrossRepositories": 28,
+    "jsonParsed": true,
+    "localLinksResolved": true,
+    "mirroredEvidenceMatched": true,
+    "credentialAndPrivateKeyPatternCheckPassed": true,
+    "stagedDiffChecksPassed": true
+  }
 }
