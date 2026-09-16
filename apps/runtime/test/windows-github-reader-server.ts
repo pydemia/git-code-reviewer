@@ -10,6 +10,7 @@ import { createDatabase, runMigrations, type Database } from '@gcr/db';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { GitHubAccessTokenClient } from '@gcr/github';
 import { PlatformCentralCredentialStore } from '@gcr/client-core';
+import { canonicalKnowledgeJson } from '@gcr/client-contract';
 import { windowsPrivateTemporary } from '../../../packages/client-core/src/windows-native.js';
 import { loadConfig } from '../src/config.js';
 import { registerAuthentication } from '../src/auth/index.js';
@@ -569,7 +570,8 @@ try {
     connection.guidance = {
       id: active.id,
       revision: active.revision,
-      contentHash: active.contentHash,
+      contentSha256: digest(canonicalKnowledgeJson(active.content)),
+      sourceContentHash: active.source.contentHash,
       state: active.state,
     };
     proof.source = connection.source;
@@ -586,6 +588,7 @@ try {
         githubUpdatedAt: item.githubUpdatedAt,
       }),
     );
+    connection.bodyVersions = proof.bodyVersions;
     await writeFile(connectionFile, JSON.stringify(connection, null, 2) + '\n');
     proof.phase = 'ready-for-host';
     await save();
