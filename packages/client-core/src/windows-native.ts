@@ -40,7 +40,7 @@ export function windowsNativeExecutable(): string {
       readFileSync(path.join(nativeDirectory, 'windows-native.json'), 'utf8'),
     ) as { version: string; sha256: string };
     const hash = createHash('sha256').update(readFileSync(executable)).digest('hex');
-    if (manifest.version !== '1.0.0' || hash !== manifest.sha256) throw Error();
+    if (manifest.version !== '1.0.1' || hash !== manifest.sha256) throw Error();
     return executable;
   } catch {
     throw new LocalStoreError('storage-unavailable', 'Windows helper is unavailable.');

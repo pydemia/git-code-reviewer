@@ -21,7 +21,7 @@ internal sealed class Failure : Exception {
 }
 
 internal static class Native {
-    internal const string Version = "1.0.0";
+    internal const string Version = "1.0.1";
     const int Limit = 36 * 1024 * 1024;
     static readonly JavaScriptSerializer Json = new JavaScriptSerializer {
         MaxJsonLength = Limit, RecursionLimit = 32
@@ -177,6 +177,9 @@ internal static class Native {
             throw new Failure("insecure-storage");
         return info;
     }
+    // Inputs have already passed the local absolute NTFS path checks. Use the
+    // extended namespace only at the OS boundary, without changing global policy.
+    static string WinPath(string path) { return @"\\?\" + path; }
     static void Private(SafeFileHandle handle) {
         IntPtr owner, group, dacl, sacl, descriptor;
         if (GetSecurityInfo(handle, 1, 5, out owner, out group, out dacl,
@@ -206,7 +209,7 @@ internal static class Native {
         } finally { LocalFree(descriptor); }
     }
     static SafeFileHandle Open(string file, bool directory, bool privacy) {
-        SafeFileHandle handle = CreateFile(file,
+        SafeFileHandle handle = CreateFile(WinPath(file),
             directory ? 0x20080u : 0x80020000u,
             directory ? 3u : 1u, IntPtr.Zero, 3,
             0x00200000u | (directory ? 0x02000000u : 0), IntPtr.Zero);
@@ -239,7 +242,7 @@ internal static class Native {
                 Length = Marshal.SizeOf(typeof(SecurityAttributes)),
                 Descriptor = pinned.AddrOfPinnedObject(), Inherit = 0
             };
-            if (!CreateDirectory(target, ref attrs) &&
+            if (!CreateDirectory(WinPath(target), ref attrs) &&
                 Marshal.GetLastWin32Error() != 183)
                 throw new Failure("storage-unavailable");
         } finally { pinned.Free(); }
@@ -252,7 +255,7 @@ internal static class Native {
                 Length = Marshal.SizeOf(typeof(SecurityAttributes)),
                 Descriptor = pinned.AddrOfPinnedObject(), Inherit = 0
             };
-            SafeFileHandle handle = CreatePrivateFile(target, 0x40020000,
+            SafeFileHandle handle = CreatePrivateFile(WinPath(target), 0x40020000,
                 0, ref attrs, 1, 0x00200000, IntPtr.Zero);
             if (handle.IsInvalid) {
                 handle.Dispose(); throw new Failure("storage-unavailable");
@@ -286,6 +289,7 @@ internal static class Native {
     static object Storage(IDictionary<string, object> input, string op) {
         string target = FullPath(Text(input, "path"));
         bool directory = op == "directory" || op == "validate-directory";
+        try {
         using (new PathGuard(directory ? target : Path.GetDirectoryName(target),
             op == "directory", op != "snapshot-read")) {
             if (directory) return new { path = target };
@@ -302,7 +306,7 @@ internal static class Native {
                         stream.Flush(true);
                     }
                     // Same-volume rename, no replacement; requests write-through.
-                    if (!MoveFileEx(temporary, target, 8)) {
+                    if (!MoveFileEx(WinPath(temporary), WinPath(target), 8)) {
                         int error = Marshal.GetLastWin32Error();
                         if (error == 80 || error == 183)
                             return new { published = false };
@@ -311,7 +315,7 @@ internal static class Native {
                     return new { published = true };
                 } finally {
                     Array.Clear(bytes, 0, bytes.Length);
-                    if (File.Exists(temporary)) File.Delete(temporary);
+                    if (File.Exists(WinPath(temporary))) File.Delete(WinPath(temporary));
                 }
             }
             int maximum = Number(input, "maximum");
@@ -337,6 +341,11 @@ internal static class Native {
                 if (error.Code == "not-found") return new { missing = true };
                 throw;
             }
+        }
+        } catch (Failure error) {
+            if ((op == "read" || op == "snapshot-read") && error.Code == "not-found")
+                return new { missing = true };
+            throw;
         }
     }
     static object Credentials(IDictionary<string, object> input) {
@@ -397,7 +406,7 @@ internal static class Native {
         using (new PathGuard(Path.GetDirectoryName(target), false, true)) {
             try {
                 using (SafeFileHandle original = Open(source, false, false)) {
-                    Check(CreateHardLink(target, source, IntPtr.Zero),
+                    Check(CreateHardLink(WinPath(target), WinPath(source), IntPtr.Zero),
                         "credential-unavailable");
                     using (SafeFileHandle linked = Open(target, false, false)) {
                         FileInfo a = Info(original, false), b = Info(linked, false);
@@ -532,6 +541,8 @@ internal static class Native {
         }
     }
     public static int Main() {
+        AppContext.SetSwitch("Switch.System.IO.UseLegacyPathHandling", false);
+        AppContext.SetSwitch("Switch.System.IO.BlockLongPaths", false);
         Console.InputEncoding = new UTF8Encoding(false);
         Console.OutputEncoding = new UTF8Encoding(false);
         try {

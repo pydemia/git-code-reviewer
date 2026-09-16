@@ -116,6 +116,7 @@ describe.skipIf(process.platform !== 'win32')('native Windows security primitive
       expect(results.filter(Boolean)).toHaveLength(1);
       expect(await readPrivateFile(file, 8192)).toEqual(values[results.indexOf(true)]);
       expect(await readPrivateFile(path.join(root, 'absent'), 5)).toBeUndefined();
+      expect(await readPrivateFile(path.join(root, 'missing', 'absent'), 5)).toBeUndefined();
       await expect(readPrivateFile(file, 5)).rejects.toMatchObject({ code: 'record-too-large' });
       expect((await readdir(root)).some((name) => name.startsWith('.pending'))).toBe(false);
       const target = await privateDirectory(root, 'target');
@@ -152,7 +153,15 @@ describe.skipIf(process.platform !== 'win32')('native Windows security primitive
     const keys = new PlatformLocalKeyStore();
     const stores: LocalRecordStore[] = [];
     try {
-      const options = { dataDirectory, scope: { kind: 'profile' as const, profileId } };
+      const options = {
+        dataDirectory,
+        scope: {
+          kind: 'repository' as const,
+          profileId,
+          repositoryKey: 'a'.repeat(64),
+          worktreeKey: 'b'.repeat(64),
+        },
+      };
       const first = await LocalRecordStore.open(options);
       stores.push(first);
       await first.write('settings', 'fixture', { secret: 'W01_PRIVATE_CANARY' }, 0);
@@ -174,7 +183,9 @@ describe.skipIf(process.platform !== 'win32')('native Windows security primitive
         'profiles',
         profileId,
         'local',
-        'profile',
+        'repositories',
+        'a'.repeat(64),
+        'b'.repeat(64),
         'settings',
         'fixture',
       );
