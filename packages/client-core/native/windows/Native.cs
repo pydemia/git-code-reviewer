@@ -440,15 +440,19 @@ internal static class Native {
                 for (int i = 0; i < count; i++) {
                     uint pid = (uint)Marshal.ReadIntPtr(data, 8 + i * IntPtr.Size).ToInt64();
                     if (pid == (uint)Process.GetCurrentProcess().Id) continue;
-                    remaining = true;
                     IntPtr process = OpenProcess(0x101001, false, pid);
-                    if (process == IntPtr.Zero) continue;
+                    if (process == IntPtr.Zero) {
+                        Check(Marshal.GetLastWin32Error() == 87, "cleanup-failed");
+                        continue;
+                    }
                     try {
                         bool member;
                         Check(IsProcessInJob(process, job, out member), "cleanup-failed");
                         if (!member) continue;
-                        if (WaitForSingleObject(process, 0) != 0)
+                        if (WaitForSingleObject(process, 0) != 0) {
+                            remaining = true;
                             Check(TerminateProcess(process, 125), "cleanup-failed");
+                        }
                         uint remainingMs = (uint)Math.Max(1, 2000 - deadline.ElapsedMilliseconds);
                         Check(WaitForSingleObject(process, remainingMs) == 0, "cleanup-failed");
                     } finally { CloseHandle(process); }
