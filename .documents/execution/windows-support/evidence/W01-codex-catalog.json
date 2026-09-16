@@ -1,0 +1,46 @@
+{
+  "platform": "win32",
+  "arch": "arm64",
+  "model": "gpt-5.6-luna",
+  "effort": "high",
+  "accountCalls": 0,
+  "syntheticProvider": true,
+  "probes": [
+    {
+      "conversation": false,
+      "code": 1,
+      "requestCount": 1,
+      "invalidRequest": false,
+      "canaryLoaded": false,
+      "canarySources": [],
+      "tools": [
+        "functions.list_mcp_resource_templates",
+        "functions.list_mcp_resources",
+        "functions.read_mcp_resource",
+        "mcp__gcr_source.list_files",
+        "mcp__gcr_source.read_file",
+        "mcp__gcr_source.search_code"
+      ]
+    },
+    {
+      "conversation": true,
+      "code": 1,
+      "requestCount": 1,
+      "invalidRequest": false,
+      "canaryLoaded": false,
+      "canarySources": [],
+      "tools": [
+        "functions.list_mcp_resource_templates",
+        "functions.list_mcp_resources",
+        "functions.read_mcp_resource",
+        "mcp__gcr_source.ask_user",
+        "mcp__gcr_source.list_files",
+        "mcp__gcr_source.read_file",
+        "mcp__gcr_source.search_code"
+      ]
+    }
+  ],
+  "cliVersion": "codex-cli 0.153.4",
+  "status": "passed",
+  "temporaryAccountPathsRemoved": true
+}

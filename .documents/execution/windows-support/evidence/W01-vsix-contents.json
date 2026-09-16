@@ -1,0 +1,26 @@
+{
+  "entryCount": 48,
+  "files": [
+    {
+      "name": "extension/out/windows-native.exe",
+      "length": 26624,
+      "sha256": "d3da4c5fe88f41d0def4df93e4ff839bd182b7e5a56bdc64c20e4174e0e75ff8"
+    },
+    {
+      "name": "extension/out/windows-native.json",
+      "length": 297,
+      "sha256": "ba43ce00be6ce48b0a1486e69d9a30dcc1beea97aaf32e3053c72cb053c890c3"
+    },
+    {
+      "name": "extension/out/standalone-review-worker.js",
+      "length": 412274,
+      "sha256": "ceef66f0df0eb149592527eb29ce9ceaad74d38fce707a18785b2b03dfea85c6"
+    },
+    {
+      "name": "extension/third-party/gcr/client-core/native/windows/Native.cs",
+      "length": 28043,
+      "sha256": "b4fc197075cd3cdbd7add06fd8165487d9519fa0259546b4016afeb1e223d35e"
+    }
+  ],
+  "excludedCredentialTestAndVendorPaths": true
+}

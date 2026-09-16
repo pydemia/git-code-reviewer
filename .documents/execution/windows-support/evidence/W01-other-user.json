@@ -1,0 +1,15 @@
+﻿{
+    "native":  true,
+    "os":  "Microsoft Windows NT 10.0.26200.0",
+    "method":  "temporary standard user with native logon",
+    "status":  "passed",
+    "accountDeleted":  true,
+    "profileDeleted":  true,
+    "credentialDeleted":  true,
+    "fixtureDeleted":  true,
+    "step":  "other-user-logon",
+    "otherUserToken":  true,
+    "privateReadDenied":  true,
+    "privateWriteDenied":  true,
+    "credentialNotVisible":  true
+}

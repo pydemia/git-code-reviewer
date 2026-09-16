@@ -1,0 +1,411 @@
+{
+  "platform": "win32",
+  "arch": "arm64",
+  "node": "v24.18.1",
+  "vscode": "1.137.0",
+  "extensionVersion": "2.12.2",
+  "extensionPath": "C:\\Users\\pydemia\\.vscode\\extensions\\pydemia.commit-defender-2.12.2",
+  "workerSha256": "ceef66f0df0eb149592527eb29ce9ceaad74d38fce707a18785b2b03dfea85c6",
+  "realModel": true,
+  "syntheticResponse": false,
+  "centralConnection": false,
+  "maximumReviewInvocations": 1,
+  "timeoutMs": 240000,
+  "modelCalls": 1,
+  "accountSource": "existing default local Codex auth.json; NTFS auth-only link",
+  "fixture": "sum changes addition to subtraction with consumer and tests",
+  "expected": "completed review identifies incorrect negative totals in sum.ts",
+  "status": "passed",
+  "preparationDiagnostic": {
+    "status": "passed",
+    "accountCalls": 0
+  },
+  "startedAt": "2026-09-16T01:23:00.516Z",
+  "finishedAt": "2026-09-16T01:25:46.281Z",
+  "report": {
+    "contractVersion": 1,
+    "runId": "42ee5aa7-963d-4b6e-9194-118ce4a544bf",
+    "identity": {
+      "client": {
+        "mode": "standalone",
+        "profileId": "w01-9b2d3c00-5c8b-46a0-897d-5690060d826f",
+        "repositoryKey": "3f9edb3d832b5fec895b57f8b690053fc3a0902a3ff9560910366c95ba677776",
+        "worktreeKey": "d88bb2362e9c6db98c6f75ef65259cb27d4c600ce79291c3c6b932e43525a504",
+        "execution": {
+          "configuredMode": "standalone",
+          "effectiveMode": "standalone",
+          "knowledgeSource": "local",
+          "fallbackReason": null
+        }
+      },
+      "source": {
+        "kind": "index",
+        "hash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "objectFormat": "sha1",
+        "baseCommit": "7f0e8445449b104be793461c3632acd19bf18bcd",
+        "baseTree": "e55352504a34a9390b47963d11670bf245db7e58",
+        "sourceTree": "2648344aa012dce6fad4a3b0fbde0dbadb9215e0"
+      },
+      "context": {
+        "hash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "entries": [
+          {
+            "origin": "builtin",
+            "kind": "skill",
+            "id": "gcr-standalone-review",
+            "revision": 1,
+            "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+          }
+        ],
+        "required": [
+          {
+            "kind": "knowledge",
+            "reference": "builtin:gcr-standalone-review",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:3cc2ae5b5767ead7782bdb6678e55a599c79c1c989d2242b98003c95384768e1",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:64b3d5880e0bbf90ebc82ce34112ea0f0cb6f571fcaa7da3ef6a0ee60f82fbd7",
+            "available": true,
+            "reason": ""
+          }
+        ]
+      },
+      "reviewProfile": {
+        "id": "gcr-standalone-review",
+        "revision": 1,
+        "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+      },
+      "executor": {
+        "id": "codex-account",
+        "version": "0.153.4/gcr-fixed-source-v1",
+        "model": "gpt-5.6-luna",
+        "configHash": "fa56d3f830a13fae49193a2c2b037d0b55ca0be3a4cf96fb6e90fa69b1263b02"
+      },
+      "toolsHash": "605ae427132a975df5066a8c0239582f1fef176d744f4d3c60c7a496020579c0"
+    },
+    "status": "completed",
+    "trigger": "manual",
+    "requestedAt": "2026-09-16T01:23:57.674Z",
+    "startedAt": "2026-09-16T01:23:57.675Z",
+    "finishedAt": "2026-09-16T01:24:48.631Z",
+    "durationMs": 50956,
+    "summary": "Review complete. The change reverses the established sum behavior and breaks non-empty invoice totals.",
+    "sourceFiles": [
+      {
+        "path": "consumer.ts",
+        "side": "base",
+        "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+        "byteLength": 103,
+        "lineCount": 3,
+        "gitBlob": "3bee4aa4b25476f3634daf54bef5cabaf2ddfa27"
+      },
+      {
+        "path": "package.json",
+        "side": "base",
+        "hash": "bd3314d741c7cae579dc67b62b6397313545d4318a648356ef83864c05691a32",
+        "byteLength": 64,
+        "lineCount": 2,
+        "gitBlob": "7648a1dad555458836cafa863f867311235ca475"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "base",
+        "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+        "byteLength": 245,
+        "lineCount": 6,
+        "gitBlob": "09f0d03d36c4add1451a2e5949c211e5af3badc3"
+      },
+      {
+        "path": "sum.ts",
+        "side": "base",
+        "hash": "db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22",
+        "byteLength": 110,
+        "lineCount": 4,
+        "gitBlob": "10aa3525b64afa21b251a09383f057b08e21d95b"
+      },
+      {
+        "path": "consumer.ts",
+        "side": "source",
+        "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+        "byteLength": 103,
+        "lineCount": 3,
+        "gitBlob": "3bee4aa4b25476f3634daf54bef5cabaf2ddfa27"
+      },
+      {
+        "path": "package.json",
+        "side": "source",
+        "hash": "bd3314d741c7cae579dc67b62b6397313545d4318a648356ef83864c05691a32",
+        "byteLength": 64,
+        "lineCount": 2,
+        "gitBlob": "7648a1dad555458836cafa863f867311235ca475"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "source",
+        "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+        "byteLength": 245,
+        "lineCount": 6,
+        "gitBlob": "09f0d03d36c4add1451a2e5949c211e5af3badc3"
+      },
+      {
+        "path": "sum.ts",
+        "side": "source",
+        "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+        "byteLength": 110,
+        "lineCount": 4,
+        "gitBlob": "bf0534278936e18d09b7e31818bbde6818227fea"
+      }
+    ],
+    "files": [
+      {
+        "source": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "byteLength": 110,
+          "lineCount": 4,
+          "gitBlob": "bf0534278936e18d09b7e31818bbde6818227fea"
+        },
+        "status": "completed",
+        "summary": "Fully reviewed against base and affected caller/tests."
+      }
+    ],
+    "excluded": [],
+    "problems": [],
+    "findings": [
+      {
+        "id": "857c7199-04be-4192-9785-39be7ed806a6",
+        "title": "Sum subtracts values instead of adding them",
+        "problem": "The reducer now subtracts every value from zero, so non-empty inputs produce negative totals.",
+        "impact": "Callers such as invoiceTotal return incorrect results; for example, [2, 3] yields -5 instead of 5.",
+        "recommendation": "Use addition in the reducer: `total + value`.",
+        "category": "correctness",
+        "severity": "P2",
+        "outcome": "violation",
+        "confidence": "high",
+        "followUp": "required",
+        "anchor": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "startLine": 2,
+          "endLine": 2
+        },
+        "anchorValidation": {
+          "status": "verified",
+          "checks": [
+            "fixed-source-hash",
+            "selected-file",
+            "returned-read-range"
+          ],
+          "reason": "Anchor matches a non-truncated source read. This does not prove the finding."
+        },
+        "evidenceAssessment": {
+          "level": "source-confirmed",
+          "rationale": "The source implementation uses `total - value`, while the fixed base uses `total + value`. The affected caller directly delegates invoice totals to sum, and the existing test specifies 5 for [2, 3]. The empty-input behavior remains correct but does not cover the regression for non-empty inputs.",
+          "conditions": [
+            "sum is called with one or more values",
+            "invoiceTotal delegates to sum for the affected total"
+          ],
+          "evidenceIds": [
+            "2bb05c03-06d6-4d7c-99c6-fc23cfdb6e97",
+            "23e199d7-da2e-4796-9f5f-68491dc11e17",
+            "e8b5cb6c-de4b-4699-a577-3f75b3380c29",
+            "aad16d88-df33-4737-bb92-9f695caed314",
+            "ba0ce7e3-d326-46ef-bd93-29c8c5b2aa65",
+            "5257ba95-9036-4fe3-b639-d0eaeb813704"
+          ],
+          "counterEvidence": {
+            "status": "reviewed",
+            "summary": "Empty arrays still return 0, but the caller and test establish addition as the required behavior for non-empty arrays.",
+            "evidenceIds": [
+              "2bb05c03-06d6-4d7c-99c6-fc23cfdb6e97",
+              "23e199d7-da2e-4796-9f5f-68491dc11e17",
+              "ba0ce7e3-d326-46ef-bd93-29c8c5b2aa65"
+            ]
+          }
+        },
+        "policy": {
+          "enforcement": "advisory"
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "source-read",
+        "id": "2bb05c03-06d6-4d7c-99c6-fc23cfdb6e97",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:2bb05c03-06d6-4d7c-99c6-fc23cfdb6e97"
+        },
+        "observedAt": "2026-09-16T01:24:04.579Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "startLine": 1,
+          "endLine": 4
+        },
+        "observation": "Returned excerpt sha256=7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "23e199d7-da2e-4796-9f5f-68491dc11e17",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:23e199d7-da2e-4796-9f5f-68491dc11e17"
+        },
+        "observedAt": "2026-09-16T01:24:07.423Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "base",
+          "hash": "db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22",
+          "startLine": 1,
+          "endLine": 4
+        },
+        "observation": "Returned excerpt sha256=db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "e8b5cb6c-de4b-4699-a577-3f75b3380c29",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:e8b5cb6c-de4b-4699-a577-3f75b3380c29"
+        },
+        "observedAt": "2026-09-16T01:24:12.680Z",
+        "location": {
+          "path": "consumer.ts",
+          "side": "source",
+          "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "aad16d88-df33-4737-bb92-9f695caed314",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:aad16d88-df33-4737-bb92-9f695caed314"
+        },
+        "observedAt": "2026-09-16T01:24:15.104Z",
+        "location": {
+          "path": "consumer.ts",
+          "side": "base",
+          "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "ba0ce7e3-d326-46ef-bd93-29c8c5b2aa65",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:ba0ce7e3-d326-46ef-bd93-29c8c5b2aa65"
+        },
+        "observedAt": "2026-09-16T01:24:17.349Z",
+        "location": {
+          "path": "sum.test.ts",
+          "side": "source",
+          "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+          "startLine": 1,
+          "endLine": 6
+        },
+        "observation": "Returned excerpt sha256=8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "5257ba95-9036-4fe3-b639-d0eaeb813704",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:5257ba95-9036-4fe3-b639-d0eaeb813704"
+        },
+        "observedAt": "2026-09-16T01:24:20.820Z",
+        "location": {
+          "path": "sum.test.ts",
+          "side": "base",
+          "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+          "startLine": 1,
+          "endLine": 6
+        },
+        "observation": "Returned excerpt sha256=8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "50e10e18-b8a2-4f06-ada4-3e9d817ce195",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:50e10e18-b8a2-4f06-ada4-3e9d817ce195"
+        },
+        "observedAt": "2026-09-16T01:24:22.849Z",
+        "location": {
+          "path": "package.json",
+          "side": "source",
+          "hash": "bd3314d741c7cae579dc67b62b6397313545d4318a648356ef83864c05691a32",
+          "startLine": 1,
+          "endLine": 2
+        },
+        "observation": "Returned excerpt sha256=bd3314d741c7cae579dc67b62b6397313545d4318a648356ef83864c05691a32; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "2fef87f2-c074-4b12-a79d-ed3bb3521316",
+        "sourceHash": "d30a25869a22e6096dd0ad2651046f83bc765cc1f458f27fe4e9e77b309f4135",
+        "contextHash": "7060141ee686948b2630b78d73882e1c1d708c14baf7ed9a60d9510e1167b76f",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:2fef87f2-c074-4b12-a79d-ed3bb3521316"
+        },
+        "observedAt": "2026-09-16T01:24:25.033Z",
+        "location": {
+          "path": "package.json",
+          "side": "base",
+          "hash": "bd3314d741c7cae579dc67b62b6397313545d4318a648356ef83864c05691a32",
+          "startLine": 1,
+          "endLine": 2
+        },
+        "observation": "Returned excerpt sha256=bd3314d741c7cae579dc67b62b6397313545d4318a648356ef83864c05691a32; truncated=false. Port return only; no test executed."
+      }
+    ],
+    "questions": []
+  },
+  "reviewCompletionConfirmed": true,
+  "encryptedHistoryReopened": true,
+  "savedResultCommandOpened": true,
+  "testHostExited": true,
+  "temporaryProfileAndKeyRemoved": true,
+  "fixtureDefectReproduced": true
+}

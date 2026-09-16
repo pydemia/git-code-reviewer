@@ -1,0 +1,40 @@
+{
+  "platform": "win32",
+  "architecture": "arm64",
+  "syntheticResponseTests": true,
+  "finalProductSource": "a10df7fd66f57b825f20a803c9e43e726aec86a3",
+  "clientContract": {
+    "packageVersion": "0.1.0-alpha.47",
+    "command": "npm run test:client-contract",
+    "failed": 0,
+    "passed": 22
+  },
+  "standaloneConfig": {
+    "passed": 4,
+    "command": "npm run test:standalone-config",
+    "failed": 0,
+    "note": "Earlier implementation-stage run; config behavior unchanged afterward."
+  },
+  "standaloneManual": {
+    "packageVersion": "0.1.0-alpha.44",
+    "failed": 0,
+    "durationMs": 132266.6217,
+    "scope": "Empty profile, pinned staged source/encrypted history, worker cleanup, invalid configuration/trust, cancellation, packaged worker failure",
+    "passed": 6
+  },
+  "build": {
+    "command": "npm run build",
+    "extensionVersion": "2.12.2",
+    "status": "passed"
+  },
+  "testTypecheck": {
+    "command": "npm run typecheck:test",
+    "extensionVersion": "2.12.2",
+    "status": "passed"
+  },
+  "fullStandaloneSuite": {
+    "accepted": false,
+    "reason": "Initial alpha.43 long-path failure. Later broad run was not completed; manual scope was verified separately."
+  },
+  "actualAccountReview": "W01-real-host.json"
+}
