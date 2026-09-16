@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
@@ -130,6 +131,211 @@ internal static class Native {
     static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
     [DllImport("kernel32.dll")]
     static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode,
+        SetLastError = true)]
+    static extern SafePipeHandle CreateNamedPipe(string name, uint openMode,
+        uint pipeMode, uint instances, uint output, uint input, uint timeout,
+        ref SecurityAttributes security);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetNamedPipeServerProcessId(SafePipeHandle pipe,
+        out uint processId);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    static extern bool OpenProcessToken(IntPtr process, uint access,
+        out IntPtr token);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool CancelIoEx(SafePipeHandle pipe, IntPtr overlapped);
+
+    const int PipeLimit = 9 * 1024 * 1024;
+    static string PipeName(IDictionary<string, object> input) {
+        string name = Text(input, "name");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name,
+            @"\Agcr-service-v1-[a-f0-9]{64}\z"))
+            throw new Failure("invalid-request");
+        return name;
+    }
+    static byte[] PipeFrame(Stream stream) {
+        using (MemoryStream frame = new MemoryStream()) {
+            byte[] buffer = new byte[8192];
+            for (;;) {
+                int length = stream.Read(buffer, 0, buffer.Length);
+                if (length == 0) throw new IOException();
+                if (frame.Length + length > PipeLimit)
+                    throw new Failure("service-capacity");
+                int end = Array.IndexOf(buffer, (byte)10, 0, length);
+                if (end >= 0 && end != length - 1)
+                    throw new Failure("service-invalid");
+                frame.Write(buffer, 0, length);
+                if (end >= 0) return frame.ToArray();
+            }
+        }
+    }
+    static void CancelPipe(NamedPipeServerStream pipe) {
+        try { CancelIoEx(pipe.SafePipeHandle, IntPtr.Zero); }
+        catch (ObjectDisposedException) { }
+    }
+    static NamedPipeServerStream CreateServicePipe(string name, bool first) {
+        // Apply the DACL at creation, never after accepting a connection.
+        RawSecurityDescriptor sd = new RawSecurityDescriptor(
+            "O:" + Sid + "G:" + Sid + "D:P(A;;GA;;;" + Sid + ")");
+        byte[] bytes = new byte[sd.BinaryLength];
+        sd.GetBinaryForm(bytes, 0);
+        GCHandle pinned = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+        try {
+            SecurityAttributes security = new SecurityAttributes {
+                Length = Marshal.SizeOf(typeof(SecurityAttributes)),
+                Descriptor = pinned.AddrOfPinnedObject()
+            };
+            // Duplex, overlapped, first-instance protection; local clients only.
+            SafePipeHandle handle = CreateNamedPipe(@"\\.\pipe\" + name,
+                3u | 0x40000000u | (first ? 0x80000u : 0),
+                8, 8, 65536, 65536, 30000, ref security);
+            if (handle.IsInvalid) {
+                handle.Dispose();
+                throw new Failure("service-unavailable");
+            }
+            try { return new NamedPipeServerStream(
+                PipeDirection.InOut, true, false, handle); }
+            catch { handle.Dispose(); throw; }
+        } finally { pinned.Free(); }
+    }
+    static void PipeServer(IDictionary<string, object> input) {
+        string name = PipeName(input);
+        var pipes = new List<NamedPipeServerStream>();
+        var pending = new Dictionary<int, TaskCompletionSource<byte[]>>();
+        object gate = new object();
+        var drained = new ManualResetEventSlim(true);
+        bool stopping = false;
+        int sequence = 0;
+        try {
+            for (int i = 0; i < 8; i++)
+                pipes.Add(CreateServicePipe(name, i == 0));
+            foreach (NamedPipeServerStream pipe in pipes) {
+                Task.Factory.StartNew(() => {
+                    while (!Volatile.Read(ref stopping)) {
+                        int id = 0;
+                        try {
+                            pipe.WaitForConnection();
+                            using (var timeout = new Timer(
+                                _ => CancelPipe(pipe), null, 30000,
+                                Timeout.Infinite)) {
+                                var elapsed = Stopwatch.StartNew();
+                                byte[] frame = PipeFrame(pipe);
+                                id = Interlocked.Increment(ref sequence);
+                                if (id <= 0) throw new Failure("service-capacity");
+                                var reply = new TaskCompletionSource<byte[]>();
+                                lock (gate) {
+                                    pending.Add(id, reply);
+                                    drained.Reset();
+                                }
+                                Emit(new { id, bytes = Convert.ToBase64String(frame) });
+                                int remaining = (int)Math.Max(
+                                    1, 30000 - elapsed.ElapsedMilliseconds);
+                                if (!reply.Task.Wait(remaining))
+                                    throw new TimeoutException();
+                                byte[] result = reply.Task.Result;
+                                pipe.Write(result, 0, result.Length);
+                                pipe.Flush();
+                                // DisconnectNamedPipe can discard unread bytes.
+                                // The client acknowledges receipt before reuse.
+                                if (result.Length > 0 && pipe.ReadByte() != 6)
+                                    throw new IOException();
+                            }
+                        } catch (IOException) {
+                            // A disconnected or deadline-cancelled client owns no job.
+                        } catch (TimeoutException) {
+                        } catch (Failure) {
+                        } catch (ObjectDisposedException) {
+                            if (!Volatile.Read(ref stopping)) throw;
+                        } finally {
+                            lock (gate) {
+                                if (id != 0) pending.Remove(id);
+                                if (pending.Count == 0) drained.Set();
+                            }
+                            if (!Volatile.Read(ref stopping)) {
+                                try { if (pipe.IsConnected) pipe.Disconnect(); }
+                                catch (IOException) { }
+                            }
+                        }
+                    }
+                }, TaskCreationOptions.LongRunning).ContinueWith(task => {
+                    if (task.IsFaulted && !Volatile.Read(ref stopping)) {
+                        Emit(new { error = "service-unavailable" });
+                        Environment.Exit(1);
+                    }
+                });
+            }
+            Emit(new { ready = true });
+            for (;;) {
+                var reply = ReadInput();
+                if (reply == null) return;
+                int id = Number(reply, "id");
+                byte[] bytes = Convert.FromBase64String(Text(reply, "bytes"));
+                if (bytes.Length > PipeLimit || bytes.Length == 0 ||
+                    bytes[bytes.Length - 1] != 10)
+                    throw new Failure("service-invalid");
+                lock (gate) {
+                    TaskCompletionSource<byte[]> waiter;
+                    // A timed-out peer may have disconnected before dispatch ended.
+                    if (pending.TryGetValue(id, out waiter))
+                        waiter.TrySetResult(bytes);
+                }
+            }
+        } finally {
+            Volatile.Write(ref stopping, true);
+            lock (gate)
+                foreach (var waiter in pending.Values)
+                    waiter.TrySetResult(new byte[0]);
+            // Flush already queued stop replies before disposing their handles.
+            drained.Wait(1000);
+            foreach (var pipe in pipes) {
+                CancelPipe(pipe);
+                pipe.Dispose();
+            }
+        }
+    }
+    static object PipeCall(IDictionary<string, object> input) {
+        string name = PipeName(input);
+        int timeout = Number(input, "timeout");
+        byte[] bytes = Convert.FromBase64String(Text(input, "bytes"));
+        if (timeout < 1 || timeout > 600000 || bytes.Length > PipeLimit)
+            throw new Failure("invalid-request");
+        try {
+            using (var pipe = new NamedPipeClientStream(".", name,
+                PipeDirection.InOut, PipeOptions.Asynchronous,
+                TokenImpersonationLevel.Identification)) {
+                pipe.Connect(timeout);
+                uint pid;
+                Check(GetNamedPipeServerProcessId(pipe.SafePipeHandle, out pid),
+                    "service-denied");
+                IntPtr process = OpenProcess(0x1000, false, pid), token;
+                Check(process != IntPtr.Zero, "service-denied");
+                try {
+                    Check(OpenProcessToken(process, 8, out token), "service-denied");
+                    try {
+                        using (var identity = new WindowsIdentity(token))
+                            Check(identity.User.Value == Sid, "service-denied");
+                    } finally { CloseHandle(token); }
+                } finally { CloseHandle(process); }
+                using (var timer = new Timer(_ => {
+                    try { CancelIoEx(pipe.SafePipeHandle, IntPtr.Zero); }
+                    catch (ObjectDisposedException) { }
+                }, null, timeout, Timeout.Infinite)) {
+                    pipe.Write(bytes, 0, bytes.Length);
+                    pipe.Flush();
+                    byte[] reply = PipeFrame(pipe);
+                    pipe.WriteByte(6);
+                    pipe.Flush();
+                    return new { bytes = Convert.ToBase64String(reply) };
+                }
+            }
+        } catch (UnauthorizedAccessException) {
+            throw new Failure("service-denied");
+        } catch (IOException) {
+            throw new Failure("service-unavailable");
+        } catch (TimeoutException) {
+            throw new Failure("service-unavailable");
+        }
+    }
 
     static string Text(IDictionary<string, object> input, string key) {
         object value;
@@ -285,15 +491,37 @@ internal static class Native {
             for (int i = Handles.Count - 1; i >= 0; i--) Handles[i].Dispose();
             Handles.Clear();
         }
+        internal FileInfo Identity { get {
+            return Info(Handles[Handles.Count - 1], true);
+        } }
     }
     static object Storage(IDictionary<string, object> input, string op) {
         string target = FullPath(Text(input, "path"));
         bool directory = op == "directory" || op == "validate-directory";
         try {
-        using (new PathGuard(directory ? target : Path.GetDirectoryName(target),
+        using (var guard = new PathGuard(directory ? target : Path.GetDirectoryName(target),
             op == "directory", op != "snapshot-read")) {
-            if (directory) return new { path = target };
-            if (op == "publish") {
+            if (directory) {
+                FileInfo info = guard.Identity;
+                return new { path = target, directoryId =
+                    info.Volume.ToString("x8") + ":" +
+                    info.IndexHigh.ToString("x8") + info.IndexLow.ToString("x8") };
+            }
+            if (op == "remove-private" || op == "replace-private") {
+                try {
+                    using (SafeFileHandle existing = Open(target, false, true)) {
+                        // Validate ACL and reject reparse files before mutation.
+                    }
+                } catch (Failure error) {
+                    if (error.Code != "not-found") throw;
+                    if (op == "remove-private") return new { missing = true };
+                }
+                if (op == "remove-private") {
+                    File.Delete(WinPath(target));
+                    return new { removed = true };
+                }
+            }
+            if (op == "publish" || op == "replace-private") {
                 byte[] bytes = Convert.FromBase64String(Text(input, "bytes"));
                 if (bytes.Length > 24 * 1024 * 1024)
                     throw new Failure("record-too-large");
@@ -305,10 +533,11 @@ internal static class Native {
                         stream.Write(bytes, 0, bytes.Length);
                         stream.Flush(true);
                     }
-                    // Same-volume rename, no replacement; requests write-through.
-                    if (!MoveFileEx(WinPath(temporary), WinPath(target), 8)) {
+                    // Ancestor handles remain pinned during same-volume publication.
+                    uint flags = op == "replace-private" ? 9u : 8u;
+                    if (!MoveFileEx(WinPath(temporary), WinPath(target), flags)) {
                         int error = Marshal.GetLastWin32Error();
-                        if (error == 80 || error == 183)
+                        if (op == "publish" && (error == 80 || error == 183))
                             return new { published = false };
                         throw new Failure("commit-unknown");
                     }
@@ -548,7 +777,8 @@ internal static class Native {
             text.Append((char)c);
         }
         if (c < 0 && text.Length == 0) return null;
-        return Json.Deserialize<Dictionary<string, object>>(text.ToString());
+        lock (OutputLock)
+            return Json.Deserialize<Dictionary<string, object>>(text.ToString());
     }
     static object Execute(Dictionary<string, object> input, bool storageOnly) {
         string operation = Text(input, "operation");
@@ -560,8 +790,10 @@ internal static class Native {
         if (operation == "credential") return Credentials(input);
         if (!storageOnly && operation == "auth-link") return AuthLink(input);
         if (!storageOnly && operation == "process") return Run(input);
+        if (!storageOnly && operation == "pipe-call") return PipeCall(input);
         if (new List<string> { "directory", "validate-directory",
-            "read", "publish", "snapshot-read" }.Contains(operation))
+            "read", "publish", "replace-private", "remove-private",
+            "snapshot-read" }.Contains(operation))
             return Storage(input, operation);
         throw new Failure("invalid-request");
     }
@@ -572,8 +804,10 @@ internal static class Native {
         Console.OutputEncoding = new UTF8Encoding(false);
         try {
             bool session = args.Length == 2 && args[0] == "--storage-session";
-            if (args.Length != 0 && !session) throw new Failure("invalid-request");
-            if (session) {
+            bool pipeServer = args.Length == 2 && args[0] == "--pipe-server";
+            if (args.Length != 0 && !session && !pipeServer)
+                throw new Failure("invalid-request");
+            if (session || pipeServer) {
                 int ownerId;
                 if (!Int32.TryParse(args[1], out ownerId) || ownerId <= 0)
                     throw new Failure("invalid-request");
@@ -588,6 +822,10 @@ internal static class Native {
             for (;;) {
                 var input = ReadInput();
                 if (input == null) return 0;
+                if (pipeServer) {
+                    PipeServer(input);
+                    return 0;
+                }
                 if (!session) {
                     Emit(Execute(input, false));
                     // Close the owning process job, including descendants.

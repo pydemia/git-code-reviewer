@@ -126,6 +126,9 @@ async function fixture() {
     advance: (ms = 3000) => {
       now += ms;
     },
+    advanceTo: (timestamp: number) => {
+      now = Math.max(now, timestamp);
+    },
     start: (triggers: WatchTrigger[] = ['stage']) =>
       watcher.configure(reg, { triggers, externalChanges: true }),
     restart: async () => {
@@ -212,7 +215,13 @@ it('merges external writes, includes permitted new files, and retains the Save i
   f.advance();
   await f.watcher.poll();
   expect(await f.jobs.list()).toHaveLength(1);
-  f.advance(600000);
+  // Job start timestamps use the real clock. Slow native storage can make
+  // them newer than the injected watcher clock; test the persisted deadline.
+  const deadline = (await f.watcher.status(f.reg.key))[0]!.pendingUntil!;
+  f.advanceTo(deadline - 1);
+  await f.watcher.poll();
+  expect(await f.jobs.list()).toHaveLength(1);
+  f.advance(1);
   await f.watcher.poll();
   expect(await f.jobs.list()).toHaveLength(2);
 }, 30000);

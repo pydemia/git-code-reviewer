@@ -32,6 +32,8 @@ export interface WindowsNativeResult {
   published?: boolean;
   path?: string;
   dataDirectory?: string;
+  directoryId?: string;
+  sid?: string;
   code?: number;
   stdout?: string;
   stderr?: string;
@@ -260,6 +262,8 @@ const storageOperations = new Set([
   'validate-directory',
   'read',
   'publish',
+  'replace-private',
+  'remove-private',
 ]);
 
 /** Keep stdin open in process mode: EOF is the native parent's death signal. */
@@ -276,7 +280,11 @@ export function windowsNative(
     storageSession ??= new WindowsStorageSession(executable, () => {
       storageSession = undefined;
     });
-    return storageSession.request(input, request.operation === 'publish', options);
+    return storageSession.request(
+      input,
+      ['publish', 'replace-private', 'remove-private'].includes(String(request.operation)),
+      options,
+    );
   }
   return new Promise((resolve, reject) => {
     const child = spawn(executable, [], {

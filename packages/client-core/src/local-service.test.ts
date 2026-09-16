@@ -1,5 +1,13 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  readdirSync,
+} from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -8,6 +16,7 @@ import net from 'node:net';
 import { afterEach, expect, it, vi } from 'vitest';
 import { captureLocalSource } from './source-snapshot.js';
 import { callLocalService, localServiceAddress, startLocalService } from './local-service.js';
+import { PlatformLocalKeyStore } from './local-credentials.js';
 import {
   ServiceJobs,
   type ServiceJob,
@@ -70,14 +79,16 @@ function fixture() {
   const frozen = source.freeze();
   source.close();
   const profileId = 'service-fixture';
+  const credentialService = 'com.commitdefender.local-knowledge.v1';
   const location = { profileId, dataDirectory: data };
   const script = path.join(root, 'server.mjs');
   writeFileSync(
     script,
     `import {readFile,writeFile,unlink,appendFile} from 'node:fs/promises';
 import path from 'node:path';
-import {startLocalService,restoreLocalSource} from ${JSON.stringify(new URL('../dist/index.js', import.meta.url).href)};
-const keys={read:async id=>{try{return await readFile(path.join(${JSON.stringify(keys)},id));}catch(e){if(e.code==='ENOENT')return;throw e;}},write:async(id,bytes)=>writeFile(path.join(${JSON.stringify(keys)},id),bytes,{mode:0o600}),remove:async id=>unlink(path.join(${JSON.stringify(keys)},id))};
+import {startLocalService,restoreLocalSource,PlatformLocalKeyStore} from ${JSON.stringify(new URL('../dist/index.js', import.meta.url).href)};
+const nativeKeys=process.platform==='win32'?new PlatformLocalKeyStore(${JSON.stringify(credentialService)}):undefined;
+const keys={read:async id=>{if(nativeKeys)return nativeKeys.read(id);try{return await readFile(path.join(${JSON.stringify(keys)},id));}catch(e){if(e.code==='ENOENT')return;throw e;}},write:async(id,bytes)=>{await writeFile(path.join(${JSON.stringify(keys)},id),nativeKeys?'':bytes,{mode:0o600});if(nativeKeys)await nativeKeys.write(id,bytes);},remove:async id=>{if(nativeKeys)await nativeKeys.remove(id);await unlink(path.join(${JSON.stringify(keys)},id));}};
 const service=await startLocalService({...${JSON.stringify(location)},keys,run:async({job,source,signal})=>{const snapshot=restoreLocalSource(source);try{await appendFile(${JSON.stringify(calls)},JSON.stringify({id:job.id,read:snapshot.readFile('a.ts')})+'\\n');}finally{snapshot.close();}if(process.env.GCR_TEST_BLOCK==='1'&&!signal.aborted)await new Promise(resolve=>signal.addEventListener('abort',resolve,{once:true}));return{exitCode:signal.aborted?2:0,status:signal.aborted?'cancelled':'completed'};}});
 process.on('SIGTERM',()=>{void service.close();});process.stdout.write('ready\\n');await service.closed;
 `,
@@ -90,6 +101,10 @@ process.on('SIGTERM',()=>{void service.close();});process.stdout.write('ready\\n
         child.kill('SIGKILL');
         await exit;
       }
+    if (process.platform === 'win32') {
+      const store = new PlatformLocalKeyStore(credentialService);
+      for (const reference of readdirSync(keys)) await store.remove(reference);
+    }
     rmSync(root, { recursive: true, force: true });
   });
   const start = async (block = false) => {
@@ -145,6 +160,7 @@ process.on('SIGTERM',()=>{void service.close();});process.stdout.write('ready\\n
     repo,
     data,
     keys,
+    credentialService,
     script,
     calls,
     location,
@@ -194,9 +210,10 @@ it('recovers a report persisted immediately before SIGKILL without a second exec
     `
 import {readFile,writeFile,unlink,appendFile} from 'node:fs/promises';
 import path from 'node:path';
-import {startLocalService,restoreLocalSource,discoverLocalIdentity,resolveLocalContext,resolveLocalExecutionPolicy,runLocalReview,executeReviewRequest,ReviewRequests,LocalRecordStore,LocalHistoryStore,contentHash} from ${JSON.stringify(new URL('../dist/index.js', import.meta.url).href)};
+import {startLocalService,restoreLocalSource,discoverLocalIdentity,resolveLocalContext,resolveLocalExecutionPolicy,runLocalReview,executeReviewRequest,ReviewRequests,LocalRecordStore,LocalHistoryStore,contentHash,PlatformLocalKeyStore} from ${JSON.stringify(new URL('../dist/index.js', import.meta.url).href)};
 const location=${JSON.stringify(f.location)};
-const keys={read:async id=>{try{return await readFile(path.join(${JSON.stringify(f.keys)},id));}catch(e){if(e.code==='ENOENT')return;throw e;}},write:async(id,bytes)=>writeFile(path.join(${JSON.stringify(f.keys)},id),bytes,{mode:0o600}),remove:async id=>unlink(path.join(${JSON.stringify(f.keys)},id))};
+const nativeKeys=process.platform==='win32'?new PlatformLocalKeyStore(${JSON.stringify(f.credentialService)}):undefined;
+const keys={read:async id=>{if(nativeKeys)return nativeKeys.read(id);try{return await readFile(path.join(${JSON.stringify(f.keys)},id));}catch(e){if(e.code==='ENOENT')return;throw e;}},write:async(id,bytes)=>{await writeFile(path.join(${JSON.stringify(f.keys)},id),nativeKeys?'':bytes,{mode:0o600});if(nativeKeys)await nativeKeys.write(id,bytes);},remove:async id=>{if(nativeKeys)await nativeKeys.remove(id);await unlink(path.join(${JSON.stringify(f.keys)},id));}};
 const storage=reg=>({...location,scope:{kind:'repository',profileId:location.profileId,repositoryKey:reg.repositoryKey,worktreeKey:reg.worktreeKey},keys});
 const descriptor={id:'fixture',version:'1',model:'fixture',configHash:contentHash('crash-fixture'),capabilities:{available:true,sourceIsolation:'fixed-source-only',cancellation:true,timeout:true,childProcessCleanup:true,outputTokenLimit:false}};
 const service=await startLocalService({...location,keys,
@@ -233,8 +250,14 @@ process.on('SIGTERM',()=>{void service.close();});process.stdout.write('ready\\n
   const registration = await f.register(),
     submitted = await f.submit(registration);
   const [code, signal] = await exited;
-  expect(code).toBeNull();
-  expect(signal).toBe('SIGKILL');
+  if (process.platform === 'win32') {
+    // TerminateProcess reports a numeric exit when a process kills itself.
+    expect(code).toBe(1);
+    expect(signal).toBeNull();
+  } else {
+    expect(code).toBeNull();
+    expect(signal).toBe('SIGKILL');
+  }
   writeFileSync(path.join(f.repo, 'a.ts'), 'DO_NOT_RECAPTURE_THIS_WORKING_FILE');
   const second = await f.start();
   const interrupted = (await f.call({ action: 'job', id: submitted.id })) as ServiceJob;
@@ -260,8 +283,10 @@ it('requires explicit registration and trigger permission, persists an idempoten
   const f = fixture();
   const child = await f.start(true);
   const address = await localServiceAddress(f.location);
-  expect(statSync(address).mode & 0o777).toBe(0o600);
-  expect(statSync(path.dirname(address)).mode & 0o777).toBe(0o700);
+  if (process.platform !== 'win32') {
+    expect(statSync(address).mode & 0o777).toBe(0o600);
+    expect(statSync(path.dirname(address)).mode & 0o777).toBe(0o700);
+  }
   const reg = await f.register();
   await expect(f.submit(reg, randomUUID(), 'push')).rejects.toMatchObject({
     code: 'service-denied',
@@ -356,21 +381,25 @@ it('refuses a second live owner without disrupting the original socket', async (
   await f.call({ action: 'stop' });
   await exit;
 }, 30000);
-it('preserves a regular file at the socket path and releases the failed startup owner', async () => {
-  const f = fixture();
-  const address = await localServiceAddress(f.location);
-  writeFileSync(address, 'unrelated file', { mode: 0o600 });
-  cleanups.push(async () => {
-    rmSync(address, { force: true });
-  });
-  await expect(f.start()).rejects.toThrow('Service exited before ready');
-  expect(readFileSync(address, 'utf8')).toBe('unrelated file');
-  rmSync(address);
-  const child = await f.start();
-  const exit = once(child, 'exit');
-  await f.call({ action: 'stop' });
-  await exit;
-}, 30000);
+it.skipIf(process.platform === 'win32')(
+  'preserves a regular file at the socket path and releases the failed startup owner',
+  async () => {
+    const f = fixture();
+    const address = await localServiceAddress(f.location);
+    writeFileSync(address, 'unrelated file', { mode: 0o600 });
+    cleanups.push(async () => {
+      rmSync(address, { force: true });
+    });
+    await expect(f.start()).rejects.toThrow('Service exited before ready');
+    expect(readFileSync(address, 'utf8')).toBe('unrelated file');
+    rmSync(address);
+    const child = await f.start();
+    const exit = once(child, 'exit');
+    await f.call({ action: 'stop' });
+    await exit;
+  },
+  30000,
+);
 it('settles shutdown and disconnects partial clients even when releasing ownership fails', async () => {
   const f = fixture();
   const values = new Map<string, Buffer>();
@@ -390,7 +419,9 @@ it('settles shutdown and disconnects partial clients even when releasing ownersh
   cleanups.push(async () => {
     await service.close();
   });
-  const peer = net.createConnection(service.address);
+  const peer = net.createConnection(
+    process.platform === 'win32' ? `\\\\.\\pipe\\${service.address}` : service.address,
+  );
   peer.on('error', () => undefined);
   await once(peer, 'connect');
   peer.write('{"action":');

@@ -14,6 +14,8 @@ import type { LocalKeyStore } from './local-credentials.js';
 import type { FrozenLocalSource } from './source-snapshot.js';
 import type { ReviewRequestRecord } from '@gcr/client-contract';
 import { ServiceWatcher } from './service-watch.js';
+import { windowsNative, windowsNativeSync, checkWindowsStorage } from './windows-native.js';
+import { startWindowsServicePipe } from './windows-service-pipe.js';
 
 const maximumFrame = 9 * 1024 * 1024;
 export interface LocalServiceLocation {
@@ -21,7 +23,19 @@ export interface LocalServiceLocation {
   dataDirectory?: string;
 }
 export async function localServiceAddress(options: LocalServiceLocation) {
-  if (process.platform === 'win32') throw new LocalServiceError('service-unavailable');
+  if (process.platform === 'win32') {
+    const { directoryId } = checkWindowsStorage(
+      await windowsNative({
+        operation: 'directory',
+        path: path.resolve(options.dataDirectory ?? defaultLocalDataDirectory()),
+      }),
+    );
+    const { sid } = windowsNativeSync({ operation: 'identity' });
+    if (!sid || !directoryId) throw new LocalServiceError('service-unavailable');
+    // File identity handles drive/case aliases without collapsing distinct
+    // directories on a case-sensitive NTFS volume.
+    return 'gcr-service-v1-' + contentHash({ sid, profile: options.profileId, directoryId });
+  }
   const directory = await privateRoot(
     path.join(os.tmpdir(), `gcr-service-${process.getuid?.() ?? 'user'}`),
   );
@@ -44,6 +58,43 @@ export async function callLocalService(
   const address = await localServiceAddress(options);
   const body = Buffer.from(JSON.stringify(request) + '\n');
   if (body.length > maximumFrame) throw new LocalServiceError('service-capacity');
+  if (process.platform === 'win32') {
+    const result = await windowsNative(
+      {
+        operation: 'pipe-call',
+        name: address,
+        bytes: body.toString('base64'),
+        timeout: timeoutMs,
+      },
+      { timeoutMs: timeoutMs + 2000 },
+    );
+    if (result.error || typeof result.bytes !== 'string')
+      throw new LocalServiceError(
+        result.error === 'service-denied' ? 'service-denied' : 'service-unavailable',
+      );
+    const bytes = Buffer.from(result.bytes, 'base64');
+    if (bytes.length > maximumFrame) throw new LocalServiceError('service-capacity');
+    let reply: { ok?: boolean; value?: unknown; error?: string };
+    try {
+      reply = JSON.parse(new TextDecoder('utf8', { fatal: true }).decode(bytes));
+      if (!reply || typeof reply.ok !== 'boolean') throw new Error();
+    } catch {
+      throw new LocalServiceError('service-invalid');
+    }
+    if (reply.ok) return reply.value;
+    throw new LocalServiceError(
+      [
+        'service-unavailable',
+        'service-busy',
+        'service-invalid',
+        'service-denied',
+        'service-capacity',
+        'service-interrupted',
+      ].includes(reply.error ?? '')
+        ? (reply.error as LocalServiceError['code'])
+        : 'service-invalid',
+    );
+  }
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(address);
     let received = Buffer.alloc(0),
@@ -113,7 +164,7 @@ export interface LocalServiceOptions extends LocalServiceLocation {
     registration: ServiceRegistration;
   }): Promise<NonNullable<ServiceJob['result']> | undefined>;
 }
-/** Private Unix socket plus an encrypted CAS owner. The service outlives its submitting client. */
+/** Private OS IPC plus an encrypted CAS owner; outlives the submitting client. */
 export async function startLocalService(options: LocalServiceOptions) {
   const address = await localServiceAddress(options);
   const jobs = await ServiceJobs.open({
@@ -177,6 +228,7 @@ export async function startLocalService(options: LocalServiceOptions) {
       });
   };
   const clients = new Set<net.Socket>();
+  let pipe: Awaited<ReturnType<typeof startWindowsServicePipe>> | undefined;
   const watcher = new ServiceWatcher({
     jobs,
     serial,
@@ -203,7 +255,8 @@ export async function startLocalService(options: LocalServiceOptions) {
       // already queued before close is scheduled; end it before destroying peers.
       for (const socket of clients) socket.destroySoon();
       try {
-        await new Promise<void>((resolve) => server.close(() => resolve()));
+        await pipe?.close();
+        if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
         await watcher.close();
         await draining;
         await mutation;
@@ -367,22 +420,50 @@ export async function startLocalService(options: LocalServiceOptions) {
   });
   try {
     await jobs.recover(owner);
-    try {
-      const stat = await lstat(address);
-      if (!stat.isSocket() || stat.uid !== process.getuid?.())
-        throw new LocalServiceError('service-invalid');
-      await unlink(address);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
-    await new Promise<void>((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(address, () => {
-        server.removeListener('error', reject);
-        resolve();
+    if (process.platform === 'win32') {
+      pipe = await startWindowsServicePipe(
+        address,
+        async (frame) => {
+          let result: unknown;
+          try {
+            if (frame.length > maximumFrame) throw new LocalServiceError('service-capacity');
+            if (frame.indexOf(10) !== frame.length - 1)
+              throw new LocalServiceError('service-invalid');
+            const request = JSON.parse(new TextDecoder('utf8', { fatal: true }).decode(frame));
+            if (!request || Array.isArray(request) || typeof request !== 'object')
+              throw new LocalServiceError('service-invalid');
+            result = { ok: true, value: await serial(() => dispatch(request)) };
+          } catch (error) {
+            result = errorReply(error);
+          }
+          const bytes = Buffer.from(JSON.stringify(result) + '\n');
+          return bytes.length <= maximumFrame
+            ? bytes
+            : Buffer.from(JSON.stringify({ ok: false, error: 'service-capacity' }) + '\n');
+        },
+        () => {
+          serviceFailure = 'service-unavailable';
+          void close();
+        },
+      );
+    } else {
+      try {
+        const stat = await lstat(address);
+        if (!stat.isSocket() || stat.uid !== process.getuid?.())
+          throw new LocalServiceError('service-invalid');
+        await unlink(address);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(address, () => {
+          server.removeListener('error', reject);
+          resolve();
+        });
       });
-    });
-    await chmod(address, 0o600);
+      await chmod(address, 0o600);
+    }
     server.on('error', () => {
       serviceFailure = 'service-unavailable';
       void close();
@@ -391,7 +472,8 @@ export async function startLocalService(options: LocalServiceOptions) {
     watcher.start();
     return { address, closed, close };
   } catch (error) {
-    server.close();
+    await pipe?.close();
+    if (server.listening) server.close();
     try {
       await jobs.releaseOwner(owner);
     } finally {

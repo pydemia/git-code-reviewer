@@ -40,7 +40,7 @@ async function setup() {
     repositoryKey: client.repositoryKey,
     worktreeKey: client.worktreeKey,
   };
-  const storage = { dataDirectory: root, scope, keys };
+  const storage = { dataDirectory: path.join(root, 'private'), scope, keys };
   let now = Date.parse('2026-01-02T00:00:00.000Z');
   const opened: Array<{ close(): void }> = [];
   const open = async () => {

@@ -135,7 +135,14 @@ export async function executeServiceCommand(
       const child = spawn(
         process.execPath,
         [dependencies.entrypoint, 'service', 'run', ...common],
-        { cwd: os.homedir(), env: environment, detached: true, stdio: 'ignore' },
+        {
+          cwd: os.homedir(),
+          env: environment,
+          detached: true,
+          windowsHide: true,
+          shell: false,
+          stdio: 'ignore',
+        },
       );
       let failed = false;
       child.on('error', () => {

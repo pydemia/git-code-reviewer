@@ -17,6 +17,42 @@ import {
 import { windowsNativeSync, windowsNativeExecutable } from './windows-native.js';
 
 describe.skipIf(process.platform !== 'win32')('native Windows security primitives', () => {
+  it('atomically replaces and removes owned hook state, rejecting reparse targets', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'w03-mutations-'));
+    const root = await privateRoot(path.join(parent, 'private'));
+    const file = path.join(root, 'state.json');
+    const request = (text: string) => ({
+      operation: 'replace-private',
+      path: file,
+      bytes: Buffer.from(text).toString('base64'),
+    });
+    try {
+      expect(windowsNativeSync(request('first')).published).toBe(true);
+      expect(windowsNativeSync(request('second')).published).toBe(true);
+      expect((await readPrivateFile(file, 100))?.toString()).toBe('second');
+      windowsNativeSync({ operation: 'remove-private', path: file });
+      expect(await readPrivateFile(file, 100)).toBeUndefined();
+      expect(windowsNativeSync({ operation: 'remove-private', path: file }).missing).toBe(true);
+      const outside = path.join(parent, 'outside');
+      await mkdir(outside);
+      await symlink(outside, file, 'junction');
+      expect(() => windowsNativeSync(request('forbidden'))).toThrow();
+      expect(() => windowsNativeSync({ operation: 'remove-private', path: file })).toThrow();
+      expect(await readdir(outside)).toEqual([]);
+      await rm(file);
+      // An ordinary broadly inherited file cannot be adopted as private state.
+      await writeFile(path.join(parent, 'unowned'), 'preserve');
+      expect(() =>
+        windowsNativeSync({
+          operation: 'remove-private',
+          path: path.join(parent, 'unowned'),
+        }),
+      ).toThrow();
+      expect(await readFile(path.join(parent, 'unowned'), 'utf8')).toBe('preserve');
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  }, 30000);
   it('never exposes a partial target when its publisher is terminated', async () => {
     const parent = await mkdtemp(path.join(os.tmpdir(), 'w01-interrupted-'));
     const root = await privateRoot(path.join(parent, 'private'));
