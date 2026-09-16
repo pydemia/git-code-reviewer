@@ -14,11 +14,13 @@ import {
 } from './private-files.js';
 
 async function temporary<T>(action: (directory: string) => Promise<T>): Promise<T> {
-  const directory = await mkdtemp(path.join(tmpdir(), 'gcr-local-foundation-'));
+  const parent = await mkdtemp(path.join(tmpdir(), 'gcr-local-foundation-'));
   try {
+    const directory =
+      process.platform === 'win32' ? await privateRoot(path.join(parent, 'private')) : parent;
     return await action(directory);
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    await rm(parent, { recursive: true, force: true });
   }
 }
 
@@ -75,7 +77,7 @@ describe('local identity and private storage publication', () => {
       expect(linked.worktreeKey).not.toBe(before.worktreeKey);
       expect(discoverLocalIdentity(first, 'profile-two').profileId).not.toBe(before.profileId);
       const alias = path.join(root, 'alias');
-      await symlink(first, alias);
+      await symlink(first, alias, process.platform === 'win32' ? 'junction' : undefined);
       expect(discoverLocalIdentity(alias, 'profile-one')).toEqual(before);
     }));
   it('publishes exactly one complete revision in a write race and never replaces a committed name', async () =>
@@ -93,13 +95,32 @@ describe('local identity and private storage publication', () => {
     temporary(async (root) => {
       const target = await privateDirectory(root, 'target');
       const alias = path.join(root, 'alias');
-      await symlink(target, alias);
+      await symlink(target, alias, process.platform === 'win32' ? 'junction' : undefined);
       await expect(privateRoot(alias)).rejects.toMatchObject({ code: 'insecure-storage' });
       await expect(privateDirectory(root, 'alias')).rejects.toMatchObject({
         code: 'insecure-storage',
       });
       const file = path.join(target, 'record');
       await publishImmutable(file, Buffer.from('fixture'));
+      if (process.platform === 'win32') {
+        // chmod cannot represent a broad NTFS DACL; change only this fixture.
+        const acl = (entry: string, ...args: string[]) =>
+          execFileSync('icacls.exe', [entry, ...args], { stdio: 'pipe', windowsHide: true });
+        acl(file, '/grant', '*S-1-5-32-545:R');
+        const broad = acl(file);
+        await expect(readPrivateFile(file, 1024)).rejects.toMatchObject({
+          code: 'insecure-storage',
+        });
+        expect(acl(file)).toEqual(broad);
+        acl(file, '/remove:g', '*S-1-5-32-545');
+        await expect(readPrivateFile(path.join(alias, 'record'), 1024)).rejects.toMatchObject({
+          code: 'insecure-storage',
+        });
+        expect((await readFile(file)).toString()).toBe('fixture');
+        acl(target, '/grant', '*S-1-5-32-545:(OI)(CI)R');
+        await expect(privateRoot(target)).rejects.toMatchObject({ code: 'insecure-storage' });
+        return;
+      }
       await chmod(file, 0o644);
       await expect(readPrivateFile(file, 1024)).rejects.toMatchObject({ code: 'insecure-storage' });
       await chmod(file, 0o600);
