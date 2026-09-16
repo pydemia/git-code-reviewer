@@ -1,6 +1,6 @@
 import { Worker } from 'node:worker_threads';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { expect, it } from 'vitest';
@@ -8,7 +8,9 @@ import { expect, it } from 'vitest';
 it.skipIf(process.platform !== 'win32')(
   'captures staged source inside a Windows worker with Path casing',
   async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'w01-worker-'));
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'w01-worker-'));
+    const root = path.join(parent, '한글 공백 workspace');
+    await mkdir(root);
     let worker: Worker | undefined;
     try {
       const git = (...args: string[]) =>
@@ -64,7 +66,7 @@ it.skipIf(process.platform !== 'win32')(
       expect(observed.selected).toHaveLength(1);
     } finally {
       await worker?.terminate();
-      await rm(root, { recursive: true, force: true });
+      await rm(parent, { recursive: true, force: true });
     }
   },
   30_000,

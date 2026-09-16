@@ -13,6 +13,9 @@ import {
   realpathSync,
   rmSync,
   writeFileSync,
+  readdirSync,
+  chmodSync,
+  existsSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -338,6 +341,19 @@ export class SourceGit {
     }
   }
   close(): void {
+    if (process.platform === 'win32' && existsSync(this.directory)) {
+      // Electron's Windows rmSync does not clear Git's read-only object flag.
+      // Only touch files inside this private, generated capture directory. This
+      // changes a DOS file attribute, not its DACL or the user's repository.
+      const writable = (directory: string): void => {
+        for (const entry of readdirSync(directory, { withFileTypes: true })) {
+          const file = path.join(directory, entry.name);
+          if (entry.isDirectory()) writable(file);
+          else if (entry.isFile()) chmodSync(file, 0o600);
+        }
+      };
+      writable(this.directory);
+    }
     rmSync(this.directory, { recursive: true, force: true });
   }
 }
