@@ -1,8 +1,10 @@
 import { memo } from 'react';
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { remarkReviewRecommendations } from './remark-review-recommendations.ts';
 
 const plugins = [remarkGfm];
+const historyPlugins = [remarkGfm, remarkReviewRecommendations];
 const components: Components = {
   // Report section 제목 아래에서 Markdown 자체의 heading 계층을 유지합니다.
   h1: ({ children }) => <h4>{children}</h4>,
@@ -28,11 +30,17 @@ const components: Components = {
   ),
 };
 
-export const ReviewMarkdown = memo(function ReviewMarkdown({ text }: { text: string }) {
+export const ReviewMarkdown = memo(function ReviewMarkdown({
+  text,
+  highlightRecommendations = false,
+}: {
+  text: string;
+  highlightRecommendations?: boolean;
+}) {
   return (
     <div className="review-markdown">
       <Markdown
-        remarkPlugins={plugins}
+        remarkPlugins={highlightRecommendations ? historyPlugins : plugins}
         components={components}
         skipHtml
         urlTransform={defaultUrlTransform}

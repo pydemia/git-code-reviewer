@@ -3748,7 +3748,8 @@ body.workspace-resizing:has(.resize-bottom) {
 .report-unit-detail .review-markdown p {
   white-space: normal;
 }
-.report-recommendation {
+.report-recommendation,
+.review-recommendation-box {
   padding: 10px 12px;
   border: 1px solid #d4e5dc;
   border-radius: 5px;

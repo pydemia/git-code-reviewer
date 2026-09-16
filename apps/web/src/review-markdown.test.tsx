@@ -41,3 +41,31 @@ it('does not execute HTML, unsafe URLs or fetch Markdown images', () => {
   expect(html).toContain('&lt;img onerror=');
   expect(html).toContain('추적 이미지');
 });
+
+it('boxes explicit recommendation sections without including the next section or source link', () => {
+  const source =
+    '> **문제**\n>\n> 경계값을 확인합니다.\n>\n> **수정 제안**\n>\n> `limit`을 검증하세요.\n>\n> - 상한 검사\n> - 하한 검사\n>\n> [관련 코드 보기](https://github.example/code)\n\n## 수정제안\n\n```ts\nconst limit = 100;\n```\n\n## 영향\n\n호출부 영향';
+  const html = renderToStaticMarkup(
+    <ReviewMarkdown text={source} highlightRecommendations />,
+  ).replace(/>\s+</g, '><');
+  expect(html.match(/class="review-recommendation-box"/g)).toHaveLength(2);
+  expect(html).toContain('<div class="review-recommendation-box"><p><strong>수정 제안</strong>');
+  expect(html).toContain('</ul></div><p><a');
+  expect(html).toContain('</pre></div><h5>영향</h5>');
+  expect(renderToStaticMarkup(<ReviewMarkdown text={source} />)).not.toContain(
+    'review-recommendation-box',
+  );
+});
+
+it('keeps quoted code, ordinary prose and empty labels unchanged', () => {
+  const html = renderToStaticMarkup(
+    <ReviewMarkdown
+      highlightRecommendations
+      text={
+        '수정 제안은 아직 없습니다.\n\n```md\n**수정 제안**\nexample\n```\n\n**수정 제안**\n\n**영향**\n\n미확인'
+      }
+    />,
+  );
+  expect(html).not.toContain('review-recommendation-box');
+  expect(html).toContain('**수정 제안**');
+});

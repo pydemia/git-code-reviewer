@@ -520,3 +520,14 @@
   font-size: 12px;
   color: var(--accent);
 }
+
+/* Match the separate recommendation box used by report and code-line comments. */
+.history-page .review-recommendation-box {
+  margin: 12px 0;
+}
+.history-page .review-recommendation-box > :first-child {
+  margin-top: 0;
+}
+.history-page .review-recommendation-box > :last-child {
+  margin-bottom: 0;
+}

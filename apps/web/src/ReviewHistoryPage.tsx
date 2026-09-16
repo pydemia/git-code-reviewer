@@ -498,7 +498,10 @@ function HistoryPull({
                   ) : null}
                   {source !== item.id ? (
                     <div className="history-comment-preview">
-                      <ReviewMarkdown text={item.excerpt || '(본문 없음)'} />
+                      <ReviewMarkdown
+                        highlightRecommendations
+                        text={item.excerpt || '(본문 없음)'}
+                      />
                       {item.bodyCharacters > item.excerpt.length ? (
                         <small>본문 일부 · 전체 {item.bodyCharacters.toLocaleString()}자</small>
                       ) : null}
@@ -636,7 +639,7 @@ export function HistorySource({
             {item.authorLogin} · {kinds[item.kind]} ·{' '}
             {item.upstreamState === 'present' ? '수집된 원문' : '최근 전체 조회에서 반환되지 않음'}
           </p>
-          <ReviewMarkdown text={item.body || '(본문 없음)'} />
+          <ReviewMarkdown highlightRecommendations text={item.body || '(본문 없음)'} />
           <details className="history-raw">
             <summary>Markdown 원문 텍스트</summary>
             <pre className="history-body">{item.body || '(본문 없음)'}</pre>
@@ -652,7 +655,7 @@ export function HistorySource({
             {versions?.items.map((v) => (
               <details key={v.id}>
                 <summary>{new Date(v.observedAt).toLocaleString()} · 본문 버전</summary>
-                <ReviewMarkdown text={v.body || '(본문 없음)'} />
+                <ReviewMarkdown highlightRecommendations text={v.body || '(본문 없음)'} />
                 <p>
                   {v.path ?? '파일 위치 미확인'}
                   {v.line ? `:${v.line}` : ''}
@@ -693,7 +696,7 @@ export function HistorySource({
                   {new Date(h.observedAt).toLocaleString()} ·{' '}
                   {h.snapshot.upstreamState === 'not-returned' ? '최근 조회에 없음' : '원문 관측'}
                 </summary>
-                <ReviewMarkdown text={h.snapshot.body || '(본문 없음)'} />
+                <ReviewMarkdown highlightRecommendations text={h.snapshot.body || '(본문 없음)'} />
                 <GitHubMessageProvenance source={h.snapshot} />
               </details>
             ))}

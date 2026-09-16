@@ -716,7 +716,7 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
   });
   it('opens stored source and activates guidance from the central screen at desktop and mobile widths', async () => {
     const markdown =
-      'edited draft source\n\n## 경계값 검토\n\n**입력 계약**을 확인하세요.\n\n```ts\nconst bounded = value <= 100;\n```\n\n| 입력 | 기대 |\n| --- | --- |\n| 100 | 허용 |\n\n> 호출부와 함께 검토\n\n- [x] 경계값 확인\n\n<script>window.historyInjected = true</script>\n\n![외부 이미지](https://tracker.example/pixel)';
+      'edited draft source\n\n## 경계값 검토\n\n**입력 계약**을 확인하세요.\n\n```ts\nconst bounded = value <= 100;\n```\n\n| 입력 | 기대 |\n| --- | --- |\n| 100 | 허용 |\n\n> 호출부와 함께 검토\n>\n> **수정 제안**\n>\n> 호출 경계에서 상한과 하한을 검증하세요.\n\n- [x] 경계값 확인\n\n<script>window.historyInjected = true</script>\n\n![외부 이미지](https://tracker.example/pixel)';
     await persistPullRequestMessages(
       db,
       repo,
@@ -767,6 +767,11 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
         await source.locator('.history-source > .review-markdown pre code').textContent(),
       ).toContain('value <= 100');
       expect(await source.locator('.review-markdown img, .review-markdown script').count()).toBe(0);
+      expect(
+        await source
+          .locator('.history-source > .review-markdown .review-recommendation-box')
+          .innerText(),
+      ).toContain('호출 경계에서 상한과 하한을 검증하세요.');
       expect(await page.evaluate(() => 'historyInjected' in window)).toBe(false);
       expect(
         await page
