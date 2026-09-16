@@ -1,0 +1,264 @@
+{
+  "recordedAt": "2026-09-16T09:54:48.137Z",
+  "status": "W04 acceptance complete for the documented verified scope",
+  "w04Complete": true,
+  "remainingRequiredConditions": [],
+  "acceptance": [
+    {
+      "id": "W-A01",
+      "status": "accepted within documented scope",
+      "scope": "Windows ARM64 install and actual verification Host",
+      "evidence": [
+        "W03-native-host-attempt2.json",
+        "W04-final-preservation.json"
+      ]
+    },
+    {
+      "id": "W-A02",
+      "status": "accepted within documented scope",
+      "scope": "OS-backed storage and ordinary-user authorization",
+      "evidence": [
+        "W01-other-user.json",
+        "W02-regression.json",
+        "W03-user-boundary-final.json",
+        "W04-validation.json"
+      ]
+    },
+    {
+      "id": "W-A03",
+      "status": "accepted within documented scope",
+      "scope": "NTFS/snapshot/worktree/sensitive-source boundaries",
+      "evidence": [
+        "W01-regressions.json",
+        "W02-regression.json",
+        "W03-validation.json",
+        "W04-validation.json",
+        "W04-resume-audit.json"
+      ]
+    },
+    {
+      "id": "W-A04",
+      "status": "accepted within documented scope",
+      "scope": "actual manual Codex review and synthetic API regression",
+      "evidence": [
+        "W01-real-host.json",
+        "W02-live-pr-acceptance.json",
+        "W04-validation.json"
+      ]
+    },
+    {
+      "id": "W-A05",
+      "status": "accepted within documented scope",
+      "scope": "native isolation/cancellation and owned process cleanup",
+      "evidence": [
+        "W01-codex-catalog.json",
+        "W04-validation.json",
+        "W03-native-host-lifecycle.json",
+        "W03-process-cleanup.json"
+      ]
+    },
+    {
+      "id": "W-A06",
+      "status": "accepted within documented scope",
+      "scope": "approved PR3/local GCR reader substitution",
+      "evidence": [
+        "W02-live-pr-acceptance.json",
+        "W02-live-pr-server.json",
+        "W02-regression.json"
+      ]
+    },
+    {
+      "id": "W-A07",
+      "status": "accepted within documented scope",
+      "scope": "actual model defect/fixed/unrelated judgments",
+      "evidence": [
+        "W02-live-pr-acceptance.json"
+      ]
+    },
+    {
+      "id": "W-A08",
+      "status": "accepted within documented scope",
+      "scope": "existing opt-in triggers/hooks and native service model review",
+      "evidence": [
+        "W03-validation.json",
+        "W03-native-host-attempt2.json",
+        "W03-native-host-lifecycle.json"
+      ]
+    },
+    {
+      "id": "W-A09",
+      "status": "accepted within documented scope",
+      "scope": "macOS ARM64 native regression and existing Linux ARM64 container regression",
+      "evidence": [
+        "W04-macos-validation.json",
+        "W04-macos-integration.json",
+        "W03-validation.json",
+        "W04-validation.json"
+      ]
+    },
+    {
+      "id": "W-A10",
+      "status": "accepted within documented scope",
+      "scope": "fixed delivery/install linkage, documentation and complete test cleanup",
+      "evidence": [
+        "W04-packages.json",
+        "W04-artifact-linkage.json",
+        "W04-final-preservation.json"
+      ]
+    }
+  ],
+  "sources": {
+    "gcrProduct": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "cdProduct": "2c2a40647c72e9ae00489ba0a5efaa7c3351792c",
+    "cdPackaging": "722b55cb6d93269aa76bf298e9e9531dc9ac7ecc",
+    "macRegression": "6c945067847bf6c68fb0044346c2b78897606098",
+    "windowsOutcomeTest": "781bdda055c25acbd5643283201e8cf19f363415",
+    "windowsFoundationTest": "883363d66456efe7d39db0cf71735f956fc4a2b5"
+  },
+  "runtimeComparisons": [
+    {
+      "repository": "GCR",
+      "runtimeBaseline": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+      "runtimeDiff": "none"
+    },
+    {
+      "repository": "CD",
+      "runtimeBaseline": "722b55cb6d93269aa76bf298e9e9531dc9ac7ecc",
+      "runtimeDiff": "none"
+    }
+  ],
+  "deliveredPackages": [
+    {
+      "name": "@gcr/client-contract",
+      "version": "0.1.0-alpha.48",
+      "file": "gcr-client-contract-0.1.0-alpha.48.tgz",
+      "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+    },
+    {
+      "name": "@gcr/client-core",
+      "version": "0.1.0-alpha.49",
+      "file": "gcr-client-core-0.1.0-alpha.49.tgz",
+      "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4"
+    },
+    {
+      "name": "@gcr/client-executors",
+      "version": "0.1.0-alpha.49",
+      "file": "gcr-client-executors-0.1.0-alpha.49.tgz",
+      "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47"
+    }
+  ],
+  "nativeHelper": {
+    "version": "1.0.3",
+    "format": "CLI AnyCPU / .NET Framework 4.x",
+    "buildArchitecture": "arm64",
+    "license": "Apache-2.0",
+    "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+    "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+  },
+  "privateService": {
+    "name": "@gcr/cli",
+    "version": "0.1.0-alpha.38",
+    "file": "gcr-cli-0.1.0-alpha.38.tgz",
+    "sha256": "01a7e41379e9f1f22d76a16cf89090345df986a1a2e542c147cb76d7d09631e5",
+    "sourceSha": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "clientPackages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.48",
+        "file": "gcr-client-contract-0.1.0-alpha.48.tgz",
+        "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-core-0.1.0-alpha.49.tgz",
+        "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-executors-0.1.0-alpha.49.tgz",
+        "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47"
+      }
+    ],
+    "native": {
+      "version": "1.0.3",
+      "format": "CLI AnyCPU / .NET Framework 4.x",
+      "buildArchitecture": "arm64",
+      "license": "Apache-2.0",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+    },
+    "bundleSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364"
+  },
+  "vsix": {
+    "version": "2.12.4",
+    "target": "win32-arm64",
+    "file": "commit-defender-2.12.4-win32-arm64.vsix",
+    "sha256": "88471efee2b80a1b79d28e4712d90566eeeac1fa3ea6fa340d515efba5a48f1b"
+  },
+  "resolvedConditions": [
+    {
+      "condition": "macOS native required regression",
+      "evidence": "W04-macos-validation.json",
+      "passed": 160,
+      "failed": 0,
+      "windowsOnlySkipped": 1
+    },
+    {
+      "condition": "prior automatically blocked deletion of 19 Windows fixtures",
+      "evidence": "W04-final-preservation.json",
+      "actor": "user",
+      "assistantAction": "read-only existence verification",
+      "remaining": 0
+    }
+  ],
+  "installedVersion": "2.12.4",
+  "verificationHost": {
+    "evidence": "W03-native-host-attempt2.json",
+    "version": "2.12.4",
+    "platform": "win32 arm64",
+    "reused": true
+  },
+  "currentUserHostVersion": "unverified; no forced reload",
+  "currentGcrService": [],
+  "w04AdditionalModelCalls": 0,
+  "rebuiltOrReinstalled": false,
+  "historicalRealModelEvidence": {
+    "W03Calls": 2,
+    "W03AcceptedReports": 1,
+    "attempt1": "unaccepted: report body not inspected after exitCode1",
+    "attempt2": "report validation passed; outer launcher cleanup-failed",
+    "separateLifecycle": "passed with zero model calls; not merged into attempt2"
+  },
+  "supportScope": {
+    "windows": "Windows 11 Pro 26200 ARM64 / local NTFS / VS Code 1.137.0 ARM64 / Host Node24.18.1 / outer Node24.16.0 / Codex0.153.4",
+    "macos": "macOS26.3.2 build25D2140 ARM64 / Node25.9.0; native regression, no additional real model or Host installation",
+    "linux": "Linux ARM64 container / Node22.23.2; scoped service/hooks/outcome regression"
+  },
+  "retainedLimitations": [
+    "Windows x64",
+    "other Windows/Node/VSCode/Codex combinations",
+    "already-open user Host extension version",
+    "WSL/Remote SSH/Dev Container deployment",
+    "Linux Codex fixed-source account isolation",
+    "UNC/network/FAT for this Windows delivery",
+    "PRISM #917/#915 not verified; approved PR3/local GCR substitute",
+    "W03 second model report passed; outer launcher cleanup-failed preserved; separate zero-model lifecycle passed",
+    "Windows broad OS/CPU/version combinations not claimed",
+    "Existing documented editor startup/crash and service product limits remain"
+  ],
+  "priorAuditsPreserved": [
+    "W04-completion-audit.json",
+    "W04-resume-audit.json"
+  ],
+  "finalPreservation": "W04-final-preservation.json",
+  "delivery": {
+    "branch": "codex/windows-native-support",
+    "preFinalDocumentationHeads": [
+      "909b21688867f52b3a44223f12ee1dfda4688697",
+      "c9b8fcd51093a6e55f4e59c7446c7a9c8654eef0"
+    ],
+    "note": "The commit containing this audit is documentation-only; final remote HEAD is verified after push."
+  }
+}

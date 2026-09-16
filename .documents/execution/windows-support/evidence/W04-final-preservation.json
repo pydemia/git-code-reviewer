@@ -1,0 +1,206 @@
+{
+  "capturedAt": "2026-09-16T09:53:33.3131041Z",
+  "cleanup": [
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-0AyBgm",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-3KsXll",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-Njtcfs",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-VBNtqe",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-WY0LLt",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-Xole6V",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-6FnwWK",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-AMFpkG",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-jFtq1Z",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-KlekO4",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-oj2dLp",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-uOSFFj",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-E0O7hy",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-iLAO9s",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-nDLd3J",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-PPUTcq",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-QuSowc",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-XZLYj0",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-w03-host-BKUtKA",
+      "exists": false,
+      "method": "user manual deletion; assistant read-only verification"
+    }
+  ],
+  "removedDirectories": 19,
+  "remainingBlockedDirectories": 0,
+  "assistantDeletionAttempts": 0,
+  "settings": [
+    {
+      "path": "C:/Users/pydemia/AppData/Roaming/Code/User/settings.json",
+      "sha256": "fd5f3d5c232515fa51ba98ef32ae5811c578f2e5eafdc2154ba4357603597546",
+      "unchanged": true
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/config.toml",
+      "sha256": "0b0980646662af414cf17513535a661b71577376373338c2bd23bdda1300c237",
+      "unchanged": true
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/AGENTS.md",
+      "sha256": "8a45f4bd5beacf07f4debce813aa09938c71a1d8d80fbbfcf940461bd139f8e9",
+      "unchanged": true
+    },
+    {
+      "path": "C:/Users/pydemia/AppData/Local/OpenAI/Codex/bin/02c7a9ff819938f0/codex.exe",
+      "sha256": "77f792476fe0def726503f02a7c55f485e562dd7ad8801fe61dc8f4bf9991d20",
+      "unchanged": true
+    }
+  ],
+  "hooks": [
+    {
+      "repository": "C:/Users/pydemia/git/git-code-reviewer",
+      "hooksPath": [],
+      "unchanged": true
+    },
+    {
+      "repository": "C:/Users/pydemia/git/commit-defender",
+      "hooksPath": [],
+      "unchanged": true
+    }
+  ],
+  "authFileExists": true,
+  "authHardlinks": 1,
+  "testProcessesRemaining": [],
+  "testCredentialProfilesRemaining": [],
+  "testAccountsRemaining": [],
+  "currentGcrServices": [],
+  "installedVersion": "2.12.4",
+  "vsixSha256": "88471efee2b80a1b79d28e4712d90566eeeac1fa3ea6fa340d515efba5a48f1b",
+  "installedRuntime": [
+    {
+      "file": "out/advisory-hook.cjs",
+      "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/extension.js",
+      "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/hook-cli.js",
+      "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/review-chat-worker.js",
+      "sha256": "e05587c319973deb1da078db915969a00b0b4e669ecac35b52fc7433cca3b47b",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/standalone-review-worker.js",
+      "sha256": "a07a7bca6225f87cde54693d88c14ccb73a793c3422ec5ecbbabf2019774685a",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/windows-native.exe",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/windows-native.json",
+      "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/gcr-service/main.mjs",
+      "sha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/gcr-service/manifest.json",
+      "sha256": "e1d616bc0037e281408d96a3ace6d05c0031a275a7519ec6365ca4613bbb1715",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/gcr-service/windows-native.exe",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "matchesFrozenArtifact": true
+    },
+    {
+      "file": "out/gcr-service/windows-native.json",
+      "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575",
+      "matchesFrozenArtifact": true
+    }
+  ],
+  "userHostAppliedVersion": "unverified; no forced reload",
+  "w04ExtraModelCalls": 0,
+  "productRebuilt": false,
+  "reinstalled": false
+}
