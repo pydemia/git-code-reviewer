@@ -2,7 +2,7 @@
   "recordedAt": "2026-09-16T06:46:33.566Z",
   "phase": "W03",
   "implementationAndVerification": "complete",
-  "delivery": "pending commit/push",
+  "delivery": "pushed and verified; see W03-delivery.json",
   "windowsWholeSupport": "not claimed; W04 not started",
   "criteria": [
     {
