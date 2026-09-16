@@ -1,0 +1,16 @@
+{
+  "status": "failed",
+  "mode": "probe",
+  "realModelCallsAllowed": 0,
+  "platform": "linux",
+  "arch": "arm64",
+  "codeSha256": "8872f37cb828d74498b0451ed923a141e5b144dfd9de9c8f41265bf90b0af98d",
+  "codexSha256": "4d76e542c222ea8c75861d8c4ade60a1a332a63255ce1c60bdaebf7c2a2869e6",
+  "sessionPath": "/tmp/cd-linux-host-hrLS7q/session-vui2Qn",
+  "encryptedKeyring": true,
+  "existingAccountDocumentsUnchanged": true,
+  "error": "Isolated Secret Service unavailable",
+  "ownedProcessesStopped": true,
+  "accountInodePreserved": true,
+  "sessionAndEncryptedKeyringRemoved": true
+}

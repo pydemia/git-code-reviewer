@@ -1,0 +1,16 @@
+{
+  "recordedAt": "2026-09-16T13:11:18.593Z",
+  "platform": "linux-arm64",
+  "vscode": "1.137.0",
+  "request": "pydemia.commit-defender@2.12.6",
+  "scope": "isolated QA extensions directory",
+  "exitCode": 1,
+  "status": "version-not-found",
+  "publicGallery": "all six versions and exact VSIX bytes verified independently",
+  "retryPlan": {
+    "maximumAdditionalInstallAttempts": 1,
+    "waitAtLeastSeconds": 120,
+    "actualModelCalls": 0,
+    "productChanges": false
+  }
+}

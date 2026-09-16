@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-09-16T13:04:57.593Z",
+  "extension": "pydemia.commit-defender",
+  "version": "2.12.6",
+  "publicGallery": true,
+  "targets": [
+    {
+      "target": "win32-arm64",
+      "status": "not-visible"
+    },
+    {
+      "target": "win32-x64",
+      "status": "not-visible"
+    },
+    {
+      "target": "darwin-arm64",
+      "status": "not-visible"
+    },
+    {
+      "target": "darwin-x64",
+      "status": "not-visible"
+    },
+    {
+      "target": "linux-arm64",
+      "status": "not-visible"
+    },
+    {
+      "target": "linux-x64",
+      "status": "not-visible"
+    }
+  ],
+  "status": "propagating"
+}

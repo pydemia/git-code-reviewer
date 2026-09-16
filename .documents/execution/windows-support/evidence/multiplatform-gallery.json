@@ -1,0 +1,50 @@
+{
+  "recordedAt": "2026-09-16T13:10:10.268Z",
+  "extension": "pydemia.commit-defender",
+  "version": "2.12.6",
+  "publicGallery": true,
+  "targets": [
+    {
+      "target": "win32-arm64",
+      "status": "passed",
+      "sha256": "5ad4d88df6ce1cb4d328fce1bfb7dceb8472260218a4ad05302047ee5b67dbe5",
+      "bytes": 709938
+    },
+    {
+      "target": "win32-x64",
+      "status": "passed",
+      "sha256": "460c93215e2726fbf8a66d6c9dbe02b3bcf5ce792e482dd1c336a543b1a726e4",
+      "bytes": 709938
+    },
+    {
+      "target": "darwin-arm64",
+      "status": "passed",
+      "sha256": "ca17b717a247ce8e919a583ec1b91a5e8114489328e94e45a740d611330f4e4d",
+      "bytes": 709938
+    },
+    {
+      "target": "darwin-x64",
+      "status": "passed",
+      "sha256": "8380f38eabd273e350a09f3510ff3f4b4079c815fe8ca8a341102f5338c46abd",
+      "bytes": 709937
+    },
+    {
+      "target": "linux-arm64",
+      "status": "passed",
+      "sha256": "c5bde768642900f84dcc5584a03ae74cbbca85417624e9b37fdeda6e5dce22b1",
+      "bytes": 709938
+    },
+    {
+      "target": "linux-x64",
+      "status": "passed",
+      "sha256": "8b08aa522992e3af4382df650f4d24d28d7cc6c36733b66f8586d7473a6a0b10",
+      "bytes": 709937
+    }
+  ],
+  "details": {
+    "sha256": "ece0252c3931ab683fa7d1355c1a0c1631b47e9aff1d4f71447e0c4b523a033a",
+    "lines": 377,
+    "requiredSections": true
+  },
+  "status": "passed"
+}

@@ -11,8 +11,11 @@ The executor has macOS, Windows, and Linux paths and accepts verified CLI
 versions 0.153.4 or 0.154.0. The caller selects a model and effort from that CLI's
 catalog. Native account-review evidence exists for macOS and Windows ARM64.
 Linux ARM64 has container isolation/process tests and actual CLI synthetic
-catalog checks; an authenticated Linux review and Extension Host remain to be
-verified. A package target is not proof of native execution on that OS/CPU.
+catalog checks. One authenticated Luna/high review passed in a WSL2 Ubuntu
+24.04.1 ARM64 VS Code 1.137.0 Host with CLI 0.153.4, including report evidence,
+encrypted history, and cleanup. Linux x64 catalog checks used Docker emulation;
+native x64 hardware and non-WSL desktop execution remain unverified.
+A package target is not proof of native execution on that OS/CPU.
 Missing credentials fail at invocation; preparation does not claim login or
 account quota availability.
 

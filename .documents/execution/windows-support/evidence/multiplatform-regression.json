@@ -1,0 +1,105 @@
+[
+  {
+    "target": "client-contract",
+    "exitCode": 1,
+    "summary": [
+      "ℹ pass 21",
+      "ℹ fail 1",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)",
+      "      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {"
+    ]
+  },
+  {
+    "target": "standalone-review",
+    "exitCode": 0,
+    "summary": [
+      "✔ a cancelled follower saves its own attempt without completing the owner's request (7004.3921ms)",
+      "ℹ tests 16",
+      "ℹ pass 16",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  },
+  {
+    "target": "standalone-config",
+    "exitCode": 0,
+    "summary": [
+      "ℹ tests 4",
+      "ℹ pass 4",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  },
+  {
+    "target": "local-provider-executor",
+    "exitCode": 0,
+    "summary": [
+      "ℹ tests 6",
+      "ℹ pass 6",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  },
+  {
+    "target": "review-outcome",
+    "exitCode": 0,
+    "summary": [
+      "✔ cancellation before execution calls no provider and remains cancelled rather than pass (409.6759ms)",
+      "ℹ tests 23",
+      "ℹ pass 23",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  },
+  {
+    "target": "automatic-review",
+    "exitCode": 0,
+    "summary": [
+      "ℹ tests 17",
+      "ℹ pass 17",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  },
+  {
+    "target": "managed-hooks",
+    "exitCode": 0,
+    "summary": [
+      "ℹ tests 6",
+      "ℹ pass 6",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  },
+  {
+    "target": "trigger-matrix",
+    "exitCode": 1,
+    "summary": [
+      "ℹ tests 16",
+      "ℹ pass 15",
+      "ℹ fail 1",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  },
+  {
+    "target": "review-chat",
+    "exitCode": 0,
+    "summary": [
+      "✔ a cancelled question cannot resume and a new turn can be started explicitly (6347.7895ms)",
+      "ℹ tests 4",
+      "ℹ pass 4",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0"
+    ]
+  }
+]

@@ -1,0 +1,403 @@
+{
+  "status": "passed",
+  "platform": "linux",
+  "arch": "arm64",
+  "node": "v24.18.1",
+  "vscode": "1.137.0",
+  "extensionVersion": "2.12.6",
+  "extensionPath": "/mnt/c/Users/pydemia/git/commit-defender/vscode-extension",
+  "workerSha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e",
+  "codeSha256": "8872f37cb828d74498b0451ed923a141e5b144dfd9de9c8f41265bf90b0af98d",
+  "codexSha256": "4d76e542c222ea8c75861d8c4ade60a1a332a63255ce1c60bdaebf7c2a2869e6",
+  "realModel": true,
+  "syntheticResponse": false,
+  "centralConnection": false,
+  "modelCalls": 1,
+  "maximumReviewInvocations": 1,
+  "timeoutMs": 240000,
+  "accountSource": "existing WSL user Codex auth.json; private same-inode link",
+  "route": "Linux Extension Host -> packaged review worker -> isolated Codex",
+  "expectation": "completed report identifies subtraction in sum.ts and reopens encrypted history",
+  "startedAt": "2026-09-16T12:57:23.283Z",
+  "finishedAt": "2026-09-16T12:58:15.690Z",
+  "report": {
+    "contractVersion": 1,
+    "runId": "fcfd6806-6338-4caa-8696-eecd35627a12",
+    "identity": {
+      "client": {
+        "mode": "standalone",
+        "profileId": "linux-host-b7b3ce40-40fb-4f29-89db-53e72744aeba",
+        "repositoryKey": "82a6f7356c0e4cb4b2deb7232ef8e4b304c14e3a057020f3cf9161ad93f51aad",
+        "worktreeKey": "2a5afc15a2d9ddff82fc463e6cb71f80e675d84590eb025dbba3d461e5c0579b",
+        "execution": {
+          "configuredMode": "standalone",
+          "effectiveMode": "standalone",
+          "knowledgeSource": "local",
+          "fallbackReason": null
+        }
+      },
+      "source": {
+        "kind": "index",
+        "hash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "objectFormat": "sha1",
+        "baseCommit": "0ddc9b4c4b7f786534c9242c00d04a03fba773a8",
+        "baseTree": "d17863888c8285474f8a1ccbfc86077f8b531b32",
+        "sourceTree": "19a4846dbe57204fadd5def629d64f6cb48b0861"
+      },
+      "context": {
+        "hash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "entries": [
+          {
+            "origin": "builtin",
+            "kind": "skill",
+            "id": "gcr-standalone-review",
+            "revision": 1,
+            "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+          }
+        ],
+        "required": [
+          {
+            "kind": "knowledge",
+            "reference": "builtin:gcr-standalone-review",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:3cc2ae5b5767ead7782bdb6678e55a599c79c1c989d2242b98003c95384768e1",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:64b3d5880e0bbf90ebc82ce34112ea0f0cb6f571fcaa7da3ef6a0ee60f82fbd7",
+            "available": true,
+            "reason": ""
+          }
+        ]
+      },
+      "reviewProfile": {
+        "id": "gcr-standalone-review",
+        "revision": 1,
+        "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+      },
+      "executor": {
+        "id": "codex-account",
+        "version": "0.153.4/gcr-fixed-source-v1",
+        "model": "gpt-5.6-luna",
+        "configHash": "28294a065d06b5e5e557ee941f89737f85ad464bc89653b63ba2397f2d399b65"
+      },
+      "toolsHash": "8636f861688e126a2c5f9261e96483286153c440cfa6107fb90507c817723433"
+    },
+    "status": "completed",
+    "trigger": "manual",
+    "requestedAt": "2026-09-16T12:57:23.725Z",
+    "startedAt": "2026-09-16T12:57:23.726Z",
+    "finishedAt": "2026-09-16T12:58:15.228Z",
+    "durationMs": 51241,
+    "summary": "The change regresses sum from addition to subtraction, causing non-empty invoice totals to be incorrect.",
+    "sourceFiles": [
+      {
+        "path": "consumer.ts",
+        "side": "base",
+        "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+        "byteLength": 103,
+        "lineCount": 3,
+        "gitBlob": "3bee4aa4b25476f3634daf54bef5cabaf2ddfa27"
+      },
+      {
+        "path": "package.json",
+        "side": "base",
+        "hash": "8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e",
+        "byteLength": 63,
+        "lineCount": 2,
+        "gitBlob": "a3b77580af7594cbf6d4f8325abf250f5c4036b9"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "base",
+        "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+        "byteLength": 245,
+        "lineCount": 6,
+        "gitBlob": "09f0d03d36c4add1451a2e5949c211e5af3badc3"
+      },
+      {
+        "path": "sum.ts",
+        "side": "base",
+        "hash": "db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22",
+        "byteLength": 110,
+        "lineCount": 4,
+        "gitBlob": "10aa3525b64afa21b251a09383f057b08e21d95b"
+      },
+      {
+        "path": "consumer.ts",
+        "side": "source",
+        "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+        "byteLength": 103,
+        "lineCount": 3,
+        "gitBlob": "3bee4aa4b25476f3634daf54bef5cabaf2ddfa27"
+      },
+      {
+        "path": "package.json",
+        "side": "source",
+        "hash": "8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e",
+        "byteLength": 63,
+        "lineCount": 2,
+        "gitBlob": "a3b77580af7594cbf6d4f8325abf250f5c4036b9"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "source",
+        "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+        "byteLength": 245,
+        "lineCount": 6,
+        "gitBlob": "09f0d03d36c4add1451a2e5949c211e5af3badc3"
+      },
+      {
+        "path": "sum.ts",
+        "side": "source",
+        "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+        "byteLength": 110,
+        "lineCount": 4,
+        "gitBlob": "bf0534278936e18d09b7e31818bbde6818227fea"
+      }
+    ],
+    "files": [
+      {
+        "source": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "byteLength": 110,
+          "lineCount": 4,
+          "gitBlob": "bf0534278936e18d09b7e31818bbde6818227fea"
+        },
+        "status": "completed",
+        "summary": "Reviewed all source and base lines plus callers and tests."
+      }
+    ],
+    "excluded": [],
+    "problems": [],
+    "findings": [
+      {
+        "id": "87c33ebd-ab39-490a-be49-2fb7cdc82d34",
+        "title": "sum subtracts values instead of adding them",
+        "problem": "The reducer changes the operation from addition in the base to subtraction in the source.",
+        "impact": "Any non-empty input produces an incorrect total; invoiceTotal([2, 3]) evaluates to -5 rather than the expected 5.",
+        "recommendation": "Restore the reducer operation to `total + value`.",
+        "category": "correctness",
+        "severity": "P2",
+        "outcome": "violation",
+        "confidence": "high",
+        "followUp": "required",
+        "anchor": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "startLine": 2,
+          "endLine": 2
+        },
+        "anchorValidation": {
+          "status": "verified",
+          "checks": [
+            "fixed-source-hash",
+            "selected-file",
+            "returned-read-range"
+          ],
+          "reason": "Anchor matches a non-truncated source read. This does not prove the finding."
+        },
+        "evidenceAssessment": {
+          "level": "source-confirmed",
+          "rationale": "The current implementation starts at zero and subtracts every value. The unchanged caller exposes this as invoiceTotal, and the unchanged test expects [2, 3] to total 5. The fixed base confirms the prior behavior used addition. No test runner was available, so this conclusion is based on source evaluation rather than an executed test.",
+          "conditions": [
+            "sum is called with any non-empty array",
+            "invoiceTotal is used for ordinary positive prices"
+          ],
+          "evidenceIds": [
+            "f24b664b-4643-4ce0-a801-64ab7ab2937d",
+            "6fbc07cc-4a19-445b-b2d9-c96d59e2a0de",
+            "dd3b1ffa-c941-4791-a2af-c50f7494d0ad",
+            "a9b23317-07a6-48b7-9f76-412a585c0f48"
+          ],
+          "counterEvidence": {
+            "status": "reviewed",
+            "summary": "The empty-array case remains correct because reduction starts at zero, but the base implementation and existing non-empty test expectation both contradict subtraction.",
+            "evidenceIds": [
+              "6fbc07cc-4a19-445b-b2d9-c96d59e2a0de",
+              "a9b23317-07a6-48b7-9f76-412a585c0f48"
+            ]
+          }
+        },
+        "policy": {
+          "enforcement": "advisory"
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "source-read",
+        "id": "f24b664b-4643-4ce0-a801-64ab7ab2937d",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:f24b664b-4643-4ce0-a801-64ab7ab2937d"
+        },
+        "observedAt": "2026-09-16T12:57:30.293Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "startLine": 1,
+          "endLine": 4
+        },
+        "observation": "Returned excerpt sha256=7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "6fbc07cc-4a19-445b-b2d9-c96d59e2a0de",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:6fbc07cc-4a19-445b-b2d9-c96d59e2a0de"
+        },
+        "observedAt": "2026-09-16T12:57:32.883Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "base",
+          "hash": "db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22",
+          "startLine": 1,
+          "endLine": 4
+        },
+        "observation": "Returned excerpt sha256=db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "dd3b1ffa-c941-4791-a2af-c50f7494d0ad",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:dd3b1ffa-c941-4791-a2af-c50f7494d0ad"
+        },
+        "observedAt": "2026-09-16T12:57:40.224Z",
+        "location": {
+          "path": "consumer.ts",
+          "side": "source",
+          "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "8aaa3c33-cdbf-4a4a-9cab-c09e84b8de67",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:8aaa3c33-cdbf-4a4a-9cab-c09e84b8de67"
+        },
+        "observedAt": "2026-09-16T12:57:44.930Z",
+        "location": {
+          "path": "consumer.ts",
+          "side": "base",
+          "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "a9b23317-07a6-48b7-9f76-412a585c0f48",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:a9b23317-07a6-48b7-9f76-412a585c0f48"
+        },
+        "observedAt": "2026-09-16T12:57:48.782Z",
+        "location": {
+          "path": "sum.test.ts",
+          "side": "source",
+          "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+          "startLine": 1,
+          "endLine": 6
+        },
+        "observation": "Returned excerpt sha256=8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "379bae21-d617-48e6-a608-bb8b96a9cf2f",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:379bae21-d617-48e6-a608-bb8b96a9cf2f"
+        },
+        "observedAt": "2026-09-16T12:57:51.169Z",
+        "location": {
+          "path": "sum.test.ts",
+          "side": "base",
+          "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+          "startLine": 1,
+          "endLine": 6
+        },
+        "observation": "Returned excerpt sha256=8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "4d841a33-b564-4380-8afe-d380edc4da61",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:4d841a33-b564-4380-8afe-d380edc4da61"
+        },
+        "observedAt": "2026-09-16T12:57:54.152Z",
+        "location": {
+          "path": "package.json",
+          "side": "source",
+          "hash": "8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e",
+          "startLine": 1,
+          "endLine": 2
+        },
+        "observation": "Returned excerpt sha256=8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "04e6dc8d-dda4-49b0-ab30-2551e4524674",
+        "sourceHash": "288c3f5e69b84571863ef525eb74cf135bcd9feeae6f5787e5a04d1ec6105d60",
+        "contextHash": "8c55b85c3ce0757cc127b1ac2cd4c99ce1fa5f787c1c5b573b3dad772cca06e5",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:04e6dc8d-dda4-49b0-ab30-2551e4524674"
+        },
+        "observedAt": "2026-09-16T12:57:56.484Z",
+        "location": {
+          "path": "package.json",
+          "side": "base",
+          "hash": "8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e",
+          "startLine": 1,
+          "endLine": 2
+        },
+        "observation": "Returned excerpt sha256=8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e; truncated=false. Port return only; no test executed."
+      }
+    ],
+    "questions": []
+  },
+  "reviewCompletionConfirmed": true,
+  "encryptedHistoryReopened": true,
+  "savedResultCommandOpened": true
+}

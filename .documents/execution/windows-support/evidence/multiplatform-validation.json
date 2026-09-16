@@ -1,0 +1,208 @@
+{
+  "recordedAt": "2026-09-16T13:06:59.216Z",
+  "windows": {
+    "platform": "Windows ARM64 native",
+    "node": "v24.16.0",
+    "gcrExecutorTests": {
+      "passed": 12,
+      "skipped": 17,
+      "reason": "non-Windows native isolation cases"
+    },
+    "cd": [
+      {
+        "target": "client-contract",
+        "exitCode": 1,
+        "summary": [
+          "ℹ pass 21",
+          "ℹ fail 1",
+          "ℹ cancelled 0",
+          "ℹ skipped 0",
+          "      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)",
+          "      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {"
+        ]
+      },
+      {
+        "target": "standalone-review",
+        "exitCode": 0,
+        "summary": [
+          "✔ a cancelled follower saves its own attempt without completing the owner's request (7004.3921ms)",
+          "ℹ tests 16",
+          "ℹ pass 16",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      },
+      {
+        "target": "standalone-config",
+        "exitCode": 0,
+        "summary": [
+          "ℹ tests 4",
+          "ℹ pass 4",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      },
+      {
+        "target": "local-provider-executor",
+        "exitCode": 0,
+        "summary": [
+          "ℹ tests 6",
+          "ℹ pass 6",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      },
+      {
+        "target": "review-outcome",
+        "exitCode": 0,
+        "summary": [
+          "✔ cancellation before execution calls no provider and remains cancelled rather than pass (409.6759ms)",
+          "ℹ tests 23",
+          "ℹ pass 23",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      },
+      {
+        "target": "automatic-review",
+        "exitCode": 0,
+        "summary": [
+          "ℹ tests 17",
+          "ℹ pass 17",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      },
+      {
+        "target": "managed-hooks",
+        "exitCode": 0,
+        "summary": [
+          "ℹ tests 6",
+          "ℹ pass 6",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      },
+      {
+        "target": "trigger-matrix",
+        "exitCode": 1,
+        "summary": [
+          "ℹ tests 16",
+          "ℹ pass 15",
+          "ℹ fail 1",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      },
+      {
+        "target": "review-chat",
+        "exitCode": 0,
+        "summary": [
+          "✔ a cancelled question cannot resume and a new turn can be started explicitly (6347.7895ms)",
+          "ℹ tests 4",
+          "ℹ pass 4",
+          "ℹ fail 0",
+          "ℹ cancelled 0",
+          "ℹ skipped 0"
+        ]
+      }
+    ],
+    "corrections": [
+      {
+        "target": "client-contract",
+        "initial": "21 pass, 1 fail: obsolete expectation that core/executors/contract share a version",
+        "change": "test exact independently pinned manifest versions and package hashes",
+        "retry": {
+          "passed": 22,
+          "failed": 0
+        }
+      },
+      {
+        "target": "trigger-matrix",
+        "initial": "15 pass, 1 fail: native service pipe closed before readiness on mask 1111",
+        "change": "none; exact case rerun once",
+        "retry": {
+          "passed": 1,
+          "failed": 0,
+          "calls": 3,
+          "serviceJobs": 8
+        },
+        "rootCause": "underlying native startup error not exposed; not reproduced in targeted retry, not claimed fixed"
+      }
+    ],
+    "legacyProviderSuite": {
+      "passed": 3,
+      "failed": 6,
+      "reason": "POSIX shebang fake executables on Windows",
+      "productChanges": false
+    }
+  },
+  "linuxArm64Container": {
+    "os": "Linux Docker ARM64",
+    "node": "22.23.2",
+    "image": "pydemia/git-code-reviewer:0.8.0-alpha.3",
+    "imageId": "sha256:bb8ec547ccb09e1d9dee9e193bffb714cd66befdd48e25faa6486fba6124d9e6",
+    "gcrIsolationProcessConfig": {
+      "passed": 25,
+      "skipped": 1,
+      "skip": "macOS-only sandbox"
+    },
+    "legacyProviderSuite": {
+      "passed": 9,
+      "failed": 0
+    }
+  },
+  "linuxX64": {
+    "execution": "Docker emulation on ARM64 host",
+    "image": "node@sha256:76789712cd1ae89a1225eac9077010d68987a423588042dac30446f502f1858c",
+    "actualCliSyntheticCatalog": true,
+    "nativeHardware": false
+  },
+  "realLinuxReview": {
+    "count": 1,
+    "completed": 1,
+    "model": "gpt-5.6-luna",
+    "effort": "high",
+    "durationMs": 52407,
+    "reportStatus": "completed",
+    "problems": [],
+    "encryptedHistoryReopened": true,
+    "hostExitCode": 0
+  },
+  "build": {
+    "clientsTypes": true,
+    "privateCliCleanConsumer": true,
+    "cdBuild": true,
+    "cdTestTypes": true,
+    "sixVsixAllowlistAndRuntimeHashes": true
+  },
+  "macOS": "W04 native ARM64 regression reused for unchanged core/contract; new Linux-only executor branch and new macOS VSIX not run on a Mac",
+  "logs": [
+    {
+      "name": "multiplatform-regression.log",
+      "text": "\r\n> commit-defender@2.12.6 test\r\n> npm run test:providers && npm run test:source-policy && npm run test:git-snapshot && npm run test:review-outcome && npm run test:review-security && npm run test:review-backend && npm run test:client-contract && npm run test:standalone-review && npm run test:standalone-config && npm run test:model-credentials && npm run test:central-review && npm run test:central-view && npm run test:central-sync && npm run test:automatic-review && npm run test:managed-hooks && npm run test:review-chat && npm run test:background-recovery && npm run test:local-activity && npm run test:local-provider-executor && npm run test:central-history\r\n\r\n\r\n> commit-defender@2.12.6 test:providers\r\n> esbuild test/providers.test.ts --bundle --platform=node --target=node18 --format=cjs --outfile=out-test/providers.test.cjs && node --test out-test/providers.test.cjs\r\n\r\n\r\n  out-test\\providers.test.cjs  36.0kb\r\n\r\nDone in 69ms\r\n✔ API error messages redact the credential, including URL-encoded echoes (121.303ms)\r\n✔ API redirects cannot forward model credentials to another destination (17.1001ms)\r\n✖ Codex provider uses read-only exec and normalizes structured output (17.8712ms)\r\n✖ Claude Code provider disables tools, sanitizes API-key auth, and unwraps structured output (4.9416ms)\r\n✔ CLI provider reports a missing executable without throwing (3.5421ms)\r\n✖ CLI provider enforces its standalone timeout (6.8361ms)\r\n✖ CLI provider propagates cancellation as AbortError (4.5851ms)\r\n✖ Gemini CLI provider uses cached Google auth and unwraps JSON output (3.6481ms)\r\n✖ Antigravity provider uses agy plan/sandbox mode and temp-file prompt (5.3921ms)\r\nℹ tests 9\r\nℹ suites 0\r\nℹ pass 3\r\nℹ fail 6\r\nℹ cancelled 0\r\nℹ skipped 0\r\nℹ todo 0\r\nℹ duration_ms 367.5131\r\n\r\n✖ failing tests:\r\n\r\ntest at out-test\\providers.test.cjs:894:30\r\n✖ Codex provider uses read-only exec and normalizes structured output (17.8712ms)\r\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r\n  + actual - expected\r\n  \r\n  + 'Codex CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-FvJTYe\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n' +\r\n  +   '  Config: provider=codex, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-FvJTYe\\\\fake-ai-cli'\r\n  - undefined\r\n  \r\n      at TestContext.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\providers.test.cjs:898:27)\r\n      at async Test.run (node:internal/test_runner/test:1313:7)\r\n      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {\r\n    generatedMessage: true,\r\n    code: 'ERR_ASSERTION',\r\n    actual: 'Codex CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-FvJTYe\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n  Config: provider=codex, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-FvJTYe\\\\fake-ai-cli',\r\n    expected: undefined,\r\n    operator: 'strictEqual',\r\n    diff: 'simple'\r\n  }\r\n\r\ntest at out-test\\providers.test.cjs:904:30\r\n✖ Claude Code provider disables tools, sanitizes API-key auth, and unwraps structured output (4.9416ms)\r\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r\n  + actual - expected\r\n  \r\n  + 'Claude Code CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-HOxmMY\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n' +\r\n  +   '  Config: provider=claudecode, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-HOxmMY\\\\fake-ai-cli'\r\n  - undefined\r\n  \r\n      at TestContext.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\providers.test.cjs:915:27)\r\n      at async Test.run (node:internal/test_runner/test:1313:7)\r\n      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {\r\n    generatedMessage: true,\r\n    code: 'ERR_ASSERTION',\r\n    actual: 'Claude Code CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-HOxmMY\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n  Config: provider=claudecode, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-HOxmMY\\\\fake-ai-cli',\r\n    expected: undefined,\r\n    operator: 'strictEqual',\r\n    diff: 'simple'\r\n  }\r\n\r\ntest at out-test\\providers.test.cjs:935:30\r\n✖ CLI provider enforces its standalone timeout (6.8361ms)\r\n  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timed out/i. Input:\r\n  \r\n  'Codex CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-9Lb8bC\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n' +\r\n    '  Config: provider=codex, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-9Lb8bC\\\\fake-ai-cli'\r\n  \r\n      at TestContext.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\providers.test.cjs:943:27)\r\n      at async Test.run (node:internal/test_runner/test:1313:7)\r\n      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {\r\n    generatedMessage: true,\r\n    code: 'ERR_ASSERTION',\r\n    actual: 'Codex CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-9Lb8bC\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n  Config: provider=codex, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-9Lb8bC\\\\fake-ai-cli',\r\n    expected: /timed out/i,\r\n    operator: 'match',\r\n    diff: 'simple'\r\n  }\r\n\r\ntest at out-test\\providers.test.cjs:948:30\r\n✖ CLI provider propagates cancellation as AbortError (4.5851ms)\r\n  AssertionError [ERR_ASSERTION]: Missing expected rejection.\r\n      at async TestContext.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\providers.test.cjs:958:5)\r\n      at async Test.run (node:internal/test_runner/test:1313:7)\r\n      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {\r\n    generatedMessage: false,\r\n    code: 'ERR_ASSERTION',\r\n    actual: undefined,\r\n    operator: 'rejects',\r\n    diff: 'simple'\r\n  }\r\n\r\ntest at out-test\\providers.test.cjs:963:30\r\n✖ Gemini CLI provider uses cached Google auth and unwraps JSON output (3.6481ms)\r\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r\n  + actual - expected\r\n  \r\n  + 'Gemini CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-42vNdh\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n' +\r\n  +   '  Config: provider=geminicli, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-42vNdh\\\\fake-ai-cli'\r\n  - undefined\r\n  \r\n      at TestContext.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\providers.test.cjs:973:27)\r\n      at async Test.run (node:internal/test_runner/test:1313:7)\r\n      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {\r\n    generatedMessage: true,\r\n    code: 'ERR_ASSERTION',\r\n    actual: 'Gemini CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-42vNdh\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n  Config: provider=geminicli, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-42vNdh\\\\fake-ai-cli',\r\n    expected: undefined,\r\n    operator: 'strictEqual',\r\n    diff: 'simple'\r\n  }\r\n\r\ntest at out-test\\providers.test.cjs:994:30\r\n✖ Antigravity provider uses agy plan/sandbox mode and temp-file prompt (5.3921ms)\r\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r\n  + actual - expected\r\n  \r\n  + 'Antigravity CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-GOqcfP\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n' +\r\n  +   '  Config: provider=antigravity, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-GOqcfP\\\\fake-ai-cli'\r\n  - undefined\r\n  \r\n      at TestContext.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\providers.test.cjs:1001:27)\r\n      at async Test.run (node:internal/test_runner/test:1313:7)\r\n      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {\r\n    generatedMessage: true,\r\n    code: 'ERR_ASSERTION',\r\n    actual: 'Antigravity CLI executable was not found at \"C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-GOqcfP\\\\fake-ai-cli\". Install it or set the corresponding Commit Defender path setting.\\n  Config: provider=antigravity, executable=C:\\\\Users\\\\pydemia\\\\AppData\\\\Local\\\\Temp\\\\commit-defender-test-GOqcfP\\\\fake-ai-cli',\r\n    expected: undefined,\r\n    operator: 'strictEqual',\r\n    diff: 'simple'\r\n  }\r\n"
+    },
+    {
+      "name": "multiplatform-client-contract.log",
+      "text": "\n> commit-defender@2.12.6 test:client-contract\n> esbuild test/client-contract.test.ts --bundle --platform=node --target=node18 --format=cjs --outfile=out-test/client-contract.test.cjs && node --test out-test/client-contract.test.cjs\n\n✔ standalone summary distinguishes pinned evidence and a later local-context observation (18.1914ms)\n✔ failed standalone summary exposes the stored problem and escapes message markup (1.2053ms)\n✔ history reload preserves a concurrently completed review and excludes other profiles and worktrees (0.9151ms)\n✖ uses a pinned installed package and the byte-identical GCR fixture (2.2668ms)\n✔ clean: CD preserves outcome, coverage, anchors and advisory semantics (2.1168ms)\n✔ legacy-verified-advisory: CD preserves outcome, coverage, anchors and advisory semantics (0.847ms)\n✔ partial: CD preserves outcome, coverage, anchors and advisory semantics (0.5264ms)\n✔ failed: CD preserves outcome, coverage, anchors and advisory semantics (0.3709ms)\n✔ cancelled: CD preserves outcome, coverage, anchors and advisory semantics (0.7102ms)\n✔ needs-context: CD preserves outcome, coverage, anchors and advisory semantics (0.5357ms)\n✔ follow-up-question: CD preserves outcome, coverage, anchors and advisory semantics (0.3639ms)\n✔ accepted-exception: CD preserves outcome, coverage, anchors and advisory semantics (1.8641ms)\n✔ source-evidence: CD preserves outcome, coverage, anchors and advisory semantics (0.3607ms)\n✔ test-evidence-claim: CD preserves outcome, coverage, anchors and advisory semantics (0.5519ms)\n✔ executor-unavailable: CD preserves outcome, coverage, anchors and advisory semantics (0.2791ms)\n✔ working-tree: CD preserves outcome, coverage, anchors and advisory semantics (0.3104ms)\n✔ P3 remains a finding without enabling the new advisory hook to block (0.2591ms)\n✔ fixed source hashes allow matching overlays and reject later buffer/file changes (448.312ms)\n✔ accepted exceptions and source/test claims remain available in Raw JSON (1.5907ms)\n✔ evaluations omitted from legacy comments never become summary-generated findings (0.3317ms)\n✔ fallback reports show configured and effective modes without claiming central policy compliance (3.7554ms)\n✔ history applicability remains visible with per-file summaries and no findings (3.9237ms)\nℹ tests 22\nℹ suites 0\nℹ pass 21\nℹ fail 1\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 662.0416\n\n✖ failing tests:\n\ntest at out-test\\client-contract.test.cjs:13327:30\n✖ uses a pinned installed package and the byte-identical GCR fixture (2.2668ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  + actual - expected\n  \n  + '0.1.0-alpha.49'\n  - '0.1.0-alpha.48'\n                  ^\n  \n      at TestContext.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\client-contract.test.cjs:13336:27)\n      at Test.runInAsyncScope (node:async_hooks:227:14)\n      at Test.run (node:internal/test_runner/test:1306:25)\n      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)\n      at Test.postRun (node:internal/test_runner/test:1447:19)\n      at Test.run (node:internal/test_runner/test:1372:12)\n      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: '0.1.0-alpha.49',\n    expected: '0.1.0-alpha.48',\n    operator: 'strictEqual',\n    diff: 'simple'\n  }\n\n  out-test\\client-contract.test.cjs  398.8kb\n\nDone in 242ms\n"
+    },
+    {
+      "name": "multiplatform-client-contract-retry.log",
+      "text": "\r\n> commit-defender@2.12.6 test:client-contract\r\n> esbuild test/client-contract.test.ts --bundle --platform=node --target=node18 --format=cjs --outfile=out-test/client-contract.test.cjs && node --test out-test/client-contract.test.cjs\r\n\r\n\r\n  out-test\\client-contract.test.cjs  399.1kb\r\n\r\nDone in 73ms\r\n✔ standalone summary distinguishes pinned evidence and a later local-context observation (16.2148ms)\r\n✔ failed standalone summary exposes the stored problem and escapes message markup (1.5189ms)\r\n✔ history reload preserves a concurrently completed review and excludes other profiles and worktrees (1.1741ms)\r\n✔ uses a pinned installed package and the byte-identical GCR fixture (9.0017ms)\r\n✔ clean: CD preserves outcome, coverage, anchors and advisory semantics (0.6686ms)\r\n✔ legacy-verified-advisory: CD preserves outcome, coverage, anchors and advisory semantics (0.5355ms)\r\n✔ partial: CD preserves outcome, coverage, anchors and advisory semantics (0.4916ms)\r\n✔ failed: CD preserves outcome, coverage, anchors and advisory semantics (0.4096ms)\r\n✔ cancelled: CD preserves outcome, coverage, anchors and advisory semantics (0.456ms)\r\n✔ needs-context: CD preserves outcome, coverage, anchors and advisory semantics (1.1197ms)\r\n✔ follow-up-question: CD preserves outcome, coverage, anchors and advisory semantics (1.1814ms)\r\n✔ accepted-exception: CD preserves outcome, coverage, anchors and advisory semantics (0.4242ms)\r\n✔ source-evidence: CD preserves outcome, coverage, anchors and advisory semantics (0.3803ms)\r\n✔ test-evidence-claim: CD preserves outcome, coverage, anchors and advisory semantics (0.6045ms)\r\n✔ executor-unavailable: CD preserves outcome, coverage, anchors and advisory semantics (0.2707ms)\r\n✔ working-tree: CD preserves outcome, coverage, anchors and advisory semantics (0.3238ms)\r\n✔ P3 remains a finding without enabling the new advisory hook to block (0.2867ms)\r\n✔ fixed source hashes allow matching overlays and reject later buffer/file changes (418.9576ms)\r\n✔ accepted exceptions and source/test claims remain available in Raw JSON (0.9935ms)\r\n✔ evaluations omitted from legacy comments never become summary-generated findings (0.2803ms)\r\n✔ fallback reports show configured and effective modes without claiming central policy compliance (3.5868ms)\r\n✔ history applicability remains visible with per-file summaries and no findings (4.3712ms)\r\nℹ tests 22\r\nℹ suites 0\r\nℹ pass 22\r\nℹ fail 0\r\nℹ cancelled 0\r\nℹ skipped 0\r\nℹ todo 0\r\nℹ duration_ms 630.5361\r\n"
+    },
+    {
+      "name": "multiplatform-trigger-matrix.log",
+      "text": "\n> commit-defender@2.12.6 test:trigger-matrix\n> npm run bundle-advisory-hook && npm run prepare-service && esbuild test/trigger-matrix.test.ts --bundle --platform=node --target=node22 --format=cjs --alias:vscode=./test/helpers/vscode-automatic.ts --outfile=out-test/trigger-matrix.test.cjs && node --test out-test/trigger-matrix.test.cjs\n\n\n> commit-defender@2.12.6 bundle-advisory-hook\n> esbuild src/hook/advisoryMain.ts --bundle --platform=node --target=node22 --outfile=out/advisory-hook.cjs\n\n\n> commit-defender@2.12.6 prepare-service\n> node scripts/prepare-service.mjs\n\n✔ runtime trigger matrix 0000 (push commit stage save) (10630.0177ms)\nℹ {\"mask\":0,\"enabled\":[],\"calls\":0,\"serviceJobs\":0,\"requests\":[]}\n✔ runtime trigger matrix 0001 (push commit stage save) (40257.1925ms)\nℹ {\"mask\":1,\"enabled\":[\"save\"],\"calls\":1,\"serviceJobs\":1,\"requests\":[{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\n✔ runtime trigger matrix 0010 (push commit stage save) (40180.0792ms)\nℹ {\"mask\":2,\"enabled\":[\"stage\"],\"calls\":1,\"serviceJobs\":1,\"requests\":[{\"reasons\":[\"stage\"],\"sourceKind\":\"index\"}]}\n✔ runtime trigger matrix 0011 (push commit stage save) (51408.4277ms)\nℹ {\"mask\":3,\"enabled\":[\"save\",\"stage\"],\"calls\":2,\"serviceJobs\":2,\"requests\":[{\"reasons\":[\"stage\"],\"sourceKind\":\"index\"},{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\n✔ runtime trigger matrix 0100 (push commit stage save) (47560.7296ms)\nℹ {\"mask\":4,\"enabled\":[\"commit\"],\"calls\":1,\"serviceJobs\":3,\"requests\":[{\"reasons\":[\"commit\"],\"sourceKind\":\"index\"}]}\n✔ runtime trigger matrix 0101 (push commit stage save) (78057.8856ms)\nℹ {\"mask\":5,\"enabled\":[\"save\",\"commit\"],\"calls\":2,\"serviceJobs\":4,\"requests\":[{\"reasons\":[\"commit\"],\"sourceKind\":\"index\"},{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\n✔ runtime trigger matrix 0110 (push commit stage save) (73785.611ms)\nℹ {\"mask\":6,\"enabled\":[\"stage\",\"commit\"],\"calls\":1,\"serviceJobs\":4,\"requests\":[{\"reasons\":[\"commit\",\"stage\"],\"sourceKind\":\"index\"}]}\n✔ runtime trigger matrix 0111 (push commit stage save) (88721.6162ms)\nℹ {\"mask\":7,\"enabled\":[\"save\",\"stage\",\"commit\"],\"calls\":2,\"serviceJobs\":5,\"requests\":[{\"reasons\":[\"commit\",\"stage\"],\"sourceKind\":\"index\"},{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\n✔ runtime trigger matrix 1000 (push commit stage save) (49980.3071ms)\nℹ {\"mask\":8,\"enabled\":[\"push\"],\"calls\":1,\"serviceJobs\":3,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"}]}\n✔ runtime trigger matrix 1001 (push commit stage save) (79462.0888ms)\nℹ {\"mask\":9,\"enabled\":[\"save\",\"push\"],\"calls\":2,\"serviceJobs\":4,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"},{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\n✔ runtime trigger matrix 1010 (push commit stage save) (81819.4485ms)\nℹ {\"mask\":10,\"enabled\":[\"stage\",\"push\"],\"calls\":2,\"serviceJobs\":4,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"},{\"reasons\":[\"stage\"],\"sourceKind\":\"index\"}]}\n✔ runtime trigger matrix 1011 (push commit stage save) (79449.6099ms)\nℹ {\"mask\":11,\"enabled\":[\"save\",\"stage\",\"push\"],\"calls\":3,\"serviceJobs\":5,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"},{\"reasons\":[\"stage\"],\"sourceKind\":\"index\"},{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\n✔ runtime trigger matrix 1100 (push commit stage save) (73614.157ms)\nℹ {\"mask\":12,\"enabled\":[\"commit\",\"push\"],\"calls\":2,\"serviceJobs\":6,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"},{\"reasons\":[\"commit\"],\"sourceKind\":\"index\"}]}\n✔ runtime trigger matrix 1101 (push commit stage save) (94712.8666ms)\nℹ {\"mask\":13,\"enabled\":[\"save\",\"commit\",\"push\"],\"calls\":3,\"serviceJobs\":7,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"},{\"reasons\":[\"commit\"],\"sourceKind\":\"index\"},{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\n✔ runtime trigger matrix 1110 (push commit stage save) (96424.089ms)\nℹ {\"mask\":14,\"enabled\":[\"stage\",\"commit\",\"push\"],\"calls\":2,\"serviceJobs\":7,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"},{\"reasons\":[\"commit\",\"stage\"],\"sourceKind\":\"index\"}]}\n✖ runtime trigger matrix 1111 (push commit stage save) (4796.9923ms)\nℹ tests 16\nℹ suites 0\nℹ pass 15\nℹ fail 1\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 991231.6996\n\n✖ failing tests:\n\ntest at out-test\\trigger-matrix.test.cjs:9334:32\n✖ runtime trigger matrix 1111 (push commit stage save) (4796.9923ms)\n  Error [LocalServiceError]: service-unavailable\n      at fault (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\trigger-matrix.test.cjs:6898:17)\n      at ChildProcess.<anonymous> (C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\out-test\\trigger-matrix.test.cjs:6905:7)\n      at Object.onceWrapper (node:events:631:26)\n      at ChildProcess.emit (node:events:509:28)\n      at maybeClose (node:internal/child_process:1124:16)\n      at ChildProcess._handle.onexit (node:internal/child_process:306:5) {\n    code: 'service-unavailable'\n  }\n\n  out\\advisory-hook.cjs  17.6kb\n\nDone in 13ms\n\n  out-test\\trigger-matrix.test.cjs  368.4kb\n\nDone in 282ms\n"
+    },
+    {
+      "name": "multiplatform-trigger-matrix-retry.log",
+      "text": "✔ runtime trigger matrix 1111 (push commit stage save) (147334.8616ms)\r\nℹ {\"mask\":15,\"enabled\":[\"save\",\"stage\",\"commit\",\"push\"],\"calls\":3,\"serviceJobs\":8,\"requests\":[{\"reasons\":[\"push\"],\"sourceKind\":\"commit-tree\"},{\"reasons\":[\"commit\",\"stage\"],\"sourceKind\":\"index\"},{\"reasons\":[\"save\"],\"sourceKind\":\"working-tree\"}]}\r\nℹ tests 1\r\nℹ suites 0\r\nℹ pass 1\r\nℹ fail 0\r\nℹ cancelled 0\r\nℹ skipped 0\r\nℹ todo 0\r\nℹ duration_ms 147570.2327\r\n"
+    }
+  ]
+}

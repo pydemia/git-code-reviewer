@@ -1,0 +1,50 @@
+{
+  "recordedAt": "2026-09-16T12:58:23.478Z",
+  "platform": "linux",
+  "arch": "arm64",
+  "node": "v22.23.2",
+  "model": "gpt-5.6-luna",
+  "effort": "high",
+  "realAccountCalls": 0,
+  "syntheticProvider": true,
+  "probes": [
+    {
+      "conversation": false,
+      "code": 1,
+      "requestCount": 1,
+      "invalidRequest": false,
+      "canaryLoaded": false,
+      "canarySources": [],
+      "tools": [
+        "functions.list_mcp_resource_templates",
+        "functions.list_mcp_resources",
+        "functions.read_mcp_resource",
+        "mcp__gcr_source.list_files",
+        "mcp__gcr_source.read_file",
+        "mcp__gcr_source.search_code"
+      ]
+    },
+    {
+      "conversation": true,
+      "code": 1,
+      "requestCount": 1,
+      "invalidRequest": false,
+      "canaryLoaded": false,
+      "canarySources": [],
+      "tools": [
+        "functions.list_mcp_resource_templates",
+        "functions.list_mcp_resources",
+        "functions.read_mcp_resource",
+        "mcp__gcr_source.ask_user",
+        "mcp__gcr_source.list_files",
+        "mcp__gcr_source.read_file",
+        "mcp__gcr_source.search_code"
+      ]
+    }
+  ],
+  "cliVersion": "codex-cli 0.153.4",
+  "binarySha256": "4d76e542c222ea8c75861d8c4ade60a1a332a63255ce1c60bdaebf7c2a2869e6",
+  "status": "passed",
+  "temporaryAccountPathsRemoved": true,
+  "environment": "Linux ARM64 Docker container"
+}
