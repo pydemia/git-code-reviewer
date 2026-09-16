@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -12,10 +12,24 @@ assert(
   'Usage: pnpm pack:cli [--verify] [--reuse-clients]',
 );
 const json = async (file) => JSON.parse(await readFile(file, 'utf8'));
-const run = (command, argv, cwd = root) => execFileSync(command, argv, { cwd, stdio: 'inherit' });
+const pnpmCli = process.env.npm_execpath;
+const npmCli =
+  process.platform === 'win32'
+    ? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js')
+    : undefined;
+const run = (command, argv, cwd = root) => {
+  const cli = command === 'pnpm' ? pnpmCli : command === 'npm' ? npmCli : undefined;
+  if (process.platform === 'win32' && ['pnpm', 'npm'].includes(command))
+    assert(cli, 'Run through the pinned pnpm package script');
+  execFileSync(cli ? process.execPath : command, cli ? [cli, ...argv] : argv, {
+    cwd,
+    stdio: 'inherit',
+    windowsHide: true,
+  });
+};
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const cli = await json(join(root, 'apps/cli/package.json'));
-const client = await json(join(root, 'packages/client-contract/package.json'));
+const client = await json(join(root, 'packages/client-core/package.json'));
 assert.equal(cli.name, '@gcr/cli');
 assert.equal(cli.engines.node, '>=22.0.0');
 if (args.includes('--reuse-clients')) run('pnpm', ['build:clients']);
@@ -32,7 +46,6 @@ assert.deepEqual(clientManifest.packages.map((entry) => entry.name).sort(), [
   '@gcr/client-executors',
 ]);
 for (const entry of clientManifest.packages) {
-  assert.equal(entry.version, client.version);
   assert.equal(entry.file, `gcr-${entry.name.slice(5)}-${entry.version}.tgz`);
   assert.equal(digest(await readFile(join(clients, entry.file))), entry.sha256);
   const packed = JSON.parse(
@@ -49,7 +62,11 @@ for (const entry of clientManifest.packages) {
   ])
     if (workspace[field])
       for (const [name, version] of Object.entries(workspace[field]))
-        if (version === 'workspace:*') workspace[field][name] = client.version;
+        if (version === 'workspace:*') {
+          const dependency = clientManifest.packages.find((entry) => entry.name === name);
+          assert(dependency, 'Unknown workspace dependency');
+          workspace[field][name] = dependency.version;
+        }
   assert.deepEqual(packed, workspace, 'Pinned client package metadata differs from the workspace');
 }
 const build = await json(join(root, 'apps/cli/dist/build-inputs.json'));
@@ -60,15 +77,18 @@ for (const output of Object.values(build.outputs))
   );
 for (const input of Object.keys(build.inputs)) {
   const absolute = resolve(root, 'apps/cli', input);
-  if (absolute.startsWith(join(root, 'apps/cli/src') + '/')) {
+  if (absolute.startsWith(join(root, 'apps/cli/src') + sep)) {
     assert(!absolute.endsWith('.test.ts'));
     continue;
   }
   const entry = clientManifest.packages.find((entry) =>
-    absolute.startsWith(join(root, 'packages', entry.name.slice(5), 'dist') + '/'),
+    absolute.startsWith(join(root, 'packages', entry.name.slice(5), 'dist') + sep),
   );
   assert(entry, 'CLI bundle includes code outside its three client libraries');
-  const relative = absolute.slice(join(root, 'packages', entry.name.slice(5)).length + 1);
+  const relative = absolute
+    .slice(join(root, 'packages', entry.name.slice(5)).length + 1)
+    .split(sep)
+    .join('/');
   assert.equal(
     digest(await readFile(absolute)),
     digest(execFileSync('tar', ['-xOzf', join(clients, entry.file), `package/${relative}`])),
@@ -80,6 +100,17 @@ await writeFile(
   join(root, 'apps/cli/dist/client-packages.json'),
   JSON.stringify(clientManifest, null, 2) + '\n',
 );
+if (process.platform === 'win32') {
+  const core = clientManifest.packages.find((entry) => entry.name === '@gcr/client-core');
+  for (const [source, target] of [
+    ['dist/windows-native.exe', 'windows-native.exe'],
+    ['dist/windows-native.json', 'windows-native.json'],
+    ['native/windows/Native.cs', 'windows-native.cs'],
+  ]) {
+    const bytes = execFileSync('tar', ['-xOzf', join(clients, core.file), `package/${source}`]);
+    await writeFile(join(root, 'apps/cli/dist', target), bytes);
+  }
+}
 const skillFiles = ['SKILL.md', 'references/client-workflows.md'];
 for (const file of skillFiles) {
   const target = join(root, 'apps/cli/dist/skills/gcr-prevention', file);
@@ -101,8 +132,8 @@ try {
     .split('\n');
   assert(
     listing.every((entry) =>
-      /^package\/(?:dist\/main\.js|dist\/client-packages\.json|dist\/skills\/gcr-prevention\/(?:SKILL\.md|references\/client-workflows\.md)|package\.json|LICENSE|NOTICE|README\.md)$/.test(
-        entry,
+      /^package\/(?:dist\/main\.js|dist\/windows-native\.(?:exe|json|cs)|dist\/client-packages\.json|dist\/skills\/gcr-prevention\/(?:SKILL\.md|references\/client-workflows\.md)|package\.json|LICENSE|NOTICE|README\.md)$/.test(
+        entry.trim(),
       ),
     ),
     'Unexpected packed CLI file',
@@ -137,6 +168,7 @@ try {
   ];
   const manifest = {
     schemaVersion: 1,
+    sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
     cliVersion: cli.version,
     clientVersion: client.version,
     packages: entries,
@@ -154,7 +186,8 @@ try {
       ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', join(stage, file)],
       consumer,
     );
-    const help = execFileSync(join(consumer, 'node_modules/.bin/gcr'), ['--help'], {
+    const installed = join(consumer, 'node_modules/@gcr/cli/dist/main.js');
+    const help = execFileSync(process.execPath, [installed, '--help'], {
       cwd: consumer,
       encoding: 'utf8',
     });
@@ -172,7 +205,7 @@ try {
       [
         '--input-type=module',
         '-e',
-        `import { spawnSync } from 'node:child_process'; const r=spawnSync('./node_modules/.bin/gcr',['review','--mode','centralized'],{encoding:'utf8'}); if(r.status!==2)process.exit(1); const v=JSON.parse(r.stdout); if(v.status!=='unavailable'||v.centralRequests!=='forbidden')process.exit(1); console.log('Installed CLI help and unavailable mode passed on '+process.version);`,
+        `import { spawnSync } from 'node:child_process'; const r=spawnSync(process.execPath,[${JSON.stringify(installed)},'review','--mode','centralized'],{encoding:'utf8',windowsHide:true}); if(r.status!==2)process.exit(1); const v=JSON.parse(r.stdout); if(v.status!=='unavailable'||v.centralRequests!=='forbidden')process.exit(1); console.log('Installed CLI help and unavailable mode passed on '+process.version);`,
       ],
       { cwd: consumer, encoding: 'utf8' },
     );

@@ -29,11 +29,11 @@ const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const manifests = await Promise.all(
   packages.map((name) => json(join(root, 'packages', name, 'package.json'))),
 );
-const version = manifests[0].version;
+const version = manifests[1].version;
 const names = manifests.map((manifest) => manifest.name);
+const versions = Object.fromEntries(manifests.map((manifest) => [manifest.name, manifest.version]));
 for (const [index, manifest] of manifests.entries()) {
   assert.equal(manifest.name, `@gcr/${packages[index]}`);
-  assert.equal(manifest.version, version, 'Client packages must be released together');
   assert.equal(manifest.engines.node, '>=18.0.0');
   for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
     for (const dependency of Object.keys(manifest[field] ?? {})) {
@@ -56,11 +56,13 @@ try {
   const entries = [];
   for (const [index, name] of packages.entries()) {
     run('pnpm', ['pack', '--pack-destination', stage], join(root, 'packages', name));
-    const file = `gcr-${name}-${version}.tgz`;
-    const bytes = await readFile(join(stage, file));
+    const packageVersion = manifests[index].version;
+    const file = `gcr-${name}-${packageVersion}.tgz`;
+    let bytes = await readFile(join(stage, file));
     const listing = execFileSync('tar', ['-tzf', join(stage, file)], { encoding: 'utf8' })
       .trim()
-      .split('\n');
+      .split('\n')
+      .map((entry) => entry.trim());
     assert(
       listing.every(
         (entry) =>
@@ -81,13 +83,46 @@ try {
         encoding: 'utf8',
       }),
     );
+    // An unchanged package keeps its exact previous tarball, including its hash.
+    // Compare every packed byte before accepting reuse of an existing version.
+    const priorDirectory = join(root, 'artifacts/client-packages', packageVersion);
+    let prior;
+    try {
+      prior = await json(join(priorDirectory, 'manifest.json'));
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    if (prior) {
+      const entry = prior.packages.find((entry) => entry.name === manifests[index].name);
+      assert(entry && entry.version === packageVersion && entry.file === file);
+      const previousFile = join(priorDirectory, file);
+      const previousBytes = await readFile(previousFile);
+      assert.equal(createHash('sha256').update(previousBytes).digest('hex'), entry.sha256);
+      const previousListing = execFileSync('tar', ['-tzf', previousFile], { encoding: 'utf8' })
+        .trim()
+        .split('\n')
+        .map((entry) => entry.trim());
+      assert.deepEqual(listing, previousListing, 'Changed package needs a new version');
+      for (const item of listing)
+        assert.deepEqual(
+          execFileSync('tar', ['-xOzf', join(stage, file), item]),
+          execFileSync('tar', ['-xOzf', previousFile, item]),
+          'Changed package needs a new version: ' + item,
+        );
+      bytes = previousBytes;
+      await writeFile(join(stage, file), bytes);
+    }
     for (const [dependency, requirement] of Object.entries(packed.dependencies ?? {})) {
       assert(names.includes(dependency));
-      assert.equal(requirement, version, 'Packed dependencies must use exact versions');
+      assert.equal(
+        requirement,
+        versions[dependency],
+        'Packed dependencies must use exact versions',
+      );
     }
     entries.push({
       name: manifests[index].name,
-      version,
+      version: packageVersion,
       file,
       sha256: createHash('sha256').update(bytes).digest('hex'),
     });
@@ -128,8 +163,9 @@ try {
 import { clientContractPackage } from '@gcr/client-contract';
 import { clientCorePackage } from '@gcr/client-core';
 import { clientExecutorsPackage } from '@gcr/client-executors';
+const expected = ${JSON.stringify(versions)};
 for (const info of [clientContractPackage, clientCorePackage, clientExecutorsPackage]) {
-  assert.equal(info.version, ${JSON.stringify(version)});
+  assert.equal(info.version, expected[info.name]);
   assert.equal(info.contractVersion, 1);
 }
 if (process.platform === 'win32') {

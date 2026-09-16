@@ -51,7 +51,7 @@ try {
     path.join(stage, 'windows-native.json'),
     JSON.stringify(
       {
-        version: '1.0.2',
+        version: '1.0.3',
         format: 'CLI AnyCPU / .NET Framework 4.x',
         buildArchitecture: process.arch,
         license: 'Apache-2.0',

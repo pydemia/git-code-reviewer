@@ -22,7 +22,7 @@ internal sealed class Failure : Exception {
 }
 
 internal static class Native {
-    internal const string Version = "1.0.2";
+    internal const string Version = "1.0.3";
     const int Limit = 36 * 1024 * 1024;
     static readonly JavaScriptSerializer Json = new JavaScriptSerializer {
         MaxJsonLength = Limit, RecursionLimit = 32
