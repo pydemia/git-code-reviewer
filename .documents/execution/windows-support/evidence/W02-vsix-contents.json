@@ -1,0 +1,36 @@
+{
+  "extensionEntries": 46,
+  "testOrSourceEntries": 0,
+  "installedRuntime": [
+    {
+      "file": "out/extension.js",
+      "vsixSha256": "2f396cd85c8e0685667657691bcef07e89512693ac35612e15008dc1c70d3562",
+      "installedSha256": "2f396cd85c8e0685667657691bcef07e89512693ac35612e15008dc1c70d3562",
+      "matched": true
+    },
+    {
+      "file": "out/standalone-review-worker.js",
+      "vsixSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+      "installedSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+      "matched": true
+    },
+    {
+      "file": "out/windows-native.exe",
+      "vsixSha256": "7ebc154f3a3aedb6361cf306e6dc756171dcf68c89407b537004ab129c1c704d",
+      "installedSha256": "7ebc154f3a3aedb6361cf306e6dc756171dcf68c89407b537004ab129c1c704d",
+      "matched": true
+    },
+    {
+      "file": "out/windows-native.json",
+      "vsixSha256": "a73b641555127191afa8101550488438bebca9e84ac98e68e31610b9201de20d",
+      "installedSha256": "a73b641555127191afa8101550488438bebca9e84ac98e68e31610b9201de20d",
+      "matched": true
+    },
+    {
+      "file": "out/gcr-service/main.mjs",
+      "vsixSha256": "fe2b430440d8d7a40436ac95d16fa236fcf0393f2439683cc49f99f18b1d0dde",
+      "installedSha256": "fe2b430440d8d7a40436ac95d16fa236fcf0393f2439683cc49f99f18b1d0dde",
+      "matched": true
+    }
+  ]
+}

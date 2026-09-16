@@ -1,0 +1,915 @@
+{
+  "platform": "win32",
+  "architecture": "arm64",
+  "native": true,
+  "wsl": false,
+  "gcrSourceSha": "c05dd04ce7227f070baf90d52416cc1d678f48c7",
+  "groups": [
+    {
+      "name": "cache-session-fixed",
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0,
+      "suites": [
+        "central-cache.test.ts",
+        "central-credentials.test.ts",
+        "review-history.test.ts",
+        "windows-native.test.ts",
+        "windows-storage-session.test.ts",
+        "process.test.ts"
+      ],
+      "evidenceSha256": "824495dd969f99a9c43edb70c5f5029792a81fa62479bad0f9f67c6ff5ee9e2a",
+      "results": [
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding preserves a canonical base path and isolates explicit audiences while pins can rotate",
+          "status": "passed",
+          "durationMs": 4.371099999999956
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://u:password@central.test",
+          "status": "passed",
+          "durationMs": 0.5858000000000629
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://central.test/a/../b",
+          "status": "passed",
+          "durationMs": 0.17690000000004602
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://central.test/%2e%2e/b",
+          "status": "passed",
+          "durationMs": 0.181699999999978
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://central.test/a%2fb",
+          "status": "passed",
+          "durationMs": 0.1653999999999769
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://central.test/a%252fb",
+          "status": "passed",
+          "durationMs": 0.23839999999995598
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://central.test//base",
+          "status": "passed",
+          "durationMs": 0.20980000000008658
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://central.test/base?token=secret",
+          "status": "passed",
+          "durationMs": 0.1449000000000069
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL https://central.test/#x",
+          "status": "passed",
+          "durationMs": 0.1348000000000411
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL http://central.test",
+          "status": "passed",
+          "durationMs": 0.2320999999999458
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "trusted central binding rejects unsafe configured URL http://localhost",
+          "status": "passed",
+          "durationMs": 0.1390999999999849
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization uses independent Node processes to enforce claim ownership and fence a stale process",
+          "status": "passed",
+          "durationMs": 3740.1158
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization rechecks the offline lease after disk reads finish",
+          "status": "passed",
+          "durationMs": 661.4620000000004
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization keeps account, profile and worktree cache namespaces distinct",
+          "status": "passed",
+          "durationMs": 489.3841000000002
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization retains a complete new snapshot after an ambiguous activation commit instead of rolling back",
+          "status": "passed",
+          "durationMs": 710.9543000000003
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization activates all components atomically, reopens encrypted data, and preserves isolated local records",
+          "status": "passed",
+          "durationMs": 630.5246999999999
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization downloads only changed personal bytes and does not extend leases on 304",
+          "status": "passed",
+          "durationMs": 1550.2411999999995
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization keeps the previous pointer on personal failure; explicit revocation=false controls fallback",
+          "status": "passed",
+          "durationMs": 840.3327000000008
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization keeps the previous pointer on personal failure; explicit revocation=true controls fallback",
+          "status": "passed",
+          "durationMs": 723.5866999999998
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization persists authorization revocation before a failed download and rejects sequence replay after activation",
+          "status": "passed",
+          "durationMs": 962.4851999999992
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization rejects hash corruption without activating a first snapshot",
+          "status": "passed",
+          "durationMs": 388.1665000000012
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization rejects size corruption without activating a first snapshot",
+          "status": "passed",
+          "durationMs": 359.6059000000005
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization rejects schema corruption without activating a first snapshot",
+          "status": "passed",
+          "durationMs": 284.22340000000077
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization rejects audience corruption without activating a first snapshot",
+          "status": "passed",
+          "durationMs": 197.02770000000055
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization rejects utf8 corruption without activating a first snapshot",
+          "status": "passed",
+          "durationMs": 329.79160000000047
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization rejects owner corruption without activating a first snapshot",
+          "status": "passed",
+          "durationMs": 327.9534999999996
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization persists identity failure from manifest and requires authenticated recovery",
+          "status": "passed",
+          "durationMs": 1331.2127
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization persists identity failure from bundle and requires authenticated recovery",
+          "status": "passed",
+          "durationMs": 1471.9673000000003
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization clears an identity barrier on authenticated 304 without extending the lease",
+          "status": "passed",
+          "durationMs": 1009.5956999999999
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization keeps the claim barrier when persisting identity failure runs out of disk space",
+          "status": "passed",
+          "durationMs": 1318.0573000000004
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization distinguishes HTTP 401 and persists denial across reopen",
+          "status": "passed",
+          "durationMs": 1004.5702000000019
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization distinguishes HTTP 403 and persists denial across reopen",
+          "status": "passed",
+          "durationMs": 989.7308999999987
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization distinguishes HTTP 503 and persists denial across reopen",
+          "status": "passed",
+          "durationMs": 757.1994999999988
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization disconnects and resumes explicitly without deleting local knowledge or reusing an old snapshot",
+          "status": "passed",
+          "durationMs": 1641.6872000000003
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization fences an expired owner and ignores its delayed denial after a newer snapshot commits",
+          "status": "passed",
+          "durationMs": 680.0489000000016
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization honors a delayed denial after lease expiry when no newer owner exists",
+          "status": "passed",
+          "durationMs": 989.5532000000021
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization interrupts a non-cooperative transport on cancel without activating data",
+          "status": "passed",
+          "durationMs": 176.15590000000157
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization interrupts a non-cooperative transport on timeout without activating data",
+          "status": "passed",
+          "durationMs": 234.30589999999938
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization preserves the complete active snapshot when encrypted staging fails with ENOSPC",
+          "status": "passed",
+          "durationMs": 878.9061000000002
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization preserves the previous pointer when disk failure occurs at the activation write",
+          "status": "passed",
+          "durationMs": 846.6736999999994
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization does not fall back to an older snapshot when an active encrypted body is corrupt",
+          "status": "passed",
+          "durationMs": 1121.1958000000013
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization cancels a stalled personal stream and preserves the former complete snapshot",
+          "status": "passed",
+          "durationMs": 841.3978999999999
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization fails closed in the receiving instance if a known denial cannot be persisted",
+          "status": "passed",
+          "durationMs": 1232.1381000000001
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "encrypted central snapshot synchronization requires a new synchronization if a verified revocation floor cannot be persisted",
+          "status": "passed",
+          "durationMs": 665.9259999999995
+        },
+        {
+          "suite": "central-cache.test.ts",
+          "name": "applies external authority failures to the original login and preserves a replacement generation",
+          "status": "passed",
+          "durationMs": 2321.560700000002
+        },
+        {
+          "suite": "central-credentials.test.ts",
+          "name": "central OS credential adapter reopens Windows reader credentials in a new process and deletes missing entries idempotently",
+          "status": "passed",
+          "durationMs": 1982.5391
+        },
+        {
+          "suite": "central-credentials.test.ts",
+          "name": "central OS credential adapter uses a separate darwin namespace and stdin for secret writes",
+          "status": "passed",
+          "durationMs": 0.3510999999998603
+        },
+        {
+          "suite": "central-credentials.test.ts",
+          "name": "central OS credential adapter uses a separate linux namespace and stdin for secret writes",
+          "status": "passed",
+          "durationMs": 0.11659999999983484
+        },
+        {
+          "suite": "central-credentials.test.ts",
+          "name": "central OS credential adapter rejects multiline/keychain-command injection and hides OS diagnostics",
+          "status": "passed",
+          "durationMs": 0.8126999999999498
+        },
+        {
+          "suite": "central-credentials.test.ts",
+          "name": "central OS credential adapter distinguishes missing entries from malformed stored credentials",
+          "status": "passed",
+          "durationMs": 0.21860000000015134
+        },
+        {
+          "suite": "review-history.test.ts",
+          "name": "source history captured for a local review uses central IDs only and keeps original source/version/counter-evidence",
+          "status": "passed",
+          "durationMs": 2.720300000000009
+        },
+        {
+          "suite": "review-history.test.ts",
+          "name": "source history captured for a local review omits source-changed instead of mixing revisions",
+          "status": "passed",
+          "durationMs": 0.3491999999999962
+        },
+        {
+          "suite": "review-history.test.ts",
+          "name": "source history captured for a local review omits guidance-changed instead of mixing revisions",
+          "status": "passed",
+          "durationMs": 0.13189999999997326
+        },
+        {
+          "suite": "review-history.test.ts",
+          "name": "source history captured for a local review omits thread-changed instead of mixing revisions",
+          "status": "passed",
+          "durationMs": 0.30009999999998627
+        },
+        {
+          "suite": "review-history.test.ts",
+          "name": "source history captured for a local review omits needs-review instead of mixing revisions",
+          "status": "passed",
+          "durationMs": 0.133199999999988
+        },
+        {
+          "suite": "review-history.test.ts",
+          "name": "source history captured for a local review keeps the base context on missing history but propagates revoked authority",
+          "status": "passed",
+          "durationMs": 0.5651000000000295
+        },
+        {
+          "suite": "review-history.test.ts",
+          "name": "source history captured for a local review rejects local payload and unrelated query fields before HTTP",
+          "status": "passed",
+          "durationMs": 0.9876000000000431
+        },
+        {
+          "suite": "windows-native.test.ts",
+          "name": "native Windows security primitives never exposes a partial target when its publisher is terminated",
+          "status": "passed",
+          "durationMs": 3231.0943
+        },
+        {
+          "suite": "windows-native.test.ts",
+          "name": "native Windows security primitives refuses a concurrent writer and bounds snapshot bytes",
+          "status": "passed",
+          "durationMs": 1192.6052000000004
+        },
+        {
+          "suite": "windows-native.test.ts",
+          "name": "native Windows security primitives uses the OS profile path and separate persistent credential namespaces",
+          "status": "passed",
+          "durationMs": 862.6395000000002
+        },
+        {
+          "suite": "windows-native.test.ts",
+          "name": "native Windows security primitives publishes once under concurrency and refuses broad ACLs and junctions",
+          "status": "passed",
+          "durationMs": 545.6395000000002
+        },
+        {
+          "suite": "windows-native.test.ts",
+          "name": "native Windows security primitives reopens encrypted records, preserves CAS and rejects corrupt committed bytes",
+          "status": "passed",
+          "durationMs": 635.5757999999996
+        },
+        {
+          "suite": "windows-storage-session.test.ts",
+          "name": "Windows storage session keeps framing and per-operation validation, rejects process execution, and closes at EOF",
+          "status": "passed",
+          "durationMs": 385.9936
+        },
+        {
+          "suite": "windows-storage-session.test.ts",
+          "name": "Windows storage session cancels an unsent request without interrupting adjacent storage requests",
+          "status": "passed",
+          "durationMs": 389.2199999999999
+        },
+        {
+          "suite": "windows-storage-session.test.ts",
+          "name": "Windows storage session exits when its owner dies even while the input pipe remains open elsewhere",
+          "status": "passed",
+          "durationMs": 403.3246999999999
+        },
+        {
+          "suite": "windows-storage-session.test.ts",
+          "name": "Windows storage session keeps an interrupted publication uncertain and reopens a fresh session",
+          "status": "passed",
+          "durationMs": 823.0525
+        },
+        {
+          "suite": "process.test.ts",
+          "name": "writes prompt over stdin, keeps argv literal and captures bounded streams",
+          "status": "passed",
+          "durationMs": 530.2393999999999
+        },
+        {
+          "suite": "process.test.ts",
+          "name": "does not start a cancelled request and reports a missing executable without raw errors",
+          "status": "passed",
+          "durationMs": 384.1118
+        },
+        {
+          "suite": "process.test.ts",
+          "name": "enforces a combined stdout/stderr byte limit",
+          "status": "passed",
+          "durationMs": 544.3776
+        },
+        {
+          "suite": "process.test.ts",
+          "name": "kills a SIGTERM-ignoring descendant on timeout",
+          "status": "passed",
+          "durationMs": 1960.1606
+        },
+        {
+          "suite": "process.test.ts",
+          "name": "kills a SIGTERM-ignoring descendant on cancelled",
+          "status": "passed",
+          "durationMs": 604.9377
+        },
+        {
+          "suite": "process.test.ts",
+          "name": "kills a SIGTERM-ignoring descendant on leader-exit",
+          "status": "passed",
+          "durationMs": 629.3665999999994
+        }
+      ]
+    },
+    {
+      "name": "review-isolation",
+      "passed": 65,
+      "failed": 0,
+      "skipped": 0,
+      "suites": [
+        "central-review.test.ts",
+        "knowledge-http.test.ts",
+        "source-snapshot.windows-worker.test.ts",
+        "codex-config.test.ts",
+        "windows-isolation.test.ts"
+      ],
+      "evidenceSha256": "559bd38d07746a7423380ab0c3753904007738f7723542efcdf0daa0f1497cb3",
+      "results": [
+        {
+          "suite": "central-review.test.ts",
+          "name": "central scope and deterministic precedence retains personal decisions on uncovered files and only evidence on overlapping files",
+          "status": "passed",
+          "durationMs": 12.006199999999808
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "central scope and deterministic precedence does not let irrelevant, expired or different judgments shadow personal memory",
+          "status": "passed",
+          "durationMs": 5.370199999999841
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "central scope and deterministic precedence matches every constrained dimension on the same file including branch, while retaining semantic contract conditions",
+          "status": "passed",
+          "durationMs": 6.737799999999879
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "central scope and deterministic precedence applies exceptions only to matching files and expires context at time boundaries",
+          "status": "passed",
+          "durationMs": 6.7741000000000895
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "central scope and deterministic precedence rejects ambiguous v1 grouping, cross-repository bundles and invalid exception intervals",
+          "status": "passed",
+          "durationMs": 2.811000000000149
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "central scope and deterministic precedence records missing required policy instead of selecting a successful empty review",
+          "status": "passed",
+          "durationMs": 2.8267000000000735
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review pins central provenance separately from local knowledge and preserves standalone isolation",
+          "status": "passed",
+          "durationMs": 973.5479000000005
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review rejects account, profile and worktree mismatches before reading cache",
+          "status": "passed",
+          "durationMs": 416.6228999999994
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review requires knowledge transmission approval and full mandatory context",
+          "status": "passed",
+          "durationMs": 599.5936000000002
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review keeps required local data and central instructions within one budget",
+          "status": "passed",
+          "durationMs": 474.3806999999997
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review passes scoped central material to the approved executor with real fixed-source/base reads",
+          "status": "passed",
+          "durationMs": 543.9197999999997
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review retains a source-linked exclusion assessment in a completed zero-finding review",
+          "status": "passed",
+          "durationMs": 717.991
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review finishes ordinary updates with the pinned prompt and marks results superseded",
+          "status": "passed",
+          "durationMs": 1260.6993999999995
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review pauses further source reads while authorization is being synchronized",
+          "status": "passed",
+          "durationMs": 1211.0496000000003
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review cancels critical revocation and rejects additional reads and a late model response",
+          "status": "passed",
+          "durationMs": 746.7133000000013
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review cancels authorization revocation and rejects additional reads and a late model response",
+          "status": "passed",
+          "durationMs": 741.6839
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review cancels denied revocation and rejects additional reads and a late model response",
+          "status": "passed",
+          "durationMs": 1088.7293000000009
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review does not admit a model call after the selected context is revoked",
+          "status": "passed",
+          "durationMs": 990.9341999999997
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review closes source tools after the final model response",
+          "status": "passed",
+          "durationMs": 672.3837000000003
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "authorized central snapshot review cancels an executor that ignores the abort signal without waiting for its response",
+          "status": "passed",
+          "durationMs": 1009.6692999999996
+        },
+        {
+          "suite": "central-review.test.ts",
+          "name": "uses identical public applicability and exception rules while never reading a personal projection",
+          "status": "passed",
+          "durationMs": 3.1403000000009342
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves identity freshness failure for manifest without retrying or exposing server text",
+          "status": "passed",
+          "durationMs": 31.93810000000002
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves identity freshness failure for initial without retrying or exposing server text",
+          "status": "passed",
+          "durationMs": 5.014800000000037
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves identity freshness failure for bundle without retrying or exposing server text",
+          "status": "passed",
+          "durationMs": 2.6946000000000367
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves identity freshness failure for identity without retrying or exposing server text",
+          "status": "passed",
+          "durationMs": 2.663400000000024
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport bounds ordinary gateway error bodies",
+          "status": "passed",
+          "durationMs": 2.365599999999972
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport bounds ordinary gateway error bodies",
+          "status": "passed",
+          "durationMs": 2.012299999999982
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport bounds ordinary gateway error bodies",
+          "status": "passed",
+          "durationMs": 2.695600000000013
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport waits for initial publication on 503 and rereads the bound credential before retrying",
+          "status": "passed",
+          "durationMs": 1188.8342
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport cancels initial publication backoff before another request",
+          "status": "passed",
+          "durationMs": 42.79299999999989
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport stops when access is revoked during initial publication",
+          "status": "passed",
+          "durationMs": 965.1995999999999
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 401 during initial publication",
+          "status": "passed",
+          "durationMs": 2.552799999999934
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 403 during initial publication",
+          "status": "passed",
+          "durationMs": 1.8580999999999221
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 404 during initial publication",
+          "status": "passed",
+          "durationMs": 1.8617999999996755
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 409 during initial publication",
+          "status": "passed",
+          "durationMs": 1.6875
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 429 during initial publication",
+          "status": "passed",
+          "durationMs": 1.7028999999997723
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 500 during initial publication",
+          "status": "passed",
+          "durationMs": 2.1929000000000087
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 502 during initial publication",
+          "status": "passed",
+          "durationMs": 2.616599999999835
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 504 during initial publication",
+          "status": "passed",
+          "durationMs": 2.356500000000324
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry HTTP 307 during initial publication",
+          "status": "passed",
+          "durationMs": 1.5610000000001492
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport stops when both supported knowledge versions are explicitly rejected",
+          "status": "passed",
+          "durationMs": 2.780199999999695
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not retry malformed successful responses",
+          "status": "passed",
+          "durationMs": 1.9802999999997155
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves base paths, sends only the explicitly bound bearer and supports conditional requests",
+          "status": "passed",
+          "durationMs": 2.220800000000054
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport negotiates v2 once with older servers only after an explicit version rejection",
+          "status": "passed",
+          "durationMs": 6.056599999999889
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not follow redirects or send a credential to their destination",
+          "status": "passed",
+          "durationMs": 2.0792999999998756
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport requires a trusted certificate and matching hostname before sending the bearer",
+          "status": "passed",
+          "durationMs": 647.6743999999999
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves HTTP 401 without returning error bodies",
+          "status": "passed",
+          "durationMs": 5.566400000000158
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves HTTP 403 without returning error bodies",
+          "status": "passed",
+          "durationMs": 3.468499999999949
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves HTTP 409 without returning error bodies",
+          "status": "passed",
+          "durationMs": 2.730000000000018
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves HTTP 426 without returning error bodies",
+          "status": "passed",
+          "durationMs": 3.7343000000000757
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves HTTP 429 without returning error bodies",
+          "status": "passed",
+          "durationMs": 2.005200000000059
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport preserves HTTP 503 without returning error bodies",
+          "status": "passed",
+          "durationMs": 2.1424999999999272
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport rejects an invalid oversized manifest body",
+          "status": "passed",
+          "durationMs": 4.143799999999828
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport rejects an invalid utf8 manifest body",
+          "status": "passed",
+          "durationMs": 3.0661999999997533
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport rejects an invalid json manifest body",
+          "status": "passed",
+          "durationMs": 2.544800000000123
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not send a late credential after cancellation or after its binding changes",
+          "status": "passed",
+          "durationMs": 1.681699999999637
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "bound central HTTP transport does not expose errors returned by the credential port",
+          "status": "passed",
+          "durationMs": 0.6287000000002081
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "rejects legacy submissions without sending local data over HTTP",
+          "status": "passed",
+          "durationMs": 1.5306000000000495
+        },
+        {
+          "suite": "knowledge-http.test.ts",
+          "name": "reads only the bound receipt status and rejects swapped, oversized and revoked responses",
+          "status": "passed",
+          "durationMs": 9.924199999999928
+        },
+        {
+          "suite": "source-snapshot.windows-worker.test.ts",
+          "name": "captures staged source inside a Windows worker with Path casing",
+          "status": "passed",
+          "durationMs": 2676.5995000000003
+        },
+        {
+          "suite": "codex-config.test.ts",
+          "name": "retains the response contract in stdin with a bounded schema and no CLI schema option",
+          "status": "passed",
+          "durationMs": 2.8351000000000113
+        },
+        {
+          "suite": "codex-config.test.ts",
+          "name": "preserves selected model and effort while restricting the existing source harness",
+          "status": "passed",
+          "durationMs": 1.5822000000000003
+        },
+        {
+          "suite": "windows-isolation.test.ts",
+          "name": "Windows execution boundary links only existing auth and removes its pathname after execution",
+          "status": "passed",
+          "durationMs": 2110.1076
+        },
+        {
+          "suite": "windows-isolation.test.ts",
+          "name": "Windows execution boundary keeps arguments literal and rejects shell wrappers",
+          "status": "passed",
+          "durationMs": 1255.2806999999998
+        },
+        {
+          "suite": "windows-isolation.test.ts",
+          "name": "Windows execution boundary kills child and grandchild when the owning Node process exits",
+          "status": "passed",
+          "durationMs": 2063.9653000000003
+        }
+      ]
+    }
+  ],
+  "earlierChecks": [
+    {
+      "name": "transport-credentials",
+      "passed": 43,
+      "failed": 0
+    },
+    {
+      "name": "review-history",
+      "passed": 7,
+      "failed": 0
+    }
+  ],
+  "failures": [
+    {
+      "name": "CD alpha47 central-history",
+      "result": "1 pass, 1 fail; synchronization deadline; 101917.8409 ms"
+    },
+    {
+      "name": "cache-session",
+      "passed": 61,
+      "failed": 4,
+      "cause": "POSIX temporary-directory and separator assumptions; fixed test fixtures without relaxing security"
+    },
+    {
+      "name": "central-cache baseline",
+      "result": "interrupted before completion; not counted as passed"
+    },
+    {
+      "name": "first alpha48 pack",
+      "result": "clean consumer rejected stale exported version constants; no fixed artifact published; constants corrected and final pack passed"
+    }
+  ],
+  "macLinux": "platform adapter mocks preserved; no native execution in W02",
+  "fullSuite": false,
+  "cd": {
+    "clientContract": {
+      "passed": 22,
+      "failed": 0
+    },
+    "centralReview": {
+      "passed": 12,
+      "failed": 0
+    },
+    "centralHistoryFinalTlsFixture": {
+      "passed": 2,
+      "failed": 0
+    },
+    "typecheckTest": "passed",
+    "cleanInstallAndBuild": "passed",
+    "fixedClientConsumer": "passed"
+  }
+}

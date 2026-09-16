@@ -1,0 +1,32 @@
+{
+  "platform": "win32",
+  "arch": "arm64",
+  "node": "v24.18.1",
+  "vscode": "1.137.0",
+  "extensionVersion": "2.12.3",
+  "extensionPath": "C:\\Users\\pydemia\\.vscode\\extensions\\pydemia.commit-defender-2.12.3",
+  "workerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+  "realCentralServer": false,
+  "syntheticHttps": true,
+  "syntheticResponse": true,
+  "realModel": false,
+  "modelCalls": 0,
+  "status": "passed",
+  "connectionDurationMs": 1714,
+  "reopenedConnectionAndSignedCache": true,
+  "encryptedHistoryReopened": true,
+  "savedResultCommandOpened": true,
+  "syntheticReportStatus": "completed",
+  "installedWorkerPreparation": "passed; disposed without model invocation",
+  "syntheticRevocationBlocksOffline": true,
+  "syntheticCentralRequests": {
+    "count": 6,
+    "methods": [
+      "GET"
+    ]
+  },
+  "temporaryReaderCredentialRemoved": true,
+  "testHostExited": true,
+  "temporaryProfileAndKeyRemoved": true,
+  "fixtureDefectReproduced": true
+}
