@@ -1,14 +1,38 @@
 # @gcr/client-executors
 
-Account execution adapters shared by GCR clients and Commit Defender. This package depends only on the pure client contract and Node built-ins. Core owns source/context approval and passes an authorized `FixedSourceToolPort`; executors do not import core, VS Code or server code.
+Account execution adapters shared by GCR clients and Commit Defender. Core owns
+source/context approval and passes an authorized `FixedSourceToolPort`. This
+package uses the client contract, core's Windows native process/storage helper,
+and Node built-ins; it does not import VS Code or server code.
 
 `prepareCodexAccountExecutor({ executablePath, model: 'gpt-6-astra', reasoningEffort: 'xhigh' })` checks the selected executable's version, binary hash and bundled model catalog. It then runs that executable against a synthetic loopback provider with an empty auth home. This probe verifies the actual outgoing model/effort/tool catalog and detects user config or AGENTS canaries. It makes no account model call. Unsupported configurations throw `ExecutorError`; no executable, provider, account or model fallback is attempted.
 
-The first supported path is macOS, Codex CLI 0.153.4 or 0.154.0, Astra/xhigh. The application-specific CLI path used during development is not a product default. Linux/Windows and other executable/model combinations remain unavailable pending equivalent isolation verification. Missing credentials fail at invocation; preparation does not claim login or account quota availability.
+The executor has macOS, Windows, and Linux paths and accepts verified CLI
+versions 0.153.4 or 0.154.0. The caller selects a model and effort from that CLI's
+catalog. Native account-review evidence exists for macOS and Windows ARM64.
+Linux ARM64 has container isolation/process tests and actual CLI synthetic
+catalog checks; an authenticated Linux review and Extension Host remain to be
+verified. A package target is not proof of native execution on that OS/CPU.
+Missing credentials fail at invocation; preparation does not claim login or
+account quota availability.
 
 The application-owned model catalog preserves the executable's model/protocol metadata while selecting a review-only tool surface. Model tools contain the three fixed source reads plus generic MCP resource queries, which return empty lists and refuse resource reads. No shell, patch, agent delegation, browser, connector, Skill loader, memory, hook or arbitrary subprocess launcher is exposed. All source tools point to one process-owned loopback server with a random bearer supplied via environment, strict host/origin checks and bounded requests. Approval applies explicitly to these three already-authorized source tools only.
 
-Codex loads global AGENTS documents independently of its project document byte limit. An outer macOS sandbox denies reads of both global instruction filenames while retaining the original authentication namespace. Symlink or non-regular global instruction paths are unsupported. The adapter does not read/copy authentication contents or rewrite user settings. This narrow outer restriction complements the verified tool surface; it is not a claim that the entire CLI has no filesystem access. Current account authentication and runtime files still require filesystem access. The application creates an empty run cwd, ephemeral state/log directories and schema/catalog files, then removes them after execution. Source bodies are never materialized in that cwd.
+Codex loads global AGENTS documents independently of its project document byte
+limit. macOS denies reads of both global instruction filenames while retaining
+the original authentication namespace. Windows and Linux expose only the
+existing auth-file inode in a private per-invocation CODEX_HOME, without copying
+token bytes. Linux requires an owner-only regular auth.json, an owner-controlled
+home, and hard-link support; symlinks, unsafe modes, and keyring-only accounts
+fail closed. It creates the temporary home on the account's filesystem and
+removes it after the owned process group stops. The verified CLI's in-place
+token refresh still updates the same inode. Global instructions/settings are
+not changed and keyring credentials are never exported to plaintext.
+
+These restrictions complement the verified tool surface; the CLI itself still
+needs account/runtime filesystem access. The application creates an empty run
+cwd and ephemeral state/log/catalog files, then removes them after execution.
+Source bodies are never materialized in that cwd.
 
 `executor.descriptor` binds executable/model/catalog/tool configuration and authentication namespace to the core approval. `executor.review({ prompt, source, timeoutMs, signal, responseSchema })` returns final text, selected model/effort, elapsed time and available CLI token counters. It does not infer a completed defect review merely from CLI success; the consumer must decode and validate the report, coverage, evidence and source receipts. Source receipts prove what the port returned; matching unpredictable source witnesses provide separate evidence that a real model received those bodies. Neither observation proves semantic accuracy for all code or languages.
 
