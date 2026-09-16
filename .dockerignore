@@ -1,6 +1,7 @@
 .git
 .github
 .documents
+artifacts
 .vscode
 node_modules
 **/node_modules
@@ -10,4 +11,3 @@ test-results
 playwright-report
 .env*
 !.env.example
-
