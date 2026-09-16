@@ -1,0 +1,81 @@
+{
+  "recordedAt": "2026-09-16T07:14:28.823Z",
+  "productRuntimeChangedInW04": false,
+  "additionalModelCalls": 0,
+  "gcrRuntimeSource": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+  "cdProductSource": "2c2a40647c72e9ae00489ba0a5efaa7c3351792c",
+  "cdPackagingSource": "722b55cb6d93269aa76bf298e9e9531dc9ac7ecc",
+  "gcrRuntimeDiffSinceArtifact": "",
+  "cdRuntimeDiffSinceArtifact": "",
+  "reused": [
+    {
+      "area": "central TLS/reader/cache and three model judgments",
+      "evidence": [
+        "W02-regression.json",
+        "W02-live-pr-acceptance.json",
+        "W02-live-pr-server.json"
+      ],
+      "basis": "W03 changes do not modify reader/cache/context or report validation; PR3/local GCR substitution remains explicit"
+    },
+    {
+      "area": "manual review/model/NTFS account isolation",
+      "evidence": [
+        "W01-real-host.json",
+        "W01-codex-catalog.json",
+        "W02-live-pr-acceptance.json"
+      ],
+      "basis": "Windows process/storage runtime rechecked at helper1.0.3; final W03 real service report supplements older manual proof"
+    },
+    {
+      "area": "ordinary-user deny and IPC/hook/trigger",
+      "evidence": [
+        "W03-user-boundary-final.json",
+        "W03-validation.json"
+      ],
+      "basis": "same frozen core49/helper1.0.3/CLI38/CD2.12.4 bytes"
+    },
+    {
+      "area": "final real model report and separate Host lifecycle",
+      "evidence": [
+        "W03-native-host-attempt1.json",
+        "W03-native-host-attempt2.json",
+        "W03-native-host-lifecycle.json"
+      ],
+      "basis": "identical product hashes; attempt1 not counted, attempt2 launcher failure preserved; lifecycle 0-call evidence separate"
+    },
+    {
+      "area": "Linux service/hooks",
+      "evidence": [
+        "W03-validation.json"
+      ],
+      "basis": "same product bytes; final changed outcome test rerun W04"
+    }
+  ],
+  "rerun": [
+    {
+      "area": "Windows common failed/partial/cancel/timeout and API hook outcomes",
+      "evidence": "W04-validation.json"
+    },
+    {
+      "area": "Windows security/process/IPC/snapshot",
+      "evidence": "W04-validation.json"
+    },
+    {
+      "area": "packages/clean consumer/VSIX/install hash",
+      "evidence": [
+        "W04-packages.json",
+        "W04-artifact-linkage.json"
+      ]
+    }
+  ],
+  "pending": [
+    {
+      "area": "macOS native",
+      "status": "required-environment-unavailable",
+      "source": "packages/client-core/src/local-service.ts",
+      "change": "W03 shared close awaits optional pipe close and guards server.close with server.listening; common startup/error handling and linked executor/store integration require native regression",
+      "minimum": "final package imports, Keychain-backed encrypted persistence/restart/corruption, snapshot, Unix service ownership/recovery/close, process cancel/timeout, Codex isolation catalog/marker regression, managed hook/outcome tests",
+      "notSubstitutedBy": "old G03/G04 Mac model results, Windows mocks or Linux container"
+    }
+  ]
+}

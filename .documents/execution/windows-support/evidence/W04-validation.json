@@ -1,0 +1,110 @@
+{
+  "recordedAt": "2026-09-16T07:14:28.810Z",
+  "realModelCalls": 0,
+  "productRuntimeChanged": false,
+  "testSourceSha": "781bdda055c25acbd5643283201e8cf19f363415",
+  "testFileSha256": "47c7cfa966f557876c9631df0c3f3b0fc073b1e3ad1e5519d590fc5b95bfd877",
+  "outcomeBundleSha256": "021086c3d6095efa044b02e6dad9835cdb8db72bdee1b1330f09fcab6b5840dd",
+  "windows": {
+    "platform": "Windows 11 Pro build 26200 ARM64 native",
+    "node": "24.16.0",
+    "typecheck": {
+      "command": "npm.cmd run typecheck:test",
+      "status": "passed"
+    },
+    "outcome": {
+      "command": "node --test out-test/review-outcome.test.cjs",
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "durationMs": 19543.7947,
+      "transport": "native Node child with loopback synthetic OpenAI HTTP replies; no real model",
+      "actualHookCases": 2,
+      "hook": "existing W03 out/hook-cli.js",
+      "credentials": "unique synthetic model profile, Windows credential store and encrypted record; hook JSON contains reference only; exact key removal and absence asserted",
+      "cleanup": "child disconnect -> server close; exit 0 asserted; fixture removed in finally"
+    },
+    "native": {
+      "command": "node node_modules/vitest/vitest.mjs run packages/client-core/src/windows-native.test.ts packages/client-core/src/windows-service.test.ts packages/client-executors/src/process.test.ts packages/client-executors/src/windows-isolation.test.ts",
+      "files": 4,
+      "passed": 16,
+      "failed": 0,
+      "durationMs": 15460,
+      "helper": "1.0.3",
+      "suites": [
+        {
+          "name": "windows-native",
+          "passed": 6
+        },
+        {
+          "name": "windows-service",
+          "passed": 1
+        },
+        {
+          "name": "process",
+          "passed": 6
+        },
+        {
+          "name": "windows-isolation",
+          "passed": 3
+        }
+      ],
+      "realModel": false,
+      "evidence": "actual Windows NTFS, Credential Manager, named pipe and native child/grandchild processes"
+    }
+  },
+  "linux": {
+    "platform": "Linux ARM64 Docker Desktop container",
+    "image": "pydemia/git-code-reviewer:0.8.0-alpha.3",
+    "node": "22.23.2",
+    "network": "none",
+    "sourceMount": "readonly",
+    "passed": 23,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "durationMs": 3123.570569,
+    "command": "docker run --rm --network none --entrypoint node --workdir /checks --mount type=bind,source=<CD>/vscode-extension,target=/checks,readonly pydemia/git-code-reviewer:0.8.0-alpha.3 --test out-test/review-outcome.test.cjs",
+    "fixture": "unchanged POSIX fake Codex executable; synthetic responses",
+    "windowsNativeEvidence": false
+  },
+  "macos": {
+    "executed": false,
+    "status": "unavailable",
+    "userAnswer": "사용 가능한 Mac/runner가 없습니다",
+    "required": true,
+    "reason": "shared local-service close/error lifecycle changed in W03; final core49/executors49 integration on macOS not exercised"
+  },
+  "developmentFailures": [
+    {
+      "stage": "test typecheck",
+      "result": "failed",
+      "cause": "ForkOptions does not expose windowsHide",
+      "fix": "explicit native Node spawn with IPC and shell:false"
+    },
+    {
+      "stage": "initial Windows outcome run",
+      "passed": 21,
+      "failed": 2,
+      "cause": "actual hook rejected plaintext model-key config as designed",
+      "fix": "save synthetic key with existing OS-backed path; serialize credential reference; assert provider reached and key removed"
+    },
+    {
+      "stage": "W03 baseline",
+      "passed": 15,
+      "failed": 8,
+      "cause": "POSIX shebang fixture cannot execute as native Windows executable",
+      "preserved": "no blanket skip, no changed status expectation; Windows shared outcomes verified using supported HTTP adapter"
+    }
+  ],
+  "artifactChecks": [
+    "W04-packages.json",
+    "W04-artifact-linkage.json"
+  ],
+  "limitations": [
+    "No real API-provider or Codex call in W04",
+    "Native legacy Python hook support not added",
+    "Mac native required regression unavailable"
+  ]
+}

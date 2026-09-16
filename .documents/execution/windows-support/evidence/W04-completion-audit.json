@@ -1,0 +1,72 @@
+{
+  "recordedAt": "2026-09-16T07:20:52.591Z",
+  "w04Complete": false,
+  "windowsOverallSupportComplete": false,
+  "acceptance": {
+    "W-A01": "verified Windows ARM64; open user Host unknown",
+    "W-A02": "verified Windows native",
+    "W-A03": "verified local NTFS",
+    "W-A04": "verified existing actual Codex and synthetic API evidence",
+    "W-A05": "verified native boundaries; historical launcher failure retained",
+    "W-A06": "verified approved PR3/local GCR substitution only",
+    "W-A07": "verified W02 actual model judgments",
+    "W-A08": "verified W03 final artifact; report and launcher outcomes separate",
+    "W-A09": "incomplete: required macOS native regression unavailable",
+    "W-A10": "artifacts verified; manual cleanup blocked"
+  },
+  "additionalModelCalls": 0,
+  "productChanges": 0,
+  "rebuilds": 0,
+  "reinstalls": 0,
+  "environmentUnavailable": [
+    {
+      "platform": "macOS native",
+      "required": true,
+      "userConfirmedUnavailable": true,
+      "existingWorkflow": false,
+      "action": "Provide an existing Mac/native runner when available and execute the final-artifact regression in W04-impact.json; no new CI and no default model call"
+    }
+  ],
+  "cleanupBlocked": {
+    "evidence": "W04-preservation.json",
+    "remaining": 19,
+    "action": "Manual removal of exact paths in W04-cleanup.md; no automatic retry or alternative deletion tool"
+  },
+  "unsupported": [
+    "Linux Codex fixed-source account isolation",
+    "UNC/network/FAT for this Windows delivery"
+  ],
+  "unverified": [
+    "Windows x64",
+    "other Windows/Node/VSCode/Codex combinations",
+    "already-open user Host extension version",
+    "WSL/Remote SSH/Dev Container deployment"
+  ],
+  "userSelectionRequiredNow": false,
+  "completedIndependentWork": [
+    "Windows outcome fixture repaired without skip",
+    "Windows native security/IPC/process regression",
+    "Linux ARM64 container outcome regression",
+    "frozen package clean consumer and VSIX/installed runtime hashes",
+    "support/usage/stop/hook recovery procedures",
+    "user preservation and exact manual cleanup inventory"
+  ],
+  "notPerformed": [
+    "central upload",
+    "new PR/comment/collection",
+    "PRISM deployment",
+    "Marketplace publish",
+    "new provider framework",
+    "P11 runner",
+    "forced user Host reload",
+    "user service replacement",
+    "global setting or CLI mutation"
+  ],
+  "historicalRealModelEvidence": {
+    "W03Calls": 2,
+    "W03AcceptedReports": 1,
+    "attempt1": "unaccepted: report body not inspected after exitCode1",
+    "attempt2": "report validation passed; outer launcher cleanup-failed",
+    "separateLifecycle": "passed with zero model calls; not merged into attempt2"
+  }
+}
