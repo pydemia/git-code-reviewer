@@ -715,6 +715,20 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
     ).toBe(0);
   });
   it('opens stored source and activates guidance from the central screen at desktop and mobile widths', async () => {
+    const markdown =
+      'edited draft source\n\n## 경계값 검토\n\n**입력 계약**을 확인하세요.\n\n```ts\nconst bounded = value <= 100;\n```\n\n| 입력 | 기대 |\n| --- | --- |\n| 100 | 허용 |\n\n> 호출부와 함께 검토\n\n- [x] 경계값 확인\n\n<script>window.historyInjected = true</script>\n\n![외부 이미지](https://tracker.example/pixel)';
+    await persistPullRequestMessages(
+      db,
+      repo,
+      8,
+      [
+        message(markdown, 301),
+        { ...message('수정한 호출부도 함께 확인했습니다.', 302), inReplyToGithubId: 301 },
+      ],
+      new Date(Date.now() + 10000000),
+      undefined,
+      { complete: true },
+    );
     await app.listen({ host: '127.0.0.1', port: 0 });
     const address = app.server.address();
     if (!address || typeof address === 'string') throw Error('Owned server');
@@ -736,10 +750,41 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(`http://127.0.0.1:${web.port}/review-history`);
-      await page
-        .locator('.history-messages article')
-        .filter({ hasText: 'edited draft source' })
-        .getByRole('button', { name: '원문·변경 이력 보기', exact: true })
+      const source = page.locator('.history-comment').filter({ hasText: 'edited draft source' });
+      const toggle = source.locator('.history-comment-actions button');
+      await toggle.waitFor();
+      if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+      await source.getByRole('heading', { name: '경계값 검토' }).waitFor();
+      expect(await source.locator('.history-source > .review-markdown table').count()).toBe(1);
+      expect(
+        await source.locator('.history-source > .review-markdown pre code').textContent(),
+      ).toContain('value <= 100');
+      expect(await source.locator('.review-markdown img, .review-markdown script').count()).toBe(0);
+      expect(await page.evaluate(() => 'historyInjected' in window)).toBe(false);
+      expect(
+        await page
+          .locator('.history-thread .is-reply')
+          .filter({ hasText: '수정한 호출부도 함께 확인했습니다.' })
+          .count(),
+      ).toBe(1);
+      await page.getByPlaceholder('PR 번호 또는 제목').fill('unmatched pull');
+      await page.getByText('일치하는 PR이 없습니다.', { exact: false }).waitFor();
+      await page.getByPlaceholder('PR 번호 또는 제목').fill('8');
+      expect(await page.locator('.history-pull').count()).toBe(1);
+      await source.getByText('수정·관측 이력 확인', { exact: true }).click();
+      await source.getByRole('heading', { name: '저장된 본문 버전' }).waitFor();
+      await source.getByText('수정·관측 이력 확인', { exact: true }).click();
+      await page.locator('main').evaluate((el) => {
+        el.scrollTop = 0;
+      });
+      if (process.env.GCR_HISTORY_SCREENSHOT)
+        await page.screenshot({
+          path: process.env.GCR_HISTORY_SCREENSHOT.replace('.png', '-conversation.png'),
+          fullPage: true,
+        });
+      await source
+        .locator('summary')
+        .filter({ hasText: /^이 원문에 연결된 지침$/ })
         .click();
       await page.getByText('원문을 바탕으로 지침 작성', { exact: true }).click();
       await page.getByLabel('지침 요약', { exact: true }).fill('Browser source guidance');
@@ -769,10 +814,15 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       const readerContext = await browser.newContext({ extraHTTPHeaders: headers('reader') });
       const readerPage = await readerContext.newPage();
       await readerPage.goto(`http://127.0.0.1:${web.port}/review-history`);
-      await readerPage
-        .locator('.history-messages article')
-        .filter({ hasText: 'edited draft source' })
-        .getByRole('button', { name: '원문·변경 이력 보기', exact: true })
+      const readerSource = readerPage
+        .locator('.history-comment')
+        .filter({ hasText: 'edited draft source' });
+      const readerToggle = readerSource.locator('.history-comment-actions button');
+      await readerToggle.waitFor();
+      if ((await readerToggle.getAttribute('aria-expanded')) !== 'true') await readerToggle.click();
+      await readerSource
+        .locator('summary')
+        .filter({ hasText: /^이 원문에 연결된 지침$/ })
         .click();
       await readerPage.getByText('Browser source guidance', { exact: true }).waitFor();
       expect(await readerPage.getByText('원문을 바탕으로 지침 작성', { exact: true }).count()).toBe(
@@ -781,6 +831,18 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       expect(
         await readerPage.getByRole('button', { name: '지침 비활성화', exact: true }).count(),
       ).toBe(0);
+      await readerPage.route(/\/api\/v1\/repositories\/[^/]+\/review-history(?:\?.*)?$/, (route) =>
+        route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: { code: 'SERVICE_UNAVAILABLE', message: '시험용 이력 조회 장애' },
+          }),
+        }),
+      );
+      await readerPage.reload();
+      await readerPage.getByRole('alert').waitFor();
+      expect(await readerPage.getByRole('button', { name: '처음부터 새로고침' }).count()).toBe(1);
       await readerContext.close();
     } finally {
       await browser?.close();

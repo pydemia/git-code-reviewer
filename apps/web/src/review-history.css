@@ -120,3 +120,397 @@
   margin-left: 1rem;
   overflow-wrap: anywhere;
 }
+
+/* Reading layout: repository -> PR -> discussion -> source evidence. */
+.criteria-page.history-page {
+  width: 100%;
+  max-width: 1440px;
+  height: calc(100dvh - var(--app-header-height));
+  margin: 0 auto;
+  padding: 32px 36px 64px;
+  overflow-y: auto;
+}
+.history-page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.history-page-heading h1 {
+  margin: 4px 0 8px;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+.history-page-heading p {
+  margin: 0;
+  color: var(--muted);
+}
+.history-page .history-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.history-guide-link,
+.history-original-link,
+.history-comment-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 12px;
+}
+.history-guide-link {
+  flex-shrink: 0;
+  margin-top: 22px;
+}
+.history-layout {
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+.history-layout > aside {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.history-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border);
+}
+.history-list-heading h2 {
+  margin: 0;
+  font-size: 14px;
+}
+.history-list-heading > span {
+  border-radius: 20px;
+  padding: 2px 8px;
+  background: var(--surface);
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+.history-page .history-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding-left: 10px;
+  color: var(--muted);
+}
+.history-page .history-search input {
+  border: 0;
+  min-width: 0;
+  background: transparent;
+  padding: 9px 8px 9px 0;
+}
+.history-search-scope {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 6px 14px 12px;
+}
+.history-page .history-pull {
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  padding: 16px;
+  margin: 0;
+  gap: 7px;
+  background: transparent;
+}
+.history-page .history-pull:hover {
+  background: var(--surface-subtle);
+}
+.history-page .history-pull[aria-pressed='true'] {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.history-page .history-pull strong {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.history-page .history-pull > span:not(.history-pull-top) {
+  color: var(--muted);
+  font-size: 11px;
+}
+.history-pull-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+}
+.history-state {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 20px;
+  padding: 2px 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.history-state.closed {
+  color: #71519b;
+  background: #f0eaf8;
+}
+.history-pull-top .history-state {
+  margin-left: auto;
+}
+.history-conversation {
+  min-width: 0;
+}
+.history-conversation-heading h2 {
+  font-size: 22px;
+  letter-spacing: -0.025em;
+  line-height: 1.5;
+  margin: 6px 0 12px;
+}
+.history-conversation-heading p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.history-conversation > p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.history-context-note {
+  border-left: 3px solid var(--border-strong);
+  padding: 8px 12px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.history-thread {
+  position: relative;
+  display: grid;
+  gap: 14px;
+}
+.history-thread::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+  background: var(--border);
+}
+.history-messages .history-comment {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+}
+.history-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface-subtle);
+}
+.history-comment-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+  min-width: 0;
+}
+.history-comment-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.history-comment-header time {
+  color: var(--muted);
+  font-size: 11px;
+}
+.history-kind {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.history-file {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+}
+.history-file code {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.history-comment-preview {
+  padding: 18px;
+}
+.history-comment-preview .review-markdown {
+  margin: 0;
+}
+.history-comment-preview > small {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+}
+.history-comment-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+.history-page .history-comment-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  padding: 4px 0;
+  margin: 0;
+  font-size: 12px;
+}
+.history-reply-context {
+  font-size: 11px;
+  margin: 10px 16px;
+  color: var(--muted);
+}
+.history-page .history-reply-context button {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.history-comment-card > .history-context-note {
+  margin: 10px 16px;
+}
+.history-comment.is-reply {
+  margin-left: 24px;
+}
+.history-source {
+  margin: 0;
+  padding: 18px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+.history-source header h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.history-source header button {
+  font-size: 11px;
+}
+.history-source > p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.history-source .memory-source-provenance {
+  margin-top: 16px;
+  font-size: 12px;
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+.history-evidence {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.history-source summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.history-source summary:hover {
+  color: var(--accent);
+}
+.history-body {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.history-empty {
+  padding: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.history-page .review-markdown input[type='checkbox'] {
+  width: auto;
+  margin-right: 6px;
+}
+.history-page :is(button, a, input, select, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (max-width: 800px) {
+  .criteria-page.history-page {
+    padding: 20px 16px 48px;
+  }
+  .history-page-heading {
+    gap: 12px;
+    flex-direction: column;
+  }
+  .history-guide-link {
+    margin: 0;
+  }
+  .history-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .history-layout > aside {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .history-conversation-heading h2 {
+    font-size: 19px;
+  }
+  .history-comment.is-reply {
+    margin-left: 10px;
+  }
+  .history-messages .history-comment {
+    grid-template-columns: 25px minmax(0, 1fr);
+    gap: 7px;
+  }
+  .history-avatar {
+    width: 25px;
+    height: 25px;
+    font-size: 9px;
+  }
+  .history-thread::before {
+    left: 12px;
+  }
+  .history-comment-header,
+  .history-comment-preview,
+  .history-source {
+    padding: 12px;
+  }
+  .history-kind {
+    margin-left: 0;
+  }
+}
