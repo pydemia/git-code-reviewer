@@ -12,6 +12,12 @@ const directory =
 const nativeDirectory =
   path.basename(directory) === 'src' ? path.join(directory, '..', 'dist') : directory;
 
+/** Windows worker_threads use a case-sensitive environment object. */
+export function windowsEnvironmentValue(name: string): string | undefined {
+  const key = Object.keys(process.env).find((key) => key.toLowerCase() === name.toLowerCase());
+  return key === undefined ? undefined : process.env[key];
+}
+
 export function windowsPrivateTemporary(prefix: string): string {
   if (!/^[a-z0-9-]+$/.test(prefix)) throw Error('Invalid temporary prefix.');
   const target = path.join(os.tmpdir(), `${prefix}${randomUUID()}`);

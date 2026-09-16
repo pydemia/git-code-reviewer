@@ -18,7 +18,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SourceCaptureError } from './source-policy.js';
 import { contentHash } from './local-identity.js';
-import { windowsPrivateTemporary, windowsNativeSync } from './windows-native.js';
+import {
+  windowsPrivateTemporary,
+  windowsNativeSync,
+  windowsEnvironmentValue,
+} from './windows-native.js';
 
 export interface GitEntry {
   mode: string;
@@ -49,13 +53,13 @@ export class SourceGit {
     this.environment = {
       ...(process.platform === 'win32'
         ? {
-            SystemRoot: process.env.SystemRoot,
+            SystemRoot: windowsEnvironmentValue('SystemRoot'),
             USERPROFILE: this.directory,
             TEMP: this.directory,
             TMP: this.directory,
           }
         : {}),
-      PATH: process.env.PATH,
+      PATH: process.platform === 'win32' ? windowsEnvironmentValue('PATH') : process.env.PATH,
       LC_ALL: 'C',
       HOME: this.directory,
       GIT_CONFIG_NOSYSTEM: '1',

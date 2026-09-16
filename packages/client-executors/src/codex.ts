@@ -16,7 +16,7 @@ import { probeCodexCatalog } from './catalog-probe.js';
 import { ExecutorError, runManagedProcess } from './process.js';
 import { fixedSourceTools, reviewQuestionTool, startSourceBridge } from './source-bridge.js';
 import { runIsolatedCodex } from './codex-isolation.js';
-import { windowsPrivateTemporary } from '@gcr/client-core/windows-native';
+import { windowsPrivateTemporary, windowsEnvironmentValue } from '@gcr/client-core/windows-native';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 async function binaryHash(command: string): Promise<string> {
@@ -31,7 +31,7 @@ async function executablePath(value: string): Promise<string> {
   const candidates =
     path.isAbsolute(value) || value.includes(path.sep)
       ? [path.resolve(value)]
-      : (process.env.PATH ?? '')
+      : ((process.platform === 'win32' ? windowsEnvironmentValue('PATH') : process.env.PATH) ?? '')
           .split(path.delimiter)
           .filter(Boolean)
           .map((directory) =>
@@ -210,7 +210,7 @@ export async function prepareCodexAccountExecutor(options: {
     const fingerprint = await binaryHash(command);
     const env = {
       ...(process.platform === 'win32' ? codexAccountEnvironment() : {}),
-      PATH: process.platform === 'win32' ? process.env.PATH : '/usr/bin:/bin',
+      PATH: process.platform === 'win32' ? windowsEnvironmentValue('PATH') : '/usr/bin:/bin',
       HOME: root,
       CODEX_HOME: root,
     };

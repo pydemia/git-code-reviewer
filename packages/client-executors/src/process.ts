@@ -1,7 +1,7 @@
 // Adapted from Commit Defender src/ai/providers.ts at 35575ad (Apache-2.0).
 // Adds process-group termination, a hard kill deadline and bounded byte streams.
 import { spawn } from 'node:child_process';
-import { windowsNative } from '@gcr/client-core/windows-native';
+import { windowsNative, windowsEnvironmentValue } from '@gcr/client-core/windows-native';
 
 export class ExecutorError extends Error {
   constructor(
@@ -60,7 +60,7 @@ export async function runManagedProcess(input: ManagedProcessInput): Promise<{
         command: input.command,
         args: input.args,
         cwd: input.cwd,
-        env: { SystemRoot: process.env.SystemRoot, ...input.env },
+        env: { SystemRoot: windowsEnvironmentValue('SystemRoot'), ...input.env },
         stdin: input.stdin,
         timeout: input.timeoutMs,
         maximum,
