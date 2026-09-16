@@ -1,3 +1,4 @@
+import { browserUuid } from './browser-uuid.ts';
 import {
   reviewHistoryBodyVersionListSchema,
   reviewHistoryPullListSchema,
@@ -51,7 +52,7 @@ export type HistoryCollection = {
 };
 export const collectHistory = async (repo: string, pullNumbers: number[]) =>
   (await mutateJson(`${base(repo)}/collections`, 'POST', {
-    requestKey: crypto.randomUUID(),
+    requestKey: browserUuid(),
     pullNumbers,
   })) as HistoryCollection;
 export const loadHistoryCollection = async (repo: string, id: string, signal: AbortSignal) =>

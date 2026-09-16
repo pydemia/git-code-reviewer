@@ -1,3 +1,4 @@
+import { browserUuid } from './browser-uuid.ts';
 import { CriterionSourcePicker } from './CriterionSourcePicker.tsx';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
@@ -90,7 +91,7 @@ export function CriterionGenerationPanel({
     const manual = String(data.get('source') ?? '').trim();
     const parsed = criterionGenerationCreateSchema.safeParse(
       pending ?? {
-        requestId: crypto.randomUUID(),
+        requestId: browserUuid(),
         accountId,
         modelName,
         reasoningEffort: effort,

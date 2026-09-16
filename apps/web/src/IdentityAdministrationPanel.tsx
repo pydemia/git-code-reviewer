@@ -1,3 +1,4 @@
+import { browserUuid } from './browser-uuid.ts';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type {
   AdminUser,
@@ -135,7 +136,7 @@ export function IdentityAdministrationPanel({
     if (!action || busy) return;
     let input = submittedRequest.current;
     if (!input) {
-      const requestId = crypto.randomUUID();
+      const requestId = browserUuid();
       const existing = target
         ? { kind: 'existing' as const, userId: target.id, expectedSubject: target.subject }
         : null;

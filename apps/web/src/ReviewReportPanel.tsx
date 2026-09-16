@@ -192,6 +192,12 @@ export function ReviewReportPanel({
                 aria-label="Report 링크 복사"
                 disabled={!self}
                 onClick={() => {
+                  if (!navigator.clipboard) {
+                    setCopyState(
+                      '이 연결에서는 자동 복사를 지원하지 않습니다. 주소 표시줄의 URL을 복사하세요.',
+                    );
+                    return;
+                  }
                   if (self)
                     void navigator.clipboard.writeText(self).then(
                       () => setCopyState('Report 링크를 복사했습니다.'),
