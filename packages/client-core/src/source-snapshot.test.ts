@@ -327,8 +327,13 @@ describe('immutable local source capture', { timeout: 20_000 }, () => {
           '1'.repeat(64) +
           '\nsize 12345\n',
       );
-      fs.symlinkSync('.env', path.join(f.repo, 'link.py'));
+      if (process.platform !== 'win32') fs.symlinkSync('.env', path.join(f.repo, 'link.py'));
       f.git('add', '-f', '.');
+      if (process.platform === 'win32') {
+        f.write('link-target', '.env');
+        const oid = f.git('hash-object', '-w', 'link-target');
+        f.git('update-index', '--add', '--cacheinfo', '120000', oid, 'link.py');
+      }
       f.git(
         'update-index',
         '--add',
@@ -459,7 +464,11 @@ describe('immutable local source capture', { timeout: 20_000 }, () => {
       fs.mkdirSync(outside);
       fs.writeFileSync(path.join(outside, 'a.py'), 'OUTSIDE_CANARY');
       fs.rmSync(path.join(f.repo, 'dir'), { recursive: true });
-      fs.symlinkSync(outside, path.join(f.repo, 'dir'));
+      fs.symlinkSync(
+        outside,
+        path.join(f.repo, 'dir'),
+        process.platform === 'win32' ? 'junction' : 'dir',
+      );
       const captured = captureLocalSource({ cwd: f.repo, kind: 'working-tree' });
       expect(captured.readFile('dir/a.py')).toMatchObject({
         status: 'unavailable',
@@ -468,31 +477,34 @@ describe('immutable local source capture', { timeout: 20_000 }, () => {
       expect(captured.diff).not.toContain('CANARY');
       expect(captured.selected).toEqual([]);
     }));
-  it('rejects files that grow while reading without allocating the new size', () =>
-    fixture((f) => {
-      f.write('a.py', 'value = 1\n');
-      f.commit();
-      const original = fs.readSync;
-      let changed = false;
-      vi.mocked(readSync).mockImplementation(((
-        fd: number,
-        buffer: NodeJS.ArrayBufferView,
-        offset: number,
-        length: number,
-        position: number | null,
-      ) => {
-        const received = original(fd, buffer, offset, length, position);
-        if (!changed && buffer.byteLength === 11) {
-          changed = true;
-          fs.appendFileSync(path.join(f.repo, 'a.py'), 'x'.repeat(1_000_000));
-        }
-        return received;
-      }) as typeof fs.readSync);
-      expect(() =>
-        captureLocalSource({ cwd: f.repo, kind: 'working-tree', limits: { fileBytes: 100 } }),
-      ).toThrow('snapshot-changed');
-      expect(changed).toBe(true);
-    }));
+  it.skipIf(process.platform === 'win32')(
+    'rejects files that grow while reading without allocating the new size',
+    () =>
+      fixture((f) => {
+        f.write('a.py', 'value = 1\n');
+        f.commit();
+        const original = fs.readSync;
+        let changed = false;
+        vi.mocked(readSync).mockImplementation(((
+          fd: number,
+          buffer: NodeJS.ArrayBufferView,
+          offset: number,
+          length: number,
+          position: number | null,
+        ) => {
+          const received = original(fd, buffer, offset, length, position);
+          if (!changed && buffer.byteLength === 11) {
+            changed = true;
+            fs.appendFileSync(path.join(f.repo, 'a.py'), 'x'.repeat(1_000_000));
+          }
+          return received;
+        }) as typeof fs.readSync);
+        expect(() =>
+          captureLocalSource({ cwd: f.repo, kind: 'working-tree', limits: { fileBytes: 100 } }),
+        ).toThrow('snapshot-changed');
+        expect(changed).toBe(true);
+      }),
+  );
   it('treats index removal as deletion unless the now-untracked file is explicitly included', () =>
     fixture((f) => {
       f.write('a.py', 'value = 1\n');
@@ -536,27 +548,30 @@ describe('immutable local source capture', { timeout: 20_000 }, () => {
         );
         expect(changed).toBe(true);
       }));
-  it('bounds index reads and refuses symlink/FIFO indexes without following or blocking', () =>
-    fixture((f) => {
-      f.write('a.py', 'value = 1\n');
-      f.commit();
-      const index = f.git('rev-parse', '--path-format=absolute', '--git-path', 'index');
-      const outside = path.join(f.root, 'outside');
-      fs.writeFileSync(outside, 'SYNTHETIC_PRIVATE_CANARY');
-      fs.rmSync(index);
-      fs.symlinkSync(outside, index);
-      expect(() => captureLocalSource({ cwd: f.repo, kind: 'index' })).toThrow(
-        'source-unavailable',
-      );
-      fs.rmSync(index);
-      execFileSync('mkfifo', [index]);
-      expect(() => captureLocalSource({ cwd: f.repo, kind: 'index' })).toThrow('capture-limit');
-      fs.rmSync(index);
-      fs.writeFileSync(index, '');
-      fs.truncateSync(index, 64 * 1024 * 1024 + 1);
-      expect(() => captureLocalSource({ cwd: f.repo, kind: 'index' })).toThrow('capture-limit');
-      expect(fs.readFileSync(outside, 'utf8')).toBe('SYNTHETIC_PRIVATE_CANARY');
-    }));
+  it.skipIf(process.platform === 'win32')(
+    'bounds index reads and refuses symlink/FIFO indexes without following or blocking',
+    () =>
+      fixture((f) => {
+        f.write('a.py', 'value = 1\n');
+        f.commit();
+        const index = f.git('rev-parse', '--path-format=absolute', '--git-path', 'index');
+        const outside = path.join(f.root, 'outside');
+        fs.writeFileSync(outside, 'SYNTHETIC_PRIVATE_CANARY');
+        fs.rmSync(index);
+        fs.symlinkSync(outside, index);
+        expect(() => captureLocalSource({ cwd: f.repo, kind: 'index' })).toThrow(
+          'source-unavailable',
+        );
+        fs.rmSync(index);
+        execFileSync('mkfifo', [index]);
+        expect(() => captureLocalSource({ cwd: f.repo, kind: 'index' })).toThrow('capture-limit');
+        fs.rmSync(index);
+        fs.writeFileSync(index, '');
+        fs.truncateSync(index, 64 * 1024 * 1024 + 1);
+        expect(() => captureLocalSource({ cwd: f.repo, kind: 'index' })).toThrow('capture-limit');
+        expect(fs.readFileSync(outside, 'utf8')).toBe('SYNTHETIC_PRIVATE_CANARY');
+      }),
+  );
   it('validates deny patterns and protects private defaults from user overrides', () => {
     const deny = sourcePathPolicy(['src/**/skip?.py', '*.generated.ts', '/top/', 'vendor-custom/']);
     for (const file of [

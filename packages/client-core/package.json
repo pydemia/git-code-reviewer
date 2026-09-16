@@ -8,6 +8,10 @@
     "node": ">=18.0.0"
   },
   "exports": {
+    "./windows-native": {
+      "types": "./dist/windows-native.d.ts",
+      "import": "./dist/windows-native.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
@@ -15,11 +19,12 @@
   },
   "files": [
     "dist",
+    "native/windows/Native.cs",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node ../../scripts/build-windows-native.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -3,6 +3,7 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, link, unlink, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { errorCode, LocalStoreError } from './local-errors.js';
+import { windowsNative, checkWindowsStorage } from './windows-native.js';
 
 function privateMode(stat: { uid: number; mode: number }, expected: 'file' | 'directory'): void {
   if (
@@ -16,6 +17,15 @@ function privateMode(stat: { uid: number; mode: number }, expected: 'file' | 'di
   }
 }
 export async function privateRoot(directory: string): Promise<string> {
+  if (process.platform === 'win32') {
+    const result = checkWindowsStorage(
+      await windowsNative({
+        operation: 'directory',
+        path: path.resolve(directory),
+      }),
+    );
+    return result.path!;
+  }
   const created = await mkdir(directory, { recursive: true, mode: 0o700 });
   const stat = await lstat(directory);
   if (!stat.isDirectory() || stat.isSymbolicLink())
@@ -37,6 +47,15 @@ export async function privateRoot(directory: string): Promise<string> {
 export async function privateDirectory(parent: string, name: string): Promise<string> {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(name) || name === '.' || name === '..')
     throw new LocalStoreError('insecure-storage', 'Invalid local storage component.');
+  if (process.platform === 'win32') {
+    checkWindowsStorage(
+      await windowsNative({
+        operation: 'validate-directory',
+        path: path.resolve(parent),
+      }),
+    );
+    return privateRoot(path.join(parent, name));
+  }
   const parentStat = await lstat(parent);
   if (!parentStat.isDirectory() || parentStat.isSymbolicLink())
     throw new LocalStoreError('insecure-storage', 'Local storage parent is not a directory.');
@@ -60,6 +79,17 @@ export async function privateDirectory(parent: string, name: string): Promise<st
   return target;
 }
 export async function syncDirectory(directory: string): Promise<void> {
+  if (process.platform === 'win32') {
+    // Windows has no POSIX directory fsync. Publication uses a flushed file
+    // and same-volume MoveFileEx WRITE_THROUGH; validate without hiding errors.
+    checkWindowsStorage(
+      await windowsNative({
+        operation: 'validate-directory',
+        path: path.resolve(directory),
+      }),
+    );
+    return;
+  }
   const handle = await open(directory, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     await handle.sync();
@@ -68,6 +98,19 @@ export async function syncDirectory(directory: string): Promise<void> {
   }
 }
 export async function readPrivateFile(file: string, maxBytes: number): Promise<Buffer | undefined> {
+  if (process.platform === 'win32') {
+    const result = checkWindowsStorage(
+      await windowsNative({
+        operation: 'read',
+        path: path.resolve(file),
+        maximum: maxBytes,
+      }),
+    );
+    if (result.missing) return undefined;
+    if (typeof result.bytes !== 'string')
+      throw new LocalStoreError('corrupt-storage', 'Missing Windows file result.');
+    return Buffer.from(result.bytes, 'base64');
+  }
   let handle;
   try {
     handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -99,6 +142,18 @@ export async function readPrivateFile(file: string, maxBytes: number): Promise<B
 
 /** Publish a fully written immutable file with an exclusive hard link; never replace its name. */
 export async function publishImmutable(file: string, bytes: Uint8Array): Promise<boolean> {
+  if (process.platform === 'win32') {
+    const result = checkWindowsStorage(
+      await windowsNative({
+        operation: 'publish',
+        path: path.resolve(file),
+        bytes: Buffer.from(bytes).toString('base64'),
+      }),
+    );
+    if (typeof result.published !== 'boolean')
+      throw new LocalStoreError('commit-unknown', 'Missing Windows publication result.');
+    return result.published;
+  }
   const directory = path.dirname(file);
   const temporary = path.join(directory, `.pending-${randomUUID()}`);
   const handle = await open(

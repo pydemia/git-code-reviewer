@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { clientIdentity, type ClientIdentity } from '@gcr/client-contract';
 import { LocalStoreError } from './local-errors.js';
+import { windowsNativeSync } from './windows-native.js';
 
 /** Canonical JSON for producer-side hashes; decoders do not recompute these hashes. */
 export function canonicalJson(value: unknown, maxBytes = 16 * 1024 * 1024): string {
@@ -55,6 +56,12 @@ export const contentHash = (value: unknown): string =>
   createHash('sha256').update(canonicalJson(value)).digest('hex');
 
 export function defaultLocalDataDirectory(platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'win32') {
+    const directory = windowsNativeSync({ operation: 'identity' }).dataDirectory;
+    if (!directory || !path.isAbsolute(directory))
+      throw new LocalStoreError('storage-unavailable', 'Missing Windows data directory.');
+    return directory;
+  }
   if (platform === 'darwin')
     return path.join(homedir(), 'Library', 'Application Support', 'CommitDefender');
   if (platform === 'linux') {

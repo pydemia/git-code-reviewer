@@ -19,6 +19,7 @@ import {
   type SourceFile,
 } from '@gcr/client-contract';
 import { canonicalJson, contentHash } from './local-identity.js';
+import { windowsNativeSync } from './windows-native.js';
 import {
   SourceCaptureError,
   sourcePathPolicy,
@@ -660,11 +661,12 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
             }
             if (denied.has(key(side, file))) continue;
             const absolute = path.join(git.root, file);
-            fd = openSync(
-              absolute,
-              constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-            );
-            const opened = fstatSync(fd);
+            if (process.platform !== 'win32')
+              fd = openSync(
+                absolute,
+                constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+              );
+            const opened = fd === undefined ? lstatSync(absolute) : fstatSync(fd);
             if (
               !opened.isFile() ||
               realpathSync(absolute) !== absolute ||
@@ -673,15 +675,32 @@ export function captureLocalSource(input: CaptureSourceOptions): LocalSourceSnap
               throw new SourceCaptureError('snapshot-changed');
             if (!admit(file, side, opened.size)) continue;
             // Bound allocation and reads even if another process grows this regular file.
-            const buffer = Buffer.alloc(opened.size + 1);
+            const native =
+              process.platform === 'win32'
+                ? windowsNativeSync({
+                    operation: 'snapshot-read',
+                    path: absolute,
+                    maximum: Math.max(1, opened.size),
+                  })
+                : undefined;
+            if (native && typeof native.bytes !== 'string')
+              throw new SourceCaptureError('snapshot-changed');
+            const buffer = native
+              ? Buffer.from(native.bytes!, 'base64')
+              : Buffer.alloc(opened.size + 1);
             let length = 0;
-            while (length < buffer.length) {
-              const received = readSync(fd, buffer, length, buffer.length - length, null);
+            if (native) length = buffer.length;
+            while (!native && length < buffer.length) {
+              const received = readSync(fd!, buffer, length, buffer.length - length, null);
               if (!received) break;
               length += received;
             }
             const body = buffer.subarray(0, length);
-            if (body.length !== opened.size || signature(fstatSync(fd)) !== signature(opened))
+            if (
+              body.length !== opened.size ||
+              signature(fd === undefined ? lstatSync(absolute) : fstatSync(fd)) !==
+                signature(opened)
+            )
               throw new SourceCaptureError('snapshot-changed');
             observations.push({ file, signature: signature(opened) });
             const captured = {

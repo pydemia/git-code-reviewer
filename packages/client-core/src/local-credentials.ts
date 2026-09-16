@@ -1,5 +1,28 @@
 import { spawn } from 'node:child_process';
 import { LocalStoreError } from './local-errors.js';
+import { windowsNative, checkWindowsStorage } from './windows-native.js';
+
+async function windowsCredential(
+  service: string,
+  reference: string,
+  action: 'read' | 'write' | 'remove',
+  secret?: Uint8Array,
+): Promise<CommandResult> {
+  const result = checkWindowsStorage(
+    await windowsNative({
+      operation: 'credential',
+      service,
+      reference,
+      action,
+      ...(secret ? { bytes: Buffer.from(secret).toString('base64') } : {}),
+    }),
+  );
+  return {
+    code: result.missing ? 44 : 0,
+    stdout: result.bytes ? Buffer.from(result.bytes, 'base64').toString('utf8') : '',
+    stderr: '',
+  };
+}
 
 /** Host port shared by the extension and headless process; never backed by repository settings. */
 export interface LocalKeyStore {
@@ -76,7 +99,7 @@ export class PlatformLocalKeyStore implements LocalKeyStore {
     private readonly command: CredentialCommand = run,
   ) {
     token(service);
-    if (!['darwin', 'linux'].includes(platform))
+    if (!['darwin', 'linux', 'win32'].includes(platform))
       throw new LocalStoreError(
         'unsupported-platform',
         'No supported OS credential store adapter.',
@@ -88,6 +111,15 @@ export class PlatformLocalKeyStore implements LocalKeyStore {
     key?: Uint8Array,
   ): Promise<CommandResult> {
     token(reference);
+    if (this.platform === 'win32') {
+      if (operation === 'write' && key?.byteLength !== 32) throw unavailable();
+      return windowsCredential(
+        this.service,
+        reference,
+        operation,
+        key ? Buffer.from(Buffer.from(key).toString('base64')) : undefined,
+      );
+    }
     if (this.platform === 'darwin') {
       if (operation === 'write') {
         if (key?.byteLength !== 32) throw unavailable();
@@ -125,7 +157,7 @@ export class PlatformLocalKeyStore implements LocalKeyStore {
     // Keychain's item-not-found is distinct from authorization errors. Secret-tool reports
     // an absent item with status 1 and no diagnostic; unavailable/locked service is an error.
     if (
-      (this.platform === 'darwin' && result.code === 44) ||
+      (['darwin', 'win32'].includes(this.platform) && result.code === 44) ||
       (this.platform === 'linux' &&
         result.code === 1 &&
         !result.stderr.trim() &&
@@ -152,7 +184,7 @@ export class PlatformLocalKeyStore implements LocalKeyStore {
   }
   async remove(reference: string): Promise<void> {
     const result = await this.invoke('remove', reference);
-    if (result.code !== 0 && !(this.platform === 'darwin' && result.code === 44))
+    if (result.code !== 0 && !(['darwin', 'win32'].includes(this.platform) && result.code === 44))
       throw unavailable();
   }
 }
@@ -178,11 +210,18 @@ export class PlatformCentralCredentialStore implements CentralCredentialStore {
     private readonly platform: NodeJS.Platform = process.platform,
     private readonly command: CredentialCommand = run,
   ) {
-    if (!['darwin', 'linux'].includes(platform)) throw unavailable();
+    if (!['darwin', 'linux', 'win32'].includes(platform)) throw unavailable();
   }
   private invoke(operation: 'read' | 'write' | 'remove', reference: string, secret?: string) {
     token(reference);
     if (secret !== undefined) validateCentralApiKey(secret);
+    if (this.platform === 'win32')
+      return windowsCredential(
+        this.service,
+        reference,
+        operation,
+        secret ? Buffer.from(secret, 'utf8') : undefined,
+      );
     if (this.platform === 'darwin') {
       if (operation === 'write')
         return this.command(
@@ -215,7 +254,7 @@ export class PlatformCentralCredentialStore implements CentralCredentialStore {
   async read(reference: string) {
     const result = await this.invoke('read', reference);
     if (
-      (this.platform === 'darwin' && result.code === 44) ||
+      (['darwin', 'win32'].includes(this.platform) && result.code === 44) ||
       (this.platform === 'linux' &&
         result.code === 1 &&
         !result.stderr.trim() &&

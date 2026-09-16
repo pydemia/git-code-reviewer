@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SourceCaptureError } from './source-policy.js';
 import { contentHash } from './local-identity.js';
+import { windowsPrivateTemporary, windowsNativeSync } from './windows-native.js';
 
 export interface GitEntry {
   mode: string;
@@ -27,7 +28,10 @@ export interface GitEntry {
 }
 export type GitTree = Map<string, GitEntry>;
 export class SourceGit {
-  readonly directory = mkdtempSync(path.join(tmpdir(), 'gcr-source-'));
+  readonly directory =
+    process.platform === 'win32'
+      ? windowsPrivateTemporary('gcr-source-')
+      : mkdtempSync(path.join(tmpdir(), 'gcr-source-'));
   readonly root: string;
   readonly index: string;
   readonly objectFormat: 'sha1' | 'sha256';
@@ -43,6 +47,14 @@ export class SourceGit {
     this.root = cwd;
     this.index = path.join(this.directory, 'index');
     this.environment = {
+      ...(process.platform === 'win32'
+        ? {
+            SystemRoot: process.env.SystemRoot,
+            USERPROFILE: this.directory,
+            TEMP: this.directory,
+            TMP: this.directory,
+          }
+        : {}),
       PATH: process.env.PATH,
       LC_ALL: 'C',
       HOME: this.directory,
@@ -100,6 +112,19 @@ export class SourceGit {
         return;
       }
       try {
+        if (process.platform === 'win32') {
+          const result = windowsNativeSync({
+            operation: 'snapshot-read',
+            path: originalIndex,
+            maximum: 24 * 1024 * 1024,
+          });
+          if (!result.missing) {
+            if (typeof result.bytes !== 'string')
+              throw new SourceCaptureError('source-unavailable');
+            writeFileSync(this.index, Buffer.from(result.bytes, 'base64'));
+          }
+          return;
+        }
         const fd = openSync(
           originalIndex,
           constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
