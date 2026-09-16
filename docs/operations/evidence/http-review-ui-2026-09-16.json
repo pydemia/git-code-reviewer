@@ -1,0 +1,425 @@
+{
+  "recordedAt": "2026-09-16T14:44:27.407245+00:00",
+  "context": "PRISM-DEV",
+  "namespace": "git-code-reviewer",
+  "image": {
+    "version": "0.8.0-alpha.66",
+    "sourceSha": "1f39f00557eb308baf08576e0496c54b7364d30f",
+    "digest": "sha256:b9928071516c9101625eb162d3d66fc6ea2bbd684cd03f6fc9ea1573ae42cbbc",
+    "architecture": "amd64",
+    "os": "linux"
+  },
+  "chart": {
+    "version": "0.10.62",
+    "deploymentSourceSha": "ecd20537c2a0bb51cb9caa8512f55d5ce55c4166",
+    "ociDigest": "sha256:564b7547c4b42e3e48fbf1a5cfa23d2701c28d859dac2e501bab22f157d79e5e",
+    "sha256": "eda8c21c689b3fbcde95c092a33af3e113f1ff97b30e763620dadff9ebccd6de",
+    "pulledPackageByteIdentical": true
+  },
+  "helmRevision": 76,
+  "helmTest": "Succeeded",
+  "verification": {
+    "recordedAt": "2026-09-16T14:42:16.603Z",
+    "version": "0.8.0-alpha.66",
+    "sessions": [
+      {
+        "scheme": "https",
+        "login": 200,
+        "me": 200,
+        "cookieName": "gcr_session",
+        "secure": true,
+        "httpOnly": true,
+        "sameSite": "Lax",
+        "invalidOrigins": 403,
+        "credentialManagement": 200,
+        "logout": {
+          "status": 204,
+          "meAfter": 401
+        }
+      },
+      {
+        "scheme": "http",
+        "login": 200,
+        "me": 200,
+        "cookieName": "gcr_http_session",
+        "secure": false,
+        "httpOnly": true,
+        "sameSite": "Lax",
+        "invalidOrigins": 403,
+        "credentialManagement": 401,
+        "logout": {
+          "status": 204,
+          "meAfter": 401
+        }
+      }
+    ],
+    "history": [
+      {
+        "number": 917,
+        "messages": 46,
+        "replies": 10,
+        "coverage": "collected"
+      },
+      {
+        "number": 915,
+        "messages": 16,
+        "replies": 3,
+        "coverage": "collected"
+      }
+    ],
+    "browser": {
+      "engine": "Chrome",
+      "origin": "http://pr-review.prism.ai",
+      "secureContext": false,
+      "history": "passed",
+      "observations": "passed",
+      "sizes": [
+        {
+          "width": 1440,
+          "fits": true
+        },
+        {
+          "width": 420,
+          "fits": true
+        }
+      ],
+      "pageErrors": [],
+      "apiMutations": []
+    },
+    "extraCollection": 0,
+    "modelCalls": 0
+  },
+  "preservation": {
+    "secrets": [
+      {
+        "name": "git-code-reviewer-auth",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-credential-registry",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-db-keycloak",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-development-ca",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-identity-administration",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-identity-bootstrap",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-identity-preparation-backup",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-identity-tls",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-knowledge-signing-v1",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-auth",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-tls",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-saml-sp",
+        "uidPreserved": true,
+        "expectedData": true
+      }
+    ],
+    "configMaps": [
+      {
+        "name": "git-code-reviewer",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-corporate-ca",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-identity-ca",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-identity-configuration",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-ca",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-configuration",
+        "uidPreserved": true,
+        "expectedData": true
+      },
+      {
+        "name": "kube-root-ca.crt",
+        "uidPreserved": true,
+        "expectedData": true
+      }
+    ],
+    "persistentVolumes": [
+      {
+        "name": "data-git-code-reviewer-postgresql-0",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-artifacts",
+        "preserved": true
+      }
+    ],
+    "routes": [
+      {
+        "name": "git-code-reviewer-https-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-https-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-route",
+        "preserved": true
+      }
+    ],
+    "identityReleaseUnchanged": true,
+    "helm": [
+      {
+        "name": "git-code-reviewer",
+        "namespace": "git-code-reviewer",
+        "revision": "76",
+        "updated": "2026-09-16 23:41:09.139733 +0900 KST",
+        "status": "deployed",
+        "chart": "git-code-reviewer-0.10.62",
+        "app_version": "0.8.0-alpha.66"
+      },
+      {
+        "name": "git-code-reviewer-identity",
+        "namespace": "git-code-reviewer",
+        "revision": "2",
+        "updated": "2026-09-14 00:31:42.000431 +0900 KST",
+        "status": "deployed",
+        "chart": "gcr-identity-0.1.0",
+        "app_version": "26.7.3-gcr.1"
+      }
+    ],
+    "helmValuesOnlyExpectedChanges": true,
+    "database": {
+      "tables": {
+        "users": {
+          "before": 7,
+          "after": 7,
+          "preserved": true
+        },
+        "chat_accounts": {
+          "before": 7,
+          "after": 7,
+          "preserved": true
+        },
+        "analysis_runs": {
+          "before": 192,
+          "after": 192,
+          "preserved": true
+        },
+        "reports": {
+          "before": 184,
+          "after": 184,
+          "preserved": true
+        },
+        "repository_grants": {
+          "before": 2,
+          "after": 2,
+          "preserved": true
+        },
+        "tenant_memberships": {
+          "before": 7,
+          "after": 7,
+          "preserved": true
+        },
+        "review_memories": {
+          "before": 5,
+          "after": 5,
+          "preserved": true
+        },
+        "local_credentials": {
+          "before": 6,
+          "after": 6,
+          "preserved": true
+        },
+        "review_rules": {
+          "before": 0,
+          "after": 0,
+          "preserved": true
+        },
+        "review_rule_revisions": {
+          "before": 0,
+          "after": 0,
+          "preserved": true
+        },
+        "review_knowledge_releases": {
+          "before": 10,
+          "after": 10,
+          "preserved": true
+        },
+        "review_history_collections": {
+          "before": 1,
+          "after": 1,
+          "preserved": true
+        }
+      },
+      "migrationsUnchanged": true,
+      "migrationCount": 53,
+      "tls": {
+        "ssl": true,
+        "version": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384"
+      },
+      "tlsMode": "verify-full"
+    },
+    "deployments": [
+      {
+        "name": "git-code-reviewer-identity",
+        "generation": 2,
+        "observedGeneration": 2,
+        "ready": 2,
+        "desired": 2,
+        "images": [
+          "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+        ]
+      },
+      {
+        "name": "git-code-reviewer-server",
+        "generation": 77,
+        "observedGeneration": 77,
+        "ready": 1,
+        "desired": 1,
+        "images": [
+          "docker.io/pydemia/git-code-reviewer@sha256:b9928071516c9101625eb162d3d66fc6ea2bbd684cd03f6fc9ea1573ae42cbbc"
+        ]
+      },
+      {
+        "name": "git-code-reviewer-worker",
+        "generation": 74,
+        "observedGeneration": 74,
+        "ready": 1,
+        "desired": 1,
+        "images": [
+          "docker.io/pydemia/git-code-reviewer@sha256:b9928071516c9101625eb162d3d66fc6ea2bbd684cd03f6fc9ea1573ae42cbbc",
+          "docker.io/pydemia/git-code-reviewer@sha256:b9928071516c9101625eb162d3d66fc6ea2bbd684cd03f6fc9ea1573ae42cbbc"
+        ]
+      }
+    ]
+  },
+  "regression": {
+    "authAndConfiguration": 54,
+    "samlAndClientCredentials": 46,
+    "historyObservationsProfileMarkdown": 33,
+    "browserUuid": 3,
+    "totalUniqueTests": 136,
+    "typecheck": ["runtime", "web"],
+    "changedTypescriptEslint": "passed",
+    "helmLint": "passed",
+    "invalidHttpHostnameRejected": true,
+    "browserFixtures": "isolated PostgreSQL and real Chrome; 1360/420 widths; historical PR outside first 20; UI 503; administrator and reader"
+  },
+  "screenshots": [
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/history-conversation.png",
+      "sha256": "08a42bbf9e157631b20626857736abe403d80649f85c0a40db808e73ef40b471"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/history-desktop.png",
+      "sha256": "c910e2f86a51e43d305a25f194e0c57d84aff1ba316a7c3779e039a6a54e93bc"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/history.png",
+      "sha256": "e9a7aedc1bcf3e248cd8dd7a0f7bcd1c7f674fc5c44dcff4102f6a4949a219bf"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/live-history-desktop.png",
+      "sha256": "47110ed840456d872be07a41d9695606688253c49811cc87124ff5dac73c9dc0"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/live-history-mobile-source.png",
+      "sha256": "4024c76f662872dc00e0eac0a3f8fe6f1e0f128b5d3a042014dc72e2e6a6451d"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/live-history-mobile.png",
+      "sha256": "500170c4085a9e84983d0888addee590173ab41e2a81c5ce875c4f8e23f72fae"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/live-observations-desktop.png",
+      "sha256": "8dfdcd226aaffb489d130682341fcd084b3402bf1b13d7b3e6c1a2ee2c70f124"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/live-observations-mobile.png",
+      "sha256": "5a1f8f4aedce27e4f196817983d0bbb335c028d150a9cb4f19a717fb4f77b3c4"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/observations-1360-bottom.png",
+      "sha256": "a5f9a95d1890dc191879477c1c66921e6f60de0276ff3a1b343ecccbf1042c1d"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/observations-1360.png",
+      "sha256": "92794a8ce53bbaff48ef9a8912df330539cdc9c1000a9340f81e90e6ca17413f"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/observations-420-bottom.png",
+      "sha256": "85a61f7ec4acbc1559c531fc32dc913b1456ed796c4553b21bc5a21f1325ae9f"
+    },
+    {
+      "file": "artifacts/operations/http-review-ui-2026-09-16/observations-420.png",
+      "sha256": "f114edc4edf84dbd113f4a4b12b12b358deb3982967e317ffe5682651a2b68d6"
+    }
+  ],
+  "cleanup": {
+    "liveSessionsLoggedOut": true,
+    "ownedHelmTestPodDeleted": true,
+    "temporaryRegistryCredentialsRemoved": true,
+    "temporaryDockerConfigRemoved": true,
+    "temporaryHelmValuesRemoved": true,
+    "isolatedTestDatabasesRemoved": true
+  },
+  "managedTermination": [
+    {
+      "pod": "git-code-reviewer-worker-79d586788c-lrqdh",
+      "deletionTimestamp": "2026-09-16T15:42:01Z",
+      "phase": "Running"
+    }
+  ]
+}
