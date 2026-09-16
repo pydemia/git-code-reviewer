@@ -59,7 +59,7 @@ it('rejects malformed model or reasoning effort before executing an account comm
   ).rejects.toMatchObject({ code: 'executor-unavailable' });
 });
 
-it.skipIf(process.platform !== 'darwin').each([
+it.skipIf(!['darwin', 'linux'].includes(process.platform)).each([
   ['codex-cli 0.153.4', true],
   ['codex-cli 0.154.0', true],
   ['codex-cli 0.154.1', false],
