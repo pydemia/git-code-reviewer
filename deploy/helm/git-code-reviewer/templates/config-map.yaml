@@ -20,6 +20,7 @@ data:
   DEV_USER_ROLE: {{ .Values.auth.development.role | quote }}
   {{- end }}
   {{- if eq .Values.auth.mode "local" }}
+  LOCAL_HTTP_ORIGIN: {{ default "" .Values.auth.local.httpOrigin | quote }}
   LOCAL_BOOTSTRAP_ADMIN_NAME: {{ .Values.auth.local.adminDisplayName | quote }}
   LOCAL_BOOTSTRAP_REVIEWER_NAME: {{ .Values.auth.local.reviewerDisplayName | quote }}
   {{- end }}

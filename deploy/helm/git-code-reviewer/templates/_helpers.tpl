@@ -308,6 +308,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.keycloak.enabled (ne .Values.auth.mode "oidc") -}}
 {{- fail "keycloak.enabled requires auth.mode=oidc" -}}
 {{- end -}}
+{{- if .Values.auth.local.httpOrigin -}}
+{{- $http := urlParse .Values.auth.local.httpOrigin -}}
+{{- $public := urlParse .Values.publicBaseUrl -}}
+{{- if or (ne .Values.auth.mode "local") (ne $http.scheme "http") (ne $public.scheme "https") (ne (regexReplaceAll ":[0-9]+$" $http.host "") (regexReplaceAll ":[0-9]+$" $public.host "")) -}}
+{{- fail "auth.local.httpOrigin requires local auth and the HTTPS publicBaseUrl hostname" -}}
+{{- end -}}
+{{- end -}}
 {{- if and (eq .Values.auth.mode "local") (not .Values.secrets.auth) -}}
 {{- fail "local auth requires secrets.auth with session and bootstrap account credentials" -}}
 {{- end -}}

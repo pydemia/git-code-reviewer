@@ -42,6 +42,7 @@ const configSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(4000),
   PUBLIC_BASE_URL: optionalUrl,
+  LOCAL_HTTP_ORIGIN: optionalUrl,
   WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4001),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
   DATABASE_URL: z.string().min(1),
@@ -239,6 +240,20 @@ export function loadConfig(
   if (!result.success) {
     const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Invalid configuration: ${fields}`);
+  }
+  if (result.data.LOCAL_HTTP_ORIGIN) {
+    const http = new URL(result.data.LOCAL_HTTP_ORIGIN);
+    const primary = result.data.PUBLIC_BASE_URL ? new URL(result.data.PUBLIC_BASE_URL) : null;
+    if (
+      result.data.AUTH_MODE !== 'local' ||
+      http.protocol !== 'http:' ||
+      http.origin !== result.data.LOCAL_HTTP_ORIGIN ||
+      primary?.protocol !== 'https:' ||
+      http.hostname !== primary.hostname
+    )
+      throw Error(
+        'Invalid configuration: LOCAL_HTTP_ORIGIN requires local auth and an exact HTTP origin on the HTTPS public hostname',
+      );
   }
   if (
     command === 'serve' &&

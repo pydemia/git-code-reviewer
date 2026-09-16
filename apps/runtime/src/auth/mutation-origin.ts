@@ -30,7 +30,11 @@ function sameOrigin(request: FastifyRequest, config: AppConfig): boolean {
   try {
     const parsed = new URL(origin);
     const expected = new URL(config.PUBLIC_BASE_URL ?? `${request.protocol}://${request.host}`);
-    return origin === parsed.origin && parsed.origin === expected.origin;
+    return (
+      origin === parsed.origin &&
+      (parsed.origin === expected.origin ||
+        (config.AUTH_MODE === 'local' && origin === config.LOCAL_HTTP_ORIGIN))
+    );
   } catch {
     return false;
   }

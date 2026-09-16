@@ -578,6 +578,7 @@
           "type": "object",
           "required": ["adminDisplayName", "reviewerDisplayName"],
           "properties": {
+            "httpOrigin": { "type": "string", "pattern": "^$|^http://[^/?#@]+$" },
             "adminDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 },
             "reviewerDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 }
           }

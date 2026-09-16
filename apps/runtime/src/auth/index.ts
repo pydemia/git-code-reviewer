@@ -14,6 +14,7 @@ import {
   type ClientPrincipal,
 } from './client-credentials.js';
 import { registerSamlAuthentication, samlPublicRequest } from './saml-routes.js';
+import { browserSessionCookie, localHttpSessionCookie } from './browser-session.js';
 import {
   assertLocalUsername,
   hashLocalPassword,
@@ -158,7 +159,7 @@ export async function registerAuthentication(
     }
 
     if (config.AUTH_MODE === 'saml' && samlPublicRequest(request)) return;
-    const token = request.cookies[sessionCookie];
+    const token = request.cookies[browserSessionCookie(request, config)];
     if (!token) return;
     if (config.AUTH_MODE === 'saml') {
       try {
@@ -327,7 +328,11 @@ export async function registerAuthentication(
        values ($1, $2, clock_timestamp() + interval '8 hours')`,
       [hash(token), credential.userId],
     );
-    setCookie(reply, sessionCookie, token, config, sessionTtlSeconds);
+    const name =
+      config.LOCAL_HTTP_ORIGIN && request.headers.origin === config.LOCAL_HTTP_ORIGIN
+        ? localHttpSessionCookie
+        : sessionCookie;
+    setCookie(reply, name, token, config, sessionTtlSeconds);
     await database.query(
       `insert into audit_events(actor, action, resource_type, resource_id, outcome, request_id)
        values ($1, 'auth.login', 'user', $2, 'success', $3)`,
@@ -338,9 +343,10 @@ export async function registerAuthentication(
 
   app.post('/auth/logout', async (request, reply) => {
     if (saml) return saml.startLogout(request, reply);
-    const token = request.cookies[sessionCookie];
+    const name = browserSessionCookie(request, config);
+    const token = request.cookies[name];
     if (token) await database.query('delete from user_sessions where id_hash = $1', [hash(token)]);
-    reply.clearCookie(sessionCookie, { path: '/' });
+    reply.clearCookie(name, { path: '/' });
     return reply.code(204).send();
   });
 }
@@ -529,9 +535,12 @@ function setCookie(
   reply.setCookie(name, value, {
     path: name === transactionCookie ? '/auth' : '/',
     httpOnly: true,
-    secure: config.PUBLIC_BASE_URL
-      ? new URL(config.PUBLIC_BASE_URL).protocol === 'https:'
-      : config.NODE_ENV === 'production',
+    secure:
+      name === localHttpSessionCookie
+        ? false
+        : config.PUBLIC_BASE_URL
+          ? new URL(config.PUBLIC_BASE_URL).protocol === 'https:'
+          : config.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge,
     signed,

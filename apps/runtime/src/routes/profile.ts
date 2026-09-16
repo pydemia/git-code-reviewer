@@ -197,6 +197,7 @@ export async function registerProfileRoutes(
       await writeAudit(connection, request, 'user.password.change', 'success');
       await connection.query('commit');
       reply.clearCookie('gcr_session', { path: '/' });
+      reply.clearCookie('gcr_http_session', { path: '/' });
       return { schemaVersion, reauthenticate: true };
     } catch (error) {
       await connection.query('rollback');

@@ -303,6 +303,8 @@ auth:
   # an OIDC endpoint. The referenced auth Secret must contain SESSION_SECRET,
   # LOCAL_BOOTSTRAP_ADMIN_USERNAME/PASSWORD and optional reviewer counterparts.
   local:
+    # Optional HTTP browser access alongside the HTTPS public URL; exact same hostname.
+    httpOrigin: ''
     adminDisplayName: 시스템 관리자
     reviewerDisplayName: 일반 사용자
   saml:
