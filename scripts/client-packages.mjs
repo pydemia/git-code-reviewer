@@ -9,8 +9,22 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packages = ['client-contract', 'client-core', 'client-executors'];
 const args = process.argv.slice(2);
 if (args.some((arg) => arg !== '--verify')) throw new Error('Usage: pnpm pack:clients [--verify]');
-const run = (command, argv, cwd = root) =>
-  execFileSync(command, argv, { cwd, stdio: 'inherit', env: process.env });
+const pnpmCli = process.env.npm_execpath;
+const npmCli =
+  process.platform === 'win32'
+    ? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js')
+    : undefined;
+const run = (command, argv, cwd = root) => {
+  const cli = command === 'pnpm' ? pnpmCli : command === 'npm' ? npmCli : undefined;
+  if (process.platform === 'win32' && ['pnpm', 'npm'].includes(command))
+    assert(cli, 'Run through the pinned pnpm package script');
+  execFileSync(cli ? process.execPath : command, cli ? [cli, ...argv] : argv, {
+    cwd,
+    stdio: 'inherit',
+    env: process.env,
+    windowsHide: true,
+  });
+};
 const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const manifests = await Promise.all(
   packages.map((name) => json(join(root, 'packages', name, 'package.json'))),
@@ -23,9 +37,9 @@ for (const [index, manifest] of manifests.entries()) {
   assert.equal(manifest.engines.node, '>=18.0.0');
   for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
     for (const dependency of Object.keys(manifest[field] ?? {})) {
-      assert.equal(
-        dependency,
-        '@gcr/client-contract',
+      assert(
+        dependency === '@gcr/client-contract' ||
+          (manifest.name === '@gcr/client-executors' && dependency === '@gcr/client-core'),
         `Unexpected client dependency: ${dependency}`,
       );
       assert.notEqual(manifest.name, '@gcr/client-contract', 'Contract must be dependency-free');
@@ -48,10 +62,17 @@ try {
       .trim()
       .split('\n');
     assert(
-      listing.every((entry) =>
-        /^package\/(?:dist\/[^/]+\.(?:js|d\.ts)(?:\.map)?|package\.json|LICENSE|README\.md)$/.test(
-          entry,
-        ),
+      listing.every(
+        (entry) =>
+          /^package\/(?:dist\/[^/]+\.(?:js|d\.ts)(?:\.map)?|package\.json|LICENSE|README\.md)$/.test(
+            entry.trim(),
+          ) ||
+          (name === 'client-core' &&
+            [
+              'package/dist/windows-native.exe',
+              'package/dist/windows-native.json',
+              'package/native/windows/Native.cs',
+            ].includes(entry.trim())),
       ),
       'Unexpected packed file',
     );
@@ -71,7 +92,18 @@ try {
       sha256: createHash('sha256').update(bytes).digest('hex'),
     });
   }
-  const manifest = { schemaVersion: 1, version, packages: entries };
+  const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim();
+  const manifest = {
+    schemaVersion: 1,
+    version,
+    sourceSha,
+    buildPlatform: process.platform,
+    buildArchitecture: process.arch,
+    packages: entries,
+  };
   await writeFile(join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   if (args.includes('--verify')) {
     const consumer = join(stage, 'consumer');
@@ -99,6 +131,10 @@ import { clientExecutorsPackage } from '@gcr/client-executors';
 for (const info of [clientContractPackage, clientCorePackage, clientExecutorsPackage]) {
   assert.equal(info.version, ${JSON.stringify(version)});
   assert.equal(info.contractVersion, 1);
+}
+if (process.platform === 'win32') {
+  const { windowsNativeSync } = await import('@gcr/client-core/windows-native');
+  assert(windowsNativeSync({operation:'identity'}).dataDirectory);
 }
 console.log('Clean consumer imports passed on ' + process.version);
 `;
