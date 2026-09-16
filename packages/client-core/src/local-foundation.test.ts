@@ -158,7 +158,7 @@ describe('OS key store command boundary', () => {
       code: 'credential-unavailable',
       message: 'OS credential store is unavailable or locked.',
     });
-    expect(() => new PlatformLocalKeyStore('com.commitdefender.test', 'win32')).toThrow(
+    expect(() => new PlatformLocalKeyStore('com.commitdefender.test', 'freebsd')).toThrow(
       'No supported OS',
     );
     await expect(missing.read('key\ncommand')).rejects.toMatchObject({
