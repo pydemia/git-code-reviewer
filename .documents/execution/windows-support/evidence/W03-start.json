@@ -1,0 +1,193 @@
+{
+  "capturedAt": "2026-09-16T05:28:36.1574275Z",
+  "gcrSource": "7ebd15502c1738c1ef1acc6aab88bc436c350c53",
+  "cdSource": "c598134e37e03c883a2a3002ea28f89ebe3aec9a",
+  "branch": "codex/windows-native-support",
+  "worktreesClean": true,
+  "remoteEqualsLocal": true,
+  "installedVersion": "2.12.3",
+  "runtime": [
+    {
+      "file": "out/extension.js",
+      "sha256": "2f396cd85c8e0685667657691bcef07e89512693ac35612e15008dc1c70d3562"
+    },
+    {
+      "file": "out/standalone-review-worker.js",
+      "sha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2"
+    },
+    {
+      "file": "out/windows-native.exe",
+      "sha256": "7ebc154f3a3aedb6361cf306e6dc756171dcf68c89407b537004ab129c1c704d"
+    },
+    {
+      "file": "out/windows-native.json",
+      "sha256": "a73b641555127191afa8101550488438bebca9e84ac98e68e31610b9201de20d"
+    }
+  ],
+  "packages": [
+    {
+      "name": "@gcr/client-contract",
+      "version": "0.1.0-alpha.48",
+      "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+    },
+    {
+      "name": "@gcr/client-core",
+      "version": "0.1.0-alpha.48",
+      "sha256": "1da9775ddd437761c98367cb032f9c5fc08e938e668988c54710d746a987d386"
+    },
+    {
+      "name": "@gcr/client-executors",
+      "version": "0.1.0-alpha.48",
+      "sha256": "ab2df596d8a7af345425e19e8643cdcf8cabf1b0c0dd5134dfc95cae151f4b6f"
+    }
+  ],
+  "settings": [
+    {
+      "path": "C:/Users/pydemia/AppData/Roaming/Code/User/settings.json",
+      "sha256": "fd5f3d5c232515fa51ba98ef32ae5811c578f2e5eafdc2154ba4357603597546"
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/config.toml",
+      "sha256": "0b0980646662af414cf17513535a661b71577376373338c2bd23bdda1300c237"
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/AGENTS.md",
+      "sha256": "8a45f4bd5beacf07f4debce813aa09938c71a1d8d80fbbfcf940461bd139f8e9"
+    },
+    {
+      "path": "C:/Users/pydemia/AppData/Local/OpenAI/Codex/bin/02c7a9ff819938f0/codex.exe",
+      "sha256": "77f792476fe0def726503f02a7c55f485e562dd7ad8801fe61dc8f4bf9991d20"
+    }
+  ],
+  "serviceProcesses": [],
+  "hooks": [
+    {
+      "repository": "C:/Users/pydemia/git/git-code-reviewer",
+      "hooksPath": [],
+      "defaultHookFiles": [
+        {
+          "name": "applypatch-msg.sample",
+          "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+        },
+        {
+          "name": "commit-msg.sample",
+          "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+        },
+        {
+          "name": "fsmonitor-watchman.sample",
+          "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+        },
+        {
+          "name": "post-update.sample",
+          "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+        },
+        {
+          "name": "pre-applypatch.sample",
+          "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+        },
+        {
+          "name": "pre-commit.sample",
+          "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+        },
+        {
+          "name": "pre-merge-commit.sample",
+          "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+        },
+        {
+          "name": "pre-push.sample",
+          "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+        },
+        {
+          "name": "pre-rebase.sample",
+          "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+        },
+        {
+          "name": "pre-receive.sample",
+          "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+        },
+        {
+          "name": "prepare-commit-msg.sample",
+          "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+        },
+        {
+          "name": "push-to-checkout.sample",
+          "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+        },
+        {
+          "name": "sendemail-validate.sample",
+          "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+        },
+        {
+          "name": "update.sample",
+          "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+        }
+      ]
+    },
+    {
+      "repository": "C:/Users/pydemia/git/commit-defender",
+      "hooksPath": [],
+      "defaultHookFiles": [
+        {
+          "name": "applypatch-msg.sample",
+          "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+        },
+        {
+          "name": "commit-msg.sample",
+          "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+        },
+        {
+          "name": "fsmonitor-watchman.sample",
+          "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+        },
+        {
+          "name": "post-update.sample",
+          "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+        },
+        {
+          "name": "pre-applypatch.sample",
+          "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+        },
+        {
+          "name": "pre-commit.sample",
+          "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+        },
+        {
+          "name": "pre-merge-commit.sample",
+          "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+        },
+        {
+          "name": "pre-push.sample",
+          "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+        },
+        {
+          "name": "pre-rebase.sample",
+          "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+        },
+        {
+          "name": "pre-receive.sample",
+          "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+        },
+        {
+          "name": "prepare-commit-msg.sample",
+          "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+        },
+        {
+          "name": "push-to-checkout.sample",
+          "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+        },
+        {
+          "name": "sendemail-validate.sample",
+          "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+        },
+        {
+          "name": "update.sample",
+          "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+        }
+      ]
+    }
+  ],
+  "existingVerificationAccounts": [],
+  "currentTokenIsAdministrator": false,
+  "userHostAppliedVersion": "unverified",
+  "modelCalls": 0
+}

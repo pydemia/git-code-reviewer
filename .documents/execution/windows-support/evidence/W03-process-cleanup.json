@@ -1,0 +1,20 @@
+[
+  {
+    "evidence": "W03-native-host-attempt1.json",
+    "observedProcessCount": 19,
+    "remainingOwnedProcesses": [],
+    "servicePidAlive": false
+  },
+  {
+    "evidence": "W03-native-host-attempt2.json",
+    "observedProcessCount": 17,
+    "remainingOwnedProcesses": [],
+    "servicePidAlive": false
+  },
+  {
+    "evidence": "W03-native-host-lifecycle.json",
+    "observedProcessCount": 0,
+    "remainingOwnedProcesses": [],
+    "servicePidAlive": false
+  }
+]

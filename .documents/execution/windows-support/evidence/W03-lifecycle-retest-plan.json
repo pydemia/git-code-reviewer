@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-09-16T06:41:51.161Z",
+  "prior": "W03-native-host-attempt2.json",
+  "reviewAccepted": "completed report, zero problems, verified anchor/source evidence, encrypted history reread succeeded",
+  "hostLauncherStatus": "cleanup-failed; not represented as a successful launcher run",
+  "cause": "Observed: persistent service was not gracefully stopped before the supervised Host quit; outer native launcher returned cleanup-failed, then service and descendants were absent. Exact inner cleanup failure site was not retained. Hypothesis tested: stop owned service before Host shutdown.",
+  "change": "Test Host now pauses/revokes/restores hooks, calls stop for its owned service, waits for its PID to exit, then quits VS Code. Product runtime is unchanged.",
+  "retest": "Actual Windows Extension Host native service lifecycle only, maximumReviewInvocations=0",
+  "additionalModelInvocations": 0,
+  "modelInvocationsSoFar": 2,
+  "launcherTimeoutMs": 480000,
+  "artifacts": "unchanged installed VSIX 2.12.4; helper1.0.3/service38",
+  "successCriteria": [
+    "zero model calls and zero review jobs",
+    "owned service stopped before Host exit",
+    "native Host launcher code 0 without cleanup error",
+    "temporary profile/keys/fixture removed"
+  ],
+  "actualReviewEvidenceReused": true
+}

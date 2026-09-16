@@ -1,0 +1,82 @@
+{
+  "recordedAt": "2026-09-16T06:46:33.566Z",
+  "phase": "W03",
+  "implementationAndVerification": "complete",
+  "delivery": "pending commit/push",
+  "windowsWholeSupport": "not claimed; W04 not started",
+  "criteria": [
+    {
+      "id": "W03-C01",
+      "status": "passed",
+      "evidence": [
+        "W03-user-boundary-final.json",
+        "W03-validation.json",
+        "W03-process-cleanup.json"
+      ],
+      "scope": "actual native IPC user/repository/profile/ownership/lifecycle; no mock substituted for OS boundary"
+    },
+    {
+      "id": "W03-C02",
+      "status": "passed",
+      "evidence": [
+        "W03-validation.json",
+        "W03-native-host-attempt2.json",
+        "W03-native-host-lifecycle.json"
+      ],
+      "scope": "managed Git hooks, spaces/Korean/worktrees/hooksPath/original preservation, native executable route"
+    },
+    {
+      "id": "W03-C03",
+      "status": "passed",
+      "evidence": [
+        "W03-validation.json",
+        "W03-native-host-attempt2.json",
+        "W03-native-host-lifecycle.json"
+      ],
+      "scope": "synthetic matrix/error/cancel/recovery, one content-verified completed real Luna/high report; failed harness/launcher results retained separately"
+    },
+    {
+      "id": "W03-C04",
+      "status": "passed",
+      "evidence": [
+        "W03-artifact-linkage.json",
+        "W03-vsix-contents.json",
+        "W03-preservation.json"
+      ],
+      "scope": "immutable packages, service, VSIX built and locally installed, exact runtime hashes; already-open user Host remains unverified"
+    }
+  ],
+  "realModel": {
+    "provider": "existing Codex account",
+    "model": "gpt-5.6-luna",
+    "reasoning": "high",
+    "totalInvocations": 2,
+    "perInvocationTimeoutMs": 240000,
+    "completedReportsWithContentAndHistoryValidation": 1,
+    "attempt1": "not accepted: harness exit-code assertion before report capture",
+    "attempt2": "report validation passed; outer launcher cleanup failed and is not counted as a passed launcher run",
+    "lifecycleRetest": "zero model calls; native launcher code0; service stops before Host; profile/key/session/fixture removed"
+  },
+  "remaining": [
+    {
+      "kind": "manual cleanup",
+      "evidence": "W03-cleanup-blocked.json",
+      "directories": 19,
+      "reason": "Execution tool automatic approval rejected recursive deletes; no workaround"
+    },
+    {
+      "kind": "platform limitation",
+      "platform": "macOS",
+      "status": "not executed"
+    },
+    {
+      "kind": "legacy fixture limitation",
+      "status": "POSIX shebang review-outcome fixture 15/23 Windows; 23/23 actual Linux; no legacy Windows support claimed"
+    },
+    {
+      "kind": "application state",
+      "status": "installed2.12.4 and separate validation Host verified; already-open user Host applied version unknown"
+    }
+  ],
+  "outOfScopeChanges": false
+}

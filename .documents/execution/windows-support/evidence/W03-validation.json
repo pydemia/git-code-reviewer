@@ -1,0 +1,184 @@
+{
+  "recordedAt": "2026-09-16T06:34:34.080Z",
+  "platform": "Windows 11 ARM64 native; no WSL",
+  "realModel": false,
+  "development": [
+    {
+      "suite": "CD trigger-matrix",
+      "passed": 16,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 1175640.623,
+      "executor": "synthetic",
+      "transport": "actual native Windows IPC and Git for Windows hooks; temporary repositories and local bare remotes",
+      "artifact": "W03 development helper 1.0.2 build; not the final artifact"
+    },
+    {
+      "suite": "core local-service",
+      "passed": 7,
+      "skipped": 1,
+      "details": "applicable cases passed across initial run and targeted history-crash rerun; POSIX socket-file case skipped"
+    },
+    {
+      "suite": "core service-watch",
+      "passed": 18,
+      "details": "17 passed initial run; fake-clock test repaired and targeted rerun passed; Save interval unchanged"
+    },
+    {
+      "suite": "core review-requests targeted",
+      "passed": 6,
+      "details": "manual priority, hold/release, budget, cancellation ownership, persisted result and storage failure"
+    },
+    {
+      "suite": "Windows executor isolation",
+      "passed": 3,
+      "details": "auth-only link, literal argv/no shell, owner crash kills child/grandchild and preserves independent process"
+    },
+    {
+      "suite": "Windows native storage",
+      "passed": 6,
+      "details": "existing five tests plus atomic replace/remove/reparse/ACL case"
+    }
+  ],
+  "finalArtifact": [
+    {
+      "suite": "CD trigger-matrix 0000 and 1111",
+      "passed": 2,
+      "failed": 0,
+      "cancelled": 0,
+      "durationMs": 118458.4045,
+      "allOff": {
+        "calls": 0,
+        "jobs": 0
+      },
+      "allOn": {
+        "calls": 3,
+        "jobs": 8,
+        "reasons": [
+          "push -> commit-tree",
+          "commit+stage -> index",
+          "save -> working-tree"
+        ]
+      },
+      "executor": "synthetic; actual native IPC and Git hooks"
+    },
+    {
+      "suite": "CD managed-hooks",
+      "passed": 6,
+      "failed": 0,
+      "durationMs": 51124.0581,
+      "coverage": "spaces/Korean/apostrophe, original bytes/status/stdin, partial commit, worktree, core.hooksPath, user edits, missing Node, uninstall"
+    },
+    {
+      "suite": "CD automatic-review",
+      "passed": 17,
+      "failed": 0,
+      "durationMs": 106710.0227,
+      "executor": "synthetic, VSCode event mock with real Git/storage"
+    },
+    {
+      "suite": "CD background-recovery",
+      "passed": 9,
+      "failed": 0,
+      "durationMs": 221.1316,
+      "executor": "synthetic; preserves partial/interrupted and existing service"
+    },
+    {
+      "suite": "ordinary-user boundary",
+      "evidence": "W03-user-boundary-final.json",
+      "helper": "1.0.3",
+      "method": "actual ordinary Windows logon, non-elevated owner service, impostor SID check with zero request bytes"
+    },
+    {
+      "suite": "build/typecheck",
+      "passed": true,
+      "details": "GCR core/CLI typecheck and scoped lint/format; CD source/test typecheck/build; pack clients and CLI clean offline consumer --verify"
+    },
+    {
+      "suite": "core windows-service final helper 1.0.3",
+      "passed": 1,
+      "failed": 0,
+      "durationMs": 12530
+    },
+    {
+      "suite": "CD API local-provider-executor",
+      "passed": 6,
+      "failed": 0,
+      "durationMs": 23995.3201,
+      "providers": [
+        "OpenAI",
+        "Azure OpenAI",
+        "Anthropic",
+        "Gemini"
+      ],
+      "transport": "synthetic local responses, captured source/base and destination-bound credential; no paid provider calls"
+    },
+    {
+      "suite": "Windows native managed process final helper1.0.3",
+      "passed": 6,
+      "failed": 0,
+      "durationMs": 5320,
+      "coverage": "literal stdin/argv, early abort, missing executable, output limit, timeout/cancel/leader-exit kills descendants"
+    }
+  ],
+  "otherPlatforms": [
+    {
+      "platform": "Linux ARM64 Docker Desktop container",
+      "image": "pydemia/git-code-reviewer:0.8.0-alpha.3",
+      "node": "22.23.2",
+      "git": "2.54.0",
+      "network": "none",
+      "coreServiceSmokePassed": 1,
+      "managedHooksPassed": 6,
+      "windowsNativeEvidence": false,
+      "details": "actual Linux runtime; Unix permissions/IPC/scope/ownership/dedupe/cancel/failure/history/restart; existing containers unchanged",
+      "legacyReviewOutcomePassed": 23,
+      "legacyReviewOutcomeDurationMs": 2463.074841
+    },
+    {
+      "platform": "macOS",
+      "executed": false,
+      "details": "No available native environment or existing workflow; inspected preserved POSIX branch only"
+    }
+  ],
+  "failuresCorrected": [
+    {
+      "case": "native pipe response lost before client read",
+      "fix": "client ACK before disconnect",
+      "scope": "native transport"
+    },
+    {
+      "case": "Windows fixture key namespace outside native allowlist",
+      "fix": "test uses existing PlatformLocalKeyStore namespace and removes exact temporary key reference"
+    },
+    {
+      "case": "Windows killed process exit representation",
+      "fix": "test expects Windows code 1/null signal; Unix signal assertion retained"
+    },
+    {
+      "case": "service-watch fake clock behind persisted timestamp",
+      "fix": "test uses pendingUntil boundary; product delay unchanged"
+    },
+    {
+      "case": "all-on trigger initial 90-second test deadline",
+      "observed": "cancelled, not pass",
+      "fix": "synthetic test deadline 180 seconds; unavailable cleanup IPC 500ms; full matrix and final subset passed; actual model timeout still 240 seconds"
+    },
+    {
+      "case": "Git for Windows forwards original hook stdout to stderr",
+      "fix": "test compares Git-dispatched original baseline; original output preserved"
+    },
+    {
+      "case": "PowerShell UAC helper process policy",
+      "fix": "RemoteSigned for this child process only; no global execution policy change"
+    }
+  ],
+  "outOfScopeNativeFixtureLimitation": {
+    "suite": "CD legacy review-outcome",
+    "windowsPassed": 15,
+    "windowsFailed": 8,
+    "reason": "Existing fixture directly executes POSIX #!/usr/bin/env node script; Windows does not invoke that shebang as a native executable. Linux same bundle passes 23/23.",
+    "codeChanged": false,
+    "windowsLegacyHookSupportClaimed": false
+  }
+}
