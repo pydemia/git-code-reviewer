@@ -1,0 +1,209 @@
+{
+  "checkedAt": "2026-09-16T04:44:09.2845741Z",
+  "status": "prepared; waiting for permission to post test review comments and reply",
+  "userAuthorizedReplacement": "Use local GCR and a new pydemia/commit-defender PR instead of unavailable #917/#915 originals.",
+  "pull": {
+    "number": 3,
+    "githubId": 4543940727,
+    "url": "https://github.com/pydemia/commit-defender/pull/3",
+    "baseSha": "df7fc59ea64d17e85829327004f66807ef9e7504",
+    "headSha": "2aca9bbc54e811f0d7d8d0c966148d85fff1636a"
+  },
+  "testHeadBranch": "codex/w02-github-history-test",
+  "githubApi": "actual authenticated GitHub API; no reconstructed messages",
+  "originalBodiesVerified": false,
+  "commentPostingPerformed": false,
+  "modelCalls": 0,
+  "additionalModelBudget": {
+    "total": 3,
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "high",
+    "perCallTimeoutSeconds": 240
+  },
+  "server": {
+    "testReaderRevoked": true,
+    "executedSourceSha": "6b63e7589386a752fc39c7ca78b1ba7a2f1bfeb4",
+    "readerRequests": [
+      {
+        "at": "2026-09-16T04:41:15.534Z",
+        "method": "GET",
+        "route": "/api/v1/client-auth/me",
+        "queryKeys": [],
+        "bodyBytes": 0
+      },
+      {
+        "at": "2026-09-16T04:41:15.782Z",
+        "method": "GET",
+        "route": "/api/v1/repositories/57db9c82-1772-44b5-8d72-5fe4c9b1f14e/review-knowledge/manifest",
+        "queryKeys": [
+          "clientContractVersion"
+        ],
+        "bodyBytes": 0
+      },
+      {
+        "at": "2026-09-16T04:41:15.942Z",
+        "method": "GET",
+        "route": "/api/v1/repositories/57db9c82-1772-44b5-8d72-5fe4c9b1f14e/review-knowledge/bundles/0dc03bbf-e6a8-45af-bf96-56f646af3bca",
+        "queryKeys": [
+          "snapshotId"
+        ],
+        "bodyBytes": 0
+      },
+      {
+        "at": "2026-09-16T04:41:16.057Z",
+        "method": "GET",
+        "route": "/api/v1/repositories/57db9c82-1772-44b5-8d72-5fe4c9b1f14e/review-knowledge/bundles/88de0879-2aeb-4c94-bded-d914ae709b45",
+        "queryKeys": [
+          "snapshotId"
+        ],
+        "bodyBytes": 0
+      },
+      {
+        "at": "2026-09-16T04:41:16.17Z",
+        "method": "GET",
+        "route": "/api/v1/repositories/57db9c82-1772-44b5-8d72-5fe4c9b1f14e/review-knowledge/bundles/3d9a98cf-31f6-49c5-88a1-2b459eafeae6",
+        "queryKeys": [
+          "snapshotId"
+        ],
+        "bodyBytes": 0
+      },
+      {
+        "at": "2026-09-16T04:41:16.841Z",
+        "method": "GET",
+        "route": "/api/v1/repositories/57db9c82-1772-44b5-8d72-5fe4c9b1f14e/review-history",
+        "queryKeys": [
+          "pullNumber"
+        ],
+        "bodyBytes": 0
+      }
+    ],
+    "readerReadOnly": true,
+    "executedHarnessSha256": "e3a093af20b78b1d4bcef8ef5dec30171ca146aed0c15bdb3e99dfe27cff8a18",
+    "status": "stopped",
+    "databaseRuntime": "Docker Linux PostgreSQL; GCR API and CD run on Windows",
+    "collections": [
+      {
+        "id": "a951f128-e2d2-4557-b6bb-0c0482734190",
+        "state": "completed",
+        "parity": []
+      }
+    ],
+    "node": "v24.16.0",
+    "githubRequests": [
+      {
+        "method": "GET",
+        "path": "/repos/pydemia/commit-defender/pulls/3",
+        "queryKeys": []
+      },
+      {
+        "method": "GET",
+        "path": "/repos/pydemia/commit-defender/issues/3/comments",
+        "queryKeys": [
+          "per_page",
+          "page"
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/repos/pydemia/commit-defender/pulls/3/reviews",
+        "queryKeys": [
+          "per_page",
+          "page"
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/repos/pydemia/commit-defender/pulls/3/comments",
+        "queryKeys": [
+          "per_page",
+          "page"
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/repos/pydemia/commit-defender/issues/3/comments",
+        "queryKeys": [
+          "per_page",
+          "page"
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/repos/pydemia/commit-defender/pulls/3/reviews",
+        "queryKeys": [
+          "per_page",
+          "page"
+        ]
+      },
+      {
+        "method": "GET",
+        "path": "/repos/pydemia/commit-defender/pulls/3/comments",
+        "queryKeys": [
+          "per_page",
+          "page"
+        ]
+      }
+    ],
+    "platform": "win32",
+    "arch": "arm64",
+    "cleanup": {
+      "readerCredentialRemoved": true,
+      "containerRemoved": true,
+      "volumeRemoved": true,
+      "temporaryFilesRemoved": true
+    }
+  },
+  "readerPreflight": {
+    "platform": "win32",
+    "modelCalls": 0,
+    "status": "passed",
+    "result": {
+      "credentialReopened": true,
+      "exactOnlineOffline": true,
+      "pullNumber": 3,
+      "coverage": {
+        "state": "collected",
+        "lastCompleteAt": "2026-09-16T04:41:12.83Z",
+        "syncStartedAt": "2026-09-16T04:41:12.407Z",
+        "observedCount": 0,
+        "errorCode": null
+      },
+      "messageCount": 0,
+      "revision": "927a2c95c58b30d12873e0ee537ebb36acdaa24f50c731c15f78fae965ac800c",
+      "originalSourceValidation": "pending comment authorization"
+    },
+    "temporaryProfileAndCredentialsRemoved": true
+  },
+  "pendingHarnessSources": {
+    "cd": "ff357d3a600d58ec0d635a83848c79e46c519390",
+    "gcr": "559715c64f37eb5e9f3ad86e423621d0ef6fa29c",
+    "guidanceActivationExecuted": false,
+    "hostModelExecutionPerformed": false
+  },
+  "checks": [
+    "GCR Prettier passed",
+    "GCR ESLint passed",
+    "GCR TypeScript with repository strict/noUncheckedIndexedAccess/exactOptionalPropertyTypes passed",
+    "CD test typecheck passed",
+    "CD Host test bundle built",
+    "CD runner Node syntax check passed",
+    "git diff --check passed"
+  ],
+  "delivery": {
+    "rebuiltVsix": false,
+    "artifactEvidence": "W02-artifact-linkage.json",
+    "existingUserHostVersion": "unverified",
+    "nativeHelper": "1.0.2",
+    "client": "0.1.0-alpha.48",
+    "installedWorkerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+    "productChanges": false,
+    "installedVsix": "2.12.3"
+  },
+  "remaining": [
+    "Post authorized test review body and reply",
+    "Collect original and edited body versions",
+    "Activate source-linked guidance",
+    "Run and assess three actual Host reviews",
+    "Previously denied synthetic cache folder cleanup remains separate"
+  ]
+}
