@@ -8,7 +8,7 @@ import { LocalStoreError, type LocalStoreErrorCode } from './local-errors.js';
 
 const maximum = 36 * 1024 * 1024;
 const directory =
-  typeof __dirname === 'string' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+  typeof import.meta.url === 'string' ? path.dirname(fileURLToPath(import.meta.url)) : __dirname;
 const nativeDirectory =
   path.basename(directory) === 'src' ? path.join(directory, '..', 'dist') : directory;
 
