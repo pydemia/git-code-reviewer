@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-09-16T11:28:43.544Z",
+  "publisher": "pydemia",
+  "credentialStore": "Windows credential store via vsce keyring",
+  "credentialAvailable": true,
+  "principalResolved": true,
+  "selfRoles": [
+    "Owner"
+  ],
+  "publisherWriteAuthorized": true,
+  "secretRecorded": false
+}

@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-09-16T11:31:28.008Z",
+  "authenticatedGallery": true,
+  "versions": [
+    {
+      "version": "2.12.5",
+      "targetPlatform": "win32-arm64",
+      "flags": 0,
+      "validationResultMessage": null,
+      "lastUpdated": "2026-09-16T11:29:13.923Z",
+      "properties": [
+        {
+          "key": "Microsoft.VisualStudio.Services.VsixSha256",
+          "value": "42e3f49567afca1c74d36892fc6e36b3c0de347be4d4cf411fa19e9b40f9008c"
+        }
+      ]
+    }
+  ]
+}

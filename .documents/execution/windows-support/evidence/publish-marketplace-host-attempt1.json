@@ -1,0 +1,13 @@
+{
+  "status": "host-starting",
+  "realModel": false,
+  "modelCalls": 0,
+  "fixtureDefectReproduced": true,
+  "hostLauncher": {
+    "code": 1,
+    "error": null
+  },
+  "serviceUnavailableAtCleanup": true,
+  "testHostExited": true,
+  "temporaryProfileAndKeyRemoved": true
+}

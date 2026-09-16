@@ -1,9 +1,11 @@
 # Windows 지원 완료 후 게시
 
-2026-09-16 기준 CD 게시 파일의 로컬 검증을 완료했다.
-Marketplace 업로드는 아직 수행하지 않았다. 이 PC에 `pydemia` 게시용
-credential이 없어 보안 입력을 기다리고 있다. GCR 서버 image·Helm chart의
-추가 게시 여부는 사용자에게 확인 중이다. W04 완료 상태와 별도 작업이다.
+2026-09-16에 `pydemia.commit-defender` 2.12.5 Windows ARM64의
+Marketplace 업로드를 완료했다. 사용자 인증 뒤 publisher Owner 권한을
+확인하고 검증한 VSIX를 한 번 게시했다. 공개 반영과 게시 후 설치·hash 대조를
+완료했다. 게시본 Host 검증은 VS Code 자체 업데이트가 시작을 차단해
+미완료다. GCR 서버 image·Helm chart의 추가 게시 여부는 사용자에게
+확인 중이다. W04 완료 상태와 별도 작업이다.
 
 ## CD 게시 파일
 
@@ -42,22 +44,42 @@ service 시작, opt-in hook 연결, service를 먼저 종료한 Host 종료,
 - [설정 보존과 정리 상태](evidence/publish-preservation.json)
 
 검증 service·Host·임시 credential/profile은 종료·정리됐지만 별도 VSIX
-설치 폴더는 자동 승인 검토의 삭제 차단으로 남아 있다. 재시도하거나 다른
-도구로 우회하지 않았다. 수동 정리 대상은 다음 한 곳이다.
+설치 폴더와 게시 후 설치를 시도한 폴더가 자동 승인 검토의 삭제 차단으로
+남아 있다. 차단된 삭제를 재시도하거나 다른 도구로 우회하지 않았다.
+수동 정리 대상은 다음 두 곳이다.
 
-`C:\Users\pydemia\git\commit-defender\vscode-extension\test-results\publish-2.12.5`
+- `C:\Users\pydemia\git\commit-defender\vscode-extension\test-results\publish-2.12.5`
+- `C:\Users\pydemia\git\commit-defender\vscode-extension\test-results\marketplace-2.12.5`
 
-## 게시할 때 남은 단계
+## Marketplace 게시와 확인
 
-Marketplace 실제 조회의 최신 version은 2.3.0이었다. `vsce login pydemia`의
-마스킹된 입력으로 인증하고 publisher 쓰기 권한을 확인한다.
-PAT는 채팅·argv·환경변수·평문 파일로 전달하지 않는다.
-Windows 보안 저장소를 사용하며 다른 publisher로 대체하지 않는다.
+게시 전 Marketplace 최신 version은 2.3.0이었다. 사용자가
+`vsce login pydemia`의 마스킹된 입력으로 인증했고 Windows credential
+store에서 게시 권한을 확인했다. 현재 principal의 역할은 Owner다.
+PAT는 채팅·argv·환경변수·평문 파일에 기록하지 않았다.
 
-검증한 위 VSIX를 `vsce publish --packagePath`로 게시한다.
-게시 응답·Marketplace의 version/target·별도 신규 설치와 activation을
-확인한 뒤 이 기록을 갱신한다. 게시 시 재빌드하거나 동일 version을
-덮어쓰지 않는다. 현재 인증·업로드·게시 후 설치는 미완료다.
+검증한 위 VSIX를 `vsce publish --packagePath`로 한 번 게시했고 CLI가
+exit 0을 반환했다. 게시 시 재빌드하거나 동일 version을 덮어쓰지 않았다.
+인증된 Gallery 응답의 version/target/hash도 원본과 일치한다.
+첫 공개 조회·설치는 내부 검사가 끝나기 전이라 version not found로
+실패했다. 11:38:58 UTC 공개 조회에서는 flags=1과 정확한 version/target/
+hash를 확인했다. 이전 실패를 유지하며, 이후 Marketplace에서 ID로 설치한
+2.12.5와 실행 파일 11개를 다시 확인해 모두 일치했다.
+
+게시본 Host의 첫 실행은 VS Code 업데이트 설치 프로그램의
+`vscode-updating` mutex 때문에 activation 전에 exit 1로 종료됐다.
+제품 오류로 단정하거나 성공으로 집계하지 않았다. 시험 profile은 정리됐고
+사용자 업데이트·Host는 건드리지 않았다. 정상 업데이트 완료 후
+Host 수명 검증 1회만 추가한다. 추가 모델 호출 한도는 0회다.
+
+- [게시 권한 확인](evidence/publish-authorization.json)
+- [게시 응답과 공개 version](evidence/publish-marketplace.json)
+- [초기 Gallery 검사 상태](evidence/publish-gallery-validation.json)
+- [반영 과정의 조회·설치 결과](evidence/publish-propagation.json)
+- [게시 후 설치와 실행 파일 대조](evidence/publish-marketplace-install.json)
+- [게시 후 Host 최초 시도](evidence/publish-marketplace-host-attempt1.json)
+- [원인과 재검증 한도](evidence/publish-host-retry-plan.json)
+- [게시 후 설정·설치·정리 상태](evidence/publish-final-preservation.json)
 
 GCR의 contract alpha.48, core/executors alpha.49, helper 1.0.3,
 CLI/service alpha.38은 W04 고정 파일을 유지한다. CLI 전달 manifest의

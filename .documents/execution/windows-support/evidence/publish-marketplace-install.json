@@ -1,0 +1,71 @@
+{
+  "recordedAt": "2026-09-16T11:40:02.095Z",
+  "status": "passed",
+  "installedFrom": "Marketplace by ID pydemia.commit-defender@2.12.5",
+  "installCliExitCode": 0,
+  "versionReadback": "pydemia.commit-defender@2.12.5",
+  "versionReadbackExitCode": 0,
+  "path": "C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\test-results\\marketplace-2.12.5\\extensions\\pydemia.commit-defender-2.12.5-win32-arm64",
+  "version": "2.12.5",
+  "targetPlatform": "win32-arm64",
+  "sourceVsixSha256": "42e3f49567afca1c74d36892fc6e36b3c0de347be4d4cf411fa19e9b40f9008c",
+  "files": [
+    {
+      "file": "out/advisory-hook.cjs",
+      "expected": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217",
+      "marketplaceInstalled": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+    },
+    {
+      "file": "out/extension.js",
+      "expected": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83",
+      "marketplaceInstalled": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+    },
+    {
+      "file": "out/hook-cli.js",
+      "expected": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c",
+      "marketplaceInstalled": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+    },
+    {
+      "file": "out/review-chat-worker.js",
+      "expected": "e05587c319973deb1da078db915969a00b0b4e669ecac35b52fc7433cca3b47b",
+      "marketplaceInstalled": "e05587c319973deb1da078db915969a00b0b4e669ecac35b52fc7433cca3b47b"
+    },
+    {
+      "file": "out/standalone-review-worker.js",
+      "expected": "a07a7bca6225f87cde54693d88c14ccb73a793c3422ec5ecbbabf2019774685a",
+      "marketplaceInstalled": "a07a7bca6225f87cde54693d88c14ccb73a793c3422ec5ecbbabf2019774685a"
+    },
+    {
+      "file": "out/windows-native.exe",
+      "expected": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "marketplaceInstalled": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    {
+      "file": "out/windows-native.json",
+      "expected": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575",
+      "marketplaceInstalled": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+    },
+    {
+      "file": "out/gcr-service/main.mjs",
+      "expected": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364",
+      "marketplaceInstalled": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364"
+    },
+    {
+      "file": "out/gcr-service/manifest.json",
+      "expected": "e1d616bc0037e281408d96a3ace6d05c0031a275a7519ec6365ca4613bbb1715",
+      "marketplaceInstalled": "e1d616bc0037e281408d96a3ace6d05c0031a275a7519ec6365ca4613bbb1715"
+    },
+    {
+      "file": "out/gcr-service/windows-native.exe",
+      "expected": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "marketplaceInstalled": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    {
+      "file": "out/gcr-service/windows-native.json",
+      "expected": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575",
+      "marketplaceInstalled": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+    }
+  ],
+  "newModelCalls": 0,
+  "preexistingBlockedQaDirectoryPreserved": true
+}
