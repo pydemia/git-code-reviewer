@@ -9,8 +9,8 @@
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.64'
-  digest: 'sha256:1cbe141934bdc2bc0ac6e162419a505004f03e8c751e60a58f30c3d1e0f767d5'
+  tag: '0.8.0-alpha.65'
+  digest: 'sha256:1e75e5fd417735d7147fa903234f678bb75fe52b7d1b26d4cd086a12b59d1c22'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -94,6 +94,7 @@ github:
 auth:
   mode: local
   local:
+    httpOrigin: http://pr-review.prism.ai
     adminDisplayName: PRISM-DEV 시스템관리자
     reviewerDisplayName: PRISM-DEV 일반사용자
   autoJoinDefaultTenant: true
