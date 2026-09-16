@@ -1,0 +1,73 @@
+{
+  "checkedAt": "2026-09-16T03:17:44.119Z",
+  "goalStatus": "active, incomplete",
+  "previousGoalTurn": "progress: native storage fix, artifacts, real model reviews, local product reader validation, commits and pushes",
+  "userConfirmedOriginalDataAbsent": true,
+  "blockedCondition": "Current #917/#915 original history and active guidance cannot be fetched from this PC; no local original dataset/export is available.",
+  "consecutiveGoalTurnsWithThisCondition": 2,
+  "additionalModelCalls": 0,
+  "sourceSearch": {
+    "directory": ".documents/execution/review-memory-pull/evidence",
+    "jsonFiles": 59,
+    "stringValuesHashed": 6425,
+    "bodyFields": 0,
+    "nonEmptyHistoricalHashes": 32,
+    "exactOriginalBodyHashMatches": 0,
+    "rawTextLogged": false
+  },
+  "requirements": [
+    {
+      "id": "W02-C01",
+      "state": "verified for Windows ARM64 scope",
+      "evidence": [
+        "W02-regression.json",
+        "W02-synthetic-host.json",
+        "W02-product-reader.json"
+      ],
+      "detail": "Native credential reopen, TLS/CA/signing pin, private cache and scope/error boundaries; native macOS/Linux not rerun."
+    },
+    {
+      "id": "W02-C02",
+      "state": "not achieved",
+      "evidence": [
+        "W02-product-reader.json",
+        "W02-local-defect.json",
+        "W02-local-fixed.json",
+        "W02-local-unrelated.json"
+      ],
+      "detail": "Reader integration and pinned source history work on reconstructed local data. Current #917/#915 original bodies/replies/versions and active guidance revision are absent; the original-data chain is unverified."
+    },
+    {
+      "id": "W02-C03",
+      "state": "verified",
+      "evidence": [
+        "W02-artifact-linkage.json",
+        "W02-vsix-contents.json",
+        "W02-source-push.json"
+      ],
+      "detail": "Immutable alpha.48/helper1.0.2/VSIX2.12.3; installed runtime hash matches tested Host; existing user Host applied version remains unverified without forced reload."
+    },
+    {
+      "id": "W02-C04",
+      "state": "partially verified",
+      "evidence": [
+        "W02-model-acceptance.json",
+        "W02-product-reader.json"
+      ],
+      "detail": "Three real Luna/high reviews completed with fixed G04 fixtures and reconstructed context, with source citations, decisions and saved-result reread. This does not prove real original-data retrieval and use. Real product reader test had zero model calls and is a separate run."
+    },
+    {
+      "id": "cleanup",
+      "state": "partially verified",
+      "evidence": [
+        "W02-preservation-cleanup.json"
+      ],
+      "detail": "Owned Host/profile/credentials/processes/reader containers and volumes removed. Interrupted synthetic cache folder remains after automatic approval review rejected recursive removal."
+    }
+  ],
+  "delivery": {
+    "gcr": "45330bb6366a6ceaea961da9b93d9b2dc36d76b9",
+    "cd": "7ac6dab16d53e212380b82d71b42b49218a6a7b0"
+  },
+  "completionDecision": "Do not mark W02 complete or redefine success as reconstructed-fixture-only verification. Resume original-data validation only when an authorized existing dataset or reader route is available."
+}
