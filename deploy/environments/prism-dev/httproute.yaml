@@ -23,9 +23,9 @@ spec:
         - path:
             type: PathPrefix
             value: /
-      filters:
-        - type: RequestRedirect
-          requestRedirect:
-            scheme: https
-            port: 443
-            statusCode: 301
+      backendRefs:
+        - group: ''
+          kind: Service
+          name: git-code-reviewer
+          port: 80
+          weight: 1
