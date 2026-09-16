@@ -1,0 +1,83 @@
+{
+  "checkedAt": "2026-09-16T05:14:16.9644121Z",
+  "settings": [
+    {
+      "name": "settings.json",
+      "before": "fd5f3d5c232515fa51ba98ef32ae5811c578f2e5eafdc2154ba4357603597546",
+      "after": "fd5f3d5c232515fa51ba98ef32ae5811c578f2e5eafdc2154ba4357603597546",
+      "unchanged": true
+    },
+    {
+      "name": "config.toml",
+      "before": "0b0980646662af414cf17513535a661b71577376373338c2bd23bdda1300c237",
+      "after": "0b0980646662af414cf17513535a661b71577376373338c2bd23bdda1300c237",
+      "unchanged": true
+    },
+    {
+      "name": "AGENTS.md",
+      "before": "8a45f4bd5beacf07f4debce813aa09938c71a1d8d80fbbfcf940461bd139f8e9",
+      "after": "8a45f4bd5beacf07f4debce813aa09938c71a1d8d80fbbfcf940461bd139f8e9",
+      "unchanged": true
+    }
+  ],
+  "settingsUnchanged": true,
+  "cliSha256": "77f792476fe0def726503f02a7c55f485e562dd7ad8801fe61dc8f4bf9991d20",
+  "cliUnchanged": true,
+  "installedRuntime": [
+    {
+      "file": "out/extension.js",
+      "expected": "2f396cd85c8e0685667657691bcef07e89512693ac35612e15008dc1c70d3562",
+      "actual": "2f396cd85c8e0685667657691bcef07e89512693ac35612e15008dc1c70d3562",
+      "matched": true
+    },
+    {
+      "file": "out/standalone-review-worker.js",
+      "expected": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+      "actual": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+      "matched": true
+    },
+    {
+      "file": "out/windows-native.exe",
+      "expected": "7ebc154f3a3aedb6361cf306e6dc756171dcf68c89407b537004ab129c1c704d",
+      "actual": "7ebc154f3a3aedb6361cf306e6dc756171dcf68c89407b537004ab129c1c704d",
+      "matched": true
+    },
+    {
+      "file": "out/windows-native.json",
+      "expected": "a73b641555127191afa8101550488438bebca9e84ac98e68e31610b9201de20d",
+      "actual": "a73b641555127191afa8101550488438bebca9e84ac98e68e31610b9201de20d",
+      "matched": true
+    }
+  ],
+  "installedRuntimeMatched": true,
+  "vsixSha256": "107049cf0742eb1d2ae6e865f6d0ef88ab2d58d7fefad853413c3205bc0bd191",
+  "vsixMatched": true,
+  "userHostReloaded": false,
+  "userHostAppliedVersion": "unverified",
+  "authFilePresent": true,
+  "authHardlinkCount": 1,
+  "remainingW02CredentialReferenceLines": 0,
+  "remainingTaskServerProcesses": 0,
+  "remainingTaskHostProcesses": 0,
+  "remainingTaskModelProcesses": 0,
+  "remainingNativeHelperProcesses": 0,
+  "remainingTaskContainers": 0,
+  "remainingTaskVolumes": 0,
+  "remainingTaskTemporaryDirectories": 0,
+  "remainingTaskProfileDirectories": 0,
+  "preexistingContainersPreserved": [
+    "git-code-reviewer-postgres-1",
+    "git-code-reviewer-control-plane",
+    "git-code-reviewer-dev-postgres-1"
+  ],
+  "oldBlockedCache": {
+    "path": "C:/Users/pydemia/AppData/Local/Temp/gcr-central-cache-MSFkld",
+    "action": "User reported direct deletion; assistant performed read-only absence check",
+    "exists": false,
+    "automaticApprovalRejections": 2,
+    "deletionBypassed": false
+  },
+  "operatingCredentialsRevoked": false,
+  "existingUserDataRemoved": false,
+  "passed": true
+}

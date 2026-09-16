@@ -1,0 +1,67 @@
+{
+  "recordedAt": "2026-09-16T05:09:02.080Z",
+  "failedAttempt": "W02-live-pr-unrelated-failed-attempt1.json",
+  "case": "unrelated",
+  "elapsedSeconds": 99.7,
+  "cause": "Model final response referenced a readId absent from the fixed-source port reads; existing strict validator rejected it with invalid-output (unknown-read-id).",
+  "diagnosticLimit": "Raw model stream was intentionally not retained; exact offending ID/field is unknown. No provider timeout or process failure occurred.",
+  "correction": "No product or harness code change: validation correctly failed closed. Preserve rejection and run exactly one fresh independent attempt with unchanged source/base/callers/guidance and strict read-ID checks.",
+  "regression": {
+    "command": "node node_modules/vitest/vitest.mjs run packages/client-core/src/review-runner.test.ts -t 'rejects forged-read' --reporter=verbose",
+    "passed": 1,
+    "skipped": 28,
+    "failed": 0,
+    "actualModelCalls": 0
+  },
+  "additionalCalls": 1,
+  "maximumTimeoutSeconds": 240,
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "high",
+  "expected": "Completed review explaining why persisted archived-state validation is outside request-only guidance, without repeating a resolved validator defect; exact source/guidance citations and saved report reread.",
+  "sourceParity": {
+    "sourceId": "d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067",
+    "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "observationHash": "37c2918dd85844a3b5e52018816baae9ca576bc43721abcb2162bd4ee68d6c0e",
+    "githubOriginalBodyVerified": true,
+    "replyBodyVerified": true,
+    "guidanceId": "4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+    "revision": 1
+  },
+  "fixtureBaseSha": "ee5388688abe290dc86f546f303912f1c5b4a55e",
+  "fixtureTreeSha": "da0857425b016707f25f73026db6ace454b30c61",
+  "fixedContext": [
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/schema.py",
+      "baseSha256": "8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab",
+      "sourceSha256": "8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/service.py",
+      "baseSha256": "35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba",
+      "sourceSha256": "b513a8dc452442aee1ebfa176b63e4ec930714128f6004e117276206645e1dc8"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/api.py",
+      "baseSha256": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c",
+      "sourceSha256": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/repository.py",
+      "baseSha256": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374",
+      "sourceSha256": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/tests/test_block_update.py",
+      "baseSha256": "f8cf0a19d06a0813042d6ae1220663a0a54344fb7bd41df1345d50fe2c752ab7",
+      "sourceSha256": "f8cf0a19d06a0813042d6ae1220663a0a54344fb7bd41df1345d50fe2c752ab7"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/pyproject.toml",
+      "baseSha256": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b",
+      "sourceSha256": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b"
+    }
+  ],
+  "workerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+  "retryPolicy": "One recorded retry only, no automatic retry loop. Prior failed attempt never counts as success."
+}

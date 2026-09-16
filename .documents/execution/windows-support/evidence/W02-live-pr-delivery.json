@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-09-16T05:15:49.304Z",
+  "status": "Verified code/harness delivery; final evidence documentation commit follows",
+  "repositories": [
+    {
+      "repository": "git-code-reviewer",
+      "branch": "codex/windows-native-support",
+      "verifiedRemoteCodeAndHarnessDelivery": "a423a77d9123cb345057c9ac9eed27ed04407256",
+      "verificationSource": "a423a77d9123cb345057c9ac9eed27ed04407256"
+    },
+    {
+      "repository": "commit-defender",
+      "branch": "codex/windows-native-support",
+      "verifiedRemoteCodeAndHarnessDelivery": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e",
+      "verificationSource": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e"
+    }
+  ],
+  "productArtifacts": "W02-artifact-linkage.json",
+  "installedRuntimeRecheck": "W02-live-pr-preservation.json",
+  "modelVerification": "W02-live-pr-acceptance.json",
+  "w01AncestryChecked": true,
+  "productSourceAncestryChecked": true,
+  "productRuntimeChangedAfterValidation": false,
+  "rebuildOrReinstallForDocumentation": false,
+  "forcePush": false
+}

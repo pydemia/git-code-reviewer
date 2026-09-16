@@ -31,8 +31,15 @@
     "path": "C:/Users/pydemia/AppData/Local/Temp/gcr-central-cache-MSFkld",
     "cause": "automatic approval review rejected recursive PowerShell removal: blocked by policy",
     "contains": "interrupted synthetic encrypted cache; no real reader credential or model session",
-    "pending": true,
-    "exists": true
+    "pending": false,
+    "exists": false,
+    "historicalState": {
+      "pending": true,
+      "exists": true,
+      "capturedAt": "2026-09-16T03:10:58.911Z"
+    },
+    "resolution": "User deleted the exact folder; read-only Test-Path returned false. No deletion bypass.",
+    "resolvedAt": "2026-09-16T05:14:16.9644121Z"
   },
   "otherPreexistingCacheDirectories": "preserved (created before goal)",
   "finalAuditAt": "2026-09-16T03:10:58.911Z",
@@ -40,5 +47,6 @@
   "temporaryCodeProcessesRemaining": 0,
   "temporaryReaderDirectoriesRemaining": 0,
   "temporaryDockerContainersRemaining": 0,
-  "temporaryDockerVolumesRemaining": 0
+  "temporaryDockerVolumesRemaining": 0,
+  "followUp": "W02-live-pr-preservation.json"
 }
