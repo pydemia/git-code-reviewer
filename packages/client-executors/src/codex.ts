@@ -198,7 +198,7 @@ export async function prepareCodexAccountExecutor(options: {
   if (
     !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(options.model) ||
     !['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].includes(options.reasoningEffort) ||
-    !['darwin', 'win32'].includes(process.platform)
+    !['darwin', 'linux', 'win32'].includes(process.platform)
   )
     throw new ExecutorError('executor-unavailable');
   const command = await executablePath(options.executablePath ?? 'codex');
@@ -283,7 +283,10 @@ export async function prepareCodexAccountExecutor(options: {
           options.model,
           options.reasoningEffort,
         ),
-        isolation: 'macos-global-instruction-deny-v1',
+        isolation:
+          process.platform === 'linux'
+            ? 'linux-private-account-link-v1'
+            : 'macos-global-instruction-deny-v1',
         responseFormat: 'prompt-json-schema-v1',
         authHome: environment.CODEX_HOME ?? path.join(os.homedir(), '.codex'),
       }),
