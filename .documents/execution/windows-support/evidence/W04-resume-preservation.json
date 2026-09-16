@@ -1,0 +1,143 @@
+{
+  "capturedAt": "2026-09-16T08:17:20.2820728Z",
+  "settings": [
+    {
+      "path": "C:/Users/pydemia/AppData/Roaming/Code/User/settings.json",
+      "sha256": "fd5f3d5c232515fa51ba98ef32ae5811c578f2e5eafdc2154ba4357603597546",
+      "equalsPrevious": true
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/config.toml",
+      "sha256": "0b0980646662af414cf17513535a661b71577376373338c2bd23bdda1300c237",
+      "equalsPrevious": true
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/AGENTS.md",
+      "sha256": "8a45f4bd5beacf07f4debce813aa09938c71a1d8d80fbbfcf940461bd139f8e9",
+      "equalsPrevious": true
+    },
+    {
+      "path": "C:/Users/pydemia/AppData/Local/OpenAI/Codex/bin/02c7a9ff819938f0/codex.exe",
+      "sha256": "77f792476fe0def726503f02a7c55f485e562dd7ad8801fe61dc8f4bf9991d20",
+      "equalsPrevious": true
+    }
+  ],
+  "hooks": [
+    {
+      "repository": "C:/Users/pydemia/git/git-code-reviewer",
+      "hooksPath": [],
+      "unchanged": true
+    },
+    {
+      "repository": "C:/Users/pydemia/git/commit-defender",
+      "hooksPath": [],
+      "unchanged": true
+    }
+  ],
+  "authExists": true,
+  "authHardlinks": 1,
+  "currentGcrServices": [],
+  "remainingNewFixtureProcesses": [],
+  "remainingNewFixtureDirectories": [],
+  "newCredentialOrAccountCreated": false,
+  "cleanup": [
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-0AyBgm",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-3KsXll",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-Njtcfs",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-VBNtqe",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-WY0LLt",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-Xole6V",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-6FnwWK",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-AMFpkG",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-jFtq1Z",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-KlekO4",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-oj2dLp",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-uOSFFj",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-E0O7hy",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-iLAO9s",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-nDLd3J",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-PPUTcq",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-QuSowc",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-XZLYj0",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-w03-host-BKUtKA",
+      "exists": true,
+      "action": "read only; manual cleanup required for prior blocked deletion"
+    }
+  ],
+  "remainingBlockedFolders": 19,
+  "userHostAppliedVersion": "unverified; not reloaded",
+  "extraModelCalls": 0
+}

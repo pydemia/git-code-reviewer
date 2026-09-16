@@ -1,0 +1,24 @@
+{
+  "capturedAt": "2026-09-16T08:13:09.690Z",
+  "importedCommits": {
+    "gcr": "dfa21e448619f889f0861d116ae604ec2d7c88d3",
+    "cd": "d5804ae4ba58c078378c5802a34a852efd9230bd"
+  },
+  "macEvidenceGitBlobSha256": "d90728fbc7b04bfa0b79e40058e044dbf4effa8bae930c4f1d132055510754da",
+  "packageHashesMatched": 8,
+  "executedModuleHashesMatched": 4,
+  "committedSmokeHashMatched": true,
+  "executedSmokeWasFormattedAfterRun": true,
+  "macReportedCases": {
+    "skipped": 1,
+    "passed": 92
+  },
+  "macCdPass": 68,
+  "macTotalPassed": 160,
+  "macOsEvidence": "existing committed actual macOS results inspected; not re-executed on Windows",
+  "productRuntimeChanged": false,
+  "vsixVersion": "2.12.4",
+  "vsixSha256": "88471efee2b80a1b79d28e4712d90566eeeac1fa3ea6fa340d515efba5a48f1b",
+  "windowsRuntimeFilesMatched": 11,
+  "additionalModelCalls": 0
+}
