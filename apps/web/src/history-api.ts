@@ -11,6 +11,8 @@ const base = (repo: string) => `/api/v1/repositories/${encodeURIComponent(repo)}
 const suffix = (cursor?: string | null) => (cursor ? `?cursor=${encodeURIComponent(cursor)}` : '');
 export const loadHistoryPulls = async (repo: string, signal: AbortSignal, cursor?: string | null) =>
   reviewHistoryPullListSchema.parse(await fetchJson(base(repo) + suffix(cursor), signal));
+export const loadHistoryPullByNumber = async (repo: string, number: number, signal: AbortSignal) =>
+  reviewHistoryPullListSchema.parse(await fetchJson(`${base(repo)}?pullNumber=${number}`, signal));
 export const loadHistoryMessages = async (
   repo: string,
   number: number,

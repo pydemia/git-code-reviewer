@@ -514,3 +514,9 @@
     margin-left: 0;
   }
 }
+
+.history-page .history-number-open {
+  margin: 8px 12px 0;
+  font-size: 12px;
+  color: var(--accent);
+}

@@ -19,6 +19,7 @@ import {
   loadHistoryObservations,
   loadHistoryBodyVersions,
   loadHistoryPulls,
+  loadHistoryPullByNumber,
   retryHistoryCollection,
   type HistoryCollection,
 } from './history-api.ts';
@@ -27,6 +28,10 @@ import './review-history.css';
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : '리뷰 이력을 불러오지 못했습니다.';
 const kinds = { review: '리뷰', 'review-comment': 'inline 코멘트', 'issue-comment': '일반 코멘트' };
+const pullNumber = (text: string) => {
+  const n = Number(text.trim().replace(/^#/, ''));
+  return Number.isSafeInteger(n) && n > 0 && n <= 2147483647 ? n : null;
+};
 export function ReviewHistoryPage() {
   const [user, setUser] = useState<User | null>(null),
     [repos, setRepos] = useState<Awaited<ReturnType<typeof loadCriteriaRepositories>>>([]),
@@ -102,21 +107,19 @@ function HistoryRepository({ repositoryId: repo }: { repositoryId: string }) {
     const c = new AbortController();
     setLoading(true);
     setError('');
-    void loadHistoryPulls(repo, c.signal)
-      .then((r) => {
+    const requested = pullNumber(new URLSearchParams(location.search).get('pullNumber') ?? '');
+    void Promise.all([
+      loadHistoryPulls(repo, c.signal),
+      requested ? loadHistoryPullByNumber(repo, requested, c.signal) : Promise.resolve(null),
+    ])
+      .then(([r, target]) => {
         if (c.signal.aborted) return;
-        setPulls(r.items);
+        const extra = target?.items ?? [];
+        setPulls([...extra, ...r.items.filter((p) => !extra.some((x) => x.id === p.id))]);
         setCursor(r.nextCursor);
         setManage(r.capabilities.manage);
-        setSelected(
-          (n) =>
-            n ??
-            r.items.find(
-              (p) => p.number === Number(new URLSearchParams(location.search).get('pullNumber')),
-            )?.number ??
-            r.items[0]?.number ??
-            null,
-        );
+        setSelected((n) => n ?? extra[0]?.number ?? r.items[0]?.number ?? null);
+        if (requested && !extra.length) setError(`저장된 PR #${requested} 이력이 없습니다.`);
       })
       .catch((e) => {
         if (!c.signal.aborted) setError(errorMessage(e));
@@ -145,6 +148,30 @@ function HistoryRepository({ repositoryId: repo }: { repositoryId: string }) {
       clearTimeout(timer);
     };
   }, [repo, collection]);
+  const choose = (number: number) => {
+    setSelected(number);
+    const url = new URL(location.href);
+    url.searchParams.set('repositoryId', repo);
+    url.searchParams.set('pullNumber', String(number));
+    window.history.replaceState(null, '', url);
+  };
+  const openNumber = async () => {
+    const number = pullNumber(query);
+    if (!number || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const r = await loadHistoryPullByNumber(repo, number, new AbortController().signal);
+      if (!r.items.length) throw Error(`저장된 PR #${number} 이력이 없습니다.`);
+      setPulls((p) => [...r.items, ...p.filter((x) => !r.items.some((item) => item.id === x.id))]);
+      setQuery(String(number));
+      choose(number);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   const start = async () => {
     setBusy(true);
     setError('');
@@ -171,7 +198,7 @@ function HistoryRepository({ repositoryId: repo }: { repositoryId: string }) {
     setBusy(true);
     try {
       const next = await loadHistoryPulls(repo, new AbortController().signal, cursor);
-      setPulls((p) => [...p, ...next.items]);
+      setPulls((p) => [...p, ...next.items.filter((x) => !p.some((old) => old.id === x.id))]);
       setCursor(next.nextCursor);
     } catch (e) {
       setError(errorMessage(e));
@@ -238,16 +265,30 @@ function HistoryRepository({ repositoryId: repo }: { repositoryId: string }) {
               {cursor ? '+' : ''}
             </span>
           </div>
-          <label className="history-search">
-            <Search size={16} aria-hidden="true" />
-            <input
-              aria-label="불러온 PR 검색"
-              placeholder="PR 번호 또는 제목 검색"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-          <p className="history-search-scope">불러온 PR {pulls.length}개에서 검색</p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void openNumber();
+            }}
+          >
+            <label className="history-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                aria-label="불러온 PR 검색"
+                placeholder="PR 번호 또는 제목 검색"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            {pullNumber(query) ? (
+              <button className="history-number-open" type="submit" disabled={busy}>
+                PR 번호로 열기
+              </button>
+            ) : null}
+          </form>
+          <p className="history-search-scope">
+            제목은 불러온 {pulls.length}개에서 검색 · PR 번호로 전체 저장 이력 조회
+          </p>
           {pulls
             .filter((p) =>
               `${p.number} ${p.title}`
@@ -259,13 +300,7 @@ function HistoryRepository({ repositoryId: repo }: { repositoryId: string }) {
                 className="history-pull"
                 key={p.id}
                 aria-pressed={selected === p.number}
-                onClick={() => {
-                  setSelected(p.number);
-                  const u = new URL(location.href);
-                  u.searchParams.set('repositoryId', repo);
-                  u.searchParams.set('pullNumber', String(p.number));
-                  window.history.replaceState(null, '', u);
-                }}
+                onClick={() => choose(p.number)}
               >
                 <span className="history-pull-top">
                   <GitPullRequest size={17} aria-hidden="true" />

@@ -729,6 +729,13 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       undefined,
       { complete: true },
     );
+    // The requested historical PR is outside the first 20 results.
+    await db.query(
+      `insert into pull_requests(repository_id,github_id,number,title,state,draft,author_login,html_url,base_ref,base_sha,head_ref,head_sha,github_updated_at)
+      select $1,n,n,'Recent','closed',false,'author','https://github.example/pull/'||n,'main',$2,'feature',$3,clock_timestamp()
+      from generate_series(9001,9021) n`,
+      [repo, 'a'.repeat(40), 'b'.repeat(40)],
+    );
     await app.listen({ host: '127.0.0.1', port: 0 });
     const address = app.server.address();
     if (!address || typeof address === 'string') throw Error('Owned server');
@@ -749,7 +756,7 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       const page = await context.newPage();
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
-      await page.goto(`http://127.0.0.1:${web.port}/review-history`);
+      await page.goto(`http://127.0.0.1:${web.port}/review-history?pullNumber=8`);
       const source = page.locator('.history-comment').filter({ hasText: 'edited draft source' });
       const toggle = source.locator('.history-comment-actions button');
       await toggle.waitFor();
@@ -769,7 +776,7 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       ).toBe(1);
       await page.getByPlaceholder('PR 번호 또는 제목').fill('unmatched pull');
       await page.getByText('일치하는 PR이 없습니다.', { exact: false }).waitFor();
-      await page.getByPlaceholder('PR 번호 또는 제목').fill('8');
+      await page.getByPlaceholder('PR 번호 또는 제목').fill('History');
       expect(await page.locator('.history-pull').count()).toBe(1);
       await source.getByText('수정·관측 이력 확인', { exact: true }).click();
       await source.getByRole('heading', { name: '저장된 본문 버전' }).waitFor();
@@ -810,10 +817,14 @@ describe.skipIf(!databaseUrl).sequential('bounded review history', () => {
       ).toBe(true);
       if (process.env.GCR_HISTORY_SCREENSHOT)
         await page.screenshot({ path: process.env.GCR_HISTORY_SCREENSHOT, fullPage: true });
+      await page.getByPlaceholder('PR 번호 또는 제목').fill('7');
+      await page.getByRole('button', { name: 'PR 번호로 열기' }).click();
+      await page.getByRole('region', { name: 'PR #7 대화' }).waitFor();
+      expect(new URL(page.url()).searchParams.get('pullNumber')).toBe('7');
       await context.close();
       const readerContext = await browser.newContext({ extraHTTPHeaders: headers('reader') });
       const readerPage = await readerContext.newPage();
-      await readerPage.goto(`http://127.0.0.1:${web.port}/review-history`);
+      await readerPage.goto(`http://127.0.0.1:${web.port}/review-history?pullNumber=8`);
       const readerSource = readerPage
         .locator('.history-comment')
         .filter({ hasText: 'edited draft source' });
