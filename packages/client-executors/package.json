@@ -23,6 +23,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@gcr/client-core": "workspace:*",
     "@gcr/client-contract": "workspace:*"
   }
 }

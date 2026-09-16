@@ -3,7 +3,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { Socket } from 'node:net';
-import { codexReviewArgs, CODEX_REVIEW_EFFORT, CODEX_REVIEW_MODEL } from './codex-config.js';
+import {
+  codexReviewArgs,
+  codexAccountEnvironment,
+  CODEX_REVIEW_EFFORT,
+  CODEX_REVIEW_MODEL,
+} from './codex-config.js';
 import { ExecutorError } from './process.js';
 import { runIsolatedCodex } from './codex-isolation.js';
 import { startSourceBridge } from './source-bridge.js';
@@ -56,7 +61,17 @@ export async function probeCodexCatalog(
   const canary = `DO_NOT_LOAD_${randomBytes(16).toString('hex')}`;
   for (const name of ['auth', 'cwd']) await mkdir(path.join(root, name), { mode: 0o700 });
   await writeFile(path.join(root, 'auth', 'AGENTS.md'), `${canary}_home`, { mode: 0o600 });
+  await writeFile(path.join(root, 'auth', 'AGENTS.override.md'), `${canary}_override`, {
+    mode: 0o600,
+  });
   await writeFile(path.join(root, 'cwd', 'AGENTS.md'), `${canary}_cwd`, { mode: 0o600 });
+  const skill = path.join(root, 'auth', '.agents', 'skills', 'unexpected');
+  await mkdir(skill, { recursive: true, mode: 0o700 });
+  await writeFile(
+    path.join(skill, 'SKILL.md'),
+    `---\nname: unexpected\ndescription: ${canary}_skill\n---\n${canary}_skill`,
+    { mode: 0o600 },
+  );
   const bridge = await startSourceBridge(
     {
       async execute() {
@@ -132,7 +147,9 @@ export async function probeCodexCatalog(
       args,
       cwd: path.join(root, 'cwd'),
       env: {
-        PATH: '/usr/bin:/bin',
+        ...(process.platform === 'win32' ? codexAccountEnvironment() : {}),
+        ...(process.platform === 'win32' ? { USERPROFILE: path.join(root, 'auth') } : {}),
+        PATH: process.platform === 'win32' ? process.env.PATH : '/usr/bin:/bin',
         HOME: path.join(root, 'auth'),
         CODEX_HOME: path.join(root, 'auth'),
         LANG: 'en_US.UTF-8',
@@ -148,7 +165,7 @@ export async function probeCodexCatalog(
       requestCount: requests.length,
       invalidRequest,
       canaryLoaded: !!request && JSON.stringify(request).includes(canary),
-      canarySources: ['home', 'cwd', 'config'].filter((source) =>
+      canarySources: ['home', 'override', 'cwd', 'config', 'skill'].filter((source) =>
         JSON.stringify(request).includes(`${canary}_${source}`),
       ),
       tools: request ? catalogNames(request) : [],

@@ -162,6 +162,19 @@ export function codexAccountEnvironment(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const key of [
     'PATH',
+    ...(process.platform === 'win32'
+      ? [
+          'SystemRoot',
+          'WINDIR',
+          'USERPROFILE',
+          'LOCALAPPDATA',
+          'APPDATA',
+          'TEMP',
+          'TMP',
+          'PATHEXT',
+          'ComSpec',
+        ]
+      : []),
     'HOME',
     'CODEX_HOME',
     'LANG',
@@ -176,7 +189,11 @@ export function codexAccountEnvironment(): NodeJS.ProcessEnv {
     'http_proxy',
     'all_proxy',
   ]) {
-    const value = process.env[key];
+    const actual =
+      process.platform === 'win32'
+        ? Object.keys(process.env).find((name) => name.toLowerCase() === key.toLowerCase())
+        : key;
+    const value = actual ? process.env[actual] : undefined;
     if (value !== undefined) env[key] = value;
   }
   env.NO_PROXY = ['127.0.0.1', 'localhost', process.env.NO_PROXY ?? process.env.no_proxy ?? '']

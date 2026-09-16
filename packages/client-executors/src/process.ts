@@ -1,6 +1,7 @@
 // Adapted from Commit Defender src/ai/providers.ts at 35575ad (Apache-2.0).
 // Adds process-group termination, a hard kill deadline and bounded byte streams.
 import { spawn } from 'node:child_process';
+import { windowsNative } from '@gcr/client-core/windows-native';
 
 export class ExecutorError extends Error {
   constructor(
@@ -30,7 +31,7 @@ export interface ManagedProcessInput {
   signal?: AbortSignal;
 }
 
-/** POSIX process groups only. A child that deliberately creates another session is
+/** Windows uses an owning Job Object. On POSIX, a child that creates another session is
  * outside this primitive's guarantee. Enabled adapters must expose no command tools
  * or user-configured subprocess launchers that could escape their group. */
 export async function runManagedProcess(input: ManagedProcessInput): Promise<{
@@ -38,7 +39,7 @@ export async function runManagedProcess(input: ManagedProcessInput): Promise<{
   stdout: string;
   stderr: string;
 }> {
-  if (!['darwin', 'linux'].includes(process.platform))
+  if (!['darwin', 'linux', 'win32'].includes(process.platform))
     throw new ExecutorError('executor-unavailable');
   if (input.signal?.aborted) throw new ExecutorError('cancelled');
   const maximum = input.outputBytes ?? 4 * 1024 * 1024;
@@ -52,6 +53,43 @@ export async function runManagedProcess(input: ManagedProcessInput): Promise<{
     Buffer.byteLength(input.stdin) > 2 * 1024 * 1024
   )
     throw new ExecutorError('executor-unavailable');
+  if (process.platform === 'win32') {
+    const result = await windowsNative(
+      {
+        operation: 'process',
+        command: input.command,
+        args: input.args,
+        cwd: input.cwd,
+        env: { SystemRoot: process.env.SystemRoot, ...input.env },
+        stdin: input.stdin,
+        timeout: input.timeoutMs,
+        maximum,
+      },
+      {
+        ...(input.signal ? { signal: input.signal } : {}),
+        timeoutMs: input.timeoutMs + 3000,
+      },
+    );
+    if (result.error) {
+      const known = [
+        'cancelled',
+        'timeout',
+        'output-limit',
+        'executable-unavailable',
+        'cleanup-failed',
+      ];
+      throw new ExecutorError(
+        known.includes(result.error) ? (result.error as ExecutorError['code']) : 'process-failed',
+      );
+    }
+    if (
+      typeof result.code !== 'number' ||
+      typeof result.stdout !== 'string' ||
+      typeof result.stderr !== 'string'
+    )
+      throw new ExecutorError('process-failed');
+    return { code: result.code, stdout: result.stdout, stderr: result.stderr };
+  }
   return new Promise((resolve, reject) => {
     const child = spawn(input.command, [...input.args], {
       cwd: input.cwd,

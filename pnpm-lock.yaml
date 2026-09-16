@@ -194,6 +194,9 @@ importers:
       '@gcr/client-contract':
         specifier: workspace:*
         version: link:../client-contract
+      '@gcr/client-core':
+        specifier: workspace:*
+        version: link:../client-core
 
   packages/contracts:
     dependencies:

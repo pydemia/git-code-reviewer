@@ -16,6 +16,7 @@ import { probeCodexCatalog } from './catalog-probe.js';
 import { ExecutorError, runManagedProcess } from './process.js';
 import { fixedSourceTools, reviewQuestionTool, startSourceBridge } from './source-bridge.js';
 import { runIsolatedCodex } from './codex-isolation.js';
+import { windowsPrivateTemporary } from '@gcr/client-core/windows-native';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 async function binaryHash(command: string): Promise<string> {
@@ -27,13 +28,20 @@ async function binaryHash(command: string): Promise<string> {
   return digest.digest('hex');
 }
 async function executablePath(value: string): Promise<string> {
-  const candidates = value.includes(path.sep)
-    ? [path.resolve(value)]
-    : (process.env.PATH ?? '')
-        .split(path.delimiter)
-        .filter(Boolean)
-        .map((directory) => path.join(directory, value));
+  const candidates =
+    path.isAbsolute(value) || value.includes(path.sep)
+      ? [path.resolve(value)]
+      : (process.env.PATH ?? '')
+          .split(path.delimiter)
+          .filter(Boolean)
+          .map((directory) =>
+            path.join(
+              directory,
+              process.platform === 'win32' && !path.extname(value) ? `${value}.exe` : value,
+            ),
+          );
   for (const candidate of candidates) {
+    if (process.platform === 'win32' && !candidate.toLowerCase().endsWith('.exe')) continue;
     try {
       await access(candidate, constants.X_OK);
       return await realpath(candidate);
@@ -103,7 +111,10 @@ class CodexAccountExecutor {
     if (input.signal?.aborted) throw new ExecutorError('cancelled');
     if ((await binaryHash(this.command)) !== this.fingerprint)
       throw new ExecutorError('executor-unavailable');
-    const root = await mkdtemp(path.join(os.tmpdir(), 'gcr-codex-review-'));
+    const root =
+      process.platform === 'win32'
+        ? windowsPrivateTemporary('gcr-codex-review-')
+        : await mkdtemp(path.join(os.tmpdir(), 'gcr-codex-review-'));
     const started = performance.now();
     let bridge: Awaited<ReturnType<typeof startSourceBridge>> | undefined;
     try {
@@ -187,14 +198,22 @@ export async function prepareCodexAccountExecutor(options: {
   if (
     !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(options.model) ||
     !['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].includes(options.reasoningEffort) ||
-    process.platform !== 'darwin'
+    !['darwin', 'win32'].includes(process.platform)
   )
     throw new ExecutorError('executor-unavailable');
   const command = await executablePath(options.executablePath ?? 'codex');
-  const root = await mkdtemp(path.join(os.tmpdir(), 'gcr-codex-probe-'));
+  const root =
+    process.platform === 'win32'
+      ? windowsPrivateTemporary('gcr-codex-probe-')
+      : await mkdtemp(path.join(os.tmpdir(), 'gcr-codex-probe-'));
   try {
     const fingerprint = await binaryHash(command);
-    const env = { PATH: '/usr/bin:/bin', HOME: root, CODEX_HOME: root };
+    const env = {
+      ...(process.platform === 'win32' ? codexAccountEnvironment() : {}),
+      PATH: process.platform === 'win32' ? process.env.PATH : '/usr/bin:/bin',
+      HOME: root,
+      CODEX_HOME: root,
+    };
     const version = await runManagedProcess({
       command,
       args: ['--version'],

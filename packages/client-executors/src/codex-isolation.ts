@@ -1,13 +1,43 @@
-import { realpath, lstat } from 'node:fs/promises';
+import { realpath, lstat, rm } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { ExecutorError, runManagedProcess, type ManagedProcessInput } from './process.js';
+import { windowsNative, checkWindowsStorage } from '@gcr/client-core/windows-native';
 
 /** Codex 0.153.4 loads global AGENTS documents independently of project_doc_max_bytes.
- * Keep auth in its original namespace and deny these reads in the outer process.
+ * macOS denies these reads; Windows exposes only an auth-file hard link in a
+ * private process-specific home. The original account and settings stay intact.
  * The model has no filesystem/command tools; this covers the host's automatic load.
- * Other platforms stay unavailable until an equivalent boundary is verified. */
+ * Unverified platforms remain unavailable. */
 export async function runIsolatedCodex(input: ManagedProcessInput) {
+  if (process.platform === 'win32') {
+    const original =
+      input.env.CODEX_HOME ?? path.join(input.env.USERPROFILE ?? os.homedir(), '.codex');
+    // Authentication is the same NTFS file, never a plaintext credential copy.
+    // Only this child sees the new home. Global documents/config are untouched.
+    const root = path.join(path.dirname(input.cwd), `account-${randomUUID()}`);
+    try {
+      checkWindowsStorage(await windowsNative({ operation: 'directory', path: root }));
+      const linked = checkWindowsStorage(
+        await windowsNative({
+          operation: 'auth-link',
+          source: path.join(original, 'auth.json'),
+          path: path.join(root, 'auth.json'),
+        }),
+      );
+      // Empty auth is allowed only by the synthetic probe's explicit provider.
+      if (linked.missing && !input.args.includes('model_provider="gcr_fixture"'))
+        throw new ExecutorError('executor-unavailable');
+      return await runManagedProcess({
+        ...input,
+        env: { ...input.env, CODEX_HOME: root },
+        args: [...input.args, '-c', 'cli_auth_credentials_store="file"'],
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
   if (process.platform !== 'darwin') throw new ExecutorError('executor-unavailable');
   const authHome = await realpath(
     input.env.CODEX_HOME ?? path.join(input.env.HOME ?? os.homedir(), '.codex'),
