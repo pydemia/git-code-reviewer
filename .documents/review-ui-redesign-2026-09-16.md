@@ -23,3 +23,10 @@
 ## 검증
 
 기존 회귀와 실제 브라우저에서 PR 선택·검색·답글·원문 펼침·Markdown·본문 버전·오류 상태·모바일 overflow를 확인한다. 합성 fixture와 실제 저장 이력 검사를 구분하고 새 PR·댓글·과거 수집·모델 호출은 하지 않는다.
+
+
+## 2026-09-17 피드백 반영
+
+사용자가 코드 라인 코멘트의 수정 제안 박스를 선호한다고 명시했다. `ReviewDiff`의 `inline-review-recommendation`과 `ReviewReportPanel`의 `report-recommendation`을 실제 참조했다. 리뷰 이력에서는 밝은 화면에 맞는 기존 report 박스의 스타일 정의를 공유한다. 원문의 명시적인 **수정 제안** 또는 해당 Markdown heading만 묶고 다음 섹션·원문 링크는 박스 밖에 둔다. 원문과 raw Markdown, 코드 블록의 텍스트는 변경하지 않는다.
+
+`agent-skills`의 `frontend-development/SKILL.md`를 추가로 읽고 기존 React·react-markdown·CSS 구조를 사용했다. 새로운 라이브러리나 범용 카드 시스템을 도입하지 않는다. 향후 개편에서도 관련 스킬과 실제 reference를 사용하며 배너·패널·박스의 획일적인 반복을 피한다는 사용자 지침을 저장소 `AGENTS.md`에 기록했다.
