@@ -63,9 +63,10 @@ afterEach(async () => {
   }
 });
 async function setup() {
-  const root = await mkdtemp(path.join(tmpdir(), 'gcr-central-cache-'));
+  const parent = await mkdtemp(path.join(tmpdir(), 'gcr-central-cache-'));
+  const root = await privateFiles.privateRoot(path.join(parent, 'private'));
   const stores: { close(): void }[] = [];
-  resources.push({ root, stores });
+  resources.push({ root: parent, stores });
   const keys = new Keys();
   let now = start;
   const open = async (b = binding(), s = scope) => {
@@ -690,7 +691,7 @@ describe('encrypted central snapshot synchronization', () => {
     await cache.synchronize(fixture().transport);
     const original = privateFiles.publishImmutable;
     vi.spyOn(privateFiles, 'publishImmutable').mockImplementation((file, bytes) => {
-      if (file.includes('/knowledge/'))
+      if (file.includes(`${path.sep}knowledge${path.sep}`))
         throw Object.assign(new Error('Synthetic disk full'), { code: 'ENOSPC' });
       return original(file, bytes);
     });
@@ -735,7 +736,9 @@ describe('encrypted central snapshot synchronization', () => {
     if (!index || index.deleted) throw Error('Expected an active cache index');
     const activePolicy = centralCacheIndex(index.value).active!.records.policy;
     const target = (await files(f.root)).find(
-      (file) => file.includes(`/knowledge/${activePolicy}/blobs/`) && file.endsWith('.enc'),
+      (file) =>
+        file.includes(path.join('knowledge', activePolicy, 'blobs') + path.sep) &&
+        file.endsWith('.enc'),
     )!;
     const bytes = await readFile(target);
     bytes[Math.floor(bytes.length / 2)]! ^= 1;

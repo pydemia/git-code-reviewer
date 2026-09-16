@@ -21,7 +21,7 @@ internal sealed class Failure : Exception {
 }
 
 internal static class Native {
-    internal const string Version = "1.0.1";
+    internal const string Version = "1.0.2";
     const int Limit = 36 * 1024 * 1024;
     static readonly JavaScriptSerializer Json = new JavaScriptSerializer {
         MaxJsonLength = Limit, RecursionLimit = 32
@@ -540,37 +540,65 @@ internal static class Native {
             };
         }
     }
-    public static int Main() {
+    static Dictionary<string, object> ReadInput() {
+        StringBuilder text = new StringBuilder();
+        int c;
+        while ((c = Console.In.Read()) >= 0 && c != '\n') {
+            if (text.Length >= Limit) throw new Failure("invalid-request");
+            text.Append((char)c);
+        }
+        if (c < 0 && text.Length == 0) return null;
+        return Json.Deserialize<Dictionary<string, object>>(text.ToString());
+    }
+    static object Execute(Dictionary<string, object> input, bool storageOnly) {
+        string operation = Text(input, "operation");
+        if (operation == "identity") return new {
+            version = Version, sid = Sid, runtime = Environment.Version.ToString(),
+            dataDirectory = Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData), "CommitDefender")
+        };
+        if (operation == "credential") return Credentials(input);
+        if (!storageOnly && operation == "auth-link") return AuthLink(input);
+        if (!storageOnly && operation == "process") return Run(input);
+        if (new List<string> { "directory", "validate-directory",
+            "read", "publish", "snapshot-read" }.Contains(operation))
+            return Storage(input, operation);
+        throw new Failure("invalid-request");
+    }
+    public static int Main(string[] args) {
         AppContext.SetSwitch("Switch.System.IO.UseLegacyPathHandling", false);
         AppContext.SetSwitch("Switch.System.IO.BlockLongPaths", false);
         Console.InputEncoding = new UTF8Encoding(false);
         Console.OutputEncoding = new UTF8Encoding(false);
         try {
-            StringBuilder text = new StringBuilder();
-            int c;
-            while ((c = Console.In.Read()) >= 0 && c != '\n') {
-                if (text.Length >= Limit) throw new Failure("invalid-request");
-                text.Append((char)c);
+            bool session = args.Length == 2 && args[0] == "--storage-session";
+            if (args.Length != 0 && !session) throw new Failure("invalid-request");
+            if (session) {
+                int ownerId;
+                if (!Int32.TryParse(args[1], out ownerId) || ownerId <= 0)
+                    throw new Failure("invalid-request");
+                IntPtr owner = OpenProcess(0x100000, false, (uint)ownerId);
+                Check(owner != IntPtr.Zero, "storage-unavailable");
+                Task.Run(() => {
+                    uint result = WaitForSingleObject(owner, UInt32.MaxValue);
+                    CloseHandle(owner);
+                    Environment.Exit(result == 0 ? 0 : 1);
+                });
             }
-            var input = Json.Deserialize<Dictionary<string, object>>(text.ToString());
-            string operation = Text(input, "operation");
-            object result;
-            if (operation == "identity") result = new {
-                version = Version, sid = Sid, runtime = Environment.Version.ToString(),
-                dataDirectory = Path.Combine(Environment.GetFolderPath(
-                    Environment.SpecialFolder.LocalApplicationData), "CommitDefender")
-            };
-            else if (operation == "credential") result = Credentials(input);
-            else if (operation == "auth-link") result = AuthLink(input);
-            else if (operation == "process") result = Run(input);
-            else if (new List<string> { "directory", "validate-directory",
-                "read", "publish", "snapshot-read" }.Contains(operation))
-                result = Storage(input, operation);
-            else throw new Failure("invalid-request");
-            Emit(result);
-            // In process mode this closes the owning job, including descendants.
-            Environment.Exit(0);
-            return 0;
+            for (;;) {
+                var input = ReadInput();
+                if (input == null) return 0;
+                if (!session) {
+                    Emit(Execute(input, false));
+                    // Close the owning process job, including descendants.
+                    Environment.Exit(0);
+                    return 0;
+                }
+                // Each request still opens, validates and closes guarded handles.
+                try { Emit(Execute(input, true)); }
+                catch (Failure error) { Emit(new { error = error.Code }); }
+                catch (Exception) { Emit(new { error = "storage-unavailable" }); }
+            }
         } catch (Failure error) { Emit(new { error = error.Code }); }
         catch (Exception) { Emit(new { error = "storage-unavailable" }); }
         Environment.Exit(1);
