@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { openSync, closeSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { openSync, closeSync, watch } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -14,9 +14,47 @@ import {
   publishImmutable,
   readPrivateFile,
 } from './private-files.js';
-import { windowsNativeSync } from './windows-native.js';
+import { windowsNativeSync, windowsNativeExecutable } from './windows-native.js';
 
 describe.skipIf(process.platform !== 'win32')('native Windows security primitives', () => {
+  it('never exposes a partial target when its publisher is terminated', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'w01-interrupted-'));
+    const root = await privateRoot(path.join(parent, 'private'));
+    const target = path.join(root, 'committed');
+    const bytes = Buffer.alloc(16 * 1024 * 1024, 7);
+    const child = spawn(windowsNativeExecutable(), [], {
+      windowsHide: true,
+      stdio: ['pipe', 'ignore', 'ignore'],
+    });
+    let pendingObserved = false;
+    const watcher = watch(root, (_event, name) => {
+      if (name?.startsWith('.pending-')) {
+        pendingObserved = true;
+        child.kill();
+      }
+    });
+    try {
+      const exited = new Promise<void>((resolve, reject) => {
+        child.once('close', () => resolve());
+        child.once('error', reject);
+      });
+      child.stdin.on('error', () => {
+        /* Termination can close the input pipe. */
+      });
+      child.stdin.end(
+        JSON.stringify({ operation: 'publish', path: target, bytes: bytes.toString('base64') }) +
+          '\n',
+      );
+      await exited;
+      expect(pendingObserved).toBe(true);
+      const committed = await readPrivateFile(target, bytes.length);
+      if (committed !== undefined) expect(committed).toEqual(bytes);
+    } finally {
+      watcher.close();
+      child.kill();
+      await rm(parent, { recursive: true, force: true });
+    }
+  }, 30_000);
   it('refuses a concurrent writer and bounds snapshot bytes', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'w01-snapshot-'));
     const file = path.join(root, 'source.ts');
