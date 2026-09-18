@@ -4074,6 +4074,21 @@ body.workspace-resizing:has(.resize-bottom) {
   grid-column: 1 / -1;
 }
 
+.review-comment-priority {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.review-comment-priority select {
+  max-width: 100%;
+}
+
+.review-comment-priority small {
+  color: var(--muted);
+}
+
 .review-repository-card strong {
   overflow-wrap: anywhere;
 }

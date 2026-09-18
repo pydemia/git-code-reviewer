@@ -158,6 +158,7 @@ describe('shared Commit Defender report presentation', () => {
         reportUrl,
         includeTitle: false,
         audience: 'pull-request',
+        minimumPriority: 'P2',
       }),
     );
     expect(published.match(/Git Code Reviewer/g)).toHaveLength(1);
@@ -168,6 +169,61 @@ describe('shared Commit Defender report presentation', () => {
     expect(markdown).toContain('<code>SESSION&#95;SECRET</code>');
     expect(markdown).toContain('> 💬 **P3 Critical');
     expect(markdown).toContain('<details>\n<summary><code>src/config.ts</code>');
+  });
+  it.each(['P2', 'P3'] as const)(
+    'filters canonical notifications at %s while preserving full results',
+    (priority) => {
+      const changed = structuredClone(report);
+      changed.findings.forEach((finding, index) => {
+        finding.priority = (['P0', 'P1', 'P2', 'P3'] as const)[index]!;
+        finding.title = `notification ${finding.priority}`;
+        finding.problem = `problem ${finding.priority}`;
+      });
+      changed.summary = 'Hidden low priority content';
+      changed.analysis!.files.forEach((file) => {
+        file.summary = 'Hidden low priority content';
+      });
+      const before = JSON.stringify(changed);
+      const body = renderReviewComment({
+        context: {
+          analysisId: changed.analysisRevisionId,
+          owner: 'org',
+          name: 'repo',
+          pullNumber: 1,
+          headSha: 'b'.repeat(40),
+          report: changed,
+          reviewCommentMinPriority: priority,
+        },
+        canonicalReport: changed,
+        findings: changed.findings,
+        marker: '<!-- synthetic -->',
+      });
+      expect(body).toContain('notification P3');
+      expect(body.includes('notification P2')).toBe(priority === 'P2');
+      expect(body).not.toContain('notification P1');
+      expect(body).not.toContain('notification P0');
+      expect(body).not.toContain('Hidden low priority content');
+      expect(JSON.stringify(changed)).toBe(before);
+      expect(formatReviewMarkdown(changed)).toContain('notification P1');
+    },
+  );
+
+  it('does not claim a clean review when all warnings are below the notification threshold', () => {
+    const changed = structuredClone(report);
+    changed.analysis!.status = 'incomplete';
+    changed.findings.forEach((finding) => {
+      finding.priority = 'P2';
+    });
+    changed.coverage.limitations = ['검토 예산 소진'];
+    const body = formatReviewMarkdown(changed, [], {
+      audience: 'pull-request',
+      minimumPriority: 'P3',
+    });
+    expect(body).toContain('PR 알림 기준에 해당하는 검토 의견이 없습니다.');
+    expect(body).toContain('분석 완료 · 제한 있음');
+    expect(body).toContain('검토 예산 소진');
+    expect(body).not.toContain('문제가 발견되지 않았습니다.');
+    expect(body).not.toContain('### src/');
   });
   it.each(['pull-request', 'full'] as const)(
     'keeps long overview and limitations outside disclosures in %s output',

@@ -248,6 +248,9 @@ export const repositorySchema = z.object({
 });
 export type Repository = z.infer<typeof repositorySchema>;
 
+export const reviewCommentMinPrioritySchema = z.enum(['P2', 'P3']);
+export type ReviewCommentMinPriority = z.infer<typeof reviewCommentMinPrioritySchema>;
+
 export const adminRepositoryListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   items: z.array(
@@ -263,6 +266,7 @@ export const adminRepositoryListSchema = z.object({
       enabled: z.boolean(),
       pollingEnabled: z.boolean(),
       reviewPublishingEnabled: z.boolean(),
+      reviewCommentMinPriority: reviewCommentMinPrioritySchema.default('P2'),
       pollIntervalSeconds: z.number().int(),
       credentialId: z.string().uuid().nullable(),
       credentialLabel: z.string().nullable(),

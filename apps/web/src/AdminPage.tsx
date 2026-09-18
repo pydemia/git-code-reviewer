@@ -824,6 +824,13 @@ export function AdminPage() {
                   `PR review 결과 게시를 ${enabled ? '활성화' : '중지'}했습니다.`,
                 )
               }
+              onRepositoryCommentPriorityChange={(repositoryId, reviewCommentMinPriority) =>
+                runMutation(
+                  `repository:publishing:${repositoryId}`,
+                  () => updateAdminRepository(repositoryId, { reviewCommentMinPriority }),
+                  'PR 알림 등급을 저장했습니다. 다음 댓글 게시부터 적용됩니다.',
+                )
+              }
               onPollNow={(repositoryId) =>
                 runMutation(
                   `repository:poll:${repositoryId}`,
@@ -2312,6 +2319,7 @@ function GitHubConnectionPanel({
   onRegisterRepository,
   onRepositoryPollingChange,
   onRepositoryPublishingChange,
+  onRepositoryCommentPriorityChange,
   onDeleteRepository,
   onPollNow,
 }: {
@@ -2342,6 +2350,10 @@ function GitHubConnectionPanel({
   ) => Promise<unknown>;
   onRepositoryPollingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
   onRepositoryPublishingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
+  onRepositoryCommentPriorityChange: (
+    repositoryId: string,
+    priority: 'P2' | 'P3',
+  ) => Promise<unknown>;
   onDeleteRepository: (repository: AdminRepository) => Promise<string | null>;
   onPollNow: (repositoryId: string) => Promise<unknown>;
 }) {
@@ -2642,6 +2654,27 @@ function GitHubConnectionPanel({
                 GHES 댓글 열기
               </a>
             ) : null}
+            <label className="review-comment-priority">
+              PR 댓글 알림 등급
+              <select
+                aria-label={`${repository.owner}/${repository.name} PR 댓글 알림 등급`}
+                aria-describedby={`comment-priority-help-${repository.id}`}
+                value={repository.reviewCommentMinPriority}
+                disabled={busyKey !== null}
+                onChange={(event) =>
+                  void onRepositoryCommentPriorityChange(
+                    repository.id,
+                    event.target.value as 'P2' | 'P3',
+                  )
+                }
+              >
+                <option value="P2">P2 Warning 이상 (기본값)</option>
+                <option value="P3">P3 Critical만</option>
+              </select>
+              <small id={`comment-priority-help-${repository.id}`}>
+                다음 댓글 게시부터 적용됩니다. 분석 강도와 전체 보고서는 유지됩니다.
+              </small>
+            </label>
             <div className="registry-card-actions">
               <button
                 className="command-button"

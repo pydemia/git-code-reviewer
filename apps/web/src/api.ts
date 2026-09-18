@@ -584,6 +584,7 @@ export async function updateAdminRepository(
     enabled?: boolean;
     pollingEnabled?: boolean;
     reviewPublishingEnabled?: boolean;
+    reviewCommentMinPriority?: 'P2' | 'P3';
     pollIntervalSeconds?: number;
   },
 ): Promise<void> {

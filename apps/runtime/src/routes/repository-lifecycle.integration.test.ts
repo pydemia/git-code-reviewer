@@ -76,7 +76,8 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
     vi.stubGlobal('fetch', fetcher);
     app = Fastify();
     app.addHook('onRequest', async (request) => {
-      request.user = admin;
+      request.user =
+        request.headers['x-test-role'] === 'reviewer' ? { ...admin, role: 'reviewer' } : admin;
     });
     await registerWorklistRoutes(app, database, new AuthorizationService(config), config);
     await registerAccountRegistryRoutes(app, database, config);
@@ -129,6 +130,65 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
       url: `/api/v1/admin/repositories/${target.repositoryId}`,
       payload: { confirmName: `org-name/${target.name}` },
     });
+
+  it('persists independent notification priority without enqueueing or changing publishing and rejects non-admin writes', async () => {
+    const { repositoryId } = await seed();
+    const settings = async () =>
+      (
+        await database.query(
+          'select review_comment_min_priority, review_publishing_enabled, polling_enabled from repositories where id=$1',
+          [repositoryId],
+        )
+      ).rows[0];
+    expect(await settings()).toEqual({
+      review_comment_min_priority: 'P2',
+      review_publishing_enabled: true,
+      polling_enabled: true,
+    });
+    const jobCount = async () =>
+      Number((await database.query('select count(*) from jobs')).rows[0].count);
+    const before = await jobCount();
+    const url = `/api/v1/admin/repositories/${repositoryId}`;
+    expect(
+      (await app.inject({ method: 'PATCH', url, payload: { reviewCommentMinPriority: 'P3' } }))
+        .statusCode,
+    ).toBe(200);
+    expect(await settings()).toEqual({
+      review_comment_min_priority: 'P3',
+      review_publishing_enabled: true,
+      polling_enabled: true,
+    });
+    expect(await jobCount()).toBe(before);
+    const list = await app.inject({ method: 'GET', url: '/api/v1/admin/repositories' });
+    expect(
+      list.json().items.find((item: { id: string }) => item.id === repositoryId)
+        .reviewCommentMinPriority,
+    ).toBe('P3');
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url,
+          headers: { 'x-test-role': 'reviewer' },
+          payload: { reviewCommentMinPriority: 'P2' },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect((await settings()).review_comment_min_priority).toBe('P3');
+    const invalid = await app.inject({
+      method: 'PATCH',
+      url,
+      payload: { reviewCommentMinPriority: 'P1' },
+    });
+    expect(invalid.statusCode).toBeGreaterThanOrEqual(400);
+    expect((await settings()).review_comment_min_priority).toBe('P3');
+    expect(
+      (await app.inject({ method: 'PATCH', url, payload: { reviewCommentMinPriority: 'P2' } }))
+        .statusCode,
+    ).toBe(200);
+    expect((await settings()).review_comment_min_priority).toBe('P2');
+    expect(await jobCount()).toBe(before);
+  });
 
   it('registers a URL with a selected user and keeps a single reviewer grant on retry', async () => {
     githubId += 1;

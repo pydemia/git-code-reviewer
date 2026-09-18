@@ -427,6 +427,18 @@ export function GuidePage() {
               PR 게시 기능 도입 전에 등록된 repository는 게시가 꺼진 상태로 유지됩니다. Token 교체와
               연결 테스트 후 repository 카드에서 <strong>PR 게시 시작</strong>을 눌러 활성화합니다.
             </p>
+            <h3>PR 댓글 알림 등급</h3>
+            <p>
+              관리자 → GHES 연결의 repository 카드에서 <strong>PR 댓글 알림 등급</strong>을
+              선택합니다. 기본값은 <strong>P2 Warning 이상</strong>이며 반드시 확인할 심각한 의견에
+              집중하려면 <strong>P3 Critical만</strong>을 선택합니다. 분석 강도·모델·전체 보고서는
+              바뀌지 않고 P1 Info와 P0 Praise도 전체 보고서에서 확인할 수 있습니다.
+            </p>
+            <p>
+              다음 댓글 게시부터 적용하며 이미 게시한 댓글을 설정 변경만으로 갱신하지 않습니다. 알림
+              기준에 해당하는 의견이 없다는 문구는 분석 전체에 문제가 없다는 뜻이 아닙니다. 미검토
+              범위와 실패는 분석 상태에서 따로 확인하십시오.
+            </p>
             <h3>Review repository 등록 삭제</h3>
             <p>
               관리자 화면의 repository 카드에서 <strong>등록 삭제</strong>를 누르고 확인창에 표시된{' '}

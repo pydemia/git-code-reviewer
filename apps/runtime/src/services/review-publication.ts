@@ -29,6 +29,7 @@ type PublicationContext = RepositoryTarget & {
   reportId: string;
   skillHash: string | null;
   reportLocator: string | null;
+  reviewCommentMinPriority?: 'P2' | 'P3';
   report: Pick<ReviewReport, 'grade' | 'summary' | 'hasCriticalFindings' | 'coverage'>;
 };
 
@@ -241,6 +242,14 @@ export async function publishReviewToGitHub(
             current.pullNumber !== context.pullNumber
           )
             throw new GitHubPublicationSupersededError('target-changed');
+          if (
+            (current.reviewCommentMinPriority ?? 'P2') !==
+            (context.reviewCommentMinPriority ?? 'P2')
+          )
+            throw new ReviewPublicationError(
+              'PR comment notification priority changed; retry with current settings',
+              true,
+            );
         },
       });
     } catch (error) {
@@ -285,6 +294,7 @@ export async function publishReviewToGitHub(
     await appendEvent(connection, 'pull_request', pullRequestId, 'github.review.published', {
       analysisId,
       headSha: context.headSha,
+      reviewCommentMinPriority: context.reviewCommentMinPriority ?? 'P2',
       commentId: result.commentId,
       commentUrl: result.commentUrl,
       outcome: result.outcome,
@@ -321,6 +331,7 @@ async function loadPublicationContext(
     summary: string;
     hasCriticalFindings: boolean;
     coverage: ReviewReport['coverage'];
+    reviewCommentMinPriority: 'P2' | 'P3';
   }>(
     `select analysis.id as "analysisId", analysis.created_at as "analysisCreatedAt",
             pull_request.id as "pullRequestId", pull_request.number as "pullNumber",
@@ -329,6 +340,7 @@ async function loadPublicationContext(
             repository.owner, repository.name, request.head_sha as "headSha",
             report.id as "reportId", report.grade, report.summary,
             report.has_critical_findings as "hasCriticalFindings", report.coverage,
+            repository.review_comment_min_priority as "reviewCommentMinPriority",
             analysis.skill_hash as "skillHash", artifact.locator as "reportLocator"
      from analysis_runs analysis
      join reports report on report.analysis_run_id = analysis.id
@@ -384,14 +396,22 @@ async function loadFindings(
 export function renderReviewComment(input: {
   context: Pick<
     PublicationContext,
-    'analysisId' | 'owner' | 'name' | 'pullNumber' | 'headSha' | 'report'
+    | 'analysisId'
+    | 'owner'
+    | 'name'
+    | 'pullNumber'
+    | 'headSha'
+    | 'report'
+    | 'reviewCommentMinPriority'
   >;
   findings: Array<Pick<ReviewFinding, 'priority' | 'title' | 'problem' | 'recommendation'>>;
   marker: string;
   publicBaseUrl?: string;
   canonicalReport?: ReviewReport;
 }): string {
-  const { context, findings, marker } = input;
+  const { context, marker } = input;
+  const minimumPriority = context.reviewCommentMinPriority ?? 'P2';
+  const findings = input.findings.filter((finding) => finding.priority >= minimumPriority);
   if (input.canonicalReport) {
     const heading = `${marker}\n## Git Code Reviewer 결과\n\n`;
     const tail = '\n\n_이 댓글은 새 분석이 완료되면 같은 위치에서 갱신됩니다._';
@@ -403,6 +423,7 @@ export function renderReviewComment(input: {
       formatReviewMarkdown(input.canonicalReport, [], {
         includeTitle: false,
         audience: 'pull-request',
+        minimumPriority,
         ...(reportUrl ? { reportUrl } : {}),
         maxLength: 60000 - heading.length - tail.length,
       }) +
@@ -424,7 +445,8 @@ export function renderReviewComment(input: {
     '',
     `**코드 품질:** ${formatReviewGrade(context.report.grade)}${context.report.hasCriticalFindings ? ' · 조치가 필요한 P3 finding이 있습니다.' : ''}`,
     '',
-    escapeMarkdown(context.report.summary),
+    `PR 댓글 알림: ${minimumPriority === 'P2' ? 'P2 Warning 이상' : 'P3 Critical만'} · 전체 분석 결과는 보고서에서 확인할 수 있습니다.`,
+    ...(findings.length === input.findings.length ? [escapeMarkdown(context.report.summary)] : []),
     '',
     '| Priority | P3 | P2 | P1 | P0 |',
     '|---|---:|---:|---:|---:|',
@@ -448,7 +470,7 @@ export function renderReviewComment(input: {
     }
     lines.push('');
   } else {
-    lines.push('조치가 필요한 finding은 발견되지 않았습니다.', '');
+    lines.push('PR 알림 기준에 해당하는 검토 의견이 없습니다.', '');
   }
   if (input.publicBaseUrl) {
     lines.push(

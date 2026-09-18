@@ -210,8 +210,46 @@ export function formatReviewMarkdown(
     maxLength?: number;
     includeTitle?: boolean;
     audience?: 'full' | 'pull-request';
+    minimumPriority?: 'P2' | 'P3';
   } = {},
 ): string {
+  const minimumPriority = options.audience === 'pull-request' ? options.minimumPriority : undefined;
+  if (minimumPriority) {
+    const findings = report.findings.filter((finding) => finding.priority >= minimumPriority);
+    const filtered = findings.length !== report.findings.length;
+    const summaryFor = (fileId: string) =>
+      findings
+        .filter((finding) => finding.anchor.fileId === fileId)
+        .map((finding) => finding.title)
+        .join('\n\n');
+    // Unfiltered summaries and previous findings can repeat opinions excluded from
+    // notifications. Project only the outgoing view; preserve the canonical report.
+    report = {
+      ...report,
+      findings,
+      summary: filtered ? '' : report.summary,
+      recurrence: undefined,
+      perFileSummaries: report.perFileSummaries.map((file) => ({
+        ...file,
+        summary: filtered ? summaryFor(file.fileId) : file.summary,
+      })),
+      ...(report.analysis
+        ? {
+            analysis: {
+              ...report.analysis,
+              priority: findings.reduce<keyof typeof reviewPriorityLabels | null>(
+                (max, finding) => (!max || finding.priority > max ? finding.priority : max),
+                null,
+              ),
+              files: report.analysis.files.map((file) => ({
+                ...file,
+                summary: filtered ? summaryFor(file.fileId) : file.summary,
+              })),
+            },
+          }
+        : {}),
+    };
+  }
   const view = presentReviewReport(report, paths);
   const forPullRequest = options.audience === 'pull-request';
   const text = escapeReviewMarkdown;
@@ -257,6 +295,11 @@ export function formatReviewMarkdown(
   }
   const blocks = [
     ...(options.includeTitle === false ? [] : ['# Git Code Reviewer']),
+    ...(minimumPriority
+      ? [
+          `PR 댓글 알림: ${minimumPriority === 'P2' ? 'P2 Warning 이상' : 'P3 Critical만'} · 전체 분석 결과는 보고서에서 확인할 수 있습니다.`,
+        ]
+      : []),
     `**${view.label}**${view.priority ? ` · ${reviewPriorityLabels[view.priority]}` : ''}${view.showGrade ? ` · 코드 품질: ${formatReviewGrade(report.grade)}${view.state === 'incomplete' ? ' · 검토 범위 내' : ''}` : ''}`,
     `| 파일 검토 | 검토 의견 | 소요 시간 | 분석 방식 |\n| :--- | :--- | :--- | :--- |\n| ${view.filesCompleted === null ? 'Legacy file coverage' : `${view.filesCompleted}/${report.coverage.filesChanged} files 검토 완료`} | ${report.findings.length} comments | ${formatReviewDuration(report.durationMs)} | ${view.mode} |`,
   ];
@@ -376,9 +419,11 @@ export function formatReviewMarkdown(
     );
   else
     blocks.push(
-      forPullRequest && view.state === 'pass'
-        ? '검토한 변경 범위에서 문제가 발견되지 않았습니다.'
-        : '표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.',
+      minimumPriority
+        ? 'PR 알림 기준에 해당하는 검토 의견이 없습니다. 전체 분석 상태와 범위는 위 내용을 확인하세요.'
+        : forPullRequest && view.state === 'pass'
+          ? '검토한 변경 범위에서 문제가 발견되지 않았습니다.'
+          : '표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.',
     );
   if (!forPullRequest) {
     blocks.push('## Analyzed File List');

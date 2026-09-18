@@ -1,4 +1,9 @@
-import { errorEnvelope, schemaVersion, pullRequestStateFilterSchema } from '@gcr/contracts';
+import {
+  errorEnvelope,
+  schemaVersion,
+  pullRequestStateFilterSchema,
+  reviewCommentMinPrioritySchema,
+} from '@gcr/contracts';
 import type { Database } from '@gcr/db';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -35,6 +40,7 @@ const repositoryPatch = z.object({
   enabled: z.boolean().optional(),
   pollingEnabled: z.boolean().optional(),
   reviewPublishingEnabled: z.boolean().optional(),
+  reviewCommentMinPriority: reviewCommentMinPrioritySchema.optional(),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).optional(),
 });
 const repositoryGrantBody = z.object({ enabled: z.boolean() });
@@ -298,6 +304,7 @@ export async function registerWorklistRoutes(
            poll_interval_seconds = coalesce($3, poll_interval_seconds),
            polling_enabled = coalesce($4, polling_enabled),
            review_publishing_enabled = coalesce($5, review_publishing_enabled),
+           review_comment_min_priority = coalesce($6, review_comment_min_priority),
            updated_at = clock_timestamp()
          where id = $1 and deleted_at is null returning id`,
         [
@@ -306,6 +313,7 @@ export async function registerWorklistRoutes(
           patch.pollIntervalSeconds ?? null,
           patch.pollingEnabled ?? null,
           patch.reviewPublishingEnabled ?? null,
+          patch.reviewCommentMinPriority ?? null,
         ],
       );
       if (!result.rowCount) return hiddenNotFound(request, reply);
@@ -506,6 +514,7 @@ async function listRepositories(database: Database, tenantId?: string) {
             r.owner, r.name, r.enabled, r.poll_interval_seconds as "pollIntervalSeconds",
             r.polling_enabled as "pollingEnabled", r.credential_id as "credentialId",
             r.review_publishing_enabled as "reviewPublishingEnabled",
+            r.review_comment_min_priority as "reviewCommentMinPriority",
             i.name as "instanceName", i.api_base_url as "apiBaseUrl", i.web_base_url as "webBaseUrl",
             credential.label as "credentialLabel",
             p.last_polled_at as "lastPolledAt", p.next_poll_at as "nextPollAt",
