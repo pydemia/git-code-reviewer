@@ -237,7 +237,7 @@ describe('shared Commit Defender report presentation', () => {
     expect(section).toBe('표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.');
     expect(section).not.toContain('<details>');
   });
-  it('omits uncommented files from PR comments but keeps full export and coverage limitations', () => {
+  it('omits uncommented files from human-readable reports while preserving raw data and coverage', () => {
     const changed = structuredClone(report);
     const hidden = changed.analysis!.files[1]!;
     changed.findings = changed.findings.filter(
@@ -254,7 +254,7 @@ describe('shared Commit Defender report presentation', () => {
     expect(pr).not.toContain('## Overall Summary');
     expect(pr).toContain('파일 요약');
     expect(pr).toContain('검토 의견 2개 · 파일 1개');
-    expect(formatReviewMarkdown(changed)).toContain(escapeReviewMarkdown(hidden.path));
+    expect(formatReviewMarkdown(changed)).not.toContain(escapeReviewMarkdown(hidden.path));
     expect(JSON.stringify(changed)).toBe(before);
     changed.analysis!.status = 'incomplete';
     changed.coverage.limitations = ['일부 검토 범위는 확인하지 못했습니다.'];
@@ -264,6 +264,25 @@ describe('shared Commit Defender report presentation', () => {
     expect(incomplete).toContain('일부 검토 범위는 확인하지 못했습니다');
     expect(incomplete).not.toContain('문제가 발견되지 않았습니다.');
     expect(incomplete).not.toContain('검토 의견 0개 · 파일');
+  });
+  it('omits empty-line notices from both Markdown audiences without hiding actual failures', () => {
+    const changed = structuredClone(report);
+    changed.analysis!.status = 'incomplete';
+    changed.coverage.limitations = [
+      'empty/__init__.py: 분석 가능한 변경 line이 없습니다.',
+      '분석 가능한 변경 line이 없습니다.',
+      '모델 호출 예산을 소진했습니다.',
+    ];
+    const stored = JSON.stringify(changed);
+    for (const audience of ['full', 'pull-request'] as const) {
+      const markdown = formatReviewMarkdown(changed, [], { audience });
+      expect(markdown).not.toContain('분석 가능한 변경 line');
+      expect(markdown).not.toContain('empty/');
+      expect(markdown).toContain('분석 제한 1건');
+      expect(markdown).toContain('모델 호출 예산을 소진했습니다');
+      expect(markdown).toContain('분석 완료 · 제한 있음');
+    }
+    expect(JSON.stringify(changed)).toBe(stored);
   });
   it('renders readable lists and emphasis in summaries and comment blocks without permitting active content', () => {
     const changed = structuredClone(report);
@@ -339,7 +358,8 @@ describe('shared Commit Defender report presentation', () => {
     expect(view.overview).toBeNull();
     expect(view.label).toBe('분석 완료 · 제한 있음');
     const markdown = formatReviewMarkdown(changed);
-    expect(markdown).toContain(escapeReviewMarkdown(concise));
+    expect(view.reviewGroups).toEqual([]);
+    expect(markdown).not.toContain(escapeReviewMarkdown(concise));
     expect(markdown).toContain('추가 주변 source 조회 제한');
     expect(markdown).not.toContain('확정된 review unit');
     expect(JSON.stringify(changed)).toBe(before);

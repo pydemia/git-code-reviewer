@@ -162,6 +162,12 @@ export function presentReviewReport<F extends ReportContent['findings'][number]>
     state,
     label: reviewStatusLabels[state],
     groups,
+    reviewGroups: groups.filter((file) => file.findings.length > 0),
+    // Empty patches are not review findings. Keep raw coverage/status for auditing,
+    // while avoiding one notification per empty file in existing reports as well.
+    limitations: report.coverage.limitations.filter(
+      (item) => !/^(?:.+: )?분석 가능한 변경 line이 없습니다\.$/.test(item.trim()),
+    ),
     overview,
     priority: analysis
       ? analysis.priority
@@ -286,13 +292,13 @@ export function formatReviewMarkdown(
     blocks.push(
       '> 실제 AI 검토 완료를 의미하지 않습니다. 분석 Provider 설정과 오류를 확인한 뒤 재분석하세요.',
     );
-  if (report.coverage.limitations.length)
+  if (view.limitations.length)
     blocks.push(
-      `## 분석 제한 ${report.coverage.limitations.length}건\n\n${report.coverage.limitations.map((item) => `- ${text(item)}`).join('\n')}`,
+      `## 분석 제한 ${view.limitations.length}건\n\n${view.limitations.map((item) => `- ${text(item)}`).join('\n')}`,
     );
   if (!forPullRequest) {
     blocks.push('## Overall Summary');
-    for (const file of view.groups)
+    for (const file of view.reviewGroups)
       blocks.push(
         details(
           `<code>${html(file.path)}</code> · ${reviewFileStatusLabels[file.status]} · ${file.findings.length} comments${file.priority ? ` · ${reviewPriorityLabels[file.priority]}` : ''}`,
@@ -302,7 +308,7 @@ export function formatReviewMarkdown(
   }
   blocks.push('## AI Comments');
   const comments: string[] = [];
-  const commentedFiles = view.groups.filter((file) => file.findings.length > 0);
+  const commentedFiles = view.reviewGroups;
   for (const file of commentedFiles) {
     comments.push(`### ${text(file.path)}`);
     if (forPullRequest && file.summary.trim())
@@ -378,8 +384,8 @@ export function formatReviewMarkdown(
     blocks.push('## Analyzed File List');
     blocks.push(
       details(
-        `파일 ${view.groups.length}개 보기`,
-        `| 파일 | 검토 상태 | 의견 |\n| :--- | :--- | ---: |\n${view.groups
+        `검토 의견이 있는 파일 ${view.reviewGroups.length}개 보기`,
+        `| 파일 | 검토 상태 | 의견 |\n| :--- | :--- | ---: |\n${view.reviewGroups
           .map(
             (file) =>
               `| ${text(file.path)} | ${reviewFileStatusLabels[file.status]} | ${file.findings.length} |`,

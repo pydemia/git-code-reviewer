@@ -154,12 +154,65 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
       onFileSelect={() => {}}
     />,
   );
-  expect(short).toContain('검토한 변경 범위에서 문제가 발견되지 않았습니다.');
+  expect(short).toContain('표시할 검토 의견이 없습니다.');
+  expect(short).not.toContain('src/main.ts');
   expect(short).not.toContain('추가로 지적할 사항');
   expect(short).toContain('PR 전체 변경 설명은 유지합니다.');
   expect(short).toContain('Coverage limitation');
   expect(short).toContain('분석 제한 1건');
   expect(short).toContain('<details class="report-limitations" open="">');
+
+  const large: typeof report = {
+    ...report,
+    summary: '확인된 검토 의견과 전체 완료 범위를 확인하세요.',
+    coverage: {
+      ...coverage,
+      filesChanged: 1045,
+      limitations: [
+        'quiet/__init__.py: 분석 가능한 변경 line이 없습니다.',
+        '모델 호출 예산에 도달해 일부 파일을 검토하지 못했습니다.',
+      ],
+    },
+    analysis: {
+      ...noIssues.analysis!,
+      coverage: { filesCompleted: 26, windowsPlanned: 1100, windowsReviewed: 100, modelCalls: 127 },
+      files: [
+        {
+          ...noIssues.analysis!.files[0]!,
+          summary: '입력 검증이 필요합니다.',
+          unitIds: ['finding'],
+          priority: 'P2',
+        },
+        ...Array.from({ length: 1044 }, (_, index) => ({
+          fileId: `quiet-${index}`,
+          path: `quiet/file-${index}.py`,
+          status: 'not-reviewed' as const,
+          summary: 'AI review 미완료 — 분석 가능한 변경 line이 없습니다.',
+          priority: null,
+          unitIds: [],
+        })),
+      ],
+    },
+  };
+  const stored = JSON.stringify(large);
+  const largeHtml = renderToStaticMarkup(
+    <ReviewReportPanel
+      report={large}
+      files={[]}
+      section="summary"
+      selectedFindingId={null}
+      onFileSelect={() => {}}
+      onFindingSelect={() => {}}
+    />,
+  );
+  expect(largeHtml.match(/class="report-file-summary"/g)).toHaveLength(1);
+  expect(largeHtml).toContain('src/main.ts');
+  expect(largeHtml).not.toContain('quiet/');
+  expect(largeHtml).not.toContain('분석 가능한 변경 line');
+  expect(largeHtml).toContain('26<span> / 1045</span>');
+  expect(largeHtml).toContain('모델 호출 예산에 도달');
+  expect(largeHtml).toContain('분석 완료 · 제한 있음');
+  expect(JSON.stringify(large)).toBe(stored);
 
   for (const versions of [{ model: 'fixture' }, { model: 'disabled' }, { review: 'failed' }]) {
     const unavailable = renderToStaticMarkup(

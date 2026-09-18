@@ -259,11 +259,11 @@ export function ReviewReportPanel({
               분석하세요.
             </p>
           ) : null}
-          {report.coverage.limitations.length ? (
+          {view.limitations.length ? (
             <details className="report-limitations" open>
-              <summary>분석 제한 {report.coverage.limitations.length}건</summary>
+              <summary>분석 제한 {view.limitations.length}건</summary>
               <ul>
-                {report.coverage.limitations.map((item, index) => (
+                {view.limitations.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
@@ -290,9 +290,12 @@ export function ReviewReportPanel({
       {section === 'summary' ? (
         <section className="report-section" aria-labelledby="overall-summary-title">
           <h3 id="overall-summary-title">
-            파일별 검토 <span>{view.groups.length}개 파일</span>
+            파일별 검토 <span>의견이 있는 {view.reviewGroups.length}개 파일</span>
           </h3>
-          {view.groups.map((file) => (
+          {!view.reviewGroups.length ? (
+            <p className="report-state-explanation">표시할 검토 의견이 없습니다.</p>
+          ) : null}
+          {view.reviewGroups.map((file) => (
             <article
               className="report-file-summary"
               key={file.fileId}
@@ -340,27 +343,25 @@ export function ReviewReportPanel({
           <h3 id="ai-comments-title">
             검토 의견 <span>{report.findings.length}개</span>
           </h3>
-          {view.groups
-            .filter((file) => file.findings.length)
-            .map((file) => (
-              <div className="report-file-comments" key={file.fileId}>
-                <button
-                  className="report-file-path"
-                  type="button"
-                  onClick={() => selectFile(file.fileId, file.path)}
-                >
-                  {file.path}
-                </button>
-                {file.findings.map((finding) => (
-                  <ReviewCommentBlock
-                    key={finding.id}
-                    finding={finding}
-                    selected={finding.id === selectedFindingId}
-                    onSelect={onFindingSelect}
-                  />
-                ))}
-              </div>
-            ))}
+          {view.reviewGroups.map((file) => (
+            <div className="report-file-comments" key={file.fileId}>
+              <button
+                className="report-file-path"
+                type="button"
+                onClick={() => selectFile(file.fileId, file.path)}
+              >
+                {file.path}
+              </button>
+              {file.findings.map((finding) => (
+                <ReviewCommentBlock
+                  key={finding.id}
+                  finding={finding}
+                  selected={finding.id === selectedFindingId}
+                  onSelect={onFindingSelect}
+                />
+              ))}
+            </div>
+          ))}
           {!report.findings.length ? (
             <p className="report-state-explanation">
               표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.
@@ -370,9 +371,9 @@ export function ReviewReportPanel({
       ) : null}
       {section === 'summary' ? (
         <details className="report-section report-file-list">
-          <summary>전체 파일 목록 · {view.groups.length}개</summary>
+          <summary>검토 의견이 있는 파일 목록 · {view.reviewGroups.length}개</summary>
           <ul className="report-analyzed-files">
-            {view.groups.map((file) => (
+            {view.reviewGroups.map((file) => (
               <li key={file.fileId}>
                 <button
                   className="report-file-path"
