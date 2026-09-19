@@ -236,4 +236,73 @@ describe.skipIf(!url)('parallel account admission', () => {
     ).rejects.toThrow('model_time_budget_exhausted');
     expect(called).toBe(false);
   });
+  it('persists body-only quota reset and avoids further calls when it exceeds the run deadline', async () => {
+    const quota = randomUUID(),
+      run = randomUUID(),
+      reset = Date.now() + 5 * 3600000;
+    let calls = 0;
+    const transport = admittedFetch(database, quota, async () => {
+      calls++;
+      return Response.json(
+        {
+          error: {
+            type: 'usage_limit_reached',
+            resets_at: Math.ceil(reset / 1000),
+            message: 'must not persist',
+          },
+        },
+        { status: 429 },
+      );
+    });
+    for (let n = 0; n < 2; n++)
+      await expect(
+        withModelBudget(
+          {
+            runKey: run,
+            maxCalls: 512,
+            wait: true,
+            durableGroup: true,
+            deadline: Date.now() + 3600000,
+          },
+          () => transport('https://synthetic.invalid/responses'),
+        ),
+      ).rejects.toThrow('model_time_budget_exhausted');
+    expect(calls).toBe(1);
+    const rows = (
+      await database.query('select state,failure from model_request_ledger where run_key=$1', [run])
+    ).rows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].state).toBe('failed');
+    expect(rows[0].failure).toMatchObject({ httpStatus: 429, providerCode: 'usage_limit_reached' });
+    expect(new Date(rows[0].failure.retryAt).getTime()).toBeGreaterThanOrEqual(reset);
+    expect(JSON.stringify(rows)).not.toContain('must not persist');
+    expect(
+      (
+        await database.query(
+          'select lease_expires_at from model_account_capacity where quota_key=$1',
+          [quota],
+        )
+      ).rows[0].lease_expires_at,
+    ).toBeNull();
+  });
+  it('carries repeated failure backoff across runs using the shared account ledger', async () => {
+    const quota = randomUUID();
+    for (let n = 0; n < 5; n++) {
+      const id = await reserve(quota, randomUUID());
+      await database.query("select finish_model_request($1,'failed',null)", [id]);
+    }
+    const transport = admittedFetch(database, quota, async () => new Response('', { status: 429 }));
+    const started = Date.now();
+    await expect(
+      withModelBudget({ runKey: randomUUID(), maxCalls: 512, durableGroup: true }, () =>
+        transport('https://synthetic.invalid/responses'),
+      ),
+    ).rejects.toMatchObject({ message: 'model_capacity_wait' });
+    const capacity = (
+      await database.query('select cooldown_until from model_account_capacity where quota_key=$1', [
+        quota,
+      ])
+    ).rows[0];
+    expect(capacity.cooldown_until.getTime()).toBeGreaterThanOrEqual(started + 900000);
+  });
 });

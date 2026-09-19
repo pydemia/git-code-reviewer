@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { Database } from '@gcr/db';
+import { modelRateLimit } from './model-rate-limit.js';
 
 export type ModelBudget = {
   runKey: string;
@@ -124,23 +125,19 @@ export function admittedFetch(
       ]);
       const response = await fetcher(input, { ...init, signal });
       if (response.status === 429) {
-        const raw = response.headers.get('retry-after');
-        const seconds = raw && /^\d+$/.test(raw) ? Number(raw) : null;
-        const parsed = raw ? Date.parse(raw) : NaN;
-        const requested =
-          seconds !== null
-            ? Date.now() + seconds * 1000
-            : Number.isFinite(parsed)
-              ? parsed
-              : Date.now() + 30000;
-        // Never shorten a valid Retry-After. Jitter is added after the server deadline.
-        const until = new Date(
-          Math.max(
-            Date.now() + 3000,
-            Number.isFinite(requested) && requested <= 8.64e15 ? requested : Date.now() + 86400000,
-          ) + Math.floor(Math.random() * 1000),
+        const recent = await database.query<{ state: string }>(
+          "select state from model_request_ledger where quota_key=$1 and state in ('completed','failed','interrupted') order by created_at desc,id desc limit 5",
+          [quotaKey],
         );
-        await response.body?.cancel();
+        const success = recent.rows.findIndex((row) => row.state === 'completed');
+        const { retryAt: until, providerCode } = await modelRateLimit(
+          response,
+          success < 0 ? recent.rows.length : success,
+        );
+        await database.query('update model_request_ledger set failure=$2::jsonb where id=$1', [
+          reservation,
+          JSON.stringify({ httpStatus: 429, providerCode, retryAt: until.toISOString() }),
+        ]);
         await finish('failed', until);
         if (budget.deadline && until.getTime() >= budget.deadline)
           throw Error('model_time_budget_exhausted');
