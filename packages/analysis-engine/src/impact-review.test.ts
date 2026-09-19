@@ -66,6 +66,26 @@ const store = () => {
 };
 
 describe('complete impact-group review', () => {
+  it('stops preparing remaining groups and summaries after a global budget failure', async () => {
+    const state = store(),
+      input = base(Array.from({ length: 1045 }, (_, i) => file(`file${i}.py`)));
+    input.impactReview!.store = state.adapter;
+    let prepared = 0;
+    input.model = {
+      profile: 'synthetic-only',
+      async review(_body, _files, _instructions, context) {
+        prepared++;
+        if (prepared === 1) return response(context?.group?.targetIds);
+        throw Error('model_time_budget_exhausted');
+      },
+    };
+    const result = await analyzeSnapshot(input);
+    expect(prepared).toBe(2);
+    expect(state.cache.size).toBe(1);
+    expect([...state.states.values()].filter((value) => value === 'budget-wait')).toHaveLength(52);
+    expect(result.report.analysis?.coverage.filesCompleted).toBe(20);
+    expect(result.state).toBe('partial');
+  });
   it('reviews 1045 changed files without the old file/aggregate-byte truncation or per-file summary calls', async () => {
     const input = base(Array.from({ length: 1045 }, (_, i) => file(`pkg/file${i}.py`)));
     let units = 0,

@@ -127,6 +127,7 @@ export async function runImpactReview(input: {
   const completed = new Map<string, { result: TaskResult; comments: Comment[] }>();
   const failures = new Map<string, string>();
   let blockedByAuth = false;
+  let exhaustedBudget: string | null = null;
   let modelCalls = 0,
     progressQueue = Promise.resolve();
   const publish = (stage: string) => {
@@ -166,6 +167,12 @@ export async function runImpactReview(input: {
         state: 'blocked',
         code: 'REVIEW_INPUT_REQUIRES_SPLIT',
       });
+      return;
+    }
+    if (exhaustedBudget) {
+      failures.set(task.id, exhaustedBudget);
+      await input.options.store?.start(task);
+      await input.options.store?.fail(task, { state: 'budget-wait', code: exhaustedBudget });
       return;
     }
     if (blockedByAuth || !input.model) {
@@ -234,6 +241,8 @@ export async function runImpactReview(input: {
           code: reason.code,
         });
         failures.set(task.id, reason.code);
+        if (['MODEL_CALL_BUDGET_EXHAUSTED', 'MODEL_TIME_BUDGET_EXHAUSTED'].includes(reason.code))
+          exhaustedBudget = reason.code;
         if (reason.code === 'MODEL_AUTH_UNAVAILABLE') blockedByAuth = true;
         if (!reason.retryable || attempt === 1) break;
         if (reason.code !== 'MODEL_OUTPUT_INVALID' && !message.startsWith('review_'))
@@ -319,7 +328,13 @@ export async function runImpactReview(input: {
   );
   if (!input.model) limitations.push('모델 비활성화로 검토를 수행하지 않았습니다.');
   let summaryComplete = false;
-  while (input.model && !blockedByAuth && summaries.length && modelCalls < input.maxModelCalls) {
+  while (
+    input.model &&
+    !blockedByAuth &&
+    !exhaustedBudget &&
+    summaries.length &&
+    modelCalls < input.maxModelCalls
+  ) {
     const batches: string[][] = [];
     let batch: string[] = [],
       bytes = 0;
