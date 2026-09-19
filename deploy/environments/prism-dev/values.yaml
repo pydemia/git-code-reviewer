@@ -70,6 +70,10 @@ postgresql:
     database: git_code_reviewer
     existingSecret: git-code-reviewer-postgresql-auth
   primary:
+    # Shared application/identity DB: the 192Mi chart preset OOMed under a large PR run.
+    resources:
+      requests: { cpu: 250m, memory: 512Mi, ephemeral-storage: 50Mi }
+      limits: { cpu: '1', memory: 1Gi, ephemeral-storage: 2Gi }
     persistence:
       enabled: true
       storageClass: nfs-csi
