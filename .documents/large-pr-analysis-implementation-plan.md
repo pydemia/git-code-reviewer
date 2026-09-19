@@ -29,7 +29,7 @@ PR #1024의 고정 snapshot은 `d71a259f-b82f-42f4-b5fe-20259e41ccc5`, analysis�
 - `apps/runtime/src/services/analysis-source-context.ts`: 첫 요청 파일의 주변 코드 중심이며 전체 분석에서 source context 한도를 공유한다.
 - `apps/runtime/src/services/model-admission.ts`: 계정별 DB admission, RPM·input bytes와 cooldown이 있지만 작업을 내구성 있게 대기시키는 단위가 분석 그룹이 아니다.
 - `apps/runtime/src/services/analysis-checkpoint.ts`: 성공 요청 재사용은 가능하지만 미완료 그룹을 직접 재개하는 작업 목록이 없다.
-- `apps/runtime/src/worker.ts`: 저장 보고서가 있으면 분석을 반환한다. partial 보고서를 발행한 뒤 남은 작업만 재개하기 어렵다.
+- `apps/runtime/src/jobs/worker.ts`: 저장 보고서가 있으면 분석을 반환한다. partial 보고서를 발행한 뒤 남은 작업만 재개하기 어렵다.
 - `packages/git-engine/src/index.ts`: 변경 목록의 2,000파일 절단도 제거하거나 명시적인 미완료 상태로 바꿔야 한다.
 
 ## 처리와 완료의 정의

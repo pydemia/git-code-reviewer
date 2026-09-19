@@ -1,0 +1,116 @@
+{
+  "analysisId": "841560c1-98a2-417c-84f7-21a2d4330e93",
+  "state": "partial",
+  "sourceSha": "a25a829c3a61abf228d06037f9d0709ba30d3f53",
+  "deploymentCommit": "74095b3",
+  "appVersion": "0.8.0-alpha.73",
+  "chartVersion": "0.10.69",
+  "helmRevision": 82,
+  "imageDigest": "sha256:a7c50b9d0f2301f4e9b61f2a2e7441bbde9a1cdb66e52a6e895e11f5e9d04e04",
+  "chartPackageSha256": "37458c8c2d854a971c916cb425a66bfe1e924838c0afca943cdb14dbb7d67e93",
+  "startedAt": "2026-09-19T01:08:59.007Z",
+  "finishedAt": "2026-09-19T02:04:26.931Z",
+  "files": {
+    "total": 1045,
+    "reviewed": 336,
+    "pending": 707,
+    "excluded": 2
+  },
+  "tasks": {
+    "completed": 92,
+    "budgetWait": 317,
+    "total": 409
+  },
+  "calls": [
+    {
+      "state": "completed",
+      "count": 93,
+      "input_bytes": "8227039",
+      "first_request": "2026-09-19T01:13:45.544Z",
+      "last_finished": "2026-09-19T01:35:51.553Z"
+    },
+    {
+      "state": "failed",
+      "count": 8,
+      "input_bytes": "694720",
+      "first_request": "2026-09-19T01:35:39.411Z",
+      "last_finished": "2026-09-19T01:52:39.206Z"
+    },
+    {
+      "state": "interrupted",
+      "count": 1,
+      "input_bytes": "105261",
+      "first_request": "2026-09-19T01:10:16.943Z",
+      "last_finished": "2026-09-19T01:13:45.509Z"
+    }
+  ],
+  "providerFailure": [
+    {
+      "failure": {
+        "retryAt": "2026-09-19T10:32:02.009Z",
+        "httpStatus": 429,
+        "providerCode": "usage_limit_reached"
+      },
+      "count": 1
+    }
+  ],
+  "findings": [
+    {
+      "priority": "P1",
+      "count": 5
+    },
+    {
+      "priority": "P2",
+      "count": 132
+    },
+    {
+      "priority": "P3",
+      "count": 3
+    }
+  ],
+  "preservedBaselineTables": {
+    "users": true,
+    "repositories": true,
+    "repository_grants": true,
+    "analysis_provider_versions": true,
+    "analysis_prompt_versions": true,
+    "analysis_skill_versions": true,
+    "review_memories": true,
+    "reports": true,
+    "findings": true,
+    "snapshots": true,
+    "snapshot_files": true,
+    "github_review_publications": true
+  },
+  "dbTls": {
+    "ssl": true,
+    "version": "TLSv1.3"
+  },
+  "migrations": [
+    {
+      "version": "0055_durable_review_tasks.sql",
+      "checksum": "764031d707e22917195448431fcaa65131ebb4ec81efeff4f66fa6be04d4bc67"
+    },
+    {
+      "version": "0056_group_model_admission.sql",
+      "checksum": "9024933be7596c7e8d817d226765f8173ac774840c5f2ff3a4d390a76ff6c4bf"
+    },
+    {
+      "version": "0057_model_failure_metadata.sql",
+      "checksum": "591e8e572a58919d9278c77db52cc96e2add0a4bac306e4668b2be7a560d5313"
+    }
+  ],
+  "browser": {
+    "pageErrors": [],
+    "visibleFindingFiles": 126,
+    "canResume": true,
+    "maxAdditionalModelCalls": 512,
+    "apiWritesBlocked": true
+  },
+  "externalComments": 0,
+  "scopeLimits": [
+    "영향 그룹 검토 미완료 [MODEL_TIME_BUDGET_EXHAUSTED]",
+    "전체 요약 미완료: 파일별 검토 결과는 보존됩니다.",
+    "일부 base/head 주변 원본을 확보하지 못했습니다. Canonical diff만 있는 범위에서 추가 동작을 단정하지 않습니다."
+  ]
+}
