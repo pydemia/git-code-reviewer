@@ -653,7 +653,7 @@ describe('shared Commit Defender report presentation', () => {
     expect(text).toContain('> 💬 **P3 Critical');
     expect(text.match(/<details>/g)?.length).toBe(text.match(/<\/details>/g)?.length);
   });
-  it('omits an oversized AI Comments disclosure atomically within the PR publication limit', () => {
+  it('keeps other comments when one complete comment exceeds the PR publication limit', () => {
     const changed = structuredClone(report);
     changed.findings[0]!.problem = '긴 comment 본문'.repeat(10000);
     const body = renderReviewComment({
@@ -676,11 +676,45 @@ describe('shared Commit Defender report presentation', () => {
     expect(body).toContain('P3 Critical');
     expect(body).not.toContain('긴 comment 본문');
     expect(body).not.toContain('검토 의견 4개 · 파일 2개 — 펼쳐 보기');
+    expect(body).toContain('검토 의견 3/4개');
     expect(body.match(/<details>/g)?.length).toBe(body.match(/<\/details>/g)?.length);
     expect(body.match(/<summary>/g)?.length).toBe(body.match(/<\/summary>/g)?.length);
     expect(body.lastIndexOf('</details>')).toBeLessThan(body.indexOf('길이 제한'));
     expect(body).toContain(
       `[전체 review와 evidence 보기](https://review.example/reviews/${changed.analysisRevisionId})`,
     );
+  });
+  it('retains P3 comments and their code references before truncating a large P2 collection', () => {
+    const changed = structuredClone(report);
+    changed.findings = Array.from({ length: 140 }, (_, index) => ({
+      ...report.findings[0]!,
+      id: `finding-${index}`,
+      priority: index === 139 ? 'P3' : 'P2',
+      title: index === 139 ? 'Critical must remain' : `Warning ${index}`,
+      problem: 'A reproducible defect with fixed context. '.repeat(20),
+    }));
+    const links = new Map(
+      changed.findings.map((finding) => [
+        finding.id,
+        `https://github.example/org/repo/blob/${'b'.repeat(40)}/src/code.ts#L10`,
+      ]),
+    );
+    const before = JSON.stringify(changed);
+    const body = formatReviewMarkdown(changed, [], {
+      audience: 'pull-request',
+      minimumPriority: 'P2',
+      maxLength: 5000,
+      codePermalinks: links,
+      reportUrl: 'https://review.example/full',
+    });
+    expect(body.length).toBeLessThanOrEqual(5000);
+    expect(body).toContain('Critical must remain');
+    expect(body.indexOf('Critical must remain')).toBeLessThan(body.indexOf('Warning 0'));
+    expect(body.split('\n')).toContain(links.get('finding-139'));
+    expect(body).toMatch(/검토 의견 \d+\/140개/);
+    expect(body).toContain('길이 제한으로 일부 항목');
+    expect(body).toContain('[전체 review와 evidence 보기](https://review.example/full)');
+    expect(body.match(/<details>/g)?.length).toBe(body.match(/<\/details>/g)?.length);
+    expect(JSON.stringify(changed)).toBe(before);
   });
 });

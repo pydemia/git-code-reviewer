@@ -354,84 +354,111 @@ export function formatReviewMarkdown(
       );
   }
   blocks.push('## AI Comments');
+  const limit = options.maxLength ?? Number.POSITIVE_INFINITY;
+  const omission = '\n\n> 댓글 길이 제한으로 일부 항목을 생략했습니다. 전체 report에서 확인하세요.';
+  const modelBlock = report.analysis
+    ? details(
+        '적용 Model·Skill',
+        `Model: ${text(report.versions.model ?? view.mode)}\n\nSkill bundle: ${report.analysis.skills.version === null ? 'Built-in' : `Version ${report.analysis.skills.version}`} · SHA-256 ${text(report.analysis.skills.bundleHash)}`,
+      )
+    : '';
+  // Reserve existing status, provenance and report links before selecting whole comments.
+  let prefixLength = 0;
+  for (const block of blocks) {
+    if (prefixLength + block.length + footer.length + omission.length + 2 <= limit)
+      prefixLength += block.length + 2;
+  }
+  const commentBudget = forPullRequest
+    ? limit - prefixLength - footer.length - omission.length - modelBlock.length - 8
+    : Number.POSITIVE_INFINITY;
   const comments: string[] = [];
-  const commentedFiles = view.reviewGroups;
-  for (const file of commentedFiles) {
-    comments.push(`### ${text(file.path)}`);
-    if (forPullRequest && file.summary.trim())
-      comments.push(
-        `**파일 요약 · ${reviewFileStatusLabels[file.status]}**\n\n${narrative(file.summary)}`,
-      );
-    for (const finding of file.findings) {
-      const anchor = finding.anchor;
-      const location = `${anchor.side} · ${anchor.startLine ? `line ${anchor.startLine}${anchor.endLine && anchor.endLine !== anchor.startLine ? `–${anchor.endLine}` : ''}` : '파일 전체'}`;
-      const link = linkFor(file.fileId, finding.id);
-      const codeLink = options.codePermalinks?.get(finding.id);
-      // A standalone permalink lets GitHub render its native code snippet. Keep
-      // it outside the blockquote and never derive it from model-written text.
-      if (forPullRequest && codeLink && safeUrl(codeLink)) comments.push(safeUrl(codeLink)!);
-      const comment = [
-        `💬 **${reviewPriorityLabels[finding.priority]} · ${narrative(finding.title).replace(/\n/g, ' ')}**`,
-        `${text(finding.category)} · ${location}`,
-        ...(finding.problem && finding.problem !== finding.title
-          ? [narrative(finding.problem)]
-          : []),
-        ...(finding.impact ? [`**영향**\n\n${narrative(finding.impact)}`] : []),
-        ...(finding.recommendation
-          ? [`**수정 제안**\n\n${narrative(finding.recommendation)}`]
-          : []),
-        ...(finding.criteria
-          ? [
-              details(
-                '공용 기준 판단',
-                [
-                  '모델 판단이며 기준 버전·적용 파일의 연결만 확인했습니다. 결함 확정이나 테스트 실행 증거는 아닙니다.',
-                  ...(finding.criteria.status === 'not-reported'
-                    ? ['기준별 판단이 보고되지 않았습니다.']
-                    : []),
-                  ...(finding.criteria.rejected
-                    ? [
-                        `연결 조건을 충족하지 못한 판단 ${finding.criteria.rejected}개를 제외했습니다.`,
-                      ]
-                    : []),
-                  ...finding.criteria.items.map((item) =>
-                    [
-                      `**${text(item.title)} · v${item.revision} · ${{ violation: '위반 가능성', satisfied: '충족 판단', uncertain: '판단 미완료' }[item.outcome]}**`,
-                      text(item.rationale),
-                      `반증 ${item.counterEvidence.status === 'reviewed' ? '검토' : '미검토'}: ${text(item.counterEvidence.explanation)}`,
-                      `기준 ID: ${text(item.id)} · hash: ${item.hash}`,
-                    ].join('\n\n'),
-                  ),
-                ].join('\n\n'),
-              ),
-            ]
-          : []),
-        ...(link ? [`[관련 코드 보기](${link})`] : []),
-      ].join('\n\n');
-      comments.push(
-        comment
-          .split('\n')
-          .map((line) => `> ${line}`)
-          .join('\n'),
-      );
-      comments.push('---');
+  const includedFiles = new Set<string>();
+  let includedCount = 0,
+    omittedComments = 0,
+    lastFile = '';
+  const commentLabel = (count: number, files: number) =>
+    `검토 의견 ${count === report.findings.length ? count : `${count}/${report.findings.length}`}개 · 파일 ${files}개 — 펼쳐 보기`;
+  const ordered = view.reviewGroups.flatMap((file) =>
+    file.findings.map((finding) => ({ file, finding })),
+  );
+  if (forPullRequest) ordered.sort((a, b) => b.finding.priority.localeCompare(a.finding.priority));
+  for (const { file, finding } of ordered) {
+    const anchor = finding.anchor;
+    const location = `${anchor.side} · ${anchor.startLine ? `line ${anchor.startLine}${anchor.endLine && anchor.endLine !== anchor.startLine ? `–${anchor.endLine}` : ''}` : '파일 전체'}`;
+    const link = linkFor(file.fileId, finding.id);
+    const codeLink = options.codePermalinks?.get(finding.id);
+    // A standalone permalink lets GitHub render its native code snippet. Keep
+    // it outside the blockquote and never derive it from model-written text.
+    const comment = [
+      `💬 **${reviewPriorityLabels[finding.priority]} · ${narrative(finding.title).replace(/\n/g, ' ')}**`,
+      `${text(finding.category)} · ${location}`,
+      ...(finding.problem && finding.problem !== finding.title ? [narrative(finding.problem)] : []),
+      ...(finding.impact ? [`**영향**\n\n${narrative(finding.impact)}`] : []),
+      ...(finding.recommendation ? [`**수정 제안**\n\n${narrative(finding.recommendation)}`] : []),
+      ...(finding.criteria
+        ? [
+            details(
+              '공용 기준 판단',
+              [
+                '모델 판단이며 기준 버전·적용 파일의 연결만 확인했습니다. 결함 확정이나 테스트 실행 증거는 아닙니다.',
+                ...(finding.criteria.status === 'not-reported'
+                  ? ['기준별 판단이 보고되지 않았습니다.']
+                  : []),
+                ...(finding.criteria.rejected
+                  ? [
+                      `연결 조건을 충족하지 못한 판단 ${finding.criteria.rejected}개를 제외했습니다.`,
+                    ]
+                  : []),
+                ...finding.criteria.items.map((item) =>
+                  [
+                    `**${text(item.title)} · v${item.revision} · ${{ violation: '위반 가능성', satisfied: '충족 판단', uncertain: '판단 미완료' }[item.outcome]}**`,
+                    text(item.rationale),
+                    `반증 ${item.counterEvidence.status === 'reviewed' ? '검토' : '미검토'}: ${text(item.counterEvidence.explanation)}`,
+                    `기준 ID: ${text(item.id)} · hash: ${item.hash}`,
+                  ].join('\n\n'),
+                ),
+              ].join('\n\n'),
+            ),
+          ]
+        : []),
+      ...(link ? [`[관련 코드 보기](${link})`] : []),
+    ].join('\n\n');
+    const candidate = [
+      ...(lastFile !== file.fileId ? [`### ${text(file.path)}`] : []),
+      ...(forPullRequest && !includedFiles.has(file.fileId) && file.summary.trim()
+        ? [`**파일 요약 · ${reviewFileStatusLabels[file.status]}**\n\n${narrative(file.summary)}`]
+        : []),
+      ...(forPullRequest && codeLink && safeUrl(codeLink) ? [safeUrl(codeLink)] : []),
+      comment
+        .split('\n')
+        .map((line) => `> ${line}`)
+        .join('\n'),
+      '---',
+    ].join('\n\n');
+    const fileCount = includedFiles.size + (includedFiles.has(file.fileId) ? 0 : 1);
+    if (
+      details(commentLabel(includedCount + 1, fileCount), [...comments, candidate].join('\n\n'))
+        .length > commentBudget
+    ) {
+      omittedComments++;
+      continue;
     }
+    comments.push(candidate);
+    includedFiles.add(file.fileId);
+    lastFile = file.fileId;
+    includedCount++;
   }
   if (comments.length)
-    // Keep the entire disclosure in one block so length limits cannot drop a closing tag.
-    blocks.push(
-      details(
-        `검토 의견 ${report.findings.length}개 · 파일 ${commentedFiles.length}개 — 펼쳐 보기`,
-        comments.join('\n\n'),
-      ),
-    );
+    blocks.push(details(commentLabel(includedCount, includedFiles.size), comments.join('\n\n')));
   else
     blocks.push(
-      minimumPriority
-        ? 'PR 알림 기준에 해당하는 검토 의견이 없습니다. 전체 분석 상태와 범위는 위 내용을 확인하세요.'
-        : forPullRequest && view.state === 'pass'
-          ? '검토한 변경 범위에서 문제가 발견되지 않았습니다.'
-          : '표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.',
+      omittedComments
+        ? '댓글 길이 제한으로 검토 의견을 표시하지 못했습니다. 전체 보고서에서 확인하세요.'
+        : minimumPriority
+          ? 'PR 알림 기준에 해당하는 검토 의견이 없습니다. 전체 분석 상태와 범위는 위 내용을 확인하세요.'
+          : forPullRequest && view.state === 'pass'
+            ? '검토한 변경 범위에서 문제가 발견되지 않았습니다.'
+            : '표시할 comment가 없습니다. 분석 상태와 제한을 함께 확인하세요.',
     );
   if (!forPullRequest) {
     blocks.push('## Analyzed File List');
@@ -447,17 +474,9 @@ export function formatReviewMarkdown(
       ),
     );
   }
-  if (report.analysis)
-    blocks.push(
-      details(
-        '적용 Model·Skill',
-        `Model: ${text(report.versions.model ?? view.mode)}\n\nSkill bundle: ${report.analysis.skills.version === null ? 'Built-in' : `Version ${report.analysis.skills.version}`} · SHA-256 ${text(report.analysis.skills.bundleHash)}`,
-      ),
-    );
-  const limit = options.maxLength ?? Number.POSITIVE_INFINITY;
-  const omission = '\n\n> 댓글 길이 제한으로 일부 항목을 생략했습니다. 전체 report에서 확인하세요.';
+  if (modelBlock) blocks.push(modelBlock);
   let result = '';
-  let omitted = false;
+  let omitted = omittedComments > 0;
   for (const block of blocks) {
     if (result.length + block.length + footer.length + omission.length + 2 > limit) {
       omitted = true;
