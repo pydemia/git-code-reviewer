@@ -63,10 +63,10 @@ describe('group review progress in Chrome', () => {
           filesExcluded: 2,
           tasks: [
             { state: 'completed', count: 128, retryAt: null },
-            { state: 'budget-wait', count: 315, retryAt: null },
+            { state: 'budget-wait', count: 281, retryAt: null },
           ],
           canResume: !reader,
-          maxAdditionalModelCalls: 128,
+          maxAdditionalModelCalls: 512,
         },
       });
     });
@@ -80,9 +80,9 @@ describe('group review progress in Chrome', () => {
     async (width) => {
       await page.setViewportSize({ width, height: 700 });
       await page.goto(origin + '/__tasks');
-      await page.getByText('묶음 검토 128/443', { exact: true }).waitFor();
-      expect(await page.getByText('예산 대기 315', { exact: true }).count()).toBe(1);
-      expect(await page.getByText(/최대 128회 추가 호출/).count()).toBe(1);
+      await page.getByText('묶음 검토 128/409', { exact: true }).waitFor();
+      expect(await page.getByText('예산 대기 281', { exact: true }).count()).toBe(1);
+      expect(await page.getByText(/최대 512회 추가 호출/).count()).toBe(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
@@ -105,7 +105,7 @@ describe('group review progress in Chrome', () => {
   it('hides continuation from a reader', async () => {
     reader = true;
     await page.goto(origin + '/__tasks');
-    await page.getByText('묶음 검토 128/443', { exact: true }).waitFor();
+    await page.getByText('묶음 검토 128/409', { exact: true }).waitFor();
     expect(await page.getByRole('button', { name: '남은 검토 재개' }).count()).toBe(0);
   });
 });

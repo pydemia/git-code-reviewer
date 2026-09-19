@@ -226,7 +226,11 @@ export async function runImpactReview(input: {
           ? { code: message.toUpperCase(), retryable: true }
           : reviewFailure(error);
         await input.options.store?.fail(task, {
-          state: reason.code === 'MODEL_CALL_BUDGET_EXHAUSTED' ? 'budget-wait' : 'failed',
+          state: ['MODEL_CALL_BUDGET_EXHAUSTED', 'MODEL_TIME_BUDGET_EXHAUSTED'].includes(
+            reason.code,
+          )
+            ? 'budget-wait'
+            : 'failed',
           code: reason.code,
         });
         failures.set(task.id, reason.code);

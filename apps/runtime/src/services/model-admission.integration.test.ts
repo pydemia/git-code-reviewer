@@ -222,4 +222,18 @@ describe.skipIf(!url)('parallel account admission', () => {
       reserved_output_tokens: 16000,
     });
   });
+  it('does not call the provider after the grouped execution deadline', async () => {
+    let called = false;
+    const transport = admittedFetch(database, randomUUID(), async () => {
+      called = true;
+      return new Response('unexpected');
+    });
+    await expect(
+      withModelBudget(
+        { runKey: randomUUID(), maxCalls: 512, durableGroup: true, deadline: Date.now() - 1 },
+        () => transport('https://synthetic.invalid/v1/responses'),
+      ),
+    ).rejects.toThrow('model_time_budget_exhausted');
+    expect(called).toBe(false);
+  });
 });

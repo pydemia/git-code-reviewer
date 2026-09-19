@@ -737,6 +737,7 @@ export async function executeAnalysisJob(
     base_sha: string;
     head_sha: string;
     merge_base_sha: string;
+    started_at: Date;
     shared_knowledge: unknown;
     shared_knowledge_hash: string | null;
     prompt_instructions: string | null;
@@ -754,7 +755,7 @@ export async function executeAnalysisJob(
     installationId: string;
     memory_context: import('../services/review-memory.js').ReviewMemoryProjection[];
   }>(
-    `select sr.base_sha, sr.head_sha, snapshot.merge_base_sha, analysis.shared_knowledge, analysis.shared_knowledge_hash, prompt.instructions as prompt_instructions,
+    `select sr.base_sha, sr.head_sha, snapshot.merge_base_sha, analysis.started_at, analysis.shared_knowledge, analysis.shared_knowledge_hash, prompt.instructions as prompt_instructions,
             prompt.version as prompt_version, analysis.prompt_hash, analysis.severity_level,
             analysis.provider_version_id, repository.tenant_id as "tenantId", repository.id as "repositoryId",
             analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
@@ -881,7 +882,10 @@ export async function executeAnalysisJob(
         runKey: `analysis:${analysisId}`,
         durableGroup: grouped,
         lane: 'batch',
-        maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+        maxCalls: grouped ? config.ANALYSIS_GROUP_MAX_MODEL_CALLS : config.ANALYSIS_MAX_MODEL_CALLS,
+        ...(grouped
+          ? { deadline: row.started_at.getTime() + config.ANALYSIS_GROUP_MAX_DURATION_MS }
+          : {}),
         wait: true,
         concurrency: provider.concurrency ?? 1,
       },
@@ -954,7 +958,9 @@ export async function executeAnalysisJob(
           budgets: {
             maxFiles: config.ANALYSIS_MAX_FILES,
             maxBytes: config.ANALYSIS_MAX_BYTES,
-            maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+            maxModelCalls: grouped
+              ? config.ANALYSIS_GROUP_MAX_MODEL_CALLS
+              : config.ANALYSIS_MAX_MODEL_CALLS,
           },
         }),
     );

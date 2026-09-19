@@ -76,15 +76,13 @@ export async function registerAnalysisRoutes(
         result = await resumeAnalysis(database, analysisId, request.user!.id);
       } catch (error) {
         if (error instanceof Error && error.message === 'REFRESH_LIMIT_EXCEEDED')
-          return reply
-            .code(429)
-            .send({
-              error: {
-                code: 'REFRESH_LIMIT_EXCEEDED',
-                message: '진행 중인 분석이 너무 많습니다.',
-                retryable: true,
-              },
-            });
+          return reply.code(429).send({
+            error: {
+              code: 'REFRESH_LIMIT_EXCEEDED',
+              message: '진행 중인 분석이 너무 많습니다.',
+              retryable: true,
+            },
+          });
         throw error;
       }
       if (!result)
@@ -99,7 +97,7 @@ export async function registerAnalysisRoutes(
       return reply.code(202).send({
         schemaVersion,
         ...result,
-        maxAdditionalModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+        maxAdditionalModelCalls: config.ANALYSIS_GROUP_MAX_MODEL_CALLS,
       });
     },
   );
@@ -131,7 +129,7 @@ export async function registerAnalysisRoutes(
             (file: { disposition: string }) => file.disposition === 'excluded',
           ).length ?? 0,
         tasks: states.rows,
-        maxAdditionalModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+        maxAdditionalModelCalls: config.ANALYSIS_GROUP_MAX_MODEL_CALLS,
         canResume:
           Boolean(plan) &&
           (await canReadRepository(

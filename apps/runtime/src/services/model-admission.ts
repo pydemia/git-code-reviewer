@@ -9,6 +9,7 @@ export type ModelBudget = {
   concurrency?: number;
   lane?: 'batch' | 'interactive';
   durableGroup?: boolean;
+  deadline?: number;
 };
 const budgetContext = new AsyncLocalStorage<ModelBudget>();
 export function withModelBudget<Result>(
@@ -40,6 +41,8 @@ export function admittedFetch(
     const started = Date.now();
     let reservation: string | undefined;
     while (!reservation) {
+      if (budget.deadline && Date.now() >= budget.deadline)
+        throw Error('model_time_budget_exhausted');
       init?.signal?.throwIfAborted();
       const result = await database.query<{ id: string }>(
         budget.durableGroup
@@ -74,6 +77,8 @@ export function admittedFetch(
         [quotaKey],
       );
       const until = capacity.rows[0]!.until;
+      if (budget.deadline && until.getTime() >= budget.deadline)
+        throw Error('model_time_budget_exhausted');
       if (
         !budget.wait ||
         Date.now() - started > 120000 ||
@@ -87,9 +92,12 @@ export function admittedFetch(
     }
     let finished = false;
     const controller = new AbortController();
-    const signal = init?.signal
-      ? AbortSignal.any([init.signal, controller.signal])
-      : controller.signal;
+    const signals = [
+      controller.signal,
+      ...(init?.signal ? [init.signal] : []),
+      ...(budget.deadline ? [AbortSignal.timeout(Math.max(1, budget.deadline - Date.now()))] : []),
+    ];
+    const signal = AbortSignal.any(signals);
     const heartbeat = setInterval(() => {
       void database
         .query<{ renewed: boolean }>('select heartbeat_model_request($1) as renewed', [reservation])
@@ -134,12 +142,16 @@ export function admittedFetch(
         );
         await response.body?.cancel();
         await finish('failed', until);
+        if (budget.deadline && until.getTime() >= budget.deadline)
+          throw Error('model_time_budget_exhausted');
         throw new ModelCapacityError(until);
       }
       if (budget.durableGroup && [500, 502, 503, 504].includes(response.status)) {
         await response.body?.cancel();
         const until = new Date(Date.now() + 15000 + Math.floor(Math.random() * 15000));
         await finish('failed', until);
+        if (budget.deadline && until.getTime() >= budget.deadline)
+          throw Error('model_time_budget_exhausted');
         throw new ModelCapacityError(until);
       }
       if (budget.durableGroup && [401, 403, 413].includes(response.status)) {
