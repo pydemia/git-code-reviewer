@@ -5695,3 +5695,22 @@ body.workspace-resizing:has(.resize-bottom) {
   overflow: auto;
   font-size: 0.8rem;
 }
+
+.review-task-status {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.review-task-status p {
+  margin: 2px 0;
+}
+.review-task-status div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.review-task-status small {
+  color: var(--muted);
+}

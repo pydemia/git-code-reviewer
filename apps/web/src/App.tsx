@@ -1,3 +1,4 @@
+import { ReviewTaskProgress } from './ReviewTaskProgress.tsx';
 import { ReviewHistoryPage } from './ReviewHistoryPage.tsx';
 import { ReviewObservationsPage } from './ReviewObservationsPage.tsx';
 import {
@@ -1016,6 +1017,9 @@ function ReviewWorkspace({
               >
                 Summary
               </button>
+              {data?.analysis?.id ? (
+                <ReviewTaskProgress analysisId={data.analysis.id} state={data.analysis.state} />
+              ) : null}
               {sourceEvidence ? (
                 <button type="button" role="tab" aria-selected="true" className="active">
                   코드 근거
@@ -1073,7 +1077,9 @@ function ReviewWorkspace({
                 </strong>
                 {progressDetail ? (
                   <span>
-                    {progressDetail.filesProcessed}/{progressDetail.filesTotal} 파일 처리
+                    {progressDetail.tasksTotal !== undefined
+                      ? `${progressDetail.tasksCompleted ?? 0}/${progressDetail.tasksTotal} 묶음 완료`
+                      : `${progressDetail.filesProcessed}/${progressDetail.filesTotal} 파일 처리`}
                   </span>
                 ) : null}
                 <span>{data?.analysis?.progress ?? 0}%</span>
@@ -1081,7 +1087,10 @@ function ReviewWorkspace({
               <progress aria-label="분석 진행률" max={100} value={data?.analysis?.progress ?? 0} />
               {progressDetail ? (
                 <small>
-                  검토 완료 {progressDetail.filesReviewed} · 미검토 {progressDetail.filesSkipped}
+                  검토 완료 {progressDetail.filesReviewed} ·{' '}
+                  {progressDetail.filesExcluded !== undefined
+                    ? `정책상 제외 ${progressDetail.filesExcluded} · 미완료 ${progressDetail.filesPending ?? 0}`
+                    : `미검토 ${progressDetail.filesSkipped}`}
                   {progressDetail.currentFile ? ` · ${progressDetail.currentFile}` : ''}
                 </small>
               ) : null}

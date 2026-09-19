@@ -15,6 +15,9 @@ export function analysisProgressLabel(analysis: WorkspaceData['analysis']) {
   const labels: Record<string, string> = {
     deterministic: '코드 구조 확인 중',
     review: '파일 검토 준비 중',
+    'impact-planning': '영향 관계와 검토 묶음 구성 중',
+    'impact-review': '관련 파일 묶음 검토 중',
+    'model-capacity-wait': '모델 호출 제한 대기 중',
     'unit-comment-block': '코드 검토 중',
     'overall-summary': '파일 요약 중',
     'file-review': '파일 검토 중',
