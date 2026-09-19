@@ -40,6 +40,8 @@ data:
   GITHUB_MODE: {{ .Values.github.mode | quote }}
   KNOWLEDGE_PUBLICATION_ENABLED: {{ .Values.knowledgePublication.enabled | quote }}
   CREDENTIAL_REGISTRY_ENABLED: {{ .Values.credentialRegistry.enabled | quote }}
+  ANALYSIS_GROUP_MAX_MODEL_CALLS: {{ .Values.model.analysis.groupMaxModelCalls | quote }}
+  ANALYSIS_GROUP_MAX_DURATION_MS: {{ .Values.model.analysis.groupMaxDurationMs | quote }}
   MODEL_MODE: {{ .Values.model.analysis.mode | quote }}
   MODEL_ENDPOINT: {{ .Values.model.analysis.endpoint | quote }}
   MODEL_NAME: {{ .Values.model.analysis.name | quote }}
