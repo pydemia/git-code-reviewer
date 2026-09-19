@@ -9,8 +9,8 @@
 
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.73'
-  digest: 'sha256:a7c50b9d0f2301f4e9b61f2a2e7441bbde9a1cdb66e52a6e895e11f5e9d04e04'
+  tag: '0.8.0-alpha.74'
+  digest: 'sha256:91968505ae113c99248621c8ae1ec8239932751c51ea060150d03ef8d8cbdd0f'
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -111,6 +111,7 @@ cerbos:
 
 model:
   analysis:
+    groupMaxModelCalls: 128
     mode: disabled
     admin:
       enabled: true
