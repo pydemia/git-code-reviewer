@@ -49,6 +49,7 @@ type AnalysisContext = {
   pullTitle: string;
   elapsedMs: number | null;
   filePaths: Map<string, string>;
+  previousFilePaths: Map<string, string>;
 };
 
 export async function registerAnalysisRoutes(
@@ -428,8 +429,8 @@ async function authorizedContext(
   ) {
     return null;
   }
-  const files = await database.query<{ id: string; path: string }>(
-    `select sf.id, sf.path from snapshot_files sf
+  const files = await database.query<{ id: string; path: string; previousPath: string | null }>(
+    `select sf.id, sf.path, sf.previous_path as "previousPath" from snapshot_files sf
      join analysis_runs ar on ar.snapshot_id = sf.snapshot_id where ar.id = $1`,
     [analysisId],
   );
@@ -447,6 +448,7 @@ async function authorizedContext(
     pullTitle: row.pull_title,
     elapsedMs: row.elapsed_ms,
     filePaths: new Map(files.rows.map((file) => [file.id, file.path])),
+    previousFilePaths: new Map(files.rows.map((file) => [file.id, file.previousPath ?? file.path])),
   };
 }
 
@@ -501,6 +503,7 @@ function reportView(
       snapshotId: context.snapshotId,
       baseSha: context.baseSha,
       headSha: context.headSha,
+      mergeBaseSha: context.mergeBaseSha,
     },
     findings: report.findings.map((finding) => findingView(request, config, context, finding)),
     links: [
@@ -549,7 +552,9 @@ function findingView(
 }
 
 function evidenceLink(context: AnalysisContext, locator: EvidenceLocator) {
-  const path = context.filePaths.get(locator.fileId);
+  const path = (locator.side === 'mergeBase' ? context.previousFilePaths : context.filePaths).get(
+    locator.fileId,
+  );
   return path
     ? {
         rel: 'ghes',

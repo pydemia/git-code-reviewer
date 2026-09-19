@@ -1135,6 +1135,7 @@ function ReviewWorkspace({
                 <ReviewReportPanel
                   report={data.report}
                   files={data.files}
+                  diff={data.diff}
                   section={mainView}
                   selectedFindingId={selectedFindingId}
                   onFindingSelect={selectFinding}
@@ -1201,6 +1202,7 @@ function ReviewWorkspace({
                 <ReviewReportPanel
                   report={data.report}
                   files={data.files}
+                  diff={data.diff}
                   section="comments"
                   selectedFindingId={selectedFindingId}
                   onFindingSelect={selectFinding}

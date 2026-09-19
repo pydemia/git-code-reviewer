@@ -607,6 +607,7 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
       const mergeBase = (
         await database.query('select merge_base_sha from snapshots where id=$1', [snapshotId])
       ).rows[0].merge_base_sha;
+      expect(view.context.mergeBaseSha).toBe(mergeBase);
       for (const finding of view.findings.filter((item) => item.anchor.side === 'mergeBase')) {
         expect(finding.links.find((item) => item.rel === 'ghes')?.href).toContain(
           `/blob/${mergeBase}/`,
@@ -636,6 +637,7 @@ describe.skipIf(!databaseUrl).sequential('Worker pinned Skill snapshot and stage
         artifacts,
       );
       const posted = JSON.stringify(upsertPullRequestComment.mock.calls);
+      expect(posted).toContain(`/blob/${mergeBase}/`);
       for (const title of ['AI Comments', '파일 요약', original.hash, 'api\\\\-compatibility'])
         expect(posted).toContain(title);
       expect(posted).not.toContain('Analyzed File List');

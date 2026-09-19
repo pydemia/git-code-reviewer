@@ -550,6 +550,7 @@ export const reportViewSchema = z.object({
     snapshotId: z.string().uuid(),
     baseSha: z.string(),
     headSha: z.string(),
+    mergeBaseSha: z.string().optional(),
   }),
   links: z.array(linkViewSchema),
 });

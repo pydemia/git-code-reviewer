@@ -214,6 +214,7 @@ export function formatReviewMarkdown(
     includeTitle?: boolean;
     audience?: 'full' | 'pull-request';
     minimumPriority?: 'P2' | 'P3';
+    codePermalinks?: ReadonlyMap<string, string>;
   } = {},
 ): string {
   const minimumPriority = options.audience === 'pull-request' ? options.minimumPriority : undefined;
@@ -365,6 +366,10 @@ export function formatReviewMarkdown(
       const anchor = finding.anchor;
       const location = `${anchor.side} · ${anchor.startLine ? `line ${anchor.startLine}${anchor.endLine && anchor.endLine !== anchor.startLine ? `–${anchor.endLine}` : ''}` : '파일 전체'}`;
       const link = linkFor(file.fileId, finding.id);
+      const codeLink = options.codePermalinks?.get(finding.id);
+      // A standalone permalink lets GitHub render its native code snippet. Keep
+      // it outside the blockquote and never derive it from model-written text.
+      if (forPullRequest && codeLink && safeUrl(codeLink)) comments.push(safeUrl(codeLink)!);
       const comment = [
         `💬 **${reviewPriorityLabels[finding.priority]} · ${narrative(finding.title).replace(/\n/g, ' ')}**`,
         `${text(finding.category)} · ${location}`,

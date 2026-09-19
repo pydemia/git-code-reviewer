@@ -698,6 +698,7 @@ export function buildPermanentFileUrl(
   );
   if (lineStart)
     url.hash = lineEnd && lineEnd !== lineStart ? `L${lineStart}-L${lineEnd}` : `L${lineStart}`;
+  if (lineStart && /\.(md|markdown|mdown|mkd)$/i.test(filePath)) url.searchParams.set('plain', '1');
   return url.toString();
 }
 

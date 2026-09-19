@@ -23,6 +23,8 @@ import type { WorkspaceData } from './api.ts';
 import { ReviewMarkdown } from './ReviewMarkdown.tsx';
 import { ReviewGrade } from './ReviewGrade.tsx';
 import { navigateFromReviewBlock } from './review-block-navigation.ts';
+import { ReviewCodeReference } from './ReviewCodeReference.tsx';
+import { parseReviewDiff, type DiffLine } from './review-diff.ts';
 
 type Report = NonNullable<WorkspaceData['report']>;
 type Finding = Report['findings'][number];
@@ -47,10 +49,12 @@ function ReviewCommentBlock({
   finding,
   selected,
   onSelect,
+  code,
 }: {
   finding: Finding;
   selected: boolean;
   onSelect: (finding: Finding) => void;
+  code?: { path: string; commit?: string | undefined; lines: DiffLine[] } | undefined;
 }) {
   const ghesLink = finding.links.find((link) => link.rel === 'ghes' && link.available);
   return (
@@ -74,6 +78,15 @@ function ReviewCommentBlock({
             : '파일 전체'}
         </span>
       </header>
+      {code ? (
+        <ReviewCodeReference
+          {...code}
+          href={ghesLink?.href}
+          side={finding.anchor.side}
+          start={finding.anchor.startLine}
+          end={finding.anchor.endLine}
+        />
+      ) : null}
       <h4>
         <button type="button" className="report-unit-title" onClick={() => onSelect(finding)}>
           <ReviewText text={finding.title} />
@@ -105,7 +118,7 @@ function ReviewCommentBlock({
         </span>
         {ghesLink ? (
           <a className="report-code-link" href={ghesLink.href} target="_blank" rel="noreferrer">
-            GHES 원문 <ArrowUpRight size={13} aria-hidden="true" />
+            GitHub 코드 보기 <ArrowUpRight size={13} aria-hidden="true" />
           </a>
         ) : null}
       </footer>
@@ -117,6 +130,7 @@ function ReviewCommentBlock({
 export function ReviewReportPanel({
   report,
   files,
+  diff,
   section,
   selectedFindingId,
   onFindingSelect,
@@ -124,12 +138,22 @@ export function ReviewReportPanel({
 }: {
   report: Report;
   files: WorkspaceData['files'];
+  diff?: WorkspaceData['diff'] | undefined;
   section: 'summary' | 'comments';
   selectedFindingId: string | null;
   onFindingSelect: (finding: Finding) => void;
   onFileSelect: (path: string) => void;
 }) {
   const view = useMemo(() => presentReviewReport(report, files), [report, files]);
+  const codeByFile = useMemo(() => {
+    if (section !== 'comments') return new Map<string, DiffLine[]>();
+    const wanted = new Set(view.reviewGroups.map((file) => file.path));
+    return new Map(
+      (diff?.files ?? [])
+        .filter((file) => wanted.has(file.path))
+        .map((file) => [file.path, parseReviewDiff(file.patch)]),
+    );
+  }, [diff, section, view]);
   const [copyState, setCopyState] = useState('');
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -356,6 +380,26 @@ export function ReviewReportPanel({
                 <ReviewCommentBlock
                   key={finding.id}
                   finding={finding}
+                  code={{
+                    path:
+                      finding.anchor.side === 'mergeBase'
+                        ? (files.find((entry) => entry.id === file.fileId)?.previousPath ??
+                          file.path)
+                        : file.path,
+                    commit:
+                      finding.anchor.commitOid ??
+                      (finding.anchor.side === 'mergeBase'
+                        ? report.context.mergeBaseSha
+                        : report.context.headSha),
+                    lines:
+                      finding.anchor.commitOid &&
+                      finding.anchor.commitOid !==
+                        (finding.anchor.side === 'mergeBase'
+                          ? report.context.mergeBaseSha
+                          : report.context.headSha)
+                        ? []
+                        : (codeByFile.get(file.path) ?? []),
+                  }}
                   selected={finding.id === selectedFindingId}
                   onSelect={onFindingSelect}
                 />

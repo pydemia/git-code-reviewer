@@ -13,7 +13,7 @@ import {
 } from '@gcr/contracts';
 import type { ReviewReport } from '@gcr/review-contract';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { renderReviewComment } from './review-publication.js';
+import { renderReviewComment, reviewCodePermalinks } from './review-publication.js';
 
 describe('shared Commit Defender report presentation', () => {
   let report: ReviewReport;
@@ -97,6 +97,74 @@ describe('shared Commit Defender report presentation', () => {
     expect(parsed.analysis).toEqual(report.analysis);
     expect(JSON.stringify(parsed.analysis)).not.toContain('instructions');
   });
+  it('renders native GitHub code references using frozen commits and the previous rename path', () => {
+    const original = report.findings[0]!;
+    const changed: ReviewReport = {
+      ...report,
+      findings: [
+        {
+          ...original,
+          id: 'old',
+          priority: 'P3',
+          anchor: {
+            ...original.anchor,
+            side: 'mergeBase',
+            commitOid: 'a'.repeat(40),
+            startLine: 10,
+            endLine: 12,
+          },
+        },
+        {
+          ...original,
+          id: 'new',
+          priority: 'P2',
+          anchor: { ...original.anchor, side: 'head', commitOid: 'b'.repeat(40), startLine: 10 },
+        },
+        { ...original, id: 'missing', anchor: { ...original.anchor, fileId: 'not-present' } },
+        {
+          ...original,
+          id: 'unverified',
+          verification: { ...original.verification, status: 'unverified' },
+        },
+      ],
+    };
+    const links = reviewCodePermalinks(
+      changed,
+      {
+        webBaseUrl: 'https://github.example',
+        owner: 'org',
+        name: 'repo',
+        headSha: 'b'.repeat(40),
+        mergeBaseSha: 'a'.repeat(40),
+      },
+      [{ id: original.anchor.fileId, path: 'docs/new file.md', previousPath: 'docs/old file.md' }],
+    );
+    expect(links.size).toBe(2);
+    expect(links.get('old')).toBe(
+      `https://github.example/org/repo/blob/${'a'.repeat(40)}/docs/old%20file.md?plain=1#L10-L12`,
+    );
+    expect(links.get('new')).toContain(`/blob/${'b'.repeat(40)}/docs/new%20file.md?plain=1#L10`);
+    const body = renderReviewComment({
+      context: {
+        analysisId: report.analysisRevisionId,
+        owner: 'org',
+        name: 'repo',
+        pullNumber: 1,
+        headSha: 'b'.repeat(40),
+        report,
+        reviewCommentMinPriority: 'P3',
+      },
+      findings: changed.findings,
+      canonicalReport: changed,
+      codePermalinks: links,
+      marker: '<!-- synthetic -->',
+    });
+    expect(body.split('\n')).toContain(links.get('old'));
+    expect(body).not.toContain(links.get('new'));
+    expect(body).toContain('**수정 제안**');
+    expect(body).not.toContain(`> ${links.get('old')}`);
+    expect(body.length).toBeLessThanOrEqual(60000);
+  });
   it.each([
     ['exceptional', '탁월'],
     ['proficient', '우수'],
@@ -113,7 +181,7 @@ describe('shared Commit Defender report presentation', () => {
       };
       const markdown = formatReviewMarkdown(changed);
       expect(markdown).toContain(`코드 품질: ${label} (${grade}) · 검토 범위 내`);
-      expect(markdown).toContain('분석 완료 · 제한 있음');
+      expect(markdown).toContain('일부 검토 · 제한 있음');
       expect(markdown).toContain('P3 Critical');
       expect(changed.grade).toBe(grade);
     },
@@ -220,7 +288,7 @@ describe('shared Commit Defender report presentation', () => {
       minimumPriority: 'P3',
     });
     expect(body).toContain('PR 알림 기준에 해당하는 검토 의견이 없습니다.');
-    expect(body).toContain('분석 완료 · 제한 있음');
+    expect(body).toContain('일부 검토 · 제한 있음');
     expect(body).toContain('검토 예산 소진');
     expect(body).not.toContain('문제가 발견되지 않았습니다.');
     expect(body).not.toContain('### src/');
@@ -316,7 +384,7 @@ describe('shared Commit Defender report presentation', () => {
     changed.coverage.limitations = ['일부 검토 범위는 확인하지 못했습니다.'];
     changed.findings = [];
     const incomplete = formatReviewMarkdown(changed, [], { audience: 'pull-request' });
-    expect(incomplete).toContain('분석 완료 · 제한 있음');
+    expect(incomplete).toContain('일부 검토 · 제한 있음');
     expect(incomplete).toContain('일부 검토 범위는 확인하지 못했습니다');
     expect(incomplete).not.toContain('문제가 발견되지 않았습니다.');
     expect(incomplete).not.toContain('검토 의견 0개 · 파일');
@@ -336,7 +404,7 @@ describe('shared Commit Defender report presentation', () => {
       expect(markdown).not.toContain('empty/');
       expect(markdown).toContain('분석 제한 1건');
       expect(markdown).toContain('모델 호출 예산을 소진했습니다');
-      expect(markdown).toContain('분석 완료 · 제한 있음');
+      expect(markdown).toContain('일부 검토 · 제한 있음');
     }
     expect(JSON.stringify(changed)).toBe(stored);
   });
@@ -412,7 +480,7 @@ describe('shared Commit Defender report presentation', () => {
     const concise = '검토한 변경 범위에서 문제가 발견되지 않았습니다.';
     expect(view.groups.every((file) => file.summary === concise)).toBe(true);
     expect(view.overview).toBeNull();
-    expect(view.label).toBe('분석 완료 · 제한 있음');
+    expect(view.label).toBe('일부 검토 · 제한 있음');
     const markdown = formatReviewMarkdown(changed);
     expect(view.reviewGroups).toEqual([]);
     expect(markdown).not.toContain(escapeReviewMarkdown(concise));
@@ -484,7 +552,7 @@ describe('shared Commit Defender report presentation', () => {
       const markdown = formatReviewMarkdown(changed);
       expect(view.label).not.toContain('PASS');
       expect(markdown).not.toContain('P0 Praise');
-      if (state === 'incomplete') expect(view.label).toBe('분석 완료 · 제한 있음');
+      if (state === 'incomplete') expect(view.label).toBe('일부 검토 · 제한 있음');
       if (state !== 'incomplete') expect(view.showGrade).toBe(false);
     }
     const complete = {

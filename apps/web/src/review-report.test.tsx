@@ -88,7 +88,21 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   const comments = renderToStaticMarkup(
     <ReviewReportPanel
       report={report}
-      files={[]}
+      files={[{ id: 'file', path: 'src/main.ts', previousPath: null }] as WorkspaceData['files']}
+      diff={{
+        schemaVersion: 1,
+        patch: '',
+        files: [
+          {
+            path: 'src/main.ts',
+            previousPath: null,
+            status: 'modified',
+            additions: 1,
+            deletions: 1,
+            patch: '@@ -10 +10 @@\n-old();\n+validateInput();',
+          },
+        ],
+      }}
       section="comments"
       selectedFindingId="finding"
       onFileSelect={() => {}}
@@ -100,6 +114,9 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(comments).toContain('Unexpected access');
   expect(comments).toContain('Validate before use');
   expect(comments).toContain('변경 코드 · line 10');
+  expect(comments).toContain('validateInput();');
+  expect(comments).toContain('src/main.ts 코드 참조');
+  expect(comments).not.toContain('old();');
   expect(comments).toContain('코드 위치 확인');
   expect(comments).not.toContain('Unique file summary');
   expect(comments).not.toContain('<script>');

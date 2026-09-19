@@ -4,6 +4,7 @@ import { formatReviewGrade, formatReviewMarkdown } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
 import {
   GitHubPublicationSupersededError,
+  buildPermanentFileUrl,
   type GitHubReader,
   type GitHubReviewPublisher,
   type RepositoryTarget,
@@ -26,6 +27,8 @@ type PublicationContext = RepositoryTarget & {
   repositoryId: string;
   credentialId: string | null;
   headSha: string;
+  webBaseUrl?: string;
+  mergeBaseSha?: string;
   reportId: string;
   skillHash: string | null;
   reportLocator: string | null;
@@ -187,11 +190,28 @@ export async function publishReviewToGitHub(
       }
     }
     const marker = managedCommentMarker(config, pullRequestId);
+    const files =
+      canonicalReport && context.webBaseUrl
+        ? (
+            await connection.query<{
+              id: string;
+              path: string;
+              previousPath: string | null;
+            }>(
+              `select sf.id,sf.path,sf.previous_path as "previousPath" from snapshot_files sf
+        join analysis_runs ar on ar.snapshot_id=sf.snapshot_id where ar.id=$1`,
+              [analysisId],
+            )
+          ).rows
+        : [];
     const body = renderReviewComment({
       context,
       findings,
       marker,
       ...(canonicalReport ? { canonicalReport } : {}),
+      codePermalinks: canonicalReport
+        ? reviewCodePermalinks(canonicalReport, context, files)
+        : new Map(),
       ...(config.PUBLIC_BASE_URL ? { publicBaseUrl: config.PUBLIC_BASE_URL } : {}),
     });
     const bodyHash = createHash('sha256').update(body).digest('hex');
@@ -324,6 +344,8 @@ async function loadPublicationContext(
     owner: string;
     name: string;
     headSha: string;
+    webBaseUrl: string;
+    mergeBaseSha: string;
     reportId: string;
     skillHash: string | null;
     reportLocator: string | null;
@@ -338,6 +360,7 @@ async function loadPublicationContext(
             repository.id as "repositoryId", repository.credential_id as "credentialId",
             repository.installation_id as "installationId", instance.api_base_url as "apiBaseUrl",
             repository.owner, repository.name, request.head_sha as "headSha",
+            instance.web_base_url as "webBaseUrl", coalesce(snapshot.merge_base_sha,request.base_sha) as "mergeBaseSha",
             report.id as "reportId", report.grade, report.summary,
             report.has_critical_findings as "hasCriticalFindings", report.coverage,
             repository.review_comment_min_priority as "reviewCommentMinPriority",
@@ -408,6 +431,7 @@ export function renderReviewComment(input: {
   marker: string;
   publicBaseUrl?: string;
   canonicalReport?: ReviewReport;
+  codePermalinks?: ReadonlyMap<string, string>;
 }): string {
   const { context, marker } = input;
   const minimumPriority = context.reviewCommentMinPriority ?? 'P2';
@@ -424,6 +448,7 @@ export function renderReviewComment(input: {
         includeTitle: false,
         audience: 'pull-request',
         minimumPriority,
+        ...(input.codePermalinks ? { codePermalinks: input.codePermalinks } : {}),
         ...(reportUrl ? { reportUrl } : {}),
         maxLength: 60000 - heading.length - tail.length,
       }) +
@@ -480,6 +505,41 @@ export function renderReviewComment(input: {
   }
   lines.push('_이 댓글은 새 분석이 완료되면 같은 위치에서 갱신됩니다._');
   return lines.join('\n').slice(0, 60_000);
+}
+
+export function reviewCodePermalinks(
+  report: ReviewReport,
+  context: Pick<PublicationContext, 'webBaseUrl' | 'owner' | 'name' | 'headSha' | 'mergeBaseSha'>,
+  files: Array<{ id: string; path: string; previousPath: string | null }>,
+): Map<string, string> {
+  const links = new Map<string, string>();
+  if (!context.webBaseUrl) return links;
+  const paths = new Map(files.map((file) => [file.id, file]));
+  for (const finding of report.findings) {
+    const anchor = finding.anchor,
+      file = paths.get(anchor.fileId);
+    if (!file || !anchor.startLine || finding.verification.status !== 'verified') continue;
+    const commit =
+      anchor.commitOid ?? (anchor.side === 'mergeBase' ? context.mergeBaseSha : context.headSha);
+    if (!commit) continue;
+    try {
+      links.set(
+        finding.id,
+        buildPermanentFileUrl(
+          context.webBaseUrl,
+          context.owner,
+          context.name,
+          commit,
+          anchor.side === 'mergeBase' ? (file.previousPath ?? file.path) : file.path,
+          anchor.startLine,
+          anchor.endLine,
+        ),
+      );
+    } catch {
+      // Invalid historical anchors keep their report link, without inventing a code reference.
+    }
+  }
+  return links;
 }
 
 export function managedCommentMarker(config: AppConfig, pullRequestId: string): string {
