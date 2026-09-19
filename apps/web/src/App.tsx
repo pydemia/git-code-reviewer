@@ -1017,9 +1017,6 @@ function ReviewWorkspace({
               >
                 Summary
               </button>
-              {data?.analysis?.id ? (
-                <ReviewTaskProgress analysisId={data.analysis.id} state={data.analysis.state} />
-              ) : null}
               {sourceEvidence ? (
                 <button type="button" role="tab" aria-selected="true" className="active">
                   코드 근거
@@ -1100,6 +1097,9 @@ function ReviewWorkspace({
                   : '코드 diff를 먼저 확인하세요. 분석이 끝나면 줄별 검토 의견이 자동으로 표시됩니다.'}
               </small>
             </div>
+          ) : null}
+          {data?.analysis?.id ? (
+            <ReviewTaskProgress analysisId={data.analysis.id} state={data.analysis.state} />
           ) : null}
           {sourceEvidence ? (
             <SourceEvidenceView source={sourceEvidence} onClose={() => setSourceEvidence(null)} />
