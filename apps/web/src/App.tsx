@@ -67,7 +67,11 @@ import { sourceEvidenceSchema, type SourceEvidence } from '@gcr/contracts';
 import { resolveChatCitation } from './chat-citations.ts';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
-import { analysisIsPending, analysisProgressLabel } from './analysis-progress.ts';
+import {
+  analysisIsPending,
+  analysisProgressLabel,
+  reviewedFileCoverage,
+} from './analysis-progress.ts';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import { ReviewMemoryPanel } from './ReviewMemoryPanel.tsx';
 import {
@@ -781,9 +785,7 @@ function ReviewWorkspace({
   const selectedFinding = data?.report?.findings.find(
     (finding) => finding.id === selectedFindingId && finding.anchor.fileId === selectedFile?.id,
   );
-  const coveragePercent = data?.report?.coverage.filesChanged
-    ? Math.round((data.report.coverage.filesExamined / data.report.coverage.filesChanged) * 100)
-    : 0;
+  const fileCoverage = reviewedFileCoverage(data?.report ?? null, progressDetail);
   const addedTestFiles = useMemo(() => analyzeAddedTests(data?.diff?.files ?? []), [data?.diff]);
 
   const selectFile = (path: string) => {
@@ -972,7 +974,7 @@ function ReviewWorkspace({
           mode={reviewMode}
           selectedFileId={selectedFile?.id ?? null}
           selectedObjectId={selectedObjectId}
-          coveragePercent={coveragePercent}
+          fileCoverage={fileCoverage}
           onModeChange={setReviewMode}
           onFileSelect={selectFile}
           onObjectSelect={selectObject}
@@ -1474,7 +1476,7 @@ function ReviewSidebar({
   mode,
   selectedFileId,
   selectedObjectId,
-  coveragePercent,
+  fileCoverage,
   onModeChange,
   onFileSelect,
   onObjectSelect,
@@ -1485,7 +1487,7 @@ function ReviewSidebar({
   mode: ReviewMode;
   selectedFileId: string | null;
   selectedObjectId: string | null;
-  coveragePercent: number;
+  fileCoverage: ReturnType<typeof reviewedFileCoverage>;
   onModeChange: (mode: ReviewMode) => void;
   onFileSelect: (path: string) => void;
   onObjectSelect: (objectId: string) => void;
@@ -1593,11 +1595,11 @@ function ReviewSidebar({
         </div>
       ) : null}
 
-      <div className="coverage-strip">
-        <span>Coverage</span>
-        <strong>{coveragePercent}%</strong>
+      <div className="coverage-strip" title={fileCoverage.description}>
+        <span>파일 검토 완료</span>
+        <strong>{fileCoverage.percent === null ? '—' : `${fileCoverage.percent}%`}</strong>
         <div>
-          <i style={{ width: `${coveragePercent}%` }} />
+          <i style={{ width: `${fileCoverage.percent ?? 0}%` }} />
         </div>
       </div>
     </aside>

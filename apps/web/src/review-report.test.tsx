@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import type { WorkspaceData } from './api.ts';
+import { reviewedFileCoverage } from './analysis-progress.ts';
 
 it('separates PR and expanded file summaries from detailed FNB comments', () => {
   const coverage = {
@@ -168,6 +169,7 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
     coverage: {
       ...coverage,
       filesChanged: 1045,
+      filesExamined: 1045,
       limitations: [
         'quiet/__init__.py: 분석 가능한 변경 line이 없습니다.',
         '모델 호출 예산에 도달해 일부 파일을 검토하지 못했습니다.',
@@ -213,6 +215,30 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(largeHtml).toContain('모델 호출 예산에 도달');
   expect(largeHtml).toContain('분석 완료 · 제한 있음');
   expect(JSON.stringify(large)).toBe(stored);
+
+  expect(reviewedFileCoverage(large, undefined)).toEqual({
+    percent: 2,
+    description: '26/1045파일 검토 완료',
+  });
+  expect(reviewedFileCoverage(report, undefined).percent).toBeNull();
+  expect(
+    reviewedFileCoverage(null, {
+      filesTotal: 1045,
+      filesProcessed: 1045,
+      filesReviewed: 1043,
+      filesSkipped: 2,
+      currentFile: null,
+    }).percent,
+  ).toBe(99);
+  expect(
+    reviewedFileCoverage(null, {
+      filesTotal: 1045,
+      filesProcessed: 1045,
+      filesReviewed: 1045,
+      filesSkipped: 0,
+      currentFile: null,
+    }).percent,
+  ).toBe(100);
 
   for (const versions of [{ model: 'fixture' }, { model: 'disabled' }, { review: 'failed' }]) {
     const unavailable = renderToStaticMarkup(

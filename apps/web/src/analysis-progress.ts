@@ -1,5 +1,20 @@
 import type { WorkspaceData } from './api.ts';
 
+export function reviewedFileCoverage(
+  report: WorkspaceData['report'],
+  progress: NonNullable<WorkspaceData['analysis']>['progressDetail'],
+) {
+  const completed = report?.analysis?.coverage.filesCompleted ?? progress?.filesReviewed;
+  const total = report?.coverage.filesChanged ?? progress?.filesTotal;
+  if (completed === undefined || total === undefined || total === 0)
+    return { percent: null, description: '파일별 검토 완료 수를 아직 확인할 수 없습니다.' };
+  return {
+    // A parsed diff is not a reviewed file, and rounding must not hide pending files.
+    percent: Math.min(100, Math.floor((completed / total) * 100)),
+    description: `${completed}/${total}파일 검토 완료`,
+  };
+}
+
 export function analysisIsPending(analysis: WorkspaceData['analysis']) {
   return (
     !analysis ||
