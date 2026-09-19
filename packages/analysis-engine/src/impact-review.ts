@@ -128,6 +128,12 @@ export async function runImpactReview(input: {
   const failures = new Map<string, string>();
   let blockedByAuth = false;
   let exhaustedBudget: string | null = null;
+  let retryAt: Date | undefined;
+  const stopReasons = [
+    'MODEL_CALL_BUDGET_EXHAUSTED',
+    'MODEL_TIME_BUDGET_EXHAUSTED',
+    'MODEL_USAGE_LIMIT_REACHED',
+  ];
   let modelCalls = 0,
     progressQueue = Promise.resolve();
   const publish = (stage: string) => {
@@ -172,7 +178,11 @@ export async function runImpactReview(input: {
     if (exhaustedBudget) {
       failures.set(task.id, exhaustedBudget);
       await input.options.store?.start(task);
-      await input.options.store?.fail(task, { state: 'budget-wait', code: exhaustedBudget });
+      await input.options.store?.fail(task, {
+        state: 'budget-wait',
+        code: exhaustedBudget,
+        ...(retryAt ? { retryAt } : {}),
+      });
       return;
     }
     if (blockedByAuth || !input.model) {
@@ -232,17 +242,20 @@ export async function runImpactReview(input: {
         const reason = message.startsWith('review_')
           ? { code: message.toUpperCase(), retryable: true }
           : reviewFailure(error);
+        if (
+          reason.code === 'MODEL_USAGE_LIMIT_REACHED' &&
+          error instanceof Error &&
+          'resumeAfter' in error &&
+          error.resumeAfter instanceof Date
+        )
+          retryAt = error.resumeAfter;
         await input.options.store?.fail(task, {
-          state: ['MODEL_CALL_BUDGET_EXHAUSTED', 'MODEL_TIME_BUDGET_EXHAUSTED'].includes(
-            reason.code,
-          )
-            ? 'budget-wait'
-            : 'failed',
+          state: stopReasons.includes(reason.code) ? 'budget-wait' : 'failed',
           code: reason.code,
+          ...(retryAt ? { retryAt } : {}),
         });
         failures.set(task.id, reason.code);
-        if (['MODEL_CALL_BUDGET_EXHAUSTED', 'MODEL_TIME_BUDGET_EXHAUSTED'].includes(reason.code))
-          exhaustedBudget = reason.code;
+        if (stopReasons.includes(reason.code)) exhaustedBudget = reason.code;
         if (reason.code === 'MODEL_AUTH_UNAVAILABLE') blockedByAuth = true;
         if (!reason.retryable || attempt === 1) break;
         if (reason.code !== 'MODEL_OUTPUT_INVALID' && !message.startsWith('review_'))
@@ -387,6 +400,12 @@ export async function runImpactReview(input: {
           ['worker_draining', 'job_lease_lost', 'model_capacity_wait'].includes(error.message)
         )
           throw error;
+        const reason = reviewFailure(error);
+        if (stopReasons.includes(reason.code)) {
+          exhaustedBudget = reason.code;
+          limitations.push(`전체 요약 미완료 [${reason.code}]`);
+          break;
+        }
         limitations.push('전체 요약 미완료: 검증된 파일별 의견을 유지합니다.');
       }
     }

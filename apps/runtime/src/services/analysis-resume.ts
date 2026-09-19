@@ -1,5 +1,6 @@
 import type { Database } from '@gcr/db';
 import { appendEvent } from '../events/index.js';
+import { analysisModelLimit, AnalysisModelCooldownError } from './analysis-model-limit.js';
 
 /** Explicit continuation creates a new immutable report revision and a new bounded call budget. */
 export async function resumeAnalysis(database: Database, analysisId: string, requestedBy: string) {
@@ -31,6 +32,8 @@ export async function resumeAnalysis(database: Database, analysisId: string, req
       await c.query('commit');
       return { analysisId: previous.id, deduplicated: true };
     }
+    const limit = await analysisModelLimit(c, analysisId);
+    if (limit?.active) throw new AnalysisModelCooldownError(limit.retryAt);
     // Share the existing refresh limit; reader-only users cannot reach this service's route.
     if (
       Number(

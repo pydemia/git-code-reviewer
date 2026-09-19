@@ -2,8 +2,17 @@ import type { ReviewModel } from '@gcr/analysis-engine';
 import type { FilesystemArtifactStore } from '@gcr/artifact-store';
 import type { Database } from '@gcr/db';
 import { sourceEvidenceSchema } from '@gcr/contracts';
+import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 import { acquireSourceWorkspace, executeSourceTool } from './source-workspace.js';
+
+const absentSourceSchema = z.object({
+  revision: z.enum(['head', 'base']),
+  sha: z.string().regex(/^[a-f0-9]{40,64}$/),
+  path: z.string(),
+  exists: z.literal(false),
+  reason: z.literal('path_not_present_in_revision'),
+});
 
 export function withAnalysisSourceContext(
   model: ReviewModel,
@@ -56,15 +65,23 @@ export function withAnalysisSourceContext(
             for (const source of windows)
               for (const revision of ['head', 'base'] as const) {
                 try {
-                  const unit = sourceEvidenceSchema.parse(
-                    await executeSourceTool(config, workspace, {
-                      name: 'read_file',
-                      revision,
-                      path: source.path,
-                      startLine: Math.max(1, source.startLine - 20),
-                      endLine: Math.max(1, source.startLine - 20) + 119,
-                    }),
-                  );
+                  const evidence = await executeSourceTool(config, workspace, {
+                    name: 'read_file',
+                    revision,
+                    path: source.path,
+                    startLine: Math.max(1, source.startLine - 20),
+                    endLine: Math.max(1, source.startLine - 20) + 119,
+                  });
+                  const absent = absentSourceSchema.safeParse(evidence);
+                  // An added/deleted file is legitimately absent on one side. The
+                  // canonical diff already records this; it is not a source outage.
+                  if (
+                    absent.success &&
+                    absent.data.revision === revision &&
+                    absent.data.path === source.path
+                  )
+                    continue;
+                  const unit = sourceEvidenceSchema.parse(evidence);
                   const body = JSON.stringify(unit);
                   const size = Buffer.byteLength(body);
                   if (requestBytes + size > budget) {

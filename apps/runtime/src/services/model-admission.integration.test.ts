@@ -42,13 +42,13 @@ describe.skipIf(!url)('parallel account admission', () => {
   const finish = (id: string, cooldown: Date | null = null) =>
     database.query("select finish_model_request($1,'completed',$2)", [id, cooldown]);
 
-  it('atomically limits concurrent workers to four batch reservations and reserves one chat slot', async () => {
+  it('atomically limits concurrent workers to two batch reservations and reserves one chat slot', async () => {
     const quota = randomUUID(),
       run = randomUUID();
     const ids = (await Promise.all(Array.from({ length: 20 }, () => reserve(quota, run)))).filter(
       (id) => id !== null,
     );
-    expect(ids).toHaveLength(4);
+    expect(ids).toHaveLength(2);
     expect(await reserve(quota, randomUUID())).toBeNull();
     const chat = await reserve(quota, randomUUID(), 8, false);
     expect(chat).not.toBeNull();
@@ -61,10 +61,54 @@ describe.skipIf(!url)('parallel account admission', () => {
     const ids = await Promise.all(Array.from({ length: 12 }, () => reserve(randomUUID(), run, 2)));
     expect(ids.filter(Boolean)).toHaveLength(2);
   });
+  it('leaves half of the account minute budget for interactive traffic across batch runs', async () => {
+    const quota = randomUUID();
+    for (let n = 0; n < 30; n++) await finish((await reserve(quota, randomUUID()))!);
+    expect(await reserve(quota, randomUUID())).toBeNull();
+    const chat = await reserve(quota, randomUUID(), 8, false);
+    expect(chat).not.toBeNull();
+    await finish(chat!);
+    const byteQuota = randomUUID();
+    await finish((await reserve(byteQuota, randomUUID(), 100, true, 2, 524288))!);
+    expect(await reserve(byteQuota, randomUUID())).toBeNull();
+    expect(await reserve(byteQuota, randomUUID(), 8, false, 1, 524288)).not.toBeNull();
+    expect(await reserve(randomUUID(), randomUUID())).not.toBeNull();
+  });
+  it('counts interactive usage first and races batch byte reservations atomically', async () => {
+    const quota = randomUUID();
+    await finish((await reserve(quota, randomUUID(), 8, false, 1, 300000))!);
+    const ids = await Promise.all(
+      Array.from({ length: 10 }, () => reserve(quota, randomUUID(), 128, true, 4, 200000)),
+    );
+    expect(ids.filter(Boolean)).toHaveLength(1);
+    expect(await reserve(quota, randomUUID(), 8, false, 1, 300000)).not.toBeNull();
+  });
+  it('fails oversized batch input without contacting the provider or spending a reservation', async () => {
+    let calls = 0;
+    const run = randomUUID();
+    const transport = admittedFetch(database, randomUUID(), async () => {
+      calls++;
+      return new Response('unexpected');
+    });
+    await expect(
+      withModelBudget({ runKey: run, maxCalls: 128, lane: 'batch' }, () =>
+        transport('https://synthetic.invalid/responses', { body: 'x'.repeat(524289) }),
+      ),
+    ).rejects.toThrow('model_input_budget_exhausted');
+    expect(calls).toBe(0);
+    expect(
+      (
+        await database.query(
+          'select count(*)::integer as n from model_request_ledger where run_key=$1',
+          [run],
+        )
+      ).rows[0].n,
+    ).toBe(0);
+  });
   it('retains account-wide byte/rate budgets and the longest cooldown', async () => {
     const quota = randomUUID();
-    const first = await reserve(quota, randomUUID(), 100, true, 4, 700000);
-    expect(await reserve(quota, randomUUID(), 100, true, 4, 400000)).toBeNull();
+    const first = await reserve(quota, randomUUID(), 100, true, 4, 350000);
+    expect(await reserve(quota, randomUUID(), 100, true, 4, 250000)).toBeNull();
     const second = await reserve(quota, randomUUID());
     const later = new Date(Date.now() + 60000);
     await finish(first!, later);
@@ -77,7 +121,7 @@ describe.skipIf(!url)('parallel account admission', () => {
     ).rows[0];
     expect(current.cooldown_until.getTime()).toBe(later.getTime());
     const rateQuota = randomUUID();
-    for (let n = 0; n < 60; n++) await finish((await reserve(rateQuota, randomUUID()))!);
+    for (let n = 0; n < 30; n++) await finish((await reserve(rateQuota, randomUUID()))!);
     expect(await reserve(rateQuota, randomUUID())).toBeNull();
   });
   it('recovers expired slots, rejects stale heartbeats and never frees a replacement slot', async () => {
@@ -120,7 +164,7 @@ describe.skipIf(!url)('parallel account admission', () => {
       ).rows[0],
     ).toEqual({ reservation_id: null, active: true });
   });
-  it('runs four transports at once and releases slots only after response consumption', async () => {
+  it('runs two batch transports at once and releases slots only after response consumption', async () => {
     const quota = randomUUID();
     let active = 0,
       peak = 0;
@@ -134,7 +178,7 @@ describe.skipIf(!url)('parallel account admission', () => {
     const transport = admittedFetch(database, quota, async () => {
       active++;
       peak = Math.max(peak, active);
-      if (active === 4) release();
+      if (active === 2) release();
       await allStarted;
       active--;
       return new Response('synthetic');
@@ -143,10 +187,10 @@ describe.skipIf(!url)('parallel account admission', () => {
       { runKey: `analysis:${randomUUID()}`, maxCalls: 4, wait: true, concurrency: 4 },
       () =>
         Promise.all(
-          Array.from({ length: 4 }, () => transport('https://synthetic.invalid/v1/responses')),
+          Array.from({ length: 2 }, () => transport('https://synthetic.invalid/v1/responses')),
         ),
     ).finally(() => clearTimeout(timeout));
-    expect(peak).toBe(4);
+    expect(peak).toBe(2);
     expect(await reserve(quota, randomUUID())).toBeNull();
     await Promise.all(responses.map((response) => response.text()));
     expect(await reserve(quota, randomUUID())).not.toBeNull();
@@ -266,7 +310,7 @@ describe.skipIf(!url)('parallel account admission', () => {
           },
           () => transport('https://synthetic.invalid/responses'),
         ),
-      ).rejects.toThrow('model_time_budget_exhausted');
+      ).rejects.toThrow('model_usage_limit_reached');
     expect(calls).toBe(1);
     const rows = (
       await database.query('select state,failure from model_request_ledger where run_key=$1', [run])

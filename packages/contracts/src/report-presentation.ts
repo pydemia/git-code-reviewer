@@ -52,7 +52,7 @@ export const reviewPriorityLabels = {
 export const reviewStatusLabels = {
   pass: '분석 완료 · PASS',
   blocked: '분석 완료 · BLOCKED',
-  incomplete: '분석 완료 · 제한 있음',
+  incomplete: '일부 검토 · 제한 있음',
   unavailable: '분석 미수행',
   failed: '분석 실패',
   demo: '데모 분석',
@@ -160,7 +160,10 @@ export function presentReviewReport<F extends ReportContent['findings'][number]>
   const overview = normalize(report.summary) === normalize(rollup) ? null : report.summary.trim();
   return {
     state,
-    label: reviewStatusLabels[state],
+    label:
+      state === 'blocked' && report.coverage.truncated
+        ? '일부 검토 · BLOCKED'
+        : reviewStatusLabels[state],
     groups,
     reviewGroups: groups.filter((file) => file.findings.length > 0),
     // Empty patches are not review findings. Keep raw coverage/status for auditing,

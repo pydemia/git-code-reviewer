@@ -66,6 +66,43 @@ const store = () => {
 };
 
 describe('complete impact-group review', () => {
+  it('preserves accepted groups and stops preparation on account usage exhaustion, with the reset time', async () => {
+    const state = store(),
+      input = base(Array.from({ length: 100 }, (_, i) => file(`quota${i}.py`)));
+    const failures: unknown[] = [];
+    input.impactReview!.store = {
+      ...state.adapter,
+      async fail(task, failure) {
+        failures.push(failure);
+        await state.adapter.fail(task, failure);
+      },
+    };
+    const reset = new Date(Date.now() + 3600000);
+    let calls = 0;
+    input.model = {
+      profile: 'synthetic',
+      async review(_body, _files, _instructions, context) {
+        calls++;
+        if (calls === 1) return response(context?.group?.targetIds);
+        throw Object.assign(Error('model_usage_limit_reached'), { resumeAfter: reset });
+      },
+    };
+    const output = await analyzeSnapshot(input);
+    expect(calls).toBe(2);
+    expect(state.cache.size).toBe(1);
+    expect(failures).toHaveLength(4);
+    for (const failure of failures)
+      expect(failure).toMatchObject({
+        state: 'budget-wait',
+        code: 'MODEL_USAGE_LIMIT_REACHED',
+        retryAt: reset,
+      });
+    expect(output.state).toBe('partial');
+    expect(output.report.coverage.limitations).toContain(
+      '영향 그룹 검토 미완료 [MODEL_USAGE_LIMIT_REACHED]',
+    );
+    expect(output.report.coverage.limitations.join()).not.toContain('MODEL_TIME_BUDGET_EXHAUSTED');
+  });
   it('stops preparing remaining groups and summaries after a global budget failure', async () => {
     const state = store(),
       input = base(Array.from({ length: 1045 }, (_, i) => file(`file${i}.py`)));

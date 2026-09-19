@@ -1,4 +1,8 @@
 import { resumeAnalysis } from '../services/analysis-resume.js';
+import {
+  analysisModelLimit,
+  AnalysisModelCooldownError,
+} from '../services/analysis-model-limit.js';
 import { readTrustedCiEvidence } from '../services/trusted-ci.js';
 import { sharedKnowledgeView } from '../services/analysis-shared-knowledge.js';
 import { expandRelationships } from '@gcr/analysis-engine';
@@ -43,6 +47,7 @@ type AnalysisContext = {
   snapshotId: string;
   pullNumber: number;
   pullTitle: string;
+  elapsedMs: number | null;
   filePaths: Map<string, string>;
 };
 
@@ -75,6 +80,15 @@ export async function registerAnalysisRoutes(
       try {
         result = await resumeAnalysis(database, analysisId, request.user!.id);
       } catch (error) {
+        if (error instanceof AnalysisModelCooldownError)
+          return reply.code(429).send({
+            error: {
+              code: error.message,
+              message: `모델 계정 사용량 제한으로 ${error.retryAt} 이후 재개할 수 있습니다.`,
+              retryable: true,
+              retryAt: error.retryAt,
+            },
+          });
         if (error instanceof Error && error.message === 'REFRESH_LIMIT_EXCEEDED')
           return reply.code(429).send({
             error: {
@@ -116,7 +130,7 @@ export async function registerAnalysisRoutes(
         )
       ).rows[0];
       const states = await database.query(
-        `select state,count(*)::integer as count,min(retry_at) as "retryAt" from analysis_review_tasks where analysis_id=$1 group by state`,
+        `select state,error_code as "errorCode",count(*)::integer as count,min(retry_at) as "retryAt" from analysis_review_tasks where analysis_id=$1 group by state,error_code`,
         [analysisId],
       );
       return {
@@ -129,6 +143,7 @@ export async function registerAnalysisRoutes(
             (file: { disposition: string }) => file.disposition === 'excluded',
           ).length ?? 0,
         tasks: states.rows,
+        modelLimit: await analysisModelLimit(database, analysisId),
         maxAdditionalModelCalls: config.ANALYSIS_GROUP_MAX_MODEL_CALLS,
         canResume:
           Boolean(plan) &&
@@ -389,10 +404,12 @@ async function authorizedContext(
     pull_number: number;
     pull_title: string;
     memory_owner_user_id: string | null;
+    elapsed_ms: number | null;
   }>(
     `select ar.id as analysis_id, pr.repository_id, r.owner, r.name,
             i.web_base_url, sr.head_sha, sr.base_sha, s.merge_base_sha, s.id as snapshot_id,
-            pr.number as pull_number, pr.title as pull_title, ar.memory_owner_user_id
+            pr.number as pull_number, pr.title as pull_title, ar.memory_owner_user_id,
+            (extract(epoch from(ar.finished_at-ar.started_at))*1000)::float8 as elapsed_ms
      from analysis_runs ar join snapshots s on s.id = ar.snapshot_id
      join snapshot_requests sr on sr.id = s.request_id
      join pull_requests pr on pr.id = sr.pull_request_id
@@ -428,6 +445,7 @@ async function authorizedContext(
     snapshotId: row.snapshot_id,
     pullNumber: row.pull_number,
     pullTitle: row.pull_title,
+    elapsedMs: row.elapsed_ms,
     filePaths: new Map(files.rows.map((file) => [file.id, file.path])),
   };
 }
@@ -470,6 +488,10 @@ function reportView(
   const origin = publicOrigin(request, config);
   return {
     ...report,
+    // Older artifacts timed only the last recovered attempt. Keep those artifacts
+    // immutable and use recorded run timestamps in the read projection.
+    durationMs:
+      context.elapsedMs === null ? report.durationMs : Math.max(0, Math.round(context.elapsedMs)),
     context: {
       repositoryId: context.repositoryId,
       owner: context.owner,

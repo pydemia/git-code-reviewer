@@ -17,6 +17,7 @@ import { FixtureGitHubClient } from '@gcr/github';
 import { ensureFixtureRepository, pollRepository } from './repositories.js';
 import { databaseReviewTaskStore } from './review-task-store.js';
 import { resumeAnalysis } from './analysis-resume.js';
+import { analysisModelLimit } from './analysis-model-limit.js';
 import { deferModelJob } from './model-job-defer.js';
 import { ModelCapacityError } from './model-admission.js';
 const url = process.env.GCR_TEST_DATABASE_URL;
@@ -203,6 +204,53 @@ describe.skipIf(!url)('durable grouped review', () => {
       (await db.query('select stage from analysis_runs where id=$1', [analysisId])).rows[0].stage,
     ).toBe('model-capacity-wait');
   });
+  it('exposes the actual account quota cause without changing an old report and blocks premature continuation', async () => {
+    const { analysisId, job } = await claim();
+    await databaseReviewTaskStore(db, analysisId, job).initialize(plan());
+    await db.query(
+      "update analysis_runs set state='partial',limitations='[\"MODEL_TIME_BUDGET_EXHAUSTED\"]'::jsonb where id=$1",
+      [analysisId],
+    );
+    const quota = randomUUID(),
+      retryAt = new Date(Date.now() + 3600000).toISOString();
+    const id = (
+      await db.query('select reserve_group_model_request($1,$2,128,1000,2) as id', [
+        quota,
+        `analysis:${analysisId}`,
+      ])
+    ).rows[0].id;
+    await db.query('update model_request_ledger set failure=$2::jsonb where id=$1', [
+      id,
+      JSON.stringify({ httpStatus: 429, providerCode: 'usage_limit_reached', retryAt }),
+    ]);
+    await db.query("select finish_group_model_request($1,'failed',$2)", [id, retryAt]);
+    expect(await analysisModelLimit(db, analysisId)).toEqual({
+      code: 'MODEL_USAGE_LIMIT_REACHED',
+      retryAt,
+      active: true,
+    });
+    const jobs = (await db.query('select count(*) from jobs')).rows[0].count;
+    await expect(resumeAnalysis(db, analysisId, userId)).rejects.toMatchObject({
+      message: 'ANALYSIS_MODEL_COOLDOWN',
+      retryAt,
+    });
+    expect((await db.query('select count(*) from jobs')).rows[0].count).toBe(jobs);
+    expect(
+      (await db.query('select limitations from analysis_runs where id=$1', [analysisId])).rows[0]
+        .limitations,
+    ).toEqual(['MODEL_TIME_BUDGET_EXHAUSTED']);
+    // Expire only synthetic evidence; the completed task/report identity remains untouched.
+    await db.query(
+      "update model_account_capacity set cooldown_until=clock_timestamp()-interval '1 second' where quota_key=$1",
+      [quota],
+    );
+    await db.query(
+      "update model_request_ledger set failure=jsonb_set(failure,'{retryAt}',to_jsonb(clock_timestamp()-interval '1 second')) where id=$1",
+      [id],
+    );
+    expect((await analysisModelLimit(db, analysisId))?.active).toBe(false);
+    expect(await resumeAnalysis(db, analysisId, userId)).not.toBeNull();
+  });
   it('rejects continuation after the PR head changes without creating a job', async () => {
     const { analysisId, job } = await claim();
     await databaseReviewTaskStore(db, analysisId, job).initialize(plan());
@@ -332,9 +380,14 @@ describe.skipIf(!url)('durable grouped review', () => {
       const tasks = await app.inject(`/api/v1/analyses/${analysisId}/review-tasks`);
       expect(tasks.statusCode).toBe(200);
       expect(tasks.json().filesTotal).toBe(60);
+      await db.query(
+        "update analysis_runs set started_at='2026-01-01T00:00:00Z',finished_at='2026-01-01T00:02:03.456Z' where id=$1",
+        [analysisId],
+      );
       const report = await app.inject(`/api/v1/analyses/${analysisId}`);
       expect(report.statusCode).toBe(200);
       expect(report.json().analysis.coverage.filesCompleted).toBe(60);
+      expect(report.json().durationMs).toBe(123456);
       expect(
         (await app.inject({ method: 'POST', url: `/api/v1/analyses/${analysisId}/resume` }))
           .statusCode,

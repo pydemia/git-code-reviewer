@@ -4,7 +4,8 @@ type Tasks = {
   planHash: string | null;
   filesTotal: number;
   filesExcluded: number;
-  tasks: Array<{ state: string; count: number; retryAt: string | null }>;
+  tasks: Array<{ state: string; count: number; retryAt: string | null; errorCode?: string }>;
+  modelLimit?: { code: string; retryAt: string; active: boolean } | null;
   canResume: boolean;
   maxAdditionalModelCalls: number;
 };
@@ -33,11 +34,13 @@ export function ReviewTaskProgress({
     setData(null);
     setError('');
     const load = async () => {
+      let quotaWait = false;
       try {
         const next = (await fetchJson(
           `/api/v1/analyses/${analysisId}/review-tasks`,
           controller.signal,
         )) as Tasks;
+        quotaWait = next.modelLimit?.active ?? false;
         if (!controller.signal.aborted) {
           setData(next);
           setError('');
@@ -45,8 +48,11 @@ export function ReviewTaskProgress({
       } catch {
         if (!controller.signal.aborted) setError('묶음 검토 상태를 불러오지 못했습니다.');
       } finally {
-        if (!controller.signal.aborted && (state === 'queued' || state === 'analyzing'))
-          timer = setTimeout(() => void load(), 5000);
+        if (
+          !controller.signal.aborted &&
+          (state === 'queued' || state === 'analyzing' || quotaWait)
+        )
+          timer = setTimeout(() => void load(), quotaWait ? 30000 : 5000);
       }
     };
     void load();
@@ -62,7 +68,7 @@ export function ReviewTaskProgress({
       </p>
     ) : null;
   const total = data.tasks.reduce((n, t) => n + t.count, 0),
-    complete = data.tasks.find((t) => t.state === 'completed')?.count ?? 0;
+    complete = data.tasks.filter((t) => t.state === 'completed').reduce((n, t) => n + t.count, 0);
   const resume = async () => {
     setSaving(true);
     setError('');
@@ -89,16 +95,25 @@ export function ReviewTaskProgress({
           .filter((t) => t.state !== 'completed' && t.count)
           .map(
             (t) =>
-              `${labels[t.state] ?? t.state} ${t.count}${t.retryAt ? ` (재시도 ${new Date(t.retryAt).toLocaleString()})` : ''}`,
+              `${t.errorCode === 'MODEL_USAGE_LIMIT_REACHED' || (t.state === 'budget-wait' && data.modelLimit) ? '계정 사용량 제한' : (labels[t.state] ?? t.state)} ${t.count}${t.retryAt ? ` (재개 가능 ${new Date(t.retryAt).toLocaleString()})` : ''}`,
           )
           .join(' · ') || '모든 묶음의 응답 검증을 마쳤습니다.'}
       </p>
+      {data.modelLimit ? (
+        <p role="status">
+          {data.modelLimit.active
+            ? '모델 계정 사용량 제한으로 검토가 중단되었습니다.'
+            : '이전 검토는 모델 계정 사용량 제한으로 중단되었습니다.'}{' '}
+          재개 가능 시각: {new Date(data.modelLimit.retryAt).toLocaleString()}. 완료된 묶음은
+          보존됩니다.
+        </p>
+      ) : null}
       {(state === 'partial' || state === 'failed') && data.canResume ? (
         <div>
           <button
             className="command-button"
             type="button"
-            disabled={saving}
+            disabled={saving || data.modelLimit?.active}
             onClick={() => void resume()}
           >
             {saving ? '재개 요청 중…' : '남은 검토 재개'}

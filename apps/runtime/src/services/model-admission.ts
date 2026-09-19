@@ -24,6 +24,11 @@ export class ModelCapacityError extends Error {
     super('model_capacity_wait');
   }
 }
+export class ModelUsageLimitError extends Error {
+  constructor(readonly resumeAfter: Date) {
+    super('model_usage_limit_reached');
+  }
+}
 export function admittedFetch(
   database: Pick<Database, 'query'>,
   quotaKey: string,
@@ -39,6 +44,12 @@ export function admittedFetch(
       wait: true,
       lane: 'interactive' as const,
     };
+    const batch =
+      budget.durableGroup ||
+      (budget.lane ?? (budget.wait === true ? 'batch' : 'interactive')) === 'batch';
+    // Oversized batch requests cannot fit the reserved half of the minute byte budget.
+    // Fail explicitly instead of waiting forever for capacity that cannot exist.
+    if (batch && inputBytes > 524288) throw Error('model_input_budget_exhausted');
     const started = Date.now();
     let reservation: string | undefined;
     while (!reservation) {
@@ -73,11 +84,17 @@ export function admittedFetch(
           "update model_account_capacity set priority_run_key=$2,priority_expires_at=clock_timestamp()+interval '15 seconds' where quota_key=$1 and (priority_expires_at is null or priority_expires_at<clock_timestamp() or priority_run_key=$2)",
           [quotaKey, budget.runKey],
         );
-      const capacity = await database.query<{ until: Date }>(
-        "select greatest(cooldown_until,clock_timestamp()+interval '3 seconds') as until from model_account_capacity where quota_key=$1",
+      const capacity = await database.query<{ until: Date; usageLimited: boolean }>(
+        `select greatest(cooldown_until,clock_timestamp()+interval '3 seconds') as until,
+          cooldown_until>clock_timestamp() and exists(select 1 from model_request_ledger
+            where quota_key=$1 and failure->>'providerCode'='usage_limit_reached'
+              and (failure->>'retryAt')::timestamptz>clock_timestamp()) as "usageLimited"
+          from model_account_capacity where quota_key=$1`,
         [quotaKey],
       );
       const until = capacity.rows[0]!.until;
+      if (budget.durableGroup && capacity.rows[0]!.usageLimited)
+        throw new ModelUsageLimitError(until);
       if (budget.deadline && until.getTime() >= budget.deadline)
         throw Error('model_time_budget_exhausted');
       if (
@@ -139,6 +156,8 @@ export function admittedFetch(
           JSON.stringify({ httpStatus: 429, providerCode, retryAt: until.toISOString() }),
         ]);
         await finish('failed', until);
+        if (budget.durableGroup && providerCode === 'usage_limit_reached')
+          throw new ModelUsageLimitError(until);
         if (budget.deadline && until.getTime() >= budget.deadline)
           throw Error('model_time_budget_exhausted');
         throw new ModelCapacityError(until);

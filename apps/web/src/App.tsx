@@ -914,7 +914,9 @@ function ReviewWorkspace({
               ? 'Snapshot 준비 중'
               : data?.report
                 ? data.report.analysis
-                  ? reviewStatusLabels[data.report.analysis.status]
+                  ? data.report.analysis.status === 'blocked' && data.report.coverage.truncated
+                    ? '일부 검토 · BLOCKED'
+                    : reviewStatusLabels[data.report.analysis.status]
                   : data.report.versions.model?.startsWith('fixture')
                     ? '데모 분석'
                     : data.report.versions.review === 'failed'

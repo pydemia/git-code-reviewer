@@ -988,6 +988,8 @@ export async function executeAnalysisJob(
         output.report.analysis.status = 'incomplete';
     }
     await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
+    // Include durable waits and recovered attempts in the new report's elapsed time.
+    output.report.durationMs = Math.max(0, Date.now() - row.started_at.getTime());
     if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
     const recurrence = await loadReviewRecurrence(database, artifacts, output.report);
     if (recurrence) output.report.recurrence = recurrence;

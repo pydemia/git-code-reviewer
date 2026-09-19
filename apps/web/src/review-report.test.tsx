@@ -78,7 +78,7 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(html).toContain('class="review-grade grade-positive"');
   expect(html).toContain('>양호</span>');
   expect(html).toContain('P2 Warning');
-  expect(html).toContain('분석 완료 · 제한 있음');
+  expect(html).toContain('일부 검토 · 제한 있음');
   expect(html).toContain('검토 범위 내');
   expect(html).toContain('href="/guide#review-grades"');
   expect(html).not.toContain('Grade: adequate');
@@ -196,6 +196,7 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
       ],
     },
   };
+  large.analysis!.status = 'blocked';
   const stored = JSON.stringify(large);
   const largeHtml = renderToStaticMarkup(
     <ReviewReportPanel
@@ -212,8 +213,9 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(largeHtml).not.toContain('quiet/');
   expect(largeHtml).not.toContain('분석 가능한 변경 line');
   expect(largeHtml).toContain('26<span> / 1045</span>');
+  expect(largeHtml).toContain('일부 검토 · BLOCKED');
+  expect(largeHtml).not.toContain('분석 완료');
   expect(largeHtml).toContain('모델 호출 예산에 도달');
-  expect(largeHtml).toContain('분석 완료 · 제한 있음');
   expect(JSON.stringify(large)).toBe(stored);
 
   expect(reviewedFileCoverage(large, undefined)).toEqual({

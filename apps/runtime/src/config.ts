@@ -128,7 +128,7 @@ const configSchema = z.object({
     .positive()
     .default(10 * 1024 * 1024),
   ANALYSIS_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().max(1000).default(128),
-  ANALYSIS_GROUP_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().max(1000).default(512),
+  ANALYSIS_GROUP_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().max(1000).default(128),
   ANALYSIS_GROUP_MAX_DURATION_MS: z.coerce
     .number()
     .int()

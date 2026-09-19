@@ -1,6 +1,8 @@
 // Provider 원문에는 source·credential이 포함될 수 있으므로 알려진 원인만 공개한다.
 export function reviewFailure(error: unknown): { code: string; retryable: boolean } {
   const message = error instanceof Error ? error.message : '';
+  if (message === 'model_usage_limit_reached')
+    return { code: 'MODEL_USAGE_LIMIT_REACHED', retryable: false };
   if (message === 'model_time_budget_exhausted')
     return { code: 'MODEL_TIME_BUDGET_EXHAUSTED', retryable: false };
   if (message === 'model_auth_unavailable')
@@ -29,6 +31,12 @@ export function reviewFailure(error: unknown): { code: string; retryable: boolea
 export function incompleteFileSummary(limitations: string[]): string {
   const reasons = new Set<string>();
   for (const limitation of limitations) {
+    if (limitation.includes('MODEL_USAGE_LIMIT_REACHED')) {
+      reasons.add(
+        '등록된 모델 계정의 사용량 한도에 도달했습니다. 계정의 재개 가능 시각 이후 남은 검토를 재개하세요.',
+      );
+      continue;
+    }
     if (
       limitation.includes('MODEL_CALL_BUDGET_EXHAUSTED') ||
       limitation.includes('model call budget')

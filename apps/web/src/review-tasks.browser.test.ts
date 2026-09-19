@@ -7,6 +7,7 @@ describe('group review progress in Chrome', () => {
   let server: ViteDevServer, browser: Browser, page: Page, origin: string;
   let failResume = false,
     reader = false;
+  let quotaLimited = false;
   const requests: string[] = [];
   beforeAll(async () => {
     server = await createServer({
@@ -66,7 +67,14 @@ describe('group review progress in Chrome', () => {
             { state: 'budget-wait', count: 281, retryAt: null },
           ],
           canResume: !reader,
-          maxAdditionalModelCalls: 512,
+          modelLimit: quotaLimited
+            ? {
+                code: 'MODEL_USAGE_LIMIT_REACHED',
+                retryAt: '2099-01-01T00:00:00.000Z',
+                active: true,
+              }
+            : null,
+          maxAdditionalModelCalls: 128,
         },
       });
     });
@@ -82,7 +90,7 @@ describe('group review progress in Chrome', () => {
       await page.goto(origin + '/__tasks');
       await page.getByText('묶음 검토 128/409', { exact: true }).waitFor();
       expect(await page.getByText('예산 대기 281', { exact: true }).count()).toBe(1);
-      expect(await page.getByText(/최대 512회 추가 호출/).count()).toBe(1);
+      expect(await page.getByText(/최대 128회 추가 호출/).count()).toBe(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
@@ -107,5 +115,14 @@ describe('group review progress in Chrome', () => {
     await page.goto(origin + '/__tasks');
     await page.getByText('묶음 검토 128/409', { exact: true }).waitFor();
     expect(await page.getByRole('button', { name: '남은 검토 재개' }).count()).toBe(0);
+  });
+  it('shows account quota separately from an old time-budget error and disables premature resume', async () => {
+    reader = false;
+    quotaLimited = true;
+    await page.goto(origin + '/__tasks');
+    await page.getByText('계정 사용량 제한 281', { exact: true }).waitFor();
+    expect(await page.getByRole('status').innerText()).toContain('재개 가능 시각');
+    expect(await page.getByRole('button', { name: '남은 검토 재개' }).isDisabled()).toBe(true);
+    expect(requests.filter((method) => method === 'POST')).toHaveLength(1);
   });
 });

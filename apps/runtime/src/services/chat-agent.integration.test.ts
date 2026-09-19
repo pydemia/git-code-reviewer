@@ -324,8 +324,8 @@ describe.skipIf(!url).sequential('durable review agent and shared admission', ()
           body: '{}',
         });
         const output = modelReviewFromText(await response.text(), files);
-        // 90회 단위 테스트에서 60 RPM 대기만 제거한다. 누적 ledger 행은 삭제하지 않는다.
-        if (sent === 50)
+        // Synthetic calls skip the minute wait, preserving the cumulative run ledger.
+        if (sent % 25 === 0)
           await database.query(
             "update model_request_ledger set created_at=clock_timestamp()-interval '2 minutes' where run_key=$1",
             [runKey],
