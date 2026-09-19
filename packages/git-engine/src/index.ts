@@ -103,11 +103,10 @@ export async function materializeGitSnapshot(
     mergeBase: (await run(['rev-parse', `${mergeBase}^{tree}`])).trim(),
   };
   for (const tree of Object.values(trees)) assertSha(tree);
-  const names = await run(['diff', '--name-status', '-M', mergeBase, input.headSha, '--']);
+  const names = await run(['diff', '--name-status', '-z', '-M', mergeBase, input.headSha, '--']);
   const files: SnapshotFile[] = [];
-  for (const line of names.split('\n').filter(Boolean).slice(0, 2_000)) {
-    const parsed = parseNameStatus(line);
-    const stats = await fileStats(run, mergeBase, input.headSha, parsed.path);
+  for (const parsed of parseChangedPaths(names)) {
+    const stats = await fileStats(run, mergeBase, input.headSha, parsed.path, parsed.previousPath);
     const patchText = await run([
       'diff',
       '--no-ext-diff',
@@ -116,6 +115,7 @@ export async function materializeGitSnapshot(
       mergeBase,
       input.headSha,
       '--',
+      ...(parsed.previousPath ? [parsed.previousPath] : []),
       parsed.path,
     ]);
     files.push({
@@ -295,6 +295,7 @@ function createGitRunner(
       const result = await execFileAsync(
         'git',
         [
+          '--literal-pathspecs',
           '-c',
           'core.hooksPath=/dev/null',
           '-c',
@@ -343,14 +344,32 @@ async function tryMergeBase(run: GitRunner): Promise<string | null> {
   }
 }
 
-function parseNameStatus(line: string): Pick<SnapshotFile, 'path' | 'previousPath' | 'status'> {
-  const [rawStatus = '', first = '', second] = line.split('\t');
-  const statusCode = rawStatus.charAt(0);
-  if (!first || (statusCode === 'R' && !second)) throw new Error('Invalid Git name-status output');
-  if (statusCode === 'R') return { path: second!, previousPath: first, status: 'renamed' };
-  if (statusCode === 'A') return { path: first, previousPath: null, status: 'added' };
-  if (statusCode === 'D') return { path: first, previousPath: null, status: 'deleted' };
-  return { path: first, previousPath: null, status: 'modified' };
+/** Git -z preserves tabs, newlines and non-ASCII paths without quoting or truncation. */
+export function parseChangedPaths(
+  output: string,
+): Array<Pick<SnapshotFile, 'path' | 'previousPath' | 'status'>> {
+  if (!output) return [];
+  if (!output.endsWith('\0')) throw new Error('Incomplete Git name-status output');
+  const fields = output.slice(0, -1).split('\0');
+  const files: Array<Pick<SnapshotFile, 'path' | 'previousPath' | 'status'>> = [];
+  for (let index = 0; index < fields.length;) {
+    const status = fields[index++],
+      first = fields[index++];
+    if (!status || !/^[ACDMRTUXB][0-9]*$/.test(status) || !first)
+      throw new Error('Invalid Git name-status output');
+    const code = status[0];
+    if (code === 'R' || code === 'C') {
+      const second = fields[index++];
+      if (!second) throw new Error('Incomplete Git rename output');
+      files.push({ path: second, previousPath: first, status: code === 'R' ? 'renamed' : 'added' });
+    } else
+      files.push({
+        path: first,
+        previousPath: null,
+        status: code === 'A' ? 'added' : code === 'D' ? 'deleted' : 'modified',
+      });
+  }
+  return files;
 }
 
 async function fileStats(
@@ -358,8 +377,20 @@ async function fileStats(
   mergeBase: string,
   headSha: string,
   filePath: string,
+  previousPath: string | null,
 ): Promise<{ additions: number | null; deletions: number | null; binary: boolean }> {
-  const output = (await run(['diff', '--numstat', mergeBase, headSha, '--', filePath])).trim();
+  const output = (
+    await run([
+      'diff',
+      '--numstat',
+      '-M',
+      mergeBase,
+      headSha,
+      '--',
+      ...(previousPath ? [previousPath] : []),
+      filePath,
+    ])
+  ).trim();
   const [additions, deletions] = output.split('\t');
   if (additions === '-' || deletions === '-') {
     return { additions: null, deletions: null, binary: true };

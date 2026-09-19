@@ -18,7 +18,8 @@ it('records actual Git trees fetched over verified HTTPS and leaves fixture tree
   try {
     git('init', '--quiet');
     await writeFile(path.join(dir, 'a.ts'), 'export const n = 1;\n');
-    git('add', 'a.ts');
+    await writeFile(path.join(dir, 'old\tname.ts'), 'export const renamed = true;\n');
+    git('add', '.');
     git(
       '-c',
       'user.name=Owned',
@@ -34,7 +35,9 @@ it('records actual Git trees fetched over verified HTTPS and leaves fixture tree
     const base = git('rev-parse', 'HEAD'),
       baseTree = git('rev-parse', 'HEAD^{tree}');
     await writeFile(path.join(dir, 'a.ts'), 'export const n = 2;\n');
-    git('add', 'a.ts');
+    git('mv', 'old\tname.ts', '새\nname.ts');
+    await writeFile(path.join(dir, 'literal[1].ts'), 'export const literal = true;\n');
+    git('add', '.');
     git(
       '-c',
       'user.name=Owned',
@@ -138,6 +141,16 @@ it('records actual Git trees fetched over verified HTTPS and leaves fixture tree
     expect(snapshot.resolution).toBe('exact');
     expect(snapshot.trees).toEqual({ base: baseTree, head: headTree, mergeBase: baseTree });
     expect(snapshot.patch).toContain('+export const n = 2;');
+    expect(snapshot.files).toHaveLength(3);
+    expect(snapshot.files.find((file) => file.path === '새\nname.ts')).toMatchObject({
+      previousPath: 'old\tname.ts',
+      status: 'renamed',
+      additions: 0,
+      deletions: 0,
+    });
+    expect(snapshot.files.find((file) => file.path === 'literal[1].ts')?.patch).toContain(
+      '+export const literal = true;',
+    );
     expect(materializeFixtureSnapshot(base, head).trees).toBeUndefined();
   } finally {
     vi.unstubAllEnvs();
