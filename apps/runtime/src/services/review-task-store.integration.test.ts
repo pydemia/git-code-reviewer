@@ -203,6 +203,21 @@ describe.skipIf(!url)('durable grouped review', () => {
       (await db.query('select stage from analysis_runs where id=$1', [analysisId])).rows[0].stage,
     ).toBe('model-capacity-wait');
   });
+  it('rejects continuation after the PR head changes without creating a job', async () => {
+    const { analysisId, job } = await claim();
+    await databaseReviewTaskStore(db, analysisId, job).initialize(plan());
+    await db.query("update analysis_runs set state='partial' where id=$1", [analysisId]);
+    const before = (await db.query('select head_sha from pull_requests where id=$1', [pullId]))
+      .rows[0].head_sha;
+    const count = Number((await db.query('select count(*) from jobs')).rows[0].count);
+    try {
+      await db.query('update pull_requests set head_sha=$2 where id=$1', [pullId, 'f'.repeat(40)]);
+      expect(await resumeAnalysis(db, analysisId, userId)).toBeNull();
+      expect(Number((await db.query('select count(*) from jobs')).rows[0].count)).toBe(count);
+    } finally {
+      await db.query('update pull_requests set head_sha=$2 where id=$1', [pullId, before]);
+    }
+  });
   it('runs the real worker and report/API pipeline for grouped inputs with a synthetic transport', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'gcr-group-worker-'));
     const { analysisId, job } = await claim(),
