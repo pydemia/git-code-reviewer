@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "971ddbe2e6f09465db6789d39fca51239d3766d2",
+  "releaseCommit": "dc54fdf8758f86a07b7b03ea967240ae34b36b2a",
+  "accountUsage": {
+    "observedAt": "2026-09-19T06:27:43.993Z",
+    "httpStatus": 200,
+    "analysisAccountMatchesLedger": true,
+    "model": "gpt-5.6-terra",
+    "reasoningEffort": "medium",
+    "modelCalls": 0,
+    "usage": {
+      "planType": "self_serve_business_prolite",
+      "rateLimit": {
+        "allowed": false,
+        "limitReached": true,
+        "windows": [
+          {
+            "usedPercent": 100,
+            "windowSeconds": 604800,
+            "resetAt": "2026-09-19T10:32:02.000Z"
+          }
+        ]
+      },
+      "reachedType": "workspace_member_credits_depleted"
+    }
+  },
+  "deployment": {
+    "at": "2026-09-19T06:49:36.270Z",
+    "chartVersion": "0.10.72",
+    "appVersion": "0.8.0-alpha.76",
+    "helmRevision": 84,
+    "imageDigest": "sha256:142984c0f5eb6047e7815008fe331422535a718e554a1de891c59ede95513558",
+    "chartOciDigest": "sha256:1ced4bebf726638d7a6a353343088f5f0a8570bba2d98edd601d757d11971e59",
+    "chartPackageSha256": "ecd0c058ac124923bca8065ba32e29da0625caec8cafbd09237bf4c06f237f61",
+    "preservedTables": [
+      "users",
+      "repositories",
+      "repository_grants",
+      "analysis_provider_versions",
+      "analysis_prompt_versions",
+      "analysis_skill_versions",
+      "review_memories",
+      "reports",
+      "findings",
+      "snapshots",
+      "snapshot_files",
+      "github_review_publications"
+    ],
+    "allTableHashesEqual": true,
+    "ledgerUnchanged": true,
+    "tasksUnchanged": true,
+    "settingsOnlyChanged": [
+      "image.tag",
+      "image.digest",
+      "model.analysis.groupMaxModelCalls"
+    ],
+    "dbTls": {
+      "ssl": true,
+      "version": "TLSv1.3"
+    },
+    "deploymentsReady": true,
+    "pods": [
+      {
+        "name": "git-code-reviewer-server-77fd94c69-r4v4b",
+        "terminating": false,
+        "containers": [
+          {
+            "name": "server",
+            "ready": true,
+            "restarts": 0
+          }
+        ]
+      },
+      {
+        "name": "git-code-reviewer-worker-5cb4cdc9d5-xg8fw",
+        "terminating": false,
+        "containers": [
+          {
+            "name": "source-sandbox",
+            "ready": true,
+            "restarts": 0
+          },
+          {
+            "name": "worker",
+            "ready": true,
+            "restarts": 0
+          }
+        ]
+      },
+      {
+        "name": "git-code-reviewer-worker-7c7cff6fb-jnh9t",
+        "terminating": true,
+        "containers": [
+          {
+            "name": "source-sandbox",
+            "ready": true,
+            "restarts": 0
+          },
+          {
+            "name": "worker",
+            "ready": false,
+            "restarts": 0
+          }
+        ]
+      }
+    ]
+  },
+  "live": {
+    "at": "2026-09-19T06:50:41.972Z",
+    "version": "0.8.0-alpha.76",
+    "sessions": [
+      {
+        "scheme": "https:",
+        "version": "0.8.0-alpha.76",
+        "budget": 256,
+        "quotaActive": true,
+        "retryAt": "2026-09-19T10:32:02.009Z",
+        "completedTasks": 92,
+        "filesCompleted": 336,
+        "findings": 140,
+        "legacyPreserved": true,
+        "validatedLinks": 140
+      },
+      {
+        "scheme": "http:",
+        "version": "0.8.0-alpha.76",
+        "budget": 256,
+        "quotaActive": true,
+        "retryAt": "2026-09-19T10:32:02.009Z",
+        "completedTasks": 92,
+        "filesCompleted": 336,
+        "findings": 140,
+        "legacyPreserved": true,
+        "validatedLinks": 140
+      }
+    ],
+    "modelCalls": 0,
+    "externalComments": 0,
+    "browser": {
+      "codeBlocks": 140,
+      "visibleCodeBlocks": 140,
+      "recommendationPreserved": true,
+      "quotaResumeDisabled": true,
+      "apiWritesBlocked": true,
+      "pageErrors": []
+    },
+    "sessionsRevoked": true
+  },
+  "publication": {
+    "at": "2026-09-19T06:48:41.484Z",
+    "analysisId": "841560c1-98a2-417c-84f7-21a2d4330e93",
+    "verifiedCodeLinks": 140,
+    "externalComments": 0,
+    "modelCalls": 0,
+    "rendered": [
+      {
+        "minimumPriority": "P2",
+        "bytes": 83277,
+        "characters": 59337,
+        "criticalComments": 3,
+        "includedLabel": "검토 의견 45/135개 · 파일 44개 — 펼쳐 보기",
+        "standalonePermalinks": 45,
+        "hash": "7ce3d13b79a1ef6d674cf6fab5f70cc7c9d86f40e5069889fb53fc93548a4bd1"
+      },
+      {
+        "minimumPriority": "P3",
+        "bytes": 6310,
+        "characters": 4434,
+        "criticalComments": 3,
+        "includedLabel": "검토 의견 3개 · 파일 3개 — 펼쳐 보기",
+        "standalonePermalinks": 3,
+        "hash": "305336115b965fd915de6016c573cbeb3c8d1f4b2263f615c754620b78cdb958"
+      }
+    ],
+    "activeAnalysisJobs": 0
+  },
+  "cleanup": {
+    "at": "2026-09-19T06:51:14.641Z",
+    "helmTestPhase": "Succeeded",
+    "testPodRemoved": true,
+    "privateRegistryAndValuesRemoved": true,
+    "globalCredentialsUnchanged": true,
+    "browserSessionsRevoked": true,
+    "externalPrComments": 0,
+    "modelCalls": 0
+  },
+  "limits": {
+    "perRunCalls": 256,
+    "defaultCalls": 128,
+    "batchConcurrency": 2,
+    "batchPerMinuteRequests": 30,
+    "batchPerMinuteInputBytes": 524288,
+    "runTimeHours": 3
+  },
+  "analysis": {
+    "id": "841560c1-98a2-417c-84f7-21a2d4330e93",
+    "state": "partial",
+    "resumed": false,
+    "completedTasks": 92,
+    "totalTasks": 409,
+    "completedFiles": 336,
+    "pendingFiles": 707,
+    "excludedFiles": 2,
+    "findings": 140,
+    "modelCallsThisChange": 0,
+    "externalCommentsThisChange": 0
+  },
+  "limitations": [
+    "Provider weekly usage remains exhausted; reset reported at 2026-09-19T10:32:02Z.",
+    "GitHub native snippet rendering was not verified by publishing a comment.",
+    "256 calls may not complete the remaining 317 tasks; continuation is explicit."
+  ]
+}
