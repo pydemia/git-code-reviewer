@@ -44,11 +44,14 @@ import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
 import { removeExpiredKnowledgeManifests } from '../services/knowledge-manifest.js';
 import { publishNextKnowledge } from '../services/knowledge-publication.js';
 import { withModelBudget } from '../services/model-admission.js';
+import { deferModelJob } from '../services/model-job-defer.js';
 import {
   claimCriterionGeneration,
   executeCriterionGeneration,
 } from '../services/criterion-generation.js';
 import { assertJobLease, checkpointReviewModel } from '../services/analysis-checkpoint.js';
+import { databaseReviewTaskStore } from '../services/review-task-store.js';
+import { sourcePathPolicy } from '@gcr/client-core';
 import { recoverExpiredJobs } from './recovery.js';
 import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
 import {
@@ -804,10 +807,24 @@ export async function executeAnalysisJob(
     path: string;
   }>('select id, path from snapshot_files where snapshot_id = $1', [snapshotId]);
   const fileIds = new Map(fileRows.rows.map((file) => [file.path, file.id]));
-  const files: AnalysisFile[] = diff.files.flatMap((file) => {
+  const files: AnalysisFile[] = diff.files.map((file) => {
     const id = fileIds.get(file.path);
-    return id ? [{ id, ...file }] : [];
+    if (!id) throw Error('Snapshot file manifest is incomplete');
+    return { id, ...file };
   });
+  const grouped =
+    Boolean(skillBundle) &&
+    !isFixtureRepository(config.GITHUB_MODE, row) &&
+    (files.length >= config.ANALYSIS_GROUPING_THRESHOLD ||
+      Buffer.byteLength(diff.patch) > config.ANALYSIS_MAX_BYTES);
+  const sourcePolicy = sourcePathPolicy();
+  const fileExclusions = new Map(
+    files.flatMap((file) => {
+      const reason =
+        sourcePolicy(file.path) ?? (file.previousPath ? sourcePolicy(file.previousPath) : null);
+      return reason ? [[file.id, reason] as const] : [];
+    }),
+  );
   let sharedPin: ReturnType<typeof readSharedKnowledgePin> = null;
   let sharedKnowledgeUnavailable = false;
   try {
@@ -862,6 +879,8 @@ export async function executeAnalysisJob(
     const output = await withModelBudget(
       {
         runKey: `analysis:${analysisId}`,
+        durableGroup: grouped,
+        lane: 'batch',
         maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
         wait: true,
         concurrency: provider.concurrency ?? 1,
@@ -869,13 +888,36 @@ export async function executeAnalysisJob(
       () =>
         analyzeSnapshot({
           concurrency: provider.concurrency ?? 1,
+          ...(grouped
+            ? {
+                impactReview: {
+                  store: databaseReviewTaskStore(database, analysisId, job),
+                  identity: {
+                    snapshotId,
+                    base: row.base_sha,
+                    head: row.head_sha,
+                    provider: provider.configurationHash,
+                    prompt: row.prompt_hash,
+                    skills: row.skill_hash,
+                    sharedSelection: sharedSelectionHash,
+                    sharedKnowledgeUnavailable,
+                  },
+                  maxInputBytes: config.ANALYSIS_GROUP_MAX_INPUT_BYTES,
+                  maxFilesPerGroup: config.ANALYSIS_GROUP_MAX_FILES,
+                },
+              }
+            : {}),
           onProgress: async (stage, detail) => {
             if (draining()) throw Error('worker_draining');
             await assertJobLease(database, job);
             const progress =
               stage === 'total-summary'
                 ? 85
-                : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
+                : 25 +
+                  Math.floor(
+                    (60 * (detail.tasksCompleted ?? detail.filesProcessed)) /
+                      Math.max(1, detail.tasksTotal ?? detail.filesTotal),
+                  );
             await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
           },
           analysisId,
@@ -884,6 +926,7 @@ export async function executeAnalysisJob(
           headSha: row.head_sha,
           patch: diff.patch,
           files,
+          fileExclusions,
           memory: row.memory_context,
           contextLimitations,
           ...(sharedCriteria ? { sharedCriteria } : {}),
@@ -1083,10 +1126,15 @@ export async function persistAnalysis(
         ],
       );
     }
+    const taskProgress = await connection.query<{ progress: number }>(
+      `select case when count(*)=0 then 100 else floor(100.0*count(*) filter(where state='completed')/count(*)) end::integer as progress from analysis_review_tasks where analysis_id=$1`,
+      [analysisId],
+    );
+    const finalProgress = taskProgress.rows[0]!.progress;
     await connection.query(
-      `update analysis_runs set state = $2, stage = 'published', progress = 100,
+      `update analysis_runs set state = $2, stage = 'published', progress = $4,
        limitations = $3::jsonb, finished_at = clock_timestamp() where id = $1`,
-      [analysisId, state, JSON.stringify(report.coverage.limitations)],
+      [analysisId, state, JSON.stringify(report.coverage.limitations), finalProgress],
     );
     await connection.query(
       `update operations set state = 'completed', finished_at = clock_timestamp(),
@@ -1098,7 +1146,7 @@ export async function persistAnalysis(
       revision: locked.rows[0]!.revision,
       state,
       stage: 'published',
-      progress: 100,
+      progress: finalProgress,
       reportUrl: `/api/v1/analyses/${analysisId}`,
     };
     if (!job.payload.memoryOwnerUserId) {
@@ -1228,6 +1276,7 @@ async function failJob(database: Database, job: ClaimedJob, error: unknown) {
 }
 
 async function recordJobFailure(database: DatabaseClient, job: ClaimedJob, error: unknown) {
+  if (await deferModelJob(database, job, error)) return;
   const retryable =
     error instanceof HistoryCollectionError
       ? error.retryable

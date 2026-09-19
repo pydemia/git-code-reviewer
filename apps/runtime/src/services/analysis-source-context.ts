@@ -24,10 +24,15 @@ export function withAnalysisSourceContext(
       if (stage && stage.stage !== 'unit-comment-block')
         return model.review(diff, files, instructions, stage);
       const sources: unknown[] = [];
+      const budget = stage?.group
+        ? Math.min(config.CHAT_AGENT_CONTEXT_BYTES, 16_384)
+        : config.CHAT_AGENT_CONTEXT_BYTES;
+      let requestBytes = 0;
       // 원본 조회만 직렬화한다. Workspace 중복 취득과 context byte 예산의 경쟁을 막고
       // 느린 모델 요청은 이 queue 밖에서 병렬로 실행한다.
       const prepared = contextQueue.then(async () => {
-        if (!unavailable && bytes < config.CHAT_AGENT_CONTEXT_BYTES) {
+        requestBytes = stage?.group ? 0 : bytes;
+        if (!unavailable && requestBytes < budget) {
           try {
             workspace ??= await acquireSourceWorkspace(
               database,
@@ -39,21 +44,30 @@ export function withAnalysisSourceContext(
               1,
               Number(/comment start must be in (\d+)/.exec(diff)?.[1] ?? 1) - 20,
             );
-            for (const filePath of files.slice(0, 1))
+            const windows = stage?.group
+              ? [
+                  ...new Map(
+                    (stage.group.sourceWindows ?? []).map((window) => [window.path, window]),
+                  ).values(),
+                ].slice(0, 4)
+              : files
+                  .slice(0, 1)
+                  .map((filePath) => ({ path: filePath, startLine: startLine + 20 }));
+            for (const source of windows)
               for (const revision of ['head', 'base'] as const) {
                 try {
                   const unit = sourceEvidenceSchema.parse(
                     await executeSourceTool(config, workspace, {
                       name: 'read_file',
                       revision,
-                      path: filePath,
-                      startLine,
-                      endLine: startLine + 119,
+                      path: source.path,
+                      startLine: Math.max(1, source.startLine - 20),
+                      endLine: Math.max(1, source.startLine - 20) + 119,
                     }),
                   );
                   const body = JSON.stringify(unit);
                   const size = Buffer.byteLength(body);
-                  if (bytes + size > config.CHAT_AGENT_CONTEXT_BYTES) {
+                  if (requestBytes + size > budget) {
                     limitations.add(
                       '추가 로컬 source context 조회 예산에 도달했습니다. Canonical diff 검토와 구분합니다.',
                     );
@@ -73,7 +87,8 @@ export function withAnalysisSourceContext(
                       artifact.locator,
                     ],
                   );
-                  bytes += size;
+                  requestBytes += size;
+                  if (!stage?.group) bytes += size;
                   sources.push(unit);
                 } catch {
                   limitations.add(

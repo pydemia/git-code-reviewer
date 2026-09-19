@@ -229,6 +229,7 @@ export const legacyAnalysisReportSchema = z.object({
       }),
     ),
     grade: z.string(),
+    reviewed_targets: z.array(z.string().min(1)).optional(),
     per_file_summaries: z
       .array(
         z.object({

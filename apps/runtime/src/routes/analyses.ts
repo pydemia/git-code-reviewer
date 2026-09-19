@@ -1,3 +1,4 @@
+import { resumeAnalysis } from '../services/analysis-resume.js';
 import { readTrustedCiEvidence } from '../services/trusted-ci.js';
 import { sharedKnowledgeView } from '../services/analysis-shared-knowledge.js';
 import { expandRelationships } from '@gcr/analysis-engine';
@@ -53,6 +54,97 @@ export async function registerAnalysisRoutes(
   config: AppConfig,
   authorization: AuthorizationService,
 ) {
+  app.post(
+    '/api/v1/analyses/:analysisId/resume',
+    { preHandler: requireUser },
+    async (request, reply) => {
+      const { analysisId } = analysisParams.parse(request.params);
+      const context = await authorizedContext(database, authorization, request, analysisId);
+      if (
+        !context ||
+        !(await canReadRepository(
+          database,
+          authorization,
+          request,
+          context.repositoryId,
+          'refresh',
+        ))
+      )
+        return hiddenNotFound(request, reply);
+      let result;
+      try {
+        result = await resumeAnalysis(database, analysisId, request.user!.id);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'REFRESH_LIMIT_EXCEEDED')
+          return reply
+            .code(429)
+            .send({
+              error: {
+                code: 'REFRESH_LIMIT_EXCEEDED',
+                message: '진행 중인 분석이 너무 많습니다.',
+                retryable: true,
+              },
+            });
+        throw error;
+      }
+      if (!result)
+        return reply.code(409).send({
+          error: {
+            code: 'ANALYSIS_RESUME_UNAVAILABLE',
+            message:
+              '현재 PR의 미완료 묶음 분석만 재개할 수 있습니다. 새 head는 다시 분석해 주세요.',
+            retryable: false,
+          },
+        });
+      return reply.code(202).send({
+        schemaVersion,
+        ...result,
+        maxAdditionalModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+      });
+    },
+  );
+  app.get(
+    '/api/v1/analyses/:analysisId/review-tasks',
+    { preHandler: requireUser },
+    async (request, reply) => {
+      const { analysisId } = analysisParams.parse(request.params);
+      const context = await authorizedContext(database, authorization, request, analysisId);
+      if (!context) return hiddenNotFound(request, reply);
+      reply.header('cache-control', 'no-store');
+      const plan = (
+        await database.query(
+          `select plan_hash,manifest from analysis_review_plans where analysis_id=$1`,
+          [analysisId],
+        )
+      ).rows[0];
+      const states = await database.query(
+        `select state,count(*)::integer as count,min(retry_at) as "retryAt" from analysis_review_tasks where analysis_id=$1 group by state`,
+        [analysisId],
+      );
+      return {
+        schemaVersion,
+        analysisId,
+        planHash: plan?.plan_hash ?? null,
+        filesTotal: plan?.manifest.files.length ?? 0,
+        filesExcluded:
+          plan?.manifest.files.filter(
+            (file: { disposition: string }) => file.disposition === 'excluded',
+          ).length ?? 0,
+        tasks: states.rows,
+        maxAdditionalModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+        canResume:
+          Boolean(plan) &&
+          (await canReadRepository(
+            database,
+            authorization,
+            request,
+            context.repositoryId,
+            'refresh',
+          )),
+      };
+    },
+  );
+
   app.get(
     '/api/v1/analyses/:analysisId/ci-validation',
     { preHandler: requireUser },

@@ -151,4 +151,75 @@ describe.skipIf(!url)('parallel account admission', () => {
     await Promise.all(responses.map((response) => response.text()));
     expect(await reserve(quota, randomUUID())).not.toBeNull();
   });
+  it('starts grouped admission at one, increases after eight successes and backs off on failure', async () => {
+    const quota = randomUUID(),
+      run = randomUUID();
+    const group = async () =>
+      (
+        await database.query('select reserve_group_model_request($1,$2,128,1000,4) as id', [
+          quota,
+          run,
+        ])
+      ).rows[0].id;
+    let id = await group();
+    expect(id).not.toBeNull();
+    expect(await group()).toBeNull();
+    for (let n = 0; n < 8; n++) {
+      if (n) id = await group();
+      await database.query("select finish_group_model_request($1,'completed',null)", [id]);
+    }
+    const first = await group(),
+      second = await group();
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(await group()).toBeNull();
+    await database.query("select finish_group_model_request($1,'failed',$2)", [
+      first,
+      new Date(Date.now() + 3600000),
+    ]);
+    expect(
+      (
+        await database.query(
+          'select group_concurrency from model_account_capacity where quota_key=$1',
+          [quota],
+        )
+      ).rows[0].group_concurrency,
+    ).toBe(1);
+    await database.query("select finish_group_model_request($1,'completed',null)", [second]);
+    expect(await group()).toBeNull();
+  });
+  it('never shortens a two-hour Retry-After and releases the response reservation', async () => {
+    const quota = randomUUID(),
+      run = randomUUID(),
+      start = Date.now();
+    const transport = admittedFetch(
+      database,
+      quota,
+      async () => new Response('limited', { status: 429, headers: { 'retry-after': '7200' } }),
+    );
+    await expect(
+      withModelBudget({ runKey: run, maxCalls: 128, wait: true, durableGroup: true }, () =>
+        transport('https://synthetic.invalid/v1/responses'),
+      ),
+    ).rejects.toMatchObject({ message: 'model_capacity_wait' });
+    const capacity = (
+      await database.query(
+        'select cooldown_until,lease_expires_at from model_account_capacity where quota_key=$1',
+        [quota],
+      )
+    ).rows[0];
+    expect(capacity.cooldown_until.getTime()).toBeGreaterThanOrEqual(start + 7200000);
+    expect(capacity.lease_expires_at).toBeNull();
+    const ledger = (
+      await database.query(
+        'select state,estimated_input_tokens,reserved_output_tokens from model_request_ledger where run_key=$1',
+        [run],
+      )
+    ).rows[0];
+    expect(ledger).toEqual({
+      state: 'failed',
+      estimated_input_tokens: 0,
+      reserved_output_tokens: 16000,
+    });
+  });
 });

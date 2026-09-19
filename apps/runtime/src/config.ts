@@ -128,6 +128,9 @@ const configSchema = z.object({
     .positive()
     .default(10 * 1024 * 1024),
   ANALYSIS_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().max(1000).default(128),
+  ANALYSIS_GROUPING_THRESHOLD: z.coerce.number().int().min(2).default(50),
+  ANALYSIS_GROUP_MAX_INPUT_BYTES: z.coerce.number().int().min(2048).max(96_000).default(64_000),
+  ANALYSIS_GROUP_MAX_FILES: z.coerce.number().int().min(2).max(100).default(20),
   OIDC_ISSUER: optionalUrl,
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),

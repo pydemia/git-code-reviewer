@@ -350,6 +350,10 @@ export const analysisProgressSchema = z.object({
   filesReviewed: z.number().int().nonnegative(),
   filesSkipped: z.number().int().nonnegative(),
   currentFile: z.string().nullable(),
+  tasksTotal: z.number().int().nonnegative().optional(),
+  tasksCompleted: z.number().int().nonnegative().optional(),
+  filesExcluded: z.number().int().nonnegative().optional(),
+  filesPending: z.number().int().nonnegative().optional(),
 });
 export type AnalysisProgress = z.infer<typeof analysisProgressSchema>;
 

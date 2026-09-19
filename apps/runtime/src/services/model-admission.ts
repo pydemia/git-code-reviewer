@@ -8,6 +8,7 @@ export type ModelBudget = {
   wait?: boolean;
   concurrency?: number;
   lane?: 'batch' | 'interactive';
+  durableGroup?: boolean;
 };
 const budgetContext = new AsyncLocalStorage<ModelBudget>();
 export function withModelBudget<Result>(
@@ -41,15 +42,19 @@ export function admittedFetch(
     while (!reservation) {
       init?.signal?.throwIfAborted();
       const result = await database.query<{ id: string }>(
-        'select reserve_model_request($1,$2,$3,$4,$5,$6) as id',
-        [
-          quotaKey,
-          budget.runKey,
-          budget.maxCalls,
-          inputBytes,
-          (budget.lane ?? (budget.wait === true ? 'batch' : 'interactive')) === 'batch',
-          budget.concurrency ?? 1,
-        ],
+        budget.durableGroup
+          ? 'select reserve_group_model_request($1,$2,$3,$4,$5) as id'
+          : 'select reserve_model_request($1,$2,$3,$4,$5,$6) as id',
+        budget.durableGroup
+          ? [quotaKey, budget.runKey, budget.maxCalls, inputBytes, budget.concurrency ?? 1]
+          : [
+              quotaKey,
+              budget.runKey,
+              budget.maxCalls,
+              inputBytes,
+              (budget.lane ?? (budget.wait === true ? 'batch' : 'interactive')) === 'batch',
+              budget.concurrency ?? 1,
+            ],
       );
       reservation = result.rows[0]?.id;
       if (reservation) break;
@@ -59,7 +64,7 @@ export function admittedFetch(
       );
       if (Number(count.rows[0]?.count) >= budget.maxCalls)
         throw Error('model_call_budget_exhausted');
-      if (!budget.wait)
+      if (!budget.wait && budget.lane !== 'batch')
         await database.query(
           "update model_account_capacity set priority_run_key=$2,priority_expires_at=clock_timestamp()+interval '15 seconds' where quota_key=$1 and (priority_expires_at is null or priority_expires_at<clock_timestamp() or priority_run_key=$2)",
           [quotaKey, budget.runKey],
@@ -69,7 +74,12 @@ export function admittedFetch(
         [quotaKey],
       );
       const until = capacity.rows[0]!.until;
-      if (!budget.wait || Date.now() - started > 120000) throw new ModelCapacityError(until);
+      if (
+        !budget.wait ||
+        Date.now() - started > 120000 ||
+        (budget.durableGroup && until.getTime() - Date.now() > 5000)
+      )
+        throw new ModelCapacityError(until);
       init?.signal?.throwIfAborted();
       await new Promise((resolve) =>
         setTimeout(resolve, Math.min(2000, Math.max(100, until.getTime() - Date.now()))),
@@ -92,11 +102,12 @@ export function admittedFetch(
       if (finished) return;
       finished = true;
       clearInterval(heartbeat);
-      await database.query('select finish_model_request($1,$2,$3)', [
-        reservation,
-        state,
-        cooldown ?? null,
-      ]);
+      await database.query(
+        budget.durableGroup
+          ? 'select finish_group_model_request($1,$2,$3)'
+          : 'select finish_model_request($1,$2,$3)',
+        [reservation, state, cooldown ?? null],
+      );
     };
     try {
       init?.signal?.throwIfAborted();
@@ -108,22 +119,35 @@ export function admittedFetch(
         const raw = response.headers.get('retry-after');
         const seconds = raw && /^\d+$/.test(raw) ? Number(raw) : null;
         const parsed = raw ? Date.parse(raw) : NaN;
+        const requested =
+          seconds !== null
+            ? Date.now() + seconds * 1000
+            : Number.isFinite(parsed)
+              ? parsed
+              : Date.now() + 30000;
+        // Never shorten a valid Retry-After. Jitter is added after the server deadline.
         const until = new Date(
-          Math.min(
-            Date.now() + 1800000,
-            Math.max(
-              Date.now() + 3000,
-              seconds !== null
-                ? Date.now() + seconds * 1000
-                : Number.isFinite(parsed)
-                  ? parsed
-                  : Date.now() + 30000,
-            ),
-          ),
+          Math.max(
+            Date.now() + 3000,
+            Number.isFinite(requested) && requested <= 8.64e15 ? requested : Date.now() + 86400000,
+          ) + Math.floor(Math.random() * 1000),
         );
         await response.body?.cancel();
         await finish('failed', until);
         throw new ModelCapacityError(until);
+      }
+      if (budget.durableGroup && [500, 502, 503, 504].includes(response.status)) {
+        await response.body?.cancel();
+        const until = new Date(Date.now() + 15000 + Math.floor(Math.random() * 15000));
+        await finish('failed', until);
+        throw new ModelCapacityError(until);
+      }
+      if (budget.durableGroup && [401, 403, 413].includes(response.status)) {
+        await response.body?.cancel();
+        await finish('failed');
+        throw Error(
+          response.status === 413 ? 'model_input_budget_exhausted' : 'model_auth_unavailable',
+        );
       }
       if (!response.ok || !response.body) {
         await finish(response.ok ? 'completed' : 'failed');

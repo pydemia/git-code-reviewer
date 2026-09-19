@@ -1,6 +1,8 @@
 // Provider 원문에는 source·credential이 포함될 수 있으므로 알려진 원인만 공개한다.
 export function reviewFailure(error: unknown): { code: string; retryable: boolean } {
   const message = error instanceof Error ? error.message : '';
+  if (message === 'model_auth_unavailable')
+    return { code: 'MODEL_AUTH_UNAVAILABLE', retryable: false };
   if (message === 'model_call_budget_exhausted')
     return { code: 'MODEL_CALL_BUDGET_EXHAUSTED', retryable: false };
   if (message === 'model_input_budget_exhausted')
