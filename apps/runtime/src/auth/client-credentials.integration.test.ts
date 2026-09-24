@@ -21,6 +21,7 @@ import {
   issueClientKey,
 } from './client-credentials.js';
 import { registerReviewSubmissionRoutes } from '../routes/review-submissions.js';
+import { registerProfileRoutes } from '../routes/profile.js';
 import { registerReviewCriteriaRoutes } from '../routes/review-criteria.js';
 import { registerKnowledgeRoutes } from '../routes/review-knowledge.js';
 import { AuthorizationService } from '../services/authorization.js';
@@ -216,6 +217,127 @@ describe
         await root.end();
       }
       if (directory) await rm(directory, { recursive: true, force: true });
+    });
+    it('keeps profile and client connections usable with HTTP and HTTPS browser sessions', async () => {
+      const https = 'https://gcr.test';
+      const http = 'http://gcr.test';
+      const browserConfig = { ...config, PUBLIC_BASE_URL: https, LOCAL_HTTP_ORIGIN: http };
+      const browserApp = Fastify();
+      registerMutationOriginGuard(browserApp, { ...browserConfig, NODE_ENV: 'production' });
+      await registerAuthentication(browserApp, browserConfig, db);
+      await registerProfileRoutes(browserApp, db, browserConfig);
+      await registerClientCredentialRoutes(
+        browserApp,
+        db,
+        browserConfig,
+        new AuthorizationService(browserConfig),
+        signer,
+      );
+      try {
+        for (const username of ['alice', 'fixture-admin']) {
+          for (const origin of [http, https]) {
+            const login = await browserApp.inject({
+              method: 'POST',
+              url: '/auth/local/login',
+              headers: { origin },
+              payload: {
+                username,
+                password:
+                  username === 'alice'
+                    ? 'Synthetic-user-password-2026!'
+                    : 'Synthetic-only-password-2026!',
+              },
+            });
+            expect(login.statusCode, login.body).toBe(200);
+            const cookie = String(login.headers['set-cookie']).split(';')[0]!;
+            expect(cookie.startsWith(origin === http ? 'gcr_http_session=' : 'gcr_session=')).toBe(
+              true,
+            );
+            const headers = { cookie, origin };
+            try {
+              // Same-origin browser GETs need not send Origin.
+              const profile = await browserApp.inject({
+                url: '/api/v1/profile',
+                headers: { cookie },
+              });
+              expect(profile.statusCode, profile.body).toBe(200);
+              const keys = await browserApp.inject({
+                url: '/api/v1/me/client-credentials',
+                headers: { cookie },
+              });
+              expect(keys.statusCode, keys.body).toBe(200);
+              expect(keys.headers['cache-control']).toBe('private, no-store');
+              const connection = await browserApp.inject({
+                url: `/api/v1/me/client-connection-config?repositoryId=${repo}`,
+                headers: { cookie },
+              });
+              expect(connection.statusCode, connection.body).toBe(200);
+              expect(connection.json().serverUrl).toBe(https);
+              const issued = await browserApp.inject({
+                method: 'POST',
+                url: '/api/v1/me/client-credentials',
+                headers,
+                payload: scope(),
+              });
+              expect(issued.statusCode, issued.body).toBe(201);
+              const { token, id } = issued.json();
+              expect((await me(token)).statusCode).toBe(200);
+              for (const invalidOrigin of [
+                undefined,
+                'https://attacker.test',
+                `${http}:444`,
+                'null',
+              ]) {
+                const rejected = await browserApp.inject({
+                  method: 'DELETE',
+                  url: `/api/v1/me/client-credentials/${id}`,
+                  headers: {
+                    cookie,
+                    ...(invalidOrigin ? { origin: invalidOrigin } : {}),
+                    'x-forwarded-host': 'gcr.test',
+                    'x-forwarded-proto': 'https',
+                  },
+                });
+                expect(rejected.statusCode, rejected.body).toBe(403);
+              }
+              expect(
+                (
+                  await browserApp.inject({
+                    url: '/api/v1/me/client-credentials',
+                    headers: { ...headers, ...auth(token) },
+                  })
+                ).statusCode,
+              ).toBe(401);
+              // An unrelated HTTPS cookie must not replace the approved HTTP session on mutation.
+              const revoked = await browserApp.inject({
+                method: 'DELETE',
+                url: `/api/v1/me/client-credentials/${id}`,
+                headers: {
+                  ...headers,
+                  cookie: origin === http ? `gcr_session=stale; ${cookie}` : cookie,
+                },
+              });
+              expect(revoked.statusCode, revoked.body).toBe(204);
+              expect((await me(token)).statusCode).toBe(403);
+            } finally {
+              expect(
+                (await browserApp.inject({ method: 'POST', url: '/auth/logout', headers }))
+                  .statusCode,
+              ).toBe(204);
+            }
+            expect(
+              (
+                await browserApp.inject({
+                  url: '/api/v1/me/client-credentials',
+                  headers: { cookie },
+                })
+              ).statusCode,
+            ).toBe(401);
+          }
+        }
+      } finally {
+        await browserApp.close();
+      }
     });
     it('exports a pinned public connection only for the authenticated web user and authorized repository', async () => {
       const url = `/api/v1/me/client-connection-config?repositoryId=${repo}`;

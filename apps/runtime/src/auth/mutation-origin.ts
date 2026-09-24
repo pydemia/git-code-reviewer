@@ -16,7 +16,7 @@ export function registerMutationOriginGuard(app: FastifyInstance, config: AppCon
       !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
       !(config.AUTH_MODE === 'saml' && isSamlCallback(request)) &&
       !nativeSubmission &&
-      !sameOrigin(request, config)
+      !isAllowedBrowserOrigin(request, config)
     ) {
       return reply
         .code(403)
@@ -24,7 +24,7 @@ export function registerMutationOriginGuard(app: FastifyInstance, config: AppCon
     }
   });
 }
-function sameOrigin(request: FastifyRequest, config: AppConfig): boolean {
+export function isAllowedBrowserOrigin(request: FastifyRequest, config: AppConfig): boolean {
   const origin = request.headers.origin;
   if (!origin) return false;
   try {

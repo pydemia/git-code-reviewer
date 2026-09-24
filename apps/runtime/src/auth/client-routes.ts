@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 import { requireUser } from './index.js';
+import { browserSessionCookie } from './browser-session.js';
+import { isAllowedBrowserOrigin } from './mutation-origin.js';
 import {
   ClientCredentialError,
   clientKeyInput,
@@ -52,11 +54,15 @@ export async function registerClientCredentialRoutes(
   const ca = enabled ? await loadClientConnectionCa(config.CLIENT_CONNECTION_CA_FILE) : null;
   const web = async (request: FastifyRequest) => {
     if (!enabled) throw new ClientCredentialError(503, 'CLIENT_AUTH_DISABLED');
-    if (!request.user || !request.cookies.gcr_session || request.headers.authorization)
+    if (
+      !request.user ||
+      !request.cookies[browserSessionCookie(request, config)] ||
+      request.headers.authorization
+    )
       throw new ClientCredentialError(401, 'CLIENT_WEB_REAUTHENTICATION_REQUIRED');
     if (
       !['GET', 'HEAD'].includes(request.method) &&
-      (!config.PUBLIC_BASE_URL || request.headers.origin !== new URL(config.PUBLIC_BASE_URL).origin)
+      (!config.PUBLIC_BASE_URL || !isAllowedBrowserOrigin(request, config))
     )
       throw new ClientCredentialError(403, 'INVALID_ORIGIN');
   };
@@ -190,7 +196,7 @@ export async function registerClientCredentialRoutes(
           throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
       const result = await issueClientKey(database, {
         user: request.user!,
-        sessionToken: request.cookies.gcr_session!,
+        sessionToken: request.cookies[browserSessionCookie(request, config)]!,
         serverId: config.KNOWLEDGE_SERVER_ID!,
         authMode: config.AUTH_MODE,
         requestId: request.id,
