@@ -99,7 +99,7 @@ export function GuidePage() {
                 CD의 User Settings에서 provider·model·reasoning을 선택하고 수동 리뷰를 확인합니다.
               </li>
               <li>
-                GCR의 내 프로필 → 클라이언트 연결에서 Commit Defender용 reader key와 저장소 연결
+                GCR의 내 프로필 → 클라이언트 설정에서 Commit Defender용 reader key와 저장소 연결
                 JSON을 각각 준비합니다.
               </li>
               <li>
@@ -145,9 +145,12 @@ export function GuidePage() {
               </div>
             </div>
             <p>
-              GNB의 <strong>내 프로필</strong>에서 표시 이름, 사용자 이름 또는 subject, role, 인증
-              방식과 tenant membership을 확인할 수 있습니다. Local account 사용자는 표시 이름을 직접
-              수정할 수 있습니다.
+              GNB의 <strong>내 프로필</strong>을 열고 사이드 메뉴에서 설정할 항목을 선택합니다.
+              <a href="/profile?tab=profile">프로필 · 비밀번호 변경</a>에서는 표시 이름, 사용자 이름
+              또는 subject, role, 인증 방식과 tenant membership을 확인합니다. Local account 사용자는
+              표시 이름을 직접 수정할 수 있습니다. <a href="/profile?tab=prompt">Prompt</a>와{' '}
+              <a href="/profile?tab=clients">클라이언트 설정</a>은 각각 별도 화면으로 표시됩니다.
+              메뉴를 바꾸는 동안 작성 중인 값은 유지되며 저장은 각 화면의 저장 버튼으로 진행합니다.
             </p>
             <p>
               <strong>개인 Prompt</strong>에는 답변 길이, 설명 방식, 관심 영역 등 본인의 Review Chat

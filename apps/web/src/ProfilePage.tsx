@@ -3,6 +3,8 @@ import {
   Building2,
   CircleAlert,
   KeyRound,
+  Laptop,
+  MessageSquareText,
   Save,
   ShieldCheck,
   UserRound,
@@ -14,9 +16,23 @@ import { AppHeader } from './AppHeader.tsx';
 import { PersonalPromptForm } from './PersonalPromptForm.tsx';
 import { ClientCredentialsPanel } from './ClientCredentialsPanel.tsx';
 
+type ProfileTab = 'profile' | 'prompt' | 'clients';
+const profileTabs = [
+  { id: 'profile', label: '프로필 · 비밀번호 변경', icon: UserRound },
+  { id: 'prompt', label: 'Prompt', icon: MessageSquareText },
+  { id: 'clients', label: '클라이언트 설정', icon: Laptop },
+] as const;
+
+function readProfileTab(): ProfileTab {
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  return tab === 'prompt' || tab === 'clients' ? tab : 'profile';
+}
+
 type Notice = { tone: 'success' | 'error'; text: string };
 
 export function ProfilePage() {
+  const [tab, setTab] = useState<ProfileTab>(readProfileTab);
+  const pageRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -45,6 +61,24 @@ export function ProfilePage() {
     );
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    const restoreTab = () => {
+      setTab(readProfileTab());
+      pageRef.current?.scrollTo({ top: 0 });
+    };
+    window.addEventListener('popstate', restoreTab);
+    return () => window.removeEventListener('popstate', restoreTab);
+  }, []);
+
+  const selectTab = (nextTab: ProfileTab) => {
+    if (nextTab === tab) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', nextTab);
+    window.history.pushState(null, '', url);
+    setTab(nextTab);
+    pageRef.current?.scrollTo({ top: 0 });
+  };
 
   const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
@@ -96,11 +130,11 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="profile-page">
+    <div className="profile-page" ref={pageRef}>
       <AppHeader user={profile} />
       <main className="profile-main">
         <header className="profile-heading">
-          <h1>내 프로필</h1>
+          <h1>내 설정</h1>
           <p>
             계정 정보, 클라이언트 연결, Review Chat의 개인 Prompt와 로그인 비밀번호를 관리합니다.
           </p>
@@ -120,170 +154,218 @@ export function ProfilePage() {
               </div>
               <h2>{profile.displayName}</h2>
               <p>{profile.username ?? profile.subject}</p>
-              <div className="profile-badges">
-                <span>
-                  <BadgeCheck size={13} />
-                  {profile.role === 'administrator' ? '시스템관리자' : '일반사용자'}
-                </span>
-                <span>
-                  <ShieldCheck size={13} />
-                  {profile.identityType === 'saml'
-                    ? '조직 계정'
-                    : profile.identityType === 'local'
-                      ? 'Local account'
-                      : 'External identity'}
-                </span>
-              </div>
-              <div className="profile-tenants">
-                <strong>
-                  <Building2 size={14} /> Tenant
-                </strong>
-                {profile.tenants.length > 0 ? (
-                  <ul>
-                    {profile.tenants.map((tenant) => (
-                      <li key={tenant.id}>{tenant.displayName}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>할당된 tenant가 없습니다.</p>
-                )}
-              </div>
+              <nav className="profile-nav" aria-label="개인 설정 메뉴">
+                {profileTabs.map(({ id, label, icon: Icon }) => (
+                  <a
+                    key={id}
+                    id={`profile-nav-${id}`}
+                    href={`?tab=${id}`}
+                    aria-current={tab === id ? 'page' : undefined}
+                    aria-controls={`profile-pane-${id}`}
+                    onClick={(event) => {
+                      if (
+                        event.button !== 0 ||
+                        event.metaKey ||
+                        event.ctrlKey ||
+                        event.shiftKey ||
+                        event.altKey
+                      )
+                        return;
+                      event.preventDefault();
+                      selectTab(id);
+                    }}
+                  >
+                    <Icon size={16} aria-hidden="true" />
+                    <span>{label}</span>
+                  </a>
+                ))}
+              </nav>
             </aside>
 
             <div className="profile-settings">
-              <section className="profile-section" aria-labelledby="profile-identity-title">
-                <div className="profile-section-heading">
-                  <UserRound size={18} />
-                  <div>
-                    <h2 id="profile-identity-title">프로필 정보</h2>
-                    <p>사용자 이름과 역할은 시스템관리자가 관리합니다.</p>
-                  </div>
-                </div>
-                {profileNotice ? (
-                  <div
-                    className={`profile-notice ${profileNotice.tone}`}
-                    role={profileNotice.tone === 'error' ? 'alert' : 'status'}
-                    tabIndex={-1}
-                    ref={profileNoticeRef}
-                  >
-                    {profileNotice.text}
-                  </div>
-                ) : null}
-                <form onSubmit={(event) => void saveProfile(event)}>
-                  <div className="profile-form-grid">
-                    <label className="field-label">
-                      {profile.identityType === 'local' ? '사용자 이름' : 'Subject'}
-                      <input value={profile.username ?? profile.subject} disabled />
-                    </label>
-                    <label className="field-label">
-                      표시 이름
-                      <input
-                        required
-                        maxLength={120}
-                        autoComplete="name"
-                        value={displayName}
-                        disabled={!profile.profileEditable}
-                        onChange={(event) => setDisplayName(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                  {!profile.profileEditable ? (
-                    <p className="profile-managed-note">
-                      표시 이름은 연결된 Identity Provider에서 변경해 주세요.
-                    </p>
-                  ) : (
-                    <div className="profile-actions">
-                      <button
-                        className={`command-button primary ${pending === 'profile' ? 'pending' : ''}`}
-                        type="submit"
-                        disabled={pending !== null || displayName.trim() === profile.displayName}
-                      >
-                        <Save size={15} /> {pending === 'profile' ? '저장 중' : '표시 이름 저장'}
-                      </button>
+              <div
+                id="profile-pane-profile"
+                className="profile-pane"
+                hidden={tab !== 'profile'}
+                aria-labelledby="profile-nav-profile"
+                role="region"
+              >
+                <section className="profile-section" aria-labelledby="profile-identity-title">
+                  <div className="profile-section-heading">
+                    <UserRound size={18} />
+                    <div>
+                      <h2 id="profile-identity-title">프로필 정보</h2>
+                      <p>사용자 이름과 역할은 시스템관리자가 관리합니다.</p>
                     </div>
-                  )}
-                </form>
-              </section>
-
-              <PersonalPromptForm key={profile.id} initialPrompt={profile.personalPrompt} />
-
-              <ClientCredentialsPanel key={`client-${profile.id}`} />
-
-              <section className="profile-section" aria-labelledby="profile-password-title">
-                <div className="profile-section-heading">
-                  <KeyRound size={18} />
-                  <div>
-                    <h2 id="profile-password-title">비밀번호 변경</h2>
-                    <p>변경이 완료되면 모든 session이 종료되고 다시 로그인해야 합니다.</p>
                   </div>
-                </div>
-                {passwordNotice ? (
-                  <div
-                    className={`profile-notice ${passwordNotice.tone}`}
-                    role={passwordNotice.tone === 'error' ? 'alert' : 'status'}
-                    tabIndex={-1}
-                    ref={passwordNoticeRef}
-                  >
-                    {passwordNotice.text}
+                  <div className="profile-badges">
+                    <span>
+                      <BadgeCheck size={13} />
+                      {profile.role === 'administrator' ? '시스템관리자' : '일반사용자'}
+                    </span>
+                    <span>
+                      <ShieldCheck size={13} />
+                      {profile.identityType === 'saml'
+                        ? '조직 계정'
+                        : profile.identityType === 'local'
+                          ? 'Local account'
+                          : 'External identity'}
+                    </span>
                   </div>
-                ) : null}
-                {profile.passwordChangeAllowed ? (
-                  <form onSubmit={(event) => void changePassword(event)}>
-                    <label className="field-label">
-                      현재 비밀번호
-                      <input
-                        required
-                        type="password"
-                        maxLength={localPasswordMaximumLength}
-                        autoComplete="current-password"
-                        value={currentPassword}
-                        onChange={(event) => setCurrentPassword(event.target.value)}
-                      />
-                    </label>
+                  <div className="profile-tenants">
+                    <strong>
+                      <Building2 size={14} /> Tenant
+                    </strong>
+                    {profile.tenants.length > 0 ? (
+                      <ul>
+                        {profile.tenants.map((tenant) => (
+                          <li key={tenant.id}>{tenant.displayName}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>할당된 tenant가 없습니다.</p>
+                    )}
+                  </div>
+                  {profileNotice ? (
+                    <div
+                      className={`profile-notice ${profileNotice.tone}`}
+                      role={profileNotice.tone === 'error' ? 'alert' : 'status'}
+                      tabIndex={-1}
+                      ref={profileNoticeRef}
+                    >
+                      {profileNotice.text}
+                    </div>
+                  ) : null}
+                  <form onSubmit={(event) => void saveProfile(event)}>
                     <div className="profile-form-grid">
                       <label className="field-label">
-                        새 비밀번호
-                        <input
-                          required
-                          type="password"
-                          minLength={localPasswordMinimumLength}
-                          maxLength={localPasswordMaximumLength}
-                          autoComplete="new-password"
-                          value={newPassword}
-                          onChange={(event) => setNewPassword(event.target.value)}
-                        />
-                        <small>8~128자로 입력합니다.</small>
+                        {profile.identityType === 'local' ? '사용자 이름' : 'Subject'}
+                        <input value={profile.username ?? profile.subject} disabled />
                       </label>
                       <label className="field-label">
-                        새 비밀번호 확인
+                        표시 이름
                         <input
                           required
-                          type="password"
-                          minLength={localPasswordMinimumLength}
-                          maxLength={localPasswordMaximumLength}
-                          autoComplete="new-password"
-                          value={confirmPassword}
-                          onChange={(event) => setConfirmPassword(event.target.value)}
+                          maxLength={120}
+                          autoComplete="name"
+                          value={displayName}
+                          disabled={!profile.profileEditable}
+                          onChange={(event) => setDisplayName(event.target.value)}
                         />
                       </label>
                     </div>
-                    <div className="profile-actions">
-                      <button
-                        className={`command-button primary ${pending === 'password' ? 'pending' : ''}`}
-                        type="submit"
-                        disabled={pending !== null}
-                      >
-                        <KeyRound size={15} />
-                        {pending === 'password' ? '변경 중' : '비밀번호 변경'}
-                      </button>
-                    </div>
+                    {!profile.profileEditable ? (
+                      <p className="profile-managed-note">
+                        표시 이름은 연결된 Identity Provider에서 변경해 주세요.
+                      </p>
+                    ) : (
+                      <div className="profile-actions">
+                        <button
+                          className={`command-button primary ${pending === 'profile' ? 'pending' : ''}`}
+                          type="submit"
+                          disabled={pending !== null || displayName.trim() === profile.displayName}
+                        >
+                          <Save size={15} /> {pending === 'profile' ? '저장 중' : '표시 이름 저장'}
+                        </button>
+                      </div>
+                    )}
                   </form>
-                ) : (
-                  <p className="profile-managed-note">
-                    이 계정의 비밀번호는 연결된 Identity Provider에서 변경해 주세요.
-                  </p>
-                )}
-              </section>
+                </section>
+
+                <section className="profile-section" aria-labelledby="profile-password-title">
+                  <div className="profile-section-heading">
+                    <KeyRound size={18} />
+                    <div>
+                      <h2 id="profile-password-title">비밀번호 변경</h2>
+                      <p>변경이 완료되면 모든 session이 종료되고 다시 로그인해야 합니다.</p>
+                    </div>
+                  </div>
+                  {passwordNotice ? (
+                    <div
+                      className={`profile-notice ${passwordNotice.tone}`}
+                      role={passwordNotice.tone === 'error' ? 'alert' : 'status'}
+                      tabIndex={-1}
+                      ref={passwordNoticeRef}
+                    >
+                      {passwordNotice.text}
+                    </div>
+                  ) : null}
+                  {profile.passwordChangeAllowed ? (
+                    <form onSubmit={(event) => void changePassword(event)}>
+                      <label className="field-label">
+                        현재 비밀번호
+                        <input
+                          required
+                          type="password"
+                          maxLength={localPasswordMaximumLength}
+                          autoComplete="current-password"
+                          value={currentPassword}
+                          onChange={(event) => setCurrentPassword(event.target.value)}
+                        />
+                      </label>
+                      <div className="profile-form-grid">
+                        <label className="field-label">
+                          새 비밀번호
+                          <input
+                            required
+                            type="password"
+                            minLength={localPasswordMinimumLength}
+                            maxLength={localPasswordMaximumLength}
+                            autoComplete="new-password"
+                            value={newPassword}
+                            onChange={(event) => setNewPassword(event.target.value)}
+                          />
+                          <small>8~128자로 입력합니다.</small>
+                        </label>
+                        <label className="field-label">
+                          새 비밀번호 확인
+                          <input
+                            required
+                            type="password"
+                            minLength={localPasswordMinimumLength}
+                            maxLength={localPasswordMaximumLength}
+                            autoComplete="new-password"
+                            value={confirmPassword}
+                            onChange={(event) => setConfirmPassword(event.target.value)}
+                          />
+                        </label>
+                      </div>
+                      <div className="profile-actions">
+                        <button
+                          className={`command-button primary ${pending === 'password' ? 'pending' : ''}`}
+                          type="submit"
+                          disabled={pending !== null}
+                        >
+                          <KeyRound size={15} />
+                          {pending === 'password' ? '변경 중' : '비밀번호 변경'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <p className="profile-managed-note">
+                      이 계정의 비밀번호는 연결된 Identity Provider에서 변경해 주세요.
+                    </p>
+                  )}
+                </section>
+              </div>
+              <div
+                id="profile-pane-prompt"
+                className="profile-pane"
+                hidden={tab !== 'prompt'}
+                aria-labelledby="profile-nav-prompt"
+                role="region"
+              >
+                <PersonalPromptForm key={profile.id} initialPrompt={profile.personalPrompt} />
+              </div>
+              <div
+                id="profile-pane-clients"
+                className="profile-pane"
+                hidden={tab !== 'clients'}
+                aria-labelledby="profile-nav-clients"
+                role="region"
+              >
+                <ClientCredentialsPanel key={`client-${profile.id}`} />
+              </div>
             </div>
           </div>
         ) : !loadFailed ? (

@@ -2516,7 +2516,7 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .profile-main {
-  width: min(920px, calc(100% - 40px));
+  width: min(1000px, calc(100% - 40px));
   margin: 0 auto;
   padding: 42px 0 72px;
 }
@@ -2549,9 +2549,49 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .profile-summary {
-  padding: 30px 24px;
+  padding: 30px 18px;
   background: var(--surface-subtle);
   border-right: 1px solid var(--border);
+}
+
+.profile-nav {
+  display: grid;
+  gap: 4px;
+  margin-top: 24px;
+}
+
+.profile-nav a {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  color: #56606c;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.profile-nav a svg {
+  flex-shrink: 0;
+}
+
+.profile-nav a:hover {
+  color: #242c35;
+  background: #edf0f2;
+}
+
+.profile-nav a[aria-current='page'] {
+  color: #155e52;
+  background: var(--accent-soft);
+  border-color: #bddbd4;
+}
+
+.profile-pane[hidden] {
+  display: none;
 }
 
 .profile-avatar {
@@ -2580,7 +2620,8 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .profile-badges {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 18px;
 }
@@ -2601,9 +2642,7 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .profile-tenants {
-  margin-top: 28px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
+  margin: 16px 0 24px;
 }
 
 .profile-tenants strong {
@@ -5279,8 +5318,36 @@ body.workspace-resizing:has(.resize-bottom) {
   }
 
   .profile-summary {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: center;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  .profile-summary .profile-avatar {
+    width: 42px;
+    height: 42px;
+    grid-row: span 2;
+    font-size: 14px;
+  }
+
+  .profile-summary h2 {
+    margin: 0;
+  }
+
+  .profile-nav {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 16px;
+  }
+
+  .profile-nav a {
+    justify-content: center;
+    padding: 9px 6px;
+    gap: 6px;
+    line-height: 1.5;
   }
 
   .guide-nav {
