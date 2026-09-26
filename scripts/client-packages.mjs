@@ -93,7 +93,13 @@ try {
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
     }
-    if (prior) {
+    // Delivery directories use the executors version, which can differ from
+    // the version of a lower-level package. An unrelated delivery is not reuse.
+    if (
+      prior?.packages.some(
+        (entry) => entry.name === manifests[index].name && entry.version === packageVersion,
+      )
+    ) {
       const entry = prior.packages.find((entry) => entry.name === manifests[index].name);
       assert(entry && entry.version === packageVersion && entry.file === file);
       const previousFile = join(priorDirectory, file);
