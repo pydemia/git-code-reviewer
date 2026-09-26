@@ -1,8 +1,10 @@
 # 클라이언트 중앙 연결
 
-프로필의 **클라이언트 연결**에서 Commit Defender 또는 GCR CLI, 저장소, 유효 기간(1~90일)을 선택해 API key를 발급한다. 권한은 선택한 저장소의 `knowledge:read`로 제한된다. 리뷰 실행에 사용하는 모델 계정과 별개이며 모델 실행 권한을 부여하지 않는다.
+프로필의 **클라이언트 설정**에서 Commit Defender 또는 GCR CLI, 저장소 접근 범위, 기간 또는 **No expiration**을 선택해 API key를 발급한다. 여러 저장소나 발급 시점에 접근 가능한 모든 저장소를 선택할 수 있다. 권한은 선택한 저장소의 `knowledge:read`로 제한된다. 이후 추가된 저장소에는 새 key가 필요하다. 리뷰 실행에 사용하는 모델 계정과 별개이며 모델 실행 권한을 부여하지 않는다.
 
-같은 화면에서 선택한 저장소의 연결 설정 JSON을 내려받는다. 이 파일은 서버 주소, server/tenant/repository ID, 서명 공개키, 필요한 공개 CA 인증서를 포함하며 API key 원문은 포함하지 않는다. 신뢰한 HTTPS 웹 화면에서 내려받고 클라이언트에 표시되는 서버 주소와 공개키를 확인한 뒤 연결한다. API key는 별도 입력란 또는 CLI의 `--api-key-stdin`으로 전달한다. 명령행 인수나 프로젝트 설정에 원문을 저장하지 않는다.
+Commit Defender의 **Connect with API key…**에는 HTTPS 서버 주소와 API key만 입력한다. 서버 확인 뒤 허용된 모든 자료 출처를 연결한다. **View downloaded review knowledge**에서 내용을 읽고 **Reference sources…**에서 참고 범위를 선택적으로 줄인다. 중앙에 등록되지 않은 로컬 저장소도 참고 자료를 사용할 수 있으며 다른 저장소의 정책은 강제하지 않는다. 사설 CA가 필요하면 같은 GCR 화면의 공개 CA 인증서를 지정한다.
+
+공개 연결 JSON은 GCR CLI와 기존 CD의 **Import connection JSON…**용 호환 절차다. 서버 주소, server/tenant/repository ID, 서명 공개키, 필요한 공개 CA 인증서를 포함하며 API key 원문은 포함하지 않는다. API key는 별도 비밀번호 입력란 또는 CLI의 `--api-key-stdin`으로 전달한다. 명령행 인수나 프로젝트 설정에 원문을 저장하지 않는다.
 
 API key 원문은 발급 응답에서 한 번만 제공한다. 화면에서는 기본적으로 가리고, 원문 닫기·페이지 이탈 시 제거한다. 원문을 잃었거나 발급 응답을 받지 못했다면 목록을 새로 불러와 해당 key를 폐기한 후 다시 발급한다. 서버에는 원문의 SHA-256만 저장한다. 클라이언트 연결은 OS 자격 증명 저장소를 사용한다.
 

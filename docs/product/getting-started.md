@@ -80,7 +80,7 @@ helm test git-code-reviewer -n git-code-reviewer
 
 CD 연결을 제공하려면 HTTPS 공개 주소, local 또는 SAML 인증, 지식 발행·서명 배포, client API key 기능이 필요합니다. 기본 development 인증의 Compose와 loopback HTTP pilot만으로는 이 조건을 충족하지 않습니다. [클라이언트 연결 운영 설정](../operations/client-connections.md)과 [지식 배포 설정](../operations/review-knowledge-distribution.md)을 적용합니다. SAML을 선택한 환경은 IdP/Keycloak을 별도로 구성합니다. GCR 자체가 모든 설치에서 Keycloak을 필수로 요구하지는 않습니다.
 
-DB의 TLS는 웹 HTTPS와 별개입니다. 운영 DB에서 `verify-full`을 사용하려면 DB 서버 인증서의 호스트 이름과 신뢰 CA를 맞춥니다. CD 연결 JSON의 공개 CA는 웹 서버 인증서를 검증하는 용도이며 DB CA를 자동으로 사용하지 않습니다.
+DB의 TLS는 웹 HTTPS와 별개입니다. 운영 DB에서 `verify-full`을 사용하려면 DB 서버 인증서의 호스트 이름과 신뢰 CA를 맞춥니다. CD에 지정하는 공개 CA는 웹 서버 인증서를 검증하는 용도이며 DB CA를 자동으로 사용하지 않습니다.
 
 ## GCR의 첫 설정
 
@@ -96,17 +96,17 @@ GitHub 결과 게시는 별도 설정입니다. 처음 검토할 때 반드시 �
 
 ## GCR에서 연결 자료 준비
 
-로그인 후 **내 프로필 → 클라이언트 연결**에서 준비합니다.
+로그인 후 **내 프로필 → 클라이언트 설정**에서 준비합니다.
 
-1. 클라이언트로 **Commit Defender**를 선택하고 대상 저장소·이름·유효 기간을 정해 **API key 발급**을 누릅니다. 원문 key는 발급 직후만 확인할 수 있습니다.
-2. 같은 저장소의 **연결 설정 다운로드**를 누릅니다. JSON에는 서버 주소, server/tenant/repository ID, 서명 공개키와 필요한 공개 CA가 들어갑니다. 비밀 API key는 들어가지 않습니다.
-3. key 원문은 CD의 비밀번호 입력란에 넣습니다. 설정 JSON이나 Git 저장소에 붙여 넣지 않습니다. `gcr-cli`용 key는 CD 연결에 사용할 수 없습니다.
+1. 클라이언트로 **Commit Defender**를 선택하고 읽기 권한을 줄 저장소를 복수 선택하거나 **현재 접근 가능한 모든 저장소**를 선택합니다. 이름과 기간 또는 **No expiration**을 정해 **API key 발급**을 누릅니다. 원문 key는 발급 직후만 확인할 수 있습니다.
+2. **CD에 입력할 서버 주소**를 확인합니다. 사설 CA 환경에서는 **CA 인증서 다운로드**로 공개 인증서도 준비합니다. 공개 연결 JSON은 기존 클라이언트용 호환 옵션입니다.
+3. key 원문은 CD의 비밀번호 입력란에 넣습니다. 설정 파일이나 Git 저장소에 붙여 넣지 않습니다. `gcr-cli`용 key는 CD 연결에 사용할 수 없습니다.
 
 메뉴가 비활성 상태라면 관리자가 client API key와 서명 발행 설정을 확인해야 합니다. 저장소가 없다면 본인의 현재 tenant/repository 권한을 먼저 확인합니다. key는 `knowledge:read`이며 모델 호출·지침 작성·수집 요청 권한이 아닙니다.
 
 ## CD 설치와 첫 리뷰
 
-현재 소스의 기능을 설치하려면 해당 소스에서 만든 VSIX를 사용합니다. Marketplace의 별도 게시 상태와 로컬 설치 버전은 다를 수 있습니다. VS Code 1.90 이상, 신뢰한 Git workspace, 사용 가능한 OS credential store가 필요합니다. Codex 고정 소스 리뷰는 macOS의 지원 CLI 버전을 사용합니다. API provider와 OS별 범위는 [CD 설정 가이드](https://github.com/pydemia/commit-defender/blob/codex/review-memory-pull-g03/vscode-extension/docs/standalone-review.md)에 정리되어 있습니다.
+현재 소스의 기능을 설치하려면 해당 소스에서 만든 VSIX를 사용합니다. Marketplace의 별도 게시 상태와 로컬 설치 버전은 다를 수 있습니다. VS Code 1.90 이상, 신뢰한 Git workspace, 사용 가능한 OS credential store가 필요합니다. Provider와 OS별 CLI·credential 지원 범위는 [CD 설정 가이드](https://github.com/pydemia/commit-defender/blob/codex/windows-native-support/vscode-extension/docs/standalone-review.md)에 정리되어 있습니다.
 
 ```bash
 git clone https://github.com/pydemia/commit-defender.git
@@ -128,10 +128,10 @@ code --install-extension ./commit-defender-local.vsix
 
 ## CD를 GCR에 연결
 
-1. 중앙에 등록된 repository와 일치하는 로컬 Git checkout을 엽니다.
+1. 리뷰할 로컬 Git checkout을 엽니다. 중앙에 등록되지 않은 저장소도 허용된 자료를 참고할 수 있습니다.
 2. **Commit Defender: Central Review Connection → Connect with API key…**를 선택합니다.
-3. 다운로드한 연결 JSON을 열고 서버·저장소·공개키를 확인한 뒤 CD용 reader key를 입력합니다. 초기 서명 발행은 최대 60초 기다릴 수 있습니다.
-4. **Connection status**에서 선택된 profile/worktree, 저장소, 마지막 sync와 유효기간을 확인합니다. 연결해도 로컬 provider/model/reasoning은 유지됩니다.
+3. HTTPS 서버 주소와 API key를 입력하고 연결을 확인합니다. 사설 CA가 필요하면 공개 인증서 파일을 지정합니다. Key로 허용된 자료 출처가 자동으로 연결되며 저장소 선택이나 JSON 입력은 필요하지 않습니다. 초기 서명 발행은 출처별 최대 60초 기다릴 수 있으며 취소할 수 있습니다.
+4. **Connection status**에서 profile/worktree, 자료 출처, 마지막 sync와 유효기간을 확인합니다. **Reference sources…**로 참고 범위를 선택적으로 줄일 수 있습니다. 로컬 Git remote와 일치하는 출처의 정책만 현재 저장소 정책으로 적용하며 다른 출처는 참고 자료로 다룹니다. 로컬 provider/model/reasoning은 유지됩니다.
 5. **Browse PR review history**로 PR·코멘트를 골라 Original comment, Replies, Body versions, Thread observations, Source-linked guidance를 확인합니다. 자료를 읽는 데 메모리 승인은 필요하지 않습니다.
 6. **View downloaded review knowledge**로 Skill·프롬프트·활성 지침을 확인하고 같은 Analyze 명령으로 로컬 변경을 리뷰합니다.
 
