@@ -1,0 +1,461 @@
+{
+  "date": "2026-09-26",
+  "sourceSha": "21c2aca0f28d3f750a3d2668a675636c0b9d42e0",
+  "codeSha": "890e451768a9d878a3b27fcf5a59be50ef936a75",
+  "releasePinSha": "e9a0abb912cc31a8c4fa65f544aadd311d39b96c",
+  "appVersion": "0.8.0-alpha.79",
+  "chartVersion": "0.10.75",
+  "helmRevision": 87,
+  "imageDigest": "sha256:c84bb8cf007faf5b78899fd6f276b8f4caa12a83193cb89728c3756f11d2271f",
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:1da055322c8b43b6436568ab35c387e169f621948ef01e3ce26bec6e1bad0dac",
+    "chartSha256": "8f55980b3f5877aa32a99d2c1240ae7b37de2e88abaa093e6a2d38dd4ade7027",
+    "publishedBytesIdentical": true
+  },
+  "checks": {
+    "testsPassed": 113,
+    "testsSkipped": 1,
+    "skip": "existing Windows-only OS test",
+    "fullBuild": true,
+    "lint": true,
+    "format": true,
+    "linuxAmd64ImageSmoke": "passed",
+    "helmLint": true,
+    "render": {
+      "imageDigest": "sha256:c84bb8cf007faf5b78899fd6f276b8f4caa12a83193cb89728c3756f11d2271f",
+      "unexpectedResourceChanges": [],
+      "gcrImageReferences": 7,
+      "allGcrImagesPinned": true
+    },
+    "helmTest": "Succeeded",
+    "deployedExpiry": {
+      "expiresAtNullable": true,
+      "omittedLifetimeDays": 30,
+      "noExpirationAccepted": true,
+      "zeroRejected": true,
+      "max90Accepted": true,
+      "over90Rejected": true,
+      "clientKeysEnabled": true,
+      "persistentKeyIssued": false
+    }
+  },
+  "browser": {
+    "surface": "Codex in-app browser, actual frontend build with task-owned HTTP fixture",
+    "defaultDays": 30,
+    "selectedNoExpiration": true,
+    "dayInputHidden": true,
+    "retainedDaysWhenToggled": 45,
+    "issueListReloadRevoke": true,
+    "width": 420,
+    "horizontalOverflow": false,
+    "userChromeProfileDraftPreserved": true,
+    "productionKeyIssued": false
+  },
+  "httpHttps": {
+    "at": "2026-09-26T05:19:43.686Z",
+    "appVersion": "0.8.0-alpha.79",
+    "tlsVerification": true,
+    "checks": [
+      {
+        "origin": "http://pr-review.prism.ai",
+        "statuses": {
+          "/health/startup": 200,
+          "/health/live": 200,
+          "/health/ready": 200,
+          "/api/v1/system": 200,
+          "/profile": 200,
+          "/api/v1/profile": 401,
+          "/api/v1/me/client-credentials": 401,
+          "/assets/index-BAnnRtVh.js": 200,
+          "/assets/index-CbRDGfSF.css": 200
+        },
+        "bundleHashesMatchImage": true
+      },
+      {
+        "origin": "https://pr-review.prism.ai",
+        "statuses": {
+          "/health/startup": 200,
+          "/health/live": 200,
+          "/health/ready": 200,
+          "/api/v1/system": 200,
+          "/profile": 200,
+          "/api/v1/profile": 401,
+          "/api/v1/me/client-credentials": 401,
+          "/assets/index-BAnnRtVh.js": 200,
+          "/assets/index-CbRDGfSF.css": 200
+        },
+        "bundleHashesMatchImage": true
+      }
+    ]
+  },
+  "httpsTrust": "Existing deployed git-code-reviewer-development-ca public certificate and corporate CA; process-only trust, hostname/chain checks enabled",
+  "preservation": {
+    "secrets": [
+      {
+        "name": "git-code-reviewer-auth",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-credential-registry",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-db-keycloak",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-development-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-administration",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-bootstrap",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-preparation-backup",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-tls",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-knowledge-signing-v1",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-auth",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-tls",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-saml-sp",
+        "preserved": true
+      },
+      {
+        "name": "sh.helm.release.v1.git-code-reviewer-identity.v1",
+        "preserved": true
+      },
+      {
+        "name": "sh.helm.release.v1.git-code-reviewer-identity.v2",
+        "preserved": true
+      }
+    ],
+    "configMaps": [
+      {
+        "name": "git-code-reviewer",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-corporate-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-configuration",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-configuration",
+        "preserved": true
+      },
+      {
+        "name": "kube-root-ca.crt",
+        "preserved": true
+      }
+    ],
+    "persistentVolumes": [
+      {
+        "name": "data-git-code-reviewer-postgresql-0",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-artifacts",
+        "preserved": true
+      }
+    ],
+    "routes": [
+      {
+        "name": "git-code-reviewer-https-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-https-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-route",
+        "preserved": true
+      }
+    ],
+    "identityReleaseUnchanged": true,
+    "helm": {
+      "name": "git-code-reviewer",
+      "namespace": "git-code-reviewer",
+      "revision": "87",
+      "updated": "2026-09-26 14:15:27.323869 +0900 KST",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.75",
+      "app_version": "0.8.0-alpha.79"
+    },
+    "helmValuesOnlyImageChanged": true,
+    "database": {
+      "tables": {
+        "users": {
+          "before": 8,
+          "after": 8,
+          "preserved": true
+        },
+        "chat_accounts": {
+          "before": 7,
+          "after": 7,
+          "preserved": true
+        },
+        "analysis_runs": {
+          "before": 280,
+          "after": 280,
+          "preserved": true
+        },
+        "reports": {
+          "before": 272,
+          "after": 272,
+          "preserved": true
+        },
+        "repository_grants": {
+          "before": 2,
+          "after": 2,
+          "preserved": true
+        },
+        "tenant_memberships": {
+          "before": 8,
+          "after": 8,
+          "preserved": true
+        },
+        "review_memories": {
+          "before": 10,
+          "after": 10,
+          "preserved": true
+        },
+        "local_credentials": {
+          "before": 7,
+          "after": 7,
+          "preserved": true
+        },
+        "review_rules": {
+          "before": 0,
+          "after": 0,
+          "preserved": true
+        },
+        "review_rule_revisions": {
+          "before": 0,
+          "after": 0,
+          "preserved": true
+        },
+        "review_knowledge_releases": {
+          "before": 11,
+          "after": 11,
+          "preserved": true
+        },
+        "review_history_collections": {
+          "before": 1,
+          "after": 1,
+          "preserved": true
+        },
+        "repositories": {
+          "before": 3,
+          "after": 3,
+          "preserved": true
+        },
+        "client_api_keys": {
+          "before": 8,
+          "after": 8,
+          "preserved": true
+        },
+        "user_client_credential_epochs": {
+          "before": 1,
+          "after": 1,
+          "preserved": true
+        },
+        "analysis_review_tasks": {
+          "before": 409,
+          "after": 409,
+          "preserved": true
+        },
+        "model_request_ledger": {
+          "before": 10126,
+          "after": 10126,
+          "preserved": true
+        }
+      },
+      "priorMigrationsUnchanged": true,
+      "migrationCount": 59,
+      "tls": {
+        "ssl": true,
+        "version": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384"
+      },
+      "tlsMode": "verify-full"
+    },
+    "deployments": [
+      {
+        "name": "git-code-reviewer-identity",
+        "generation": 2,
+        "observedGeneration": 2,
+        "ready": 2,
+        "updated": 2,
+        "desired": 2,
+        "images": [
+          "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+        ]
+      },
+      {
+        "name": "git-code-reviewer-server",
+        "generation": 87,
+        "observedGeneration": 87,
+        "ready": 1,
+        "updated": 1,
+        "desired": 1,
+        "images": [
+          "docker.io/pydemia/git-code-reviewer@sha256:c84bb8cf007faf5b78899fd6f276b8f4caa12a83193cb89728c3756f11d2271f"
+        ]
+      },
+      {
+        "name": "git-code-reviewer-worker",
+        "generation": 84,
+        "observedGeneration": 84,
+        "ready": 1,
+        "updated": 1,
+        "desired": 1,
+        "images": [
+          "docker.io/pydemia/git-code-reviewer@sha256:c84bb8cf007faf5b78899fd6f276b8f4caa12a83193cb89728c3756f11d2271f",
+          "docker.io/pydemia/git-code-reviewer@sha256:c84bb8cf007faf5b78899fd6f276b8f4caa12a83193cb89728c3756f11d2271f"
+        ]
+      }
+    ]
+  },
+  "clientArtifacts": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.51",
+    "sourceSha": "21c2aca0f28d3f750a3d2668a675636c0b9d42e0",
+    "buildPlatform": "darwin",
+    "buildArchitecture": "arm64",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-contract-0.1.0-alpha.49.tgz",
+        "sha256": "59dacfd17be0330246a51d880c207596e06757d93878e386b194609e4b3d6810"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.50",
+        "file": "gcr-client-core-0.1.0-alpha.50.tgz",
+        "sha256": "24906fc5b4b73e20742c15d271545cb6f51567d209a872af0d8ed16d065e5121"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.51",
+        "file": "gcr-client-executors-0.1.0-alpha.51.tgz",
+        "sha256": "648b090d841e029ab18dc7e50182fbf758201ec5484108c17eea8a0469699999"
+      }
+    ]
+  },
+  "cliArtifact": {
+    "schemaVersion": 1,
+    "sourceSha": "21c2aca0f28d3f750a3d2668a675636c0b9d42e0",
+    "cliVersion": "0.1.0-alpha.40",
+    "clientVersion": "0.1.0-alpha.51",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-contract-0.1.0-alpha.49.tgz",
+        "sha256": "59dacfd17be0330246a51d880c207596e06757d93878e386b194609e4b3d6810"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.50",
+        "file": "gcr-client-core-0.1.0-alpha.50.tgz",
+        "sha256": "24906fc5b4b73e20742c15d271545cb6f51567d209a872af0d8ed16d065e5121"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.51",
+        "file": "gcr-client-executors-0.1.0-alpha.51.tgz",
+        "sha256": "648b090d841e029ab18dc7e50182fbf758201ec5484108c17eea8a0469699999"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.40",
+        "file": "gcr-cli-0.1.0-alpha.40.tgz",
+        "sha256": "294932a98612ab0a41f4b01e63edf106234b4923d5356c365e4361abe3cf52a0"
+      }
+    ]
+  },
+  "commitDefender": {
+    "version": "2.13.1",
+    "vsixSha256": "6d9a953087c5d647028a2c1fdcb9ebb30edfb18828ff9053fcf8a799a3c8eb65",
+    "bytes": 730461,
+    "files": {
+      "out/extension.js": "6982dba5ffd87ba7227134944fcebf4b45eae0cbfbc3161c4b67b017ca5dbc1c",
+      "out/standalone-review-worker.js": "21df91b29a3a6c3ea432719735d753bc74016deb28308de71b49316924336488",
+      "out/gcr-service/main.mjs": "2cb11d13a41c914ad28452b1b55c3b970e71bfadd8784787c5791ce0306f154e",
+      "out/windows-native.exe": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "out/gcr-service/windows-native.exe": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    "installedDirectory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.13.1",
+    "settingsPreserved": true,
+    "settingsSha256": "bb7228ac7f2b74d1fecb289608df1659d3201facd407a1bf7c32d0472c8aa024",
+    "userExtensionHostReloaded": false,
+    "userExtensionHostAdoption": "not verified",
+    "sourceSha": "c6fc899d03ead0491a051e1c879e8a98cd2f7490",
+    "nativeHelper": {
+      "version": "1.0.3",
+      "reusedFrozenBytes": true,
+      "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+    },
+    "marketplacePublished": false,
+    "compiledBundleCommit": "976a0bea019822eb2361c6e2bc8118b70062cbb3",
+    "testsPassed": 24,
+    "testTypesPassed": true,
+    "opensslForFixture": "process-local OpenSSL 3 PATH; system LibreSSL did not support pipe key output"
+  },
+  "modelCalls": 0,
+  "externalComments": 0,
+  "limits": [
+    "No persistent production key was issued; server schema and API validation were checked read-only after deployment. Issuance/authentication/revocation were checked against disposable PostgreSQL and HTTPS client fixtures.",
+    "Existing dated keys work with older clients; no-expiration identities need the updated nullable-expiry client.",
+    "VSIX installation verified; adoption by an already open user Extension Host was not verified or forced.",
+    "No new Windows/Linux Extension Host run. The Windows helper 1.0.3 was reused byte-for-byte with source/hash checks.",
+    "The macOS-built standalone CLI artifact has no newly compiled Windows helper; no global CLI was replaced."
+  ],
+  "cleanup": {
+    "fixtureTabClosed": true,
+    "viewportReset": true,
+    "fixtureServerStopped": true,
+    "disposableDatabasesRemoved": true,
+    "registryCredentialDirectoriesRemoved": true,
+    "privateReleaseFilesRemoved": true,
+    "helmTestPodRemoved": true,
+    "failedCdFixtureRemoved": true
+  }
+}
