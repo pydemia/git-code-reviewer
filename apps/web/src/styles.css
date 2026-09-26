@@ -5843,3 +5843,26 @@ body.workspace-resizing:has(.resize-bottom) {
 .review-task-status small {
   color: var(--muted);
 }
+
+.client-repository-selection {
+  margin: 16px 0;
+}
+.client-repository-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
+}
+.client-repository-option input {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 3px 0 0;
+}
+.client-repository-list {
+  max-height: 240px;
+  overflow: auto;
+}
+.client-connection-address {
+  margin: 20px 0;
+}

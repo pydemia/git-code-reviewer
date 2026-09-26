@@ -16,6 +16,13 @@ export function ClientCredentialsPanel() {
   const [items, setItems] = useState<ClientCredential[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [repositoryId, setRepositoryId] = useState('');
+  const [tenantId, setTenantId] = useState('');
+  const [repositoryIds, setRepositoryIds] = useState<string[]>([]);
+  const [allRepositories, setAllRepositories] = useState(false);
+  const [connection, setConnection] = useState<{ serverUrl: string; ca: string | null } | null>(
+    null,
+  );
+  const [connectionFailed, setConnectionFailed] = useState(false);
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState<'commit-defender' | 'gcr-cli'>('commit-defender');
   const [lifetimeDays, setLifetimeDays] = useState(30);
@@ -56,6 +63,8 @@ export function ClientCredentialsPanel() {
         if (active.signal.aborted) return;
         setRepositories(repos);
         setRepositoryId(repos[0]?.id ?? '');
+        setTenantId(repos[0]?.tenantId ?? '');
+        setRepositoryIds(repos[0] ? [repos[0].id] : []);
         setItems(keys.items);
         setCursor(keys.nextCursor);
         setState('ready');
@@ -69,6 +78,21 @@ export function ClientCredentialsPanel() {
       window.removeEventListener('pageshow', restore);
     };
   }, []);
+
+  useEffect(() => {
+    setConnection(null);
+    setConnectionFailed(false);
+    if (!repositoryId) return;
+    const active = new AbortController();
+    void loadClientConnectionConfig(repositoryId, active.signal)
+      .then((value) => {
+        if (!active.signal.aborted) setConnection(value);
+      })
+      .catch(() => {
+        if (!active.signal.aborted) setConnectionFailed(true);
+      });
+    return () => active.abort();
+  }, [repositoryId]);
 
   async function action(work: (signal: AbortSignal) => Promise<void>, failure: string) {
     const active = controller.current;
@@ -86,15 +110,21 @@ export function ClientCredentialsPanel() {
     }
   }
   const selected = repositories.find((repository) => repository.id === repositoryId);
+  const tenants = [
+    ...new Map(repositories.map((repo) => [repo.tenantId, repo.tenantName])).entries(),
+  ];
+  const tenantRepositories = repositories.filter((repo) => repo.tenantId === tenantId);
+  const effectiveIds = allRepositories ? tenantRepositories.map((repo) => repo.id) : repositoryIds;
+  const validScope = effectiveIds.length > 0 && effectiveIds.length <= 100;
   const create = (event: FormEvent) => {
     event.preventDefault();
-    if (!selected || issued) return;
+    if (!validScope || issued) return;
     void action(async (signal) => {
       const result = await issueClientCredential({
         name,
         clientId,
-        tenantId: selected.tenantId,
-        repositoryIds: [selected.id],
+        tenantId,
+        repositoryIds: effectiveIds,
         lifetimeDays: noExpiration ? null : lifetimeDays,
         scopes: ['knowledge:read'],
       });
@@ -159,9 +189,12 @@ export function ClientCredentialsPanel() {
             </p>
           )}
           <ol>
-            <li>사용할 클라이언트와 저장소를 선택하고 API key를 발급합니다.</li>
-            <li>같은 저장소의 공개 연결 JSON을 다운로드합니다. JSON에는 key 원문이 없습니다.</li>
-            <li>CD의 Central Review Connection에서 JSON을 선택하고 key를 별도 입력합니다.</li>
+            <li>클라이언트와 접근할 저장소를 선택하고 API key를 발급합니다.</li>
+            <li>
+              CD의 Central Review Connection → Connect with API key…에서 서버 주소와 key를
+              입력합니다.
+            </li>
+            <li>조회된 저장소 중 현재 로컬 작업 폴더에 연결할 저장소를 선택합니다.</li>
           </ol>
           <form onSubmit={create}>
             <fieldset disabled={pending || !!issued}>
@@ -215,33 +248,142 @@ export function ClientCredentialsPanel() {
                 </div>
               </div>
               <label className="field-label">
-                저장소
+                Tenant
                 <select
-                  required
-                  value={repositoryId}
-                  onChange={(event) => setRepositoryId(event.target.value)}
+                  value={tenantId}
+                  onChange={(event) => {
+                    const id = event.target.value;
+                    const first = repositories.find((repo) => repo.tenantId === id);
+                    setTenantId(id);
+                    setRepositoryId(first?.id ?? '');
+                    setRepositoryIds(first ? [first.id] : []);
+                    setAllRepositories(false);
+                  }}
                 >
-                  {!repositories.length && <option value="">접근 가능한 저장소가 없습니다.</option>}
-                  {repositories.map((repo) => (
-                    <option key={repo.id} value={repo.id}>
-                      {repo.tenantName} · {repo.owner}/{repo.name}
+                  {!tenants.length && <option value="">접근 가능한 저장소가 없습니다.</option>}
+                  {tenants.map(([id, label]) => (
+                    <option key={id} value={id}>
+                      {label}
                     </option>
                   ))}
                 </select>
               </label>
+              <fieldset className="client-repository-selection">
+                <legend>저장소 접근 범위</legend>
+                <label className="client-repository-option">
+                  <input
+                    type="checkbox"
+                    checked={allRepositories}
+                    onChange={(event) => setAllRepositories(event.target.checked)}
+                  />
+                  현재 접근 가능한 모든 저장소 ({tenantRepositories.length}개)
+                </label>
+                <p>
+                  선택한 tenant의 발급 시점 저장소에 적용됩니다. 이후 추가되는 저장소는 새 key를
+                  발급해 주세요.
+                </p>
+                <div className="client-repository-list">
+                  {tenantRepositories.map((repo) => (
+                    <label className="client-repository-option" key={repo.id}>
+                      <input
+                        type="checkbox"
+                        checked={allRepositories || repositoryIds.includes(repo.id)}
+                        disabled={allRepositories}
+                        onChange={(event) =>
+                          setRepositoryIds((ids) =>
+                            event.target.checked
+                              ? [...ids, repo.id]
+                              : ids.filter((id) => id !== repo.id),
+                          )
+                        }
+                      />
+                      <span>
+                        {repo.owner}/{repo.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p aria-live="polite">
+                  {effectiveIds.length}개 저장소 선택 · API key 하나당 최대 100개
+                </p>
+                {effectiveIds.length > 100 && (
+                  <p role="alert">
+                    100개 이하로 선택해 주세요. 저장소를 나누어 key를 발급할 수 있습니다.
+                  </p>
+                )}
+              </fieldset>
               <p>권한: 중앙 리뷰·프롬프트 읽기. 로컬 결과와 소스는 전송하지 않습니다.</p>
               <div className="profile-actions">
                 <button
                   className="command-button primary"
                   type="submit"
-                  disabled={!selected || !name.trim()}
+                  disabled={!validScope || !name.trim()}
                 >
                   API key 발급
                 </button>
               </div>
             </fieldset>
           </form>
-          <div className="profile-actions">
+          {connection && (
+            <div className="client-connection-address">
+              <label className="field-label">
+                CD에 입력할 서버 주소
+                <input readOnly value={connection.serverUrl} />
+              </label>
+              <p>
+                API key는 CD의 비밀번호 입력란에 입력하며 OS 자격 증명 저장소에 보관합니다. JSON은
+                필요하지 않습니다.
+              </p>
+              {connection.ca && (
+                <button
+                  type="button"
+                  className="command-button"
+                  onClick={() => {
+                    const url = URL.createObjectURL(
+                      new Blob([connection.ca!], { type: 'application/x-pem-file' }),
+                    );
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'gcr-ca.pem';
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                  }}
+                >
+                  CA 인증서 다운로드
+                </button>
+              )}
+              {connection.ca && (
+                <p>
+                  사설 CA를 사용하는 서버에서 인증서 오류가 나면 CD의 Choose CA certificate…에서 이
+                  공개 인증서 파일을 선택해 주세요. TLS 검증은 유지됩니다.
+                </p>
+              )}
+            </div>
+          )}
+          {connectionFailed && (
+            <p role="alert">
+              서버 연결 정보를 불러오지 못했습니다. 저장소 접근 권한과 서버 상태를 확인해 주세요.
+            </p>
+          )}
+          <details>
+            <summary>기존 클라이언트용 공개 연결 JSON</summary>
+            <p>
+              서버 주소·저장소 ID·서명 공개키·CA가 담긴 공개 설정 파일입니다. API key 원문은
+              포함되지 않습니다. 새 CD 연결에는 필요하지 않습니다.
+            </p>
+            <label className="field-label">
+              JSON에 포함할 저장소
+              <select
+                value={repositoryId}
+                onChange={(event) => setRepositoryId(event.target.value)}
+              >
+                {tenantRepositories.map((repo) => (
+                  <option key={repo.id} value={repo.id}>
+                    {repo.owner}/{repo.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               className="command-button"
               type="button"
@@ -250,11 +392,7 @@ export function ClientCredentialsPanel() {
             >
               선택한 저장소의 연결 설정 다운로드
             </button>
-          </div>
-          <p className="profile-managed-note">
-            연결 설정 파일에는 서버 주소, 저장소, 서명 공개키와 필요한 CA 인증서가 포함됩니다. API
-            key는 클라이언트의 별도 입력란에 입력해 주세요.
-          </p>
+          </details>
           {issued && (
             <div className="client-key-issued" role="region" aria-label="API key 원문 확인">
               <p>

@@ -99,12 +99,13 @@ export function GuidePage() {
                 CD의 User Settings에서 provider·model·reasoning을 선택하고 수동 리뷰를 확인합니다.
               </li>
               <li>
-                GCR의 내 프로필 → 클라이언트 설정에서 Commit Defender용 reader key와 저장소 연결
-                JSON을 각각 준비합니다.
+                GCR의 내 프로필 → 클라이언트 설정에서 저장소를 복수 선택하거나 현재 접근 가능한 모든
+                저장소를 선택하고 Commit Defender용 API key를 발급합니다.
               </li>
               <li>
-                CD의 Central Review Connection → Connect with API key…에서 JSON을 선택하고 key를
-                별도 입력합니다.
+                CD의 Central Review Connection → Connect with API key…에서 서버 주소와 API key를
+                입력하고 로컬 작업 폴더에 연결할 저장소를 선택합니다. 사설 CA가 필요하면 GCR에서
+                공개 CA 인증서를 내려받아 지정합니다. JSON은 기존 클라이언트용 호환 옵션입니다.
               </li>
               <li>
                 Connection status의 저장소·사용자·유효기간을 확인한 뒤 Browse PR review history로

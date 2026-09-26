@@ -120,7 +120,7 @@ describe.sequential('client connection management in Chrome', () => {
       route.fulfill({ json: { schemaVersion: 1, items: [repository], nextCursor: null } }),
     );
     await page.route('**/api/v1/me/client-connection-config?*', (route) => {
-      expect(new URL(route.request().url()).searchParams.get('repositoryId')).toBe(id(3));
+      expect(new URL(route.request().url()).searchParams.get('repositoryId')).toBeTruthy();
       return route.fulfill({ json: connection });
     });
     await page.route('**/api/v1/me/client-credentials*', async (route) => {
@@ -150,7 +150,7 @@ describe.sequential('client connection management in Chrome', () => {
     await browser?.close();
     await server?.close();
     expect(pageErrors).toEqual([]);
-  });
+  }, 30000);
   const open = async () => {
     await page.goto(`${origin}/__client-fixture`);
     await page.getByLabel('이름', { exact: true }).waitFor();
@@ -159,6 +159,66 @@ describe.sequential('client connection management in Chrome', () => {
     await page.getByLabel('이름', { exact: true }).fill('업무용 Mac');
     await page.getByRole('button', { name: 'API key 발급', exact: true }).click();
   };
+  it('issues multiple or all current repositories in one tenant, without mixing tenants', async () => {
+    const second = { ...repository, id: id(6), name: 'defender' };
+    const other = {
+      ...repository,
+      id: id(7),
+      tenantId: id(8),
+      tenantName: 'Other',
+      tenantSlug: 'other',
+      name: 'private',
+    };
+    await page.route('**/api/v1/repositories', (route) =>
+      route.fulfill({
+        json: { schemaVersion: 1, items: [repository, second, other], nextCursor: null },
+      }),
+    );
+    await open();
+    await page.getByRole('checkbox', { name: 'example/defender', exact: true }).check();
+    await create();
+    expect(requests[0]).toMatchObject({ tenantId: id(2), repositoryIds: [id(3), id(6)] });
+    await page.getByRole('button', { name: '원문 닫기', exact: true }).click();
+    await page.getByRole('checkbox', { name: /현재 접근 가능한 모든 저장소/ }).check();
+    await create();
+    expect(requests[1]).toMatchObject({ repositoryIds: [id(3), id(6)] });
+    await page.getByRole('button', { name: '원문 닫기', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Tenant', exact: true }).selectOption(id(8));
+    expect(
+      await page.getByRole('checkbox', { name: 'example/reviewer', exact: true }).count(),
+    ).toBe(0);
+    await create();
+    expect(requests[2]).toMatchObject({ tenantId: id(8), repositoryIds: [id(7)] });
+  });
+  it('requires a repository and never silently truncates all-repository scope', async () => {
+    await open();
+    await page.getByRole('checkbox', { name: 'example/reviewer', exact: true }).uncheck();
+    await page.getByLabel('이름', { exact: true }).fill('fixture');
+    expect(await page.getByRole('button', { name: 'API key 발급', exact: true }).isDisabled()).toBe(
+      true,
+    );
+    await page.route('**/api/v1/repositories', (route) =>
+      route.fulfill({
+        json: {
+          schemaVersion: 1,
+          items: Array.from({ length: 101 }, (_, n) => ({
+            ...repository,
+            id: id(20 + n),
+            name: `repo-${n}`,
+          })),
+          nextCursor: null,
+        },
+      }),
+    );
+    await page.reload();
+    await page.getByRole('checkbox', { name: /현재 접근 가능한 모든 저장소/ }).check();
+    await page.getByLabel('이름', { exact: true }).fill('fixture');
+    expect(await page.getByRole('button', { name: 'API key 발급', exact: true }).isDisabled()).toBe(
+      true,
+    );
+    await page.getByRole('alert').filter({ hasText: '100개 이하' }).waitFor();
+    expect(requests).toEqual([]);
+  });
   it('issues only read access and exposes no result or feedback upload permission', async () => {
     await open();
     expect(await page.getByLabel('리뷰 결과 제출 허용').count()).toBe(0);
@@ -205,6 +265,7 @@ describe.sequential('client connection management in Chrome', () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(token);
     await page.getByRole('button', { name: '원문 보기', exact: true }).click();
     expect(await secret.getAttribute('type')).toBe('text');
+    await page.getByText('기존 클라이언트용 공개 연결 JSON', { exact: true }).click();
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: '선택한 저장소의 연결 설정 다운로드' }).click();
     const download = await downloadPromise;

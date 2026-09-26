@@ -16,7 +16,11 @@ import type { AuthorizationService } from '../services/authorization.js';
 import { canReadRepository } from '../routes/worklist.js';
 import { readFile } from 'node:fs/promises';
 import { X509Certificate } from 'node:crypto';
-import { centralConnectionInput, centralRepositoryIdentity } from '@gcr/client-contract';
+import {
+  centralConnectionInput,
+  centralConnectionOptions,
+  centralRepositoryIdentity,
+} from '@gcr/client-contract';
 import type { KnowledgeSigner } from '../services/knowledge-manifest.js';
 
 export async function loadClientConnectionCa(file?: string): Promise<string | null> {
@@ -118,6 +122,62 @@ export async function registerClientCredentialRoutes(
         .parse(request.query);
       return { schemaVersion: 1, ...(await listClientKeys(database, request.user!.id, cursor)) };
     });
+    routes.get(
+      '/api/v1/client-auth/connection-options',
+      { config: { clientKnowledgeRead: true }, preHandler: requireUser },
+      async (request) => {
+        const principal = request.clientPrincipal;
+        if (!principal) throw new ClientCredentialError(401, 'CLIENT_AUTHENTICATION_REQUIRED');
+        if (!signer || signer.serverId !== config.KNOWLEDGE_SERVER_ID || !config.PUBLIC_BASE_URL)
+          throw new ClientCredentialError(503, 'CLIENT_CONNECTION_UNAVAILABLE');
+        const repositories = [];
+        for (const repositoryId of principal.repositoryIds) {
+          if (!(await canReadRepository(database, authorization, request, repositoryId))) continue;
+          const row = (
+            await database.query<{
+              tenant_id: string;
+              instance_id: string;
+              web_base_url: string;
+              owner: string;
+              name: string;
+            }>(
+              `select r.tenant_id,r.instance_id,i.web_base_url,r.owner,r.name from repositories r
+            join github_instances i on i.id=r.instance_id where r.id=$1 and r.tenant_id=$2
+            and r.deleted_at is null and r.enabled and i.enabled`,
+              [repositoryId, principal.tenantId],
+            )
+          ).rows[0];
+          if (!row) continue;
+          const webBase = new URL(row.web_base_url);
+          webBase.username = '';
+          webBase.password = '';
+          webBase.search = '';
+          webBase.hash = '';
+          repositories.push(
+            centralRepositoryIdentity({
+              schemaVersion: 1,
+              serverId: signer.serverId,
+              tenantId: row.tenant_id,
+              repositoryId,
+              instanceId: row.instance_id,
+              webBaseUrl: webBase.href,
+              owner: row.owner,
+              name: row.name,
+            }),
+          );
+        }
+        return centralConnectionOptions({
+          schemaVersion: 1,
+          serverUrl: config.PUBLIC_BASE_URL,
+          serverId: signer.serverId,
+          tenantId: principal.tenantId,
+          clientId: principal.clientId,
+          trustedKeys: [{ id: signer.keyId, pem: signer.publicKeyPem }],
+          ca,
+          repositories,
+        });
+      },
+    );
     routes.get(
       '/api/v1/client-repositories/:repoId',
       { config: { clientKnowledgeRead: true }, preHandler: requireUser },

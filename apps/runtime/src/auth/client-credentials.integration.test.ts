@@ -218,6 +218,72 @@ describe
       }
       if (directory) await rm(directory, { recursive: true, force: true });
     });
+    it('discovers only current reader-key repositories without a JSON file or browser session', async () => {
+      const key = await issue('alice', { repositoryIds: [repo, secondRepo] });
+      const response = await app.inject({
+        url: '/api/v1/client-auth/connection-options',
+        headers: auth(key.token),
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      const options = response.json();
+      expect(options.clientId).toBe('commit-defender');
+      expect(options.serverId).toBe(serverId);
+      expect(options.tenantId).toBe(tenant);
+      expect(
+        options.repositories.map((r: { repositoryId: string }) => r.repositoryId).sort(),
+      ).toEqual([repo, secondRepo].sort());
+      expect(
+        options.repositories.some((r: { repositoryId: string }) => r.repositoryId === otherRepo),
+      ).toBe(false);
+      expect(response.body).not.toContain(key.token);
+      expect(response.body).not.toContain('PRIVATE KEY');
+      expect(
+        (await app.inject({ url: '/api/v1/client-auth/connection-options', headers: web() }))
+          .statusCode,
+      ).toBe(401);
+      expect(
+        (
+          await app.inject({
+            url: '/api/v1/client-auth/connection-options',
+            headers: { ...auth(key.token), 'x-gcr-server-id': randomUUID() },
+          })
+        ).statusCode,
+      ).toBe(401);
+      const cross = await app.inject({
+        method: 'POST',
+        url: '/api/v1/me/client-credentials',
+        headers: web(),
+        payload: { ...scope(), repositoryIds: [repo, otherRepo] },
+      });
+      expect(cross.statusCode).toBe(403);
+      await db.query('update repositories set enabled=false where id=$1', [secondRepo]);
+      try {
+        const after = await app.inject({
+          url: '/api/v1/client-auth/connection-options',
+          headers: auth(key.token),
+        });
+        expect(after.statusCode).toBe(200);
+        expect(
+          after.json().repositories.map((r: { repositoryId: string }) => r.repositoryId),
+        ).toEqual([repo]);
+      } finally {
+        await db.query('update repositories set enabled=true where id=$1', [secondRepo]);
+      }
+      await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/me/client-credentials/${key.id}`,
+        headers: web(),
+      });
+      expect(
+        (
+          await app.inject({
+            url: '/api/v1/client-auth/connection-options',
+            headers: auth(key.token),
+          })
+        ).statusCode,
+      ).toBe(403);
+    });
+
     it('keeps profile and client connections usable with HTTP and HTTPS browser sessions', async () => {
       const https = 'https://gcr.test';
       const http = 'http://gcr.test';

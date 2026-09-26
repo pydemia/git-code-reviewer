@@ -13,6 +13,13 @@ import {
 import { knowledgeAudience } from './knowledge-manifest.js';
 import { offlineBehavior } from './review-execution.js';
 const keys = list(object({ id, pem: text(4096, 1) }), 16, 1);
+export const centralClientAuthConfig = object({
+  schemaVersion: literal(1),
+  serverId: union(id, literal(null)),
+  methods: list(literal('api-key'), 1),
+  clientIds: list(choice(['gcr-cli', 'commit-defender']), 2),
+  scopes: list(choice(['knowledge:read', 'reviews:submit', 'feedback:submit']), 3),
+});
 export const centralRepositoryIdentity = object({
   schemaVersion: literal(1),
   serverId: id,
@@ -30,6 +37,17 @@ export const centralConnectionInput = object({
   repositoryId: id,
   trustedKeys: keys,
   ca: union(text(65536, 1), literal(null)),
+});
+/** Authenticated discovery over an already trusted TLS connection. No credential is returned. */
+export const centralConnectionOptions = object({
+  schemaVersion: literal(1),
+  serverUrl: text(4096, 1),
+  serverId: id,
+  tenantId: id,
+  clientId: choice(['gcr-cli', 'commit-defender']),
+  trustedKeys: keys,
+  ca: union(text(65536, 1), literal(null)),
+  repositories: list(centralRepositoryIdentity, 100),
 });
 export const centralCredentialIdentity = object({
   schemaVersion: literal(1),
