@@ -6,7 +6,7 @@
 
 ## 발급과 폐기
 
-로그인한 웹 사용자는 `POST /api/v1/me/client-credentials`에 `name`, `clientId`, `tenantId`, `repositoryIds`, `scopes`, `lifetimeDays`를 보낸다. `clientId`는 `commit-defender` 또는 `gcr-cli`, 현재 지원 scope는 `knowledge:read` 하나다. Repository는 한 tenant 안에서 명시적으로 1–100개를 선택하며 현재 DB 권한과 Cerbos 인가를 모두 확인한다. 기본 수명은 30일, 최대 90일이며 사용자당 유효한 키는 50개까지다. Owner를 body로 지정할 수 없다.
+로그인한 웹 사용자는 `POST /api/v1/me/client-credentials`에 `name`, `clientId`, `tenantId`, `repositoryIds`, `scopes`, `lifetimeDays`를 보낸다. `clientId`는 `commit-defender` 또는 `gcr-cli`, 현재 지원 scope는 `knowledge:read` 하나다. Repository는 한 tenant 안에서 명시적으로 1–100개를 선택하며 현재 DB 권한과 Cerbos 인가를 모두 확인한다. `lifetimeDays`를 생략하면 30일, 정수로 지정하면 1–90일, 명시적으로 `null`을 보내면 No expiration(만료 없음)이다. 발급·목록·client identity의 `expiresAt: null`은 시간 만료가 없다는 뜻이다. 사용자당 유효한 키는 무기한 키를 포함해 50개까지다. Owner를 body로 지정할 수 없다.
 
 원문 `token`은 발급 응답에서만 반환한다. UUID 식별자 뒤에 256-bit 난수를 포함하는 opaque secret이며 서버에는 전체 token의 SHA-256 digest를 저장한다. 목록·감사 기록에는 원문이나 digest를 포함하지 않는다. 생성·폐기 요청은 웹 세션과 정확한 Origin을 요구한다. 쿠키를 client token으로 복사하거나 모델/GHES credential로 대체하지 않는다.
 
@@ -14,7 +14,7 @@
 
 ## 인증과 인가
 
-`GET /api/v1/client-auth/config`는 실제 활성화된 방법만 게시한다. 현재 `api-key`만 구현했으며 PKCE·device·refresh flow는 게시하지 않는다. `GET /api/v1/client-auth/me`는 bearer principal의 user·tenant·실효 repository·scope·key 만료를 반환한다.
+`GET /api/v1/client-auth/config`는 실제 활성화된 방법만 게시한다. 현재 `api-key`만 구현했으며 PKCE·device·refresh flow는 게시하지 않는다. `GET /api/v1/client-auth/me`는 bearer principal의 user·tenant·실효 repository·scope·key 만료를 반환한다. 무기한 키도 폐기·사용자 비활성·권한 철회·비밀번호/identity epoch 변경을 매 요청에서 검사한다. 지식 manifest의 온라인 5분 freshness와 서명된 offline lease는 key 수명과 별개이며 그대로 유지된다.
 
 키는 `Authorization: Bearer <token>`과 `X-GCR-Server-ID`로 전달한다. Bearer 읽기 경로는 client `me`, client repository identity, repository별 지식 `manifest`·`bundles`, 원문 이력·답글·본문 버전·관측·출처 연결 지침이다. Authorization header가 있으면 웹 쿠키·proxy assertion·development 사용자로 인증을 대체하지 않는다. 키로 사용자 관리·메모리 승인·모델 실행 API를 호출할 수 없다. 기존 웹의 지식 조회는 기존 세션으로 계속 동작한다.
 
@@ -44,3 +44,9 @@ URL의 base path를 유지하고 GET만 사용하며 redirect를 따라가지 �
 `GET /api/v1/client-repositories/:repoId` accepts a `knowledge:read` client key and returns the authorized server/tenant/repository/instance identity plus the GitHub web base URL, owner and repository name. It checks current key scope, tenant membership, repository grants and enabled state. Browser cookies alone do not authorize this route. The response is private/no-store, and URL userinfo, query and fragment are excluded.
 
 Clients compare effective Git fetch remotes locally. They do not send remote URLs to this API. New connections with remotes record a binding; later remote changes or changed server identity on synchronization require reconnection. Existing records without binding stay explicitly manual/unverified.
+
+## No expiration 선택
+
+프로필 → 클라이언트 연결 → 새 API key → 만료 설정에서 **No expiration (만료 없음)**을 선택한다. 기본 선택은 기간 지정 30일이며 기존에 발급한 key의 만료일은 변경하지 않는다. 무기한 key도 같은 목록에서 폐기할 수 있다. Migration 0059는 `expires_at`의 NOT NULL만 제거하며 기존 key·checksum과 날짜 key의 DB 상한을 보존한다.
+
+무기한 key를 연결하는 클라이언트는 nullable expiry를 지원해야 한다. 공통 client-contract alpha.49 / client-core alpha.50 이상, GCR CLI alpha.40 이상, Commit Defender 2.13.1 이상에 포함된다. 이전 클라이언트는 기존 날짜 key를 계속 사용할 수 있지만 무기한 key의 identity를 해석하지 못한다. 전역 CLI를 자동 교체하지 않는다.
