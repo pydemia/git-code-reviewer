@@ -21,6 +21,13 @@ export type CentralReviewItem = {
   required: boolean;
   role: 'authoritative' | 'supplement';
   value: unknown;
+  source?: {
+    audience: import('@gcr/client-contract').CentralAudience;
+    repositoryName?: string | undefined;
+    snapshotId: string;
+    manifestHash: string;
+    originalId: string;
+  };
 };
 export type CentralSelection = {
   items: CentralReviewItem[];
@@ -73,6 +80,7 @@ type SelectionInput = {
   now: string;
   semanticContracts?: boolean;
   byteLimit: number;
+  referenceOnly?: boolean | undefined;
 };
 export function selectCentralKnowledge(
   input: SelectionInput & {
@@ -158,14 +166,15 @@ function selectKnowledge(
       revision: skill.version,
       hash: skill.contentHash,
       targets,
-      required: true,
-      role: 'authoritative',
+      required: !input.referenceOnly,
+      role: input.referenceOnly ? 'supplement' : 'authoritative',
       value: skill,
     };
     if (skill.enabled) candidates.push(item);
     else result.omissions.push({ reference: reference(item), reason: 'disabled', targets });
   }
   for (const criterion of policy.criteria) {
+    if (input.referenceOnly) continue;
     const item: CentralReviewItem = {
       component: 'policy',
       kind: 'policy',
@@ -283,7 +292,8 @@ function selectKnowledge(
       hash: item.memory.contentHash,
       targets: selected,
       required: false,
-      role: item.component === 'collective' ? 'authoritative' : 'supplement',
+      role:
+        !input.referenceOnly && item.component === 'collective' ? 'authoritative' : 'supplement',
       value: {
         ...(selected.length ? { memory: item.memory } : {}),
         ...(supplements.length ? { supplements } : {}),

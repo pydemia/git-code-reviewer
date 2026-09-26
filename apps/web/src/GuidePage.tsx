@@ -104,8 +104,9 @@ export function GuidePage() {
               </li>
               <li>
                 CD의 Central Review Connection → Connect with API key…에서 서버 주소와 API key를
-                입력하고 로컬 작업 폴더에 연결할 저장소를 선택합니다. 사설 CA가 필요하면 GCR에서
-                공개 CA 인증서를 내려받아 지정합니다. JSON은 기존 클라이언트용 호환 옵션입니다.
+                입력합니다. 허용된 자료 출처를 자동으로 연결하며 저장소를 선택할 필요는 없습니다.
+                사설 CA가 필요하면 GCR에서 공개 CA 인증서를 내려받아 지정합니다. JSON은 기존
+                클라이언트용 호환 옵션입니다.
               </li>
               <li>
                 Connection status의 저장소·사용자·유효기간을 확인한 뒤 Browse PR review history로

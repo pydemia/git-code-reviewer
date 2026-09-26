@@ -148,6 +148,7 @@ export const contextEntry = union(
     revision: integer(1),
     hash: sha256,
     component: choice(['policy', 'collective', 'personal']),
+    audience: optional(centralAudience),
   }),
 );
 export type ContextEntry = ReturnType<typeof contextEntry>;
@@ -163,6 +164,19 @@ export const contextIdentity = refined(
         authorizationRevision: id,
         offlineValidUntil: timestamp,
       }),
+    ),
+    centralSources: optional(
+      list(
+        object({
+          id,
+          hash: sha256,
+          audience: centralAudience,
+          authorizationRevision: id,
+          offlineValidUntil: timestamp,
+        }),
+        100,
+        1,
+      ),
     ),
     required: list(
       object({
@@ -181,6 +195,44 @@ export const contextIdentity = refined(
     );
     if (value.entries.some((entry) => entry.origin === 'central') && !value.centralSnapshot)
       fail(at, 'central context has no pinned snapshot');
+    if (value.centralSources) {
+      if (!value.centralSnapshot) fail(at, 'central sources lack an anchor snapshot');
+      if (
+        !value.centralSources.some(
+          (source) =>
+            source.id === value.centralSnapshot!.id &&
+            source.hash === value.centralSnapshot!.hash &&
+            source.authorizationRevision === value.centralSnapshot!.authorizationRevision &&
+            source.offlineValidUntil === value.centralSnapshot!.offlineValidUntil &&
+            JSON.stringify(source.audience) === JSON.stringify(value.centralSnapshot!.audience),
+        )
+      )
+        fail(at, 'central sources lack the anchor audience');
+      unique(
+        value.centralSources.map((s) => JSON.stringify(s.audience)),
+        `${at}.centralSources`,
+      );
+      for (const source of value.centralSources)
+        for (const key of ['serverId', 'tenantId', 'userId'] as const)
+          if (source.audience[key] !== value.centralSnapshot!.audience[key])
+            fail(at, 'central reference source crosses an account boundary');
+      for (const entry of value.entries)
+        if (
+          entry.origin === 'central' &&
+          entry.audience &&
+          !value.centralSources.some(
+            (s) => JSON.stringify(s.audience) === JSON.stringify(entry.audience),
+          )
+        )
+          fail(at, 'central entry lacks its source snapshot');
+    } else
+      for (const entry of value.entries)
+        if (
+          entry.origin === 'central' &&
+          entry.audience &&
+          JSON.stringify(entry.audience) !== JSON.stringify(value.centralSnapshot?.audience)
+        )
+          fail(at, 'central entry crosses the pinned audience');
   },
 );
 export type ContextIdentity = ReturnType<typeof contextIdentity>;

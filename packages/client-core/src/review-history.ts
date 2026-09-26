@@ -16,6 +16,7 @@ import type { CentralSelection } from './central-selection.js';
 export type SourceHistoryContext = {
   format: 'review-history-source-v1';
   repositoryId: string;
+  repositoryName?: string | undefined;
   pullNumber: number;
   apiRevision: string;
   source: ReviewHistoryMessage;

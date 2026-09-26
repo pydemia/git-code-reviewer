@@ -457,6 +457,43 @@ describe('boundary invariants', () => {
 });
 
 describe('identity, knowledge and policy boundaries', () => {
+  it('pins multiple repository sources without crossing the reader account boundary', () => {
+    const report = centralized();
+    const anchor = report.identity.context.centralSnapshot!;
+    const reference = {
+      ...anchor,
+      id: 'reference-snapshot',
+      hash: hash('reference manifest'),
+      audience: { ...audience, repositoryId: 'reference-repository' },
+    };
+    report.identity.context.centralSources = [structuredClone(anchor), reference];
+    report.identity.context.entries.push({
+      origin: 'central',
+      kind: 'skill',
+      id: 'reference-skill',
+      revision: 1,
+      hash: hash('reference skill'),
+      component: 'collective',
+      audience: reference.audience,
+    });
+    expect(clientReviewReport(report).identity.context.centralSources).toHaveLength(2);
+    for (const key of ['serverId', 'tenantId', 'userId'] as const) {
+      const crossed = structuredClone(report);
+      crossed.identity.context.centralSources![1]!.audience[key] = 'another';
+      expect(() => clientReviewReport(crossed)).toThrow('account boundary');
+    }
+    const duplicate = structuredClone(report);
+    duplicate.identity.context.centralSources!.push(anchor);
+    expect(() => clientReviewReport(duplicate)).toThrow(ContractError);
+    const missing = structuredClone(report);
+    missing.identity.context.centralSources = [anchor];
+    expect(() => clientReviewReport(missing)).toThrow('source snapshot');
+    const wrongAnchor = structuredClone(report);
+    wrongAnchor.identity.context.centralSources![0]!.authorizationRevision = 'other-revision';
+    expect(() => clientReviewReport(wrongAnchor)).toThrow('anchor audience');
+    delete report.identity.context.centralSources;
+    expect(() => clientReviewReport(report)).toThrow('pinned audience');
+  });
   it('does not accept residual central authority in standalone identity/context', () => {
     const central = centralized();
     expect(clientReviewReport(central).identity.client.mode).toBe('centralized');

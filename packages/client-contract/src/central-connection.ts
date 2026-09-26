@@ -70,6 +70,8 @@ export const centralConnectionRecord = object({
   trustedKeys: keys,
   ca: union(text(65536, 1), literal(null)),
   offlineBehavior: optional(offlineBehavior),
+  /** Read-only reference source; never grants this worktree repository policy. */
+  referenceOnly: optional(literal(true)),
   repositoryBinding: optional(
     object({
       identity: centralRepositoryIdentity,

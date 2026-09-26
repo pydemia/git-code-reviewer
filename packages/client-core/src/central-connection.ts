@@ -159,7 +159,11 @@ export class CentralConnections {
     apiKey: string,
     clientId: 'gcr-cli' | 'commit-defender',
     signal?: AbortSignal,
-    options: { offlineBehavior?: OfflineBehavior } = {},
+    options: {
+      offlineBehavior?: OfflineBehavior;
+      referenceOnly?: boolean;
+      reuseExisting?: boolean;
+    } = {},
   ) {
     const behavior = offlineBehavior(options.offlineBehavior ?? 'pause');
     const config = centralConnectionInput(input);
@@ -201,9 +205,11 @@ export class CentralConnections {
       audience: { ...bootstrap.audience, userId: identity.userId },
       trustedKeys: bootstrap.verificationKeys(),
     });
-    const remotes = this.options.repositoryRoot
-      ? localRepositoryRemotes(this.options.repositoryRoot)
-      : [];
+    if (options.referenceOnly && clientId !== 'commit-defender') throw denied();
+    const remotes =
+      this.options.repositoryRoot && !options.referenceOnly
+        ? localRepositoryRemotes(this.options.repositoryRoot)
+        : [];
     const mapped = remotes.length
       ? repositoryBinding(
           await this.timed(signal, (s) =>
@@ -217,6 +223,19 @@ export class CentralConnections {
         )
       : undefined;
     const previous = await this.records.read('settings', binding.id);
+    if (options.reuseExisting && previous && !previous.deleted) {
+      const existing = centralConnectionRecord(previous.value);
+      if (
+        existing.status === 'connected' &&
+        existing.keyId === identity.keyId &&
+        existing.clientId === clientId &&
+        existing.ca === config.ca &&
+        contentHash(existing.trustedKeys) === contentHash(config.trustedKeys)
+      ) {
+        await this.assert({ revision: previous.revision, value: existing });
+        return this.status(existing.id);
+      }
+    }
     if (
       previous &&
       (previous.deleted || centralConnectionRecord(previous.value).status !== 'disconnected')
@@ -239,6 +258,7 @@ export class CentralConnections {
       })),
       ca: config.ca,
       offlineBehavior: behavior,
+      ...(options.referenceOnly ? { referenceOnly: true } : {}),
       ...(mapped ? { repositoryBinding: mapped } : {}),
       credentialReference: 'gcr-' + randomUUID(),
       keyId: identity.keyId,
@@ -303,6 +323,7 @@ export class CentralConnections {
       audience: value.audience,
       offlineBehavior: value.offlineBehavior ?? 'pause',
       repositoryBinding: value.repositoryBinding ?? null,
+      referenceOnly: value.referenceOnly ?? false,
       keyId: value.keyId,
       clientId: value.clientId,
       expiresAt: value.expiresAt,

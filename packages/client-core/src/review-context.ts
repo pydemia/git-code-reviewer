@@ -67,12 +67,12 @@ class LocalReviewContext {
   #data: ContextData;
   constructor(
     data: ContextData,
-    private readonly authority?: {
+    private readonly authority?: Array<{
       cache: CentralKnowledgeCache;
       manifest: SignedKnowledgeManifest;
       mode: 'online' | 'offline';
-      assertConnection?: () => Promise<void>;
-    },
+      assertConnection?: (() => Promise<void>) | undefined;
+    }>,
   ) {
     this.#data = structuredClone(data);
   }
@@ -81,10 +81,16 @@ class LocalReviewContext {
   }
   async observeCentralSnapshot(): Promise<'current' | 'updated' | 'pending'> {
     if (!this.authority) return 'current';
-    await this.authority.assertConnection?.();
     if (this.#data.validUntil && this.#data.validUntil <= new Date().toISOString())
       throw Error('central-context-expired');
-    return this.authority.cache.observeSnapshot(this.authority.manifest, this.authority.mode);
+    let result: 'current' | 'updated' | 'pending' = 'current';
+    for (const source of this.authority) {
+      await source.assertConnection?.();
+      const state = await source.cache.observeSnapshot(source.manifest, source.mode);
+      if (state === 'pending') return state;
+      if (state === 'updated') result = state;
+    }
+    return result;
   }
   get client(): ClientIdentity {
     return structuredClone(this.#data.client);
@@ -426,6 +432,16 @@ export async function resolveCentralContext(
     freshness: 'online' | 'offline';
     assertConnection?: () => Promise<void>;
     loadSourceHistory?: (selection: CentralSelection) => Promise<SourceHistoryContext[]>;
+    referenceOnly?: boolean;
+    repositoryName?: string;
+    references?: Array<{
+      client: ClientIdentity;
+      cache: CentralKnowledgeCache;
+      freshness: 'online' | 'offline';
+      assertConnection?: () => Promise<void>;
+      repositoryName?: string;
+      loadSourceHistory?: (selection: CentralSelection) => Promise<SourceHistoryContext[]>;
+    }>;
   },
 ): Promise<LocalContextResolution> {
   try {
@@ -447,6 +463,26 @@ export async function resolveCentralContext(
       throw Error('central-context-scope');
     await input.assertConnection?.();
     const pinned = await input.cache.read(input.freshness);
+    const authorities = [
+      {
+        cache: input.cache,
+        manifest: pinned.manifest,
+        mode: input.freshness,
+        assertConnection: input.assertConnection,
+      },
+    ];
+    const sourceSnapshot = (
+      manifest: SignedKnowledgeManifest,
+      audience: typeof client.audience,
+    ) => ({
+      id: manifest.payload.snapshotId,
+      hash: manifest.manifestHash,
+      audience,
+      authorizationRevision: String(manifest.payload.authorizationRevision),
+      offlineValidUntil: manifest.payload.offlineValidUntil,
+    });
+    const centralSources = [sourceSnapshot(pinned.manifest, client.audience)];
+    const sourceExpiries: string[] = [];
     const local = await resolveLocalContext({
       ...input,
       client: {
@@ -475,8 +511,24 @@ export async function resolveCentralContext(
       branch: input.snapshot.branchName,
       now: (input.now ?? new Date()).toISOString(),
       byteLimit: Math.max(0, limit - builtinBytes - requiredLocalBytes),
+      referenceOnly: input.referenceOnly,
     });
+    const originalCentralBytes = central.bytes;
+    for (const item of input.references?.length || input.repositoryName ? central.items : [])
+      item.source = {
+        audience: client.audience,
+        ...(input.repositoryName ? { repositoryName: input.repositoryName } : {}),
+        snapshotId: pinned.manifest.payload.snapshotId,
+        manifestHash: pinned.manifest.manifestHash,
+        originalId: item.id,
+      };
+    central.bytes = central.items.reduce(
+      (total, item) => total + Buffer.byteLength(canonicalJson(item)),
+      0,
+    );
     let bytes = builtinBytes + central.bytes;
+    if (bytes + requiredLocalBytes > limit && central.bytes > originalCentralBytes)
+      throw Error('central-context-budget');
     const sourceHistory: SourceHistoryContext[] = [];
     for (const item of (await input.loadSourceHistory?.(central)) ?? []) {
       if (item.repositoryId !== client.audience.repositoryId) throw Error('history-audience');
@@ -485,6 +537,101 @@ export async function resolveCentralContext(
       sourceHistory.push(structuredClone(item));
       bytes += size;
     }
+    if ((input.references?.length ?? 0) > 99) throw Error('central-source-limit');
+    const seen = new Set([canonicalJson(client.audience)]);
+    for (const reference of input.references ?? []) {
+      const identity = clientIdentity(reference.client);
+      const scope = reference.cache.scope;
+      if (
+        identity.mode !== 'centralized' ||
+        scope.kind !== 'repository' ||
+        scope.profileId !== client.profileId ||
+        scope.repositoryKey !== client.repositoryKey ||
+        scope.worktreeKey !== client.worktreeKey ||
+        reference.cache.binding.serverUrl !== input.cache.binding.serverUrl ||
+        canonicalJson(identity.audience) !== canonicalJson(reference.cache.binding.audience) ||
+        ['serverId', 'tenantId', 'userId'].some(
+          (key) =>
+            identity.audience[key as keyof typeof identity.audience] !==
+            client.audience[key as keyof typeof client.audience],
+        ) ||
+        seen.has(canonicalJson(identity.audience))
+      )
+        throw Error('central-reference-scope');
+      seen.add(canonicalJson(identity.audience));
+      await reference.assertConnection?.();
+      const source = await reference.cache.read(reference.freshness);
+      const selectedReference = selectCentralKnowledge({
+        bundles: source.bundles,
+        selected,
+        branch: input.snapshot.branchName,
+        now: (input.now ?? new Date()).toISOString(),
+        byteLimit: Math.max(0, limit - bytes - requiredLocalBytes),
+        referenceOnly: true,
+      });
+      const scopedId = (id: string) => `ref-${contentHash({ audience: identity.audience, id })}`;
+      for (const item of selectedReference.items) {
+        const scoped = {
+          ...item,
+          id: scopedId(item.id),
+          source: {
+            audience: identity.audience,
+            ...(reference.repositoryName ? { repositoryName: reference.repositoryName } : {}),
+            snapshotId: source.manifest.payload.snapshotId,
+            manifestHash: source.manifest.manifestHash,
+            originalId: item.id,
+          },
+        };
+        const size = Buffer.byteLength(canonicalJson(scoped));
+        if (bytes + size + requiredLocalBytes > limit) {
+          central.omissions.push({
+            reference: scopedId(item.id),
+            reason: 'budget',
+            targets: item.targets,
+          });
+          continue;
+        }
+        central.items.push(scoped);
+        const entry = selectedReference.entries.find(
+          (e) => e.id === item.id && e.kind === item.kind,
+        )!;
+        if (entry.origin !== 'central') throw Error('central-reference-entry');
+        central.entries.push({ ...entry, id: scoped.id, audience: identity.audience });
+        bytes += size;
+      }
+      // Fetch original history only for items admitted by the shared context budget.
+      const admitted = {
+        ...selectedReference,
+        items: selectedReference.items.filter((item) =>
+          central.items.some((chosen) => chosen.id === scopedId(item.id)),
+        ),
+      };
+      for (const item of (await reference.loadSourceHistory?.(admitted)) ?? []) {
+        if (item.repositoryId !== identity.audience.repositoryId) throw Error('history-audience');
+        const value = { ...structuredClone(item), repositoryName: reference.repositoryName };
+        const size = Buffer.byteLength(canonicalJson(value));
+        if (bytes + size + requiredLocalBytes > limit) continue;
+        sourceHistory.push(value);
+        bytes += size;
+      }
+      central.omissions.push(
+        ...selectedReference.omissions.map((o) => ({ ...o, reference: scopedId(o.reference) })),
+      );
+      centralSources.push(sourceSnapshot(source.manifest, identity.audience));
+      authorities.push({
+        cache: reference.cache,
+        manifest: source.manifest,
+        mode: reference.freshness,
+        assertConnection: reference.assertConnection,
+      });
+      sourceExpiries.push(
+        reference.freshness === 'online'
+          ? source.manifest.payload.refreshAfter
+          : source.manifest.payload.offlineValidUntil,
+      );
+      if (selectedReference.validUntil) sourceExpiries.push(selectedReference.validUntil);
+    }
+    central.bytes = bytes - builtinBytes;
     const knowledge: LocalKnowledge[] = [];
     const omissions = ctx.omissions;
     for (const item of localItems) {
@@ -526,7 +673,12 @@ export async function resolveCentralContext(
         origin: 'central' as const,
         kind: 'memory' as const,
         component: 'collective' as const,
-        id: `history-${item.source.id}`,
+        id:
+          item.repositoryId === client.audience.repositoryId
+            ? `history-${item.source.id}`
+            : `history-${contentHash({ repositoryId: item.repositoryId, id: item.source.id })}`,
+        audience: centralSources.find((s) => s.audience.repositoryId === item.repositoryId)!
+          .audience,
         revision: 1,
         // revision is the source-history representation version. The hash pins
         // the actual API revision, body, observation and captured replies.
@@ -537,6 +689,7 @@ export async function resolveCentralContext(
       entries,
       required,
       centralSnapshot,
+      ...(input.references?.length ? { centralSources } : {}),
       hash: contentHash({
         version: 2,
         client,
@@ -545,6 +698,7 @@ export async function resolveCentralContext(
         entries,
         required,
         centralSnapshot,
+        centralSources,
         central,
         sourceHistory,
         omissions,
@@ -560,14 +714,18 @@ export async function resolveCentralContext(
     const validUntil = [
       ctx.validUntil,
       central.validUntil,
+      ...sourceExpiries,
       input.freshness === 'online'
         ? pinned.manifest.payload.refreshAfter
         : pinned.manifest.payload.offlineValidUntil,
     ]
       .filter((v): v is string => v !== null)
       .sort()[0]!;
-    if ((await input.cache.observeSnapshot(pinned.manifest, input.freshness)) !== 'current')
-      throw Error('central-context-changed');
+    for (const source of authorities) {
+      await source.assertConnection?.();
+      if ((await source.cache.observeSnapshot(source.manifest, source.mode)) !== 'current')
+        throw Error('central-context-changed');
+    }
     return {
       status: problems.length ? 'needs-context' : 'ready',
       problems,
@@ -585,12 +743,7 @@ export async function resolveCentralContext(
           validUntil,
           central,
         },
-        {
-          cache: input.cache,
-          manifest: pinned.manifest,
-          mode: input.freshness,
-          ...(input.assertConnection ? { assertConnection: input.assertConnection } : {}),
-        },
+        authorities,
       ),
     };
   } catch {

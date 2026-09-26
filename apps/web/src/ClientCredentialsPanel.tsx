@@ -194,7 +194,10 @@ export function ClientCredentialsPanel() {
               CD의 Central Review Connection → Connect with API key…에서 서버 주소와 key를
               입력합니다.
             </li>
-            <li>조회된 저장소 중 현재 로컬 작업 폴더에 연결할 저장소를 선택합니다.</li>
+            <li>
+              key로 허용된 자료 출처를 자동으로 연결합니다. 참고할 자료의 내용과 범위는 CD에서
+              확인합니다.
+            </li>
           </ol>
           <form onSubmit={create}>
             <fieldset disabled={pending || !!issued}>
