@@ -21,7 +21,7 @@ function documentHref(href: string | undefined) {
   if (page) return page + (fragment ? '#' + fragment : '');
   if (href.startsWith('../operations/'))
     return (
-      'https://github.com/pydemia/git-code-reviewer/blob/codex/review-memory-pull-g01/docs/' +
+      'https://github.com/pydemia/git-code-reviewer/blob/codex/windows-native-support/docs/' +
       href.slice(3)
     );
   return href;
