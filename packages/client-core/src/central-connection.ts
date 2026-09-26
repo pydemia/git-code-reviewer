@@ -94,7 +94,7 @@ export class CentralConnections {
       assertRepositoryBinding(state.value.repositoryBinding, this.options.repositoryRoot);
     if (
       this.invalid.has(state.value.credentialReference) ||
-      Date.parse(state.value.expiresAt) <= Date.now()
+      (state.value.expiresAt !== null && Date.parse(state.value.expiresAt) <= Date.now())
     )
       throw denied();
     const current = await this.state(state.value.id);
@@ -193,7 +193,7 @@ export class CentralConnections {
       identity.tenantId !== config.tenantId ||
       !identity.repositoryIds.includes(config.repositoryId) ||
       identity.clientId !== clientId ||
-      Date.parse(identity.expiresAt) <= Date.now()
+      (identity.expiresAt !== null && Date.parse(identity.expiresAt) <= Date.now())
     )
       throw denied();
     const binding = new TrustedCentralBinding({

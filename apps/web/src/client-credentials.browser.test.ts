@@ -126,12 +126,15 @@ describe.sequential('client connection management in Chrome', () => {
     await page.route('**/api/v1/me/client-credentials*', async (route) => {
       if (route.request().method() === 'POST') {
         requests.push(route.request().postDataJSON());
-        items = [credential];
+        const expiresAt =
+          route.request().postDataJSON().lifetimeDays === null ? null : credential.expiresAt;
+        const issued = { ...credential, expiresAt };
+        items = [issued];
         if (loseResponse) {
           await route.abort('failed');
           return;
         }
-        await route.fulfill({ status: 201, json: { schemaVersion: 1, ...credential, token } });
+        await route.fulfill({ status: 201, json: { schemaVersion: 1, ...issued, token } });
       } else await route.fulfill({ json: { schemaVersion: 1, items, nextCursor: null } });
     });
     await page.route(`**/api/v1/me/client-credentials/${id(1)}`, (route) => {
@@ -162,6 +165,21 @@ describe.sequential('client connection management in Chrome', () => {
     expect(await page.getByLabel('피드백 제출 허용').count()).toBe(0);
     await create();
     expect((requests[0] as { scopes: string[] }).scopes).toEqual(['knowledge:read']);
+  });
+  it('issues no-expiration keys and restores the retained day value when switching back', async () => {
+    await open();
+    await page.getByLabel('유효 기간 (일)').fill('45');
+    await page.getByRole('combobox', { name: '만료 설정' }).selectOption('none');
+    expect(await page.getByLabel('유효 기간 (일)').count()).toBe(0);
+    await page.getByRole('combobox', { name: '만료 설정' }).selectOption('days');
+    expect(await page.getByLabel('유효 기간 (일)').inputValue()).toBe('45');
+    await page.getByRole('combobox', { name: '만료 설정' }).selectOption('none');
+    await create();
+    expect(requests[0]).toMatchObject({ lifetimeDays: null });
+    await page.getByText('만료: No expiration (만료 없음)', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '원문 닫기', exact: true }).click();
+    await page.reload();
+    await page.getByText('만료: No expiration (만료 없음)', { exact: true }).waitFor();
   });
   it('issues a scoped key once, masks/copies/discards it and downloads a token-free pinned configuration', async () => {
     await open();

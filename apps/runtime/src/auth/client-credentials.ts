@@ -34,7 +34,7 @@ type Row = {
   identity_epoch: string | null;
   local_password_changed_at: string | null;
   created_at: Date;
-  expires_at: Date;
+  expires_at: Date | null;
   revoked_at: Date | null;
 };
 export function clientKeyView(row: Row) {
@@ -46,7 +46,7 @@ export function clientKeyView(row: Row) {
     repositoryIds: row.repository_ids,
     scopes: row.scopes,
     createdAt: row.created_at.toISOString(),
-    expiresAt: row.expires_at.toISOString(),
+    expiresAt: row.expires_at?.toISOString() ?? null,
     revokedAt: row.revoked_at?.toISOString() ?? null,
   };
 }
@@ -114,7 +114,7 @@ export async function issueClientKey(
         fail(403, 'CLIENT_SCOPE_DENIED');
     }
     const count = await c.query<{ count: string }>(
-      'select count(*) from client_api_keys where user_id=$1 and revoked_at is null and expires_at>clock_timestamp()',
+      'select count(*) from client_api_keys where user_id=$1 and revoked_at is null and (expires_at is null or expires_at>clock_timestamp())',
       [options.user.id],
     );
     if (Number(count.rows[0]!.count) >= 50) fail(429, 'CLIENT_KEY_LIMIT');
@@ -200,7 +200,7 @@ export type ClientPrincipal = {
   tenantId: string;
   repositoryIds: string[];
   scopes: ClientCredentialScope[];
-  expiresAt: string;
+  expiresAt: string | null;
 };
 export async function authenticateClientKey(
   database: Pick<Database, 'query'>,
@@ -221,7 +221,7 @@ export async function authenticateClientKey(
   if (options.requestedServerId !== options.serverId) fail(401, 'CLIENT_AUDIENCE_MISMATCH');
   const row = (
     await database.query<Row & { expired: boolean }>(
-      `select ${fields},expires_at<=clock_timestamp() as expired from client_api_keys where id=$1 and secret_hash=$2 and server_id=$3`,
+      `select ${fields},coalesce(expires_at<=clock_timestamp(),false) as expired from client_api_keys where id=$1 and secret_hash=$2 and server_id=$3`,
       [match![2], hash(match![1]!), options.serverId],
     )
   ).rows[0];
@@ -299,6 +299,6 @@ export async function authenticateClientKey(
     tenantId: row!.tenant_id,
     repositoryIds: effective,
     scopes: row!.scopes,
-    expiresAt: row!.expires_at.toISOString(),
+    expiresAt: row!.expires_at?.toISOString() ?? null,
   };
 }

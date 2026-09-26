@@ -23,7 +23,7 @@ export const clientCredentialInputSchema = z
       .max(100)
       .refine((ids) => new Set(ids).size === ids.length),
     scopes: clientCredentialScopesSchema.default(['knowledge:read']),
-    lifetimeDays: z.number().int().min(1).max(90).default(30),
+    lifetimeDays: z.number().int().min(1).max(90).nullable().default(30),
   })
   .strict();
 
@@ -36,7 +36,7 @@ export const clientCredentialSchema = z
     repositoryIds: z.array(z.string().uuid()),
     scopes: clientCredentialScopesSchema,
     createdAt: z.string().datetime(),
-    expiresAt: z.string().datetime(),
+    expiresAt: z.string().datetime().nullable(),
     revokedAt: z.string().datetime().nullable(),
   })
   .strict();

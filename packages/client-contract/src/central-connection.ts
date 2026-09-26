@@ -41,7 +41,7 @@ export const centralCredentialIdentity = object({
   scopes: list(choice(['knowledge:read', 'reviews:submit', 'feedback:submit']), 3, 1),
   clientId: choice(['gcr-cli', 'commit-defender']),
   keyId: id,
-  expiresAt: timestamp,
+  expiresAt: union(timestamp, literal(null)),
 });
 export const centralConnectionRecord = object({
   formatVersion: literal(1),
@@ -61,7 +61,7 @@ export const centralConnectionRecord = object({
   credentialReference: id,
   keyId: id,
   clientId: choice(['gcr-cli', 'commit-defender']),
-  expiresAt: timestamp,
+  expiresAt: union(timestamp, literal(null)),
 });
 export type CentralConnectionRecord = ReturnType<typeof centralConnectionRecord>;
 export const centralConnectionReference = sha256;

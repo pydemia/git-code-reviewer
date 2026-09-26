@@ -19,6 +19,7 @@ export function ClientCredentialsPanel() {
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState<'commit-defender' | 'gcr-cli'>('commit-defender');
   const [lifetimeDays, setLifetimeDays] = useState(30);
+  const [noExpiration, setNoExpiration] = useState(false);
   const [issued, setIssued] = useState<{ id: string; token: string } | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [pending, setPending] = useState(false);
@@ -94,7 +95,7 @@ export function ClientCredentialsPanel() {
         clientId,
         tenantId: selected.tenantId,
         repositoryIds: [selected.id],
-        lifetimeDays,
+        lifetimeDays: noExpiration ? null : lifetimeDays,
         scopes: ['knowledge:read'],
       });
       if (signal.aborted) return;
@@ -186,18 +187,32 @@ export function ClientCredentialsPanel() {
                     <option value="gcr-cli">GCR CLI</option>
                   </select>
                 </label>
-                <label className="field-label">
-                  유효 기간 (일)
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    max={90}
-                    step={1}
-                    value={lifetimeDays}
-                    onChange={(event) => setLifetimeDays(Number(event.target.value))}
-                  />
-                </label>
+                <div>
+                  <label className="field-label">
+                    만료 설정
+                    <select
+                      value={noExpiration ? 'none' : 'days'}
+                      onChange={(event) => setNoExpiration(event.target.value === 'none')}
+                    >
+                      <option value="days">기간 지정</option>
+                      <option value="none">No expiration (만료 없음)</option>
+                    </select>
+                  </label>
+                  {!noExpiration && (
+                    <label className="field-label">
+                      유효 기간 (일)
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        max={90}
+                        step={1}
+                        value={lifetimeDays}
+                        onChange={(event) => setLifetimeDays(Number(event.target.value))}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
               <label className="field-label">
                 저장소
@@ -312,7 +327,7 @@ export function ClientCredentialsPanel() {
           {!items.length && <p>발급한 API key가 없습니다.</p>}
           <ul className="client-credentials-list">
             {items.map((item) => {
-              const expired = Date.parse(item.expiresAt) <= Date.now();
+              const expired = item.expiresAt !== null && Date.parse(item.expiresAt) <= Date.now();
               return (
                 <li key={item.id}>
                   <strong>{item.name}</strong>
@@ -321,7 +336,12 @@ export function ClientCredentialsPanel() {
                     {item.clientId === 'commit-defender' ? 'Commit Defender' : 'GCR CLI'} ·{' '}
                     {item.revokedAt ? '폐기됨' : expired ? '만료됨' : '발급됨'}
                   </span>
-                  <span>만료: {new Date(item.expiresAt).toLocaleString('ko-KR')}</span>
+                  <span>
+                    만료:{' '}
+                    {item.expiresAt === null
+                      ? 'No expiration (만료 없음)'
+                      : new Date(item.expiresAt).toLocaleString('ko-KR')}
+                  </span>
                   <span>
                     저장소:{' '}
                     {item.repositoryIds

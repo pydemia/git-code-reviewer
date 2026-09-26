@@ -71,6 +71,7 @@ let submissionError: string | undefined;
 let onInitialManifest: (() => void) | undefined;
 let config: Record<string, unknown>;
 let identityClientId: 'gcr-cli' | 'commit-defender' = 'gcr-cli';
+let identityExpiresAt: string | null = new Date(Date.now() + 7200_000).toISOString();
 const descriptor = {
   id: 'synthetic',
   version: '1',
@@ -363,7 +364,7 @@ beforeAll(async () => {
           scopes: ['knowledge:read'],
           clientId: identityClientId,
           keyId,
-          expiresAt: new Date(Date.now() + 7200_000).toISOString(),
+          expiresAt: identityExpiresAt,
         }),
       );
       return;
@@ -436,6 +437,51 @@ const args = (command: string, id: string) => [
 ];
 const test = (name: string, fn: () => Promise<void>) => it(name, fn, 30000);
 describe.sequential('explicit connected CLI over HTTPS', () => {
+  test('connects a no-expiration key, preserves finite expiry checks and honors server revocation', async () => {
+    const profile = 'no-expiration';
+    const original = identityExpiresAt;
+    let id: string | undefined;
+    try {
+      identityExpiresAt = null;
+      id = await connect(profile);
+      expect((await invoke(profile, ['central', ...args('status', id)])).value).toMatchObject({
+        expiresAt: null,
+      });
+      expect((await invoke(profile, args('context', id))).exitCode).toBe(0);
+      status = 403;
+      expect((await invoke(profile, ['central', ...args('sync', id)])).exitCode).toBe(2);
+      expect((await invoke(profile, ['central', ...args('status', id)])).value).toMatchObject({
+        status: 'disconnected',
+      });
+      status = 200;
+      identityExpiresAt = '2020-01-01T00:00:00.000Z';
+      expect(
+        (
+          await invoke('expired-key', [
+            'central',
+            'connect',
+            '--mode',
+            'centralized',
+            '--input',
+            configFile,
+            '--api-key-stdin',
+          ])
+        ).exitCode,
+      ).toBe(2);
+    } finally {
+      status = 200;
+      identityExpiresAt = original;
+      if (id)
+        await invoke(profile, [
+          'central',
+          'disconnect',
+          '--mode',
+          'centralized',
+          '--connection',
+          id,
+        ]);
+    }
+  });
   test('binds a matching remote and rejects mismatches and later remote changes before model execution', async () => {
     const git = (...args: string[]) =>
       execFileSync('git', ['-C', repo, ...args], { stdio: 'pipe' });

@@ -421,6 +421,87 @@ describe
         scopes: ['knowledge:read'],
       });
     });
+    it('issues, lists and authenticates a non-expiring key while still enforcing revocation', async () => {
+      const key = await issue('alice', { lifetimeDays: null });
+      expect(key.expiresAt).toBeNull();
+      await db.query(
+        "update client_api_keys set created_at=statement_timestamp()-interval '10 years' where id=$1",
+        [key.id],
+      );
+      expect((await me(key.token)).json()).toMatchObject({ keyId: key.id, expiresAt: null });
+      const listed = (
+        await app.inject({ url: '/api/v1/me/client-credentials', headers: web() })
+      ).json();
+      expect(listed.items.find((item: { id: string }) => item.id === key.id).expiresAt).toBeNull();
+      expect(
+        (await app.inject({ url: `/api/v1/client-repositories/${repo}`, headers: auth(key.token) }))
+          .statusCode,
+      ).toBe(200);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        expect(
+          (
+            await app.inject({
+              method: 'DELETE',
+              url: '/api/v1/me/client-credentials/' + key.id,
+              headers: web(),
+            })
+          ).statusCode,
+        ).toBe(204);
+      }
+      expect((await me(key.token)).statusCode).toBe(403);
+    });
+    it('counts non-expiring keys toward the 50 active key limit', async () => {
+      const key = await issue('bob', { lifetimeDays: null });
+      const ids: string[] = [];
+      try {
+        const { rows } = await db.query<{ count: string }>(
+          'select count(*) from client_api_keys where user_id=$1 and revoked_at is null and (expires_at is null or expires_at>clock_timestamp())',
+          [actors.get('bob')!.user.id],
+        );
+        for (let count = Number(rows[0]!.count); count < 50; count++) {
+          const id = randomUUID();
+          await db.query(
+            `insert into client_api_keys(id,user_id,server_id,tenant_id,client_id,name,secret_hash,scopes,repository_ids,credential_epoch,auth_mode,local_password_changed_at,expires_at)
+            select $2,user_id,server_id,tenant_id,client_id,name,$3,scopes,repository_ids,credential_epoch,auth_mode,local_password_changed_at,null from client_api_keys where id=$1`,
+            [key.id, id, hash(id)],
+          );
+          ids.push(id);
+        }
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/v1/me/client-credentials',
+          headers: web('bob'),
+          payload: { ...scope(), lifetimeDays: null },
+        });
+        expect(response.statusCode, response.body).toBe(429);
+        expect(response.json().error.code).toBe('CLIENT_KEY_LIMIT');
+      } finally {
+        await db.query('delete from client_api_keys where id=any($1::uuid[])', [[...ids, key.id]]);
+      }
+    });
+    it('preserves the dated key database bounds and rejects invalid API lifetimes', async () => {
+      const key = await issue();
+      expect(Date.parse(key.expiresAt) - Date.parse(key.createdAt)).toBe(30 * 86400000);
+      for (const days of [0, 91]) {
+        await expect(
+          db.query(
+            "update client_api_keys set expires_at=created_at+$2*interval '1 day' where id=$1",
+            [key.id, days],
+          ),
+        ).rejects.toMatchObject({ code: '23514' });
+        expect(
+          (
+            await app.inject({
+              method: 'POST',
+              url: '/api/v1/me/client-credentials',
+              headers: web(),
+              payload: { ...scope(), lifetimeDays: days },
+            })
+          ).statusCode,
+        ).toBe(400);
+      }
+      expect((await me(key.token)).statusCode).toBe(200);
+    });
     it('rejects CSRF, another tenant, ungranted scopes and attempts to choose another owner', async () => {
       for (const request of [
         { headers: { ...web(), origin: 'https://attacker.invalid' }, payload: scope() },
@@ -623,7 +704,7 @@ describe
       expect((await me(key.token)).statusCode).toBe(403);
     });
     it('applies the existing user credential epoch and local password-change invalidation', async () => {
-      const key = await issue('bob');
+      const key = await issue('bob', { lifetimeDays: null });
       const c = await db.connect();
       try {
         await c.query('begin');
@@ -633,7 +714,7 @@ describe
         c.release();
       }
       expect((await me(key.token)).statusCode).toBe(403);
-      const local = await issue('bob');
+      const local = await issue('bob', { lifetimeDays: null });
       await db.query(
         'update local_credentials set password_changed_at=clock_timestamp() where user_id=$1',
         [actors.get('bob')!.user.id],
@@ -700,7 +781,7 @@ describe
         [expired.id],
       );
       expect((await me(expired.token)).statusCode).toBe(401);
-      const key = await issue();
+      const key = await issue('alice', { lifetimeDays: null });
       await db.query('update users set enabled=false where id=$1', [actors.get('alice')!.user.id]);
       expect((await me(key.token)).statusCode).toBe(403);
       await db.query('update users set enabled=true where id=$1', [actors.get('alice')!.user.id]);
