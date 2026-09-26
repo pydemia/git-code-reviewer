@@ -512,23 +512,18 @@ export async function resolveCentralContext(
       now: (input.now ?? new Date()).toISOString(),
       byteLimit: Math.max(0, limit - builtinBytes - requiredLocalBytes),
       referenceOnly: input.referenceOnly,
+      ...(input.references?.length || input.repositoryName
+        ? {
+            source: {
+              audience: client.audience,
+              ...(input.repositoryName ? { repositoryName: input.repositoryName } : {}),
+              snapshotId: pinned.manifest.payload.snapshotId,
+              manifestHash: pinned.manifest.manifestHash,
+            },
+          }
+        : {}),
     });
-    const originalCentralBytes = central.bytes;
-    for (const item of input.references?.length || input.repositoryName ? central.items : [])
-      item.source = {
-        audience: client.audience,
-        ...(input.repositoryName ? { repositoryName: input.repositoryName } : {}),
-        snapshotId: pinned.manifest.payload.snapshotId,
-        manifestHash: pinned.manifest.manifestHash,
-        originalId: item.id,
-      };
-    central.bytes = central.items.reduce(
-      (total, item) => total + Buffer.byteLength(canonicalJson(item)),
-      0,
-    );
     let bytes = builtinBytes + central.bytes;
-    if (bytes + requiredLocalBytes > limit && central.bytes > originalCentralBytes)
-      throw Error('central-context-budget');
     const sourceHistory: SourceHistoryContext[] = [];
     for (const item of (await input.loadSourceHistory?.(central)) ?? []) {
       if (item.repositoryId !== client.audience.repositoryId) throw Error('history-audience');
@@ -568,6 +563,12 @@ export async function resolveCentralContext(
         now: (input.now ?? new Date()).toISOString(),
         byteLimit: Math.max(0, limit - bytes - requiredLocalBytes),
         referenceOnly: true,
+        source: {
+          audience: identity.audience,
+          ...(reference.repositoryName ? { repositoryName: reference.repositoryName } : {}),
+          snapshotId: source.manifest.payload.snapshotId,
+          manifestHash: source.manifest.manifestHash,
+        },
       });
       const scopedId = (id: string) => `ref-${contentHash({ audience: identity.audience, id })}`;
       for (const item of selectedReference.items) {

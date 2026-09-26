@@ -479,6 +479,51 @@ async function answer(request: Parameters<LocalReviewExecutor['review']>[0]) {
   };
 }
 describe('authorized central snapshot review', () => {
+  it('budgets source provenance before admitting optional reference knowledge', async () => {
+    const f = await setup();
+    const plain = await resolveCentralContext({ ...f.query, referenceOnly: true });
+    expect(plain.status).toBe('ready');
+    if (plain.status !== 'ready') throw Error('reference fixture');
+    const limit = plain.context.bytes + 1;
+    const result = await resolveCentralContext({
+      ...f.query,
+      referenceOnly: true,
+      repositoryName: 'team/reference',
+      knowledgeBytes: limit,
+    });
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw Error(JSON.stringify(result.problems));
+    expect(result.context.bytes).toBeLessThanOrEqual(limit);
+    expect(result.context.central!.items.length).toBeLessThan(plain.context.central!.items.length);
+    expect(result.context.central!.omissions.some((item) => item.reason === 'budget')).toBe(true);
+    expect(
+      result.context.central!.items.every(
+        (item) => item.source?.repositoryName === 'team/reference',
+      ),
+    ).toBe(true);
+    expect(result.context.central!.required).toEqual([]);
+  });
+  it('keeps mandatory policy unavailable when provenance makes it exceed the budget', async () => {
+    const required = bundles();
+    memories(required, 'collective').splice(0);
+    memories(required, 'personal').splice(0);
+    const f = await setup(required);
+    const plain = await resolveCentralContext(f.query);
+    expect(plain.status).toBe('ready');
+    if (plain.status !== 'ready') throw Error('policy fixture');
+    const limit = plain.context.bytes + 1;
+    const result = await resolveCentralContext({
+      ...f.query,
+      repositoryName: 'team/current',
+      knowledgeBytes: limit,
+    });
+    expect(result.status).toBe('needs-context');
+    if (result.status === 'unavailable')
+      throw Error('provenance must be accounted for before selection');
+    expect(result.context.bytes).toBeLessThanOrEqual(limit);
+    expect(result.context.central!.required.some((item) => !item.available)).toBe(true);
+    expect(result.problems.some((item) => item.code === 'missing-context')).toBe(true);
+  });
   it('pins central provenance separately from local knowledge and preserves standalone isolation', async () => {
     const f = await setup();
     const central = await resolveCentralContext(f.query);

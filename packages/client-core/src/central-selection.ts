@@ -81,6 +81,8 @@ type SelectionInput = {
   semanticContracts?: boolean;
   byteLimit: number;
   referenceOnly?: boolean | undefined;
+  /** Provenance is part of the admitted item and must count toward its byte budget. */
+  source?: Omit<NonNullable<CentralReviewItem['source']>, 'originalId'> | undefined;
 };
 export function selectCentralKnowledge(
   input: SelectionInput & {
@@ -308,7 +310,10 @@ function selectKnowledge(
       compare(a.id, b.id),
   );
   const selectedIds = new Set<string>();
-  for (const item of candidates) {
+  for (const candidate of candidates) {
+    const item: CentralReviewItem = input.source
+      ? { ...candidate, source: { ...input.source, originalId: candidate.id } }
+      : candidate;
     const size = Buffer.byteLength(canonicalKnowledgeJson(item));
     if (result.bytes + size > input.byteLimit) {
       result.omissions.push({
