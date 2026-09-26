@@ -1,0 +1,707 @@
+{
+  "status": "completed",
+  "gcrRuntimeSource": "1dceb9de339460b2d4b68d214850d02c149cdaf0",
+  "sharedPackageSource": "a1f2c60f8ee15a398a0dfad6e27db03b956b16e1",
+  "cdSource": "b6123879897ea6f74c309a5e7cf9636eafb8ad30",
+  "cdPackaging": "2f58594dbcb4885c22b61d542999d8ede5e39b0e",
+  "cdBundle": "23cafb701e4b699f2238d0a30f45f74e01b4816d",
+  "commonPackages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.52",
+    "sourceSha": "a1f2c60f8ee15a398a0dfad6e27db03b956b16e1",
+    "buildPlatform": "darwin",
+    "buildArchitecture": "arm64",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.50",
+        "file": "gcr-client-contract-0.1.0-alpha.50.tgz",
+        "sha256": "b899add16fd7ae5ee465b6f530ebf2e60b2e6afe793560129c43ec35ddb651de"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.51",
+        "file": "gcr-client-core-0.1.0-alpha.51.tgz",
+        "sha256": "6ed99bdc9f44dc1664e33dd3741e50cc9c62f7cd38514de5bbf02b09b077a9b2"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.52",
+        "file": "gcr-client-executors-0.1.0-alpha.52.tgz",
+        "sha256": "44906ba0c4f652008740781695b3b20e2a70f01c95befbf98ae532a9f507b5f6"
+      }
+    ]
+  },
+  "cliArtifact": {
+    "schemaVersion": 1,
+    "sourceSha": "a1f2c60f8ee15a398a0dfad6e27db03b956b16e1",
+    "cliVersion": "0.1.0-alpha.41",
+    "clientVersion": "0.1.0-alpha.52",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.50",
+        "file": "gcr-client-contract-0.1.0-alpha.50.tgz",
+        "sha256": "b899add16fd7ae5ee465b6f530ebf2e60b2e6afe793560129c43ec35ddb651de"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.51",
+        "file": "gcr-client-core-0.1.0-alpha.51.tgz",
+        "sha256": "6ed99bdc9f44dc1664e33dd3741e50cc9c62f7cd38514de5bbf02b09b077a9b2"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.52",
+        "file": "gcr-client-executors-0.1.0-alpha.52.tgz",
+        "sha256": "44906ba0c4f652008740781695b3b20e2a70f01c95befbf98ae532a9f507b5f6"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.41",
+        "file": "gcr-cli-0.1.0-alpha.41.tgz",
+        "sha256": "b578a36c5eed769dce4da642a7b2e6395253a9b1cdfe6c7146cfd2054c4981e3"
+      }
+    ]
+  },
+  "vsix": {
+    "version": "2.13.2",
+    "target": "darwin-arm64",
+    "sha256": "80b21ec645d476bc5d6299734599e4ca9535de46402da83dac3755ff2e2b5d5d",
+    "bytes": 733523
+  },
+  "extensionHost": {
+    "status": "passed",
+    "vscode": "1.138.0",
+    "node": "24.18.1",
+    "electron": "42.10.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "extensionVersion": "2.13.2",
+    "delivery": "packaged-extension",
+    "commandCount": 27,
+    "activation": true,
+    "encryptedActivityFixture": false,
+    "hookDefault": "disable",
+    "modelCalled": false,
+    "directConnection": {
+      "discovery": "URL and masked-key flow metadata",
+      "signedConnection": "connected",
+      "cache": "ready",
+      "requests": [
+        {
+          "method": "GET",
+          "route": "/base/api/v1/client-auth/config",
+          "queryKeys": [],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/client-auth/connection-options",
+          "queryKeys": [],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/client-auth/me",
+          "queryKeys": [],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/manifest",
+          "queryKeys": [
+            "clientContractVersion"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/bundles/policy",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/bundles/collective",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/bundles/personal",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        }
+      ],
+      "localUploadBytes": 0,
+      "modelCalls": 0,
+      "source": "owned HTTPS publisher, no production credentials"
+    },
+    "checks": [
+      "activation",
+      "command registration",
+      "central executor and upstream submission commands absent",
+      "clear findings",
+      "cancel without run",
+      "no hook installed",
+      "standalone defaults and user profile",
+      "empty history refresh creates no local store or OS key",
+      "local activity webview opens, refreshes and closes on invalidation without creating storage"
+    ]
+  },
+  "localInstall": {
+    "status": "passed",
+    "installedVersion": "2.13.2",
+    "installedMatchesVsix": {
+      "out/extension.js": "eb37ccc0a54a3c6fa0be42dbaea7cea5c5181df1989cfbe4f0e01c8b22f84025",
+      "out/standalone-review-worker.js": "010f5a5f384881c8ca6832880d9b5331c6ce2c1fa3870b2132ad0c7ca3e3fb96",
+      "out/review-chat-worker.js": "ffffa3f166525cbdd7f1568e3185a321075816aa99c7b20922a157d2db94136a",
+      "out/hook-cli.js": "515578f948d2cfd56f9fb66e9e2c9c7f5ffa24a88c7f63fdc52d76cf16478ee9",
+      "out/gcr-service/main.mjs": "0226e995e91aa5af598361e57805506ba3e100ade20cac0ee0bbe483697a9f56",
+      "out/gcr-service/manifest.json": "4c07be5bb08df6970d6392ec9f8e0e0c63e5759ccb59ee1ccf24d43fb66a9ab6",
+      "out/gcr-service/windows-native.exe": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "out/windows-native.exe": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    "packageManifestMatchesExceptVsCodeMetadata": true,
+    "settingsUnchanged": true,
+    "settingsSha256": "53adcde703c9efcb9ba64b5e6ff3c42e250ad9398c761cf895c3acb1a5e8a7fc",
+    "userHostAdoption": "not forced or verified; next normal activation/reload",
+    "marketplacePublished": false
+  },
+  "browserFixture": {
+    "source": "owned synthetic fixture",
+    "multipleAndAllRepositoriesVerified": true,
+    "tenantChangeResetsSelection": true,
+    "responsive": [
+      {
+        "width": 420,
+        "documentWidth": 420
+      },
+      {
+        "width": 320,
+        "documentWidth": 320
+      }
+    ],
+    "state": {
+      "documentWidth": 1280,
+      "repositoryLabels": [
+        "example/private"
+      ],
+      "secretPresent": false,
+      "serverUrl": "https://pr-review.prism.ai",
+      "url": "/profile?tab=clients",
+      "width": 1280
+    },
+    "errors": []
+  },
+  "tests": {
+    "gcr": {
+      "clientApi": 18,
+      "clientBrowser": 8,
+      "coreAndContract": 78,
+      "profileAndPrompt": 11,
+      "windowsOnlySkipped": 1
+    },
+    "cd": {
+      "centralView": 8,
+      "clientContract": 22,
+      "centralHistory": 2,
+      "centralReview": 12
+    }
+  },
+  "scope": {
+    "multipleRepositories": true,
+    "allRepositories": "all authorized IDs in the selected tenant at issuance; no future wildcard",
+    "maxRepositories": 100,
+    "newDatabaseMigrations": 0,
+    "actualModelCalls": "0 initiated by this task; pre-existing production analysis continued independently",
+    "externalPrComments": 0,
+    "marketplacePublished": false
+  },
+  "limitations": [
+    "Real Extension Host connection used an owned HTTPS publisher, not production reader credentials. Native URL/password UI covered by mock UI tests; installed commands and signed retrieval checked in the real host.",
+    "Existing user Host adoption was not forced or verified.",
+    "No new Windows native-helper build or Windows OS regression; unchanged frozen 1.0.3 helper reused.",
+    "Before snapshot stored row hashes, not per-ID states. Fourteen tables are byte-identical and all old report hashes remain. One analysis and two ledger rows are consistent with completion after the baseline; their exact prior field values were not retained."
+  ],
+  "gcrRelease": "d97b4185ee236eb3a3fcd17eb5af0f7bb2160d48",
+  "deployment": {
+    "context": "PRISM-DEV",
+    "namespace": "git-code-reviewer",
+    "applicationVersion": "0.8.0-alpha.81",
+    "chartVersion": "0.10.77",
+    "helmRevision": 89,
+    "status": "deployed",
+    "imageDigest": "sha256:a6034ea6e0ff7ebb182e3dd963f39e6c77ad25918e413cd80cc972cb4328ab39",
+    "chart": {
+      "status": "passed",
+      "ociDigest": "sha256:4a93b3125463b368a2f80c6deca9a3997050fb1be82ef645ced60e29335469cc",
+      "chartSha256": "b8523843311b3307e232307863ca82b00db0c27c4dc900499f03379c3f363267",
+      "publishedBytesIdentical": true
+    },
+    "render": {
+      "imageDigest": "sha256:a6034ea6e0ff7ebb182e3dd963f39e6c77ad25918e413cd80cc972cb4328ab39",
+      "unexpectedResourceChanges": [],
+      "gcrImageReferences": 7,
+      "allGcrImagesPinned": true
+    },
+    "helmTest": "Succeeded; owned test pod removed",
+    "httpHttps": {
+      "at": "2026-09-26T07:46:59.098Z",
+      "appVersion": "0.8.0-alpha.81",
+      "tlsVerification": true,
+      "checks": [
+        {
+          "origin": "http://pr-review.prism.ai",
+          "statuses": {
+            "/health/startup": 200,
+            "/health/live": 200,
+            "/health/ready": 200,
+            "/api/v1/system": 200,
+            "/profile": 200,
+            "/api/v1/profile": 401,
+            "/api/v1/me/client-credentials": 401,
+            "/api/v1/client-auth/connection-options": 401,
+            "/assets/index-CWdtz_2l.js": 200,
+            "/assets/index-CjFC_Wkt.css": 200
+          },
+          "bundleHashesMatchImage": true
+        },
+        {
+          "origin": "https://pr-review.prism.ai",
+          "statuses": {
+            "/health/startup": 200,
+            "/health/live": 200,
+            "/health/ready": 200,
+            "/api/v1/system": 200,
+            "/profile": 200,
+            "/api/v1/profile": 401,
+            "/api/v1/me/client-credentials": 401,
+            "/api/v1/client-auth/connection-options": 401,
+            "/assets/index-CWdtz_2l.js": 200,
+            "/assets/index-CjFC_Wkt.css": 200
+          },
+          "bundleHashesMatchImage": true
+        }
+      ]
+    },
+    "preservation": {
+      "secrets": [
+        {
+          "name": "git-code-reviewer-auth",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-credential-registry",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-db-keycloak",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-development-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-administration",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-bootstrap",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-preparation-backup",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-tls",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-knowledge-signing-v1",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-auth",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-tls",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-saml-sp",
+          "preserved": true
+        },
+        {
+          "name": "sh.helm.release.v1.git-code-reviewer-identity.v1",
+          "preserved": true
+        },
+        {
+          "name": "sh.helm.release.v1.git-code-reviewer-identity.v2",
+          "preserved": true
+        }
+      ],
+      "configMaps": [
+        {
+          "name": "git-code-reviewer",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-corporate-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-configuration",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-configuration",
+          "preserved": true
+        },
+        {
+          "name": "kube-root-ca.crt",
+          "preserved": true
+        }
+      ],
+      "persistentVolumes": [
+        {
+          "name": "data-git-code-reviewer-postgresql-0",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-artifacts",
+          "preserved": true
+        }
+      ],
+      "routes": [
+        {
+          "name": "git-code-reviewer-https-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-https-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-route",
+          "preserved": true
+        }
+      ],
+      "identityReleaseUnchanged": true,
+      "helm": {
+        "name": "git-code-reviewer",
+        "namespace": "git-code-reviewer",
+        "revision": "89",
+        "updated": "2026-09-26 16:42:24.601628 +0900 KST",
+        "status": "deployed",
+        "chart": "git-code-reviewer-0.10.77",
+        "app_version": "0.8.0-alpha.81"
+      },
+      "helmValuesOnlyImageChanged": true,
+      "database": {
+        "tables": {
+          "users": {
+            "before": 8,
+            "after": 8,
+            "preserved": true,
+            "originalRowHashesStillPresent": 8,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "chat_accounts": {
+            "before": 7,
+            "after": 7,
+            "preserved": true,
+            "originalRowHashesStillPresent": 7,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "analysis_runs": {
+            "before": 281,
+            "after": 283,
+            "preserved": false,
+            "originalRowHashesStillPresent": 280,
+            "missingOriginalRowHashes": 1,
+            "additionalOrUpdatedRowHashes": 3,
+            "verification": "runtime-completion-and-append",
+            "runtimeCompletionRows": [
+              {
+                "id": "661573b7-2b30-418f-94ac-2c88695f917a",
+                "state": "completed",
+                "stage": "published",
+                "progress": 100,
+                "created_at": "2026-09-26T07:00:49.111812+00:00",
+                "started_at": "2026-09-26T07:00:49.181968+00:00",
+                "finished_at": "2026-09-26T07:09:30.535498+00:00"
+              }
+            ],
+            "followupTotal": 283,
+            "followupRowsCreatedAfterBaseline": 2
+          },
+          "reports": {
+            "before": 272,
+            "after": 274,
+            "preserved": false,
+            "originalRowHashesStillPresent": 272,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 2,
+            "verification": "append-only",
+            "runtimeCompletionRows": [],
+            "followupTotal": 274,
+            "followupRowsCreatedAfterBaseline": 2
+          },
+          "repository_grants": {
+            "before": 2,
+            "after": 2,
+            "preserved": true,
+            "originalRowHashesStillPresent": 2,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "tenant_memberships": {
+            "before": 8,
+            "after": 8,
+            "preserved": true,
+            "originalRowHashesStillPresent": 8,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "review_memories": {
+            "before": 10,
+            "after": 10,
+            "preserved": true,
+            "originalRowHashesStillPresent": 10,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "local_credentials": {
+            "before": 7,
+            "after": 7,
+            "preserved": true,
+            "originalRowHashesStillPresent": 7,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "review_rules": {
+            "before": 0,
+            "after": 0,
+            "preserved": true,
+            "originalRowHashesStillPresent": 0,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "review_rule_revisions": {
+            "before": 0,
+            "after": 0,
+            "preserved": true,
+            "originalRowHashesStillPresent": 0,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "review_knowledge_releases": {
+            "before": 11,
+            "after": 11,
+            "preserved": true,
+            "originalRowHashesStillPresent": 11,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "review_history_collections": {
+            "before": 1,
+            "after": 1,
+            "preserved": true,
+            "originalRowHashesStillPresent": 1,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "repositories": {
+            "before": 3,
+            "after": 3,
+            "preserved": true,
+            "originalRowHashesStillPresent": 3,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "client_api_keys": {
+            "before": 9,
+            "after": 9,
+            "preserved": true,
+            "originalRowHashesStillPresent": 9,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "user_client_credential_epochs": {
+            "before": 2,
+            "after": 2,
+            "preserved": true,
+            "originalRowHashesStillPresent": 2,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "analysis_review_tasks": {
+            "before": 409,
+            "after": 409,
+            "preserved": true,
+            "originalRowHashesStillPresent": 409,
+            "missingOriginalRowHashes": 0,
+            "additionalOrUpdatedRowHashes": 0,
+            "verification": "identical"
+          },
+          "model_request_ledger": {
+            "before": 10134,
+            "after": 10364,
+            "preserved": false,
+            "originalRowHashesStillPresent": 10132,
+            "missingOriginalRowHashes": 2,
+            "additionalOrUpdatedRowHashes": 232,
+            "verification": "runtime-completion-and-append",
+            "runtimeCompletionRows": [
+              {
+                "id": "c595ce6b-2fc3-468f-b4ff-9fc8fe34ddef",
+                "state": "completed",
+                "created_at": "2026-09-26T07:03:27.046283+00:00",
+                "finished_at": "2026-09-26T07:03:30.991494+00:00",
+                "lane": "batch",
+                "input_bytes": 41253
+              },
+              {
+                "id": "4cf7b34f-0984-49b8-b1d7-01292744f0ce",
+                "state": "completed",
+                "created_at": "2026-09-26T07:03:29.518468+00:00",
+                "finished_at": "2026-09-26T07:03:32.566236+00:00",
+                "lane": "batch",
+                "input_bytes": 35397
+              }
+            ],
+            "followupTotal": 10389,
+            "followupRowsCreatedAfterBaseline": 255
+          }
+        },
+        "migrationsUnchanged": true,
+        "migrationCount": 59,
+        "tls": {
+          "ssl": true,
+          "version": "TLSv1.3",
+          "cipher": "TLS_AES_256_GCM_SHA384"
+        },
+        "tlsMode": "verify-full",
+        "initialStrictHashComparison": "failed: running production analysis changed three tables; no restore or data mutation performed",
+        "verification": "passed with observed runtime updates",
+        "limitation": "Before snapshot stored row hashes, not per-ID states. Fourteen tables are byte-identical and all old report hashes remain. One analysis and two ledger rows are consistent with completion after the baseline; their exact prior field values were not retained."
+      },
+      "deployments": [
+        {
+          "name": "git-code-reviewer-identity",
+          "generation": 2,
+          "observedGeneration": 2,
+          "ready": 2,
+          "updated": 2,
+          "desired": 2,
+          "images": [
+            "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+          ]
+        },
+        {
+          "name": "git-code-reviewer-server",
+          "generation": 89,
+          "observedGeneration": 89,
+          "ready": 1,
+          "updated": 1,
+          "desired": 1,
+          "images": [
+            "docker.io/pydemia/git-code-reviewer@sha256:a6034ea6e0ff7ebb182e3dd963f39e6c77ad25918e413cd80cc972cb4328ab39"
+          ]
+        },
+        {
+          "name": "git-code-reviewer-worker",
+          "generation": 86,
+          "observedGeneration": 86,
+          "ready": 1,
+          "updated": 1,
+          "desired": 1,
+          "images": [
+            "docker.io/pydemia/git-code-reviewer@sha256:a6034ea6e0ff7ebb182e3dd963f39e6c77ad25918e413cd80cc972cb4328ab39",
+            "docker.io/pydemia/git-code-reviewer@sha256:a6034ea6e0ff7ebb182e3dd963f39e6c77ad25918e413cd80cc972cb4328ab39"
+          ]
+        }
+      ]
+    }
+  },
+  "productionBrowser": {
+    "assets": [
+      "/assets/index-CWdtz_2l.js"
+    ],
+    "nameEmpty": true,
+    "pageWidth": 2501,
+    "selectedRepositories": [
+      {
+        "checked": true,
+        "disabled": false,
+        "label": "현재 접근 가능한 모든 저장소 (2개)"
+      },
+      {
+        "checked": true,
+        "disabled": true,
+        "label": "skccmygit/skax-successionX-backend"
+      },
+      {
+        "checked": true,
+        "disabled": true,
+        "label": "skccmygit/skax-successionX-helm"
+      }
+    ],
+    "serverUrl": "https://pr-review.prism.ai",
+    "url": "http://pr-review.prism.ai/profile?tab=clients",
+    "viewportWidth": 2501,
+    "multiSelectionCountObserved": 2,
+    "allSelectionCountObserved": 2,
+    "apiKeyIssued": false,
+    "existingUserDraftUntouched": true,
+    "errors": []
+  },
+  "cleanup": {
+    "temporaryHelmValuesAndRenderedSecretsRemoved": true,
+    "helmTestPodRemoved": true,
+    "fixtureServerStopped": true,
+    "fixtureAndOwnedProductionTabsClosed": true,
+    "packagedTestExtensionExtractionRemoved": true,
+    "temporaryExtensionHostCredentialsRemoved": true,
+    "existingUserTabsAndDraftPreserved": true,
+    "productionKeyIssuedOrRevoked": false
+  }
+}
