@@ -2510,7 +2510,7 @@ body.workspace-resizing:has(.resize-bottom) {
 }
 
 .profile-page {
-  min-height: 100dvh;
+  height: 100dvh;
   overflow: auto;
   background: #f4f6f8;
 }
