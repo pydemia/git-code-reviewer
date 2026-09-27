@@ -9,5 +9,6 @@ node_modules
 coverage
 test-results
 playwright-report
+apps/web/design
 .env*
 !.env.example

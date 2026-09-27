@@ -59,7 +59,7 @@ function ReviewCommentBlock({
   const ghesLink = finding.links.find((link) => link.rel === 'ghes' && link.available);
   return (
     <article
-      className={`report-unit priority-border-${finding.priority.toLowerCase()}${selected ? ' active' : ''}`}
+      className={`report-unit${selected ? ' active' : ''}`}
       aria-label="검토 의견"
       data-comment-id={finding.id}
       aria-current={selected ? 'true' : undefined}

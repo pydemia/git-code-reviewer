@@ -231,7 +231,7 @@
 }
 .history-page .history-pull[aria-pressed='true'] {
   background: var(--accent-soft);
-  box-shadow: inset 3px 0 var(--accent);
+  color: var(--accent);
 }
 .history-page .history-pull strong {
   font-size: 13px;
@@ -286,9 +286,8 @@
   color: var(--muted);
 }
 .history-context-note {
-  border-left: 3px solid var(--border-strong);
-  padding: 8px 12px;
-  background: var(--surface-subtle);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
@@ -330,7 +329,7 @@
 }
 .history-comment-card {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--surface);
   overflow: hidden;
   min-width: 0;

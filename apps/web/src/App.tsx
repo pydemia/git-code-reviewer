@@ -5,6 +5,7 @@ import {
   Activity,
   Brain,
   Braces,
+  BookOpenText,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -974,6 +975,20 @@ function ReviewWorkspace({
           </a>
         </div>
       </div>
+      <nav className="review-navigation-rail" aria-label="리뷰 탐색">
+        <a href="/" aria-current="page" aria-label="Pull requests 목록">
+          <GitPullRequest size={19} aria-hidden="true" />
+          <span>PR</span>
+        </a>
+        <a href="/review-observations" aria-label="리뷰 관측">
+          <Activity size={19} aria-hidden="true" />
+          <span>관측</span>
+        </a>
+        <a href="/review-history" aria-label="리뷰 이력">
+          <BookOpenText size={19} aria-hidden="true" />
+          <span>이력</span>
+        </a>
+      </nav>
       <main
         className={`workspace-grid${resizing ? ` is-resizing resize-${resizing}` : ''}`}
         ref={workspaceRef}
