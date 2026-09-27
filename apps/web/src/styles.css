@@ -1590,6 +1590,9 @@ body.workspace-resizing:has(.resize-bottom) {
   color: inherit;
   font-size: inherit;
 }
+.inline-review .review-markdown :is(h4, h5, h6) {
+  color: inherit;
+}
 .inline-review .review-markdown p {
   white-space: normal;
 }
