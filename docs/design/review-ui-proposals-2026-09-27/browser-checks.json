@@ -1,0 +1,248 @@
+{
+  "desktop": [
+    {
+      "variant": "U1",
+      "metrics": {
+        "heading": "optional extracted_entities를 함수 전체에서 안전하게 정규화하세요",
+        "height": 720,
+        "layout": "workspace ui-U1",
+        "pageWidth": 1280,
+        "suggestion": "수정 제안함수 시작 부분에서 빈 dict로 정규화한 뒤 이후의 .get() 호출이 동일한 안전한 객체를 사용하도록 하세요.extracted_entities = extracted_entities or {}",
+        "width": 1280
+      }
+    },
+    {
+      "variant": "U2",
+      "metrics": {
+        "heading": "optional extracted_entities를 함수 전체에서 안전하게 정규화하세요",
+        "height": 720,
+        "layout": "workspace ui-U2",
+        "pageWidth": 1280,
+        "suggestion": "수정 제안함수 시작 부분에서 빈 dict로 정규화한 뒤 이후의 .get() 호출이 동일한 안전한 객체를 사용하도록 하세요.extracted_entities = extracted_entities or {}",
+        "width": 1280
+      }
+    },
+    {
+      "variant": "U3",
+      "metrics": {
+        "heading": "optional extracted_entities를 함수 전체에서 안전하게 정규화하세요",
+        "height": 720,
+        "layout": "workspace ui-U3",
+        "pageWidth": 1280,
+        "suggestion": "수정 제안함수 시작 부분에서 빈 dict로 정규화한 뒤 이후의 .get() 호출이 동일한 안전한 객체를 사용하도록 하세요.extracted_entities = extracted_entities or {}",
+        "width": 1280
+      }
+    },
+    {
+      "variant": "U4",
+      "metrics": {
+        "heading": "optional extracted_entities를 함수 전체에서 안전하게 정규화하세요",
+        "height": 720,
+        "layout": "workspace ui-U4",
+        "pageWidth": 1280,
+        "suggestion": "수정 제안함수 시작 부분에서 빈 dict로 정규화한 뒤 이후의 .get() 호출이 동일한 안전한 객체를 사용하도록 하세요.extracted_entities = extracted_entities or {}",
+        "width": 1280
+      }
+    },
+    {
+      "variant": "U5",
+      "metrics": {
+        "heading": "optional extracted_entities를 함수 전체에서 안전하게 정규화하세요",
+        "height": 720,
+        "layout": "workspace ui-U5",
+        "pageWidth": 1280,
+        "suggestion": "수정 제안함수 시작 부분에서 빈 dict로 정규화한 뒤 이후의 .get() 호출이 동일한 안전한 객체를 사용하도록 하세요.extracted_entities = extracted_entities or {}",
+        "width": 1280
+      }
+    }
+  ],
+  "selection": {
+    "keyboard": "C1 ArrowRight -> C2",
+    "independentUi": "U2 kept C2",
+    "sourceDisclosure": true,
+    "longMarkdownTable": true,
+    "errorState": "alert with explicit failure"
+  },
+  "server": "127.0.0.1:18087",
+  "mobile_initial": [
+    {
+      "variant": "U1",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 341,
+        "codeViewport": 330,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 332,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U2",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 341,
+        "codeViewport": 328,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 330,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U3",
+      "metrics": {
+        "bodyWidth": 691,
+        "codeOverflow": 637,
+        "codeViewport": 637,
+        "pageWidth": 691,
+        "suggestion": true,
+        "tableOverflow": 639,
+        "tableViewport": 639,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U4",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 341,
+        "codeViewport": 328,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 330,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U5",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 360,
+        "codeViewport": 360,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 362,
+        "viewport": 390
+      }
+    }
+  ],
+  "mobile_final": [
+    {
+      "variant": "U1",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 341,
+        "codeViewport": 330,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 332,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U2",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 341,
+        "codeViewport": 328,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 330,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U3",
+      "metrics": {
+        "codeOverflow": 341,
+        "codeViewport": 324,
+        "pageWidth": 390,
+        "span": 3,
+        "tableOverflow": 490,
+        "tableViewport": 326,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U4",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 341,
+        "codeViewport": 328,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 330,
+        "viewport": 390
+      }
+    },
+    {
+      "variant": "U5",
+      "metrics": {
+        "bodyWidth": 390,
+        "codeOverflow": 360,
+        "codeViewport": 360,
+        "pageWidth": 390,
+        "suggestion": true,
+        "tableOverflow": 490,
+        "tableViewport": 362,
+        "viewport": 390
+      }
+    }
+  ],
+  "corrections": [
+    {
+      "issue": "U3 mobile table overflow",
+      "beforeWidth": 691,
+      "viewport": 390,
+      "finalWidth": 390,
+      "fix": "fixed table columns and responsive expanded-row colspan"
+    }
+  ],
+  "paletteSelections": [
+    {
+      "accent": "#176B5D",
+      "canvas": "rgb(245, 246, 244)",
+      "pageWidth": 390,
+      "width": 390
+    },
+    {
+      "accent": "#176B5D",
+      "canvas": "rgb(251, 249, 250)",
+      "pageWidth": 1280,
+      "width": 1280
+    },
+    {
+      "accent": "#176B5D",
+      "canvas": "rgb(242, 246, 247)",
+      "pageWidth": 1280,
+      "width": 1280
+    },
+    {
+      "accent": "#176B5D",
+      "canvas": "rgb(250, 255, 252)",
+      "pageWidth": 1280,
+      "width": 1280
+    },
+    {
+      "accent": "#176B5D",
+      "canvas": "rgb(247, 245, 239)",
+      "pageWidth": 1280,
+      "width": 1280
+    }
+  ],
+  "empty": {
+    "findings": 0,
+    "heading": "변경 코드 리뷰 리뷰 의견 0건",
+    "message": "표시할 리뷰 의견이 없습니다.해당 조건의 리뷰 의견은 0건입니다. 분석 완료 여부는 별도 상태로 유지합니다."
+  },
+  "loading": "리뷰 원문을 불러오는 중입니다.\n\n현재 선택한 revision의 원문을 조회하고 있습니다.",
+  "screenshotLimit": "Mobile full-page capture was malformed; U2 mobile deliverable uses verified viewport capture."
+}
