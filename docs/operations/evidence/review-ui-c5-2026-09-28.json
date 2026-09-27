@@ -1,0 +1,520 @@
+{
+  "at": "2026-09-27T16:58:26.011152+00:00",
+  "branch": "codex/windows-native-support",
+  "designCommit": "7da7666",
+  "productSourceSHA": "b92ee583858872eef92f96bb488cec14119c28b1",
+  "releaseCommit": "d7aadc68ce4323346b288a8d09a7c5d3381ea9ae",
+  "appVersion": "0.8.0-alpha.85",
+  "chartVersion": "0.10.81",
+  "imageDigest": "sha256:cdcd361fc89c51ba48fbcfdbcebf45f0b3d7f9978a17de36af54616f72be656d",
+  "platform": "linux/amd64",
+  "runtimeBase": "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "runtimeImageLayers": 40,
+  "chartRegistryDigest": "sha256:c29d1965e6572b0420830a786d86df235b97932a9f9d1801b52f781646c462d9",
+  "chartFileSHA256": "22e0bda2a6146f616a00c088484ac44d9c5c0d2dc900d6af0b7f058b771e352e",
+  "helmRevision": 94,
+  "deploymentStatus": "deployed",
+  "verification": {
+    "tests": 26,
+    "testFiles": 9,
+    "testSourceSHA": "047af197daa77ce5822231f4c13ac8e26b269c7b",
+    "finalWebBuild": "passed",
+    "fullBuild": "passed",
+    "changedFileLint": "passed",
+    "wholeRepoLint": "not-rerun",
+    "imageSmoke": {
+      "status": "passed",
+      "node": "v22.23.2",
+      "user": 1000,
+      "versions": {
+        "static": "10.1.3",
+        "vitest": "4.1.11"
+      },
+      "packageFolders": [
+        "@fastify+static@10.1.3",
+        "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+        "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+      ],
+      "assets": {
+        "index-BNcNKqmw.js": "5136628eda1b3b09abc5f582fe5dd6d7750a574c99b9d5953622fa0fb8b7cc35",
+        "index-DUR7XoYH.css": "fcbe2f09d7988249916a672eef0a43915590dfc9a6f70849a358da55ad207d5f"
+      },
+      "artifactChecks": [
+        "no-obsolete-runtime-packages",
+        "no-obsolete-browser-bundles",
+        "public-asset-content-and-cache",
+        "traversal-denied",
+        "no-build-secret"
+      ],
+      "network": "none",
+      "rootFilesystem": "read-only"
+    },
+    "localAssetsMatchImage": true,
+    "chartDownloadIdentical": true,
+    "helmRender": {
+      "imageDigest": "sha256:cdcd361fc89c51ba48fbcfdbcebf45f0b3d7f9978a17de36af54616f72be656d",
+      "unexpectedResourceChanges": [],
+      "gcrImageReferences": 7,
+      "allGcrImagesPinned": true
+    },
+    "health": {
+      "at": "2026-09-27T16:46:42.734Z",
+      "appVersion": "0.8.0-alpha.85",
+      "tlsVerification": true,
+      "checks": [
+        {
+          "origin": "http://pr-review.prism.ai",
+          "statuses": {
+            "/health/startup": 200,
+            "/health/live": 200,
+            "/health/ready": 200,
+            "/api/v1/system": 200,
+            "/profile": 200,
+            "/api/v1/profile": 401,
+            "/api/v1/me/client-credentials": 401,
+            "/assets/index-BNcNKqmw.js": 200,
+            "/assets/index-DUR7XoYH.css": 200
+          },
+          "bundleHashesMatchImage": true
+        },
+        {
+          "origin": "https://pr-review.prism.ai",
+          "statuses": {
+            "/health/startup": 200,
+            "/health/live": 200,
+            "/health/ready": 200,
+            "/api/v1/system": 200,
+            "/profile": 200,
+            "/api/v1/profile": 401,
+            "/api/v1/me/client-credentials": 401,
+            "/assets/index-BNcNKqmw.js": 200,
+            "/assets/index-DUR7XoYH.css": 200
+          },
+          "bundleHashesMatchImage": true
+        }
+      ]
+    },
+    "browser": {
+      "evidence": "actual authenticated PRISM-DEV data through CUA DOM and UI interactions",
+      "reviewRevisionPreserved": true,
+      "reviewComments": 6,
+      "suggestionBoxes": 6,
+      "inlineMarkdownBlocks": 3,
+      "equalNeutralCommentBorders": true,
+      "codeNavigationSelectedLine": 62,
+      "splitUnified": "passed",
+      "keyboardResizeAndOriginalSettingsRestored": true,
+      "desktop1280PageWidth": 1280,
+      "mobile": {
+        "codeScroll": [
+          {
+            "clientWidth": 334,
+            "scrollWidth": 478
+          },
+          {
+            "clientWidth": 334,
+            "scrollWidth": 1560
+          },
+          {
+            "clientWidth": 334,
+            "scrollWidth": 591
+          },
+          {
+            "clientWidth": 334,
+            "scrollWidth": 449
+          },
+          {
+            "clientWidth": 334,
+            "scrollWidth": 631
+          },
+          {
+            "clientWidth": 334,
+            "scrollWidth": 399
+          }
+        ],
+        "comments": 6,
+        "mode": "review-diff unified",
+        "pageWidth": 390,
+        "rail": "none",
+        "resizers": ["none", "none", "none"],
+        "viewport": {
+          "height": 844,
+          "width": 390
+        }
+      },
+      "observations": {
+        "sections": 5,
+        "alerts": [],
+        "flatSectionBorders": [
+          {
+            "left": "0px",
+            "shadow": "none",
+            "top": "1px"
+          },
+          {
+            "left": "0px",
+            "shadow": "none",
+            "top": "1px"
+          },
+          {
+            "left": "0px",
+            "shadow": "none",
+            "top": "1px"
+          },
+          {
+            "left": "0px",
+            "shadow": "none",
+            "top": "1px"
+          },
+          {
+            "left": "0px",
+            "shadow": "none",
+            "top": "1px"
+          }
+        ]
+      },
+      "history": {
+        "alerts": [],
+        "commentCards": 20,
+        "githubSourceLinks": 22,
+        "markdownBlocks": 23,
+        "path": "/review-history",
+        "selectedBorder": ["0px", "0px", "none"],
+        "selectedPr": "#1084",
+        "bodyVersions": 1,
+        "sourceMarkdown": 3,
+        "replyContexts": 4,
+        "observationHistoryEntries": 1
+      },
+      "screenshot": {
+        "status": "not-captured",
+        "reason": "Mac locked; CDP Page.captureScreenshot timed out in both documented APIs"
+      },
+      "bodyVersionCountMethod": "summary text ending with body version; raw diff and guidance controls excluded"
+    },
+    "webTypecheck": "passed",
+    "serverRollout": "passed",
+    "workerRollout": "passed"
+  },
+  "preservation": {
+    "protectedResources": {
+      "secrets": [
+        {
+          "name": "git-code-reviewer-auth",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-credential-registry",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-db-keycloak",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-development-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-administration",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-bootstrap",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-preparation-backup",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-tls",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-knowledge-signing-v1",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-auth",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-tls",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-saml-sp",
+          "preserved": true
+        },
+        {
+          "name": "sh.helm.release.v1.git-code-reviewer-identity.v1",
+          "preserved": true
+        },
+        {
+          "name": "sh.helm.release.v1.git-code-reviewer-identity.v2",
+          "preserved": true
+        }
+      ],
+      "configMaps": [
+        {
+          "name": "git-code-reviewer",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-corporate-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-configuration",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-ca",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-configuration",
+          "preserved": true
+        },
+        {
+          "name": "kube-root-ca.crt",
+          "preserved": true
+        }
+      ],
+      "persistentVolumes": [
+        {
+          "name": "data-git-code-reviewer-postgresql-0",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-artifacts",
+          "preserved": true
+        }
+      ],
+      "routes": [
+        {
+          "name": "git-code-reviewer-https-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-https-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-route",
+          "preserved": true
+        }
+      ]
+    },
+    "protectedResourceCount": 27,
+    "identityReleaseUnchanged": true,
+    "helmValuesOnlyImageChanged": true,
+    "tables": {
+      "users": {
+        "before": 8,
+        "after": 8,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "analysis_runs": {
+        "before": 324,
+        "after": 325,
+        "exactSnapshotEqual": false,
+        "missingOriginalRows": 0,
+        "newRows": 1,
+        "preserved": true
+      },
+      "reports": {
+        "before": 316,
+        "after": 317,
+        "exactSnapshotEqual": false,
+        "missingOriginalRows": 0,
+        "newRows": 1,
+        "preserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "tenant_memberships": {
+        "before": 8,
+        "after": 8,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "review_memories": {
+        "before": 13,
+        "after": 13,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "local_credentials": {
+        "before": 7,
+        "after": 7,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "review_rules": {
+        "before": 0,
+        "after": 0,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "review_rule_revisions": {
+        "before": 0,
+        "after": 0,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "review_knowledge_releases": {
+        "before": 13,
+        "after": 13,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "review_history_collections": {
+        "before": 1,
+        "after": 1,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "repositories": {
+        "before": 3,
+        "after": 3,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "client_api_keys": {
+        "before": 10,
+        "after": 10,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "user_client_credential_epochs": {
+        "before": 2,
+        "after": 2,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "analysis_review_tasks": {
+        "before": 552,
+        "after": 552,
+        "exactSnapshotEqual": true,
+        "missingOriginalRows": 0,
+        "newRows": 0,
+        "preserved": true
+      },
+      "model_request_ledger": {
+        "before": 13073,
+        "after": 13201,
+        "exactSnapshotEqual": false,
+        "missingOriginalRows": 0,
+        "newRows": 128,
+        "preserved": true
+      }
+    },
+    "migrationsUnchanged": true,
+    "migrationCount": 60,
+    "latestMigrationChecksum": "8fba555e7e9e25e26dab1d590eec8e036fb9895a78a30582c3510190655b106f",
+    "databaseTLS": {
+      "ssl": true,
+      "version": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384"
+    },
+    "databaseTLSMode": "verify-full"
+  },
+  "retiringWorkers": [],
+  "manualProductionAnalysisRequests": 0,
+  "additionalLiveModelTests": 0,
+  "manualGitHubCommentRequests": 0,
+  "limits": [
+    "Existing Vite 500 kB chunk and zod annotation warnings remain",
+    "No Safari/Firefox or screen reader validation",
+    "Production screenshot unavailable while Mac locked; DOM/UI and actual asset checks completed",
+    "Existing 3600 second worker shutdown grace preserved"
+  ],
+  "temporaryRegistryCredentialsRemoved": true,
+  "temporaryHelmRegistryCredentialsRemoved": true,
+  "temporaryVerificationCertificateRemoved": true,
+  "temporaryFullHelmValuesAndManifestsRemoved": true,
+  "deployments": [
+    {
+      "name": "git-code-reviewer-identity",
+      "generation": 2,
+      "observedGeneration": 2,
+      "ready": 2,
+      "updated": 2,
+      "desired": 2,
+      "images": [
+        "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+      ]
+    },
+    {
+      "name": "git-code-reviewer-server",
+      "generation": 94,
+      "observedGeneration": 94,
+      "ready": 1,
+      "updated": 1,
+      "desired": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:cdcd361fc89c51ba48fbcfdbcebf45f0b3d7f9978a17de36af54616f72be656d"
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker",
+      "generation": 91,
+      "observedGeneration": 91,
+      "ready": 1,
+      "updated": 1,
+      "desired": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:cdcd361fc89c51ba48fbcfdbcebf45f0b3d7f9978a17de36af54616f72be656d",
+        "docker.io/pydemia/git-code-reviewer@sha256:cdcd361fc89c51ba48fbcfdbcebf45f0b3d7f9978a17de36af54616f72be656d"
+      ]
+    }
+  ],
+  "previousWorkerPodRemoved": true
+}
