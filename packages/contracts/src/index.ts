@@ -364,6 +364,8 @@ export const analysisListSchema = z.object({
       id: z.string().uuid().nullable(),
       snapshotId: z.string().uuid(),
       revision: z.number().int().nullable(),
+      pullRevision: z.number().int().positive().nullable().optional(),
+      revisionScope: z.enum(['collective', 'personal']).optional(),
       state: z.string().nullable(),
       stage: z.string().nullable(),
       progress: z.number().int().nullable(),
@@ -375,6 +377,7 @@ export const analysisListSchema = z.object({
       headSha: z.string(),
     }),
   ),
+  nextCursor: z.string().nullable().optional(),
 });
 
 export const analysisStatusSchema = z.object({

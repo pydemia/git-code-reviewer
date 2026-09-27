@@ -183,7 +183,10 @@ export async function registerAnalysisRoutes(
       const context = await authorizedContext(database, authorization, request, analysisId);
       if (!context) return hiddenNotFound(request, reply);
       const result = await database.query(
-        `select ar.id, ar.snapshot_id as "snapshotId", ar.revision, ar.state, ar.stage, ar.progress,
+        `select ar.id, ar.snapshot_id as "snapshotId", ar.revision,
+               ar.pull_revision as "pullRevision",
+               case when ar.memory_owner_user_id is null then 'collective' else 'personal' end as "revisionScope",
+               ar.state, ar.stage, ar.progress,
               ar.progress_detail as "progressDetail", ar.created_at as "createdAt", s.resolution,
               s.merge_base_sha as "mergeBaseSha", sr.base_sha as "baseSha", sr.head_sha as "headSha"
        from analysis_runs ar join snapshots s on s.id = ar.snapshot_id

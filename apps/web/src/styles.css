@@ -619,6 +619,13 @@ h1 {
 .revision-button {
   min-height: 27px;
   font-size: 11px;
+  max-width: 330px;
+}
+
+.latest-revision-link {
+  color: var(--accent);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .workspace-grid {

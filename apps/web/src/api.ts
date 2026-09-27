@@ -69,9 +69,11 @@ import {
 } from '@gcr/contracts';
 
 export type WorklistItem = PullRequestSummary & { repository: Repository };
+export type AnalysisRevision = ReturnType<typeof analysisListSchema.parse>['items'][number];
 export type WorkspaceData = {
   pull: ReturnType<typeof pullRequestDetailSchema.parse>;
   analysis: ReturnType<typeof analysisListSchema.parse>['items'][number] | null;
+  analyses: AnalysisRevision[];
   files: ReturnType<typeof snapshotFileListSchema.parse>['items'];
   diff: ReturnType<typeof diffIndexSchema.parse> | null;
   commits: ReturnType<typeof snapshotCommitListSchema.parse>['commits'];
@@ -660,24 +662,57 @@ export async function registerGitHubRepository(
   await mutateJson(`/api/v1/admin/github-connections/${connectionId}/repositories`, 'POST', values);
 }
 
+export async function loadAnalysisRevisions(
+  repositoryId: string,
+  pullNumber: number,
+  signal: AbortSignal,
+): Promise<AnalysisRevision[]> {
+  const items = new Map<string, AnalysisRevision>();
+  const cursors = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    const page = analysisListSchema.parse(
+      await fetchJson(
+        `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses${query}`,
+        signal,
+      ),
+    );
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    for (const item of page.items) items.set(item.id ?? item.snapshotId, item);
+    cursor = page.nextCursor ?? null;
+    if (cursor && cursors.has(cursor)) throw new Error('Analysis history cursor did not advance');
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
+  return [...items.values()];
+}
+
 export async function loadWorkspace(
   repositoryId: string,
   pullNumber: number,
   signal: AbortSignal,
   analysisId?: string,
 ): Promise<WorkspaceData> {
-  const [pullValue, analysesValue] = await Promise.all([
+  const [pullValue, analyses] = await Promise.all([
     fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
-    fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses`, signal),
+    loadAnalysisRevisions(repositoryId, pullNumber, signal),
   ]);
   const pull = pullRequestDetailSchema.parse(pullValue);
-  const analyses = analysisListSchema.parse(analysesValue).items;
   const analysis = analysisId
     ? (analyses.find((item) => item.id === analysisId) ?? null)
     : (analyses[0] ?? null);
   if (analysisId && !analysis) throw new Error('Analysis revision is unavailable');
   if (!analysis)
-    return { pull, analysis: null, files: [], diff: null, commits: [], report: null, objects: [] };
+    return {
+      pull,
+      analysis: null,
+      analyses,
+      files: [],
+      diff: null,
+      commits: [],
+      report: null,
+      objects: [],
+    };
   const reportReady =
     analysis.id && (analysis.state === 'completed' || analysis.state === 'partial')
       ? analysis.id
@@ -692,6 +727,7 @@ export async function loadWorkspace(
   return {
     pull,
     analysis,
+    analyses,
     files: snapshotFileListSchema.parse(filesValue).items,
     diff: diffIndexSchema.parse(diffValue),
     commits: snapshotCommitListSchema.parse(commitsValue).commits,

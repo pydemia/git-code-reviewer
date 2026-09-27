@@ -5,7 +5,6 @@ import {
   Activity,
   Brain,
   Braces,
-  ChevronDown,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -36,6 +35,7 @@ import {
   loadWorklist,
   loadWorkspace,
   loadAnalysisStatus,
+  loadAnalysisRevisions,
   openChatSession,
   refreshPull,
   sendChatMessage,
@@ -59,6 +59,8 @@ import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewGrade } from './ReviewGrade.tsx';
 import { PullRequestFilters, PullRequestState } from './PullRequestFilters.tsx';
+import { AnalysisRevisionSelect } from './AnalysisRevisionSelect.tsx';
+import { startVisiblePolling } from './visible-polling.ts';
 import { ChatPanel } from './ChatPanel.tsx';
 import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
 import { ChatRunHistory } from './ChatRunHistory.tsx';
@@ -157,31 +159,22 @@ function Worklist() {
   }>({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
 
   useEffect(() => {
-    const controller = new AbortController();
     setState({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
-    void loadCurrentUser(controller.signal)
-      .then((currentUser) => {
-        if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    return startVisiblePolling(
+      async (signal) => {
+        const currentUser = await loadCurrentUser(signal);
+        if (signal.aborted) return;
         const tenantId = currentUser.tenants.some((tenant) => tenant.id === selectedTenantId)
           ? selectedTenantId
           : (currentUser.tenants[0]?.id ?? '');
         setUser(currentUser);
         if (tenantId !== selectedTenantId) setSelectedTenantId(tenantId);
         if (tenantId) window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
-        return loadWorklist(controller.signal, tenantId || undefined, pullState);
-      })
-      .then(
-        (result) => {
-          if (!controller.signal.aborted) setState({ status: 'ready', ...result });
-        },
-        (error: unknown) => {
-          if (!controller.signal.aborted) {
-            console.error(error);
-            setState({ status: 'error', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
-          }
-        },
-      );
-    return () => controller.abort();
+        const result = await loadWorklist(signal, tenantId || undefined, pullState);
+        if (!signal.aborted) setState({ status: 'ready', ...result });
+      },
+      () => setState((current) => ({ ...current, status: 'error' })),
+    );
   }, [reloadToken, selectedTenantId, pullState]);
 
   const selectTenant = (tenantId: string) => {
@@ -246,11 +239,9 @@ function Worklist() {
             <a
               className="pr-row"
               href={
-                pr.latestAnalysisId
-                  ? `/reviews/${pr.latestAnalysisId}`
-                  : pr.state === 'closed'
-                    ? pr.htmlUrl
-                    : `/repositories/${pr.repository.id}/pulls/${pr.number}`
+                pr.state === 'closed' && !pr.latestAnalysisId
+                  ? pr.htmlUrl
+                  : `/repositories/${pr.repository.id}/pulls/${pr.number}`
               }
               target={pr.state === 'closed' && !pr.latestAnalysisId ? '_blank' : undefined}
               rel={
@@ -366,6 +357,7 @@ function ReviewWorkspace({
   );
   const [chatAccountsRevision, setChatAccountsRevision] = useState(0);
   const [progressError, setProgressError] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
   const [chatAccountId, setChatAccountId] = useState('');
   const [chatModelName, setChatModelName] = useState('');
   const [chatEffort, setChatEffort] = useState('');
@@ -540,6 +532,7 @@ function ReviewWorkspace({
         : Promise.reject(new Error('Review target is missing'));
     void Promise.all([loadCurrentUser(controller.signal), workspaceRequest]).then(
       ([currentUser, workspace]) => {
+        if (controller.signal.aborted) return;
         setUser(currentUser);
         setData(workspace);
         const search = new URLSearchParams(window.location.search);
@@ -591,6 +584,27 @@ function ReviewWorkspace({
   const currentAnalysisState = data?.analysis?.state;
   const currentRepositoryId = data?.pull.repositoryId;
   const currentPullNumber = data?.pull.number;
+  useEffect(() => {
+    if (!currentRepositoryId || !currentPullNumber) return;
+    return startVisiblePolling(
+      async (signal) => {
+        const analyses = await loadAnalysisRevisions(
+          currentRepositoryId,
+          currentPullNumber,
+          signal,
+        );
+        if (signal.aborted) return;
+        setData((current) =>
+          current?.pull.repositoryId === currentRepositoryId &&
+          current.pull.number === currentPullNumber
+            ? { ...current, analyses }
+            : current,
+        );
+        setHistoryError(false);
+      },
+      () => setHistoryError(true),
+    );
+  }, [currentRepositoryId, currentPullNumber]);
   useEffect(() => {
     if (
       !currentRepositoryId ||
@@ -933,14 +947,16 @@ function ReviewWorkspace({
                       ? '분석 상태 확인 실패'
                       : '코드 준비 중'}
           </span>
-          <button className="revision-button" type="button">
-            Revision {data?.analysis?.revision ?? '-'} <ChevronDown size={13} />
-          </button>
+          <AnalysisRevisionSelect
+            analyses={data?.analyses ?? []}
+            current={data?.analysis ?? null}
+          />
+          {historyError ? <span role="status">분석 이력 갱신 실패</span> : null}
           <button
             className="icon-button"
             type="button"
-            title="새로고침"
-            aria-label="새로고침"
+            title="최신 코드로 분석 요청"
+            aria-label="최신 코드로 분석 요청"
             onClick={() => void handleRefresh()}
             disabled={refreshing}
           >
@@ -1313,8 +1329,8 @@ function ReviewWorkspace({
               </>
             ) : undefined
           }
-          revision={data?.analysis?.revision}
-          headSha={data?.pull.headSha}
+          revision={data?.analysis?.pullRevision ?? data?.analysis?.revision}
+          headSha={data?.analysis?.headSha ?? data?.pull.headSha}
           selectedFinding={selectedFinding}
           selectedFile={selectedFile?.path}
           model={chatSession?.model ?? null}

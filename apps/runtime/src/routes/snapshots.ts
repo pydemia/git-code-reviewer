@@ -14,6 +14,7 @@ const repositoryPullParams = z.object({
   number: z.coerce.number().int().positive(),
 });
 const idParams = z.object({ id: z.string().uuid() });
+const analysisListQuery = z.object({ cursor: z.string().uuid().optional() });
 
 export async function registerSnapshotRoutes(
   app: FastifyInstance,
@@ -63,20 +64,47 @@ export async function registerSnapshotRoutes(
       const { repoId, number } = repositoryPullParams.parse(request.params);
       if (!(await canReadRepository(database, authorization, request, repoId)))
         return hiddenNotFound(request, reply);
+      const { cursor } = analysisListQuery.parse(request.query);
       const result = await database.query(
-        `select ar.id, ar.snapshot_id as "snapshotId", ar.revision, ar.state, ar.stage, ar.progress,
-                ar.progress_detail as "progressDetail", ar.created_at as "createdAt", s.resolution, s.merge_base_sha as "mergeBaseSha",
-                sr.base_sha as "baseSha", sr.head_sha as "headSha"
+        `with visible as (
+         select ar.id, ar.snapshot_id as "snapshotId", ar.revision,
+                 ar.pull_revision as "pullRevision",
+                 case when ar.memory_owner_user_id is null then 'collective' else 'personal' end as "revisionScope",
+                 ar.state, ar.stage, ar.progress,
+                 ar.progress_detail as "progressDetail", ar.created_at as "createdAt", s.resolution, s.merge_base_sha as "mergeBaseSha",
+                 sr.base_sha as "baseSha", sr.head_sha as "headSha"
          from pull_requests pr
          join snapshot_requests sr on sr.pull_request_id = pr.id
          join snapshots s on s.request_id = sr.id
-         left join analysis_runs ar on ar.snapshot_id = s.id
+          join analysis_runs ar on ar.snapshot_id = s.id
            and (ar.memory_owner_user_id is null or ar.memory_owner_user_id = $3)
          where pr.repository_id = $1 and pr.number = $2
-         order by s.created_at desc, ar.revision desc, ar.created_at desc limit 20`,
-        [repoId, number, request.user!.id],
+         ) select * from visible
+         where $4::uuid is null or ("createdAt", id) <
+           (select "createdAt", id from visible where id = $4)
+         order by "createdAt" desc, id desc limit 101`,
+        [repoId, number, request.user!.id, cursor ?? null],
       );
-      return { schemaVersion, items: result.rows };
+      const items = result.rows.slice(0, 100);
+      if (!items.length && !cursor) {
+        const snapshot = await database.query(
+          `select null as id, s.id as "snapshotId", null as revision, null as "pullRevision",
+                  'collective' as "revisionScope", null as state, null as stage, null as progress,
+                  null as "createdAt", s.resolution, s.merge_base_sha as "mergeBaseSha",
+                  sr.base_sha as "baseSha", sr.head_sha as "headSha"
+           from pull_requests pr join snapshot_requests sr on sr.pull_request_id = pr.id
+           join snapshots s on s.request_id = sr.id
+           where pr.repository_id = $1 and pr.number = $2
+           order by s.created_at desc, s.id desc limit 1`,
+          [repoId, number],
+        );
+        items.push(...snapshot.rows);
+      }
+      return {
+        schemaVersion,
+        items,
+        nextCursor: result.rows.length > 100 ? items.at(-1)!.id : null,
+      };
     },
   );
 
