@@ -111,7 +111,7 @@ cerbos:
 
 model:
   analysis:
-    groupMaxModelCalls: 256
+    groupMaxModelCalls: 512
     mode: disabled
     admin:
       enabled: true
