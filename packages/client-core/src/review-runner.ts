@@ -75,7 +75,7 @@ function coverage(file: SourceFile, reads: LocalSourceReadObservation[]): boolea
   return next > file.lineCount;
 }
 
-/** One invocation over a fixed view. There is no retry, fallback, shell or test runner. */
+/** One fixed view, with one bounded correction for an unknown source read ID. */
 export async function runLocalReview(input: RunLocalReviewInput): Promise<ClientReviewReport> {
   const { snapshot, context, policy, executor } = input;
   const identity = policy.identity;
@@ -375,46 +375,79 @@ export async function runLocalReview(input: RunLocalReviewInput): Promise<Client
         ...(central ? { centralKnowledge: central.items } : {}),
       }),
     ].join('\n\n');
-    budget.consumeSource(Buffer.byteLength(prompt));
-    budget.reserveModelCall();
-    report.startedAt = new Date(Math.max(Date.now(), Date.parse(requestedAt))).toISOString();
-    const execution = executor.review({
-      prompt,
-      source,
-      timeoutMs: Math.max(1, Math.floor(policy.budgets.durationMs - (performance.now() - started))),
-      ...(signal ? { signal: signal } : {}),
-      responseSchema: localReviewResponseSchema(),
-    });
-    let abort: (() => void) | undefined;
-    const interrupted = new Promise<never>((_, reject) => {
-      if (!central) return;
-      abort = () => reject(Error('cancelled'));
-      signal!.addEventListener('abort', abort, { once: true });
-      if (signal!.aborted) abort();
-    });
-    let result: Awaited<typeof execution>;
-    try {
-      result = await Promise.race([execution, interrupted]);
-    } finally {
-      if (abort) signal!.removeEventListener('abort', abort);
+    let modelPrompt = prompt;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await assertContext();
+      if (updated) throw Error('superseded');
+      budget.consumeSource(Buffer.byteLength(modelPrompt));
+      budget.reserveModelCall();
+      report.startedAt ??= new Date(Math.max(Date.now(), Date.parse(requestedAt))).toISOString();
+      const execution = executor.review({
+        prompt: modelPrompt,
+        source,
+        timeoutMs: Math.max(
+          1,
+          Math.floor(policy.budgets.durationMs - (performance.now() - started)),
+        ),
+        ...(signal ? { signal: signal } : {}),
+        responseSchema: localReviewResponseSchema(),
+      });
+      let abort: (() => void) | undefined;
+      const interrupted = new Promise<never>((_, reject) => {
+        if (!central) return;
+        abort = () => reject(Error('cancelled'));
+        signal!.addEventListener('abort', abort, { once: true });
+        if (signal!.aborted) abort();
+      });
+      let result: Awaited<typeof execution>;
+      try {
+        result = await Promise.race([execution, interrupted]);
+      } finally {
+        if (abort) signal!.removeEventListener('abort', abort);
+      }
+      await assertContext();
+      budget.assertActive();
+      if (result.model !== identity.executor.model) throw invalid('model-mismatch');
+      if (Buffer.byteLength(result.raw) > 2_000_000) throw invalid('response-too-large');
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(result.raw);
+      } catch {
+        throw invalid('invalid-json');
+      }
+      let response: LocalReviewResponse;
+      try {
+        response = localReviewResponse(parsed);
+      } catch {
+        throw invalid('invalid-schema');
+      }
+      try {
+        decode(response);
+        break;
+      } catch (error) {
+        if (
+          !(error instanceof LocalReviewOutputError) ||
+          error.reason !== 'unknown-read-id' ||
+          attempt !== 0 ||
+          budget.used.modelCalls >= budget.limits.modelCalls
+        )
+          throw error;
+        const receipts = port.reads.map((read) => ({
+          readId: read.id,
+          path: read.location.path,
+          side: read.location.side,
+          startLine: read.location.startLine,
+          endLine: read.location.endLine,
+        }));
+        const correction =
+          '\n\nYour previous response referenced a readId not returned by this review. Recheck every readId against these actual fixed-source receipts. Do not invent or alter IDs. Return a complete corrected response, using the same schema.\n' +
+          JSON.stringify({ validSourceReads: receipts });
+        const nextPrompt = prompt + correction;
+        if (Buffer.byteLength(nextPrompt) > budget.limits.sourceBytes - budget.used.sourceBytes)
+          throw error;
+        modelPrompt = nextPrompt;
+      }
     }
-    await assertContext();
-    budget.assertActive();
-    if (result.model !== identity.executor.model) throw invalid('model-mismatch');
-    if (Buffer.byteLength(result.raw) > 2_000_000) throw invalid('response-too-large');
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(result.raw);
-    } catch {
-      throw invalid('invalid-json');
-    }
-    let response: LocalReviewResponse;
-    try {
-      response = localReviewResponse(parsed);
-    } catch {
-      throw invalid('invalid-schema');
-    }
-    decode(response);
     if (updated) {
       report.status = 'superseded';
       report.problems.push({

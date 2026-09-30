@@ -223,6 +223,44 @@ describe('fixed-source review runner', () => {
     );
     expect(report.problems.map((problem) => problem.message).join(' ')).not.toContain('lines were');
   });
+  it('retries an unknown read ID using only receipts from this run', async () => {
+    let calls = 0;
+    let validReadId = '';
+    const report = await run(async (request) => {
+      calls++;
+      if (calls === 1) {
+        const { response, reads } = await answer(request);
+        validReadId = reads[0]!.readId;
+        response.files[0]!.readIds[0] = 'invented-read-id';
+        return { raw: JSON.stringify(response), model: descriptor.model };
+      }
+      expect(request.prompt).toContain(validReadId);
+      expect(request.prompt).not.toContain('invented-read-id');
+      return {
+        raw: JSON.stringify((await answer(request)).response),
+        model: descriptor.model,
+      };
+    });
+    expect(calls).toBe(2);
+    expect(report.status).toBe('completed');
+    expect(report.problems).toEqual([]);
+    expect(report.evidence).toHaveLength(6);
+  });
+  it('does not retry an unknown read ID without another approved model call', async () => {
+    let calls = 0;
+    const report = await run(
+      async (request) => {
+        calls++;
+        const { response } = await answer(request);
+        response.files[0]!.readIds[0] = 'invented-read-id';
+        return { raw: JSON.stringify(response), model: descriptor.model };
+      },
+      { budget: { modelCalls: 1 } },
+    );
+    expect(calls).toBe(1);
+    expect(report.status).toBe('failed');
+    expect(report.problems[0]?.message).toContain('(unknown-read-id)');
+  });
   it.each([
     ['forged-read', 'unknown-read-id'],
     ['duplicate-read', 'duplicate-read-id'],
@@ -275,7 +313,7 @@ describe('fixed-source review runner', () => {
     expect(report.problems[0]?.message).toContain(`(${reason})`);
     expect(JSON.stringify(report)).not.toContain(privateValue);
     expect(clientReviewReport(report)).toEqual(report);
-    expect(report.evidence).toHaveLength(3);
+    expect(report.evidence).toHaveLength(variant === 'forged-read' ? 6 : 3);
     expect(reviewExitCode(report)).toBe(2);
   });
   it('keeps conflicting counter-evidence incomplete', async () => {
