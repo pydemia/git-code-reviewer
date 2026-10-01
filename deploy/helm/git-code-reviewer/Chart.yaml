@@ -2,8 +2,8 @@ apiVersion: v2
 name: git-code-reviewer
 description: Browser-based pull request review service for GitHub Enterprise Server
 type: application
-version: 0.10.81
-appVersion: '0.8.0-alpha.85'
+version: 0.10.82
+appVersion: '0.8.0-alpha.86'
 dependencies:
   - name: postgresql
     version: 18.8.14
