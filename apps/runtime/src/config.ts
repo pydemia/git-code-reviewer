@@ -167,6 +167,8 @@ const configSchema = z.object({
   TRUST_PROXY: booleanString,
   RETENTION_REPORT_DAYS: z.coerce.number().int().positive().default(90),
   RETENTION_CHAT_DAYS: z.coerce.number().int().positive().default(30),
+  RETENTION_MERGED_DAYS: z.coerce.number().int().positive().default(7),
+  RETENTION_MERGED_MAX_LEN: z.coerce.number().int().positive().default(30),
   RETENTION_EVENT_LOG_HOURS: z.coerce.number().int().positive().default(24),
   RETENTION_ORPHAN_GRACE_HOURS: z.coerce.number().int().positive().default(24),
   RETENTION_DELETE_GRACE_HOURS: z.coerce.number().int().nonnegative().default(1),

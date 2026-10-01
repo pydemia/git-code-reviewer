@@ -73,6 +73,8 @@ data:
   WORKSPACE_ROOT: /tmp/git-code-reviewer/workspaces
   RETENTION_REPORT_DAYS: {{ .Values.retention.reportDays | quote }}
   RETENTION_CHAT_DAYS: {{ .Values.retention.chatDays | quote }}
+  RETENTION_MERGED_DAYS: {{ .Values.retention.mergedDays | quote }}
+  RETENTION_MERGED_MAX_LEN: {{ .Values.retention.mergedMaxLen | quote }}
   RETENTION_EVENT_LOG_HOURS: {{ .Values.retention.eventLogHours | quote }}
   RETENTION_ORPHAN_GRACE_HOURS: {{ .Values.retention.orphanGraceHours | quote }}
   RETENTION_DELETE_GRACE_HOURS: {{ .Values.retention.deleteGraceHours | quote }}

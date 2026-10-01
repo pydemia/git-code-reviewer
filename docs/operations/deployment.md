@@ -521,7 +521,7 @@ account PVC에는 access/refresh token이 포함되므로 encrypted StorageClass
 - `postgresql.enabled`: 외부 DB는 `false`, 자체 포함 pilot은 `true`; 번들 모드에서는 DB PVC StorageClass와 용량
 - `keycloak.enabled`: enterprise 예시는 `true`; Keycloak hostname/TLS, app/admin/DB Secret과 전용 DB PVC를 실제 환경 값으로 교체
 - 분석과 Chat의 provider mode 및 **명시적인 model name**. 관리자 분석 Provider를 쓸 경우 `admin.enabled`, master key, exact origin allowlist. ChatGPT account mode이면 account Secret, bootstrap revision과 전용 PVC
-- retention 기간. `chatDays`는 `reportDays`보다 클 수 없다.
+- retention 기간. `chatDays`는 `reportDays`보다 클 수 없다. Merge 완료 PR의 review·Chat·snapshot은 merge 후 `mergedDays`(기본 7일)가 지나거나 같은 repository에서 더 최근에 merge된 PR이 `mergedMaxLen`개(기본 30개) 이상이면 정리한다. 진행 중인 Chat과 작업은 끝날 때까지 보존한다. Artifact 파일은 `deleteGraceHours` 유예 후 삭제한다.
 - NetworkPolicy를 켤 경우 DB, GHES, OIDC, model endpoint의 실제 CIDR egress. values 예시의 documentation CIDR을 그대로 사용하지 않는다.
 - private registry를 사용할 경우 모든 Server/Worker/migration/retention Pod에 적용할 `imagePullSecrets`
 

@@ -70,15 +70,6 @@ export async function acquireSourceWorkspace(
     )
     .digest('hex');
   const workspace = path.resolve(config.WORKSPACE_ROOT, workspaceId);
-  const reader = repository.credentialId
-    ? await registeredGitHubReader(
-        database,
-        config.CREDENTIAL_ENCRYPTION_KEY,
-        repository.credentialId,
-      )
-    : await createGitHubReader(config);
-  if (!reader?.getGitCredential) throw Error('source_credential_unavailable');
-  const getGitCredential = reader.getGitCredential.bind(reader);
   return prepareLeasedWorkspace(database, config, workspaceId, async () => {
     await prepareSourceWorkspace({
       workspace,
@@ -89,7 +80,17 @@ export async function acquireSourceWorkspace(
       baseSha: snapshot.base_sha,
       headSha: snapshot.head_sha,
       mergeBaseSha: snapshot.merge_base_sha,
-      credential: await getGitCredential(repository),
+      credential: async () => {
+        const reader = repository.credentialId
+          ? await registeredGitHubReader(
+              database,
+              config.CREDENTIAL_ENCRYPTION_KEY,
+              repository.credentialId,
+            )
+          : await createGitHubReader(config);
+        if (!reader?.getGitCredential) throw Error('source_credential_unavailable');
+        return reader.getGitCredential(repository);
+      },
       maxBytes: config.GIT_WORKSPACE_MAX_BYTES,
     });
   });
@@ -117,6 +118,9 @@ export async function prepareLeasedWorkspace(
         [nodeId],
       );
       const active = new Set(leases.rows.map((lease) => lease.workspace_id));
+      const cached = await readFile(path.join(workspace, 'manifest.json'))
+        .then(() => true)
+        .catch(() => false);
       let bytes = 0;
       for (const entry of await readdir(config.WORKSPACE_ROOT, { withFileTypes: true }).catch(
         () => [],
@@ -130,11 +134,8 @@ export async function prepareLeasedWorkspace(
           !active.has(entry.name)
         )
           await rm(location, { recursive: true, force: true });
-        else bytes += await workspaceSize(location, config.GIT_WORKSPACE_MAX_BYTES);
+        else if (!cached) bytes += await workspaceSize(location, config.GIT_WORKSPACE_MAX_BYTES);
       }
-      const cached = await readFile(path.join(workspace, 'manifest.json'))
-        .then(() => true)
-        .catch(() => false);
       reused = cached;
       if (!cached && bytes + config.GIT_WORKSPACE_MAX_BYTES > config.GIT_WORKSPACE_MAX_BYTES * 3)
         throw Error('workspace_capacity_limit');

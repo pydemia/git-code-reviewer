@@ -1,3 +1,9 @@
+# 인증 정보 출력 방지
+
+- Git 원격 URL, credential helper 결과, 배포 환경 설정을 조회할 때 원문을 터미널·도구 출력·작업 기록에 노출하지 않는다. 필요한 사실만 추출해 인증 정보를 제거한 형태로 보고한다.
+- `git remote -v`, `git remote show`, `git config --list`처럼 URL이나 자격 증명을 그대로 출력할 수 있는 명령은 사용하지 않는다. 원격 연결 검사는 인증 정보가 없는 URL을 설정한 뒤 `git ls-remote` 등으로 수행한다.
+- 토큰이 출력된 경우 값을 재인용하지 않고 사용자에게 노출 사실과 교체 필요성을 알린다.
+
 # 프런트엔드 작업
 
 - 재사용 가이드는 `agent-skills`의 `reference-led-frontend` 스킬과 `prompts/reference-led-frontend.md`에 저장한다. 설치된 경우 `$reference-led-frontend`를 적용하고 아래 프로젝트별 선호를 함께 따른다.

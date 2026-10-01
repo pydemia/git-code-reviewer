@@ -72,6 +72,107 @@ describe('real local Git source tools', () => {
         .digest('hex'),
     );
   });
+  it('reads source directly from Git objects in a compact workspace', async () => {
+    const compact = await mkdtemp(path.join(os.tmpdir(), 'gcr-compact-source-'));
+    try {
+      await cp(path.join(root, 'repository.git'), path.join(compact, 'repository.git'), {
+        recursive: true,
+      });
+      await writeFile(
+        path.join(compact, 'manifest.json'),
+        JSON.stringify({
+          format: 2,
+          head: headSha,
+          base: sha,
+          mergeBase: mergeBaseSha,
+        }),
+      );
+      expect(
+        await runLocalSourceTool(compact, {
+          name: 'read_file',
+          revision: 'base',
+          path: 'unchanged.ts',
+        }),
+      ).toMatchObject({ sha, content: body });
+      expect(
+        await runLocalSourceTool(compact, {
+          name: 'search_code',
+          query: 'unchangedRetry',
+        }),
+      ).toMatchObject({ matches: [{ path: 'unchanged.ts', line: 1 }] });
+      expect(
+        await runLocalSourceTool(compact, {
+          name: 'git_diff',
+          revision: 'head',
+          path: 'revision.ts',
+        }),
+      ).toMatchObject({ sha: headSha });
+    } finally {
+      await rm(compact, { recursive: true, force: true });
+    }
+  });
+  it('searches compact Git objects across batch boundaries', async () => {
+    const compact = await mkdtemp(path.join(os.tmpdir(), 'gcr-batched-source-'));
+    const repository = path.join(compact, 'initial');
+    try {
+      await mkdir(repository);
+      await execute('git', ['init', '-q'], { cwd: repository });
+      for (let index = 0; index < 130; index++)
+        await writeFile(
+          path.join(repository, `file-${String(index).padStart(3, '0')}.ts`),
+          index === 129
+            ? 'export function targetSymbol() { return 1; }\n'
+            : `export const value${index} = ${index};\n`,
+        );
+      await execute('git', ['add', '.'], { cwd: repository });
+      await execute(
+        'git',
+        [
+          '-c',
+          'user.name=Fixture',
+          '-c',
+          'user.email=fixture@example.invalid',
+          'commit',
+          '-qm',
+          'batch fixture',
+        ],
+        { cwd: repository },
+      );
+      const current = (
+        await execute('git', ['rev-parse', 'HEAD'], { cwd: repository })
+      ).stdout.trim();
+      await execute('git', [
+        'clone',
+        '--bare',
+        '-q',
+        repository,
+        path.join(compact, 'repository.git'),
+      ]);
+      await writeFile(
+        path.join(compact, 'manifest.json'),
+        JSON.stringify({
+          format: 2,
+          head: current,
+          base: current,
+          mergeBase: current,
+        }),
+      );
+      expect(
+        await runLocalSourceTool(compact, {
+          name: 'search_code',
+          query: 'targetSymbol',
+        }),
+      ).toMatchObject({ matches: [{ path: 'file-129.ts', line: 1 }], omitted: 0 });
+      expect(
+        await runLocalSourceTool(compact, {
+          name: 'find_related_code',
+          query: 'targetSymbol',
+        }),
+      ).toMatchObject({ scanned: 130, omitted: 0 });
+    } finally {
+      await rm(compact, { recursive: true, force: true });
+    }
+  });
   it.skipIf(process.platform !== 'darwin')(
     'reads actual source inside the macOS sandbox',
     async () => {
@@ -137,6 +238,8 @@ describe('real local Git source tools', () => {
     'a/.git/config',
     'a\\b',
     'a\u0000b',
+    'a\tb',
+    'a\nb',
   ])('rejects path escape %s', async (value) => {
     expect(() => safeSourcePath(value)).toThrow();
     await expect(runLocalSourceTool(root, { name: 'read_file', path: value })).rejects.toThrow();

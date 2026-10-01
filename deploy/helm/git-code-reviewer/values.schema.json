@@ -27,9 +27,7 @@
   "properties": {
     "clientApiKeys": {
       "type": "object",
-      "required": [
-        "enabled"
-      ],
+      "required": ["enabled"],
       "additionalProperties": false,
       "properties": {
         "enabled": {
@@ -694,6 +692,8 @@
         "schedule",
         "reportDays",
         "chatDays",
+        "mergedDays",
+        "mergedMaxLen",
         "eventLogHours",
         "orphanGraceHours",
         "deleteGraceHours",
@@ -704,6 +704,8 @@
         "schedule": { "type": "string", "minLength": 1 },
         "reportDays": { "type": "integer", "minimum": 1 },
         "chatDays": { "type": "integer", "minimum": 1 },
+        "mergedDays": { "type": "integer", "minimum": 1 },
+        "mergedMaxLen": { "type": "integer", "minimum": 1 },
         "eventLogHours": { "type": "integer", "minimum": 1 },
         "orphanGraceHours": { "type": "integer", "minimum": 1 },
         "deleteGraceHours": { "type": "integer", "minimum": 0 },
@@ -937,10 +939,7 @@
           "auth": {
             "properties": {
               "mode": {
-                "enum": [
-                  "local",
-                  "saml"
-                ]
+                "enum": ["local", "saml"]
               }
             }
           },

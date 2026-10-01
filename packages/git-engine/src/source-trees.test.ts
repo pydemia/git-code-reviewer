@@ -1,10 +1,48 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, writeFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:https';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { expect, it, vi } from 'vitest';
-import { materializeGitSnapshot, materializeFixtureSnapshot } from './index.js';
+import {
+  materializeGitSnapshot,
+  materializeFixtureSnapshot,
+  prepareSourceWorkspace,
+} from './index.js';
+import { runLocalSourceTool } from './local-tools.js';
+
+it('reuses an exact source workspace without requesting another Git credential', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'gcr-source-reuse-'));
+  const workspace = path.join(root, 'workspace');
+  const base = 'a'.repeat(40),
+    head = 'b'.repeat(40),
+    mergeBase = 'c'.repeat(40);
+  const manifest = { base, head, mergeBase, files: 2, bytes: 400 };
+  try {
+    await mkdir(workspace);
+    await writeFile(path.join(workspace, 'manifest.json'), JSON.stringify(manifest));
+    const credential = vi.fn(async () => {
+      throw Error('unexpected Git credential request');
+    });
+    expect(
+      await prepareSourceWorkspace({
+        workspace,
+        webBaseUrl: 'https://example.invalid/',
+        owner: 'fixture',
+        repository: 'owned',
+        pullNumber: 1,
+        baseSha: base,
+        headSha: head,
+        mergeBaseSha: mergeBase,
+        credential,
+        maxBytes: 1_000_000,
+      }),
+    ).toEqual(manifest);
+    expect(credential).not.toHaveBeenCalled();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 it('records actual Git trees fetched over verified HTTPS and leaves fixture trees unknown', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'gcr-ci-trees-'));
@@ -152,6 +190,54 @@ it('records actual Git trees fetched over verified HTTPS and leaves fixture tree
       '+export const literal = true;',
     );
     expect(materializeFixtureSnapshot(base, head).trees).toBeUndefined();
+
+    git('rm', '--', '새\nname.ts', 'literal[1].ts');
+    git(
+      '-c',
+      'user.name=Owned',
+      '-c',
+      'user.email=owned@example.invalid',
+      'commit',
+      '--quiet',
+      '-m',
+      'safe source base',
+    );
+    const safeBase = git('rev-parse', 'HEAD');
+    await writeFile(path.join(dir, 'a.ts'), 'export const n = 3;\n');
+    git('add', '--', 'a.ts');
+    git(
+      '-c',
+      'user.name=Owned',
+      '-c',
+      'user.email=owned@example.invalid',
+      'commit',
+      '--quiet',
+      '-m',
+      'safe source head',
+    );
+    const safeHead = git('rev-parse', 'HEAD');
+    git('push', '--quiet', path.join(dir, 'repos/owned.git'), 'HEAD:refs/heads/main');
+    const compactWorkspace = path.join(dir, 'compact');
+    const compact = await prepareSourceWorkspace({
+      workspace: compactWorkspace,
+      webBaseUrl: `https://127.0.0.1:${address.port}`,
+      owner: 'repos',
+      repository: 'owned',
+      pullNumber: 1,
+      baseSha: safeBase,
+      headSha: safeHead,
+      mergeBaseSha: safeBase,
+      credential: { username: 'owned', password: 'synthetic' },
+      maxBytes: 16 * 1024 * 1024,
+    });
+    expect(compact.format).toBe(2);
+    expect(await readdir(compactWorkspace)).not.toContain('views');
+    expect(
+      await runLocalSourceTool(compactWorkspace, {
+        name: 'read_file',
+        path: 'a.ts',
+      }),
+    ).toMatchObject({ sha: safeHead, content: 'export const n = 3;\n' });
   } finally {
     vi.unstubAllEnvs();
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));

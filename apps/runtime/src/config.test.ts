@@ -178,6 +178,15 @@ describe('loadConfig', () => {
     ).toThrow('RETENTION_CHAT_DAYS must not exceed RETENTION_REPORT_DAYS');
   });
 
+  it('defaults merged review retention to seven days and thirty PRs per repository', () => {
+    const config = loadConfig(baseEnvironment, 'retention');
+    expect(config.RETENTION_MERGED_DAYS).toBe(7);
+    expect(config.RETENTION_MERGED_MAX_LEN).toBe(30);
+    expect(() =>
+      loadConfig({ ...baseEnvironment, RETENTION_MERGED_MAX_LEN: '0' }, 'retention'),
+    ).toThrow('RETENTION_MERGED_MAX_LEN');
+  });
+
   it('does not expose invalid values in its error', () => {
     expect(() => loadConfig({ DATABASE_URL: '' })).toThrow('Invalid configuration: DATABASE_URL');
   });

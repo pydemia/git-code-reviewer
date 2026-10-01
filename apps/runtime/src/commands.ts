@@ -94,34 +94,102 @@ type ArtifactRow = {
   delete_after: Date | null;
 };
 
+// Apply the configured count and merge-age limits per repository. Closed-but-
+// unmerged and reopened PRs are excluded.
+const expiredMergedPulls = (days: number, maxLen: number) => `
+  select pr.id from pull_requests pr
+  where pr.state = 'closed' and pr.merged_at is not null
+    and merged_at <= clock_timestamp() - make_interval(days => $${days})
+    and not exists (select 1 from operations operation
+      where operation.scope_type = 'pull_request' and operation.scope_id = pr.id
+        and operation.state in ('queued','polling','materializing','analyzing'))
+  union all
+  select recent.id from (
+    select id, row_number() over (
+      partition by repository_id order by merged_at desc, id desc
+    ) as position
+    from pull_requests
+    where state = 'closed' and merged_at > clock_timestamp() - make_interval(days => $${days})
+  ) recent where position > $${maxLen}
+    and not exists (select 1 from operations operation
+      where operation.scope_type = 'pull_request' and operation.scope_id = recent.id
+        and operation.state in ('queued','polling','materializing','analyzing'))`;
+
 async function applyRetention(
   database: DatabaseClient,
   artifacts: FilesystemArtifactStore,
   config: AppConfig,
 ) {
+  const restoredAnalysisArtifacts = await database.query(
+    `update artifacts artifact set state='available', delete_after=null, last_error=null
+     from analysis_runs ar
+     join snapshots snapshot on snapshot.id = ar.snapshot_id
+     join snapshot_requests request on request.id = snapshot.request_id
+     where artifact.scope_type='analysis' and artifact.scope_id=ar.id
+       and artifact.state='deleting'
+       and coalesce(ar.finished_at, ar.created_at) >=
+         clock_timestamp() - make_interval(days => $3)
+       and request.pull_request_id not in (${expiredMergedPulls(1, 2)})`,
+    [config.RETENTION_MERGED_DAYS, config.RETENTION_MERGED_MAX_LEN, config.RETENTION_REPORT_DAYS],
+  );
+  const restoredSnapshotArtifacts = await database.query(
+    `update artifacts artifact set state='available', delete_after=null, last_error=null
+     from snapshots snapshot
+     join snapshot_requests request on request.id = snapshot.request_id
+     where artifact.scope_type='snapshot' and artifact.scope_id=snapshot.id
+       and artifact.state='deleting'
+       and snapshot.created_at >= clock_timestamp() - make_interval(days => $3)
+       and request.pull_request_id not in (${expiredMergedPulls(1, 2)})`,
+    [config.RETENTION_MERGED_DAYS, config.RETENTION_MERGED_MAX_LEN, config.RETENTION_REPORT_DAYS],
+  );
   const chats = await database.query<{ id: string }>(
     `with candidates as (
        select cs.id from chat_sessions cs
-       where cs.updated_at < clock_timestamp() - make_interval(days => $1)
+       join analysis_runs ar on ar.id = cs.analysis_run_id
+       join snapshots snapshot on snapshot.id = ar.snapshot_id
+       join snapshot_requests request on request.id = snapshot.request_id
+       where (cs.updated_at < clock_timestamp() - make_interval(days => $3)
+         or request.pull_request_id in (${expiredMergedPulls(1, 2)}))
          and not exists (
            select 1 from chat_messages cm
            where cm.session_id = cs.id and cm.status = 'pending'
          )
-       order by cs.updated_at limit $2
+         and not exists (
+           select 1 from chat_runs run where run.session_id = cs.id
+             and run.status in ('queued','running','awaiting_input','waiting_capacity','cancelling')
+         )
+       order by cs.updated_at, cs.id limit $4
      )
      delete from chat_sessions cs using candidates candidate
      where cs.id = candidate.id returning cs.id`,
-    [config.RETENTION_CHAT_DAYS, config.RETENTION_BATCH_SIZE],
+    [
+      config.RETENTION_MERGED_DAYS,
+      config.RETENTION_MERGED_MAX_LEN,
+      config.RETENTION_CHAT_DAYS,
+      config.RETENTION_BATCH_SIZE,
+    ],
   );
 
   const analyses = await database.query<{ id: string }>(
     `select ar.id from analysis_runs ar
+     join snapshots snapshot on snapshot.id = ar.snapshot_id
+     join snapshot_requests request on request.id = snapshot.request_id
      where ar.state in ('completed', 'partial', 'failed', 'cancelled')
-       and coalesce(ar.finished_at, ar.created_at) <
-         clock_timestamp() - make_interval(days => $1)
+       and (coalesce(ar.finished_at, ar.created_at) <
+         clock_timestamp() - make_interval(days => $3)
+         or request.pull_request_id in (${expiredMergedPulls(1, 2)}))
        and not exists (select 1 from chat_sessions cs where cs.analysis_run_id = ar.id)
-     order by coalesce(ar.finished_at, ar.created_at), ar.id limit $2`,
-    [config.RETENTION_REPORT_DAYS, config.RETENTION_BATCH_SIZE],
+       and not exists (select 1 from analysis_runs successor
+         where successor.resume_from_analysis_id = ar.id)
+       and not exists (select 1 from jobs job where job.state in ('queued','running')
+         and job.payload->>'analysisId' = ar.id::text)
+     order by coalesce(ar.finished_at, ar.created_at), ar.id limit $4`,
+    [
+      config.RETENTION_MERGED_DAYS,
+      config.RETENTION_MERGED_MAX_LEN,
+      config.RETENTION_REPORT_DAYS,
+      config.RETENTION_BATCH_SIZE,
+    ],
   );
   const analysisCleanup = await cleanupScopes(
     database,
@@ -131,10 +199,28 @@ async function applyRetention(
     config.RETENTION_DELETE_GRACE_HOURS,
     async (scopeId) => {
       const deleted = await database.query<{ id: string }>(
-        `delete from analysis_runs where id = $1
-         and not exists (select 1 from chat_sessions where analysis_run_id = $1)
-         returning id`,
-        [scopeId],
+        `delete from analysis_runs ar where ar.id = $1
+         and ar.state in ('completed','partial','failed','cancelled')
+         and (coalesce(ar.finished_at, ar.created_at) <
+           clock_timestamp() - make_interval(days => $4)
+           or exists (
+             select 1 from snapshots snapshot
+             join snapshot_requests request on request.id = snapshot.request_id
+             where snapshot.id = ar.snapshot_id
+               and request.pull_request_id in (${expiredMergedPulls(2, 3)})
+           ))
+         and not exists (select 1 from chat_sessions where analysis_run_id = ar.id)
+         and not exists (select 1 from analysis_runs successor
+           where successor.resume_from_analysis_id = ar.id)
+         and not exists (select 1 from jobs job where job.state in ('queued','running')
+           and job.payload->>'analysisId' = ar.id::text)
+         returning ar.id`,
+        [
+          scopeId,
+          config.RETENTION_MERGED_DAYS,
+          config.RETENTION_MERGED_MAX_LEN,
+          config.RETENTION_REPORT_DAYS,
+        ],
       );
       return (deleted.rowCount ?? 0) > 0;
     },
@@ -142,10 +228,20 @@ async function applyRetention(
 
   const snapshots = await database.query<{ id: string }>(
     `select snapshot.id from snapshots snapshot
-     where snapshot.created_at < clock_timestamp() - make_interval(days => $1)
+     join snapshot_requests request on request.id = snapshot.request_id
+     where (snapshot.created_at < clock_timestamp() - make_interval(days => $3)
+       or request.pull_request_id in (${expiredMergedPulls(1, 2)}))
        and not exists (select 1 from analysis_runs ar where ar.snapshot_id = snapshot.id)
-     order by snapshot.created_at, snapshot.id limit $2`,
-    [config.RETENTION_REPORT_DAYS, config.RETENTION_BATCH_SIZE],
+       and not exists (select 1 from jobs job where job.state in ('queued','running')
+         and (job.payload->>'snapshotId' = snapshot.id::text
+           or job.payload->>'snapshotRequestId' = request.id::text))
+     order by snapshot.created_at, snapshot.id limit $4`,
+    [
+      config.RETENTION_MERGED_DAYS,
+      config.RETENTION_MERGED_MAX_LEN,
+      config.RETENTION_REPORT_DAYS,
+      config.RETENTION_BATCH_SIZE,
+    ],
   );
   const snapshotCleanup = await cleanupScopes(
     database,
@@ -155,20 +251,64 @@ async function applyRetention(
     config.RETENTION_DELETE_GRACE_HOURS,
     async (scopeId) => {
       const deleted = await database.query<{ id: string }>(
-        `delete from snapshots where id = $1
-         and not exists (select 1 from analysis_runs where snapshot_id = $1)
-         returning id`,
-        [scopeId],
+        `delete from snapshots snapshot where snapshot.id = $1
+         and (snapshot.created_at < clock_timestamp() - make_interval(days => $4)
+           or exists (
+             select 1 from snapshot_requests request where request.id = snapshot.request_id
+               and request.pull_request_id in (${expiredMergedPulls(2, 3)})
+           ))
+         and not exists (select 1 from analysis_runs where snapshot_id = snapshot.id)
+         and not exists (select 1 from jobs job where job.state in ('queued','running')
+           and (job.payload->>'snapshotId' = snapshot.id::text
+             or job.payload->>'snapshotRequestId' = snapshot.request_id::text))
+         returning snapshot.id`,
+        [
+          scopeId,
+          config.RETENTION_MERGED_DAYS,
+          config.RETENTION_MERGED_MAX_LEN,
+          config.RETENTION_REPORT_DAYS,
+        ],
       );
       if ((deleted.rowCount ?? 0) === 0) return false;
       await database.query(
         `delete from snapshot_requests request
          where not exists (select 1 from snapshots where request_id = request.id)
-           and request.created_at < clock_timestamp() - make_interval(days => $1)`,
-        [config.RETENTION_REPORT_DAYS],
+           and (request.created_at < clock_timestamp() - make_interval(days => $3)
+             or request.pull_request_id in (${expiredMergedPulls(1, 2)}))
+           and not exists (select 1 from jobs job where job.state in ('queued','running')
+             and job.payload->>'snapshotRequestId' = request.id::text)`,
+        [
+          config.RETENTION_MERGED_DAYS,
+          config.RETENTION_MERGED_MAX_LEN,
+          config.RETENTION_REPORT_DAYS,
+        ],
       );
       return true;
     },
+  );
+
+  const orphanRequests = await database.query<{ id: string }>(
+    `with candidates as (
+       select request.id from snapshot_requests request
+       where not exists (select 1 from snapshots where request_id = request.id)
+         and (request.created_at < clock_timestamp() - make_interval(days => $3)
+           or request.pull_request_id in (${expiredMergedPulls(1, 2)}))
+         and not exists (select 1 from jobs job where job.state in ('queued','running')
+           and job.payload->>'snapshotRequestId' = request.id::text)
+         and not exists (select 1 from operations operation
+           where operation.scope_type = 'pull_request'
+             and operation.scope_id = request.pull_request_id
+             and operation.state in ('queued','polling','materializing','analyzing'))
+       order by request.created_at, request.id limit $4
+     )
+     delete from snapshot_requests request using candidates candidate
+     where request.id = candidate.id returning request.id`,
+    [
+      config.RETENTION_MERGED_DAYS,
+      config.RETENTION_MERGED_MAX_LEN,
+      config.RETENTION_REPORT_DAYS,
+      config.RETENTION_BATCH_SIZE,
+    ],
   );
 
   const events = await database.query<{ id: string }>(
@@ -183,9 +323,12 @@ async function applyRetention(
   );
 
   return {
+    artifactClaimsRestored:
+      (restoredAnalysisArtifacts.rowCount ?? 0) + (restoredSnapshotArtifacts.rowCount ?? 0),
     chatsDeleted: chats.rowCount ?? 0,
     analyses: analysisCleanup,
     snapshots: snapshotCleanup,
+    orphanRequestsDeleted: orphanRequests.rowCount ?? 0,
     eventsDeleted: events.rowCount ?? 0,
   };
 }

@@ -123,3 +123,15 @@ networkPolicy:
 
 podDisruptionBudget:
   enabled: false
+
+retention:
+  enabled: true
+  schedule: '*/10 * * * *'
+  reportDays: 90
+  chatDays: 30
+  mergedDays: 7
+  mergedMaxLen: 30
+  eventLogHours: 24
+  orphanGraceHours: 24
+  deleteGraceHours: 1
+  batchSize: 500
