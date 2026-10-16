@@ -56,6 +56,7 @@ describe('repository URL registration', () => {
       'repo-name',
       120,
       true,
+      false,
     ]);
     expect(response.body).not.toContain('synthetic-test-token');
     await app.close();

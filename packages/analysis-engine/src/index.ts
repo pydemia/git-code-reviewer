@@ -13,6 +13,7 @@ export * from './report-forms.js';
 export * from './review-prompt.js';
 export * from './impact-plan.js';
 export * from './review-task-store.js';
+export * from './test-code.js';
 import {
   composeReviewMemory,
   composeSkillReviewPrompt,
@@ -21,6 +22,7 @@ import {
 import { runSkillReview, type SkillReviewOutput } from './skill-review.js';
 import { runImpactReview, type ImpactReviewOptions } from './impact-review.js';
 import { assembleReviewAnalysis, filterContradictoryPraise } from './report-forms.js';
+import { isTestCodePath } from './test-code.js';
 import type { ReviewSkillBundle } from '@gcr/review-contract';
 import type { SharedCriterionContext } from '@gcr/review-contract';
 import {
@@ -66,6 +68,8 @@ export type AnalysisInput = {
   budgets?: Partial<AnalysisBudgets>;
   impactReview?: ImpactReviewOptions;
   fileExclusions?: Map<string, string>;
+  includeTestCode?: boolean;
+  largeReview?: boolean;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 };
 
@@ -108,11 +112,29 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       : {}),
   }));
   const eligible = classified.filter((file) => file.analyzable);
-  const selected = input.impactReview ? eligible : eligible.slice(0, budgets.maxFiles);
+  const productionFiles = eligible.filter((file) => !isTestCodePath(file.path));
+  const testFiles = eligible.filter((file) => isTestCodePath(file.path));
+  const largeReview = input.largeReview ?? Boolean(input.impactReview);
+  const reviewTestCode = Boolean(input.includeTestCode) && !largeReview;
+  // Preserve order within each class while spending the review budget on production
+  // code before tests. Grouped large reviews always retain tests as context only.
+  const reviewCandidates = [...productionFiles, ...(reviewTestCode ? testFiles : [])];
+  const selected = input.impactReview
+    ? reviewCandidates
+    : reviewCandidates.slice(0, budgets.maxFiles);
+  const sourceOnlyFiles = reviewTestCode ? [] : testFiles;
+  const exclusionReasons = new Map(input.fileExclusions);
+  for (const file of sourceOnlyFiles)
+    exclusionReasons.set(
+      file.id,
+      largeReview
+        ? '대규모 분석에서는 테스트 코드를 source context로만 사용합니다.'
+        : 'Repository 설정에 따라 테스트 코드를 source context로만 사용합니다.',
+    );
   const bytes = selected.reduce((total, file) => total + Buffer.byteLength(file.patch), 0);
   const limitations: string[] = [...(input.contextLimitations ?? [])];
-  if (eligible.length > selected.length)
-    limitations.push(`file budget: ${eligible.length - selected.length}개 file 생략`);
+  if (reviewCandidates.length > selected.length)
+    limitations.push(`file budget: ${reviewCandidates.length - selected.length}개 file 생략`);
   if (!input.impactReview && bytes > budgets.maxBytes)
     limitations.push('canonical diff byte budget 초과');
   for (const file of classified.filter((candidate) => !candidate.analyzable)) {
@@ -157,6 +179,8 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       ...(input.prompt ? { instructions: input.prompt.instructions } : {}),
       ...(input.severityLevel ? { severityLevel: input.severityLevel } : {}),
       ...(input.memory ? { memory: input.memory } : {}),
+      sourceOnlyFiles,
+      exclusionReasons,
       maxModelCalls: budgets.maxModelCalls,
       concurrency: input.concurrency ?? 1,
       ...(input.onProgress ? { onProgress: input.onProgress } : {}),
@@ -166,7 +190,9 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
           ...common,
           options: input.impactReview,
           exclusionReasons: new Map(
-            classified.filter((file) => !file.analyzable).map((file) => [file.id, file.reason]),
+            classified
+              .filter((file) => !file.analyzable || exclusionReasons.has(file.id))
+              .map((file) => [file.id, exclusionReasons.get(file.id) ?? file.reason]),
           ),
         })
       : await runSkillReview(common);
@@ -314,6 +340,11 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     ...(input.skills
       ? { skills: input.skills.bundle.hash, report: 'commit-defender-total-summary-v1' }
       : {}),
+    testCodeTargets: largeReview
+      ? 'source-only-large-review'
+      : reviewTestCode
+        ? 'included-after-production'
+        : 'source-only',
   };
   report.durationMs = Math.max(0, Math.round(performance.now() - startedAt));
   if (!input.fixtureMode)

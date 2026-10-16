@@ -831,6 +831,13 @@ export function AdminPage() {
                   'PR 알림 등급을 저장했습니다. 다음 댓글 게시부터 적용됩니다.',
                 )
               }
+              onRepositoryTestCodeChange={(repositoryId, reviewTestCode) =>
+                runMutation(
+                  `repository:test-code:${repositoryId}`,
+                  () => updateAdminRepository(repositoryId, { reviewTestCode }),
+                  `테스트 코드 검토 대상을 ${reviewTestCode ? '포함' : '제외'}하도록 저장했습니다.`,
+                )
+              }
               onPollNow={(repositoryId) =>
                 runMutation(
                   `repository:poll:${repositoryId}`,
@@ -2307,7 +2314,7 @@ export function ChatAccountPanel({
   );
 }
 
-function GitHubConnectionPanel({
+export function GitHubConnectionPanel({
   connections,
   repositories,
   tenants,
@@ -2320,6 +2327,7 @@ function GitHubConnectionPanel({
   onRepositoryPollingChange,
   onRepositoryPublishingChange,
   onRepositoryCommentPriorityChange,
+  onRepositoryTestCodeChange,
   onDeleteRepository,
   onPollNow,
 }: {
@@ -2345,6 +2353,7 @@ function GitHubConnectionPanel({
       repositoryUrl: string;
       pollIntervalSeconds: number;
       reviewPublishingEnabled: boolean;
+      reviewTestCode: boolean;
       grantSubjects: string[];
     },
   ) => Promise<unknown>;
@@ -2354,6 +2363,7 @@ function GitHubConnectionPanel({
     repositoryId: string,
     priority: 'P2' | 'P3',
   ) => Promise<unknown>;
+  onRepositoryTestCodeChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
   onDeleteRepository: (repository: AdminRepository) => Promise<string | null>;
   onPollNow: (repositoryId: string) => Promise<unknown>;
 }) {
@@ -2368,6 +2378,7 @@ function GitHubConnectionPanel({
   const [repositoryUrl, setRepositoryUrl] = useState('');
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(120);
   const [reviewPublishingEnabled, setReviewPublishingEnabled] = useState(true);
+  const [reviewTestCode, setReviewTestCode] = useState(false);
   const [grantSubject, setGrantSubject] = useState('');
   const [editingConnection, setEditingConnection] = useState<GitHubConnection | null>(null);
   const [deletingRepository, setDeletingRepository] = useState<AdminRepository | null>(null);
@@ -2407,6 +2418,7 @@ function GitHubConnectionPanel({
       repositoryUrl: repositoryPreview.url,
       pollIntervalSeconds,
       reviewPublishingEnabled,
+      reviewTestCode,
       grantSubjects: grantSubject ? [grantSubject] : [],
     });
   };
@@ -2615,6 +2627,14 @@ function GitHubConnectionPanel({
           />
           분석 완료 후 PR timeline에 review 결과 게시
         </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={reviewTestCode}
+            onChange={(event) => setReviewTestCode(event.target.checked)}
+          />
+          테스트 코드도 검토 대상에 포함
+        </label>
         <button
           className="command-button primary"
           type="submit"
@@ -2673,6 +2693,23 @@ function GitHubConnectionPanel({
               </select>
               <small id={`comment-priority-help-${repository.id}`}>
                 다음 댓글 게시부터 적용됩니다. 분석 강도와 전체 보고서는 유지됩니다.
+              </small>
+            </label>
+            <label className="review-test-code-setting">
+              <span>
+                <input
+                  type="checkbox"
+                  checked={repository.reviewTestCode}
+                  disabled={busyKey !== null}
+                  onChange={(event) =>
+                    void onRepositoryTestCodeChange(repository.id, event.target.checked)
+                  }
+                />
+                테스트 코드도 검토 대상에 포함
+              </span>
+              <small>
+                꺼져 있으면 테스트 코드는 source context로만 사용합니다. 켜도 대규모 분석에서는 일반
+                코드를 우선하고 테스트 코드는 자동으로 대상에서 제외합니다.
               </small>
             </label>
             <div className="registry-card-actions">

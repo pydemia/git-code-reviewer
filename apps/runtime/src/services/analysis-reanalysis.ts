@@ -50,11 +50,13 @@ export async function queueIncompleteAnalysisReanalysis(
       `insert into analysis_runs(id, snapshot_id, analysis_key, revision, state, stage, profile,
          model_profile, prompt_version_id, prompt_hash, provider_version_id, provider_hash,
          policy_hash, skill_version_id, skill_bundle, skill_hash, severity_level, memory_hash,
-         memory_context, memory_owner_user_id, shared_knowledge, shared_knowledge_hash)
+         memory_context, memory_owner_user_id, shared_knowledge, shared_knowledge_hash,
+         review_test_code)
        select $2, snapshot_id, $3, $4, 'queued', 'planning', profile, model_profile,
          prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
          skill_version_id, skill_bundle, skill_hash, severity_level, memory_hash, memory_context,
-         memory_owner_user_id, shared_knowledge, shared_knowledge_hash from analysis_runs where id=$1`,
+         memory_owner_user_id, shared_knowledge, shared_knowledge_hash, review_test_code
+         from analysis_runs where id=$1`,
       [sourceAnalysisId, analysisId, key, revision],
     );
     await client.query(

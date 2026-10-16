@@ -4263,6 +4263,24 @@ body.workspace-resizing:has(.resize-bottom) {
   color: var(--muted);
 }
 
+.review-test-code-setting {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 11px;
+}
+
+.review-test-code-setting > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.review-test-code-setting small {
+  color: var(--muted);
+}
+
 .review-repository-card strong {
   overflow-wrap: anywhere;
 }

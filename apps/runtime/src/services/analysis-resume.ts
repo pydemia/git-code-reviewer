@@ -54,8 +54,8 @@ export async function resumeAnalysis(database: Database, analysisId: string, req
     ).rows[0]!;
     const next = (
       await c.query<{ id: string }>(
-        `insert into analysis_runs(snapshot_id,analysis_key,revision,state,stage,progress,profile,model_profile,prompt_version_id,prompt_hash,provider_version_id,provider_hash,policy_hash,skill_version_id,skill_bundle,skill_hash,severity_level,memory_hash,memory_context,memory_owner_user_id,shared_knowledge,shared_knowledge_hash,resume_from_analysis_id)
-  select snapshot_id,analysis_key||':resume',revision+1,'queued','planning',0,profile,model_profile,prompt_version_id,prompt_hash,provider_version_id,provider_hash,policy_hash,skill_version_id,skill_bundle,skill_hash,severity_level,memory_hash,memory_context,memory_owner_user_id,shared_knowledge,shared_knowledge_hash,id from analysis_runs where id=$1 returning id`,
+        `insert into analysis_runs(snapshot_id,analysis_key,revision,state,stage,progress,profile,model_profile,prompt_version_id,prompt_hash,provider_version_id,provider_hash,policy_hash,skill_version_id,skill_bundle,skill_hash,severity_level,memory_hash,memory_context,memory_owner_user_id,shared_knowledge,shared_knowledge_hash,review_test_code,resume_from_analysis_id)
+  select snapshot_id,analysis_key||':resume',revision+1,'queued','planning',0,profile,model_profile,prompt_version_id,prompt_hash,provider_version_id,provider_hash,policy_hash,skill_version_id,skill_bundle,skill_hash,severity_level,memory_hash,memory_context,memory_owner_user_id,shared_knowledge,shared_knowledge_hash,review_test_code,id from analysis_runs where id=$1 returning id`,
         [analysisId],
       )
     ).rows[0]!;

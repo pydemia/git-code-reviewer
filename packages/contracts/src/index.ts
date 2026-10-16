@@ -267,6 +267,7 @@ export const adminRepositoryListSchema = z.object({
       pollingEnabled: z.boolean(),
       reviewPublishingEnabled: z.boolean(),
       reviewCommentMinPriority: reviewCommentMinPrioritySchema.default('P2'),
+      reviewTestCode: z.boolean().default(false),
       pollIntervalSeconds: z.number().int(),
       credentialId: z.string().uuid().nullable(),
       credentialLabel: z.string().nullable(),

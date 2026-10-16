@@ -587,6 +587,7 @@ export async function updateAdminRepository(
     pollingEnabled?: boolean;
     reviewPublishingEnabled?: boolean;
     reviewCommentMinPriority?: 'P2' | 'P3';
+    reviewTestCode?: boolean;
     pollIntervalSeconds?: number;
   },
 ): Promise<void> {
@@ -656,6 +657,7 @@ export async function registerGitHubRepository(
     repositoryUrl: string;
     pollIntervalSeconds: number;
     reviewPublishingEnabled: boolean;
+    reviewTestCode: boolean;
     grantSubjects: string[];
   },
 ): Promise<void> {

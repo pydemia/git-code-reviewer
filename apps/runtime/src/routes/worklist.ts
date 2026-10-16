@@ -25,6 +25,7 @@ const repositoryBody = z.object({
   owner: z.string().regex(/^[A-Za-z0-9_.-]+$/),
   name: z.string().regex(/^[A-Za-z0-9_.-]+$/),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).default(120),
+  reviewTestCode: z.boolean().default(false),
 });
 const repositoryListQuery = z.object({ tenantId: z.string().uuid().optional() });
 const pullListQuery = z.object({
@@ -41,6 +42,7 @@ const repositoryPatch = z.object({
   pollingEnabled: z.boolean().optional(),
   reviewPublishingEnabled: z.boolean().optional(),
   reviewCommentMinPriority: reviewCommentMinPrioritySchema.optional(),
+  reviewTestCode: z.boolean().optional(),
   pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).optional(),
 });
 const repositoryGrantBody = z.object({ enabled: z.boolean() });
@@ -189,12 +191,13 @@ export async function registerWorklistRoutes(
           ],
         );
         const repository = await connection.query<{ id: string }>(
-          `insert into repositories(tenant_id, instance_id, github_id, installation_id, owner, name, poll_interval_seconds)
-           select tenant.id,$1,$2,$3,$4,$5,$6 from tenants tenant where tenant.id = $7 and tenant.enabled
+          `insert into repositories(tenant_id, instance_id, github_id, installation_id, owner, name, poll_interval_seconds, review_test_code)
+           select tenant.id,$1,$2,$3,$4,$5,$6,$8 from tenants tenant where tenant.id = $7 and tenant.enabled
            on conflict (instance_id, github_id) do update set
              tenant_id = excluded.tenant_id, installation_id = excluded.installation_id,
              owner = excluded.owner, name = excluded.name,
-             poll_interval_seconds = excluded.poll_interval_seconds, enabled = true, deleted_at = null,
+             poll_interval_seconds = excluded.poll_interval_seconds,
+             review_test_code = excluded.review_test_code, enabled = true, deleted_at = null,
              updated_at = clock_timestamp()
            returning id`,
           [
@@ -205,6 +208,7 @@ export async function registerWorklistRoutes(
             body.name,
             body.pollIntervalSeconds,
             body.tenantId,
+            body.reviewTestCode,
           ],
         );
         if (!repository.rows[0]) throw new Error('Tenant is unavailable');
@@ -305,6 +309,7 @@ export async function registerWorklistRoutes(
            polling_enabled = coalesce($4, polling_enabled),
            review_publishing_enabled = coalesce($5, review_publishing_enabled),
            review_comment_min_priority = coalesce($6, review_comment_min_priority),
+           review_test_code = coalesce($7, review_test_code),
            updated_at = clock_timestamp()
          where id = $1 and deleted_at is null returning id`,
         [
@@ -314,6 +319,7 @@ export async function registerWorklistRoutes(
           patch.pollingEnabled ?? null,
           patch.reviewPublishingEnabled ?? null,
           patch.reviewCommentMinPriority ?? null,
+          patch.reviewTestCode ?? null,
         ],
       );
       if (!result.rowCount) return hiddenNotFound(request, reply);
@@ -515,6 +521,7 @@ async function listRepositories(database: Database, tenantId?: string) {
             r.polling_enabled as "pollingEnabled", r.credential_id as "credentialId",
             r.review_publishing_enabled as "reviewPublishingEnabled",
             r.review_comment_min_priority as "reviewCommentMinPriority",
+            r.review_test_code as "reviewTestCode",
             i.name as "instanceName", i.api_base_url as "apiBaseUrl", i.web_base_url as "webBaseUrl",
             credential.label as "credentialLabel",
             p.last_polled_at as "lastPolledAt", p.next_poll_at as "nextPollAt",

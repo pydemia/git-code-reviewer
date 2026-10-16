@@ -706,6 +706,7 @@ export async function registerGitHubRepository(
     name?: string | undefined;
     pollIntervalSeconds: number;
     reviewPublishingEnabled: boolean;
+    reviewTestCode?: boolean;
     grantSubjects: string[];
   },
 ) {
@@ -716,14 +717,15 @@ export async function registerGitHubRepository(
     const repository = await connection.query<{ id: string }>(
       `insert into repositories(
          tenant_id, instance_id, credential_id, github_id, installation_id, owner, name,
-         poll_interval_seconds, polling_enabled, review_publishing_enabled)
-       select $1, credential.instance_id, credential.id, $3, 'access-token', $4, $5, $6, true, $7
+         poll_interval_seconds, polling_enabled, review_publishing_enabled, review_test_code)
+       select $1, credential.instance_id, credential.id, $3, 'access-token', $4, $5, $6, true, $7, $8
        from github_credentials credential where credential.id = $2 and credential.enabled
          and credential.health = 'ready'
        on conflict (instance_id, github_id) do update set tenant_id = excluded.tenant_id,
          credential_id = excluded.credential_id, owner = excluded.owner, name = excluded.name,
          poll_interval_seconds = excluded.poll_interval_seconds, polling_enabled = true,
          review_publishing_enabled = excluded.review_publishing_enabled,
+         review_test_code = excluded.review_test_code,
          enabled = true, deleted_at = null, updated_at = clock_timestamp()
        returning id`,
       [
@@ -734,6 +736,7 @@ export async function registerGitHubRepository(
         details.name,
         input.pollIntervalSeconds,
         input.reviewPublishingEnabled,
+        input.reviewTestCode ?? false,
       ],
     );
     if (!repository.rows[0])

@@ -15,6 +15,7 @@ import { windowContainsComment } from './review-windows.js';
 import { mapConcurrent } from './concurrency.js';
 import { filterSeverityComments, severityInstructions } from './review-severity.js';
 import { reviewFailure } from './review-failures.js';
+import { createSourceOnlyContext } from './review-source-context.js';
 
 type Comment = LegacyAnalysisReport['review']['file_comments'][number];
 export type ImpactReviewOptions = {
@@ -88,6 +89,7 @@ export async function runImpactReview(input: {
   instructions?: string;
   severityLevel?: ReviewSeverityLevel;
   memory?: ReviewMemoryProjection[];
+  sourceOnlyFiles?: AnalysisFile[];
   maxModelCalls: number;
   concurrency: number;
   options: ImpactReviewOptions;
@@ -96,6 +98,7 @@ export async function runImpactReview(input: {
   const instructions = input.severityLevel
     ? severityInstructions(input.severityLevel, input.instructions)
     : input.instructions;
+  const appendSourceContext = createSourceOnlyContext(input.files, input.sourceOnlyFiles ?? []);
   const baseContext = {
     stage: 'unit-comment-block' as const,
     skills: input.skills,
@@ -214,7 +217,7 @@ export async function runImpactReview(input: {
       await input.options.store?.start(task);
       try {
         const result = await input.model.review(
-          task.body,
+          appendSourceContext(task.body, [...new Set(task.targets.map((target) => target.fileId))]),
           [...new Set(task.targets.map((target) => target.path))],
           instructions,
           context,

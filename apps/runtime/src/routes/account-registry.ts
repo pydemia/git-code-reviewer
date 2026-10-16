@@ -99,6 +99,7 @@ const githubRepositoryBody = z
       .optional(),
     pollIntervalSeconds: z.coerce.number().int().min(30).max(86_400).default(120),
     reviewPublishingEnabled: z.boolean().default(true),
+    reviewTestCode: z.boolean().default(false),
     grantSubjects: z.array(z.string().trim().min(1).max(300)).max(100).default([]),
   })
   .refine(

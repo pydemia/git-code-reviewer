@@ -582,10 +582,12 @@ async function persistMaterialization(
         pull_title: string;
         requested_by: string | null;
         branch: string | null;
+        review_test_code: boolean;
       }>(
         `select active_prompt.id, active_prompt.content_hash, active_prompt.severity_level,
                 repository.tenant_id, repository.id as repository_id,
                 pull_request.title as pull_title, operation.requested_by,
+                repository.review_test_code,
                 case when pull_request.head_sha=request.head_sha then pull_request.head_ref else null end as branch
          from snapshot_requests request
          join pull_requests pull_request on pull_request.id = request.pull_request_id
@@ -638,19 +640,20 @@ async function persistMaterialization(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
            prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
            skill_version_id, skill_bundle, skill_hash, severity_level, memory_hash,
-           memory_context, memory_owner_user_id, shared_knowledge, shared_knowledge_hash
+           memory_context, memory_owner_user_id, shared_knowledge, shared_knowledge_hash,
+           review_test_code
          ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
-           $11, $12, $13, $14::jsonb, $15, $16::jsonb, $17)
+           $11, $12, $13, $14::jsonb, $15, $16::jsonb, $17, $18)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v10:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}`,
+          `analysis:${snapshotId}:default:v11:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}:review-tests-${prompt.rows[0]!.review_test_code ? 'include' : 'source-only'}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v7:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}`,
+          `default-v8:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}:review-tests-${prompt.rows[0]!.review_test_code ? 'include' : 'source-only'}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
@@ -660,6 +663,7 @@ async function persistMaterialization(
           memoryOwnerUserId,
           JSON.stringify(shared.value),
           shared.hash,
+          prompt.rows[0]!.review_test_code,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -754,6 +758,7 @@ export async function executeAnalysisJob(
     credentialId: string | null;
     installationId: string;
     memory_context: import('../services/review-memory.js').ReviewMemoryProjection[];
+    review_test_code: boolean;
   }>(
     `select sr.base_sha, sr.head_sha, snapshot.merge_base_sha, analysis.started_at, analysis.shared_knowledge, analysis.shared_knowledge_hash, prompt.instructions as prompt_instructions,
             prompt.version as prompt_version, analysis.prompt_hash, analysis.severity_level,
@@ -761,7 +766,8 @@ export async function executeAnalysisJob(
             analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
             skills.version as skill_version,
             repository.credential_id as "credentialId",
-            repository.installation_id as "installationId", analysis.memory_context
+            repository.installation_id as "installationId", analysis.memory_context,
+            analysis.review_test_code
      from snapshots snapshot
      join snapshot_requests sr on sr.id = snapshot.request_id
      join pull_requests pr on pr.id = sr.pull_request_id
@@ -813,11 +819,11 @@ export async function executeAnalysisJob(
     if (!id) throw Error('Snapshot file manifest is incomplete');
     return { id, ...file };
   });
+  const largeReview =
+    files.length >= config.ANALYSIS_GROUPING_THRESHOLD ||
+    Buffer.byteLength(diff.patch) > config.ANALYSIS_MAX_BYTES;
   const grouped =
-    Boolean(skillBundle) &&
-    !isFixtureRepository(config.GITHUB_MODE, row) &&
-    (files.length >= config.ANALYSIS_GROUPING_THRESHOLD ||
-      Buffer.byteLength(diff.patch) > config.ANALYSIS_MAX_BYTES);
+    Boolean(skillBundle) && !isFixtureRepository(config.GITHUB_MODE, row) && largeReview;
   const sourcePolicy = sourcePathPolicy();
   const fileExclusions = new Map(
     files.flatMap((file) => {
@@ -931,6 +937,8 @@ export async function executeAnalysisJob(
           patch: diff.patch,
           files,
           fileExclusions,
+          includeTestCode: row.review_test_code,
+          largeReview,
           memory: row.memory_context,
           contextLimitations,
           ...(sharedCriteria ? { sharedCriteria } : {}),

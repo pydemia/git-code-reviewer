@@ -136,7 +136,7 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
     const settings = async () =>
       (
         await database.query(
-          'select review_comment_min_priority, review_publishing_enabled, polling_enabled from repositories where id=$1',
+          'select review_comment_min_priority, review_publishing_enabled, polling_enabled, review_test_code from repositories where id=$1',
           [repositoryId],
         )
       ).rows[0];
@@ -144,6 +144,7 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
       review_comment_min_priority: 'P2',
       review_publishing_enabled: true,
       polling_enabled: true,
+      review_test_code: false,
     });
     const jobCount = async () =>
       Number((await database.query('select count(*) from jobs')).rows[0].count);
@@ -157,7 +158,18 @@ describe.skipIf(!databaseUrl).sequential('repository lifecycle with PostgreSQL',
       review_comment_min_priority: 'P3',
       review_publishing_enabled: true,
       polling_enabled: true,
+      review_test_code: false,
     });
+    expect(await jobCount()).toBe(before);
+    expect(
+      (await app.inject({ method: 'PATCH', url, payload: { reviewTestCode: true } })).statusCode,
+    ).toBe(200);
+    expect((await settings()).review_test_code).toBe(true);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/v1/admin/repositories' }))
+        .json()
+        .items.find((item: { id: string }) => item.id === repositoryId).reviewTestCode,
+    ).toBe(true);
     expect(await jobCount()).toBe(before);
     const list = await app.inject({ method: 'GET', url: '/api/v1/admin/repositories' });
     expect(

@@ -19,6 +19,7 @@ import {
 import { validateReviewSkillBundle } from './skills.js';
 import { incompleteFileSummary, reviewFailure } from './review-failures.js';
 import { mapConcurrent } from './concurrency.js';
+import { createSourceOnlyContext } from './review-source-context.js';
 
 type Comment = LegacyAnalysisReport['review']['file_comments'][number];
 type FileResult = ReviewAnalysis['files'][number];
@@ -42,6 +43,8 @@ export async function runSkillReview(input: {
   instructions?: string;
   severityLevel?: ReviewSeverityLevel;
   memory?: ReviewMemoryProjection[];
+  sourceOnlyFiles?: AnalysisFile[];
+  exclusionReasons?: Map<string, string>;
   maxModelCalls: number;
   concurrency?: number;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
@@ -63,6 +66,12 @@ export async function runSkillReview(input: {
   const instructions = input.severityLevel
     ? severityInstructions(input.severityLevel, input.instructions)
     : input.instructions;
+  const appendSourceContext = createSourceOnlyContext(input.files, input.sourceOnlyFiles ?? []);
+  const selectedIds = new Set(input.files.map((file) => file.id));
+  const orderedFiles = [
+    ...input.files,
+    ...input.allFiles.filter((file) => !selectedIds.has(file.id)),
+  ];
   let progressQueue = Promise.resolve();
   const publishProgress = (stage: string, currentFile: string | null) => {
     // DB progress write가 늦게 끝나면서 완료 수가 과거 값으로 돌아가지 않게 한다.
@@ -132,7 +141,7 @@ export async function runSkillReview(input: {
     return null;
   };
 
-  const results = await mapConcurrent(input.allFiles, input.concurrency ?? 1, async (file) => {
+  const results = await mapConcurrent(orderedFiles, input.concurrency ?? 1, async (file) => {
     const issues: string[] = [];
     const comments: Comment[] = [];
     const fingerprints = new Map<string, Comment>();
@@ -145,7 +154,7 @@ export async function runSkillReview(input: {
     for (const window of planned) {
       const result = await call(
         'unit-comment-block',
-        formatReviewWindow(window),
+        appendSourceContext(formatReviewWindow(window), [file.id]),
         [file.path],
         issues,
       );
@@ -235,7 +244,8 @@ export async function runSkillReview(input: {
     let summary = !input.model
       ? '분석 모델이 비활성화되어 AI review를 수행하지 않았습니다.'
       : !selected
-        ? '분석 대상 또는 파일·byte 예산에서 제외되어 AI review를 수행하지 않았습니다.'
+        ? (input.exclusionReasons?.get(file.id) ??
+          '분석 대상 또는 파일·byte 예산에서 제외되어 AI review를 수행하지 않았습니다.')
         : units.length
           ? units.map((unit) => unit.comment).join('\n\n')
           : attempted
@@ -273,7 +283,9 @@ export async function runSkillReview(input: {
     await publishProgress('file-review', file.path);
     return { result, comments, issues };
   });
-  for (const file of results) {
+  const resultsById = new Map(results.map((file) => [file.result.fileId, file]));
+  for (const original of input.allFiles) {
+    const file = resultsById.get(original.id)!;
     fileResults.push(file.result);
     comments.push(...file.comments);
     limitations.push(...file.issues);

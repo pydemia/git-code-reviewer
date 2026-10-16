@@ -66,6 +66,36 @@ const store = () => {
 };
 
 describe('complete impact-group review', () => {
+  it('automatically keeps tests source-only in a large/grouped review', async () => {
+    const input = base([
+      file('pkg/calculate.py', 'def calculate(): return 2'),
+      file('tests/test_calculate.py', 'from pkg.calculate import calculate'),
+    ]);
+    input.includeTestCode = true;
+    const reviewed: string[] = [];
+    input.model = {
+      profile: 'synthetic-large-test-context',
+      async review(body, paths, _instructions, context) {
+        if (context?.group) {
+          reviewed.push(...paths);
+          expect(body).toContain('context_only_test_sources');
+          expect(body).toContain('tests/test_calculate.py');
+        }
+        return response(context?.group?.targetIds);
+      },
+    };
+    const result = await analyzeSnapshot(input);
+    expect(reviewed).toEqual(['pkg/calculate.py']);
+    expect(result.report.analysis?.files).toContainEqual(
+      expect.objectContaining({
+        path: 'tests/test_calculate.py',
+        status: 'not-reviewed',
+        summary: '제외 정책: 대규모 분석에서는 테스트 코드를 source context로만 사용합니다.',
+      }),
+    );
+    expect(result.report.versions.testCodeTargets).toBe('source-only-large-review');
+    expect(result.state).toBe('completed');
+  });
   it('preserves accepted groups and stops preparation on account usage exhaustion, with the reset time', async () => {
     const state = store(),
       input = base(Array.from({ length: 100 }, (_, i) => file(`quota${i}.py`)));
