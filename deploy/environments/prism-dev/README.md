@@ -270,10 +270,19 @@ openssl rand -base64 32 \
 
 helm dependency build deploy/helm/git-code-reviewer
 
+# 기존 release에만 저장된 TLS·client key·지식 배포 설정을 먼저 보존한다.
+# 환경 values만 전달하면 파일에 없는 기존 override가 chart 기본값으로 돌아간다.
+umask 077
+CURRENT_RELEASE_VALUES="$(mktemp /tmp/git-code-reviewer-current-values.XXXXXX.yaml)"
+helm --kubeconfig="$HOME/.kube/config" --kube-context=PRISM-DEV \
+  get values git-code-reviewer --namespace=git-code-reviewer -o yaml \
+  > "$CURRENT_RELEASE_VALUES"
+
 helm upgrade --install git-code-reviewer deploy/helm/git-code-reviewer \
   --kubeconfig="$HOME/.kube/config" \
   --kube-context=PRISM-DEV \
   --namespace=git-code-reviewer \
+  --values="$CURRENT_RELEASE_VALUES" \
   --values=deploy/environments/prism-dev/values.yaml \
   --rollback-on-failure --wait --timeout=20m
 
