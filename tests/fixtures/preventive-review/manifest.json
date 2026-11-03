@@ -1,0 +1,86 @@
+[
+  {
+    "id": "python-partial-cache-defect",
+    "expected": "finding",
+    "baseTree": "b045ed0d2766f90bd33191704af19b1a6a6b4be1",
+    "indexTree": "30e39c32e34718ce280398a9b5b81ca6786d9e5e",
+    "definitionSha256": "dc3a72dddaddb45439848e4a057e588a336ae1efc0c34ba483e09e3c6f7b2503"
+  },
+  {
+    "id": "python-partial-cache-fixed",
+    "expected": "no-finding",
+    "baseTree": "30e39c32e34718ce280398a9b5b81ca6786d9e5e",
+    "indexTree": "b045ed0d2766f90bd33191704af19b1a6a6b4be1",
+    "definitionSha256": "c5ce18683588f66d969a6f3125ed188f66a6a1aa9564049e71bb938e7483d296"
+  },
+  {
+    "id": "python-partial-cache-normal",
+    "expected": "no-finding",
+    "baseTree": "b045ed0d2766f90bd33191704af19b1a6a6b4be1",
+    "indexTree": "2ed809131f6da179e2a7547d556e3974bfe3a350",
+    "definitionSha256": "872e3a1dc84c6127bd029945d8e9047627cbadef4dfd7cc251c25bcdadc7a687"
+  },
+  {
+    "id": "python-partial-cache-counterevidence",
+    "expected": "no-finding",
+    "baseTree": "b045ed0d2766f90bd33191704af19b1a6a6b4be1",
+    "indexTree": "3c15486363c5a7b702fb1c0c1e4a3bdce3315f01",
+    "definitionSha256": "e8a1429ea034186780172b01fb3cf50eacf6ecdb93ecf8407262fd2b8d20c16c"
+  },
+  {
+    "id": "typescript-delete-authorization-defect",
+    "expected": "finding",
+    "baseTree": "db6aa1a27b93f526bbb56f8c99a25dd7950a1407",
+    "indexTree": "0050acbbbdd6e700a5e9ea44d1ecff9cad5e24d0",
+    "definitionSha256": "e895af3f7a0f75fb15f3b92c25e71e0c0c535a52637777aaa06442578b79193a"
+  },
+  {
+    "id": "typescript-delete-authorization-fixed",
+    "expected": "no-finding",
+    "baseTree": "0050acbbbdd6e700a5e9ea44d1ecff9cad5e24d0",
+    "indexTree": "db6aa1a27b93f526bbb56f8c99a25dd7950a1407",
+    "definitionSha256": "fea82f0d4a1897d4af3ceb4ad41e242c46db63cfc5d306bc5769746e7f58e239"
+  },
+  {
+    "id": "typescript-delete-authorization-normal",
+    "expected": "no-finding",
+    "baseTree": "db6aa1a27b93f526bbb56f8c99a25dd7950a1407",
+    "indexTree": "38b4db48e23d5eb19d2a9abba27c053d7c40f257",
+    "definitionSha256": "f63e2cc4f5e29619d5acb09846daceff8e77b99502da70bc6f739ac2c79ae8c6"
+  },
+  {
+    "id": "typescript-delete-authorization-counterevidence",
+    "expected": "no-finding",
+    "baseTree": "db6aa1a27b93f526bbb56f8c99a25dd7950a1407",
+    "indexTree": "ee8a3f7f5775c169d20a83505040a910bf1a146c",
+    "definitionSha256": "e1672db04fb40532c2aa9385c8d331a807e1eccd9ceaf331622e214660a2351c"
+  },
+  {
+    "id": "cross-language-api-transition-defect",
+    "expected": "finding",
+    "baseTree": "1abd1b1e5bd9dfa0007fdede9791515bcc84c9a4",
+    "indexTree": "d815451313a344a05c19579f1db7f2c71232e3ab",
+    "definitionSha256": "ff91f2a0d5d9b3ff7176e8efea6525ac95261c19a9b16e2369d5bbf61b894974"
+  },
+  {
+    "id": "cross-language-api-transition-fixed",
+    "expected": "no-finding",
+    "baseTree": "d815451313a344a05c19579f1db7f2c71232e3ab",
+    "indexTree": "0a13d72c280091eec3bcbb16b82945572a12b301",
+    "definitionSha256": "faf95221e977cf53ea5badf0691422f57284bc6d3f2a92d004e29eac92239bd2"
+  },
+  {
+    "id": "cross-language-api-transition-normal",
+    "expected": "no-finding",
+    "baseTree": "1abd1b1e5bd9dfa0007fdede9791515bcc84c9a4",
+    "indexTree": "10df6ad568d580527bca1a32682531c8a48f2b99",
+    "definitionSha256": "43eec6e7a9e90104d92faf1072b0354a4f1a575caf316a2420bd754fe7c0c5f0"
+  },
+  {
+    "id": "cross-language-api-transition-counterevidence",
+    "expected": "no-finding",
+    "baseTree": "1abd1b1e5bd9dfa0007fdede9791515bcc84c9a4",
+    "indexTree": "e57aaddb2d6dd90aab817ddf2185ee71ae2c51ce",
+    "definitionSha256": "de06404bc60f0f32c8ebe5b392d8261b6ad5b681a136f93b6da02bbd2b65a6bd"
+  }
+]

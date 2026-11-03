@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "server": "https://pr-review.prism.ai",
+  "modelCalls": 0,
+  "newCollection": 0,
+  "requests": [
+    {
+      "request": {
+        "kind": "pulls",
+        "pullNumber": 917
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "pulls",
+        "pullNumber": 915
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "messages",
+        "pullNumber": 917
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "count": 20
+    },
+    {
+      "request": {
+        "kind": "messages",
+        "pullNumber": 915
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "count": 16
+    },
+    {
+      "request": {
+        "kind": "message",
+        "pullNumber": 917,
+        "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1"
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "sourceHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+      "sourceUrl": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279"
+    },
+    {
+      "request": {
+        "kind": "messages",
+        "pullNumber": 917,
+        "parentId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1"
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "versions",
+        "pullNumber": 917,
+        "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1"
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "observations",
+        "pullNumber": 917,
+        "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1"
+      },
+      "revision": "f6fc9b3e4280ce84c0dd0277828f13faf9dfa3321acf94235e307bbfd23b5cf4",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "guidance",
+        "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1"
+      },
+      "revision": "29f65b1f905453c215d0722bdb1d4e33d92fb4cc4ad0654299760709535d78e8",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "guidance-detail",
+        "guidanceId": "9ee94837-fd43-46f6-ac03-30bdfb8d3575"
+      },
+      "revision": 1
+    }
+  ]
+}

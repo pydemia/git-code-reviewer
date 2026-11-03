@@ -6,6 +6,12 @@ export type ReviewStageContext = {
   stage: 'unit-comment-block' | 'overall-summary' | 'total-summary';
   skills: ReviewSkillBundle;
   memory?: ReviewMemoryProjection[];
+  group?: {
+    taskId: string;
+    targetIds: string[];
+    kind: 'group' | 'boundary';
+    sourceWindows?: Array<{ path: string; startLine: number }>;
+  };
 };
 
 export function composeSkillReviewPrompt(
@@ -35,6 +41,9 @@ export function composeSkillReviewPrompt(
     context.stage === 'unit-comment-block'
       ? 'Each file_comment requires file (exact supplied path), side (head|mergeBase matching the window), line and end_line (inclusive 1-based segment range, or both 0), category (an allowed perspective name), priority (P0|P1|P2|P3), title, comment (complete explanation), impact and recommendation (specific details, or empty strings when not applicable).'
       : 'This stage returns a narrative summary, not additional comments. A file summary combines the units for exactly one file. A total summary combines supplied file summaries without altering their findings or priorities.',
+    context.group
+      ? `This is a multi-file ${context.group.kind} review. Review the supplied targets together, checking callers, contracts, configuration and schema relationships where supplied. Each code target has its own window, side and core range; never anchor a finding to a different target or comparison-only context. Metadata-only targets allow only file-level (line=0,end_line=0) observations. Return reviewed_targets containing the exact target IDs you fully reviewed, even when no finding is warranted. Missing targets are NOT considered clean. Do not claim coverage for unavailable source or tests you did not execute. Required targets: ${JSON.stringify(context.group.targetIds)}.`
+      : '',
   ]
     .filter(Boolean)
     .join('\n\n');

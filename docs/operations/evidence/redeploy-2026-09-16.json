@@ -1,0 +1,373 @@
+{
+  "recordedAt": "2026-09-16T13:39:39.361841+00:00",
+  "context": "PRISM-DEV",
+  "namespace": "git-code-reviewer",
+  "image": {
+    "version": "0.8.0-alpha.64",
+    "sourceSha": "67ec73c0e64b7846976efb7342b5676338773070",
+    "digest": "sha256:1cbe141934bdc2bc0ac6e162419a505004f03e8c751e60a58f30c3d1e0f767d5",
+    "architecture": "amd64",
+    "os": "linux",
+    "labels": {
+      "org.opencontainers.image.description": "Browser-based pull request review service for GitHub Enterprise Server",
+      "org.opencontainers.image.revision": "67ec73c0e64b7846976efb7342b5676338773070",
+      "org.opencontainers.image.source": "https://github.com/pydemia/git-code-reviewer",
+      "org.opencontainers.image.title": "Git Code Reviewer",
+      "org.opencontainers.image.version": "0.8.0-alpha.64"
+    }
+  },
+  "chart": {
+    "version": "0.10.60",
+    "deploymentSourceSha": "73014b7cb819fa4b156dc1712c6419f4c5cb2a56",
+    "ociDigest": "sha256:3607fb6417957db4a5270a2b150d4f85192e4326ea6b5798960a8ac8736d3bd9",
+    "sha256": "51ff7f16cc68169a8d4e1718a4b083ec58eee2c33811e8190c9863001a5d4722",
+    "pulledPackageByteIdentical": true
+  },
+  "helmRevision": 74,
+  "helmStatus": "deployed",
+  "helmTest": "Succeeded",
+  "deployments": [
+    {
+      "name": "git-code-reviewer-identity",
+      "generation": 2,
+      "observedGeneration": 2,
+      "desired": 2,
+      "ready": 2,
+      "updated": 2,
+      "images": [
+        "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+      ]
+    },
+    {
+      "name": "git-code-reviewer-server",
+      "generation": 75,
+      "observedGeneration": 75,
+      "desired": 1,
+      "ready": 1,
+      "updated": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:1cbe141934bdc2bc0ac6e162419a505004f03e8c751e60a58f30c3d1e0f767d5"
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker",
+      "generation": 72,
+      "observedGeneration": 72,
+      "desired": 1,
+      "ready": 1,
+      "updated": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:1cbe141934bdc2bc0ac6e162419a505004f03e8c751e60a58f30c3d1e0f767d5",
+        "docker.io/pydemia/git-code-reviewer@sha256:1cbe141934bdc2bc0ac6e162419a505004f03e8c751e60a58f30c3d1e0f767d5"
+      ]
+    }
+  ],
+  "preservation": {
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 192,
+        "after": 192,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 184,
+        "after": 184,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 5,
+        "after": 5,
+        "existingRowsPreserved": true
+      },
+      "local_credentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      },
+      "review_rules": {
+        "before": 0,
+        "after": 0,
+        "existingRowsPreserved": true
+      },
+      "review_rule_revisions": {
+        "before": 0,
+        "after": 0,
+        "existingRowsPreserved": true
+      },
+      "review_knowledge_releases": {
+        "before": 10,
+        "after": 10,
+        "existingRowsPreserved": true
+      },
+      "review_history_collections": {
+        "before": 1,
+        "after": 1,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 53,
+    "migrationChecksumsUnchanged": true,
+    "databaseTls": {
+      "ssl": true,
+      "version": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384"
+    },
+    "databaseTlsMode": "verify-full",
+    "unrelatedHelmValuesUnchanged": true,
+    "cluster": {
+      "secrets": [
+        {
+          "name": "git-code-reviewer-auth",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-credential-registry",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-db-keycloak",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-development-ca",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-administration",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-bootstrap",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-preparation-backup",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-tls",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-knowledge-signing-v1",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-auth",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-tls",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-saml-sp",
+          "uidPreserved": true,
+          "dataPreserved": true
+        }
+      ],
+      "configMaps": [
+        {
+          "name": "git-code-reviewer",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-corporate-ca",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-ca",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-configuration",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-ca",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "git-code-reviewer-postgresql-configuration",
+          "uidPreserved": true,
+          "dataPreserved": true
+        },
+        {
+          "name": "kube-root-ca.crt",
+          "uidPreserved": true,
+          "dataPreserved": true
+        }
+      ],
+      "persistentVolumes": [
+        {
+          "name": "data-git-code-reviewer-postgresql-0",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-artifacts",
+          "preserved": true
+        }
+      ],
+      "routes": [
+        {
+          "name": "git-code-reviewer-https-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-https-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-identity-route",
+          "preserved": true
+        },
+        {
+          "name": "git-code-reviewer-route",
+          "preserved": true
+        }
+      ],
+      "identityReleaseUnchanged": true,
+      "helm": [
+        {
+          "name": "git-code-reviewer",
+          "namespace": "git-code-reviewer",
+          "revision": "74",
+          "updated": "2026-09-16 22:34:01.164852 +0900 KST",
+          "status": "deployed",
+          "chart": "git-code-reviewer-0.10.60",
+          "app_version": "0.8.0-alpha.64"
+        },
+        {
+          "name": "git-code-reviewer-identity",
+          "namespace": "git-code-reviewer",
+          "revision": "2",
+          "updated": "2026-09-14 00:31:42.000431 +0900 KST",
+          "status": "deployed",
+          "chart": "gcr-identity-0.1.0",
+          "app_version": "26.7.3-gcr.1"
+        }
+      ]
+    }
+  },
+  "https": {
+    "/health/startup": {
+      "status": 200,
+      "tlsVerified": true,
+      "bytes": 33
+    },
+    "/health/live": {
+      "status": 200,
+      "tlsVerified": true,
+      "bytes": 33
+    },
+    "/health/ready": {
+      "status": 200,
+      "tlsVerified": true,
+      "bytes": 74
+    },
+    "/api/v1/system": {
+      "status": 200,
+      "tlsVerified": true,
+      "bytes": 95,
+      "version": "0.8.0-alpha.64"
+    },
+    "/": {
+      "status": 200,
+      "tlsVerified": true,
+      "bytes": 1311
+    },
+    "/assets/index-CIiaTzPu.js": {
+      "status": 200,
+      "tlsVerified": true,
+      "sha256": "b069792ea22c9de7bef0708cd7615bfdd1f9c5c28f6714bbdac53256acf6fb35",
+      "bytes": 919321
+    },
+    "/assets/index-B1ghckh1.css": {
+      "status": 200,
+      "tlsVerified": true,
+      "sha256": "5c45961a0c56edb65ba4753a03ee4abb9191a8b95642fbd592f247c349857762",
+      "bytes": 171247
+    },
+    "/api/v1/repositories": {
+      "status": 401,
+      "anonymousAccessDenied": true,
+      "tlsVerified": true
+    }
+  },
+  "workerHealth": [
+    {
+      "path": "/health/live",
+      "status": 200,
+      "body": {
+        "status": "ok"
+      }
+    },
+    {
+      "path": "/health/ready",
+      "status": 200,
+      "body": {
+        "status": "ok"
+      }
+    }
+  ],
+  "validationModelCalls": 0,
+  "oldWorker": {
+    "pod": "git-code-reviewer-worker-8494f5dfcd-hsddh",
+    "state": "Terminating during post-deployment checks",
+    "leasedJobs": [],
+    "sandboxSigtermExitDelaySeconds": 650,
+    "forcedDeletion": false
+  },
+  "cd": {
+    "installedVersion": "2.12.6",
+    "target": "darwin-arm64",
+    "installationEvidenceCommit": "0c783f9",
+    "productSource": "3be0dc0ff3e243bb8e8fa7aa4fcac254d9ad7977",
+    "packagingSource": "3a39933b64750e89b8e5dc793bf4d0ab24cff124",
+    "commonPackageSource": "2958d916abbca7f598818e6821db64349c20d3d1",
+    "clientContract": "0.1.0-alpha.48",
+    "clientCore": "0.1.0-alpha.49",
+    "clientExecutors": "0.1.0-alpha.50",
+    "privateCliService": "0.1.0-alpha.39",
+    "runtimeHashesVerified": 11,
+    "isolatedExtensionHostActivated": true,
+    "registeredCommands": 26,
+    "userHostForcedReload": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "temporaryDirectoriesRemoved": [
+    "cd-source-policy-UJD95s",
+    "cd-source-policy-UzCIrJ",
+    "cd-w01-host-IwUgwB",
+    "gcr-process-test-IRxyLf",
+    "gcr-source-2f8ac374-8065-475c-92cc-78864132d5b1",
+    "gcr-source-5602aacf-62f1-429a-80df-96545cae54f1",
+    "gcr-source-df83e824-586b-4956-bb8f-78d1a30a5945"
+  ],
+  "temporaryCredentialsRemoved": 2,
+  "credentialSecondSweepRemoved": 0,
+  "fixtureRoot": "C:\\Users\\pydemia\\AppData\\Local\\Temp",
+  "cutoff": "2026-09-15T23:57:29Z",
+  "actualHostCleanup": "Confirmed in CD W01-real-host.json"
+}

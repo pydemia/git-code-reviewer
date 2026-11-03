@@ -1,0 +1,68 @@
+{
+  "checkpoint": "P06-C05 Commit Defender connected review delivery",
+  "verifiedAt": "2026-09-13T20:58:54.123344+00:00",
+  "commitDefenderCommit": "b3bcc08b79eccc84c48544ff6beddb516760177c",
+  "sourceEvidence": "https://github.com/pydemia/commit-defender/blob/b3bcc08b79eccc84c48544ff6beddb516760177c/.documents/execution/preventive-review/evidence/P06-connected-review.json",
+  "sourceEvidenceSha256": "1da0fb1d5c0462daeb16308e591b285130e3fa9d64a8b92501d13223359554e8",
+  "clientPackageVersion": "0.1.0-alpha.14",
+  "regression": {
+    "passed": 134,
+    "failed": 0,
+    "newCentralReviewCases": 6,
+    "newUiCases": 3,
+    "uiTransport": "actual HTTPS, mocked VS Code window API"
+  },
+  "artifact": {
+    "vsixSha256": "cc96d0b411ae70d6f178f9630058e76d018c038e7035ba85911bd8f45d844088",
+    "bundles": {
+      "extension.js": "6ecc299b0c6fdccf03b052632c556262b38cee88691f1cdd52b9fd208951a9e4",
+      "standalone-review-worker.js": "58dec5fb743e0deff35892f455b6b51729d9459dd7f23dab3020e3d872745d3d",
+      "hook-cli.js": "722d1237f9b09d8789d2554bb0f5bdb34127708ecf5875406dd0b8b562c90d33"
+    },
+    "status": "passed",
+    "sourceAndVendorExcluded": true
+  },
+  "packagedExtensionHost": {
+    "status": "passed",
+    "vscode": "1.137.0",
+    "node": "24.18.1",
+    "electron": "42.10.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "extensionVersion": "2.3.0",
+    "delivery": "packaged-extension",
+    "commandCount": 22,
+    "activation": true,
+    "hookDefault": "disable",
+    "modelCalled": false,
+    "checks": [
+      "activation",
+      "command registration",
+      "clear findings",
+      "cancel without run",
+      "no hook installed",
+      "standalone defaults and user profile",
+      "empty history refresh creates no local store or OS key"
+    ]
+  },
+  "actualModel": {
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "status": "completed",
+    "durationMs": 64643,
+    "findings": 1,
+    "syntheticSourceAndCentralServer": true,
+    "historyRestoredExactly": true,
+    "disconnectVerified": true,
+    "testKeysRemoved": true
+  },
+  "limitations": [
+    "PRISM-DEV v2/API key deployment and actual central server integration pending",
+    "Linux model runtime unverified",
+    "No visual dialog inspection; native host validates activation/commands",
+    "No remote auto-mapping, periodic sync/backoff/automatic fallback",
+    "Central bundle metadata and report provenance are read-only; content UI/export authorization pending",
+    "No Marketplace publication or user VS Code installation replacement"
+  ],
+  "goalComplete": false
+}

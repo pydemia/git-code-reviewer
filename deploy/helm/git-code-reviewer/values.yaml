@@ -1,13 +1,17 @@
 image:
   repository: docker.io/pydemia/git-code-reviewer
-  tag: '0.8.0-alpha.31'
-  digest: 'sha256:c190547fe932f7b8d8219986260bb7feb6bc76f32889478a61955511f52c4f3d'
+  tag: '0.8.0-alpha.88'
+  digest: 'sha256:c6b5d2fdbbce6cdaa6eca9e85063b63f0bd3c6edfa11a7bd72cadf056a108159'
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 publicBaseUrl: https://git-code-reviewer.example.internal
 trustedCa:
   existingConfigMap: ''
   key: ca.crt
+
+# Public verification keys only. No CI issuer is trusted until explicitly configured.
+trustedCi:
+  policies: []
 
 server:
   replicas: 2
@@ -38,6 +42,7 @@ modelAdmission:
 
 worker:
   replicas: 2
+  databasePoolMax: null # Inherit server.databasePoolMax unless explicitly set.
   concurrency: 2
   healthPort: 4001
   terminationGracePeriodSeconds: 900
@@ -60,6 +65,29 @@ storage:
 database:
   existingSecret: git-code-reviewer-db
   urlKey: DATABASE_URL
+  tls:
+    mode: legacy
+    existingConfigMap: ''
+    key: ca.crt
+  migrationsWaitTimeoutMs: 600000
+  isolated:
+    enabled: false
+    host: '' # Empty uses the bundled PostgreSQL service when enabled.
+    port: 5432
+    name: git_code_reviewer
+    runtimeSecret: ''
+    migratorSecret: ''
+    passwordKey: password
+    budget:
+      serverPeakReplicas: 2
+      workerPeakReplicas: 2
+      applicationConnectionLimit: 42
+      migratorConnectionLimit: 2
+      keycloakConnectionLimit: 30
+      maxConnections: 100
+      reservedConnections: 3
+      otherConnections: 5
+      operatorReserve: 10
 
 # Disabled by default for production installations that use a managed database.
 # When enabled, this dependency replaces database.existingSecret.
@@ -275,13 +303,43 @@ auth:
   # an OIDC endpoint. The referenced auth Secret must contain SESSION_SECRET,
   # LOCAL_BOOTSTRAP_ADMIN_USERNAME/PASSWORD and optional reviewer counterparts.
   local:
+    # Optional HTTP browser access alongside the HTTPS public URL; exact same hostname.
+    httpOrigin: ''
     adminDisplayName: 시스템 관리자
     reviewerDisplayName: 일반 사용자
+  saml:
+    # Companion Keycloak realm issuer. SSO/metadata paths are derived from it.
+    idpIssuer: ''
+    entityId: '' # Defaults to PUBLIC_BASE_URL/auth/saml/metadata.
+    signingSecret: '' # Server-only SP signing key/certificate, not the IdP TLS key.
+    privateKeyKey: tls.key
+    publicCertKey: tls.crt
+    sessionSecretKey: SESSION_SECRET # Read only this key from secrets.auth in SAML mode.
+    metadataConfigMap: '' # Optional approved metadata pin; otherwise fetch its HTTPS URL.
+    metadataKey: metadata.xml
+    configurationRevision: '1' # Change after replacing external SP key/metadata.
   proxyPublicKeyKey: PROXY_IDENTITY_PUBLIC_KEY
   adminRole: git-code-reviewer-admin
   adminGroup: git-code-reviewer-admins
   defaultTenantSlug: default
   autoJoinDefaultTenant: false
+
+# May be enabled under local auth to provision/link accounts before SAML cutover.
+# Credentials are mounted only in server and worker, never in init/migrator/retention.
+identity:
+  adminEnabled: false
+  securityEnabled: false
+  adminBaseUrl: '' # Private HTTPS /admin/realms/<same realm as auth.saml.idpIssuer>.
+  clientId: '' # Realm service account; never master/admin-cli credentials.
+  existingSecret: ''
+  clientSecretKey: client-secret
+  configurationRevision: '1' # Change after rotating the service-account Secret.
+  networkPolicy:
+    # Explicit {namespace, podLabels} or {cidr}; peer-side policies must also allow traffic.
+    publicPeers: [] # HTTPS metadata and machine-token requests to public issuer.
+    publicPort: 443
+    adminPeers: [] # Companion Pod port 8443, not its Service port 443.
+    adminPort: 8443
 
 authorization:
   mode: local
@@ -302,6 +360,8 @@ cerbos:
 
 model:
   analysis:
+    groupMaxModelCalls: 128
+    groupMaxDurationMs: 10800000
     mode: disabled
     endpoint: ''
     name: ''
@@ -337,6 +397,8 @@ retention:
   schedule: '*/10 * * * *'
   reportDays: 90
   chatDays: 30
+  mergedDays: 7
+  mergedMaxLen: 30
   eventLogHours: 24
   orphanGraceHours: 24
   deleteGraceHours: 1
@@ -353,3 +415,21 @@ networkPolicy:
 
 podDisruptionBudget:
   enabled: true
+
+knowledgePublication:
+  enabled: false
+
+clientApiKeys:
+  enabled: false
+  # Public CA for clients connecting to PUBLIC_BASE_URL; unrelated to database TLS.
+  connectionCa:
+    existingConfigMap: ''
+    key: ca.crt
+
+knowledgeDistribution:
+  enabled: false
+  serverId: ''
+  signingKeyId: ''
+  existingSecret: ''
+  privateKeyKey: private-key.pem
+  offlineLeaseSeconds: 86400

@@ -1,0 +1,12 @@
+{
+  "method": "GET",
+  "serverKnownRepositoryId": "9496bca9-8853-4344-b2d1-af9496608232",
+  "allowed": {
+    "status": 200
+  },
+  "other": {
+    "status": 403,
+    "code": "CLIENT_SCOPE_DENIED"
+  },
+  "priorHarnessFailure": "Missing x-gcr-server-id produced 401 for both allowed and other repository; not counted as authorization proof."
+}

@@ -100,6 +100,8 @@ retention:
   schedule: '*/10 * * * *'
   reportDays: 14
   chatDays: 7
+  mergedDays: 7
+  mergedMaxLen: 30
   eventLogHours: 24
   orphanGraceHours: 24
   deleteGraceHours: 1

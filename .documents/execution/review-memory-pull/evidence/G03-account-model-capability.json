@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "selection": {
+    "provider": "codex",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "high",
+    "executablePath": "/opt/homebrew/bin/codex",
+    "maximumReviewInvocations": 1
+  },
+  "descriptor": {
+    "id": "codex-account",
+    "version": "0.154.0/gcr-fixed-source-v1",
+    "model": "gpt-5.6-sol",
+    "configHash": "640d8214793fafc1cc90f078754352bb8521d75a7670567b4867939baf87ba21",
+    "capabilities": {
+      "available": true,
+      "sourceIsolation": "fixed-source-only",
+      "cancellation": true,
+      "timeout": true,
+      "childProcessCleanup": true,
+      "outputTokenLimit": false
+    }
+  },
+  "realModelCalls": 0,
+  "verification": "catalog and loopback requests only",
+  "modelCallCountMeaning": "Codex review invocation count; provider HTTP requests within a turn are not counted here"
+}

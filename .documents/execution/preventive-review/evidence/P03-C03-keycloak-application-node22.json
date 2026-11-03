@@ -1,0 +1,113 @@
+{
+  "formatVersion": 1,
+  "phase": "P03-C03",
+  "status": "passed",
+  "startedAt": "2026-09-13T00:18:37.891Z",
+  "node": "v22.23.2",
+  "platform": "darwin-arm64",
+  "keycloakVersion": "26.7.3",
+  "keycloakImage": "quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+  "postgresImage": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+  "nodeSaml": "5.1.0",
+  "xmlCrypto": "6.1.2",
+  "checks": [
+    "approved-https-idp-metadata",
+    "sp-metadata-endpoints-persistent-nameid",
+    "keycloak-rejects-unsigned-authnrequest",
+    "keycloak-rejects-unregistered-acs",
+    "node-https-rejects-untrusted-certificate",
+    "browser-rejects-unpinned-tls-certificate",
+    "signed-redirect-login-real-keycloak",
+    "cross-site-https-post-transaction-cookie",
+    "host-only-secure-httponly-lax-session",
+    "signed-redirect-slo-local-session-cleared",
+    "persistent-nameid-after-email-and-display-name-change",
+    "real-login-and-logout-replay-rejected",
+    "replayed-https-acs-does-not-create-session",
+    "slo-requires-credentials-on-next-login",
+    "real-idp-signing-key-rotation-overlap",
+    "old-trust-rejects-new-idp-key"
+  ],
+  "limitations": [
+    "Chrome headless; native Safari and interactive browser operation remain pending",
+    "test-specific generated TLS leaf SPKI pins; no system trust installation",
+    "fixture-only explicit identity mapping and activation; production provisioning/freshness are P03-C04/C05",
+    "separate disposable app and identity PostgreSQL; shared DB ACL/migration are P03-C06",
+    "local app source plus compiled web assets; deployed image SAML activation is not claimed"
+  ],
+  "cleanup": {
+    "containersRemoved": true,
+    "networkRemoved": true,
+    "temporaryFilesRemoved": true
+  },
+  "sourceSha256": {
+    "../apps/runtime/src/auth/saml-protocol.ts": "2eafd5b0bc69b610bae9f4803366caeb14710ee5d676e1b128c5cddb40e06d9c",
+    "saml-contract.mjs": "483a1334ca9a0d8034f6c542b8802c0b8c727a58a20c1b4ca7ad34306a65ae2f",
+    "saml-contract-smoke.mjs": "06aa7bfe4e325b5e3f8dac5070948000a2f258eb537dae9fede1a9ff80444f92",
+    "saml-application-smoke.mjs": "8c96875f55664cce438684d541b6aa5346b0453d17cf7aefee6ffbf520048c39",
+    "../apps/runtime/src/auth/saml-routes.ts": "2f7fab25007225f55396dfd5e8d5d5cbff0b78453cff60c8687bcc86135dbb99",
+    "../apps/runtime/src/auth/saml-state.ts": "deb043d7c55b56cfd1ceac1c0024bc83ac2896f65e5adc7b525d76b8bfed1225",
+    "../apps/runtime/src/auth/saml-config.ts": "01e9a2cfc06051ada0faf7a5bb5a86b126a1df845818a5dbdb038fdadfce4a40",
+    "../apps/runtime/src/auth/index.ts": "230b4fefd693f8a6ad30a5545cea4d9aeee5bfb2876a2c127b545f62602922fd",
+    "../apps/runtime/src/server.ts": "ecc446946af993fd4e4434461b610b3942de5acf9f24839a28334bcc18128734",
+    "../apps/web/src/LoginPage.tsx": "ca6e32441126fb9845ee87dfeb4fd44f5358872bcd9a2c6b947de1f2f8472a34",
+    "../apps/web/src/api.ts": "0fb69e7907eeea47727af9834dfe8fef925a2e99aa57bdc7617145f049c82e9e"
+  },
+  "idpMetadataSha256": "78610c0b7bbc2466f6f1f3e8e9018d0613237650fbb1260eb27afe18b09b2374",
+  "browser": {
+    "channel": "chrome",
+    "version": "152.0.7977.84",
+    "headless": true,
+    "ignoreHTTPSErrors": false,
+    "tlsTrust": "exact-generated-leaf-SPKI"
+  },
+  "loginCount": 3,
+  "postgresVersion": "17.11",
+  "allCallbacksCrossSite": true,
+  "nameIdStable": true,
+  "signingCertificateCount": 2,
+  "rejectedRequests": [
+    {
+      "route": "/auth/saml/acs",
+      "errorType": "SamlContractError"
+    }
+  ],
+  "application": {
+    "status": "passed",
+    "checks": [
+      "explicit-fixture-mapping-from-verified-persistent-nameid",
+      "compiled-login-page-advertises-saml-without-local-password",
+      "real-keycloak-cross-site-acs-to-application",
+      "durable-session-shared-by-application-replicas",
+      "existing-gcr-authority-preserved",
+      "secure-host-only-lax-session-and-completed-transaction-cookie-removal",
+      "compiled-logout-button-real-keycloak-slo",
+      "logout-response-consumed-in-database",
+      "logout-clears-local-cookie-and-denies-api",
+      "new-login-requires-keycloak-credentials-after-slo",
+      "no-browser-uncaught-errors"
+    ],
+    "replicas": 2,
+    "cleanup": {
+      "browserContextClosed": true,
+      "applicationServersClosed": true,
+      "schemaDropped": true
+    },
+    "receipts": [
+      {
+        "replica": 0,
+        "method": "POST",
+        "fetchSite": "cross-site",
+        "transactionCookieReceived": true,
+        "sessionCookieReceived": false,
+        "status": 303
+      }
+    ],
+    "migrations": 33,
+    "assetSha256": {
+      "index-T_jmTDvd.css": "e3dfa4e3389c0f71155cf8ba8cdf23de78c65ae0cc63f6c3006119a04d18e44e",
+      "index-jmmTaJuT.js": "007d8a62da6d5bf0d841b4c7d0680e4a81fba94e6b77daa911f493a41e7366ae"
+    }
+  },
+  "finishedAt": "2026-09-13T00:19:24.189Z"
+}

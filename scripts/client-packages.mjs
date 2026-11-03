@@ -1,0 +1,214 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const packages = ['client-contract', 'client-core', 'client-executors'];
+const args = process.argv.slice(2);
+if (args.some((arg) => arg !== '--verify')) throw new Error('Usage: pnpm pack:clients [--verify]');
+const pnpmCli = process.env.npm_execpath;
+const npmCli =
+  process.platform === 'win32'
+    ? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js')
+    : undefined;
+const run = (command, argv, cwd = root) => {
+  const cli = command === 'pnpm' ? pnpmCli : command === 'npm' ? npmCli : undefined;
+  if (process.platform === 'win32' && ['pnpm', 'npm'].includes(command))
+    assert(cli, 'Run through the pinned pnpm package script');
+  execFileSync(cli ? process.execPath : command, cli ? [cli, ...argv] : argv, {
+    cwd,
+    stdio: 'inherit',
+    env: process.env,
+    windowsHide: true,
+  });
+};
+const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
+const manifests = await Promise.all(
+  packages.map((name) => json(join(root, 'packages', name, 'package.json'))),
+);
+// The highest-level package pins both lower layers, which can keep their bytes.
+const version = manifests[2].version;
+const names = manifests.map((manifest) => manifest.name);
+const versions = Object.fromEntries(manifests.map((manifest) => [manifest.name, manifest.version]));
+for (const [index, manifest] of manifests.entries()) {
+  assert.equal(manifest.name, `@gcr/${packages[index]}`);
+  assert.equal(manifest.engines.node, '>=18.0.0');
+  for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+    for (const dependency of Object.keys(manifest[field] ?? {})) {
+      assert(
+        dependency === '@gcr/client-contract' ||
+          (manifest.name === '@gcr/client-executors' && dependency === '@gcr/client-core'),
+        `Unexpected client dependency: ${dependency}`,
+      );
+      assert.notEqual(manifest.name, '@gcr/client-contract', 'Contract must be dependency-free');
+    }
+  }
+  await rm(join(root, 'packages', packages[index], 'dist'), { recursive: true, force: true });
+}
+run('pnpm', ['build:clients']);
+
+const output = join(root, 'artifacts', 'client-packages', version);
+await mkdir(dirname(output), { recursive: true });
+const stage = await mkdtemp(join(dirname(output), '.pack-'));
+try {
+  const entries = [];
+  for (const [index, name] of packages.entries()) {
+    run('pnpm', ['pack', '--pack-destination', stage], join(root, 'packages', name));
+    const packageVersion = manifests[index].version;
+    const file = `gcr-${name}-${packageVersion}.tgz`;
+    let bytes = await readFile(join(stage, file));
+    const listing = execFileSync('tar', ['-tzf', join(stage, file)], { encoding: 'utf8' })
+      .trim()
+      .split('\n')
+      .map((entry) => entry.trim());
+    assert(
+      listing.every(
+        (entry) =>
+          /^package\/(?:dist\/[^/]+\.(?:js|d\.ts)(?:\.map)?|package\.json|LICENSE|README\.md)$/.test(
+            entry.trim(),
+          ) ||
+          (name === 'client-core' &&
+            [
+              'package/dist/windows-native.exe',
+              'package/dist/windows-native.json',
+              'package/native/windows/Native.cs',
+            ].includes(entry.trim())),
+      ),
+      'Unexpected packed file',
+    );
+    const packed = JSON.parse(
+      execFileSync('tar', ['-xOzf', join(stage, file), 'package/package.json'], {
+        encoding: 'utf8',
+      }),
+    );
+    // An unchanged package keeps its exact previous tarball, including its hash.
+    // Compare every packed byte before accepting reuse of an existing version.
+    const priorDirectory = join(root, 'artifacts/client-packages', packageVersion);
+    let prior;
+    try {
+      prior = await json(join(priorDirectory, 'manifest.json'));
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    // Delivery directories use the executors version, which can differ from
+    // the version of a lower-level package. An unrelated delivery is not reuse.
+    if (
+      prior?.packages.some(
+        (entry) => entry.name === manifests[index].name && entry.version === packageVersion,
+      )
+    ) {
+      const entry = prior.packages.find((entry) => entry.name === manifests[index].name);
+      assert(entry && entry.version === packageVersion && entry.file === file);
+      const previousFile = join(priorDirectory, file);
+      const previousBytes = await readFile(previousFile);
+      assert.equal(createHash('sha256').update(previousBytes).digest('hex'), entry.sha256);
+      const previousListing = execFileSync('tar', ['-tzf', previousFile], { encoding: 'utf8' })
+        .trim()
+        .split('\n')
+        .map((entry) => entry.trim());
+      assert.deepEqual(listing, previousListing, 'Changed package needs a new version');
+      for (const item of listing)
+        assert.deepEqual(
+          execFileSync('tar', ['-xOzf', join(stage, file), item]),
+          execFileSync('tar', ['-xOzf', previousFile, item]),
+          'Changed package needs a new version: ' + item,
+        );
+      bytes = previousBytes;
+      await writeFile(join(stage, file), bytes);
+    }
+    for (const [dependency, requirement] of Object.entries(packed.dependencies ?? {})) {
+      assert(names.includes(dependency));
+      assert.equal(
+        requirement,
+        versions[dependency],
+        'Packed dependencies must use exact versions',
+      );
+    }
+    entries.push({
+      name: manifests[index].name,
+      version: packageVersion,
+      file,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    });
+  }
+  const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim();
+  const manifest = {
+    schemaVersion: 1,
+    version,
+    sourceSha,
+    buildPlatform: process.platform,
+    buildArchitecture: process.arch,
+    packages: entries,
+  };
+  await writeFile(join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+  if (args.includes('--verify')) {
+    const consumer = join(stage, 'consumer');
+    await mkdir(consumer);
+    await writeFile(
+      join(consumer, 'package.json'),
+      '{"name":"gcr-clean-consumer","private":true,"type":"module"}\n',
+    );
+    run(
+      'npm',
+      [
+        'install',
+        '--offline',
+        '--ignore-scripts',
+        '--no-audit',
+        '--no-fund',
+        ...entries.map((entry) => join(stage, entry.file)),
+      ],
+      consumer,
+    );
+    const smoke = `import assert from 'node:assert/strict';
+import { clientContractPackage } from '@gcr/client-contract';
+import { clientCorePackage } from '@gcr/client-core';
+import { clientExecutorsPackage } from '@gcr/client-executors';
+const expected = ${JSON.stringify(versions)};
+for (const info of [clientContractPackage, clientCorePackage, clientExecutorsPackage]) {
+  assert.equal(info.version, expected[info.name]);
+  assert.equal(info.contractVersion, 1);
+}
+if (process.platform === 'win32') {
+  const { windowsNativeSync } = await import('@gcr/client-core/windows-native');
+  assert(windowsNativeSync({operation:'identity'}).dataDirectory);
+}
+console.log('Clean consumer imports passed on ' + process.version);
+`;
+    await writeFile(join(consumer, 'smoke.mjs'), smoke);
+    run(process.execPath, ['smoke.mjs'], consumer);
+    // Test an installed minimum-runtime binary without downloading or changing the host Node.
+    if (process.env.GCR_CLIENT_MIN_NODE)
+      run(process.env.GCR_CLIENT_MIN_NODE, ['smoke.mjs'], consumer);
+    await rm(consumer, { recursive: true, force: true });
+  }
+  await mkdir(dirname(output), { recursive: true });
+  try {
+    await rename(stage, output);
+  } catch (error) {
+    if (!['EEXIST', 'ENOTEMPTY'].includes(error.code)) throw error;
+    assert.deepEqual(
+      await json(join(output, 'manifest.json')),
+      manifest,
+      'Artifact version already exists with different content; increment package versions',
+    );
+    for (const entry of entries) {
+      const existing = await readFile(join(output, entry.file));
+      assert.equal(
+        createHash('sha256').update(existing).digest('hex'),
+        entry.sha256,
+        'Existing artifact was modified',
+      );
+    }
+  }
+  console.log(`Client artifacts: ${output}`);
+  for (const entry of entries) console.log(`${entry.sha256}  ${basename(entry.file)}`);
+} finally {
+  await rm(stage, { recursive: true, force: true });
+}

@@ -5,10 +5,13 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**', 'test-results/**'] },
+  { ignores: ['**/dist/**', '**/coverage/**', 'test-results/**', 'artifacts/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  { files: ['deploy/sandbox/*.mjs'], languageOptions: { globals: globals.node } },
+  {
+    files: ['deploy/sandbox/*.mjs', 'deploy/identity/*.mjs', 'scripts/*.mjs', 'packages/*/test-fixtures/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

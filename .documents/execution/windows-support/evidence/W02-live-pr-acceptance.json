@@ -1,0 +1,167 @@
+{
+  "status": "passed; model judgments manually assessed",
+  "originalScopeReplacement": "User requested actual pydemia/commit-defender PR #3 and local GCR instead of inaccessible #917/#915.",
+  "actualGitHubOriginals": true,
+  "reconstructedHistory": false,
+  "source": {
+    "id": "d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+    "githubId": 4022589067,
+    "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "observationHash": "37c2918dd85844a3b5e52018816baae9ca576bc43721abcb2162bd4ee68d6c0e",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067"
+  },
+  "reply": {
+    "id": "49768448-b77c-40d6-9cfe-114a178ebc83",
+    "githubId": 4022595630,
+    "kind": "review-comment",
+    "contentHash": "94870a7a0fb5c2037b04faeebe5a32684c77269f58a43844a59349ac101f15af",
+    "observationHash": "e680a3fdb5d5b2b4dc28675b521fad8a060022a94ca2adc130f2159242fd29a4",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022595630",
+    "inReplyToGithubId": 4022589067,
+    "bodyExact": true
+  },
+  "guidance": {
+    "id": "4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+    "revision": 1,
+    "contentSha256": "0fd783fcb03543546e29181d1405f92851e550a5a17650864dd5dd2765d23a5f",
+    "sourceContentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "state": "active"
+  },
+  "bodyVersions": [
+    {
+      "id": "1819b3a1-aa64-4b8e-98d9-7f0880d5a2e8",
+      "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+      "githubUpdatedAt": "2026-09-16T04:49:47.000Z"
+    },
+    {
+      "id": "32979be9-35cb-4f9b-8deb-dfbf69f46243",
+      "contentHash": "683e732c2e8bfa05f89b130b3e7195eefd9e3bfd05a09ceec26d8e44ba88bb3a",
+      "githubUpdatedAt": "2026-09-16T04:48:44.000Z"
+    }
+  ],
+  "cases": [
+    {
+      "name": "defect",
+      "attempt": 1,
+      "status": "completed",
+      "seconds": 114.638,
+      "findings": 1,
+      "actualModelSummary": "Review history d04489d1-9a82-49ad-ae11-52e605d4ee0e (https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067)는 현재 코드에도 동일한 검증 누락이 있어 적용했습니다. 답글의 수정 주장은 현재 source와 base로 확인되지 않았습니다. Correctness guidance와 decision memory 4b0f4c10-f4ca-4d1c-b064-e8c673256169도 적용했으며, DB 상태 관련 예외는 이 요청값 검증과 무관합니다. Maintenance, optimization, security, setting guidance에서는 추가로 뒷받침되는 문제를 찾지 못했습니다.",
+      "metadataMatched": true,
+      "historyReopened": true,
+      "savedResultCommandOpened": true,
+      "centralRequestsDuringModel": 0,
+      "manualAssessment": {
+        "accepted": true,
+        "decision": "applied",
+        "evidenceFields": [
+          "report.summary",
+          "report.findings[0].evidenceAssessment"
+        ],
+        "reason": "실제 summary가 과거 source ID/URL과 guidance ID를 인용해 적용을 설명한다. 미호출 validator와 두 model_validate 호출부를 근거로 누락/null 우회를 P2로 지적한다. 답글의 수정 주장을 현재 source/base로 검증해 거부한다."
+      },
+      "actualFileSummaries": [
+        "`BlockUpdateRequest`의 요청 필드 간 검증 함수가 모델 validator가 아닌 호출되지 않는 모듈 함수로 분리되어 있습니다."
+      ]
+    },
+    {
+      "name": "fixed",
+      "attempt": 1,
+      "status": "completed",
+      "seconds": 108.556,
+      "findings": 0,
+      "actualModelSummary": "검토한 변경 범위에서 문제가 발견되지 않았습니다.\n\n- 과거 review source `d04489d1-9a82-49ad-ae11-52e605d4ee0e` (https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067)는 적용됨: 현재 `model_validator(mode=\"after\")`가 `preview_block`과 `update_block` 양쪽의 `model_validate` 경로에서 요청 필드 간 제약을 실행합니다.\n- Collective guidance `4b0f4c10-f4ca-4d1c-b064-e8c673256169`도 이미 충족됩니다. DB 상태가 필요한 검증은 이 변경에 포함되지 않았고, 현재 validator는 요청 값만 검사합니다.",
+      "metadataMatched": true,
+      "historyReopened": true,
+      "savedResultCommandOpened": true,
+      "centralRequestsDuringModel": 0,
+      "manualAssessment": {
+        "accepted": true,
+        "decision": "already-satisfied",
+        "evidenceFields": [
+          "report.summary"
+        ],
+        "reason": "실제 summary가 source ID/URL과 guidance ID를 인용하고 복원된 model_validator가 preview/update 양쪽에서 실행돼 지침을 충족한다고 설명한다. findings는 0이다."
+      },
+      "actualFileSummaries": [
+        "전체 source와 base 및 관련 callers, contract, tests를 검토했습니다. `reference` 유형의 누락·null `reference_id` 검증이 모델 생성 시점에 수행되며, 확인된 결함은 없습니다."
+      ]
+    },
+    {
+      "name": "unrelated",
+      "attempt": 2,
+      "status": "completed",
+      "seconds": 179.013,
+      "findings": 0,
+      "actualModelSummary": "검토한 변경 범위에서 문제가 발견되지 않았습니다.\n\n- 과거 review source `d04489d1-9a82-49ad-ae11-52e605d4ee0e` (https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067)와 답글의 guidance는 현재 `BlockUpdateRequest` validator와 두 진입점 검증, DB 상태 기반 `archived` 검사를 통해 이미 충족됩니다.\n- 관련 callers, schema, repository, tests를 확인했으며 테스트는 실행하지 않았습니다.",
+      "metadataMatched": true,
+      "historyReopened": true,
+      "savedResultCommandOpened": true,
+      "centralRequestsDuringModel": 0,
+      "manualAssessment": {
+        "accepted": true,
+        "decision": "request guidance satisfied; DB-state change outside request-only scope",
+        "evidenceFields": [
+          "report.summary",
+          "report.files[0].summary"
+        ],
+        "reason": "실제 summary가 source ID/URL을 인용해 기존 요청 validator의 지침 충족을 설명한다. file summary는 archived 검사가 DB 상태가 필요한 service 책임이어서 유지된다고 설명하며 schema 이동이나 해결된 validator 결함을 요구하지 않는다. 이 설명을 요청 값 지침에서 새 DB 검사를 제외한 근거로 판단했다.",
+        "wordingLimit": "모델은 excluded라는 상태어를 쓰지 않았고 summary에서는 지침이 이미 충족됐다고 표현했다. 제외 사유는 file summary의 DB 상태/service 책임 설명에서 확인했다. guidance ID의 실제 응답 내 직접 인용은 없으며 문맥 metadata에는 포함됐다."
+      },
+      "actualFileSummaries": [
+        "현재 service와 fixed base 및 관련 callers, schema, repository, tests를 검토했습니다. `archived` 상태 검사는 DB 상태가 필요한 service 책임으로 유지되고 있으며 문제는 확인되지 않았습니다."
+      ]
+    }
+  ],
+  "pinnedComponents": {
+    "policy": {
+      "bundleId": "6667bad0-421f-47bb-a911-1e757bfbaf90",
+      "releaseSequence": 1,
+      "contentHash": "e137bcf5bb2ceb7c3b3c1f6e8b67b5f23b04ff77bc7453a7c185913be4b89b83",
+      "sizeBytes": 48536
+    },
+    "collective": {
+      "bundleId": "ad9bfc44-b212-4959-a400-3fc4049edd85",
+      "releaseSequence": 2,
+      "contentHash": "77a08fac5aa2247327909538f625c1dc25a62740522acbfa1f1327c3836bb0b7",
+      "sizeBytes": 2464
+    },
+    "personal": {
+      "bundleId": "5abe5c17-e3c2-4a4a-8dff-321fa13eb2ca",
+      "releaseSequence": 1,
+      "contentHash": "91f2580682e089dcf95c8d67084ee44e1e4c42dfb63e7f9150d77f0f1ca1845f",
+      "sizeBytes": 213
+    }
+  },
+  "centralHttp": {
+    "requests": 56,
+    "bodyBytes": 0,
+    "getOnly": true
+  },
+  "failedAttempts": [
+    {
+      "name": "unrelated",
+      "attempt": 1,
+      "seconds": 99.7,
+      "status": "failed",
+      "code": "invalid-output",
+      "reason": "unknown-read-id",
+      "acceptedAsComplete": false,
+      "evidence": "W02-live-pr-unrelated-failed-attempt1.json",
+      "retryPlan": "W02-live-pr-retry-plan.json"
+    }
+  ],
+  "modelCalls": {
+    "livePr": 4,
+    "livePrCompleted": 3,
+    "livePrFailed": 1,
+    "reconstructedCompleted": 3,
+    "w02Total": 7
+  },
+  "providerObservation": "Native process boundary metadata: four account reviews (including one rejected response) and eight loopback catalog probes. Provider payload/transport was not packet-captured.",
+  "assessedAt": "2026-09-16T05:17:13.540Z",
+  "assessmentMethod": "Assistant read actual model summary/file summaries/finding rationale. Context metadata and core-generated history reasoning were not treated as model judgment.",
+  "currentHostHarnessSha256": "f8a3a591295f028929d01f546fcefc9686839a9a32db48b85b3efca3be8d9162",
+  "boundaryTestsExecuted": false,
+  "elapsedTimingCorrection": "Defect startedAt 04:52:15.104Z to finishedAt 04:54:09.742Z is 114.638 seconds. Earlier conversational 134.6 seconds was an arithmetic error; raw timestamps are unchanged."
+}

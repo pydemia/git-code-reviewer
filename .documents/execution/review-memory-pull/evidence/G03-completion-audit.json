@@ -1,0 +1,102 @@
+{
+  "status": "passed",
+  "requirements": [
+    {
+      "id": "local-provider-selection",
+      "status": "passed",
+      "basis": "Existing Codex account, user-selected gpt-5.6-luna/high; API provider adapters and settings selection regressions passed.",
+      "evidence": [
+        "G03-native-model-final.json",
+        "G03-alpha41-regressions.json"
+      ]
+    },
+    {
+      "id": "history-reader-contract",
+      "status": "passed",
+      "basis": "Existing PR917/915 originals, replies, body versions, observations and source-linked guidance read with the existing reader contract.",
+      "evidence": [
+        "G03-reader-parity.json",
+        "G03-native-model-final.json"
+      ]
+    },
+    {
+      "id": "one-way-communication",
+      "status": "passed",
+      "basis": "Strict ID/cursor-only history requests, GET-only transport and rejection of localDiff fields tested; final host window observed 13 GET and zero writes. Provider calls use the selected Codex executor.",
+      "evidence": [
+        "G03-final-central-requests.json",
+        "G03-alpha41-regressions.json"
+      ]
+    },
+    {
+      "id": "local-cache-and-fixed-context",
+      "status": "passed",
+      "basis": "Native original offline equality, active history context entry and pinned source/reply hashes observed; revocation, changed revision and scoped-cache regressions passed.",
+      "evidence": [
+        "G03-native-model-final.json",
+        "G03-alpha41-regressions.json"
+      ]
+    },
+    {
+      "id": "failure-source-and-cancellation",
+      "status": "passed",
+      "basis": "Completed, partial, invalid-schema and timeout remained distinct; sensitive-file, fixed-source, disconnect, cancellation and provider failure regressions passed.",
+      "evidence": [
+        "G03-native-schema-comparison.json",
+        "G03-native-schema-prompt.json",
+        "G03-alpha41-regressions.json"
+      ]
+    },
+    {
+      "id": "nonexecuting-guidance",
+      "status": "passed",
+      "basis": "Escaped read-only original panel confirmed in native host; downloaded guidance uses text contracts and no code runner was added.",
+      "evidence": [
+        "G03-native-model-final.json",
+        "G03-alpha41-regressions.json"
+      ]
+    },
+    {
+      "id": "fixed-artifacts-and-installation",
+      "status": "passed",
+      "basis": "Client alpha41 and service alpha36 manifests and provenance match source SHA; VSIX 2.11.1 installed bytes equal packaged bytes and actual host worker.",
+      "evidence": [
+        "G03-delivery.json",
+        "G03-alpha41-installation.json"
+      ]
+    },
+    {
+      "id": "real-local-model-review",
+      "status": "passed",
+      "basis": "Unmodified installed worker completed the bounded Luna/high account review in 79,275 ms with six source reads, one finding and source-linked history evidence.",
+      "evidence": [
+        "G03-native-model-final.json"
+      ]
+    },
+    {
+      "id": "settings-and-runtime-preserved",
+      "status": "passed",
+      "basis": "User Settings SHA unchanged, no account switch/forced reload/global CLI replacement; unchanged PRISM-DEV runtime Ready and no Helm deployment needed.",
+      "evidence": [
+        "G03-alpha41-installation.json",
+        "G03-runtime-final.json"
+      ]
+    },
+    {
+      "id": "scope-boundaries",
+      "status": "passed",
+      "basis": "No collection/new PR/Marketplace/runner/auth-framework/G04 work. Temporary owned reader key and session closed.",
+      "evidence": [
+        "G03-delivery.json",
+        "G03-alpha41-installation.json"
+      ]
+    }
+  ],
+  "limits": [
+    "Actual model completion verified only for selected Codex Luna/high; other supported providers have contract regression evidence.",
+    "Existing user Extension Host application is not confirmed; only the new verification host is confirmed.",
+    "The existing online manifest freshness deadline can stop long reviews; invalidated data is not reused.",
+    "The CLI output-schema diagnosis is based on observed comparisons, not external service internals."
+  ],
+  "pushVerification": "Recorded by final git upstream checks; no new PR created."
+}

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "jose": "^6.1.0",
-    "zod": "^4.1.11"
+    "zod": "^4.1.11",
+    "@gcr/contracts": "workspace:*"
   }
 }

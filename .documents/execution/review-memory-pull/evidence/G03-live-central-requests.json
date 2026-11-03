@@ -1,0 +1,88 @@
+{
+  "scope": "Server API request log during the task-owned live Extension Host window; not credential-exclusive packet capture",
+  "from": "2026-09-15T11:12:06.900851+00:00",
+  "requests": [
+    {
+      "time": 1789470733477,
+      "method": "GET",
+      "url": "/api/v1/client-auth/me",
+      "requestId": "9f5d8192-6a75-4aa5-9b76-c77a2d1d9225"
+    },
+    {
+      "time": 1789470733679,
+      "method": "GET",
+      "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+      "requestId": "7d7ca4f5-c6bd-477a-a63d-3e510455ea52"
+    },
+    {
+      "time": 1789470734422,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+      "requestId": "41116414-8ffa-42c3-a81a-df6cc62d1873"
+    },
+    {
+      "time": 1789470734878,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+      "requestId": "a6ef3a48-f6d2-4299-aa24-f15c7c65e7b1"
+    },
+    {
+      "time": 1789470735479,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/c10eec35-c291-46c3-9d0d-32860f0599cd",
+      "requestId": "7c565583-fdde-4d43-80a9-794041ee66e4"
+    },
+    {
+      "time": 1789470735843,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+      "requestId": "71fcfff0-eedf-4ea3-b008-53bd5bb2491d"
+    },
+    {
+      "time": 1789470737080,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+      "requestId": "a7f5b14c-f62d-497f-be67-b2502c6b1c0b"
+    },
+    {
+      "time": 1789470738245,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+      "requestId": "78dedb14-1aaf-449f-9926-52a084c0c097"
+    },
+    {
+      "time": 1789470739260,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+      "requestId": "da14f576-a8f5-4b39-9edb-718ead355b55"
+    },
+    {
+      "time": 1789470744594,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+      "requestId": "69005308-f9fa-4813-98c8-d03aeec80b35"
+    },
+    {
+      "time": 1789470745682,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+      "requestId": "f37c07c5-1a4b-44d7-8059-717517651985"
+    },
+    {
+      "time": 1789470746716,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+      "requestId": "247679ef-ead6-43b6-b3bc-d380f20fba1c"
+    },
+    {
+      "time": 1789470747852,
+      "method": "GET",
+      "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+      "requestId": "fdffea4c-f980-47a7-8479-16898a511de9"
+    }
+  ],
+  "allObservedProductApiMethodsGet": true,
+  "writeRequests": 0,
+  "localPayloadObservation": "URLs contain central IDs and PR numbers; request boundary restrictions are also covered by client transport regression tests",
+  "modelExecution": "Separate local Codex account invocation, not a GCR model endpoint"
+}

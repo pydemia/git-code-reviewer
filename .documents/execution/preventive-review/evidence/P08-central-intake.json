@@ -1,0 +1,472 @@
+{
+  "schemaVersion": 1,
+  "phase": "P08-C05",
+  "checkpoint": "central-intake-deployment-and-actual-client-review",
+  "status": "passed",
+  "phaseComplete": false,
+  "verifiedAt": "2026-09-14T06:38:33.575863+00:00",
+  "featureSourceCommit": "605638b570e37c97fdd6fc32cef60db0b722666c",
+  "dependencyFixCommit": "3cf5beccef136b2bbbb28eb9fac20ab220def006",
+  "sourceCommit": "3d3ff9349974579c13c79d5359f0bc15474ab116",
+  "deploymentConfigCommit": "ee226e30d4af51f634f28f3992dff2af8b9facc9",
+  "image": {
+    "digest": "sha256:0ebe1286efca0df5ae0aff3934421c855ef085d7701a7f27c976d8705a461341",
+    "source": "3d3ff9349974579c13c79d5359f0bc15474ab116",
+    "version": "0.8.0-alpha.46",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:2ec091e4ef5ac08e98825a634de503540bc28ca16e069d5ffa0aaa7e0ea8d49c"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:e8f2aa2dfc9ed108a3af3b6de22698af00c0a1365ef923a853c4ee93a55afa58"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "labels": {
+      "org.opencontainers.image.revision": "3d3ff9349974579c13c79d5359f0bc15474ab116",
+      "org.opencontainers.image.version": "0.8.0-alpha.46"
+    },
+    "architecture": "amd64"
+  },
+  "attestations": {
+    "status": "passed",
+    "indexDigest": "sha256:0ebe1286efca0df5ae0aff3934421c855ef085d7701a7f27c976d8705a461341",
+    "attestations": [
+      {
+        "digest": "sha256:e928fa988d57e41f8d09b66d063f6c7b7ea528d954bfdc0016e690a27adee4ab",
+        "predicateType": "https://spdx.dev/Document"
+      },
+      {
+        "digest": "sha256:8c1b3e6b569d50648f0caf5c60e557fe4c2c00a955e7633c2bbe0485e9dff012",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    ],
+    "tlsVerification": true,
+    "additionalTrust": "existing-corporate-ca-for-this-process-only",
+    "runtime": "v22.23.2"
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:f0b28a3b4d3ee49f2254e2d3ca6513e4edbfee3f83e3737d6b70b3aedd0ea217",
+    "chartSha256": "ac91ae87c238f7ac0df45cc03191afe4896e61df17998a63d27aa0d147ca93fb"
+  },
+  "release": {
+    "revision": 57,
+    "updated": "2026-09-14T15:35:21.070119+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.43",
+    "app_version": "0.8.0-alpha.46",
+    "description": "Upgrade complete"
+  },
+  "migrationCount": 45,
+  "databaseTlsMode": "verify-full",
+  "deploymentVerification": {
+    "status": "passed",
+    "at": "2026-09-14T06:36:40.845133+00:00",
+    "release": {
+      "revision": 57,
+      "updated": "2026-09-14T15:35:21.070119+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.43",
+      "app_version": "0.8.0-alpha.46",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:0ebe1286efca0df5ae0aff3934421c855ef085d7701a7f27c976d8705a461341",
+      "source": "3d3ff9349974579c13c79d5359f0bc15474ab116",
+      "version": "0.8.0-alpha.46",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:2ec091e4ef5ac08e98825a634de503540bc28ca16e069d5ffa0aaa7e0ea8d49c"
+        },
+        {
+          "architecture": "unknown",
+          "os": "unknown",
+          "digest": "sha256:e8f2aa2dfc9ed108a3af3b6de22698af00c0a1365ef923a853c4ee93a55afa58"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "3d3ff9349974579c13c79d5359f0bc15474ab116",
+        "org.opencontainers.image.version": "0.8.0-alpha.46"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 8,
+        "after": 8,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 172,
+        "after": 172,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 164,
+        "after": 164,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 3,
+        "after": 3,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 8,
+        "after": 8,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 45,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-9b566dbbb-btkxj",
+        "imageDigest": "sha256:0ebe1286efca0df5ae0aff3934421c855ef085d7701a7f27c976d8705a461341",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-f56956c59-4nrc9",
+        "imageDigest": "sha256:0ebe1286efca0df5ae0aff3934421c855ef085d7701a7f27c976d8705a461341",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Compiled production image: authenticated intake adoption, duplicate protection, Origin/session boundaries, draft exclusion from published criteria, migration and credential revocation. Live deployment: image/schema/HTTPS assets, anonymous authorization, readiness and existing resource preservation. Authenticated live intake, installed shared-client synchronization and explicit model re-review are recorded on alpha.45 in ../P08-intake-release-alpha45/live-intake.json; alpha.46 adds deferred cascade constraints and separately verifies cleanup recovery."
+  },
+  "tests": {
+    "criteriaPostgresAndBrowser": 26,
+    "clientCredentialsPostgres": 12,
+    "web": 119,
+    "typecheckAndBuild": [
+      "runtime",
+      "web"
+    ],
+    "lint": "passed",
+    "helmTest": "passed",
+    "compiledImage": [
+      "migration-44-to-45-existing-user-preserved",
+      "full-production-server-registration",
+      "local-password-session-login",
+      "anonymous-criteria-401",
+      "cross-origin-mutation-403",
+      "create-and-read-candidate",
+      "new-immutable-revision",
+      "stale-revision-409",
+      "built-criteria-web-route",
+      "non-root-runtime",
+      "idempotent-generation-queue",
+      "compiled-worker-generation-service",
+      "model-candidate-draft-only",
+      "admin-role-list",
+      "server-key-file-loading",
+      "three-component-publication",
+      "ed25519-signed-manifest",
+      "authenticated-304",
+      "scoped-bundle-download-integrity",
+      "publication-status-api",
+      "public-connection-config",
+      "client-key-issue-bearer-v2-revoke",
+      "old-contract-426",
+      "read-key-feedback-denied",
+      "explicit-feedback-scope",
+      "originless-native-submission",
+      "cross-origin-and-originless-cookie-denied",
+      "idempotent-feedback-receipt",
+      "private-field-rejection",
+      "repository-feedback-list",
+      "web-session-intake-only",
+      "intake-create-draft-and-idempotency",
+      "durable-client-reported-source"
+    ],
+    "intakeDraftExcludedFromPublishedCriteria": true,
+    "compiledRepositoryCascade": true
+  },
+  "liveWorkflow": {
+    "release": {
+      "revision": 56,
+      "updated": "2026-09-14T15:19:53.139138+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.42",
+      "app_version": "0.8.0-alpha.45",
+      "description": "Upgrade complete"
+    },
+    "record": {
+      "requestId": "59bd08e8-52d7-4162-a0b1-84c1df7e14bc",
+      "status": "failed",
+      "version": "0.8.0-alpha.45",
+      "clientVersion": "0.1.0-alpha.25",
+      "checks": [
+        "trusted-https-session-login",
+        "downloaded-public-configuration-matches-independent-CA-and-key",
+        "read-only-key-denied",
+        "macos-keychain-connection",
+        "explicit-encrypted-queue-no-auto-send",
+        "actual-https-feedback-receipt",
+        "idempotent-repeat",
+        "web-repository-candidate-list",
+        "web-intake-create-draft",
+        "intake-idempotence",
+        "independent-activation-gates",
+        "manual-evaluation-shadow-activation",
+        "current-intake-rule-status",
+        "new-signed-bundle-in-real-client-cache",
+        "actual-astra-xhigh-review-with-new-intake-criterion",
+        "actual-source-anchor-and-caller-read",
+        "explicit-minimal-result-submission",
+        "revocation-rejects-submission-and-offline-review"
+      ],
+      "externalModelCalls": 1,
+      "syntheticOnly": true,
+      "receipt": {
+        "audience": {
+          "repositoryId": "3dbe323b-771a-4107-8ecf-39d233f91ea5",
+          "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+          "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+          "userId": "070d6893-ec80-41cc-b845-f9dd52c0a2cb"
+        },
+        "clientId": "gcr-cli",
+        "evidence": "client-reported",
+        "expiresAt": "2026-10-14T06:21:39.834Z",
+        "id": "9b07c44f-b03a-417d-841f-ef1a9d7a7c90",
+        "kind": "feedback",
+        "payloadHash": "54e9028fc9dd930ce891747a5d40a6b9aa34ae82725c3c9c9b030590dddfba25",
+        "receivedAt": "2026-09-14T06:21:39.834Z",
+        "requestId": "6480399e-b6da-4621-b0e3-6375770e5ef6",
+        "schemaVersion": 1,
+        "status": "submitted"
+      },
+      "intake": {
+        "submissionId": "9b07c44f-b03a-417d-841f-ef1a9d7a7c90",
+        "ruleId": "2cec051f-cd88-45ee-be3f-b25b44e9bd6b",
+        "state": "active",
+        "previousSnapshot": "e8799ebf-1792-4da4-bc51-f20488a7a83d",
+        "snapshotId": "bb183612-a039-4070-a3af-ca3c200d7a67",
+        "sourceProvenance": "client-reported",
+        "actualModelReReview": true,
+        "modelReportSha256": "01d97b95937ff4e72e22a2ce3bd5f6f0416f37ea5a94d5475fb74ef1b15e3235",
+        "findingCount": 1
+      },
+      "model": "gpt-6-astra",
+      "reasoningEffort": "xhigh",
+      "ownedKeychainEntriesRemoved": true,
+      "serverCleanupFailed": true,
+      "verifiedAt": "2026-09-14T06:23:22.202Z"
+    },
+    "originalStatusPreserved": true,
+    "initialFailure": "fixture repository cascade was blocked by immediate intake FK; functional and model assertions had passed"
+  },
+  "cleanupRecovery": {
+    "status": "passed",
+    "repositoryRowsDeleted": 0,
+    "userRowsDeleted": 0,
+    "remaining": {
+      "repositories": 0,
+      "users": 0,
+      "submissions": 0,
+      "decisions": 0,
+      "rules": 0
+    },
+    "databaseTlsMode": "verify-full",
+    "version": "0.8.0-alpha.46",
+    "requestId": "59bd08e8-52d7-4162-a0b1-84c1df7e14bc",
+    "ownedRepositoryAndUserRemoved": true,
+    "ownedKeychainEntriesRemoved": true,
+    "ownedLocalFilesRemoved": true,
+    "originalFailurePreserved": "../P08-intake-release-alpha45/live-intake.json",
+    "verifiedAt": "2026-09-14T06:38:05.655Z"
+  },
+  "originalSelectedRowsPreservedAfterCleanup": true,
+  "verificationScope": {
+    "server": "actual PRISM-DEV HTTPS and deployed compiled production runtime",
+    "client": "independently installed shared library alpha.25 with real macOS Keychain",
+    "model": "one current-account gpt-6-astra/xhigh fixed-source review on alpha.45; no repeated model call on alpha.46",
+    "runtimeCompatibility": "alpha.45 and alpha.46 compiled runtime and web asset hashes match; alpha.46 adds forward migration 0045",
+    "centralEvaluation": "four manually recorded synthetic cases, not executed test evidence",
+    "independentExceptionApproval": "isolated PostgreSQL integration test; not the live P2 criterion path",
+    "extensionUi": "CD 2.4.0 submission UI delivery recorded separately; this live invocation did not drive its UI"
+  },
+  "backups": {
+    "alpha45": {
+      "at": "2026-09-14T05:55:20.176124+00:00",
+      "format": "pg_dump custom / AES-256-GCM",
+      "bytes": 8866837,
+      "plaintextSha256": "cae6626e2ed715fda4266cc7fc4989f8ebbe971cc7db4871a26dc1f52d249be3",
+      "ciphertextSha256": "4e1206627139dfeef3037289e70f6e287844ec39d92ed6334ff433cda7fa158f",
+      "encryptionReadback": true,
+      "restoreExecuted": false,
+      "keySecret": "git-code-reviewer-identity-preparation-backup",
+      "aad": "gcr-p08-intake-release-alpha45"
+    },
+    "alpha46": {
+      "at": "2026-09-14T06:28:24.429268+00:00",
+      "format": "pg_dump custom / AES-256-GCM",
+      "bytes": 8902853,
+      "plaintextSha256": "ad133934e9ed4d7e589adda810638e382512ad058b84bdffee41447272797bef",
+      "ciphertextSha256": "48d712680b85305b6d7dc18303d470cd32c3877b19ba2bec801a3f71fa108c48",
+      "encryptionReadback": true,
+      "restoreExecuted": false,
+      "keySecret": "git-code-reviewer-identity-preparation-backup",
+      "aad": "gcr-p08-intake-release-alpha46"
+    }
+  },
+  "correctedAttempts": [
+    {
+      "stage": "first clean alpha45 image build",
+      "reason": "web zod was transitive-only; declared direct dependency and lockfile; failed attempt was not published"
+    },
+    {
+      "stage": "first alpha45 image smoke",
+      "reason": "ran existing publication outbox worker after adoption before asserting final status and draft exclusion"
+    },
+    {
+      "stage": "alpha45 live cleanup",
+      "reason": "immediate intake cross-link FK blocked repository cascade; forward migration 0045 defers checks until cascades finish; same fixture cleanup passed on alpha46"
+    },
+    {
+      "stage": "cascade regression setup",
+      "reason": "feedback direct deletion is already blocked by immutable-history trigger; test asserts that guard and cleans owned raw intake before shared browser fixture"
+    }
+  ],
+  "remaining": [
+    "CD follow-up approval status and explicit navigation/synchronization flow",
+    "same CD user workflow through submission, authorized approval, synchronization and actual re-review",
+    "P08-C04 remaining executor/MCP conversation verification",
+    "P08-C06 packaged Skill",
+    "earlier phase completion conditions, P09 release and P10-P13"
+  ],
+  "artifacts": {
+    "artifacts/operations/P08-intake-release-alpha45/source.json": {
+      "sha256": "3d2d9456e90cbbcaaa9f3fd4c80d4e976834d11a5f78c2b040d01d91ff5052e8"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/registry-image.json": {
+      "sha256": "a8a6317f2564f43800335d1dd27efac3dc1beba8b1ac7ec18bc74d92acd665cd"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/deployment-verification.json": {
+      "sha256": "8d7942653f55d24162963768fbfff834f31c8d92f2f21f184b802d149939bf17"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/live-intake.json": {
+      "sha256": "d4d88909b6776e86a2c26d1296b5368969b198b962a095a689b5646ab0804a88"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/live-intake-model-report.json": {
+      "sha256": "a2c422b64cd9821b873ab402e6f785654b8bad64cbe08247e9b9107b52e05c0e"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/live-intake.mjs": {
+      "sha256": "d0b39f3ac95ef1878c9ce2fac3f748a5c512101d59543119e79641b99280a99a"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/build-attempt1-failed.log": {
+      "sha256": "73630a740519c962ff8d00d75f4d15157e663a40535d4d13ee2e9c42e28e0c5b"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/image-smoke-attempt1-error.log": {
+      "sha256": "d2a6c4a9fa9fe81c3303be0b95e365585dd23cdff1e5fdce64f5a2e2d9720baa"
+    },
+    "artifacts/operations/P08-intake-release-alpha45/cleanup-attempt2.jsonl": {
+      "sha256": "7139adb2c0d3d57122704f17083cd4504b69bd3229d55d286b4b36ee5f791ba0"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/source.json": {
+      "sha256": "b8695f5c2bfb50c75a639f102208a485557251d7bb246c1228ec585c3e273c38"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/registry-image.json": {
+      "sha256": "bd643543c23d82dedaf064885a4697af9f9f0efead32626a43606ef789326764"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/image-attestations.json": {
+      "sha256": "31eb6e672aa6eb0115ff0f6fbc309d2c7a948cfb4b19ce2c2ff92fc2b5e4192f"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/image-smoke.json": {
+      "sha256": "fd0d664383627f81a62f93518aca53c1e86d29207db8afcba029e1227ebe45bd"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/preflight.json": {
+      "sha256": "63387e886d5fb73efd40324c0288c5fdcdef544a3ee2c22655342de6ca254d8c"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/chart-readback.json": {
+      "sha256": "469abfd7407a3ada1782651e089265c31630a0a70d1b423659d9ad40d9aab438"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/deployment-verification.json": {
+      "sha256": "3a706fe4b45083f55997ba5bb2515e6033d43cf9853758a18918c5aa8ec28eaf"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/cleanup-recovery.json": {
+      "sha256": "77cf3bd159bae07c07c3ef1dec8a3c47258e0dce23890b1ad7adb87ab8fb257c"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/helm-test.log": {
+      "sha256": "8af330780e503e0009099e1a981f9b787b7fbd00c955c24f5e7c81508427b489"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/before-snapshot.json": {
+      "sha256": "7e6a15990eb710b0ff187953d6da1ea747c04146b485aadafb6d66bdec5bc118"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/after-snapshot.json": {
+      "sha256": "24bc9b861d2a27ac1ed8075be6bc1e896505b44c8291dd48bd0a256f28904bf5"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/post-live-snapshot.json": {
+      "sha256": "f03c2e76e8be59b285c75d8e491cdf5c9f0b860741bc5c0c2d924ff18d3efabe"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/image-smoke.mjs": {
+      "sha256": "ce5b802b33e697e9240bd387d0bd9d1b5867402176412df527c814cfd170992a"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/verify-deployment.py": {
+      "sha256": "e2fb6eec68609fb93ec7d2d58c4c6c1e79cfdb00a6bfe38270f19e3ddd4c5f40"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/cleanup-owned-intake.mjs": {
+      "sha256": "065a1784e2f82a9f57d910d4d67c135fffdcd001cb3023696b8a2c3f81e342ed"
+    },
+    "artifacts/operations/P08-intake-release-alpha46/cleanup-local-path-attempt1.json": {
+      "sha256": "ae5aa27f2d7c1abb7390cc51eb4785395d83d3da7422fc850f54b93dd09be911"
+    }
+  }
+}

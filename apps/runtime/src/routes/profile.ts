@@ -197,6 +197,7 @@ export async function registerProfileRoutes(
       await writeAudit(connection, request, 'user.password.change', 'success');
       await connection.query('commit');
       reply.clearCookie('gcr_session', { path: '/' });
+      reply.clearCookie('gcr_http_session', { path: '/' });
       return { schemaVersion, reauthenticate: true };
     } catch (error) {
       await connection.query('rollback');
@@ -236,11 +237,19 @@ function profileView(
     role: user.role,
     enabled: user.enabled,
     tenants: user.tenants,
-    identityType: local ? ('local' as const) : ('external' as const),
-    username: credential?.username ?? null,
+    identityType:
+      config.AUTH_MODE === 'saml'
+        ? ('saml' as const)
+        : local
+          ? ('local' as const)
+          : ('external' as const),
+    username: config.AUTH_MODE === 'saml' ? null : (credential?.username ?? null),
     profileEditable: local && config.AUTH_MODE === 'local',
     passwordChangeAllowed: local && config.AUTH_MODE === 'local',
-    passwordChangedAt: credential ? new Date(credential.passwordChangedAt).toISOString() : null,
+    passwordChangedAt:
+      credential && config.AUTH_MODE === 'local'
+        ? new Date(credential.passwordChangedAt).toISOString()
+        : null,
     personalPrompt,
   };
 }

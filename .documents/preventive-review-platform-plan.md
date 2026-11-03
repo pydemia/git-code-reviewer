@@ -1,5 +1,16 @@
 # Git Code Reviewer 사전 예방형 리뷰 플랫폼 기획안
 
+## 재개 범위 변경 — 2026-09-15
+
+[GCR 리뷰 이력 저장과 Commit Defender pulling 구현 계획](review-memory-pull-implementation-plan.md)에서 원래 요구에 맞춰 범위를 다시 정했다. 아래의 광범위한 플랫폼 기능과 당시 구현 상태는 참고 이력으로 남긴다. 새 작업에서는 새 계획의 유지·보류 범위와 goal별 완료 조건을 우선하며, 이 문서를 근거로 전체 기능 개발을 재개하지 않는다.
+
+## 연동 방향 확정 — 2026-09-15 사용자 지시
+
+중앙의 리뷰·리뷰 기준·프롬프트를 로컬이 가져오는 단방향 전파 구조다. Commit Defender와 로컬 CLI/MCP는 로컬에 구성된 모델로 리뷰한다. 중앙 지식 동기화는 모델 실행 위치를 바꾸지 않는다. 로컬 소스·리뷰 결과·피드백·대화·개인 Memory를 중앙으로 제출하지 않으며 자동 또는 수동 업로드 기능을 제공하지 않는다. 로컬 모델이 없거나 실패하면 미완료로 표시하고 중앙 모델로 대체하지 않는다.
+
+기존 P08의 로컬 결과·피드백 제출과 P10의 중앙 모델 실행은 이 지시로 범위에서 제외한다. 이는 구현 완료 처리가 아니며 잘못 확장한 기능을 철회하는 변경이다. 중앙 자체의 PR 리뷰·프롬프트 관리와 발행, 로컬 수신·적용·로컬 리뷰 검증, 나머지 개발·배포 목표는 유지한다. 아래의 과거 제안이나 실행 기록과 충돌하면 이 연동 방향을 따른다.
+
+
 작성일: 2026-09-10  
 최종 수정일: 2026-09-11  
 상태: 구현 전 최종 기획안  
@@ -199,7 +210,7 @@ Centralized의 `gcr init`은 현재 Git root와 remote의 인증정보를 제거
 
 Centralized client는 GCR 사용자 계정에 귀속된 기기별 credential로 접속한다. GCR UI는 Keycloak SAML로 로그인하며 그 웹 session에서 client 연결을 승인한다. GCR 내부 PKCE·headless device flow·access/refresh token 발급·회전·폐기와 scope·만료 제한 개인 API key 계획은 유지한다. SAML assertion을 API bearer로 재사용하지 않는다. 지원 client는 Commit Defender/CLI로 제한하고 범용 SSO·OIDC provider 제품은 GCR 구현 범위에 넣지 않는다. Secret은 OS credential store에 저장하고 공용 고정 key나 브라우저 cookie를 복사하지 않는다. 발급·폐기·SAML session과의 연결은 [client 인증 설계](./client-authentication-design.md), 실제 배포 구조는 [Keycloak SAML·공유 PostgreSQL 배포안](./keycloak-saml-deployment-design.md)을 따른다.
 
-권한은 `rules:read`, `memories:read`, `sources:read`, `reviews:submit`, `feedback:submit`, 선택적 `ai:invoke`, 유지관리용 `rules:manage`로 나눈다. 최초 sync에는 앞의 두 읽기 scope만 부여하고 추가 기능은 별도 승인한다. 모든 요청에서 tenant membership와 repository grant를 확인한다. GitHub PAT와 중앙 모델 계정의 credential은 client로 배포하지 않는다.
+클라이언트 키 권한은 `knowledge:read`로 제한한다. 중앙 관리 기능은 별도 웹 사용자 권한으로 처리하며 클라이언트에 쓰기·모델 실행 권한을 부여하지 않는다. 모든 요청에서 tenant membership와 repository grant를 확인한다. GitHub PAT와 중앙 모델 계정의 credential은 client로 배포하지 않는다.
 
 ### 7.2 동기화 시점과 기본값
 
@@ -251,7 +262,6 @@ Fallback 결과에는 실제 모드와 이유를 기록하고 중앙 기준 충�
 | `GET /api/v1/rules/:ruleId/revisions/:revision`                   | 규칙 설명과 열람 가능한 원문 provenance                        |
 | `POST /api/v1/local-review-runs`                                  | idempotency key가 있는 결과 metadata 제출                      |
 | `POST /api/v1/repositories/:id/review-knowledge/feedback`         | 오탐·수정·예외·메모리 후보 제출, 자동 정책 변경 없음           |
-| `POST /api/v1/ai-checks`                                          | 선택적 중앙 AI 분석; source 전송 정책과 별도 예산 적용         |
 
 관리 API는 후보 생성·평가·배포·폐기·예외 승인으로 분리한다. 다운로드 endpoint의 UUID를 아는 것만으로 다른 tenant의 bundle을 읽을 수 없어야 한다. 개인 overlay는 공용 artifact URL이나 공용 PR 출력에 포함하지 않는다.
 
@@ -315,11 +325,9 @@ gcr mcp
 | `gcr_prepare_review`    | 정확한 snapshot·diff·관련 source를 준비; 리뷰 완료는 아님 |
 | `gcr_review_changes`    | 구성된 executor에 맥락 리뷰 요청; 실행 ID 반환            |
 | `gcr_get_review_result` | 진행·완료·미완료·실패·취소와 결과 조회                    |
-| `gcr_submit_review`     | Host agent가 수행한 리뷰와 source·기준·근거 metadata 제출 |
 | `gcr_get_rule`          | 리뷰 기준의 조건·반례·이유 조회                           |
-| `gcr_submit_feedback`   | 확인된 수정·오탐·예외 요청 제출                           |
 
-Host agent가 자신의 모델로 리뷰할 때는 context 준비·파일 조회 도구를 사용하고 결과를 제출한다. 별도 executor가 필요한 자동 실행과 구분한다. Host 제출 결과는 client self-report이며 trusted CI 검증으로 승격하지 않는다.
+Host agent는 로컬에 구성된 모델로 context 준비·파일 조회 도구를 사용해 리뷰하고 결과를 로컬에 보관한다. 자동 실행도 로컬 executor를 사용한다. 로컬 결과를 중앙에 제출하거나 trusted CI 검증으로 승격하지 않는다.
 
 Root는 연결한 실제 Git root에 고정한다. 임의 tool 인수·source 내용·중앙 기준으로 접근 범위를 늘리지 않는다. Repository 파일과 Git 조회는 승인된 읽기 도구를 재사용하며 테스트·수정 등 추가 권한은 별도 통제한다.
 
@@ -453,15 +461,15 @@ Base ref·HEAD는 SHA로 고정하고 merge-base 기준 diff와 base·head의 �
 
 로컬 리뷰는 소스와 Git context를 개발 workspace에서 다룬다는 뜻이며 모델이 반드시 PC 안에서 실행된다는 뜻은 아니다.
 
-사용자와 대화 중인 coding agent는 자신의 승인된 모델 설정으로 MCP/CLI의 context를 읽고 리뷰할 수 있다. 저장 후 자동 리뷰에는 백그라운드에서 호출 가능한 executor가 별도로 필요하다. Host agent가 그런 호출을 지원하면 명시적으로 연결하고, 그렇지 않으면 인가된 중앙 review proxy 등 실행 가능한 경로를 구성한다. MCP나 Skill을 설치했다는 이유로 host 모델을 자동 호출할 수 있다고 가정하지 않는다. Phase 0에서 첫 경로를 확정하고 Phase 2에서 실제 자동 실행을 검증한다.
+사용자와 대화 중인 coding agent는 자신의 승인된 모델 설정으로 MCP/CLI의 context를 읽고 리뷰할 수 있다. 저장 후 자동 리뷰에는 백그라운드에서 호출 가능한 executor가 별도로 필요하다. Host agent가 그런 호출을 지원하면 명시적으로 연결하고, 그렇지 않으면 로컬에 별도 executor를 구성한다. 로컬 executor가 없으면 미완료로 처리한다. MCP나 Skill을 설치했다는 이유로 host 모델을 자동 호출할 수 있다고 가정하지 않는다. Phase 0에서 첫 경로를 확정하고 Phase 2에서 실제 자동 실행을 검증한다.
 
-중앙 proxy는 허용된 source 범위만 받아 기존 model admission·계정 할당·예산을 적용한다. 중앙 계정이 등록돼 있다는 사실만으로 모든 로컬 소스 전송을 허용하지 않는다. Host가 직접 호출한 모델의 비용·한도는 중앙에서 모두 관측·제어할 수 없음을 표시한다. Credential은 중앙 규칙 bundle에 넣지 않는다.
+로컬 모델의 계정·credential·호출 예산은 로컬 설정으로 관리한다. 중앙은 로컬 모델 요청을 대행하지 않으며 모델 credential을 지식 bundle에 넣지 않는다.
 
 호출량은 연속 변경 병합, 같은 snapshot 중복 제거, 관련 context 한정, workspace별 동시 실행 제한과 예산으로 줄인다. 과거 결과는 source·base·조회 context·기준·review profile·tool·model 설정의 유효성을 확인하고 재사용 사실을 표시한다. 변경되지 않은 범위의 결과만 유지하며 모델 응답의 완전 재현성을 보장하지 않는다.
 
 모델 미설정·한도 초과·통신 실패는 준비됨·대기·미완료·실패로 구분한다. 유효한 offline bundle로 메모리 조회와 context 준비는 가능하지만 실행 가능한 모델 경로가 없으면 새 맥락 리뷰가 완료되지 않는다. 기존 테스트가 성공해도 이를 대신하지 못한다.
 
-규칙 sync에는 source 업로드가 필요 없다. 결과 metadata와 원문 source·patch·개인 대화의 전송·보존 정책은 분리하고 상세 근거는 허용된 목적과 범위에서만 처리한다.
+규칙 sync는 중앙 자료를 읽는다. 로컬 결과 metadata·source·patch·개인 대화는 중앙으로 전송하지 않는다.
 
 ### 9.4 기존 검증 도구와 runner
 
@@ -503,13 +511,13 @@ Phase 0에서 언어·framework별 평가 사례와 혼합 repository 표본을 
 
 고위험·근거 충돌 항목에는 선택적 critic을 사용한다. 기존 답변을 요약시키는 대신 독립 context에서 반증과 실행 경로를 확인한다. 동일 공급자·모델의 상관된 오류 가능성을 고려하며 두 모델의 동의만으로 `test-confirmed`를 부여하지 않는다.
 
-## 11. PR 리뷰와 로컬 결과 연결
+## 11. 중앙 PR 리뷰와 검증 근거
 
-중앙 PR 분석은 당시의 최신 공용 rule bundle을 고정하고 로컬 결과와 비교한다. 개인 규칙·개인 Chat 원문은 공용 결과에 포함하지 않는다. Local result는 조작될 수 있는 client 제출 정보이므로 source와 rule hash가 같아도 trusted CI 증거와 동일하게 취급하지 않는다.
+중앙 PR 분석은 당시의 최신 공용 rule bundle을 고정한다. 로컬은 중앙 리뷰를 내려받아 본인의 결과와 비교할 수 있다. 로컬 결과·개인 규칙·개인 Chat 원문을 중앙으로 제출하지 않는다.
 
-검증된 central/CI 결과는 input tree·context·rule·review tool·profile·환경이 모두 일치하는 경우 재사용할 수 있다. 로컬 self-report는 후속 검사 순서와 중복 설명을 줄이는 참고 자료로 활용한다. Base, rule 또는 dependency가 달라지면 영향을 받는 검사만 재실행한다.
+검증된 central/CI 결과는 input tree·context·rule·review tool·profile·환경이 모두 일치하는 경우 재사용할 수 있다. 로컬 검증 결과는 로컬에서만 검사 순서와 중복 설명을 줄이는 참고 자료로 활용한다. Base, rule 또는 dependency가 달라지면 영향을 받는 검사만 재실행한다.
 
-PR 메시지에는 새로 발견한 문제, 재발한 문제, 로컬에서 확인했으나 독립 검증이 필요한 항목과 누락 범위를 구분한다. 동일 SHA·동일 발생 항목은 기존 관리 댓글을 갱신하고 동일한 설명을 새 댓글로 반복하지 않는다. 새 SHA에서 다시 발생한 위반은 이전 이력과 연결해 알린다.
+PR 메시지에는 새로 발견한 문제, 재발한 문제, 중앙에서 독립 검증이 필요한 항목과 관측하지 못한 범위를 구분한다. 동일 SHA·동일 발생 항목은 기존 관리 댓글을 갱신하고 동일한 설명을 새 댓글로 반복하지 않는다. 새 SHA에서 다시 발생한 위반은 이전 이력과 연결해 알린다.
 
 위험 기반 검토 경로는 rule severity와 별도로 API·인증·삭제·migration·ownership·검사 누락을 입력으로 계산한다. 낮은 위험의 검증 완료 변경은 빠른 검토 대상으로 제안하고 고위험·미확인 항목은 domain owner에게 전달한다. 자동 PR 승인·merge는 본 기획의 초기 범위에 넣지 않는다.
 
@@ -545,8 +553,8 @@ Phase 2의 첫 검증은 실제 리뷰 주제로 `원문 → 공용 리뷰 기�
 | `review_rules`, `review_rule_revisions`, `rule_evaluations`    | 영구 ID·불변 규칙·평가·반례                                                                          |
 | `rule_releases`, `rule_release_items`, `rule_revocations`      | 서명 manifest·배포·폐기                                                                              |
 | `rule_exceptions`, `rule_feedback`                             | 범위·만료·판정 사유                                                                                  |
-| `client_registrations`, `client_sync_events`                   | 인가·client capability·배포 상태                                                                     |
-| `local_review_runs`, `rule_occurrences`, `validation_evidence` | 검증 metadata·발생/수정·근거                                                                         |
+| `client_registrations`, `client_sync_events`                   | 인가·요청의 client capability·서버에서 관측한 배포 GET 응답 상태; 로컬 상태 보고 없음                                                                     |
+| `local_review_runs`, `rule_occurrences`, `validation_evidence` | 로컬 store의 검증 metadata·발생/수정·근거; 중앙은 자체 PR/CI 자료만 보관                                                                         |
 | `packages/review-policy-contract`와 기존 analysis-engine 확장  | 중앙 리뷰 기준·context 선택·리뷰 orchestration·결과 schema; 명칭은 제안                              |
 | `packages/client-core`, `apps/cli`, `apps/mcp`                 | 동기화·local source·CLI·MCP adapter                                                                  |
 | `apps/vscode`와 client-core scheduler                          | 사용자별 trigger 설정, 저장·index·Git hook 연결, 중복·취소·최신 결과, IDE Summary·findings·질문·상태 |
@@ -564,7 +572,7 @@ Phase 2의 첫 검증은 실제 리뷰 주제로 `원문 → 공용 리뷰 기�
 | Phase 2 · 로컬 리뷰 MVP    | CLI·context·snapshot, Save·Stage·Commit·Push 선택 설정, VS Code·watch·Git hook·scheduler·리뷰 UI, 실제 executor·MCP·Skill | 각 시점의 켜짐·꺼짐과 실제 리뷰, 중복·부분 staging·hook 대기·권한·모델 장애 검증, 두 환경에서 결과 확인 |
 | Phase 3 · 근거 검증 강화   | 승인된 기존 test/type/contract runner, 재현 fixture, source/test-confirmed, 선택적 critic, 추가 executor 경로             | 반례·재현·staged와 working tree 불일치, 실행 권한·source 전송·예산 검증                                 |
 | Phase 4 · 지속 학습        | Thread·수정 commit 연결, 종료 PR·선택적 backfill, 중앙 변경 알림, 조건부 예외·중복·재발·원천 변경 재검토                  | 과거 판단이 다음 로컬 리뷰에 사용되고 전제가 바뀌면 다시 검토                                           |
-| Phase 5 · PR와 운영        | 같은 공용 기준의 PR 분석, trusted CI 근거 참조, 위험별 사람 검토 경로·canary/rollback·품질 dashboard                      | 로컬 예방·PR 잔여 위험·후속 회귀를 연결해 유용성과 잡음 측정                                            |
+| Phase 5 · PR와 운영        | 같은 공용 기준의 PR 분석, trusted CI 근거 참조, 위험별 사람 검토 경로·canary/rollback·품질 dashboard                      | 중앙에서 PR 잔여 위험·후속 회귀를 측정하고 로컬 예방 결과는 로컬에서 평가                                            |
 
 첫 배포 단위는 Phase 0–2다. Native linter나 기계적 검사 성공이 아니라 실제 맥락 리뷰를 완료해야 한다. MCP·Skill 제공만으로 저장 후 자동 실행을 완료했다고 보지 않는다. 광범위한 역사 수집과 실행 runner를 기다리지 않고 기존 source·리뷰 이력으로 첫 리뷰를 검증한다.
 
@@ -595,7 +603,7 @@ Extension publish의 공통 통과 조건은 [로컬 VS Code 검증과 CLI 게�
 - 공통 작업 완료·직접 리뷰도 같은 scope·예산·인가·결과 계약을 사용한다. 전체 자동 분석을 꺼도 직접 리뷰는 가능하며 작업 ID가 같아도 snapshot이 바뀌면 새 변경을 검토한다.
 - 리뷰 중 재수정·branch 전환·기준 갱신 때 과거 결과가 최신 결과를 덮어쓰지 않는다. 일시 중지·host 재시작·절전 복귀를 상태에 반영하고 재개 시 source를 재조회한다.
 - 오탐 규칙의 반증 조건이 성립하면 지적을 줄이고 그 조건이 사라지면 실제 위반을 다시 보고한다.
-- Local review ID와 제출 결과가 중복 전송돼도 통계가 중복되지 않는다. 미전송/누락 telemetry를 규칙 미사용이나 결함 없음으로 추정하지 않는다.
+- 로컬 리뷰·적용 상태를 중앙에 보고하지 않는다. 중앙 GET 응답 성공을 로컬 적용·리뷰 완료로 집계하지 않으며 확인할 수 없는 상태는 unknown으로 표시한다.
 - 위반 fixture 탐지, 수정 fixture 통과, 독립적인 정상·오탐 반례 통과를 확인한다. 특정 재현용 예제에만 맞춘 검사인지 별도 표본으로 평가한다.
 - Core 기능은 실제 모델 없는 통합 테스트로 검증하고 선택된 규칙의 AI 판단은 별도 품질 평가로 확인한다.
 
@@ -604,8 +612,8 @@ Extension publish의 공통 통과 조건은 [로컬 VS Code 검증과 CLI 게�
 | 지표           | 계산·해석                                                                                                                    |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | 재발률         | 규칙이 적용되는 PR 중 확인된 동일 위반이 발생한 비율; rule version·repository별 비교                                         |
-| 로컬 발견·수정 | 위반 검출 후 source가 바뀌고 같은 규칙 재검사에서 해결된 건수; 예방 후보이며 사고 감소의 인과 증명은 아님                    |
-| PR 도달 위반   | 로컬 실행·동기화 여부와 연결 가능한 확인된 위반; telemetry 없는 PR은 unknown                                                 |
+| 로컬 발견·수정 | 로컬에서만 집계하는 동일 규칙 재검사 해결 건수; 중앙 집계·전송 없음, 사고 감소의 인과 증명은 아님                    |
+| PR 도달 위반   | 중앙 PR 리뷰에서 확인한 위반; 해당 변경의 로컬 리뷰·규칙 적용 여부는 unknown                                                 |
 | 오탐률         | 사람이 판정한 발견 중 confirmed-false-positive 비율; 미판정은 분모에서 별도 표시                                             |
 | 반복 설명 부담 | 같은 topic의 중복 댓글·재질문과 사람이 판정한 검토 부담                                                                      |
 | 검토 시간      | PR 관측→report, report→사람 반응, 승인→merge의 구간별 시간                                                                   |
@@ -614,7 +622,7 @@ Extension publish의 공통 통과 조건은 [로컬 VS Code 검증과 CLI 게�
 | 리뷰 호출 효율 | 변경 묶음·중복 제거·범위별 결과 재사용, 새로 읽은 context와 호출·token·대기 시간; 호출하지 않은 리뷰를 완료 건수에 넣지 않음 |
 | 후속 품질      | 확인 가능한 revert·회귀·장애 연결; 원인이 불명확하면 규칙 효과로 귀속하지 않음                                               |
 
-도입 전후는 같은 규칙이 적용되는 유사 PR 규모·module·기간으로 비교하고 표본 수를 제시한다. Comment 억제 수, 생성 코드량, 개인별 token 사용량을 성공 지표나 인사 평가로 삼지 않는다.
+중앙 지표는 중앙 PR·CI·발행과 GET 응답에서 직접 관측한 자료로 계산한다. 로컬 실행 시간·비용·동기화 적용 상태는 로컬 화면에서만 확인한다. 도입 전후는 같은 규칙이 적용되는 유사 PR 규모·module·기간으로 비교하고 표본 수를 제시한다. Comment 억제 수, 생성 코드량, 개인별 token 사용량을 성공 지표나 인사 평가로 삼지 않는다.
 
 ## 16. 초기 출시 완료 기준과 다음 결정
 

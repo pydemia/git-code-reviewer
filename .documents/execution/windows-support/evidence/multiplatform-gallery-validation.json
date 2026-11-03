@@ -1,0 +1,43 @@
+{
+  "recordedAt": "2026-09-16T13:09:09.759Z",
+  "version": "2.12.6",
+  "authenticatedGallery": true,
+  "versions": [
+    {
+      "version": "2.12.6",
+      "target": "darwin-arm64",
+      "flags": 0,
+      "validationResultMessage": null
+    },
+    {
+      "version": "2.12.6",
+      "target": "darwin-x64",
+      "flags": 0,
+      "validationResultMessage": null
+    },
+    {
+      "version": "2.12.6",
+      "target": "linux-arm64",
+      "flags": 0,
+      "validationResultMessage": null
+    },
+    {
+      "version": "2.12.6",
+      "target": "linux-x64",
+      "flags": 0,
+      "validationResultMessage": null
+    },
+    {
+      "version": "2.12.6",
+      "target": "win32-arm64",
+      "flags": 0,
+      "validationResultMessage": null
+    },
+    {
+      "version": "2.12.6",
+      "target": "win32-x64",
+      "flags": 0,
+      "validationResultMessage": null
+    }
+  ]
+}

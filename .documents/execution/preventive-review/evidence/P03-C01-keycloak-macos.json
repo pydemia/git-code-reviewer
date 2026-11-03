@@ -1,0 +1,49 @@
+{
+  "formatVersion": 1,
+  "phase": "P03-C01",
+  "status": "failed",
+  "startedAt": "2026-09-12T22:22:16.135Z",
+  "node": "v25.9.0",
+  "platform": "darwin-arm64",
+  "keycloakVersion": "26.7.3",
+  "keycloakImage": "quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+  "postgresImage": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+  "nodeSaml": "5.1.0",
+  "xmlCrypto": "6.1.2",
+  "checks": [
+    "approved-https-idp-metadata",
+    "sp-metadata-endpoints-persistent-nameid",
+    "node-https-rejects-untrusted-certificate"
+  ],
+  "limitations": [
+    "isolated PoC, not the application authentication routes",
+    "Chromium headless; Safari and interactive browser operation pending",
+    "test-specific generated TLS leaf SPKI pins; no system trust installation",
+    "in-memory transaction ledger; PostgreSQL cross-replica replay is P03-C02",
+    "ephemeral single identity DB; shared DB ACL and existing-volume migration are P03-C06"
+  ],
+  "cleanup": {
+    "containersRemoved": true,
+    "networkRemoved": true,
+    "temporaryFilesRemoved": true
+  },
+  "idpMetadataSha256": "353523363d459264750435ba36b75aba22b9e1057d13e4e1740f18b79a08a103",
+  "browser": {
+    "channel": "chrome",
+    "version": "152.0.7977.84",
+    "headless": true,
+    "ignoreHTTPSErrors": false,
+    "tlsTrust": "exact-generated-leaf-SPKI"
+  },
+  "failure": {
+    "stage": "first-https-login",
+    "type": "TimeoutError"
+  },
+  "rejectedRequests": [],
+  "finishedAt": "2026-09-12T22:23:21.215Z",
+  "sourceSha256": {
+    "saml-contract.mjs": "77d07105448ded5cba16fd183f15c33226a023b9f04f617eb99a2ddbb683e2b7",
+    "saml-contract-smoke.mjs": "88b85322ceb3f4920dc65fddd55ca45d578e623c44d25d2dde8f22f002a0d8c1"
+  },
+  "sourceHashLimitation": "This first failed run computed file hashes at completion, after a formatting-only change. Later runs capture source hashes before execution."
+}

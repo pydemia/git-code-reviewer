@@ -1,3 +1,8 @@
+export * from './review-observations.js';
+import { findingCriteriaSchema } from './finding-criteria.js';
+import { findingOccurrenceSchema, reviewRecurrenceSchema } from './review-recurrence.js';
+export * from './review-recurrence.js';
+export * from './finding-criteria.js';
 import { z } from 'zod';
 import { reviewAnalysisSchema } from './review-analysis.js';
 import { defaultReviewSeverityLevel, reviewSeverityLevelSchema } from './review-severity.js';
@@ -51,7 +56,7 @@ export const userSchema = z.object({
 export type User = z.infer<typeof userSchema>;
 
 export const profileSchema = userSchema.extend({
-  identityType: z.enum(['local', 'external']),
+  identityType: z.enum(['local', 'external', 'saml']),
   username: z.string().nullable(),
   profileEditable: z.boolean(),
   passwordChangeAllowed: z.boolean(),
@@ -88,7 +93,14 @@ export const adminUserSchema = z.object({
   displayName: z.string(),
   role: roleSchema,
   enabled: z.boolean(),
-  identityType: z.enum(['local', 'external']),
+  identityType: z.enum(['local', 'external', 'saml']),
+  identityState: z
+    .object({
+      provisioningState: z.enum(['pending', 'provisioned', 'failed']),
+      enabled: z.boolean(),
+    })
+    .nullable()
+    .optional(),
   username: z.string().nullable(),
   groups: z.array(z.string()),
   memberships: z.array(
@@ -236,6 +248,9 @@ export const repositorySchema = z.object({
 });
 export type Repository = z.infer<typeof repositorySchema>;
 
+export const reviewCommentMinPrioritySchema = z.enum(['P2', 'P3']);
+export type ReviewCommentMinPriority = z.infer<typeof reviewCommentMinPrioritySchema>;
+
 export const adminRepositoryListSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   items: z.array(
@@ -251,6 +266,8 @@ export const adminRepositoryListSchema = z.object({
       enabled: z.boolean(),
       pollingEnabled: z.boolean(),
       reviewPublishingEnabled: z.boolean(),
+      reviewCommentMinPriority: reviewCommentMinPrioritySchema.default('P2'),
+      reviewTestCode: z.boolean().default(false),
       pollIntervalSeconds: z.number().int(),
       credentialId: z.string().uuid().nullable(),
       credentialLabel: z.string().nullable(),
@@ -334,6 +351,10 @@ export const analysisProgressSchema = z.object({
   filesReviewed: z.number().int().nonnegative(),
   filesSkipped: z.number().int().nonnegative(),
   currentFile: z.string().nullable(),
+  tasksTotal: z.number().int().nonnegative().optional(),
+  tasksCompleted: z.number().int().nonnegative().optional(),
+  filesExcluded: z.number().int().nonnegative().optional(),
+  filesPending: z.number().int().nonnegative().optional(),
 });
 export type AnalysisProgress = z.infer<typeof analysisProgressSchema>;
 
@@ -344,6 +365,8 @@ export const analysisListSchema = z.object({
       id: z.string().uuid().nullable(),
       snapshotId: z.string().uuid(),
       revision: z.number().int().nullable(),
+      pullRevision: z.number().int().positive().nullable().optional(),
+      revisionScope: z.enum(['collective', 'personal']).optional(),
       state: z.string().nullable(),
       stage: z.string().nullable(),
       progress: z.number().int().nullable(),
@@ -355,6 +378,7 @@ export const analysisListSchema = z.object({
       headSha: z.string(),
     }),
   ),
+  nextCursor: z.string().nullable().optional(),
 });
 
 export const analysisStatusSchema = z.object({
@@ -481,11 +505,14 @@ export const findingViewSchema = z.object({
   anchor: evidenceLocatorSchema,
   evidence: z.array(evidenceLocatorSchema),
   fingerprint: z.string(),
+  criteria: findingCriteriaSchema.optional(),
+  occurrence: findingOccurrenceSchema.optional(),
   links: z.array(linkViewSchema),
 });
 
 export const reportViewSchema = z.object({
   analysis: reviewAnalysisSchema.optional(),
+  recurrence: reviewRecurrenceSchema.optional(),
   schemaVersion: z.literal(schemaVersion),
   analysisRevisionId: z.string().uuid(),
   snapshotId: z.string().uuid(),
@@ -527,6 +554,7 @@ export const reportViewSchema = z.object({
     snapshotId: z.string().uuid(),
     baseSha: z.string(),
     headSha: z.string(),
+    mergeBaseSha: z.string().optional(),
   }),
   links: z.array(linkViewSchema),
 });
@@ -770,3 +798,13 @@ export function errorEnvelope(
   };
 }
 export * from './chat-run.js';
+
+export * from './identity-admin.js';
+export * from './review-criteria.js';
+export * from './client-credentials.js';
+export * from './review-submission-intake.js';
+
+export * from './analysis-shared-knowledge.js';
+
+export * from './trusted-ci.js';
+export * from './review-history.js';

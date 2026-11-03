@@ -1,0 +1,79 @@
+{
+  "recordedAt": "2026-09-14T14:07:27.242804+00:00",
+  "phase": "P10-C02",
+  "complete": false,
+  "scope": "Exact approved local context and authoritative pinned central bundle restoration into common runner; automatic worker pipeline pending",
+  "files": {
+    "packages/client-contract/src/remote-review.ts": "75dbc9b8655d2b395ff3a788841e282c39e528f0907e2a0250722e21c7f86bb2",
+    "packages/client-core/src/review-context.ts": "8c607d188d2b47b07cd1469df195a85354acc987e3e34f16fb1ec52dc08f5856",
+    "packages/client-core/src/review-policy.ts": "529f8caf590dd15e4fc9019b5348a305b60337b3507f758287f58b75a5f0702d",
+    "packages/client-core/src/review-runner.ts": "8f0c2520885c60b79cf2bebe72395b861191a05cf7e0b769c469befb9afd9a4f",
+    "packages/client-core/src/remote-review.ts": "a05bb5cff2d30cb2736b16dff3546c267880cd6f86702b766eb902a3fd3f3477",
+    "packages/client-core/src/remote-review-context.ts": "a008a1fa4d47efc8e1ffdd69fee2f926da157926f8f6fb8500f9593dcf3c7ec4",
+    "packages/client-core/src/index.ts": "ddde7714d729fd0bf5e1da13b440fb17735011f3989b0e2a650295d12b610a8f",
+    "packages/client-core/src/remote-review-source.test.ts": "e58cd019ee2bc984917d86b503c9da80ca67d5768383ad0a3280c3f826c8cd98",
+    "packages/client-core/src/central-review.test.ts": "83b1e1762cb6a19bf631743638268fe9eca48a2f2a499c99fa071e1c03d2895f",
+    "apps/runtime/src/services/remote-review-context.ts": "0ff6390b69124198e00c7bc2afe089f41cc46cb65106b85baa30a4c44960331c",
+    "apps/runtime/src/services/knowledge-manifest.ts": "bf44c87475b2ae20f581e4f0a53ef6fe3c6ab301120b6c878d74f89ae46d4664",
+    "apps/runtime/src/services/central-review-executor.test.ts": "b9a9ab382eee1e8e0a24408759ba77cd8adcb5259c6e54e37623d7cec43efdee",
+    "apps/runtime/src/routes/review-knowledge.integration.test.ts": "893693f4568984f0968a4a3cd3348d07ad135d2e99a2c57b49bd636f9d1c4c03",
+    "apps/runtime/src/routes/remote-reviews.integration.test.ts": "e1d18ea5049664758e4346ecd12ad4682ebf3d075160b40780539391f8247a6c",
+    "apps/runtime/src/services/remote-review-execution.ts": "86909ddbac389e03376341a18ff713f06ba740a26319ec8ce35f3040596150d7",
+    "apps/runtime/src/services/remote-review-jobs.ts": "10a80e6ed5b0f588eaf85598ddd03c28b5215f77ad30550a2287115f8d2c7c6d"
+  },
+  "tests": {
+    "passed": 176,
+    "failed": 0,
+    "coreContextSourceRunnerChat": 145,
+    "remoteJobApi": 22,
+    "registeredExecutor": 8,
+    "approvedPinDatabaseAndArtifacts": 1,
+    "knowledgeSuiteTestsNotSelected": 18,
+    "actualAccountModelCalls": 0
+  },
+  "checks": {
+    "clientPackagesBuild": "passed",
+    "runtimeBuild": "passed",
+    "changedTestsTypecheck": "passed",
+    "changedFilesLint": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "database": {
+    "startedAt": "2026-09-14T14:04:20.447Z",
+    "backend": "native-postgresql",
+    "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+    "cleanup": true,
+    "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+    "commandExitCode": 0,
+    "finishedAt": "2026-09-14T14:04:26.728Z"
+  },
+  "logs": {
+    "gcr-p10-context-core-final.log": "65142464b40f1832e47b9ca862d102009d14a3665300c2a2a2aa468e2f78bc8e",
+    "gcr-p10-context-runtime-final.log": "33b1f816e8c2a8f6383875277b3003cdda2602352040c68630882fee65d7bfb0",
+    "gcr-p10-context-db-final-evidence.json": "b1dc41f7e19d68891f6e3c4ad42859e46899d43ca4f7ac6186185d0881105109"
+  },
+  "verified": [
+    "Exact selected local Skill and explicit instructions reach common runner prompt and report context hash",
+    "Missing/expired/inactive/changed context and unsupported built-in version fail without empty fallback",
+    "Incomplete context cannot be exported as an approved ready selection",
+    "Centralized identity and exact selected criteria preserved with approved manifest and selection recipe",
+    "Trusted server authority loads only the stored current online manifest and its scoped bundles",
+    "Wrong server/user, pending publication and authorization revision changes deny original pin",
+    "Bundle byte/hash mismatch and changed selection rejected without refreshing or switching context",
+    "Mid-review pin authority revocation sends cancellation to executor",
+    "New admission requires resolved context while legacy encrypted receipt replay remains idempotent",
+    "Wrong context hash cannot be committed as approved job result",
+    "Registered model adapter uses uploaded source and restored context after original capture/checkout deletion"
+  ],
+  "deployment": {
+    "performed": false,
+    "clientRelease": false,
+    "reason": "Automatic worker scheduling/execution and actual registered-provider verification remain incomplete"
+  },
+  "remaining": [
+    "Connect actual worker scheduling, original-key revalidation, source/context restoration, registered account resolver and executor",
+    "Wire model admission beforeSend with pin verification, heartbeat, budgets, cancellation/drain, checkpoint and pre-send capacity deferral",
+    "Actual authorized provider invocation and cancellation/recovery verification",
+    "CD/CLI remote executor and approval UI, package/VSIX releases and Helm rollout"
+  ]
+}

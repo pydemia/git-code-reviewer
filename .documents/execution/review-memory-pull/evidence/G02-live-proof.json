@@ -1,0 +1,676 @@
+{
+  "status": "passed",
+  "startedAt": "2026-09-15T09:15:59.124Z",
+  "repositoryId": "c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+  "pullNumbers": [
+    917,
+    915
+  ],
+  "transport": "authenticated live HTTP on pod loopback; external HTTPS verified separately",
+  "reader": {
+    "credentialId": "363d89f1-4c27-4b91-a6ea-740987fe1a3a",
+    "scopes": [
+      "knowledge:read"
+    ],
+    "userId": "49ba1cc6-5921-4eb1-8a86-2910ca59ee85",
+    "writeDenied": 401,
+    "otherRepositoryDenied": 403,
+    "localPayloadQueryDenied": 400,
+    "revokedDenied": 403
+  },
+  "collectionId": "f820f041-731a-4290-9859-f910e6feb596",
+  "collection": {
+    "schemaVersion": 1,
+    "id": "f820f041-731a-4290-9859-f910e6feb596",
+    "repositoryId": "c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+    "pullNumbers": [
+      915,
+      917
+    ],
+    "createdAt": "2026-09-15T09:15:59.598Z",
+    "state": "completed",
+    "completed": 2,
+    "total": 2,
+    "nextCursor": null,
+    "limits": {
+      "pulls": 20,
+      "restPagesPerEndpoint": 20,
+      "itemsPerRestPage": 100
+    },
+    "items": [
+      {
+        "number": 915,
+        "pullRequestId": "e48a2a47-5ff4-46e8-af24-44eda4f77758",
+        "completedAt": "2026-09-15T09:16:01.593Z",
+        "messageCount": 16,
+        "state": "completed",
+        "attempts": 1,
+        "errorCode": null
+      },
+      {
+        "number": 917,
+        "pullRequestId": "39a205c6-8eb2-46c5-98d6-80c9a0c82134",
+        "completedAt": "2026-09-15T09:16:03.493Z",
+        "messageCount": 45,
+        "state": "completed",
+        "attempts": 1,
+        "errorCode": null
+      }
+    ]
+  },
+  "pulls": [
+    {
+      "number": 917,
+      "upstreamMessages": 45,
+      "storedMessages": 46,
+      "replies": 10,
+      "readerPages": 5,
+      "storedBodyVersions": 58,
+      "coverage": {
+        "state": "collected",
+        "lastCompleteAt": "2026-09-15T09:16:03.487Z",
+        "syncStartedAt": "2026-09-15T09:16:01.795Z",
+        "observedCount": 45,
+        "errorCode": null
+      },
+      "matches": [
+        {
+          "id": "5b5546bb-60fd-4bb8-b111-676cf91e4768",
+          "githubId": "5566385857",
+          "kind": "issue-comment",
+          "contentHash": "b26f380d442d589551ee7523e06cc4aa0f2caa6f61cee2d309afe190f134656e",
+          "observationHash": "156ce8d55e0a04338236c38714eaa6ccfd69a54fd46aeef83aa92ced5e2a7c83",
+          "parentId": null
+        },
+        {
+          "id": "034cc98d-d460-46cd-b6b7-23919e55557b",
+          "githubId": "5566501022",
+          "kind": "issue-comment",
+          "contentHash": "f4bead226fa2408900b7a150b1caf669eccbe3cb46c37a5d56e86f8ccd5bdd45",
+          "observationHash": "e2cd16a3a6664be70e1c47e83feb47fdff6c7f18331f3d285a8718b752acf2fd",
+          "parentId": null
+        },
+        {
+          "id": "0373e4b8-94dc-4382-91de-cd0b5f5b71eb",
+          "githubId": "3956969298",
+          "kind": "review-comment",
+          "contentHash": "32d0fbe756b0d8e0d6f0d75cc3b34ac8adc85ae7c410792d02851c0737e351dc",
+          "observationHash": "ffe5885e8d1ea3c3969d251f458e944e85ab0b49c77f541c5ab0e7c2c63dbd6a",
+          "parentId": null
+        },
+        {
+          "id": "01527870-2ec6-4ecf-8c0b-13712bb64e23",
+          "githubId": "5140603075",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "8fada659705fb96b9982721ab3ef88d6cfa39bca33d880022a4fade7523a7b8a",
+          "parentId": null
+        },
+        {
+          "id": "84009b8d-7338-460d-9935-aa3655cebfbc",
+          "githubId": "3956986106",
+          "kind": "review-comment",
+          "contentHash": "488ad0e3919698ba0ef7f8d0fc35f3c019f2ee6a5837c4f094eb1ee376910a79",
+          "observationHash": "3673d19768dd63763979133c363fa5dfe832ce17ac16bc87d863c84e4fe96cd2",
+          "parentId": "0373e4b8-94dc-4382-91de-cd0b5f5b71eb"
+        },
+        {
+          "id": "8e84a062-c806-4042-916a-d9e1d3d5aefe",
+          "githubId": "5140622113",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "bef0db18d00d71caa5edd6851896884e01d0e5388c68a9ccff0af67cd19ffe7a",
+          "parentId": null
+        },
+        {
+          "id": "0780d81f-5da5-4647-a47b-12a26aa6f80a",
+          "githubId": "3957054283",
+          "kind": "review-comment",
+          "contentHash": "1d8a4d191c23e08a4035c5c2b793339e46d4704fecc1dbf37bceb5e6381bae86",
+          "observationHash": "eff8b7a85bcd6bad29ed281855c396f94b49dce4b8f243aa0ba9d9778adc86b8",
+          "parentId": "0373e4b8-94dc-4382-91de-cd0b5f5b71eb"
+        },
+        {
+          "id": "5eb04d72-6137-4e40-8210-b8646efde9af",
+          "githubId": "5140699926",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "a36c849aa312865a7efc8527a758a4c80615d163eda11952b24ed1ec64580806",
+          "parentId": null
+        },
+        {
+          "id": "7f9ee0c4-4aff-40ce-992e-321ce68581cf",
+          "githubId": "3964179204",
+          "kind": "review-comment",
+          "contentHash": "5eaa45b87c719c61ded9a5dd9644be0caccf84b1920417ac43de1c9629be5c4e",
+          "observationHash": "8d4f0df4fdc5c7ded16a7b65f81300a3feff054fc215411ef3a7a4af1a28c136",
+          "parentId": null
+        },
+        {
+          "id": "57c3fabc-7a64-48ae-9167-a078d276bbaa",
+          "githubId": "5149205770",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "a10f186205551ed4cce2fe59c73f96f870a4b12279ad072bac111d179fe41fe5",
+          "parentId": null
+        },
+        {
+          "id": "7ba88bbe-fe3b-42c8-a62f-9b0b93e40589",
+          "githubId": "3964601740",
+          "kind": "review-comment",
+          "contentHash": "439ca26944f4cefe67b68de56ed5aa4ed20e1657c3cbd0369335fbfca3dc7d0c",
+          "observationHash": "e3407b03e9fbb81004a2850cee148f7aebe3d7cfe3294c47b10a17c42a32c629",
+          "parentId": null
+        },
+        {
+          "id": "c15cc801-2500-4670-9def-ecffda10ff38",
+          "githubId": "5149695611",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "bbb305bc768a6f59eef41e01b5efa96c65bb4488a0ef952267f64f0fb42cbab1",
+          "parentId": null
+        },
+        {
+          "id": "2534ac1d-e2d9-4850-a908-88b8f96b686d",
+          "githubId": "5149729555",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "49fc633476a5a1563198d753c1596c6eec5b7f52ef865bc59b3ca21d017eaf99",
+          "parentId": null
+        },
+        {
+          "id": "1e8fcdf9-169f-4241-8f90-6650772e4bd0",
+          "githubId": "3964628888",
+          "kind": "review-comment",
+          "contentHash": "ce90e0368d6e895ac74b0c3776f0ddad24e96396673867aac9af1173739e044d",
+          "observationHash": "3e58394b003688472735338b00273a246e4721b1bfc18e9cd79016c9bd42c413",
+          "parentId": null
+        },
+        {
+          "id": "516701ff-9ce2-482a-a98e-92f7641dc7f8",
+          "githubId": "5149774586",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "c7958a6ca606ccdfb669b06208658ef9c560b6706cbdb8adf80f952dabb49a65",
+          "parentId": null
+        },
+        {
+          "id": "99fb51f1-8aee-40c9-817c-ee83f98edfbe",
+          "githubId": "3964665642",
+          "kind": "review-comment",
+          "contentHash": "7a7306c3f6b4a9b9502e6132eed60a55694093f72c44520d419e3809fe0301fb",
+          "observationHash": "af34ea640969c98f14cc62ddb7c3c7f9d82eba32560ef8f1adcbd657147946ce",
+          "parentId": null
+        },
+        {
+          "id": "0bd34646-68c8-4983-bff5-5b4b36230000",
+          "githubId": "3964697403",
+          "kind": "review-comment",
+          "contentHash": "76713aff99dcdc8c2fbcf79880921abd05fe7b1ef16c82417fda92c81a3add75",
+          "observationHash": "e60b810d12962001392cad165ad0dc263edf1d101b1d5353afddedfb15fd5585",
+          "parentId": "7f9ee0c4-4aff-40ce-992e-321ce68581cf"
+        },
+        {
+          "id": "55acbe28-d5d7-4e0a-b285-19a1182d803b",
+          "githubId": "3964697439",
+          "kind": "review-comment",
+          "contentHash": "98df805d21d855a3294678aeef42ef1b517485ec0137b42a82056302ce20d725",
+          "observationHash": "b2bc146c76c59162cf5e23b065f2b4c8693de7dc8b77160b2e5fc994c4aa915d",
+          "parentId": null
+        },
+        {
+          "id": "f0d513d1-74c1-4b23-8f55-95d4b49cd171",
+          "githubId": "5149812767",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "416c031f157bd08da07e9fa04162a5a3bcf4e94c17fe9956d32d9c6baf65fca0",
+          "parentId": null
+        },
+        {
+          "id": "6e847b9a-8ea3-445d-a43e-b57de9cbc5b6",
+          "githubId": "5149812812",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "c24e25083352d717311be6b068868f2fd87a4ef01bef40517a74f2815d86756d",
+          "parentId": null
+        },
+        {
+          "id": "9c75afbd-25d8-48fa-b1f3-119a102294eb",
+          "githubId": "3964700801",
+          "kind": "review-comment",
+          "contentHash": "5b517dc232d06d07fbcaea031e20408564987fc4ae0d099c65d7b88e32db9606",
+          "observationHash": "53df19d9d036635dcd7759bece2968fa6deaeb6618f4d368c96bf04869105f0b",
+          "parentId": "7ba88bbe-fe3b-42c8-a62f-9b0b93e40589"
+        },
+        {
+          "id": "2c77d062-e733-41f1-b915-8cf17d6531bc",
+          "githubId": "5149817181",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "2fefbfed6412e37ef490c022fd87ef3e1bae8894df728b87f03742bdf005dc36",
+          "parentId": null
+        },
+        {
+          "id": "cd1f7745-ad6f-4622-bfed-c011b0555a41",
+          "githubId": "3964710888",
+          "kind": "review-comment",
+          "contentHash": "656479f8c0ae38aee6f27ab9aedc659041b46c0514e225b47a082e1ba6cacfb8",
+          "observationHash": "e5d8ab993287fac0866798e82f1d8ad55f4ff935781bc66c90c758f9056727ec",
+          "parentId": null
+        },
+        {
+          "id": "7430971c-9b59-4752-a156-82d7e8cec7c6",
+          "githubId": "5149830492",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "8c2d158f87ce04b465d0686a8dbcb295f7f20d4289bbd56672d0df24235c7949",
+          "parentId": null
+        },
+        {
+          "id": "3e4b5971-cbe5-49e1-9646-0a88e7ef614a",
+          "githubId": "3964729892",
+          "kind": "review-comment",
+          "contentHash": "47aa46ac562f2b991992de41b2f9a426948d07a7059e58ca36b84180abe7c831",
+          "observationHash": "6aa640ba71cbb8feb4554d2514d0ab62b1ad48c1575c87c526a92a56b859bd81",
+          "parentId": null
+        },
+        {
+          "id": "a8bfe855-adb3-48ef-a68f-f2dd4d90c47d",
+          "githubId": "5149854313",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "21cbfd0b99b498cf3440caa13d187d1ddabc8a58314f6a806e071c72cebafb2d",
+          "parentId": null
+        },
+        {
+          "id": "3df704b1-10cf-4725-a78b-a77e6e4fc8c8",
+          "githubId": "3964749847",
+          "kind": "review-comment",
+          "contentHash": "95506472f8e9f808ee82324bc20086fe051048d7c63c38dacdb089709efee18a",
+          "observationHash": "3fe1aaff2aa04974fc2e691cab3b92cd1b720f27b62d20432839845e1bbf9d76",
+          "parentId": null
+        },
+        {
+          "id": "d7806806-3ea5-4c61-8cc3-507dc87f930c",
+          "githubId": "5149876569",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "f3e2632fd16b8e5bde5c4736e46b8e362810700d4dfb218e773b6021f6be63b1",
+          "parentId": null
+        },
+        {
+          "id": "91825847-0dbb-46e3-b75e-c252f26bd0fc",
+          "githubId": "3964788468",
+          "kind": "review-comment",
+          "contentHash": "ec66924072438d0e4e169c864eac6040464e81d482e9d94850ffde3473e3e925",
+          "observationHash": "4a198b2bbf96bd3e25112c19e6fbf815783e8cb21789f4a998eac3c0612496b5",
+          "parentId": "1e8fcdf9-169f-4241-8f90-6650772e4bd0"
+        },
+        {
+          "id": "10d8f8d3-76c4-46c6-b4bd-b0ef429b7b3b",
+          "githubId": "5149923983",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "b302de61fd6ea5e829aea1f2a9cd6d644b9344950b343c36eb16fbdb8d3807e8",
+          "parentId": null
+        },
+        {
+          "id": "2d6ea618-dc2a-4c39-a43a-cf7a23bbae32",
+          "githubId": "3964906359",
+          "kind": "review-comment",
+          "contentHash": "842625298ee8efaf1dda25634083ec7cccec9a8301a428a0a46dc56eeec585b6",
+          "observationHash": "e316cc013e8f27b879d8298886d26c5e45f44e123d33637195c27bce03d19bc9",
+          "parentId": "99fb51f1-8aee-40c9-817c-ee83f98edfbe"
+        },
+        {
+          "id": "e28273da-7a58-4183-a757-50944fe44b2f",
+          "githubId": "5150068027",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "72e71baf6a5860e892058b7db41f847c9e03ee3c230827b35c346112962b2845",
+          "parentId": null
+        },
+        {
+          "id": "f7e810d6-1aaa-4619-8a4a-0016ed98778d",
+          "githubId": "3964961412",
+          "kind": "review-comment",
+          "contentHash": "d6176d6fdbd4b1426868926b1395c1b5187bed764fb226e12823c2c1cd15b691",
+          "observationHash": "28d7210e7624303d3de0513ec8b79fc8f6f92f86e294ac76bfd74d9add42e50e",
+          "parentId": "55acbe28-d5d7-4e0a-b285-19a1182d803b"
+        },
+        {
+          "id": "5bba5b74-3a0d-4647-b47a-db68d09b1ad8",
+          "githubId": "5150135409",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "2765ea83636175457dc999b4c41891cfa2abd6958957e94976a48a5626e9f000",
+          "parentId": null
+        },
+        {
+          "id": "5b64099e-77a3-4ead-b9b2-d99fb443c882",
+          "githubId": "3965343153",
+          "kind": "review-comment",
+          "contentHash": "b182a211dbc7aacae7174965f94c496251782cf4708c0819321a4ac866f4b7aa",
+          "observationHash": "92a8ad769b012a1d157adfbc4fa3f7650b0767240cd99e75d799da8d57210bbe",
+          "parentId": "cd1f7745-ad6f-4622-bfed-c011b0555a41"
+        },
+        {
+          "id": "73d4e9dd-e3f8-43e9-97d6-294ab8011ffb",
+          "githubId": "5150607225",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "3b1ad0430214cbb090314515d31f4e6593f8d06e2a6aeb6153280d4cebd40be7",
+          "parentId": null
+        },
+        {
+          "id": "e5311c04-cfa0-4dc4-95d2-0cd897f11e9c",
+          "githubId": "3966645488",
+          "kind": "review-comment",
+          "contentHash": "0718a8cfe110c6f3374b27b48edc554de60f2b5b2ad8cf0f5fb570f25d8c1fca",
+          "observationHash": "72135fc60e38636c9d51774aefa1fd964b72ad05ed84091395f5fec6610d162a",
+          "parentId": "3e4b5971-cbe5-49e1-9646-0a88e7ef614a"
+        },
+        {
+          "id": "30787b73-e929-40a1-85ef-72065232f722",
+          "githubId": "5152206563",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "83992197fed1d67616bf6d4749b73cbc06b6693d114acf3f368220c4ef922eb1",
+          "parentId": null
+        },
+        {
+          "id": "6f109ec1-6748-485d-ac4d-a7243f620474",
+          "githubId": "3967618767",
+          "kind": "review-comment",
+          "contentHash": "c7368396e499ae70188c24ac233709b09c7001e576080d220a37fa15e318cff0",
+          "observationHash": "e72d6850c2296a821040b0a34e23b40db89744d1598388e01f69a7870540d1aa",
+          "parentId": null
+        },
+        {
+          "id": "7f78c10d-d3c7-430e-a045-1afd17067604",
+          "githubId": "5153377408",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "2c9b645ee71cf5820f8814b8ed1cec5d261ec85514df72143800c3fd99bdd873",
+          "parentId": null
+        },
+        {
+          "id": "ab3d9a07-ac3f-4305-a267-c5216a09be78",
+          "githubId": "5153674617",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "c350d57450449a6cbf5f6c4cd81df35c60d144e9440888fd560ec11769608e90",
+          "parentId": null
+        },
+        {
+          "id": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "githubId": "3967869279",
+          "kind": "review-comment",
+          "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+          "observationHash": "e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7",
+          "parentId": null
+        },
+        {
+          "id": "6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "githubId": "3968842864",
+          "kind": "review-comment",
+          "contentHash": "8ca5563c5b37fcd09b0ff2edc4f0fe46e8690223c7a962bf93e24f166b145748",
+          "observationHash": "0dd6f21c89eea1b1e4ae0b92af5c23a2fbb6933a8e6da4b6f402915b178fd66b",
+          "parentId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1"
+        },
+        {
+          "id": "a9ec60fd-273f-4323-a7b7-a2a58e4b7b2a",
+          "githubId": "5154824682",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "3410163867b6b60a63dd61a59b46fa4d8ad36b7daafd6b66f01b9f5ecd70bcad",
+          "parentId": null
+        },
+        {
+          "id": "aba09a5e-28ed-40f4-9fbb-a60a9282fe64",
+          "githubId": "5155317887",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "d9d22964fc7c1e47360d571b9c507ad7deaf9cd079cd8a1391d3dc1fa0de7dde",
+          "parentId": null
+        }
+      ],
+      "notReturned": [
+        {
+          "id": "575e43a7-db81-4b6f-8ead-69054c5eb330",
+          "githubId": "3964581198",
+          "contentHash": "08dea872e7b27dbf2481806e78d983d7899e1709fd0dc5cbb263c1cc3363142e",
+          "kind": "review-comment"
+        }
+      ]
+    },
+    {
+      "number": 915,
+      "upstreamMessages": 16,
+      "storedMessages": 16,
+      "replies": 3,
+      "readerPages": 2,
+      "storedBodyVersions": 17,
+      "coverage": {
+        "state": "collected",
+        "lastCompleteAt": "2026-09-15T09:16:01.588Z",
+        "syncStartedAt": "2026-09-15T09:16:00.196Z",
+        "observedCount": 16,
+        "errorCode": null
+      },
+      "matches": [
+        {
+          "id": "031f6fb9-5207-41af-bb75-e159065f97ba",
+          "githubId": "5565326981",
+          "kind": "issue-comment",
+          "contentHash": "0d5a54a66b134fd37077069fead19d4d41f846eba33a6e6368b07bc6177236bb",
+          "observationHash": "9be0d8ed1394747b3b0f1e876c8342e088915f736c9dce497adde163ce55a666",
+          "parentId": null
+        },
+        {
+          "id": "bd78b133-43b9-4c72-8832-611c652f9867",
+          "githubId": "3950260702",
+          "kind": "review-comment",
+          "contentHash": "b3670601d2a47c8f431f0f5a9ad6ee2d17919743b08d3307ab54775892b11c54",
+          "observationHash": "5f7e212e1f780171b4913abe8fe3f57d41839401d918410671c927eb620961ad",
+          "parentId": null
+        },
+        {
+          "id": "927b95ce-0fbb-4c07-ad26-52568685354c",
+          "githubId": "5132611384",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "9e718fc8655063bd1aae20dba6c1bf5b989bcb5198bd3705a6591f0b9e1aeb4b",
+          "parentId": null
+        },
+        {
+          "id": "12114ca2-ae6e-4097-85df-8b8378021b32",
+          "githubId": "5132725973",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "c67a5cea3c8893d1701d0e98c15190bd77dc43426c3c3b124e2897115aeb4841",
+          "parentId": null
+        },
+        {
+          "id": "9b3e8d79-c58a-46dd-94eb-66d62b3eb8ae",
+          "githubId": "3950361183",
+          "kind": "review-comment",
+          "contentHash": "bf5883b840f8d72a053d0bc7fb600e710638e192f647b4af1985761dbb5b7188",
+          "observationHash": "4a31d4bbfed665d659b26d896c6183f03a27a65511d18ad56f85ca097f1bdeb8",
+          "parentId": null
+        },
+        {
+          "id": "05465641-e52f-4f8a-8fc1-a6df7806c123",
+          "githubId": "5571746846",
+          "kind": "issue-comment",
+          "contentHash": "17794b1fb754f8908d6fe0b9b6f762abac7484e1519903f9eb61967285d76481",
+          "observationHash": "276655b05029c83390c54a62cd855afcde8483bac8d3ad0571120f15890fbdd4",
+          "parentId": null
+        },
+        {
+          "id": "dd8efcb9-d878-4238-84d0-39981589b270",
+          "githubId": "3953686277",
+          "kind": "review-comment",
+          "contentHash": "2b057f6fe4dc65c2289a1f386914b7151f6dc8e30e8f652cf868b64ab2457c90",
+          "observationHash": "d0f1afdbc30ee0289e421bd83c330edeecb031b484835a94ad68e52a2cba97ee",
+          "parentId": "9b3e8d79-c58a-46dd-94eb-66d62b3eb8ae"
+        },
+        {
+          "id": "a2af90f9-cf10-42ab-86c1-f79fe6df3036",
+          "githubId": "5136512244",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "0e5dc2419c7946f022d46618431f8e8e471f562054216fcd5a695799ff5ab859",
+          "parentId": null
+        },
+        {
+          "id": "833ef13f-d483-492b-8c14-987f3cf2aee4",
+          "githubId": "3956176392",
+          "kind": "review-comment",
+          "contentHash": "55d189f07c1c991a1f08de00c3570c1d530d79fa595503d035e8fa685c66ae0e",
+          "observationHash": "229595007e6a2724c7de65fc3be4e8072df1e5e0654c0ffa38c7cd2eb0eca678",
+          "parentId": "bd78b133-43b9-4c72-8832-611c652f9867"
+        },
+        {
+          "id": "e9a8eb2f-52b8-474b-9c31-e1c438321992",
+          "githubId": "5139599976",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "a1c7af0dd686111d274462b28a2e8cf363439d5cbfd74f896b93a131a9760d29",
+          "parentId": null
+        },
+        {
+          "id": "91660988-20e9-4f6b-b9ee-5c81861748e6",
+          "githubId": "5582313998",
+          "kind": "issue-comment",
+          "contentHash": "b58207252a48961a4e7ee8072ff319cb322207ae5240851691f923a5c201be49",
+          "observationHash": "ebd097751d36100e356dc959513ee37b2e52670e6db2c81112f9448b2f67cd9e",
+          "parentId": null
+        },
+        {
+          "id": "d073c027-016d-4ab0-8fd8-1284ff0c5cfa",
+          "githubId": "3956784021",
+          "kind": "review-comment",
+          "contentHash": "1b9c99afcb4516909f511d60590d9e0cfb579585134d0deccbeb176fe6eba3b9",
+          "observationHash": "2f20a2b84a22dfdbc1c2751e6ff60d80839541295370a797162c4fc6d4169884",
+          "parentId": null
+        },
+        {
+          "id": "027269a2-d7f9-4f3a-80f1-f977c8a30d55",
+          "githubId": "5140402827",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "8e40b05436389674355f2f45128f8d022e11f429d84aabe7c393ef03d68ce85b",
+          "parentId": null
+        },
+        {
+          "id": "d7e6c48d-c056-4ce4-a89d-3c231b95ccfd",
+          "githubId": "3957322585",
+          "kind": "review-comment",
+          "contentHash": "ee1ac1ea166292dd575ba4ec5e48551f9ca5314f3c7c9c258edc2e5f4a89aff6",
+          "observationHash": "fd4f284a6cedfb691d7e79031a86a293a2dc5147226f13c7ea2e3fbcc97f13eb",
+          "parentId": "d073c027-016d-4ab0-8fd8-1284ff0c5cfa"
+        },
+        {
+          "id": "124ed91d-14d3-4b90-9af4-03f87af130d6",
+          "githubId": "5141010561",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "3a0f51283f55ba07e79742da4f0d8771a350e37f4f38ced186d43d67e094e7ec",
+          "parentId": null
+        },
+        {
+          "id": "5b649ec4-8e61-4748-bcaa-aeca8ad41487",
+          "githubId": "5141091957",
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "fa39df7f20d2b96d9d923a27c5acb690fd132fadec3bb5a06055b204c97b58ea",
+          "parentId": null
+        }
+      ],
+      "notReturned": []
+    }
+  ],
+  "bodyVersionsReaderVerified": true,
+  "preservation": {
+    "messagesBefore": 62,
+    "messagesAfter": 62,
+    "versionsBefore": 75,
+    "versionsAfter": 75,
+    "observationsBefore": 62,
+    "observationsAfter": 62,
+    "allPriorIdsAndVersionsPreserved": true
+  },
+  "guidance": {
+    "id": "9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+    "sourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+    "sourceUrl": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279",
+    "sourceContentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+    "sourceObservationHash": "e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7",
+    "state": "active",
+    "content": {
+      "summary": "BlockUpdateRequest의 요청 값 검증은 Pydantic validator에서 수행한다",
+      "detail": "PR #917의 리뷰는 schema.py의 validate_block_update_type_rules를 BlockUpdateRequest의 model_validator 또는 field_validator로 옮기도록 요청했다. 이 지침은 요청 필드만으로 판정할 수 있는 검증에 한정한다. 작성자의 수정 답글과 thread 상태만으로 현재 코드의 수정 여부를 확정하지 않는다.",
+      "recommendation": "BlockUpdateRequest 변경을 검토할 때 필드 자체의 제약은 field_validator, 여러 요청 필드 사이의 제약은 model_validator에서 검증하는지 확인한다. service에 같은 요청 값 검증이 남아 있으면 schema로 옮길 수 있는지 검토한다. 실제 요청 생성 경로와 누락·null 입력의 의미를 함께 확인한다.",
+      "categories": [
+        "validation"
+      ],
+      "appliesTo": {
+        "languages": [
+          "Python"
+        ],
+        "filePaths": [
+          "data-management/mainapp/domains/position_management/block/schema.py",
+          "data-management/mainapp/domains/position_management/block/service.py"
+        ],
+        "symbols": [
+          "BlockUpdateRequest",
+          "validate_block_update_type_rules"
+        ],
+        "contracts": [
+          "BlockUpdateRequest의 요청 값만으로 판단할 수 있는 필드·필드 간 검증"
+        ],
+        "branches": []
+      },
+      "counterEvidence": [
+        "DB 조회, 권한, 저장된 block 상태가 필요한 검증은 요청 schema만으로 판단할 수 없으므로 이 지침에 따라 일괄 이동하지 않는다.",
+        "해당 제약이 기존 validator 또는 호출 전에 이미 검증되는 경우 중복 검증을 요구하지 않는다.",
+        "부분 수정에서 미전달 값과 명시적 null을 구분해야 하면 현재 Pydantic 설정과 호출 경로를 먼저 확인한다."
+      ],
+      "expiresAt": null
+    },
+    "readerVerified": true
+  },
+  "skillBundleHash": "0fb136af000fd98660fc0dd66fc53ec80464270d814cd97634b3ea988597e890",
+  "policyBundlePreserved": true,
+  "publication": {
+    "snapshotId": "24d9dc23-9224-411d-8302-7d606753a319",
+    "manifestHash": "0acd5cfa18049895826c67694cc449aef6adb3ce73ce5280eb98518c245edeb8",
+    "signatureVerified": true,
+    "bundles": {
+      "policy": {
+        "bundleId": "a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+        "hash": "0e3a018bb8bcea9a596e56c4c4cae2944e921ed8869d236e9074a06b07f97d54",
+        "releaseSequence": 2,
+        "schemaVersion": 2
+      },
+      "collective": {
+        "bundleId": "c10eec35-c291-46c3-9d0d-32860f0599cd",
+        "hash": "495a482a139f0d6ec6aedc5812469ea15b464b5dbcb35dd8333f6b54d1efbce0",
+        "releaseSequence": 3,
+        "schemaVersion": 2
+      },
+      "personal": {
+        "bundleId": "db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+        "hash": "8c6e94f9ed2cad6564773b662b77a75bb7fad7130c7c82200bb899b3ad3ca422",
+        "releaseSequence": 1,
+        "schemaVersion": 2
+      }
+    },
+    "clientContract2Status": 200
+  },
+  "ownedReaderKeyRevoked": true,
+  "ownedSessionClosed": true,
+  "finishedAt": "2026-09-15T09:16:23.572Z",
+  "githubWrites": 0
+}

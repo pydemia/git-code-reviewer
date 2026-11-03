@@ -1,0 +1,47 @@
+{
+  "recordedAt": "2026-09-16T11:43:16.453Z",
+  "settings": [
+    {
+      "path": "C:/Users/pydemia/AppData/Roaming/Code/User/settings.json",
+      "before": "fd5f3d5c232515fa51ba98ef32ae5811c578f2e5eafdc2154ba4357603597546",
+      "after": "fd5f3d5c232515fa51ba98ef32ae5811c578f2e5eafdc2154ba4357603597546",
+      "unchanged": true
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/config.toml",
+      "before": "0b0980646662af414cf17513535a661b71577376373338c2bd23bdda1300c237",
+      "after": "0b0980646662af414cf17513535a661b71577376373338c2bd23bdda1300c237",
+      "unchanged": true
+    },
+    {
+      "path": "C:/Users/pydemia/.codex/AGENTS.md",
+      "before": "8a45f4bd5beacf07f4debce813aa09938c71a1d8d80fbbfcf940461bd139f8e9",
+      "after": "8a45f4bd5beacf07f4debce813aa09938c71a1d8d80fbbfcf940461bd139f8e9",
+      "unchanged": true
+    },
+    {
+      "path": "C:/Users/pydemia/AppData/Local/OpenAI/Codex/bin/02c7a9ff819938f0/codex.exe",
+      "before": "77f792476fe0def726503f02a7c55f485e562dd7ad8801fe61dc8f4bf9991d20",
+      "after": "77f792476fe0def726503f02a7c55f485e562dd7ad8801fe61dc8f4bf9991d20",
+      "unchanged": true
+    }
+  ],
+  "userInstalledVersions": [
+    "2.12.4"
+  ],
+  "userHostAppliedVersion": "unverified; no forced reload",
+  "currentTrialOrGcrServiceProcesses": 0,
+  "newModelCalls": 0,
+  "publisherCredential": "user-authorized persistent Windows credential store; retained",
+  "cleanup": {
+    "remainingPaths": [
+      "C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\test-results\\publish-2.12.5",
+      "C:\\Users\\pydemia\\git\\commit-defender\\vscode-extension\\test-results\\marketplace-2.12.5"
+    ],
+    "status": "automatic approval review blocked both recursive deletions; manual cleanup required",
+    "alternativeDeletionAttempts": 0
+  },
+  "marketplaceInstallation": "passed after public validation; 2.12.5 win32-arm64; 11 runtime hashes match uploaded VSIX",
+  "postPublicationHost": "blocked before activation by user VS Code update mutex; launcher exit 1; owned trial profile cleaned",
+  "updaterAction": "none; existing user updater and Host preserved"
+}

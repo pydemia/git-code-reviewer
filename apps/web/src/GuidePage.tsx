@@ -51,6 +51,8 @@ export function GuidePage() {
           <DocumentationNav currentPath="/guide" />
           <p className="guide-nav-section-title">사용 가이드 목차</p>
           <a href="#start">시작하기</a>
+          <a href="#cd-connection">CD 설치와 연결</a>
+          <a href="#history-guidance">원문에서 지침 활용까지</a>
           <a href="#profile">개인 프로필</a>
           <a href="#ghes-credential">GHES credential</a>
           <a href="#register-repository">Repository 등록</a>
@@ -85,6 +87,58 @@ export function GuidePage() {
             </div>
           </header>
 
+          <section className="guide-section" id="cd-connection">
+            <h2>CD 설치와 연결</h2>
+            <p>
+              처음 사용하는 경우 <a href="/getting-started">설치·연결 가이드</a>에서 GCR의
+              Compose·Helm 설치, CD VSIX 설치와 모델 설정을 먼저 확인하세요.
+              <a href="/architecture">아키텍처</a>에는 저장 위치와 데이터 흐름을 정리했습니다.
+            </p>
+            <ol>
+              <li>
+                CD의 User Settings에서 provider·model·reasoning을 선택하고 수동 리뷰를 확인합니다.
+              </li>
+              <li>
+                GCR의 내 프로필 → 클라이언트 설정에서 저장소를 복수 선택하거나 현재 접근 가능한 모든
+                저장소를 선택하고 Commit Defender용 API key를 발급합니다.
+              </li>
+              <li>
+                CD의 Central Review Connection → Connect with API key…에서 서버 주소와 API key를
+                입력합니다. 허용된 자료 출처를 자동으로 연결하며 저장소를 선택할 필요는 없습니다.
+                사설 CA가 필요하면 GCR에서 공개 CA 인증서를 내려받아 지정합니다. JSON은 기존
+                클라이언트용 호환 옵션입니다.
+              </li>
+              <li>
+                Connection status의 저장소·사용자·유효기간을 확인한 뒤 Browse PR review history로
+                원문을 조회합니다.
+              </li>
+            </ol>
+            <p>
+              GCR key는 중앙 자료 읽기 권한입니다. 모델 로그인이나 GitHub PAT를 대신하지 않습니다.
+              연결 후에도 CD의 로컬 모델 선택은 유지되고 소스·diff·리뷰 결과·대화는 GCR로 전송되지
+              않습니다. 승인한 소스와 문맥은 사용자가 선택한 모델 provider로 전달됩니다.
+            </p>
+          </section>
+          <section className="guide-section" id="history-guidance">
+            <h2>원문에서 지침 활용까지</h2>
+            <p>
+              상단 <a href="/review-history">리뷰 이력</a>에서 PR 코멘트·답글·본문 버전·출처를
+              읽습니다. 원문 조회에는 분석 결과나 메모리 승인이 필요하지 않습니다. 관리자는 원문에
+              연결한 지침의 적용 조건과 반증을 확인해 활성화·발행하고 CD는 관련 자료를 로컬에서
+              선택합니다.
+            </p>
+            <p>
+              예를 들어 요청 필드 검증 지침에는 “이미 validator가 처리하면 중복 지적하지 않음”과 “DB
+              상태·권한 검증은 제외” 같은 조건을 함께 둡니다. 과거의 수정 답글만 믿지 말고 현재
+              호출부와 계약을 확인하세요. CD 결과의 전체 요약에서 적용·충족·제외 판단을 읽고
+              Evidence의 원문 URL·revision/hash를 대조합니다.
+            </p>
+            <p>
+              자료 제공 기록은 판단의 정확성이나 테스트 실행을 증명하지 않습니다. 온라인 manifest의
+              5분 만료, 권한 철회, 모델 실패로 중단된 리뷰는 완료로 처리하지 않습니다.
+            </p>
+          </section>
+
           <section className="guide-section" id="profile">
             <div className="guide-section-heading">
               <KeyRound size={19} />
@@ -93,9 +147,12 @@ export function GuidePage() {
               </div>
             </div>
             <p>
-              GNB의 <strong>내 프로필</strong>에서 표시 이름, 사용자 이름 또는 subject, role, 인증
-              방식과 tenant membership을 확인할 수 있습니다. Local account 사용자는 표시 이름을 직접
-              수정할 수 있습니다.
+              GNB의 <strong>내 프로필</strong>을 열고 사이드 메뉴에서 설정할 항목을 선택합니다.
+              <a href="/profile?tab=profile">프로필 · 비밀번호 변경</a>에서는 표시 이름, 사용자 이름
+              또는 subject, role, 인증 방식과 tenant membership을 확인합니다. Local account 사용자는
+              표시 이름을 직접 수정할 수 있습니다. <a href="/profile?tab=prompt">Prompt</a>와{' '}
+              <a href="/profile?tab=clients">클라이언트 설정</a>은 각각 별도 화면으로 표시됩니다.
+              메뉴를 바꾸는 동안 작성 중인 값은 유지되며 저장은 각 화면의 저장 버튼으로 진행합니다.
             </p>
             <p>
               <strong>개인 Prompt</strong>에는 답변 길이, 설명 방식, 관심 영역 등 본인의 Review Chat
@@ -374,6 +431,18 @@ export function GuidePage() {
             <p className="guide-note">
               PR 게시 기능 도입 전에 등록된 repository는 게시가 꺼진 상태로 유지됩니다. Token 교체와
               연결 테스트 후 repository 카드에서 <strong>PR 게시 시작</strong>을 눌러 활성화합니다.
+            </p>
+            <h3>PR 댓글 알림 등급</h3>
+            <p>
+              관리자 → GHES 연결의 repository 카드에서 <strong>PR 댓글 알림 등급</strong>을
+              선택합니다. 기본값은 <strong>P2 Warning 이상</strong>이며 반드시 확인할 심각한 의견에
+              집중하려면 <strong>P3 Critical만</strong>을 선택합니다. 분석 강도·모델·전체 보고서는
+              바뀌지 않고 P1 Info와 P0 Praise도 전체 보고서에서 확인할 수 있습니다.
+            </p>
+            <p>
+              다음 댓글 게시부터 적용하며 이미 게시한 댓글을 설정 변경만으로 갱신하지 않습니다. 알림
+              기준에 해당하는 의견이 없다는 문구는 분석 전체에 문제가 없다는 뜻이 아닙니다. 미검토
+              범위와 실패는 분석 상태에서 따로 확인하십시오.
             </p>
             <h3>Review repository 등록 삭제</h3>
             <p>

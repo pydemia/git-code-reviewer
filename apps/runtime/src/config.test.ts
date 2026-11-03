@@ -9,6 +9,153 @@ const baseEnvironment = {
 };
 
 describe('loadConfig', () => {
+  it('enables client API keys only with explicit distribution, supported auth and a trusted public origin', () => {
+    expect(loadConfig(baseEnvironment).CLIENT_API_KEYS_ENABLED).toBe(false);
+    const settings = {
+      ...baseEnvironment,
+      CLIENT_API_KEYS_ENABLED: 'true',
+      KNOWLEDGE_PUBLICATION_ENABLED: 'true',
+      KNOWLEDGE_DISTRIBUTION_ENABLED: 'true',
+      KNOWLEDGE_SERVER_ID: '57f4d2e2-1c27-462f-a803-02928e771a93',
+      KNOWLEDGE_SIGNING_KEY_ID: 'fixture',
+      KNOWLEDGE_SIGNING_KEY_FILE: '/fixture-key',
+      AUTH_MODE: 'local',
+      PUBLIC_BASE_URL: 'https://gcr.test',
+      LOCAL_BOOTSTRAP_ADMIN_USERNAME: 'fixture',
+      LOCAL_BOOTSTRAP_ADMIN_PASSWORD: 'Synthetic-password-2026!',
+    };
+    expect(loadConfig(settings).CLIENT_API_KEYS_ENABLED).toBe(true);
+    for (const override of [
+      { AUTH_MODE: 'development' },
+      { PUBLIC_BASE_URL: 'http://gcr.test' },
+      { KNOWLEDGE_DISTRIBUTION_ENABLED: 'false' },
+    ])
+      expect(() => loadConfig({ ...settings, ...override })).toThrow('client API keys require');
+  });
+  it('requires explicit publication and signing identity only in a distribution server', () => {
+    const environment = { ...baseEnvironment, KNOWLEDGE_DISTRIBUTION_ENABLED: 'true' };
+    expect(() => loadConfig(environment)).toThrow('knowledge distribution requires');
+    expect(() => loadConfig(environment, 'worker')).not.toThrow();
+    expect(() => loadConfig(environment, 'migrate')).not.toThrow();
+    const complete = {
+      ...environment,
+      KNOWLEDGE_PUBLICATION_ENABLED: 'true',
+      KNOWLEDGE_SERVER_ID: '57f4d2e2-1c27-462f-a803-02928e771a93',
+      KNOWLEDGE_SIGNING_KEY_ID: 'fixture-1',
+      KNOWLEDGE_SIGNING_KEY_FILE: '/fixture-key',
+    };
+    expect(
+      loadConfig({ ...complete, KNOWLEDGE_OFFLINE_LEASE_SECONDS: '0' })
+        .KNOWLEDGE_OFFLINE_LEASE_SECONDS,
+    ).toBe(0);
+    expect(() => loadConfig({ ...complete, KNOWLEDGE_SERVER_ID: 'invalid' })).toThrow(
+      'KNOWLEDGE_SERVER_ID',
+    );
+    expect(() => loadConfig({ ...complete, KNOWLEDGE_SIGNING_KEY_ID: '../invalid' })).toThrow(
+      'KNOWLEDGE_SIGNING_KEY_ID',
+    );
+    expect(() => loadConfig({ ...complete, KNOWLEDGE_OFFLINE_LEASE_SECONDS: '86401' })).toThrow(
+      'KNOWLEDGE_OFFLINE_LEASE_SECONDS',
+    );
+  });
+  it('selects explicit migration credentials and refuses them in application processes', () => {
+    const environment = {
+      DATABASE_URL: 'postgresql://gcr_app:app-password@database/gcr',
+      MIGRATION_DATABASE_URL: 'postgresql://gcr_migrator:migration-password@database/gcr',
+      DATABASE_ISOLATED_ROLES: 'true',
+      DATABASE_TLS_MODE: 'verify-full',
+      DATABASE_TLS_CA_FILE: '/runtime-ca',
+      MIGRATION_DATABASE_TLS_CA_FILE: '/migration-ca',
+    };
+    const config = loadConfig(environment, 'migrate');
+    expect(config.DATABASE_URL).toBe(environment.MIGRATION_DATABASE_URL);
+    expect(config.DATABASE_TLS_CA_FILE).toBe('/migration-ca');
+    for (const command of ['serve', 'worker', 'retention', 'wait-migrations'] as const)
+      expect(() => loadConfig(environment, command)).toThrow(
+        'migration credentials are only valid for migrate',
+      );
+  });
+
+  it('does not fall back to app credentials for a missing or partial isolated migration connection', () => {
+    const environment = {
+      ...baseEnvironment,
+      DATABASE_ISOLATED_ROLES: 'true',
+      DATABASE_TLS_MODE: 'verify-full',
+      DATABASE_TLS_CA_FILE: '/ca',
+    };
+    expect(() => loadConfig(environment, 'migrate')).toThrow(
+      'MIGRATION_DATABASE connection settings are required',
+    );
+    expect(() => loadConfig({ ...environment, MIGRATION_DATABASE_HOST: 'db' }, 'migrate')).toThrow(
+      'incomplete MIGRATION_DATABASE connection settings',
+    );
+    expect(() =>
+      loadConfig(
+        {
+          ...environment,
+          MIGRATION_DATABASE_URL: 'postgresql://gcr_migrator:secret@db/gcr',
+          MIGRATION_DATABASE_TLS_MODE: 'legacy',
+        },
+        'migrate',
+      ),
+    ).toThrow('require verify-full TLS');
+  });
+
+  it('requires verified TLS, a CA file and enough connections for isolated server/worker processes', () => {
+    expect(() => loadConfig({ ...baseEnvironment, DATABASE_ISOLATED_ROLES: 'true' })).toThrow(
+      'require verify-full TLS',
+    );
+    expect(() => loadConfig({ ...baseEnvironment, DATABASE_TLS_MODE: 'verify-full' })).toThrow(
+      'DATABASE_TLS_CA_FILE',
+    );
+    for (const command of ['serve', 'worker'] as const)
+      expect(() =>
+        loadConfig(
+          {
+            ...baseEnvironment,
+            DATABASE_ISOLATED_ROLES: 'true',
+            DATABASE_TLS_MODE: 'verify-full',
+            DATABASE_TLS_CA_FILE: '/ca',
+            DATABASE_POOL_MAX: '1',
+          },
+          command,
+        ),
+      ).toThrow('must be at least 2');
+    expect(() =>
+      loadConfig({
+        ...baseEnvironment,
+        DATABASE_ISOLATED_ROLES: 'true',
+        DATABASE_TLS_MODE: 'verify-full',
+        DATABASE_TLS_CA_FILE: '/ca',
+        DATABASE_HOST: 'other-db',
+      }),
+    ).toThrow('use a database URL or connection components');
+  });
+
+  it('rejects malformed connection components instead of silently using localhost or the default port', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'gcr-db-components-'));
+    const file = join(directory, 'password');
+    writeFileSync(file, 'fixture-only-password');
+    const environment = {
+      DATABASE_HOST: 'db',
+      DATABASE_PORT: '5432',
+      DATABASE_NAME: 'gcr',
+      DATABASE_USER: 'gcr_app',
+      DATABASE_PASSWORD_FILE: file,
+    };
+    try {
+      expect(() => loadConfig({ ...environment, DATABASE_HOST: 'db/path' })).toThrow(
+        'DATABASE_HOST',
+      );
+      expect(() => loadConfig({ ...environment, DATABASE_PORT: 'wrong' })).toThrow('DATABASE_PORT');
+      expect(loadConfig({ ...environment, DATABASE_HOST: '::1' }).DATABASE_URL).toBe(
+        'postgresql://gcr_app:fixture-only-password@[::1]:5432/gcr',
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('loads secure production-neutral defaults', () => {
     const config = loadConfig(baseEnvironment);
     expect(config.PORT).toBe(4000);
@@ -29,6 +176,15 @@ describe('loadConfig', () => {
         RETENTION_CHAT_DAYS: '11',
       }),
     ).toThrow('RETENTION_CHAT_DAYS must not exceed RETENTION_REPORT_DAYS');
+  });
+
+  it('defaults merged review retention to seven days and thirty PRs per repository', () => {
+    const config = loadConfig(baseEnvironment, 'retention');
+    expect(config.RETENTION_MERGED_DAYS).toBe(7);
+    expect(config.RETENTION_MERGED_MAX_LEN).toBe(30);
+    expect(() =>
+      loadConfig({ ...baseEnvironment, RETENTION_MERGED_MAX_LEN: '0' }, 'retention'),
+    ).toThrow('RETENTION_MERGED_MAX_LEN');
   });
 
   it('does not expose invalid values in its error', () => {

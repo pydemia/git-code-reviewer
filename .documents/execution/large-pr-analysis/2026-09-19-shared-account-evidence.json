@@ -1,0 +1,117 @@
+{
+  "productVersion": "0.8.0-alpha.74",
+  "chartVersion": "0.10.71",
+  "helmRevision": 83,
+  "codeCommit": "1f68392",
+  "imageSource": "bca9f1540c835b6ce4b0b1a9201ba4e46b9aa086",
+  "chartCommit": "d06742d",
+  "deploymentCommit": "dd3d541",
+  "imageDigest": "sha256:91968505ae113c99248621c8ae1ec8239932751c51ea060150d03ef8d8cbdd0f",
+  "chartDigest": "sha256:f6443de24143b887e0f016093e42bcd96cb253845ce14e3d91eaeb278bf10112",
+  "deploymentChecks": {
+    "dataTablesUnchanged": [
+      "users",
+      "repositories",
+      "repository_grants",
+      "analysis_provider_versions",
+      "analysis_prompt_versions",
+      "analysis_skill_versions",
+      "review_memories",
+      "reports",
+      "findings",
+      "snapshots",
+      "snapshot_files",
+      "github_review_publications"
+    ],
+    "modelRequestsUnchanged": true,
+    "oldMigrationsUnchanged": 57,
+    "migrationCount": 58,
+    "helmValuesPreservedExceptRequestedChanges": true,
+    "activeAnalyses": 0,
+    "groupMaxModelCalls": "128",
+    "groupMaxDurationMs": "1.08e+07",
+    "dbTLS": {
+      "ssl": true,
+      "version": "TLSv1.3"
+    },
+    "chartPackageSha256": "2ca31b6b52bdeb80096dd427e6e3b4fa884c94b7d2f2431203b7d8bd3bfda5d0"
+  },
+  "actualModelCallsDuringThisChange": 0,
+  "originalAnalysisId": "841560c1-98a2-417c-84f7-21a2d4330e93",
+  "modelLimit": {
+    "code": "MODEL_USAGE_LIMIT_REACHED",
+    "retryAt": "2026-09-19T10:32:02.009Z",
+    "active": true
+  },
+  "requestStates": [
+    {
+      "state": "completed",
+      "count": 93
+    },
+    {
+      "state": "failed",
+      "count": 8
+    },
+    {
+      "state": "interrupted",
+      "count": 1
+    }
+  ],
+  "taskCounts": [
+    {
+      "state": "budget-wait",
+      "errorCode": "MODEL_TIME_BUDGET_EXHAUSTED",
+      "count": 317,
+      "retryAt": null
+    },
+    {
+      "state": "completed",
+      "errorCode": null,
+      "count": 92,
+      "retryAt": null
+    }
+  ],
+  "filesCompleted": 336,
+  "filesChanged": 1045,
+  "elapsedMs": 3327924,
+  "prematureResumeDisabled": true,
+  "apiWritesBlocked": true,
+  "browserPageErrors": [],
+  "reportAndSourceTablesUnchanged": true,
+  "throughput": {
+    "throughput": {
+      "successful_requests": 93,
+      "successful_span_seconds": "1326.008892",
+      "p50_seconds": 35.137286,
+      "p95_seconds": 53.34598759999999
+    },
+    "peaks": {
+      "requests_per_rolling_minute": 8,
+      "input_bytes_per_rolling_minute": "704380"
+    },
+    "fileKinds": [
+      {
+        "status": "modified",
+        "count": 40
+      },
+      {
+        "status": "added",
+        "count": 1005
+      }
+    ],
+    "sourceArtifacts": {
+      "count": 478
+    }
+  },
+  "helmTest": "Succeeded",
+  "cleanup": {
+    "privateRegistryConfigurationRemoved": true,
+    "privateHelmValuesRemoved": true,
+    "temporaryPointerRemoved": true,
+    "verificationSessionsLoggedOut": true,
+    "verificationBrowsersClosed": true,
+    "helmConnectionTestPodRemoved": true,
+    "globalDockerCredentialsChanged": false,
+    "actualModelCalls": 0
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "formatVersion": 1,
+  "phase": "P03-C01",
+  "status": "passed",
+  "startedAt": "2026-09-12T22:29:54.669Z",
+  "node": "v22.23.2",
+  "platform": "darwin-arm64",
+  "keycloakVersion": "26.7.3",
+  "keycloakImage": "quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+  "postgresImage": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+  "nodeSaml": "5.1.0",
+  "xmlCrypto": "6.1.2",
+  "checks": [
+    "approved-https-idp-metadata",
+    "sp-metadata-endpoints-persistent-nameid",
+    "keycloak-rejects-unsigned-authnrequest",
+    "keycloak-rejects-unregistered-acs",
+    "node-https-rejects-untrusted-certificate",
+    "browser-rejects-unpinned-tls-certificate",
+    "signed-redirect-login-real-keycloak",
+    "cross-site-https-post-transaction-cookie",
+    "host-only-secure-httponly-lax-session",
+    "signed-redirect-slo-local-session-cleared",
+    "persistent-nameid-after-email-and-display-name-change",
+    "real-login-and-logout-replay-rejected",
+    "replayed-https-acs-does-not-create-session",
+    "slo-requires-credentials-on-next-login",
+    "real-idp-signing-key-rotation-overlap",
+    "old-trust-rejects-new-idp-key"
+  ],
+  "limitations": [
+    "isolated PoC, not the application authentication routes",
+    "Chromium headless; Safari and interactive browser operation pending",
+    "test-specific generated TLS leaf SPKI pins; no system trust installation",
+    "in-memory transaction ledger; PostgreSQL cross-replica replay is P03-C02",
+    "ephemeral single identity DB; shared DB ACL and existing-volume migration are P03-C06"
+  ],
+  "cleanup": {
+    "containersRemoved": true,
+    "networkRemoved": true,
+    "temporaryFilesRemoved": true
+  },
+  "sourceSha256": {
+    "saml-contract.mjs": "dba09510bd52b2324fab64b7660188dbaadd1138482a9955beaebd82f347a951",
+    "saml-contract-smoke.mjs": "dc80c98686ade3d44387ea1aea19b63e62551dc551db0ce0fd23b0520538a777"
+  },
+  "idpMetadataSha256": "5362ec0df5d6a3f4e4f4e47b39f9020ac751dff808e3f53e832eb52a2383dd8b",
+  "browser": {
+    "channel": "chrome",
+    "version": "152.0.7977.84",
+    "headless": true,
+    "ignoreHTTPSErrors": false,
+    "tlsTrust": "exact-generated-leaf-SPKI"
+  },
+  "loginCount": 3,
+  "postgresVersion": "17.11",
+  "allCallbacksCrossSite": true,
+  "nameIdStable": true,
+  "signingCertificateCount": 2,
+  "rejectedRequests": [
+    {
+      "route": "/auth/saml/acs",
+      "errorType": "SamlContractError"
+    }
+  ],
+  "finishedAt": "2026-09-12T22:30:24.458Z"
+}

@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "version": "2.12.6",
+  "extensionPath": "/tmp/cd-linux-host-hrLS7q/install-extensions/pydemia.commit-defender-2.12.6",
+  "platform": "linux",
+  "arch": "arm64",
+  "runtime": [
+    {
+      "file": "extension.js",
+      "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+    },
+    {
+      "file": "hook-cli.js",
+      "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+    },
+    {
+      "file": "advisory-hook.cjs",
+      "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+    },
+    {
+      "file": "standalone-review-worker.js",
+      "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+    },
+    {
+      "file": "review-chat-worker.js",
+      "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+    },
+    {
+      "file": "windows-native.exe",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    {
+      "file": "windows-native.json",
+      "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+    },
+    {
+      "file": "gcr-service/main.mjs",
+      "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+    },
+    {
+      "file": "gcr-service/manifest.json",
+      "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+    },
+    {
+      "file": "gcr-service/windows-native.exe",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    {
+      "file": "gcr-service/windows-native.json",
+      "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+    }
+  ],
+  "defaultUserInstallation": false
+}

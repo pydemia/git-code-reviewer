@@ -1,0 +1,18 @@
+{
+  "version": "2.11.1",
+  "vsixSha256": "2d3a4626b8ad2875792a3c7f87d047c9000a12ce73af5f1b843610ebe25b5cf0",
+  "settingsBefore": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "packagedBytesMatchBuild": true,
+  "testWrappersExcluded": true,
+  "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.11.1",
+  "installedBytesMatchVSIX": true,
+  "forcedReload": false,
+  "existingUserHostApplied": "not confirmed",
+  "settingsAfter": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "settingsUnchangedAfterRealReview": true,
+  "nativeHostVersion": "2.11.1",
+  "nativeHostActive": true,
+  "installedWorkerSha256": "555bdcb283488ab3a2ddb23e6c728316bd14d576ef6b12357b47c710e2a1b958",
+  "ownedReaderKeyRevoked": true,
+  "ownedGcrSessionClosed": true
+}

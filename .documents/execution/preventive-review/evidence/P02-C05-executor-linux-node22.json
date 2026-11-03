@@ -1,0 +1,36 @@
+{
+  "platform": "linux",
+  "node": "v22.23.2",
+  "packageVersion": "0.1.0-alpha.7",
+  "executorPackageVersion": "0.1.0-alpha.7",
+  "verification": "installed-artifact-capability-off",
+  "unsupportedIsolationDenied": true,
+  "executorInvocations": 0,
+  "modelCalls": 0,
+  "cleanup": "completed",
+  "image": "node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "artifacts": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.7",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.7",
+        "file": "gcr-client-contract-0.1.0-alpha.7.tgz",
+        "sha256": "bcc7a1c09fb6f31c81a282b120acf01fde770c2fad1c0feea30aed73d5457277"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.7",
+        "file": "gcr-client-core-0.1.0-alpha.7.tgz",
+        "sha256": "be2db963e566ba0beca162a1d76c725c775718d1f686ca54ee5b3c2b0c688750"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.7",
+        "file": "gcr-client-executors-0.1.0-alpha.7.tgz",
+        "sha256": "00942c86e96d7c4c7265f3ed654e55f4d77a70c3d282fce069d6b87a49e69883"
+      }
+    ]
+  }
+}

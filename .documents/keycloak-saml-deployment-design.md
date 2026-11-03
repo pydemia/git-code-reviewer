@@ -111,7 +111,7 @@ Commit Defender는 [기존 offline lease·standalone fallback](./client-review-k
 | --------------------------- | ---------------------------- | ------------------- | ---------------------------------------------- |
 | GCR Server·Worker·Retention | `git_code_reviewer`          | `gcr_app`           | 필요한 앱 DML·sequence 접근, 다른 DB 접근 없음 |
 | GCR migration Job           | `git_code_reviewer`          | `gcr_migrator`      | 앱 schema 소유·migration 전용                  |
-| Keycloak                    | `git_code_reviewer_keycloak` | `gcr_keycloak`      | 자기 DB/schema 소유·Keycloak migration         |
+| Keycloak                    | `git_code_reviewer_keycloak` | `gcr_keycloak`      | 자기 DB의 schema·객체 소유·Keycloak migration  |
 | DB bootstrap/복구 작업      | 관리 DB                      | 별도 DBA credential | role·database 생성·복구, runtime에 미주입      |
 
 두 runtime role에 서로의 membership, SUPERUSER, CREATEDB, CREATEROLE, REPLICATION, BYPASSRLS를 주지 않는다. 각 database의 `PUBLIC CONNECT/TEMP`와 불필요한 schema `PUBLIC CREATE`를 회수하고 해당 role에만 필요한 권한을 다시 부여한다. 기존 ACL·소유권·default privilege·기존 연결도 확인한다. Database 이름만 나누면 접근이 차단된다는 가정은 하지 않는다. [PostgreSQL 권한](https://www.postgresql.org/docs/17/ddl-priv.html)
@@ -173,7 +173,7 @@ Health·metrics를 활성화한 optimized image를 빌드하고 `start --optimiz
 - 초기 production은 Keycloak replica 2개·anti-affinity·PDB를 제안한다. 선택 버전의 supported cache discovery·클러스터 통신을 구성하고 한 replica 중단 시 진행 중 SAML login이 유지되는지 검증한다. DB와 ingress까지 HA가 아니면 end-to-end HA로 표기하지 않는다.
 - Startup/readiness/liveness를 구분한다. 활성화된 health/metrics의 management port `9000`은 cluster 내부 probe·모니터링만 허용한다. DB 장애를 무조건 pod 재시작으로 처리하지 않는다. [Keycloak health](https://www.keycloak.org/observability/health)
 - Public ingress는 사용자 로그인·realm protocol·필요 정적 자원만 허용한다. `/admin`·관리 API는 VPN/관리 ingress 및 GCR backend service account 경로로 제한한다. Public hostname으로 admin path를 우회 접근할 수 없는지 테스트한다.
-- GCR만 identity 관리 API에 접근하고 worker는 접근하지 않는다. Keycloak은 공유 DB·필요 SMTP·클러스터 통신 등 승인한 egress만 사용한다. Secret은 역할별로 mount하고 realm JSON·values·Git에 원문 비밀을 넣지 않는다.
+- GCR server와 identity outbox·security event 수집을 실행하는 worker가 realm 범위의 관리 API에 접근한다. P03-C04/C05의 비동기 처리 구조에 맞춰 두 component에 해당 service account Secret과 egress를 허용한다. Migrator·retention·source sandbox에는 관리 credential을 주지 않는다. Keycloak은 공유 DB·필요 SMTP·클러스터 통신 등 승인한 egress만 사용한다. Secret은 역할별로 mount하고 realm JSON·values·Git에 원문 비밀을 넣지 않는다.
 - Bootstrap 관리자 secret은 설치/복구에만 사용한다. 초기 설정 후 임시 관리자를 정리하고 명명된 운영자 계정·MFA를 사용한다. Realm 갱신 Job과 서버 시작을 분리해 재배포가 사용자·서명 키를 재생성하지 않도록 한다.
 
 ## 백업·업그레이드·복구

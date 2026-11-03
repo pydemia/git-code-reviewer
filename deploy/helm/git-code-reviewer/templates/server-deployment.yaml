@@ -1,3 +1,4 @@
+{{- $isolated := default dict .Values.database.isolated -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,6 +7,11 @@ metadata:
     {{- include "git-code-reviewer.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
 spec:
+  {{- if $isolated.enabled }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  {{- end }}
   replicas: {{ .Values.server.replicas }}
   selector:
     matchLabels:
@@ -18,6 +24,13 @@ spec:
         app.kubernetes.io/component: server
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/config-map.yaml") . | sha256sum }}
+        {{- if or (eq .Values.auth.mode "saml") .Values.identity.adminEnabled }}
+        checksum/identity: {{ include (print $.Template.BasePath "/identity-config-map.yaml") . | sha256sum }}
+        gcr.io/identity-revision: {{ .Values.identity.configurationRevision | quote }}
+        {{- end }}
+        {{- if eq .Values.auth.mode "saml" }}
+        gcr.io/saml-revision: {{ .Values.auth.saml.configurationRevision | quote }}
+        {{- end }}
     spec:
       serviceAccountName: {{ include "git-code-reviewer.serviceAccountName" . }}
       automountServiceAccountToken: false
@@ -30,9 +43,9 @@ spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or .Values.postgresql.enabled (eq .Values.model.chat.mode "chatgpt-account") }}
+      {{- if or .Values.postgresql.enabled $isolated.enabled (eq .Values.model.chat.mode "chatgpt-account") }}
       initContainers:
-        {{- if .Values.postgresql.enabled }}
+        {{- if or .Values.postgresql.enabled $isolated.enabled }}
         {{- include "git-code-reviewer.migrationInitContainer" . | nindent 8 }}
         {{- end }}
         {{- if eq .Values.model.chat.mode "chatgpt-account" }}
@@ -73,11 +86,36 @@ spec:
           args: ["serve"]
           envFrom:
             - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }} }
-            {{- if ne .Values.auth.mode "development" }}
+            {{- if and (ne .Values.auth.mode "development") (ne .Values.auth.mode "saml") }}
             - secretRef: { name: {{ .Values.secrets.auth }} }
             {{- end }}
+            {{- if or (eq .Values.auth.mode "saml") .Values.identity.adminEnabled }}
+            - configMapRef: { name: {{ include "git-code-reviewer.fullname" . }}-identity }
+            {{- end }}
           env:
+            - name: CLIENT_API_KEYS_ENABLED
+              value: {{ .Values.clientApiKeys.enabled | quote }}
+            {{- if and .Values.clientApiKeys.enabled .Values.clientApiKeys.connectionCa.existingConfigMap }}
+            - name: CLIENT_CONNECTION_CA_FILE
+              value: /run/config/client-connection/ca.crt
+            {{- end }}
+            {{- if .Values.knowledgeDistribution.enabled }}
+            {{- if not .Values.knowledgePublication.enabled }}
+            {{- fail "knowledgeDistribution requires knowledgePublication.enabled" }}
+            {{- end }}
+            - name: KNOWLEDGE_DISTRIBUTION_ENABLED
+              value: "true"
+            - name: KNOWLEDGE_SERVER_ID
+              value: {{ .Values.knowledgeDistribution.serverId | quote }}
+            - name: KNOWLEDGE_SIGNING_KEY_ID
+              value: {{ .Values.knowledgeDistribution.signingKeyId | quote }}
+            - name: KNOWLEDGE_SIGNING_KEY_FILE
+              value: /run/secrets/knowledge/private-key.pem
+            - name: KNOWLEDGE_OFFLINE_LEASE_SECONDS
+              value: {{ .Values.knowledgeDistribution.offlineLeaseSeconds | quote }}
+            {{- end }}
             {{- include "git-code-reviewer.databaseEnv" . | nindent 12 }}
+            {{- include "git-code-reviewer.identity.env" (dict "root" . "server" true) | nindent 12 }}
             {{- if .Values.credentialRegistry.enabled }}
             - name: CREDENTIAL_ENCRYPTION_KEY
               valueFrom:
@@ -143,7 +181,14 @@ spec:
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
             - { name: artifacts, mountPath: /var/lib/git-code-reviewer/artifacts, readOnly: true }
+            {{- if and .Values.clientApiKeys.enabled .Values.clientApiKeys.connectionCa.existingConfigMap }}
+            - { name: client-connection-ca, mountPath: /run/config/client-connection, readOnly: true }
+            {{- end }}
+            {{- if .Values.knowledgeDistribution.enabled }}
+            - { name: knowledge-signing, mountPath: /run/secrets/knowledge, readOnly: true }
+            {{- end }}
             {{- include "git-code-reviewer.databaseVolumeMount" . | nindent 12 }}
+            {{- include "git-code-reviewer.identity.mounts" (dict "root" . "server" true) | nindent 12 }}
             {{- if eq .Values.github.mode "app" }}
             - { name: github-app, mountPath: /run/secrets/github-app, readOnly: true }
             {{- end }}
@@ -157,9 +202,25 @@ spec:
             - { name: chatgpt-account, mountPath: {{ .Values.model.chat.account.home | quote }} }
             {{- end }}
       volumes:
+        {{- if and .Values.clientApiKeys.enabled .Values.clientApiKeys.connectionCa.existingConfigMap }}
+        - name: client-connection-ca
+          configMap:
+            name: {{ .Values.clientApiKeys.connectionCa.existingConfigMap }}
+            items:
+              - { key: {{ .Values.clientApiKeys.connectionCa.key | quote }}, path: ca.crt }
+        {{- end }}
+        {{- if .Values.knowledgeDistribution.enabled }}
+        - name: knowledge-signing
+          secret:
+            secretName: {{ .Values.knowledgeDistribution.existingSecret }}
+            defaultMode: 0440
+            items:
+              - { key: {{ .Values.knowledgeDistribution.privateKeyKey | quote }}, path: private-key.pem }
+        {{- end }}
         - name: tmp
           emptyDir: { sizeLimit: 128Mi }
         {{- include "git-code-reviewer.databaseVolume" . | nindent 8 }}
+        {{- include "git-code-reviewer.identity.volumes" (dict "root" . "server" true) | nindent 8 }}
         - name: artifacts
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-artifacts" (include "git-code-reviewer.fullname" .)) .Values.storage.artifacts.existingClaim }}

@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "status": "installed-and-verified",
+  "commitDefenderSourceCommit": "2a01244aedea6213d82307318b55c837b9ff2b73",
+  "installation": {
+    "status": "installed-and-byte-verified",
+    "version": "2.7.0",
+    "sourceCommit": "2a01244aedea6213d82307318b55c837b9ff2b73",
+    "directory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.7.0",
+    "vsixSha256": "4a57dbabda2a75ee1d5f25c4fc0a326a9d2abe005126d965116ed88582dc9f5b",
+    "files": {
+      "extension.js": "0fa58bd476751a63c80280d859dc3683f63e3ee7c02a6a4b3d71ef047e8eb630",
+      "hook-cli.js": "50f283dd454100ddd73b634fc5e704c4b9b71a0e486f12c3caaeff1ab6ff28d0",
+      "standalone-review-worker.js": "494bbba79585aaad3190d0840ddc318ed72b0bec5eb74ae859f247049411f8d3",
+      "review-chat-worker.js": "eeaa64c2d5e4ea300b237d9456f0ccf7ebb646e41eed449f0f89a093570e6d36",
+      "advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "gcr-service/main.mjs": "c654f0325ccc9c8aab9fc7057cdb00aa4414f4d3a179d1d12cc6347f9161ec52",
+      "gcr-service/manifest.json": "95251b24880107474bb760c190b30b9e7fdff8243df9aa562b7c69e4bd0a54c3"
+    },
+    "previous": {
+      "version": "2.6.0",
+      "directory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.6.0",
+      "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-stage-catchup/installed-backup-2.6.0"
+    },
+    "forcedWindowReload": false,
+    "globalCliReplaced": false,
+    "prismRuntimeChanged": false,
+    "installedAt": "2026-09-14T09:34:33.021774+00:00"
+  },
+  "validation": {
+    "distinctRegressionPassed": 195,
+    "minimumHost": {
+      "status": "passed",
+      "vscode": "1.90.2",
+      "node": "20.9.0",
+      "electron": "29.4.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.7.0",
+      "delivery": "packaged-extension",
+      "commandCount": 26,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    },
+    "actualReview": {
+      "runId": "870145ea-3536-4dce-8d39-b02bef07c737",
+      "status": "completed",
+      "durationMs": 84970,
+      "findingCount": 1,
+      "sourceReads": [
+        {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "8ff3f1a46160a45984a98fac76c1431edf05f883d6a872a2ec7eedebec4782ad",
+          "startLine": 1,
+          "endLine": 2
+        },
+        {
+          "path": "sum.ts",
+          "side": "base",
+          "hash": "98f79892d4f2444803b7a82c751c81397a9e39ec1bfc534ac7972d64414835e0",
+          "startLine": 1,
+          "endLine": 2
+        },
+        {
+          "path": "caller.ts",
+          "side": "source",
+          "hash": "f4dbcde9359d024ad6ba31842c12f4db8f1e1381c6beaef9c1e81554d687c0a0",
+          "startLine": 1,
+          "endLine": 3
+        },
+        {
+          "path": "caller.ts",
+          "side": "base",
+          "hash": "f4dbcde9359d024ad6ba31842c12f4db8f1e1381c6beaef9c1e81554d687c0a0",
+          "startLine": 1,
+          "endLine": 3
+        },
+        {
+          "path": "sum.test.ts",
+          "side": "source",
+          "hash": "894b8aa76471432cd6f057a9cc8088b09189751fa050d546f63108ffa31f7993",
+          "startLine": 1,
+          "endLine": 5
+        },
+        {
+          "path": "sum.test.ts",
+          "side": "base",
+          "hash": "894b8aa76471432cd6f057a9cc8088b09189751fa050d546f63108ffa31f7993",
+          "startLine": 1,
+          "endLine": 5
+        },
+        {
+          "path": "package.json",
+          "side": "source",
+          "hash": "a90fc33418afa2b9cbf4768524b021135b965ecdf993457505bfae3ac44a8428",
+          "startLine": 1,
+          "endLine": 2
+        },
+        {
+          "path": "package.json",
+          "side": "base",
+          "hash": "a90fc33418afa2b9cbf4768524b021135b965ecdf993457505bfae3ac44a8428",
+          "startLine": 1,
+          "endLine": 2
+        }
+      ],
+      "executor": {
+        "id": "codex-account",
+        "version": "0.154.0/gcr-fixed-source-v1",
+        "model": "gpt-6-astra",
+        "configHash": "95003ab856d63f9107eadd31ae43217b9b2531b34db246483434e16e0e31f3a4"
+      },
+      "reasoningEffort": "xhigh",
+      "modelExecutedTests": false
+    },
+    "restart": {
+      "sameRunId": "870145ea-3536-4dce-8d39-b02bef07c737",
+      "generation": 1,
+      "newModelExecutions": 0,
+      "status": "reopen-verified"
+    },
+    "originalObserverIssue": "The native test queried diagnostics using /var while automatic review uses canonical /private/var. The test now canonicalizes its root. The original model was not rerun; the retained original profile completed the reopen check. The first diagnostic display assertion was not reached.",
+    "cleanup": {
+      "hostStopped": true,
+      "trackedNativeProcesses": 29,
+      "liveOwnedProcesses": [],
+      "ownedKeysRemoved": 2,
+      "ownedFilesRemoved": true
+    }
+  },
+  "limits": [
+    "First enablement or a changed execution selection establishes a baseline; prior Stage events are not guessed.",
+    "The stored observation is not an executor lease; shared review request ownership remains authoritative.",
+    "The first native observation driver did not fully pass. Completed model/checkpoint and corrected same-profile reopen evidence are reported separately."
+  ],
+  "remaining": [
+    "Full sixteen-trigger execution matrix and actual overlapping trigger cases",
+    "Closed-host Save events and headless watching",
+    "Partial-hunk unstaging classification",
+    "User-wide budgets, retention and other-UID IPC checks",
+    "Earlier P03-P06 gates and P09-P13 remain in the original goal"
+  ]
+}

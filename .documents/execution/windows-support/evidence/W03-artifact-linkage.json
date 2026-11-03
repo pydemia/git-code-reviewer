@@ -1,0 +1,159 @@
+{
+  "capturedAt": "2026-09-16T06:31:46.161Z",
+  "gcrSourceSha": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+  "cdProductSourceSha": "2c2a40647c72e9ae00489ba0a5efaa7c3351792c",
+  "cdPackagingSourceSha": "722b55cb6d93269aa76bf298e9e9531dc9ac7ecc",
+  "clientManifest": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.49",
+    "sourceSha": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "buildPlatform": "win32",
+    "buildArchitecture": "arm64",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.48",
+        "file": "gcr-client-contract-0.1.0-alpha.48.tgz",
+        "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-core-0.1.0-alpha.49.tgz",
+        "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-executors-0.1.0-alpha.49.tgz",
+        "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47"
+      }
+    ]
+  },
+  "nativeHelper": {
+    "version": "1.0.3",
+    "format": "CLI AnyCPU / .NET Framework 4.x",
+    "buildArchitecture": "arm64",
+    "license": "Apache-2.0",
+    "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+    "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+  },
+  "privateService": {
+    "name": "@gcr/cli",
+    "version": "0.1.0-alpha.38",
+    "file": "gcr-cli-0.1.0-alpha.38.tgz",
+    "sha256": "01a7e41379e9f1f22d76a16cf89090345df986a1a2e542c147cb76d7d09631e5",
+    "sourceSha": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "clientPackages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.48",
+        "file": "gcr-client-contract-0.1.0-alpha.48.tgz",
+        "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-core-0.1.0-alpha.49.tgz",
+        "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-executors-0.1.0-alpha.49.tgz",
+        "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47"
+      }
+    ],
+    "native": {
+      "version": "1.0.3",
+      "format": "CLI AnyCPU / .NET Framework 4.x",
+      "buildArchitecture": "arm64",
+      "license": "Apache-2.0",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+    },
+    "bundleSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364"
+  },
+  "vsix": {
+    "version": "2.12.4",
+    "target": "win32-arm64",
+    "file": "commit-defender-2.12.4-win32-arm64.vsix",
+    "sha256": "88471efee2b80a1b79d28e4712d90566eeeac1fa3ea6fa340d515efba5a48f1b"
+  },
+  "installed": {
+    "version": "2.12.4",
+    "path": "C:/Users/pydemia/.vscode/extensions/pydemia.commit-defender-2.12.4",
+    "verifiedRegistry": true,
+    "runtime": [
+      {
+        "file": "out/extension.js",
+        "buildSha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83",
+        "installedSha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+      },
+      {
+        "file": "out/standalone-review-worker.js",
+        "buildSha256": "a07a7bca6225f87cde54693d88c14ccb73a793c3422ec5ecbbabf2019774685a",
+        "installedSha256": "a07a7bca6225f87cde54693d88c14ccb73a793c3422ec5ecbbabf2019774685a"
+      },
+      {
+        "file": "out/review-chat-worker.js",
+        "buildSha256": "e05587c319973deb1da078db915969a00b0b4e669ecac35b52fc7433cca3b47b",
+        "installedSha256": "e05587c319973deb1da078db915969a00b0b4e669ecac35b52fc7433cca3b47b"
+      },
+      {
+        "file": "out/advisory-hook.cjs",
+        "buildSha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217",
+        "installedSha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+      },
+      {
+        "file": "out/windows-native.exe",
+        "buildSha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+        "installedSha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+      },
+      {
+        "file": "out/windows-native.json",
+        "buildSha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575",
+        "installedSha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+      },
+      {
+        "file": "out/gcr-service/main.mjs",
+        "buildSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364",
+        "installedSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364"
+      },
+      {
+        "file": "out/gcr-service/manifest.json",
+        "buildSha256": "e1d616bc0037e281408d96a3ace6d05c0031a275a7519ec6365ca4613bbb1715",
+        "installedSha256": "e1d616bc0037e281408d96a3ace6d05c0031a275a7519ec6365ca4613bbb1715"
+      },
+      {
+        "file": "out/gcr-service/windows-native.exe",
+        "buildSha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+        "installedSha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+      },
+      {
+        "file": "out/gcr-service/windows-native.json",
+        "buildSha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575",
+        "installedSha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+      }
+    ]
+  },
+  "userHostAppliedVersion": "unverified; no forced reload",
+  "verificationHost": {
+    "realReview": "W03-native-host-attempt2.json",
+    "lifecycle": "W03-native-host-lifecycle.json",
+    "extensionVersion": "2.12.4",
+    "extensionPath": "C:\\Users\\pydemia\\.vscode\\extensions\\pydemia.commit-defender-2.12.4",
+    "extensionSha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83",
+    "standaloneWorkerSha256": "a07a7bca6225f87cde54693d88c14ccb73a793c3422ec5ecbbabf2019774685a",
+    "serviceSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364",
+    "helperSha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+    "workerPlacement": "private CLI service executes its review worker in the service Node process",
+    "reviewStatus": "completed",
+    "reportProblems": 0,
+    "model": "gpt-5.6-luna",
+    "zeroCallLifecycleStatus": "passed"
+  },
+  "userServiceAtStart": "none observed",
+  "actualModelCalls": 2,
+  "acceptedCompletedReports": 1
+}

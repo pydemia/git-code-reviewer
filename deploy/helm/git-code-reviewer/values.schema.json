@@ -18,9 +18,95 @@
     "authorization",
     "cerbos",
     "model",
-    "retention"
+    "retention",
+    "identity",
+    "knowledgePublication",
+    "knowledgeDistribution",
+    "clientApiKeys"
   ],
   "properties": {
+    "clientApiKeys": {
+      "type": "object",
+      "required": ["enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "connectionCa": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["existingConfigMap", "key"],
+          "properties": {
+            "existingConfigMap": { "type": "string" },
+            "key": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "knowledgeDistribution": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "serverId",
+        "signingKeyId",
+        "existingSecret",
+        "privateKeyKey",
+        "offlineLeaseSeconds"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "serverId": {
+          "type": "string"
+        },
+        "signingKeyId": {
+          "type": "string"
+        },
+        "existingSecret": {
+          "type": "string"
+        },
+        "privateKeyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "offlineLeaseSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "serverId": {
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "signingKeyId": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$"
+              },
+              "existingSecret": {
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "knowledgePublication": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": { "enabled": { "type": "boolean" } }
+    },
     "image": {
       "type": "object",
       "required": ["repository", "tag", "digest", "pullPolicy"],
@@ -74,6 +160,7 @@
         "resources"
       ],
       "properties": {
+        "databasePoolMax": { "type": ["integer", "null"], "minimum": 2 },
         "replicas": { "type": "integer", "minimum": 1 },
         "concurrency": { "type": "integer", "minimum": 1 },
         "healthPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
@@ -115,8 +202,126 @@
       "type": "object",
       "required": ["existingSecret", "urlKey"],
       "properties": {
-        "existingSecret": { "type": "string" },
-        "urlKey": { "type": "string", "minLength": 1 }
+        "existingSecret": {
+          "type": "string"
+        },
+        "urlKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tls": {
+          "type": "object",
+          "required": ["mode", "existingConfigMap", "key"],
+          "properties": {
+            "mode": {
+              "enum": ["legacy", "verify-full"]
+            },
+            "existingConfigMap": {
+              "type": "string"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "migrationsWaitTimeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 900000
+        },
+        "isolated": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "host",
+            "port",
+            "name",
+            "runtimeSecret",
+            "migratorSecret",
+            "passwordKey",
+            "budget"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            },
+            "runtimeSecret": {
+              "type": "string"
+            },
+            "migratorSecret": {
+              "type": "string"
+            },
+            "passwordKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "budget": {
+              "type": "object",
+              "required": [
+                "serverPeakReplicas",
+                "workerPeakReplicas",
+                "applicationConnectionLimit",
+                "migratorConnectionLimit",
+                "keycloakConnectionLimit",
+                "maxConnections",
+                "reservedConnections",
+                "otherConnections",
+                "operatorReserve"
+              ],
+              "properties": {
+                "serverPeakReplicas": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "workerPeakReplicas": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "applicationConnectionLimit": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "migratorConnectionLimit": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "keycloakConnectionLimit": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "maxConnections": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "reservedConnections": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "otherConnections": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "operatorReserve": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
       }
     },
     "postgresql": {
@@ -353,10 +558,11 @@
         "adminRole",
         "adminGroup",
         "defaultTenantSlug",
-        "autoJoinDefaultTenant"
+        "autoJoinDefaultTenant",
+        "saml"
       ],
       "properties": {
-        "mode": { "enum": ["development", "local", "oidc", "proxy"] },
+        "mode": { "enum": ["development", "local", "oidc", "proxy", "saml"] },
         "development": {
           "type": "object",
           "required": ["subject", "displayName", "role"],
@@ -370,6 +576,7 @@
           "type": "object",
           "required": ["adminDisplayName", "reviewerDisplayName"],
           "properties": {
+            "httpOrigin": { "type": "string", "pattern": "^$|^http://[^/?#@]+$" },
             "adminDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 },
             "reviewerDisplayName": { "type": "string", "minLength": 1, "maxLength": 120 }
           }
@@ -381,7 +588,65 @@
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
         },
-        "autoJoinDefaultTenant": { "type": "boolean" }
+        "autoJoinDefaultTenant": { "type": "boolean" },
+        "saml": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "idpIssuer",
+            "entityId",
+            "signingSecret",
+            "privateKeyKey",
+            "publicCertKey",
+            "sessionSecretKey",
+            "metadataConfigMap",
+            "metadataKey",
+            "configurationRevision"
+          ],
+          "properties": {
+            "idpIssuer": {
+              "type": "string",
+              "pattern": "^$|^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[1-9][0-9]{0,4})?/realms/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "entityId": {
+              "type": "string",
+              "pattern": "^$|^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[1-9][0-9]{0,4})?/[A-Za-z0-9._~/-]*$"
+            },
+            "signingSecret": {
+              "type": "string",
+              "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            },
+            "privateKeyKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "publicCertKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "sessionSecretKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "metadataConfigMap": {
+              "type": "string",
+              "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            },
+            "metadataKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            },
+            "configurationRevision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            }
+          }
+        }
       }
     },
     "authorization": {
@@ -427,6 +692,8 @@
         "schedule",
         "reportDays",
         "chatDays",
+        "mergedDays",
+        "mergedMaxLen",
         "eventLogHours",
         "orphanGraceHours",
         "deleteGraceHours",
@@ -437,6 +704,8 @@
         "schedule": { "type": "string", "minLength": 1 },
         "reportDays": { "type": "integer", "minimum": 1 },
         "chatDays": { "type": "integer", "minimum": 1 },
+        "mergedDays": { "type": "integer", "minimum": 1 },
+        "mergedMaxLen": { "type": "integer", "minimum": 1 },
         "eventLogHours": { "type": "integer", "minimum": 1 },
         "orphanGraceHours": { "type": "integer", "minimum": 1 },
         "deleteGraceHours": { "type": "integer", "minimum": 0 },
@@ -453,7 +722,82 @@
         "additionalEgress": { "type": "array", "items": { "type": "object" } }
       }
     },
-    "podDisruptionBudget": { "type": "object" }
+    "podDisruptionBudget": { "type": "object" },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adminEnabled",
+        "securityEnabled",
+        "adminBaseUrl",
+        "clientId",
+        "existingSecret",
+        "clientSecretKey",
+        "configurationRevision",
+        "networkPolicy"
+      ],
+      "properties": {
+        "adminEnabled": {
+          "type": "boolean"
+        },
+        "securityEnabled": {
+          "type": "boolean"
+        },
+        "adminBaseUrl": {
+          "type": "string",
+          "pattern": "^$|^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[1-9][0-9]{0,4})?/admin/realms/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "clientId": {
+          "type": "string",
+          "pattern": "^$|^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$"
+        },
+        "existingSecret": {
+          "type": "string",
+          "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+        },
+        "clientSecretKey": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "configurationRevision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "networkPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["publicPeers", "publicPort", "adminPeers", "adminPort"],
+          "properties": {
+            "publicPeers": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/definitions/identityNetworkPeer"
+              }
+            },
+            "publicPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "adminPeers": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/definitions/identityNetworkPeer"
+              }
+            },
+            "adminPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      }
+    }
   },
   "$defs": {
     "model": {
@@ -535,5 +879,89 @@
         }
       }
     }
-  }
+  },
+  "definitions": {
+    "identityNetworkPeer": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 63,
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            },
+            "podLabels": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 63
+              }
+            }
+          },
+          "required": ["namespace", "podLabels"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cidr": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253,
+              "pattern": "^(((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/([1-9]|[12][0-9]|3[0-2])|[0-9A-Fa-f]*:[0-9A-Fa-f:]+/([1-9]|[1-9][0-9]|1[01][0-9]|12[0-8]))$"
+            }
+          },
+          "required": ["cidr"]
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "clientApiKeys": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "auth": {
+            "properties": {
+              "mode": {
+                "enum": ["local", "saml"]
+              }
+            }
+          },
+          "knowledgeDistribution": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "knowledgePublication": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "publicBaseUrl": {
+            "pattern": "^https://"
+          }
+        }
+      }
+    }
+  ]
 }

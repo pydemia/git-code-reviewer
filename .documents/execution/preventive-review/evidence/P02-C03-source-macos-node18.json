@@ -1,0 +1,45 @@
+{
+  "platform": "darwin",
+  "arch": "arm64",
+  "node": "v18.20.8",
+  "git": "git version 2.50.1 (Apple Git-155)",
+  "packageVersion": "0.1.0-alpha.5",
+  "verification": "installed-artifact",
+  "partialStage": true,
+  "savedWorkingTree": true,
+  "explicitUntracked": true,
+  "rename": true,
+  "deletionBase": true,
+  "privateExclusion": true,
+  "sourceHashVerified": true,
+  "originalIndexBytesAndMtimeUnchanged": true,
+  "originalGitObjectInventoryUnchanged": true,
+  "readsAfterOriginalRepositoryRemoval": true,
+  "syntheticData": true,
+  "modelCalls": 0,
+  "cleanup": "completed",
+  "artifacts": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.5",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.5",
+        "file": "gcr-client-contract-0.1.0-alpha.5.tgz",
+        "sha256": "9c10c321ae46509afd2e70979e86e316738dbefac468963ff8362895f45b6c8b"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.5",
+        "file": "gcr-client-core-0.1.0-alpha.5.tgz",
+        "sha256": "1ae632a66406c73b06b334af25ad0c33349ec15eca063e2e327de571c9fc7993"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.5",
+        "file": "gcr-client-executors-0.1.0-alpha.5.tgz",
+        "sha256": "d7db2e7f2bd97579fb2c90dae87679b3b0d0be54efba1aefc3ea779c512be9f2"
+      }
+    ]
+  }
+}

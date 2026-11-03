@@ -1,0 +1,72 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T17:44:06.042203+00:00",
+  "scope": "P05-C05/C06 partial: signed manifest, authorized component download and memory projection API; not deployed",
+  "tests": {
+    "broadSuite": {
+      "passed": 141,
+      "failed": 0,
+      "sha256": "4e538695a055bb078f5ce680306f257fb2eb77d36f9f150d9711d20a99ad9dc2",
+      "localArtifact": "artifacts/operations/P05-criteria/distribution-verification4.json"
+    },
+    "finalDistributionWithRealAuthentication": {
+      "passed": 15,
+      "failed": 0,
+      "sha256": "1238236fa7122d6384679284f73400e3781e0b9b03727b2826a8fe2d0ddb1584",
+      "localArtifact": "artifacts/operations/P05-criteria/distribution-verification6.json"
+    }
+  },
+  "build": "pnpm build passed; targeted TypeScript lint passed",
+  "helm": {
+    "status": "passed",
+    "serverOnlySigningKeyMount": true,
+    "chatAccountInitContainerCannotReadKey": true,
+    "distributionRequiresPublication": true
+  },
+  "migration": "0040 tested with all 40 migrations in isolated PostgreSQL; PRISM-DEV remains at 38",
+  "sourceHashes": {
+    "packages/client-contract/src/knowledge-manifest.ts": "4621b4f7907e5f24cf1e4c49e5d68e11385367f632328fd526cc3e76284305f6",
+    "packages/client-core/src/knowledge-signature.ts": "70e62e01557ea25b44ebae61b05ce129fd8d13756052c2e881146789f61903dd",
+    "packages/db/migrations/0040_knowledge_manifests.sql": "afb2dcc219645a4a35b8489e19129766df2120a4458a1e897d762287305ecf1f",
+    "apps/runtime/src/services/knowledge-manifest.ts": "406591e4c29d73e91d0617069bcd69c0e88a1ba27128923f5e82a1543e66f38a",
+    "apps/runtime/src/routes/review-knowledge.ts": "d6de6036a839291caf5c7becf62050c7e4a4e95b4af1b8dd6262ee91bd60ce4c",
+    "apps/runtime/src/routes/review-knowledge.integration.test.ts": "25397b7ce925a838da299acf09c7b06740db2d85f659409aa4c5a6e8a8a28089",
+    "apps/runtime/src/config.ts": "3cf4af2202b9cb3d4d65b41ef31594112a7153296d7afe7acf6602ecc647e3b2",
+    "apps/runtime/src/server.ts": "fcc1585293be97a44923e0322854c9a213607f72cdf006ea728f485e4a3f3cf4",
+    "apps/runtime/src/jobs/worker.ts": "ca0d0cd4b1fd7c7867e7365f7364c2f8b18723c96d4aa736daf4f6eefebab0d5",
+    "deploy/helm/git-code-reviewer/templates/server-deployment.yaml": "9d941d44ccf0a2563ca00b146a0f7f7b460286932fb178a824d2d5285fed3f37"
+  },
+  "validated": [
+    "Ed25519 pinned-key signature, payload hash and exact audience",
+    "online/offline expiry, disabled offline use and sequence/authorization replay guards",
+    "stable server identity and key-ID collision rejection",
+    "fresh complete three-component snapshot with artifact hash/size checks before 304",
+    "personal projection ownership and source-fingerprint optimistic approval",
+    "public component reuse across users and personal-only content changes",
+    "download rejects an obsolete combination or another user snapshot/bundle",
+    "grant revoke/regrant permanently invalidates prior DB authorization revision",
+    "disabled user and revoked membership despite a previously authenticated request object",
+    "concurrent permission commit serialized against an in-flight manifest",
+    "no-op membership/grant refresh preserves manifest and outbox state",
+    "real development identity hook and real local-password session, logout rejects cookie reuse",
+    "corrupt/missing artifact fails closed",
+    "live immutable manifest protection, bounded expiry cleanup and repository cascade",
+    "private signing key mounted only in server container, including chat-account bootstrap configuration"
+  ],
+  "limitations": [
+    "Explicit higher-sequence rollback/revocation management is not implemented",
+    "Source-detail API and publication management UI remain",
+    "Client PKCE/device/API-key boundaries, durable cache/replay floors and central sync remain",
+    "Client verifier additions are not a newly published/installed client package",
+    "No new image, signing Secret or PRISM-DEV deployment for this change",
+    "External Cerbos policy revision is not represented by the DB authorization epoch",
+    "Offline users may retain previously authorized data until lease expiry; client time filtering remains required"
+  ],
+  "production": {
+    "version": "0.8.0-alpha.40",
+    "helmRevision": 52,
+    "migrationCount": 38,
+    "databaseTlsMode": "verify-full"
+  },
+  "modelsInvoked": 0
+}

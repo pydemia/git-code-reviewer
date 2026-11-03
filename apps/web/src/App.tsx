@@ -1,8 +1,11 @@
+import { ReviewTaskProgress } from './ReviewTaskProgress.tsx';
+import { ReviewHistoryPage } from './ReviewHistoryPage.tsx';
+import { ReviewObservationsPage } from './ReviewObservationsPage.tsx';
 import {
   Activity,
   Brain,
   Braces,
-  ChevronDown,
+  BookOpenText,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -33,6 +36,7 @@ import {
   loadWorklist,
   loadWorkspace,
   loadAnalysisStatus,
+  loadAnalysisRevisions,
   openChatSession,
   refreshPull,
   sendChatMessage,
@@ -46,6 +50,7 @@ import {
   loadCurrentUser,
 } from './api.ts';
 import { AdminPage } from './AdminPage.tsx';
+import { ReviewCriteriaPage } from './ReviewCriteriaPage.tsx';
 import { AppHeader } from './AppHeader.tsx';
 import { GuidePage } from './GuidePage.tsx';
 import { ProductDocumentPage } from './ProductDocumentPage.tsx';
@@ -55,6 +60,8 @@ import { FileTree } from './FileTree.tsx';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import { ReviewGrade } from './ReviewGrade.tsx';
 import { PullRequestFilters, PullRequestState } from './PullRequestFilters.tsx';
+import { AnalysisRevisionSelect } from './AnalysisRevisionSelect.tsx';
+import { startVisiblePolling } from './visible-polling.ts';
 import { ChatPanel } from './ChatPanel.tsx';
 import { ChatRunActivity, SourceEvidenceView } from './ChatRunActivity.tsx';
 import { ChatRunHistory } from './ChatRunHistory.tsx';
@@ -63,7 +70,11 @@ import { sourceEvidenceSchema, type SourceEvidence } from '@gcr/contracts';
 import { resolveChatCitation } from './chat-citations.ts';
 import { ReviewDiff, type CodeTarget } from './ReviewDiff.tsx';
 import { firstChangedLine } from './review-diff.ts';
-import { analysisIsPending, analysisProgressLabel } from './analysis-progress.ts';
+import {
+  analysisIsPending,
+  analysisProgressLabel,
+  reviewedFileCoverage,
+} from './analysis-progress.ts';
 import { analyzeAddedTests, type AddedTestFile } from './test-analysis.ts';
 import { ReviewMemoryPanel } from './ReviewMemoryPanel.tsx';
 import {
@@ -109,9 +120,16 @@ export function App() {
     return <ProductDocumentPage documentId="introduction" />;
   if (window.location.pathname === '/features')
     return <ProductDocumentPage documentId="features" />;
+  if (window.location.pathname === '/getting-started')
+    return <ProductDocumentPage documentId="gettingStarted" />;
+  if (window.location.pathname === '/architecture')
+    return <ProductDocumentPage documentId="architecture" />;
   if (window.location.pathname === '/guide') return <GuidePage />;
   if (window.location.pathname === '/profile') return <ProfilePage />;
   if (window.location.pathname === '/admin') return <AdminPage />;
+  if (window.location.pathname === '/review-observations') return <ReviewObservationsPage />;
+  if (window.location.pathname === '/review-history') return <ReviewHistoryPage />;
+  if (window.location.pathname === '/review-criteria') return <ReviewCriteriaPage />;
   const analysisMatch = window.location.pathname.match(/^\/reviews\/([^/]+)$/);
   if (analysisMatch) return <ReviewWorkspace analysisId={analysisMatch[1]!} />;
   const pullMatch = window.location.pathname.match(/^\/repositories\/([^/]+)\/pulls\/(\d+)$/);
@@ -142,31 +160,22 @@ function Worklist() {
   }>({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
 
   useEffect(() => {
-    const controller = new AbortController();
     setState({ status: 'loading', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
-    void loadCurrentUser(controller.signal)
-      .then((currentUser) => {
-        if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    return startVisiblePolling(
+      async (signal) => {
+        const currentUser = await loadCurrentUser(signal);
+        if (signal.aborted) return;
         const tenantId = currentUser.tenants.some((tenant) => tenant.id === selectedTenantId)
           ? selectedTenantId
           : (currentUser.tenants[0]?.id ?? '');
         setUser(currentUser);
         if (tenantId !== selectedTenantId) setSelectedTenantId(tenantId);
         if (tenantId) window.localStorage.setItem(WORKLIST_TENANT_STORAGE_KEY, tenantId);
-        return loadWorklist(controller.signal, tenantId || undefined, pullState);
-      })
-      .then(
-        (result) => {
-          if (!controller.signal.aborted) setState({ status: 'ready', ...result });
-        },
-        (error: unknown) => {
-          if (!controller.signal.aborted) {
-            console.error(error);
-            setState({ status: 'error', items: [], counts: null, syncErrors: 0, pendingSync: 0 });
-          }
-        },
-      );
-    return () => controller.abort();
+        const result = await loadWorklist(signal, tenantId || undefined, pullState);
+        if (!signal.aborted) setState({ status: 'ready', ...result });
+      },
+      () => setState((current) => ({ ...current, status: 'error' })),
+    );
   }, [reloadToken, selectedTenantId, pullState]);
 
   const selectTenant = (tenantId: string) => {
@@ -231,11 +240,9 @@ function Worklist() {
             <a
               className="pr-row"
               href={
-                pr.latestAnalysisId
-                  ? `/reviews/${pr.latestAnalysisId}`
-                  : pr.state === 'closed'
-                    ? pr.htmlUrl
-                    : `/repositories/${pr.repository.id}/pulls/${pr.number}`
+                pr.state === 'closed' && !pr.latestAnalysisId
+                  ? pr.htmlUrl
+                  : `/repositories/${pr.repository.id}/pulls/${pr.number}`
               }
               target={pr.state === 'closed' && !pr.latestAnalysisId ? '_blank' : undefined}
               rel={
@@ -351,6 +358,7 @@ function ReviewWorkspace({
   );
   const [chatAccountsRevision, setChatAccountsRevision] = useState(0);
   const [progressError, setProgressError] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
   const [chatAccountId, setChatAccountId] = useState('');
   const [chatModelName, setChatModelName] = useState('');
   const [chatEffort, setChatEffort] = useState('');
@@ -525,6 +533,7 @@ function ReviewWorkspace({
         : Promise.reject(new Error('Review target is missing'));
     void Promise.all([loadCurrentUser(controller.signal), workspaceRequest]).then(
       ([currentUser, workspace]) => {
+        if (controller.signal.aborted) return;
         setUser(currentUser);
         setData(workspace);
         const search = new URLSearchParams(window.location.search);
@@ -576,6 +585,27 @@ function ReviewWorkspace({
   const currentAnalysisState = data?.analysis?.state;
   const currentRepositoryId = data?.pull.repositoryId;
   const currentPullNumber = data?.pull.number;
+  useEffect(() => {
+    if (!currentRepositoryId || !currentPullNumber) return;
+    return startVisiblePolling(
+      async (signal) => {
+        const analyses = await loadAnalysisRevisions(
+          currentRepositoryId,
+          currentPullNumber,
+          signal,
+        );
+        if (signal.aborted) return;
+        setData((current) =>
+          current?.pull.repositoryId === currentRepositoryId &&
+          current.pull.number === currentPullNumber
+            ? { ...current, analyses }
+            : current,
+        );
+        setHistoryError(false);
+      },
+      () => setHistoryError(true),
+    );
+  }, [currentRepositoryId, currentPullNumber]);
   useEffect(() => {
     if (
       !currentRepositoryId ||
@@ -770,9 +800,7 @@ function ReviewWorkspace({
   const selectedFinding = data?.report?.findings.find(
     (finding) => finding.id === selectedFindingId && finding.anchor.fileId === selectedFile?.id,
   );
-  const coveragePercent = data?.report?.coverage.filesChanged
-    ? Math.round((data.report.coverage.filesExamined / data.report.coverage.filesChanged) * 100)
-    : 0;
+  const fileCoverage = reviewedFileCoverage(data?.report ?? null, progressDetail);
   const addedTestFiles = useMemo(() => analyzeAddedTests(data?.diff?.files ?? []), [data?.diff]);
 
   const selectFile = (path: string) => {
@@ -901,7 +929,9 @@ function ReviewWorkspace({
               ? 'Snapshot 준비 중'
               : data?.report
                 ? data.report.analysis
-                  ? reviewStatusLabels[data.report.analysis.status]
+                  ? data.report.analysis.status === 'blocked' && data.report.coverage.truncated
+                    ? '일부 검토 · BLOCKED'
+                    : reviewStatusLabels[data.report.analysis.status]
                   : data.report.versions.model?.startsWith('fixture')
                     ? '데모 분석'
                     : data.report.versions.review === 'failed'
@@ -918,14 +948,16 @@ function ReviewWorkspace({
                       ? '분석 상태 확인 실패'
                       : '코드 준비 중'}
           </span>
-          <button className="revision-button" type="button">
-            Revision {data?.analysis?.revision ?? '-'} <ChevronDown size={13} />
-          </button>
+          <AnalysisRevisionSelect
+            analyses={data?.analyses ?? []}
+            current={data?.analysis ?? null}
+          />
+          {historyError ? <span role="status">분석 이력 갱신 실패</span> : null}
           <button
             className="icon-button"
             type="button"
-            title="새로고침"
-            aria-label="새로고침"
+            title="최신 코드로 분석 요청"
+            aria-label="최신 코드로 분석 요청"
             onClick={() => void handleRefresh()}
             disabled={refreshing}
           >
@@ -943,6 +975,20 @@ function ReviewWorkspace({
           </a>
         </div>
       </div>
+      <nav className="review-navigation-rail" aria-label="리뷰 탐색">
+        <a href="/" aria-current="page" aria-label="Pull requests 목록">
+          <GitPullRequest size={19} aria-hidden="true" />
+          <span>PR</span>
+        </a>
+        <a href="/review-observations" aria-label="리뷰 관측">
+          <Activity size={19} aria-hidden="true" />
+          <span>관측</span>
+        </a>
+        <a href="/review-history" aria-label="리뷰 이력">
+          <BookOpenText size={19} aria-hidden="true" />
+          <span>이력</span>
+        </a>
+      </nav>
       <main
         className={`workspace-grid${resizing ? ` is-resizing resize-${resizing}` : ''}`}
         ref={workspaceRef}
@@ -961,7 +1007,7 @@ function ReviewWorkspace({
           mode={reviewMode}
           selectedFileId={selectedFile?.id ?? null}
           selectedObjectId={selectedObjectId}
-          coveragePercent={coveragePercent}
+          fileCoverage={fileCoverage}
           onModeChange={setReviewMode}
           onFileSelect={selectFile}
           onObjectSelect={selectObject}
@@ -1063,7 +1109,9 @@ function ReviewWorkspace({
                 </strong>
                 {progressDetail ? (
                   <span>
-                    {progressDetail.filesProcessed}/{progressDetail.filesTotal} 파일 처리
+                    {progressDetail.tasksTotal !== undefined
+                      ? `${progressDetail.tasksCompleted ?? 0}/${progressDetail.tasksTotal} 묶음 완료`
+                      : `${progressDetail.filesProcessed}/${progressDetail.filesTotal} 파일 처리`}
                   </span>
                 ) : null}
                 <span>{data?.analysis?.progress ?? 0}%</span>
@@ -1071,7 +1119,10 @@ function ReviewWorkspace({
               <progress aria-label="분석 진행률" max={100} value={data?.analysis?.progress ?? 0} />
               {progressDetail ? (
                 <small>
-                  검토 완료 {progressDetail.filesReviewed} · 미검토 {progressDetail.filesSkipped}
+                  검토 완료 {progressDetail.filesReviewed} ·{' '}
+                  {progressDetail.filesExcluded !== undefined
+                    ? `정책상 제외 ${progressDetail.filesExcluded} · 미완료 ${progressDetail.filesPending ?? 0}`
+                    : `미검토 ${progressDetail.filesSkipped}`}
                   {progressDetail.currentFile ? ` · ${progressDetail.currentFile}` : ''}
                 </small>
               ) : null}
@@ -1081,6 +1132,9 @@ function ReviewWorkspace({
                   : '코드 diff를 먼저 확인하세요. 분석이 끝나면 줄별 검토 의견이 자동으로 표시됩니다.'}
               </small>
             </div>
+          ) : null}
+          {data?.analysis?.id ? (
+            <ReviewTaskProgress analysisId={data.analysis.id} state={data.analysis.state} />
           ) : null}
           {sourceEvidence ? (
             <SourceEvidenceView source={sourceEvidence} onClose={() => setSourceEvidence(null)} />
@@ -1112,6 +1166,7 @@ function ReviewWorkspace({
                 <ReviewReportPanel
                   report={data.report}
                   files={data.files}
+                  diff={data.diff}
                   section={mainView}
                   selectedFindingId={selectedFindingId}
                   onFindingSelect={selectFinding}
@@ -1178,6 +1233,7 @@ function ReviewWorkspace({
                 <ReviewReportPanel
                   report={data.report}
                   files={data.files}
+                  diff={data.diff}
                   section="comments"
                   selectedFindingId={selectedFindingId}
                   onFindingSelect={selectFinding}
@@ -1288,8 +1344,8 @@ function ReviewWorkspace({
               </>
             ) : undefined
           }
-          revision={data?.analysis?.revision}
-          headSha={data?.pull.headSha}
+          revision={data?.analysis?.pullRevision ?? data?.analysis?.revision}
+          headSha={data?.analysis?.headSha ?? data?.pull.headSha}
           selectedFinding={selectedFinding}
           selectedFile={selectedFile?.path}
           model={chatSession?.model ?? null}
@@ -1455,7 +1511,7 @@ function ReviewSidebar({
   mode,
   selectedFileId,
   selectedObjectId,
-  coveragePercent,
+  fileCoverage,
   onModeChange,
   onFileSelect,
   onObjectSelect,
@@ -1466,7 +1522,7 @@ function ReviewSidebar({
   mode: ReviewMode;
   selectedFileId: string | null;
   selectedObjectId: string | null;
-  coveragePercent: number;
+  fileCoverage: ReturnType<typeof reviewedFileCoverage>;
   onModeChange: (mode: ReviewMode) => void;
   onFileSelect: (path: string) => void;
   onObjectSelect: (objectId: string) => void;
@@ -1574,11 +1630,11 @@ function ReviewSidebar({
         </div>
       ) : null}
 
-      <div className="coverage-strip">
-        <span>Coverage</span>
-        <strong>{coveragePercent}%</strong>
+      <div className="coverage-strip" title={fileCoverage.description}>
+        <span>파일 검토 완료</span>
+        <strong>{fileCoverage.percent === null ? '—' : `${fileCoverage.percent}%`}</strong>
         <div>
-          <i style={{ width: `${coveragePercent}%` }} />
+          <i style={{ width: `${fileCoverage.percent ?? 0}%` }} />
         </div>
       </div>
     </aside>

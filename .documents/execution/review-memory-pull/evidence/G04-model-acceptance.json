@@ -1,0 +1,64 @@
+{
+  "actualModelInvocations": 6,
+  "initial": {
+    "defect": "completed but no explicit history assessment",
+    "fixed": "cancelled at manifest expiry; not successful",
+    "unrelated": "completed but no explicit history assessment"
+  },
+  "finalCases": [
+    {
+      "case": "defect",
+      "runId": "ef6114c6-47ae-4466-ae83-2ec63e70ab47",
+      "status": "completed",
+      "durationMs": 107932,
+      "findings": 1,
+      "modelSummary": "`BlockUpdateRequest`의 교차 필드 검증이 현재 `model_validate` 경로에서 실행되지 않아 결함이 확인되었습니다. 테스트 코드는 해당 동작을 기대하지만 실행 결과는 확인하지 않았습니다. 과거 review source `4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1` (https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279)의 validator 이동 guidance는 현재 코드에 적용되지 않았으며, “수정 완료” 답변은 현재 source의 증거로 인정하지 않았습니다.",
+      "fileSummaries": [
+        "Standalone 검증 함수가 추가되었지만 `BlockUpdateRequest` validator로 연결되지 않았습니다."
+      ],
+      "extensionVersion": "2.11.2",
+      "workerSha256": "f1a45c8ca4dcf062a99b1e82c1b5433bb0f7e06562ee9babb177e0aa57c57809",
+      "historyProvided": true,
+      "modelAuthoredSourceAssessment": true,
+      "fixtureTestsExecuted": false
+    },
+    {
+      "case": "fixed",
+      "runId": "60b219af-5592-4877-8d84-9b5ac8d563c7",
+      "status": "completed",
+      "durationMs": 136346,
+      "findings": 0,
+      "modelSummary": "검토한 변경 범위에서 문제가 발견되지 않았습니다. `BlockUpdateRequest`의 cross-field 검증이 Pydantic v2 `@model_validator`로 구현되어 `preview_block`과 `update_block`의 `model_validate` 경로에 적용됩니다. 테스트와 관련 callers를 검사했으나 실행하지는 않았습니다. History source `4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1` (https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279)와 linked decision `9ee94837-fd43-46f6-ac03-30bdfb8d3575`의 지침은 현재 코드에서 이미 충족됩니다. 답글의 수정 주장 자체가 아니라 현재 source를 근거로 판단했습니다. 적용 대상인 correctness·maintenance·optimization·security·setting guidance도 검토했으며 추가 결함은 확인되지 않았습니다.",
+      "fileSummaries": [
+        "Pydantic model validator와 관련 callers, repository contract, tests 및 fixed base를 검토했습니다. 추가 결함은 확인되지 않았습니다."
+      ],
+      "extensionVersion": "2.11.2",
+      "workerSha256": "f1a45c8ca4dcf062a99b1e82c1b5433bb0f7e06562ee9babb177e0aa57c57809",
+      "historyProvided": true,
+      "modelAuthoredSourceAssessment": true,
+      "fixtureTestsExecuted": false
+    },
+    {
+      "case": "unrelated",
+      "runId": "c2f106ae-9850-482c-a041-557c84926a79",
+      "status": "completed",
+      "durationMs": 65632,
+      "findings": 0,
+      "modelSummary": "검토한 변경 범위에서 문제가 발견되지 않았습니다. 과거 review source `4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1` (https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279)의 validator 이동 guidance는 현재 `schema.py`의 `model_validator`로 이미 충족되어 적용되지 않는 별도 결함이 아닙니다. 연결된 memory `9ee94837-fd43-46f6-ac03-30bdfb8d3575`도 동일한 현재 코드로 확인되어 이미 만족됩니다. 테스트는 실행하지 않았습니다.",
+      "fileSummaries": [
+        "`update_block`의 archived 상태 거부 로직과 `preview_block` 호출 경로, schema·repository contract 및 테스트를 확인했습니다."
+      ],
+      "extensionVersion": "2.11.3",
+      "workerSha256": "f1a45c8ca4dcf062a99b1e82c1b5433bb0f7e06562ee9babb177e0aa57c57809",
+      "historyProvided": true,
+      "modelAuthoredSourceAssessment": true,
+      "fixtureTestsExecuted": false
+    }
+  ],
+  "limits": {
+    "perInvocationMs": 240000,
+    "initial": 3,
+    "additionalRecorded": 3
+  },
+  "interpretation": "Explicit source-linked judgments checked against current fixed callers/contracts/boundaries; not a claim about hidden causal reasoning. Unrelated case confirms existing validator and reviews archived-state change without demanding schema migration."
+}

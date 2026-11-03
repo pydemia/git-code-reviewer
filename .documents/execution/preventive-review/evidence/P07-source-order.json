@@ -1,0 +1,673 @@
+{
+  "schemaVersion": 1,
+  "status": "installed-and-verified",
+  "recordedAt": "2026-09-14T10:23:10.507823+00:00",
+  "gcrSourceCommit": "d4e67fb9f1507326205f54d5f8bd8ff9ce0efca5",
+  "commitDefenderSourceCommit": "6ff8d063967cebbca48e80d8da6b6b61d1ac90d9",
+  "problem": "Explicit Stage selection captured selected files first; Commit captured files in path order. Array insertion order changed source/context/tools hashes and caused duplicate actual model executions for the same complete input.",
+  "fix": "Canonicalize captured file map order after collection, preserving selected-path budget priority. Hashing and frozen serialization share the canonical map. Legacy frozen snapshots retain their recorded identity and order.",
+  "packages": {
+    "clients": {
+      "schemaVersion": 1,
+      "version": "0.1.0-alpha.28",
+      "packages": [
+        {
+          "name": "@gcr/client-contract",
+          "version": "0.1.0-alpha.28",
+          "file": "gcr-client-contract-0.1.0-alpha.28.tgz",
+          "sha256": "8d11eafdbdfbe679524c0e8c696b255017fe7a44739c3724035d3f3e20f7bac6"
+        },
+        {
+          "name": "@gcr/client-core",
+          "version": "0.1.0-alpha.28",
+          "file": "gcr-client-core-0.1.0-alpha.28.tgz",
+          "sha256": "81eb4c660952202fb8b229869081dc0707d2eaca69813420900184c8e99aade4"
+        },
+        {
+          "name": "@gcr/client-executors",
+          "version": "0.1.0-alpha.28",
+          "file": "gcr-client-executors-0.1.0-alpha.28.tgz",
+          "sha256": "512e0e12c9547bfde26d808ed5b0ed56f1ae7def02b7fb9f6143be17f612ddd5"
+        }
+      ]
+    },
+    "cli": {
+      "schemaVersion": 1,
+      "cliVersion": "0.1.0-alpha.24",
+      "clientVersion": "0.1.0-alpha.28",
+      "packages": [
+        {
+          "name": "@gcr/client-contract",
+          "version": "0.1.0-alpha.28",
+          "file": "gcr-client-contract-0.1.0-alpha.28.tgz",
+          "sha256": "8d11eafdbdfbe679524c0e8c696b255017fe7a44739c3724035d3f3e20f7bac6"
+        },
+        {
+          "name": "@gcr/client-core",
+          "version": "0.1.0-alpha.28",
+          "file": "gcr-client-core-0.1.0-alpha.28.tgz",
+          "sha256": "81eb4c660952202fb8b229869081dc0707d2eaca69813420900184c8e99aade4"
+        },
+        {
+          "name": "@gcr/client-executors",
+          "version": "0.1.0-alpha.28",
+          "file": "gcr-client-executors-0.1.0-alpha.28.tgz",
+          "sha256": "512e0e12c9547bfde26d808ed5b0ed56f1ae7def02b7fb9f6143be17f612ddd5"
+        },
+        {
+          "name": "@gcr/cli",
+          "version": "0.1.0-alpha.24",
+          "file": "gcr-cli-0.1.0-alpha.24.tgz",
+          "sha256": "d8add0b7cc4e6796a5a6ff3cbec1c868a935d3464788bf397fbccd62ebb0a8b2"
+        }
+      ]
+    }
+  },
+  "installation": {
+    "status": "installed-and-byte-verified",
+    "version": "2.7.1",
+    "directory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.7.1",
+    "previousVersion": "2.7.0",
+    "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-source-order/installed-backup-2.7.0",
+    "vsixSha256": "104711fabb4e26a97d4a56cb2c6617a03bede60d2e88dfb188866f4a8dc2a6bd",
+    "files": {
+      "out/extension.js": "c008e12d4b9820d525824e2fa1c349de165c980edcfd610e66fc9243f2fb4866",
+      "out/standalone-review-worker.js": "24a685f8f981e71c67e8a2265be7e43b5340968efb1836c7b6dc8be6e80d22a5",
+      "out/review-chat-worker.js": "9b5889ba83a910c5743be1408d49ccefb478865a6aebbbecfcb74dadabd463a0",
+      "out/hook-cli.js": "da04c46cee99eb4401986b8428bb3e952634e783e801a471ac1000532d7611ec",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "out/gcr-service/main.mjs": "7cf1692c0aeba682f065c78e14bef2d72146868eb57a2322a66c3e0047651384",
+      "out/gcr-service/manifest.json": "fd43c95cf138483a51b6247bc2ae4805ff405abb85a53f437779854a6b2cc71d"
+    },
+    "packageManifest": "all fields match except VS Code installer-added __metadata",
+    "initialVerification": "raw package.json byte comparison failed because VS Code added installation metadata; runtime comparison then passed without reinstalling",
+    "forcedWindowReload": false,
+    "globalCliReplaced": false,
+    "serverRedeployed": false,
+    "installedAt": "2026-09-14T10:21:24.333151+00:00"
+  },
+  "validation": {
+    "cdRegression": 195,
+    "runtimeMatrix": 16,
+    "counterRegression": 1,
+    "cdUniqueTotal": 212,
+    "gcrSourceAndCliServiceTests": 33,
+    "gcrContextAndRequestTests": 34,
+    "gcrUniqueTotal": 67,
+    "initialSourceTest": "The new three-capture test exceeded the default 5-second timeout; the final 20-second bound passed. The context/request suites passed in that initial run.",
+    "transientBuildOrdering": "One source rerun started while package assembly removed dist and imported no tests. Final source/CLI tests ran after build and passed.",
+    "initialPackageAssembly": "A version metadata mismatch was detected before client artifact finalization; metadata was corrected before the immutable alpha.28 artifacts were produced.",
+    "initialCdRegression": "Stopped at the missing new vendor provenance file. Provenance was added for the committed GCR source and the complete final regression passed.",
+    "types": "passed",
+    "build": "passed",
+    "lint": "passed",
+    "consumer": {
+      "status": "passed",
+      "runtimes": [
+        {
+          "node": "v18.20.8",
+          "clientVersion": "0.1.0-alpha.28",
+          "legacySnapshots": 2,
+          "identityPreserved": true
+        },
+        {
+          "node": "v22.23.2",
+          "clientVersion": "0.1.0-alpha.28",
+          "legacySnapshots": 2,
+          "identityPreserved": true
+        }
+      ],
+      "ownedFixtureRemoved": true
+    },
+    "minimumHost": {
+      "status": "passed",
+      "vscode": "1.90.2",
+      "node": "20.9.0",
+      "electron": "29.4.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.7.1",
+      "delivery": "packaged-extension",
+      "commandCount": 26,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    },
+    "matrix": [
+      {
+        "mask": 0,
+        "enabled": [],
+        "calls": 0,
+        "hookJobs": 0,
+        "requests": []
+      },
+      {
+        "mask": 1,
+        "enabled": [
+          "save"
+        ],
+        "calls": 1,
+        "hookJobs": 0,
+        "requests": [
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      },
+      {
+        "mask": 2,
+        "enabled": [
+          "stage"
+        ],
+        "calls": 1,
+        "hookJobs": 0,
+        "requests": [
+          {
+            "reasons": [
+              "stage"
+            ],
+            "sourceKind": "index"
+          }
+        ]
+      },
+      {
+        "mask": 3,
+        "enabled": [
+          "save",
+          "stage"
+        ],
+        "calls": 2,
+        "hookJobs": 0,
+        "requests": [
+          {
+            "reasons": [
+              "stage"
+            ],
+            "sourceKind": "index"
+          },
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      },
+      {
+        "mask": 4,
+        "enabled": [
+          "commit"
+        ],
+        "calls": 1,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "commit"
+            ],
+            "sourceKind": "index"
+          }
+        ]
+      },
+      {
+        "mask": 5,
+        "enabled": [
+          "save",
+          "commit"
+        ],
+        "calls": 2,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "commit"
+            ],
+            "sourceKind": "index"
+          },
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      },
+      {
+        "mask": 6,
+        "enabled": [
+          "stage",
+          "commit"
+        ],
+        "calls": 1,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "commit",
+              "stage"
+            ],
+            "sourceKind": "index"
+          }
+        ]
+      },
+      {
+        "mask": 7,
+        "enabled": [
+          "save",
+          "stage",
+          "commit"
+        ],
+        "calls": 2,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "commit",
+              "stage"
+            ],
+            "sourceKind": "index"
+          },
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      },
+      {
+        "mask": 8,
+        "enabled": [
+          "push"
+        ],
+        "calls": 1,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          }
+        ]
+      },
+      {
+        "mask": 9,
+        "enabled": [
+          "save",
+          "push"
+        ],
+        "calls": 2,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          },
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      },
+      {
+        "mask": 10,
+        "enabled": [
+          "stage",
+          "push"
+        ],
+        "calls": 2,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          },
+          {
+            "reasons": [
+              "stage"
+            ],
+            "sourceKind": "index"
+          }
+        ]
+      },
+      {
+        "mask": 11,
+        "enabled": [
+          "save",
+          "stage",
+          "push"
+        ],
+        "calls": 3,
+        "hookJobs": 3,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          },
+          {
+            "reasons": [
+              "stage"
+            ],
+            "sourceKind": "index"
+          },
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      },
+      {
+        "mask": 12,
+        "enabled": [
+          "commit",
+          "push"
+        ],
+        "calls": 2,
+        "hookJobs": 6,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          },
+          {
+            "reasons": [
+              "commit"
+            ],
+            "sourceKind": "index"
+          }
+        ]
+      },
+      {
+        "mask": 13,
+        "enabled": [
+          "save",
+          "commit",
+          "push"
+        ],
+        "calls": 3,
+        "hookJobs": 6,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          },
+          {
+            "reasons": [
+              "commit"
+            ],
+            "sourceKind": "index"
+          },
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      },
+      {
+        "mask": 14,
+        "enabled": [
+          "stage",
+          "commit",
+          "push"
+        ],
+        "calls": 2,
+        "hookJobs": 6,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          },
+          {
+            "reasons": [
+              "commit",
+              "stage"
+            ],
+            "sourceKind": "index"
+          }
+        ]
+      },
+      {
+        "mask": 15,
+        "enabled": [
+          "save",
+          "stage",
+          "commit",
+          "push"
+        ],
+        "calls": 3,
+        "hookJobs": 6,
+        "requests": [
+          {
+            "reasons": [
+              "push"
+            ],
+            "sourceKind": "commit-tree"
+          },
+          {
+            "reasons": [
+              "commit",
+              "stage"
+            ],
+            "sourceKind": "index"
+          },
+          {
+            "reasons": [
+              "save"
+            ],
+            "sourceKind": "working-tree"
+          }
+        ]
+      }
+    ]
+  },
+  "actualModel": {
+    "status": "passed",
+    "vscode": "1.135.0",
+    "extensionVersion": "2.7.1",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "runId": "a7e862c7-b453-4432-b3b8-27faeeb87691",
+    "reportStatus": "completed",
+    "elapsedMs": 75155,
+    "findings": [
+      {
+        "id": "55a43407-b84e-4648-855d-0d29ef13d203",
+        "title": "Restore the zero initial accumulator",
+        "problem": "Removing the initial value makes sum([]) throw TypeError instead of returning 0. The fixed base supplied 0, and the unchanged test explicitly requires that result.",
+        "impact": "Calling emptyTotal() in caller.ts now throws rather than returning its expected total.",
+        "recommendation": "Restore values.reduce((a, b) => a + b, 0), retaining the existing empty-array assertion.",
+        "category": "correctness",
+        "severity": "P2",
+        "outcome": "violation",
+        "confidence": "high",
+        "followUp": "required",
+        "anchor": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "8ff3f1a46160a45984a98fac76c1431edf05f883d6a872a2ec7eedebec4782ad",
+          "startLine": 1,
+          "endLine": 1
+        },
+        "anchorValidation": {
+          "status": "verified",
+          "checks": [
+            "fixed-source-hash",
+            "selected-file",
+            "returned-read-range"
+          ],
+          "reason": "Anchor matches a non-truncated source read. This does not prove the finding."
+        },
+        "evidenceAssessment": {
+          "level": "source-confirmed",
+          "rationale": "Source-confirmed regression: reduce without an initial accumulator throws on an empty array, and the captured caller supplies exactly that input. No execution is claimed.",
+          "conditions": [
+            "sum receives an empty array, including through emptyTotal()."
+          ],
+          "evidenceIds": [
+            "693167f5-8f01-4441-aa72-bb2867b8888c",
+            "65b96416-af30-4502-aa0e-60b63a812ee8",
+            "b5e91290-7a24-4706-81c8-d1a0e4be4292",
+            "d1a83910-2c24-438d-a9b1-2b659b1a5381",
+            "283d5344-113d-4044-b2b6-22392a418084",
+            "0ca475a9-1714-48e7-9452-8a7e5c645563"
+          ],
+          "counterEvidence": {
+            "status": "reviewed",
+            "summary": "The nonempty test case [1, 2] remains compatible with the new implementation, but neither sum nor its caller guards empty input. The unchanged empty-array assertion confirms that empty input is supported.",
+            "evidenceIds": [
+              "693167f5-8f01-4441-aa72-bb2867b8888c",
+              "b5e91290-7a24-4706-81c8-d1a0e4be4292",
+              "d1a83910-2c24-438d-a9b1-2b659b1a5381",
+              "0ca475a9-1714-48e7-9452-8a7e5c645563"
+            ]
+          }
+        },
+        "policy": {
+          "enforcement": "advisory"
+        }
+      }
+    ],
+    "sourceReadCount": 8,
+    "testCommandsExecuted": false,
+    "overlap": {
+      "state": "running",
+      "key": "36f53115c90e2a4b3ba348ca884e92023d7cb56afafbab89190de339aeda39cc",
+      "generation": 1,
+      "reasons": [
+        "commit",
+        "stage"
+      ],
+      "accountReviewExecCount": 1
+    },
+    "afterActualCommit": {
+      "receipts": 2,
+      "sameRunId": true,
+      "accountReviewExecCount": 1,
+      "stageAcknowledged": true
+    },
+    "cleanup": {
+      "trackedProcesses": 89,
+      "liveOwnedProcesses": [],
+      "ownedKeysRemoved": 3,
+      "ownedFilesRemoved": true,
+      "selectedBinaryUnchanged": true
+    },
+    "launcher": "Transparent selected-binary launcher records probe-exec vs review-exec only; no argument, stdin, environment or account logging.",
+    "nativeEvidence": {
+      "path": "artifacts/operations/P07-source-order/native.json",
+      "sha256": "9af4d8cd6234e04346d963306832dd650e691fc1486398e25eea1348b21e29d9"
+    }
+  },
+  "priorAttempts": [
+    {
+      "file": "artifacts/operations/P07-trigger-overlap/native.json",
+      "outcome": "VS Code socket path too long before activation",
+      "accountReviewExecCount": 0,
+      "fixtureRemoved": true
+    },
+    {
+      "file": "artifacts/operations/P07-trigger-overlap/native-short-path.json",
+      "outcome": "Counter included two local synthetic probes; one account review was cancelled on observer assertion failure",
+      "accountReviewExecCount": 1,
+      "reviewStatus": "cancelled",
+      "fixtureAndKeysRemoved": true
+    },
+    {
+      "file": "artifacts/operations/P07-trigger-overlap/native-final.json",
+      "outcome": "Confirmed product defect: distinct hashes caused two account reviews. Stage cancelled when observer exited; service Commit completed and was observed before shutdown.",
+      "accountReviewExecCount": 2,
+      "reviewStatuses": [
+        "cancelled",
+        "completed"
+      ],
+      "fixtureAndKeysRemoved": true
+    }
+  ],
+  "remaining": [
+    "Other trigger overlap/ref/base scenarios require their own evidence; this actual overlap is Stage plus pre-commit on one unchanged index.",
+    "Old stored snapshots are restored unchanged; no cross-version identity migration or deduplication claim.",
+    "P07 closed-host Save/headless watch/lifecycle, partial-hunk unstage, user-wide budgets/retention/other UID",
+    "P03-P06 residual gates and P09-P13"
+  ],
+  "logs": {
+    "cd-regression": {
+      "path": "artifacts/operations/P07-source-order/cd-regression.log",
+      "sha256": "87ca1f287136bc38c13ece76c7f97c10c56ff4992c8c653b8a112454c2a8830a"
+    },
+    "matrix": {
+      "path": "artifacts/operations/P07-source-order/matrix.log",
+      "sha256": "c062d97e1a93672c4064c4e4a8728cb1382bd8b668646d12cf266d01d7796d2c"
+    },
+    "counter": {
+      "path": "artifacts/operations/P07-source-order/counter.log",
+      "sha256": "797150010b2b4fc8efef87707755eda575fdc604c783259e7d9ef0ef213f8aa4"
+    },
+    "source-cli": {
+      "path": "artifacts/operations/P07-source-order/source-cli.log",
+      "sha256": "4696364683b2329d9ffeb313973823d8843fcd85426fa3ae3c643488cd9a7c58"
+    },
+    "context-requests-and-initial-source": {
+      "path": "artifacts/operations/P07-source-order/context-requests-and-initial-source.log",
+      "sha256": "f3184d8b59d75033c7f8f598c3f5dc4a9190346598324684ebfd5e8036052cff"
+    },
+    "types": {
+      "path": "artifacts/operations/P07-source-order/types.log",
+      "sha256": "d43bdb9b2342653c496fbd97fbbfb1cc1bb4c27d9b8a4709aab352433a08caea"
+    },
+    "build": {
+      "path": "artifacts/operations/P07-source-order/build.log",
+      "sha256": "f315228e603b5dae9c3c557451d44cb6b280a1bca3cb8fbde0099d8ff6ef6095"
+    },
+    "lint": {
+      "path": "artifacts/operations/P07-source-order/lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "client-pack": {
+      "path": "artifacts/operations/P07-source-order/client-pack.log",
+      "sha256": "9e154c20b0d555031fc62ad80d146e9c9af820ee379820a7fa184846d7355188"
+    },
+    "cli-pack": {
+      "path": "artifacts/operations/P07-source-order/cli-pack.log",
+      "sha256": "b1492e5d9bc1dd0fbd44ee7f6bd685b15ea314b32a1e2dbb1b946846cd20723e"
+    },
+    "minimum-host": {
+      "path": "artifacts/operations/P07-source-order/minimum-host.log",
+      "sha256": "40d12935f87e8fe81e3d589a8b6b40cad0482e30e513dacb08a146ce43d2930a"
+    },
+    "before-fix-matrix": {
+      "path": "artifacts/operations/P07-source-order/before-fix-matrix.log",
+      "sha256": "20686b1681a9abac872b3031443874c8a5e182c4b33e20f0a172b03bf2ffbb28"
+    }
+  }
+}

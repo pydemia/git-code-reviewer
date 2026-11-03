@@ -1,0 +1,93 @@
+{
+  "platform": "win32",
+  "arch": "arm64",
+  "focusedW01": {
+    "passed": 47,
+    "failed": 0,
+    "skipped": 8,
+    "files": [
+      {
+        "name": "index.test.ts",
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "codex-config.test.ts",
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "codex-isolation.test.ts",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "process.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "source-bridge.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "windows-isolation.test.ts",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "source-snapshot.test.ts",
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "source-snapshot.windows-worker.test.ts",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "windows-native.test.ts",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "electronWorkerAfterReadOnlyFix": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "files": [
+      {
+        "name": "source-snapshot.windows-worker.test.ts",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "earlierBroadRun": {
+    "passed": 215,
+    "failed": 164,
+    "skipped": 8,
+    "accepted": false,
+    "reason": "Native rebuild overlapped tests; POSIX-only fixture assumptions also failed."
+  },
+  "nativeOtherUser": "W01-other-user.json",
+  "actualCliSyntheticCatalog": "W01-codex-catalog.json",
+  "notRun": [
+    "macOS native",
+    "Linux native",
+    "Windows x64",
+    "W02-W04 support matrix"
+  ]
+}

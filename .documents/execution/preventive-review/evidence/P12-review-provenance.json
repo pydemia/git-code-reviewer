@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "phase": "P12",
+  "commit": "P12-C01 REST provenance checkpoint",
+  "phaseComplete": false,
+  "goalComplete": false,
+  "sourceCommit": "3f220cf9f3c6da4be4ed6e3cbb9a40bb557f3a1d",
+  "releasePinCommit": "8bdf3b9",
+  "feature": "Preserve submitted PR review states, exact source bodies, reply/review IDs and original/current locations; expose authorized observation history and revalidate changed publication sources",
+  "tests": {
+    "files": 7,
+    "passed": 81,
+    "failed": 0,
+    "skipped": 0,
+    "databaseFixture": {
+      "startedAt": "2026-09-14T17:19:24.876Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-14T17:19:52.279Z"
+    },
+    "runtimeBuild": true,
+    "webBuild": true,
+    "contractsBuild": true,
+    "githubBuild": true,
+    "focusedEslint": true,
+    "helmLint": true,
+    "checks": [
+      "empty submitted approval/dismissal preserved; pending reviews without submission timestamp omitted",
+      "current null line never replaced by original line",
+      "same-body state transition retained; duplicate observation coalesced; A to B to A retained",
+      "late collection response and older provider edit cannot overwrite current state",
+      "identical observation does not invalidate knowledge outbox",
+      "history requires current repository authorization and matching PR/source; bounded cursor validation",
+      "history immutable with owned parent cascade cleanup",
+      "changed observation rejects stale criterion source selection",
+      "changed provenance withdraws approved criterion and memory projection from next publication; old bundle immutable"
+    ]
+  },
+  "browser": {
+    "status": "passed",
+    "browser": "Chrome",
+    "syntheticFixture": true,
+    "tests": 2,
+    "keyboardDisclosure": true,
+    "historyPagination": true,
+    "accessFailureClearsPriorHistory": true,
+    "sourceRenderedAsInertText": true,
+    "widths": [
+      1100,
+      420
+    ],
+    "horizontalOverflow": false,
+    "screenshotsInspected": true,
+    "modelCalls": 0,
+    "requests": "same-origin GET history only"
+  },
+  "migrationUpgrade": {
+    "status": "passed",
+    "from": 45,
+    "to": 46,
+    "syntheticOnly": true,
+    "cleanup": true,
+    "legacyRowsPreserved": true,
+    "bodyVersionsPreserved": true,
+    "noInventedObservations": true,
+    "oldChecksumsPreserved": true,
+    "idempotent": true
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T17:28:49.222698+00:00",
+    "release": {
+      "revision": 61,
+      "updated": "2026-09-15T02:27:03.323126+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.47",
+      "app_version": "0.8.0-alpha.51",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:fd13277943a8ea8a21934108987f2ea5593d529521c7245bb9840d461fda2fb2",
+      "source": "3f220cf9f3c6da4be4ed6e3cbb9a40bb557f3a1d",
+      "version": "0.8.0-alpha.51",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:fd13277943a8ea8a21934108987f2ea5593d529521c7245bb9840d461fda2fb2"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.revision": "3f220cf9f3c6da4be4ed6e3cbb9a40bb557f3a1d",
+        "org.opencontainers.image.version": "0.8.0-alpha.51"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 46,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-7b8c8744c5-rqp6l",
+        "imageDigest": "sha256:fd13277943a8ea8a21934108987f2ea5593d529521c7245bb9840d461fda2fb2",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-668b6d97d9-w8qjx",
+        "imageDigest": "sha256:fd13277943a8ea8a21934108987f2ea5593d529521c7245bb9840d461fda2fb2",
+        "compiledMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, schema45-to46 migration and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:c2ce7aabbf10b38684a80281c402b600ce22279af01e9064c09b3eaaa81c0172",
+    "chartSha256": "8705bb590017c731ab6231afb5f16b0761769b09ad6242e48cf44437942ecf76"
+  },
+  "helmTest": {
+    "status": "passed",
+    "revision": 61,
+    "finishedAt": "2026-09-15T02:27:57+09:00"
+  },
+  "live": {
+    "requestId": "e4eb241a-c651-4232-b96c-ece6f6fe2da0",
+    "status": "passed",
+    "version": "0.8.0-alpha.51",
+    "checks": [
+      "trusted-https-session-login",
+      "published-image-rest-reader-and-persistence",
+      "state-only-history-retained",
+      "late-response-rejected",
+      "trusted-https-latest-provenance",
+      "empty-approval-preserved",
+      "original-line-not-current",
+      "thread-resolution-unknown",
+      "authorized-history-two-states",
+      "cross-pr-and-anonymous-denied",
+      "repository-access-withdrawal-denies-history"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "ownedServerRowsRemoved": true,
+    "finishedAt": "2026-09-14T17:27:59.917Z"
+  },
+  "delivery": {
+    "gcrApp": "0.8.0-alpha.51",
+    "chart": "0.10.47",
+    "helmRevision": 61,
+    "commitDefender": "2.9.3",
+    "commitDefenderChanged": false,
+    "clientLibraries": "0.1.0-alpha.36",
+    "cli": "0.1.0-alpha.32",
+    "localUploadsAdded": false,
+    "localModelSettingsChanged": false
+  },
+  "cleanup": {
+    "ownedLiveRepositoryAndUserRemoved": true,
+    "imageBuilderRemoved": true,
+    "smokePodConfigMapsNetworkPolicyAndServiceAccountRemoved": true,
+    "ownedNativeDatabaseAndDirectoriesRemoved": true
+  },
+  "limits": [
+    "REST collection does not provide thread resolved/outdated flags; both remain unknown. GraphQL thread collection is still pending.",
+    "Missing comments are not classified as deleted or inaccessible; incremental recent-closed PR recovery and bounded backfill remain pending.",
+    "Legacy rows are not backfilled with invented state/position observations. Their first metadata observation can require source reapproval.",
+    "Live validation used the deployed reader/persistence code with synthetic REST responses and real HTTPS authorization; it did not call GitHub or an external model.",
+    "Initial runtime typecheck found exactOptionalPropertyTypes mismatch; corrected before final build/tests. Initial browser fixture omitted HTML charset; corrected and screenshots rechecked.",
+    "The first builder command used an unsupported endpoint argument and failed before builder creation. The subsequent command used the verified PRISM-DEV current context.",
+    "The published image has verified digest and source labels but no registry SBOM/provenance attestations were requested.",
+    "This checkpoint does not complete P12 or the remaining P00-P13 requirements; P10 and P08 upstream submission remain withdrawn."
+  ],
+  "localArtifacts": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P12-review-provenance",
+  "artifactHashes": {
+    "evidence-1100.png": "10e73f979732c588e9cc773231c24deab0b4f2269f3c306e1dec8548ad06d8a8",
+    "evidence-420.png": "8ab249a9c999c84f2f132fbbfde7b661e7923391dbf3bb16dc4b35aa45a38fa4",
+    "live-provenance.mjs": "34e535772af2bf2ffa11b7f4675e72f22939bb76718946ea28d3a5a786c462b7",
+    "migration-upgrade.mjs": "c159b683a74c67d533ed953dea42abc0a269ee146bca9c4ab2e2744a42d5d594",
+    "migration-upgrade.json": "95f4bfee06b34af05ab009250779f0c6249adfe37b9525e3954990e0a67e14eb",
+    "image-smoke.json": "dabb36979ab05a4e49ab7c0cddc959e534c57711dddca0aaa7c5a986332e37ac"
+  }
+}

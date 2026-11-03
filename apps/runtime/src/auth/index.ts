@@ -7,6 +7,14 @@ import { importSPKI, jwtVerify } from 'jose';
 import * as oidc from 'openid-client';
 import { z } from 'zod';
 import type { AppConfig } from '../config.js';
+import type { SamlProtocolConfig } from './saml-protocol.js';
+import {
+  authenticateClientKey,
+  ClientCredentialError,
+  type ClientPrincipal,
+} from './client-credentials.js';
+import { registerSamlAuthentication, samlPublicRequest } from './saml-routes.js';
+import { browserSessionCookie, localHttpSessionCookie } from './browser-session.js';
 import {
   assertLocalUsername,
   hashLocalPassword,
@@ -28,6 +36,11 @@ export type AuthUser = {
 declare module 'fastify' {
   interface FastifyRequest {
     user: AuthUser | null;
+    clientPrincipal: ClientPrincipal | null;
+  }
+  interface FastifyContextConfig {
+    clientKnowledgeRead?: boolean;
+    clientSubmissionScope?: 'reviews:submit' | 'feedback:submit';
   }
 }
 
@@ -41,13 +54,23 @@ const localLoginBody = z.object({
 });
 const unavailablePasswordHash = hashLocalPassword('unavailable local account credential');
 
+export class IdentityUnavailableError extends Error {
+  readonly statusCode = 503;
+  constructor() {
+    super('Identity state is unavailable');
+    this.name = 'IdentityUnavailableError';
+  }
+}
+
 export async function registerAuthentication(
   app: FastifyInstance,
   config: AppConfig,
   database: Database,
+  samlProtocol?: SamlProtocolConfig,
 ): Promise<void> {
   await app.register(cookie, { secret: config.SESSION_SECRET, hook: 'onRequest' });
   app.decorateRequest('user', null);
+  app.decorateRequest('clientPrincipal', null);
 
   if (config.AUTH_MODE === 'local') await bootstrapLocalAccounts(database, config);
 
@@ -56,6 +79,41 @@ export async function registerAuthentication(
 
   app.addHook('preHandler', async (request) => {
     if (request.url.startsWith('/health/')) return;
+    // Bearer credentials never inherit browser/proxy/development authentication.
+    // Only explicitly marked endpoints accept this credential family.
+    if (
+      request.headers.authorization !== undefined ||
+      request.url.split('?')[0]?.startsWith('/api/v1/client-auth/')
+    ) {
+      if (
+        request.routeOptions.config.clientKnowledgeRead ||
+        request.routeOptions.config.clientSubmissionScope
+      ) {
+        if (
+          !config.CLIENT_API_KEYS_ENABLED ||
+          !config.KNOWLEDGE_SERVER_ID ||
+          !['local', 'saml'].includes(config.AUTH_MODE)
+        )
+          throw new ClientCredentialError(503, 'CLIENT_AUTH_DISABLED');
+        if (!['GET', 'HEAD'].includes(request.method))
+          throw new ClientCredentialError(403, 'CLIENT_READ_ONLY');
+        const params = request.params as { repoId?: string };
+        request.clientPrincipal = await authenticateClientKey(database, {
+          ...(request.headers.authorization
+            ? { authorization: request.headers.authorization }
+            : {}),
+          serverId: config.KNOWLEDGE_SERVER_ID,
+          ...(typeof request.headers['x-gcr-server-id'] === 'string'
+            ? { requestedServerId: request.headers['x-gcr-server-id'] }
+            : {}),
+          authMode: config.AUTH_MODE,
+          requiredScope: request.routeOptions.config.clientSubmissionScope ?? 'knowledge:read',
+          ...(params.repoId ? { repositoryId: params.repoId } : {}),
+        });
+        request.user = request.clientPrincipal.user;
+      }
+      return;
+    }
     if (config.AUTH_MODE === 'development') {
       const user = await upsertUser(
         database,
@@ -100,12 +158,25 @@ export async function registerAuthentication(
       return;
     }
 
-    const token = request.cookies[sessionCookie];
+    if (config.AUTH_MODE === 'saml' && samlPublicRequest(request)) return;
+    const token = request.cookies[browserSessionCookie(request, config)];
     if (!token) return;
-    request.user = await findSessionUser(database, token);
+    if (config.AUTH_MODE === 'saml') {
+      try {
+        request.user = await findSessionUser(database, token, true);
+      } catch {
+        throw new IdentityUnavailableError();
+      }
+    } else request.user = await findSessionUser(database, token);
   });
 
+  const saml =
+    config.AUTH_MODE === 'saml'
+      ? await registerSamlAuthentication(app, config, database, samlProtocol)
+      : undefined;
+
   app.get('/auth/login', async (request, reply) => {
+    if (saml) return saml.startLogin(request, reply);
     if (config.AUTH_MODE === 'development' || config.AUTH_MODE === 'proxy') {
       return reply.redirect(safeReturnTo(request.query));
     }
@@ -140,6 +211,8 @@ export async function registerAuthentication(
   });
 
   app.get('/auth/callback', async (request, reply) => {
+    if (config.AUTH_MODE === 'saml')
+      return reply.code(404).send({ error: 'OIDC callback is unavailable' });
     if (config.AUTH_MODE !== 'oidc') return reply.redirect('/');
     const signedCookie = request.cookies[transactionCookie];
     const transactionId = signedCookie ? request.unsignCookie(signedCookie) : null;
@@ -255,7 +328,11 @@ export async function registerAuthentication(
        values ($1, $2, clock_timestamp() + interval '8 hours')`,
       [hash(token), credential.userId],
     );
-    setCookie(reply, sessionCookie, token, config, sessionTtlSeconds);
+    const name =
+      config.LOCAL_HTTP_ORIGIN && request.headers.origin === config.LOCAL_HTTP_ORIGIN
+        ? localHttpSessionCookie
+        : sessionCookie;
+    setCookie(reply, name, token, config, sessionTtlSeconds);
     await database.query(
       `insert into audit_events(actor, action, resource_type, resource_id, outcome, request_id)
        values ($1, 'auth.login', 'user', $2, 'success', $3)`,
@@ -265,9 +342,11 @@ export async function registerAuthentication(
   });
 
   app.post('/auth/logout', async (request, reply) => {
-    const token = request.cookies[sessionCookie];
+    if (saml) return saml.startLogout(request, reply);
+    const name = browserSessionCookie(request, config);
+    const token = request.cookies[name];
     if (token) await database.query('delete from user_sessions where id_hash = $1', [hash(token)]);
-    reply.clearCookie(sessionCookie, { path: '/' });
+    reply.clearCookie(name, { path: '/' });
     return reply.code(204).send();
   });
 }
@@ -347,7 +426,12 @@ async function upsertUser(
   });
 }
 
-async function findSessionUser(database: Database, token: string): Promise<AuthUser | null> {
+async function findSessionUser(
+  database: Database,
+  token: string,
+  requireSaml = false,
+): Promise<AuthUser | null> {
+  if (token.length > 512 || (requireSaml && !/^[A-Za-z0-9_-]{43}$/.test(token))) return null;
   const result = await database.query<{
     id: string;
     oidc_subject: string;
@@ -360,10 +444,27 @@ async function findSessionUser(database: Database, token: string): Promise<AuthU
      from users u
      where s.id_hash = $1 and s.expires_at > clock_timestamp() and u.id = s.user_id
        and u.enabled and u.deleted_at is null
+       and (not $2 or s.saml_identity_id is not null)
+       and (s.saml_identity_id is null or exists(
+         select 1 from user_identities i where i.id=s.saml_identity_id and i.user_id=u.id and i.enabled
+         and i.provisioning_state='provisioned' and i.identity_verified_at<=clock_timestamp()
+         and i.security_epoch=s.saml_security_epoch and s.saml_session_not_on_or_after>clock_timestamp()
+         and i.security_checked_at<=clock_timestamp() and i.security_fresh_until>clock_timestamp()))
      returning u.id, u.oidc_subject, u.display_name, u.role, u.groups_json, u.enabled`,
-    [hash(token)],
+    [hash(token), requireSaml],
   );
   const row = result.rows[0];
+  if (!row) {
+    const unavailable = await database.query(
+      `select 1 from user_sessions s join users u on u.id=s.user_id join user_identities i on i.id=s.saml_identity_id and i.user_id=u.id
+       where s.id_hash=$1 and s.expires_at>clock_timestamp() and u.enabled and u.deleted_at is null and i.enabled
+       and i.provisioning_state='provisioned' and i.identity_verified_at<=clock_timestamp()
+       and i.security_epoch=s.saml_security_epoch and s.saml_session_not_on_or_after>clock_timestamp()
+       and (i.security_checked_at is null or i.security_checked_at>clock_timestamp() or i.security_fresh_until<=clock_timestamp())`,
+      [hash(token)],
+    );
+    if (unavailable.rowCount) throw new IdentityUnavailableError();
+  }
   return row
     ? hydrateUser(database, {
         id: row.id,
@@ -434,9 +535,12 @@ function setCookie(
   reply.setCookie(name, value, {
     path: name === transactionCookie ? '/auth' : '/',
     httpOnly: true,
-    secure: config.PUBLIC_BASE_URL
-      ? new URL(config.PUBLIC_BASE_URL).protocol === 'https:'
-      : config.NODE_ENV === 'production',
+    secure:
+      name === localHttpSessionCookie
+        ? false
+        : config.PUBLIC_BASE_URL
+          ? new URL(config.PUBLIC_BASE_URL).protocol === 'https:'
+          : config.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge,
     signed,

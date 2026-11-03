@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "tests": {
+    "files": 6,
+    "passed": 49,
+    "failed": 0,
+    "nativePostgres": {
+      "startedAt": "2026-09-15T07:38:56.584Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-15T07:39:05.496Z"
+    },
+    "workerBefore": {
+      "failed": 2,
+      "passed": 1
+    },
+    "optionalSourceBefore": {
+      "failed": 1,
+      "passed": 9
+    },
+    "fullBuild": true,
+    "changedTypeScriptLint": true,
+    "packageVerification": true,
+    "browserWidths": [
+      1360,
+      420
+    ]
+  },
+  "recovery": {
+    "job": "f90dfba0-298d-430a-89ea-4e6e6aebaaea",
+    "analysis": "3fc73277-6934-4cf8-8275-241ee842b6a4",
+    "attempts": 2,
+    "recoveries": 1,
+    "jobState": "completed",
+    "analysisState": "partial",
+    "reportCount": 1,
+    "completedCheckpoints": 17,
+    "completedModelRequests": 17,
+    "previousSentRequest": "interrupted",
+    "originalQueueCompleted": 3,
+    "expiredJobs": 0,
+    "externalPublicationForRecoveredAnalysis": false,
+    "limitations": [
+      "일부 지적의 공용 기준 연결을 확인하지 못했습니다. 기준 버전·적용 파일·코드 위치·반증 검토 조건을 확인하세요."
+    ]
+  },
+  "helmTest": "Succeeded",
+  "sourceCommit": "d8405efdd4581c08096ab3344c1fbb00016832dc",
+  "releasePinCommit": "2732c3c",
+  "scope": "G01 only; runner development and G02 not started",
+  "finalOperationalCheck": {
+    "at": "2026-09-15T07:57:57.539Z",
+    "reportCheckpointLedgerAndAttemptsUnchangedAfterCompletion": true,
+    "oldWorkerAbsent": true,
+    "expiredJobs": 0,
+    "runtime": [
+      {
+        "component": "server",
+        "pod": "git-code-reviewer-server-554fd6885f-h75qb",
+        "ready": true,
+        "restarts": 0
+      },
+      {
+        "component": "worker",
+        "pod": "git-code-reviewer-worker-6847557848-qjjb8",
+        "ready": true,
+        "restarts": 0
+      }
+    ]
+  }
+}

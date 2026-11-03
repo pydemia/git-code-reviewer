@@ -1,0 +1,193 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T16:45:05.997904+00:00",
+  "release": {
+    "revision": 52,
+    "updated": "2026-09-14T01:43:47.699422+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.38",
+    "app_version": "0.8.0-alpha.40",
+    "description": "Upgrade complete"
+  },
+  "image": {
+    "digest": "sha256:875b28b201b1aeb72b1a10f1f99ad675b0c5e8b89d9074e1342b19751ea30e76",
+    "source": "19ebf4209cebbcc274f8f70c3abbe6a604ab2e23",
+    "version": "0.8.0-alpha.40",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:2e49a1656c3f9900619934d4b468e9e0974a0127cd623e53f09474037fd02767"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:1991d8deec090eb36bd4ae40997055e95d4cbd8206ff27129133a249e066ddc6"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "labels": {
+      "org.opencontainers.image.revision": "19ebf4209cebbcc274f8f70c3abbe6a604ab2e23",
+      "org.opencontainers.image.version": "0.8.0-alpha.40"
+    },
+    "architecture": "amd64"
+  },
+  "tables": {
+    "users": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "chat_accounts": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "analysis_runs": {
+      "before": 157,
+      "after": 158,
+      "existingRowsPreserved": true
+    },
+    "reports": {
+      "before": 149,
+      "after": 150,
+      "existingRowsPreserved": true
+    },
+    "repository_grants": {
+      "before": 2,
+      "after": 2,
+      "existingRowsPreserved": true
+    },
+    "tenant_memberships": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "review_memories": {
+      "before": 4,
+      "after": 4,
+      "existingRowsPreserved": true
+    },
+    "localCredentials": {
+      "before": 6,
+      "after": 6,
+      "existingRowsPreserved": true
+    }
+  },
+  "migrationCount": 38,
+  "oldMigrationChecksumsPreserved": true,
+  "nonImageSettingsPreserved": true,
+  "existingSecretsConfigMapsRoutesPVCsPreserved": true,
+  "endpoints": {
+    "/health/startup": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/live": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/ready": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/system": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+      "status": 401,
+      "tlsVerified": true
+    }
+  },
+  "assetsMatchVerifiedImage": true,
+  "runtime": {
+    "server": {
+      "pod": "git-code-reviewer-server-866dddddd5-hg2bp",
+      "imageDigest": "sha256:875b28b201b1aeb72b1a10f1f99ad675b0c5e8b89d9074e1342b19751ea30e76",
+      "compiledMatchesImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    },
+    "worker": {
+      "pod": "git-code-reviewer-worker-74cf66855b-2p5qk",
+      "imageDigest": "sha256:875b28b201b1aeb72b1a10f1f99ad675b0c5e8b89d9074e1342b19751ea30e76",
+      "compiledMatchesImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    }
+  },
+  "identityReady": 2,
+  "scope": "P05 model candidate generation and role delegation deployed. Existing settings/data and compiled artifacts verified; synthetic source handled by a real registered provider and deployed worker. Bundle publication and CLI/CD integration remain incomplete.",
+  "actualProviderVerification": {
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "medium",
+    "authentication": "owned temporary reviewer with repository maintainer role; real local password login",
+    "run": {
+      "id": "5b753412-07f9-4f7e-b946-e70d49166df3",
+      "repositoryId": "ead8dc66-e27c-47de-8edc-b2a08c9700cf",
+      "state": "completed",
+      "modelName": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "ruleId": "098afe84-2b5e-4b00-9b0e-f699b62c3301",
+      "errorCode": null,
+      "createdAt": "2026-09-13T16:46:37.206Z",
+      "updatedAt": "2026-09-13T16:47:02.994Z"
+    },
+    "admission": [
+      {
+        "state": "completed",
+        "calls": 1
+      }
+    ],
+    "checks": [
+      "local-authenticated-production-api",
+      "registered-account-catalog",
+      "request-idempotency",
+      "deployed-worker-model-execution",
+      "draft-only-with-no-evaluations",
+      "original-source-and-hash-preserved"
+    ],
+    "ownedRepositoryRemoved": true,
+    "ownedSessionLoggedOut": true,
+    "ownedUserRemoved": true,
+    "decisionOutcome": "open-question",
+    "scope": "Explicit synthetic manual source, deployed production API and worker, registered account. No real repository content or automatic approval/publication."
+  },
+  "sourceCommit": "19ebf4209cebbcc274f8f70c3abbe6a604ab2e23",
+  "releaseCommit": "1366f06",
+  "chartReadback": {
+    "status": "passed",
+    "ociDigest": "sha256:41bf60829bb65bb592a4cbac82c0d2623bb56febc71c3b93b14412596ad6febb",
+    "chartSha256": "21f4cad50fc822804aba5ef2c1a908fc7d66c1db55b4a3a53920fc169999855a"
+  },
+  "imageAttestations": {
+    "status": "passed",
+    "indexDigest": "sha256:875b28b201b1aeb72b1a10f1f99ad675b0c5e8b89d9074e1342b19751ea30e76",
+    "attestations": [
+      {
+        "digest": "sha256:154adbe3c51c60cb7bba558f51337bc67ceb13a99a6d4f5408cdd98a9f3c1c93",
+        "predicateType": "https://spdx.dev/Document"
+      },
+      {
+        "digest": "sha256:790e802b098645d274cff3933ea87dde815a0ee56a9e8d30431b6627e8ecdbe9",
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    ],
+    "tlsVerification": true,
+    "additionalTrust": "existing-corporate-ca-for-this-process-only",
+    "runtime": "v22.23.2"
+  },
+  "helmTest": {
+    "status": "Succeeded",
+    "completedAt": "2026-09-14T01:45:03+09:00"
+  },
+  "initialVerificationFailure": "Bootstrap credential login returned 401 before source submission or model execution. Existing credentials were not changed; a scoped temporary reviewer fixture was used for the successful test.",
+  "postModelCleanupVerification": {
+    "status": "passed",
+    "at": "2026-09-13T16:47:54.544860+00:00",
+    "existingRowsPreserved": true,
+    "temporaryUserMembershipAndGrantCountsRestored": true,
+    "nonImageSettingsPreserved": true
+  }
+}

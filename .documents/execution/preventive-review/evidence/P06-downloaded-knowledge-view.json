@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "phase": "P06",
+  "commit": "P06-C05",
+  "phaseComplete": false,
+  "goalComplete": false,
+  "sourceCommit": "ebb95ff0df9d58711c6a62adde7e990f5c7bf431",
+  "feature": "Read-only view of downloaded central review criteria, prompts and memories; locally configured model unchanged",
+  "version": "2.9.2",
+  "tests": {
+    "centralView": {
+      "passed": 5,
+      "failed": 0
+    },
+    "typecheck": true,
+    "testTypecheck": true,
+    "build": true,
+    "checks": [
+      "fresh verified content reads without network/model calls",
+      "prompt HTML displayed as inert text",
+      "selection change closes content",
+      "disconnect closes view and denies reopening",
+      "lease expiry closes without focus event"
+    ]
+  },
+  "browser": {
+    "status": "passed",
+    "fixture": "signed synthetic publisher snapshot",
+    "browser": "152.0.7977.84",
+    "keyboardDisclosure": true,
+    "desktopWidth": 1100,
+    "narrowWidth": 420,
+    "horizontalOverflow": false,
+    "networkRequests": 0,
+    "modelCalls": 0,
+    "nativeWebview": false
+  },
+  "hosts": [
+    {
+      "status": "passed",
+      "vscode": "1.135.0",
+      "node": "24.18.1",
+      "electron": "42.8.1",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.9.2",
+      "delivery": "packaged-extension",
+      "commandCount": 25,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "central executor and upstream submission commands absent",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    },
+    {
+      "status": "passed",
+      "vscode": "1.90.2",
+      "node": "20.9.0",
+      "electron": "29.4.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.9.2",
+      "delivery": "packaged-extension",
+      "commandCount": 25,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "central executor and upstream submission commands absent",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    }
+  ],
+  "installation": {
+    "version": "2.9.2",
+    "path": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.9.2",
+    "vsixSha256": "5a262b758605486e599f9371b0545ab72aa134ef67935219e4502016b30491cb",
+    "packageMatchesExceptVSCodeMetadata": true,
+    "fileHashes": {
+      "gear-settings-svgrepo-com.svg": "63f5dddb385ee497406a836eeaca06e76894deaac6f57a172491abaac6120a16",
+      "readme.md": "76e4e8376b37c7af3fa578f73777e6b7460b06333f5a832744178b6a232f5628",
+      "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/standalone-review-worker.js": "b4850747489a97a507a13e35f8f14588adb5f4832a72804ff143a9023dbe9c64",
+      "out/review-chat-worker.js": "d6cb753edd07d877272b69df365e863c4c63386e24522072ddc901a86b65b9b6",
+      "out/hook-cli.js": "8ad37fa9ab54a43b1cef42286b81a04387d0b879ab2d4866c46ad17cc5dadab4",
+      "out/extension.js": "9be0379ff5b5a7ed96f3755c1f7d8545f4f61b74f0ab32724ead412af2b8570a",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "media/shield.svg": "2010a057014fec006c2e21bd99b4920eca6f62557bdbf40aba8107174322f317",
+      "media/icon.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/icon.png": "08e5c0ab7e5fb8d9fa4ecd588bfbe943de623c023df5ab58f18c9a6d2509c5eb",
+      "media/checklist.svg": "21dd71ecaf23a444021007f6e19b051977bac55cf9bc2a4b353e191f6fd2585a",
+      "docs/standalone-review.md": "5f34b97fcd103cfb8350c77a89a6e9ff229103f9ea554ac4cb4901b76bf84b65",
+      "docs/review-submissions.md": "947ba20aeaa5cf4323b5f862198377131b6ed89923851aac13cf92e1e8ff5608",
+      "docs/review-conversations.md": "659846084bec1a612105db33e05d3a251e107a68fbaa812a9ac9b458e8c3c711",
+      "docs/model-credentials.md": "20609945e9a5679b31e64bbd1318f933c8d1dbc761b230f2eae48a0dfaac054d",
+      "docs/central-review.md": "9c9126a65f8f74113541e395e9115f1a6a582c9753910e221141d83b140621db",
+      "docs/automatic-reviews.md": "0df472bb3db236ef34ba19e3d4998c719d8662d76c75ed7cadf65d76b495328d",
+      "third-party/gcr/README.md": "c0afe99d6aca924ebdc8d7b15753567dd20d07c44ac8af32ad25ed975536ffc0",
+      "third-party/gcr-cli/manifest.json": "ea83fa2019ba401f7b62644a686ff5b2d518e6e740e57791717ca2ab71775b9e",
+      "third-party/gcr-cli/NOTICE": "20250998d1506d715bd504d0c929a503b26290c51e370ab48fc9d69866f268bc",
+      "third-party/gcr-cli/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/gcr-service/manifest.json": "ec09318e1aaa6f1c4661524de96bf4c7e8a70a44b77671b0c553b5bc776bb883",
+      "out/gcr-service/main.mjs": "95537facb11d0919fd2d43abffeb2078d2a40b288b27f2afb7ff4e23407e7715",
+      "media/icon-options/E-prism.svg": "4c8e90762a1461742c2c536f79db5f08073a494ba396610329c87a30bb1a72f4",
+      "media/icon-options/D-arctic.svg": "da4073ab7183ba9e93cf5f8bf43b5db309bc52cd05942dfb30989820bd3f0c39",
+      "media/icon-options/C5-stroke.svg": "7d555608dd8c17829b267acf4edd1bcd2e819de9b3d8d5c8e0dcbb7b0757d07f",
+      "media/icon-options/C4-split.svg": "00d7331f1e3bd832a3c3f150074786166935e8f6b95b964a243778e0dbb29358",
+      "media/icon-options/C3-ring.svg": "06136d4882b76fe4bfdd9fa3912615e28505bcf22cfb336dfe23236421bb3cc6",
+      "media/icon-options/C2-faceted.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/icon-options/C1-razor.svg": "aaa7d9373c99e2cbd3d0856437c0748e5e51522941a797828b1101bcd08e998b",
+      "media/icon-options/C-sunset.svg": "27d42d0ef7711cf14529285e183ab7d78c87d8a887ee6586bc2937d6426ae92e",
+      "media/icon-options/B-terminal.svg": "3997643541cc731d198e42ac8870cd2ccaf3f952717f1567aab6f18fbe8ad489",
+      "media/icon-options/A-apex.svg": "159597f286f7c1d4198dfb990d776279e5966d772aefc4b2e43117eb6e579375",
+      "third-party/gcr/client-executors/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-core/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-contract/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "forcedReload": false,
+    "globalCliReplaced": false,
+    "serverRedeployed": false
+  },
+  "server": {
+    "version": "0.8.0-alpha.49",
+    "helmRevision": 59,
+    "redeployedForThisFeature": false
+  },
+  "limits": [
+    "Native hosts verify activation and command registration, not automated interaction with the knowledge webview. Browser layout uses a signed synthetic publisher fixture.",
+    "Open content rechecks local access on focus, expiry, and every 30 seconds; server revocation becomes known on synchronization.",
+    "Initial browser assertion matched four equal fixture prompts; selector was narrowed to the opened disclosure and verification passed."
+  ]
+}

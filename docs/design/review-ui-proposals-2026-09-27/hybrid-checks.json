@@ -1,0 +1,118 @@
+{
+  "recorded_at": "2026-09-28T00:01:08.530525+09:00",
+  "product_source_sha": "79249fc678977861e3be07e62d1b46c38411349d",
+  "scope": "Design fixture with unchanged production renderers; synthetic patch and comments. No deployment or real review run.",
+  "selection": {
+    "palette": "C5",
+    "ui": "U1+U2",
+    "retain": "Existing code diff; no evidence-only replacement"
+  },
+  "checks": {
+    "fixture_build": "passed; existing dependency annotation and >500 kB bundle warnings, not a product performance measurement",
+    "fixture_typecheck": "passed after adding required report durationMs and non-null diff type",
+    "fixture_eslint": "passed after importing URL and exporting preview component",
+    "study_js_syntax": "passed",
+    "existing_regressions": {
+      "files": 6,
+      "tests_passed": 17,
+      "command": "pnpm exec vitest run apps/web/src/review-diff.test.ts apps/web/src/review-inline.test.tsx apps/web/src/review-report.test.tsx apps/web/src/review-code-reference.test.tsx apps/web/src/review-block-navigation.test.ts apps/web/src/review-markdown.test.tsx"
+    },
+    "desktop": {
+      "viewport": "1280x720",
+      "diff": ["split", "unified"],
+      "selected_head_line": 11,
+      "inline_marker_controls": "review-comment-preview-optional",
+      "marker_focus": "review-comment-preview-optional",
+      "second_file": "samples/test_filter_pool_by_block.py",
+      "second_selected_head_line": 4,
+      "review_only_returns_to_diff": true,
+      "sidebar_hide_show": true,
+      "separator_arrow_up": "320 -> 300",
+      "separator_max": 350,
+      "comment_left_and_right_border": "1px (no severity stripe)",
+      "canvas": "rgb(247, 245, 239)"
+    },
+    "mobile": {
+      "viewport": "390x844",
+      "capture_frame_width": 390,
+      "frame_scroll_width": 390,
+      "board_scroll_width": 390,
+      "diff": "unified",
+      "image_mode": "viewport screenshot; full-page mobile capture was blank and replaced"
+    },
+    "long_markdown": {
+      "tables": 1,
+      "pre_blocks": 1,
+      "pre_internal_horizontal_overflow": true,
+      "page_width_and_viewport": [1280, 1280]
+    },
+    "empty": {
+      "comments": 0,
+      "diff_preserved": true
+    },
+    "error": {
+      "role": "alert",
+      "comments": 0,
+      "diff_preserved": true,
+      "synthetic": true
+    },
+    "loading": {
+      "role": "status",
+      "comments": 0,
+      "diff_preserved": true,
+      "synthetic": true
+    }
+  },
+  "limits": [
+    "GCR production entry, API and CSS remain unchanged.",
+    "Full production workspace resize/chat/revision integrations are preserved design requirements, not exercised by this fixture.",
+    "No model generation or real PR analysis; no external comment posting.",
+    "Existing inline renderer remains ReviewText; full Markdown layout checked in Comments.",
+    "Screenshots describe fixture layout, not deployed server behavior."
+  ],
+  "images": {
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-mobile-C5.jpg": {
+      "width": 390,
+      "height": 844,
+      "format": "JPEG",
+      "dimension_source": "file command on actual screenshot bytes"
+    },
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-split-C5.jpg": {
+      "width": 1280,
+      "height": 1000,
+      "format": "JPEG",
+      "dimension_source": "file command on actual screenshot bytes"
+    },
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-unified-C5.jpg": {
+      "width": 1280,
+      "height": 720,
+      "format": "JPEG",
+      "dimension_source": "file command on actual screenshot bytes"
+    },
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-board-C5.jpg": {
+      "width": 1280,
+      "height": 1985,
+      "format": "JPEG",
+      "dimension_source": "file command on actual screenshot bytes"
+    }
+  },
+  "sha256": {
+    "apps/web/design/review-hybrid.html": "fadcb3c63248b72fe0faf082c484e2f7cc98b78586d7a05fd4d207d6e9cf5c70",
+    "apps/web/design/review-hybrid.tsx": "524c5beab50ef02d4fe658a1231dfe767981ba2028c3430da91234800442d925",
+    "apps/web/design/build-review-hybrid.mjs": "8ad0e0d29f3b7a98e700d54db00a72ab2030d567161362b9e88bd3fac69800c6",
+    "apps/web/design/tsconfig.json": "65ce5e8b2eb704000ddbb846cb73d888cefd4eccd5b635857df5f58b13db6c91",
+    "apps/web/design/review-hybrid.css": "f8be0bc31103bd8597e3229d5245d247315c9d57adb1d23bf5a663eec463d949",
+    "docs/design/review-ui-proposals-2026-09-27/hybrid-build/review-hybrid.html": "bddaf34e5e7158496624ea5a74ec408bfbc4a872a7195b4b4ee4b7eef0284e4e",
+    "docs/design/review-ui-proposals-2026-09-27/hybrid-build/assets/review-hybrid-CPoW99j-.css": "6d404fdc032f28260ffd1feb5542195d5c528761de9974238213ed955cef5d77",
+    "docs/design/review-ui-proposals-2026-09-27/hybrid-build/assets/review-hybrid-DNUdclWV.js": "ae1bc101806b951847acc80a2b0060033bf7e403cd072cabb233fb70fa7a619c",
+    "apps/web/src/ReviewDiff.tsx": "2d21d2033cc9626295852fba3ec204176b48487ab29b8dd0b05f5a022c93dcf8",
+    "apps/web/src/ReviewReportPanel.tsx": "12f29e2cba51a4632990e4628f8dc5d4147cf634e92aa73c3e9c405aa205b052",
+    "apps/web/src/ReviewMarkdown.tsx": "385d58229afec0a23fdda01d2ba1aba1391a33afac20a8e3ccd38f80e4a5a996",
+    "apps/web/src/styles.css": "54674e3a6dde7949418f883a7514c5d1579d8e1934251fad1984c2291295ce30",
+    "docs/design/review-ui-proposals-2026-09-27/palettes.json": "3edc30fe25f7a39bd5ea2ea722d29b1685319cfb98b830e39657792aa6728ec3",
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-mobile-C5.jpg": "aa370539577d92ebc058fae68fa18af5e02fedaed60f865fbe3fa9b1833912e3",
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-split-C5.jpg": "73680561f9c12252fbced140d042d86cd63a2a80363b55f419235fd06f444677",
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-unified-C5.jpg": "2d063365dc05990cbaee09c9d78b8c03cc8418fdd7c8440065de63b00d1a9da9",
+    "docs/design/review-ui-proposals-2026-09-27/images/hybrid-board-C5.jpg": "9bcaef2dd243028190a3c614b3e3413980b2d88e572612bb4ed88e820af5f92b"
+  }
+}

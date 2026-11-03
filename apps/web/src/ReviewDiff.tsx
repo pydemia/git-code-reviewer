@@ -4,6 +4,7 @@ import type { WorkspaceData } from './api.ts';
 import { parseReviewDiff, splitReviewDiff, type DiffLine } from './review-diff.ts';
 import { priorityLabels } from './review-diff.ts';
 import { ReviewText } from './ReviewReportPanel.tsx';
+import { ReviewMarkdown } from './ReviewMarkdown.tsx';
 
 type Finding = NonNullable<WorkspaceData['report']>['findings'][number];
 export type CodeTarget = {
@@ -181,7 +182,7 @@ export function ReviewDiff({
 function InlineReview({ finding, anchored = true }: { finding: Finding; anchored?: boolean }) {
   return (
     <article
-      className={`inline-review priority-border-${finding.priority.toLowerCase()}`}
+      className="inline-review"
       id={`review-comment-${finding.id}`}
       tabIndex={-1}
       aria-label="줄별 검토 의견"
@@ -210,25 +211,17 @@ function InlineReview({ finding, anchored = true }: { finding: Finding; anchored
           이 line은 현재 diff에 포함되지 않습니다. Comments의 GHES 원문에서 확인하세요.
         </p>
       ) : null}
-      {finding.problem !== finding.title ? (
-        <p>
-          <ReviewText text={finding.problem} />
-        </p>
-      ) : null}
+      {finding.problem !== finding.title ? <ReviewMarkdown text={finding.problem} /> : null}
       {finding.impact ? (
         <div className="inline-review-detail">
           <b>영향</b>
-          <p>
-            <ReviewText text={finding.impact} />
-          </p>
+          <ReviewMarkdown text={finding.impact} />
         </div>
       ) : null}
       {finding.recommendation ? (
         <div className="inline-review-detail inline-review-recommendation">
           <b>수정 제안</b>
-          <p>
-            <ReviewText text={finding.recommendation} />
-          </p>
+          <ReviewMarkdown text={finding.recommendation} />
         </div>
       ) : null}
     </article>

@@ -1,0 +1,12 @@
+{
+  "groups": 20,
+  "tests": 203,
+  "passed": 203,
+  "failed": 0,
+  "skipped": 0,
+  "cancelled": 0,
+  "logSha256": "3674898cd578faa5f95fbea7a36116ade7896cc010a8737f093d407a073a4fed",
+  "logPath": "/Users/a09255/git/commit-defender-preventive-review/vscode-extension/test-results/G03-alpha41-regressions.log",
+  "gcrFocusedTests": 38,
+  "observerTests": 1
+}

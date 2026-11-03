@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "scope": "P06-C03 periodic synchronization and identity failure barrier checkpoint",
+  "clientPackageVersion": "0.1.0-alpha.16",
+  "cliVersion": "0.1.0-alpha.10",
+  "validation": {
+    "clientAndCliRegression": {
+      "passed": 315,
+      "skipped": 1,
+      "files": 18,
+      "seconds": 301.46,
+      "skip": "opt-in actual-model CLI smoke"
+    },
+    "restartFocusedTest": {
+      "passed": 9
+    },
+    "packageBuildAndInstalledConsumer": true,
+    "focusedEslint": true
+  },
+  "packages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.16",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.16",
+        "file": "gcr-client-contract-0.1.0-alpha.16.tgz",
+        "sha256": "75cfb2f599898ac8cde915373bc883f770279bdc23f51c8cb87cf6e3eb73f52e"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.16",
+        "file": "gcr-client-core-0.1.0-alpha.16.tgz",
+        "sha256": "d4ddf4dafa34b9e290166cb244c2f065cd7686253032195e440e050392a35cf8"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.16",
+        "file": "gcr-client-executors-0.1.0-alpha.16.tgz",
+        "sha256": "da355b9a0b7194c556363aac39a7954e27a9ec189b1f37c3d0113c734f6f2419"
+      }
+    ]
+  },
+  "livePrism": {
+    "requestId": "9ad884b6-0cb2-4686-8c62-8d723181e11e",
+    "status": "passed",
+    "version": "0.8.0-alpha.42",
+    "cliVersion": "0.1.0-alpha.10",
+    "cliSha256": "c4c85576ec1306ca3750fec232d0b66b1641ccdc9df2fdadafe16289e6773f43",
+    "checks": [
+      "trusted-https-session-login",
+      "downloaded-public-configuration-matches-independent-CA-and-key",
+      "installed-cli-api-key-connect-with-macos-keychain",
+      "installed-core-startup-and-two-periodic-authenticated-syncs",
+      "last-successful-sync-persisted",
+      "actual-worker-v2-three-component-sync",
+      "installed-cli-central-context-exact-audience",
+      "explicit-offline-signed-cache",
+      "web-revocation-denies-cli-synchronization",
+      "explicit-disconnect-blocks-offline-cache"
+    ],
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "initialConnectMilliseconds": 14573,
+    "connectInvocations": 1,
+    "explicitPublicationPolling": false,
+    "periodicSyncCalls": 3,
+    "periodicTestIntervalMs": 1000,
+    "ownedKeychainEntriesRemoved": true,
+    "ownedServerRowsRemoved": true,
+    "ownedLocalFilesRemoved": true,
+    "verifiedAt": "2026-09-13T22:13:12.246Z"
+  },
+  "remaining": [
+    "automatic fallback and execution-mode metadata",
+    "401 credential renewal",
+    "remote mapping",
+    "Linux native environment verification",
+    "remaining P00-P13 requirements"
+  ]
+}

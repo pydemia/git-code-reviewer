@@ -1,0 +1,131 @@
+{
+  "recordedAt": "2026-09-16T07:22:29.637Z",
+  "status": "delivered independent work; W04 incomplete",
+  "repositories": [
+    {
+      "repository": "GCR",
+      "branch": "codex/windows-native-support",
+      "w03Completion": "b510fe0623680a30f2bccc08f3d82b28065ef99c",
+      "contentCommit": "c2380a88d3d6a5e161d7217a952d16201aad3c85",
+      "remoteAtAudit": "c2380a88d3d6a5e161d7217a952d16201aad3c85",
+      "containsW03": true,
+      "worktreeBeforeDeliveryRecord": "clean"
+    },
+    {
+      "repository": "CD",
+      "branch": "codex/windows-native-support",
+      "w03Completion": "02c04cc23c8ca44b7d35e00012a8ea8310342fdc",
+      "contentCommit": "37cf6fc3132875d9d1be53d958577f448423354b",
+      "remoteAtAudit": "37cf6fc3132875d9d1be53d958577f448423354b",
+      "containsW03": true,
+      "worktreeBeforeDeliveryRecord": "clean"
+    }
+  ],
+  "commitSeparation": {
+    "cdTest": "781bdda055c25acbd5643283201e8cf19f363415",
+    "gcrDocumentation": "c2380a88d3d6a5e161d7217a952d16201aad3c85",
+    "cdDocumentation": "37cf6fc3132875d9d1be53d958577f448423354b",
+    "code": "no product changes",
+    "packaging": "no new version/build/install",
+    "deliveryRecord": "subsequent documentation-only commit; final HEAD is the commit containing this record"
+  },
+  "source": {
+    "gcrRuntime": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "cdProduct": "2c2a40647c72e9ae00489ba0a5efaa7c3351792c",
+    "cdPackaging": "722b55cb6d93269aa76bf298e9e9531dc9ac7ecc"
+  },
+  "packages": [
+    {
+      "name": "@gcr/client-contract",
+      "version": "0.1.0-alpha.48",
+      "file": "gcr-client-contract-0.1.0-alpha.48.tgz",
+      "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+    },
+    {
+      "name": "@gcr/client-core",
+      "version": "0.1.0-alpha.49",
+      "file": "gcr-client-core-0.1.0-alpha.49.tgz",
+      "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4"
+    },
+    {
+      "name": "@gcr/client-executors",
+      "version": "0.1.0-alpha.49",
+      "file": "gcr-client-executors-0.1.0-alpha.49.tgz",
+      "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47"
+    }
+  ],
+  "nativeHelper": {
+    "version": "1.0.3",
+    "format": "CLI AnyCPU / .NET Framework 4.x",
+    "buildArchitecture": "arm64",
+    "license": "Apache-2.0",
+    "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+    "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+  },
+  "privateService": {
+    "name": "@gcr/cli",
+    "version": "0.1.0-alpha.38",
+    "file": "gcr-cli-0.1.0-alpha.38.tgz",
+    "sha256": "01a7e41379e9f1f22d76a16cf89090345df986a1a2e542c147cb76d7d09631e5",
+    "sourceSha": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "clientPackages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.48",
+        "file": "gcr-client-contract-0.1.0-alpha.48.tgz",
+        "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-core-0.1.0-alpha.49.tgz",
+        "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-executors-0.1.0-alpha.49.tgz",
+        "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47"
+      }
+    ],
+    "native": {
+      "version": "1.0.3",
+      "format": "CLI AnyCPU / .NET Framework 4.x",
+      "buildArchitecture": "arm64",
+      "license": "Apache-2.0",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+    },
+    "bundleSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364"
+  },
+  "vsix": {
+    "version": "2.12.4",
+    "target": "win32-arm64",
+    "file": "commit-defender-2.12.4-win32-arm64.vsix",
+    "sha256": "88471efee2b80a1b79d28e4712d90566eeeac1fa3ea6fa340d515efba5a48f1b"
+  },
+  "installation": {
+    "version": "2.12.4",
+    "runtimeHashes": "W04-artifact-linkage.json: all 11 VSIX/build/installed entries match",
+    "reinstalled": false,
+    "verificationHost": "W03 actual Windows ARM64 installed Host evidence reused unchanged",
+    "currentUserHost": "unverified; no reload",
+    "currentGcrService": "none observed"
+  },
+  "evidenceSha256": {
+    "W04-artifact-linkage.json": "3f975c2e43c090e113900b73a8270a9ccb5b68d171df44b6f37e29b0a32088fb",
+    "W04-completion-audit.json": "3dfe79ecdcfeb48e6347a80dc5f5c7fd114b83031cb3d9ecac6cb0dcf1ddcf18",
+    "W04-impact.json": "1e067791f4bf5e0d4196de62ec4db65d222b8d6b727c760d33d4b74f289dfa13",
+    "W04-packages.json": "ff2457b3751cc27c7cea3ea1fec473a499e8e0caf53a58ebae8e57bd5776e260",
+    "W04-preservation.json": "af85feaae47cc5f5a6d5384cbf9bdf440ad96bd47abf422424ffe9039507a71f",
+    "W04-start.json": "bd62a55c0449a05fde46785642f0302980206a2fbab680a0700e09f27121bb39",
+    "W04-validation.json": "a2fa457d94dd4570a949e00e4500c12c507dfabaad350f5f910e9b8771b594c5"
+  },
+  "modelCallsW04": 0,
+  "pending": [
+    "macOS native mandatory final-artifact regression; user has no Mac/runner",
+    "manual cleanup of exact 19 W03 blocked directories"
+  ],
+  "goalComplete": false,
+  "windowsOverallSupportComplete": false
+}

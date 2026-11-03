@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "verification": "catalog and loopback request probe; no real model response",
+  "realModelCalls": 0,
+  "selection": {
+    "provider": "codex",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "high"
+  },
+  "descriptor": {
+    "id": "codex-account",
+    "version": "0.154.0/gcr-fixed-source-v1",
+    "model": "gpt-6-astra",
+    "configHash": "2a7fc6ee66fac1b9da6827c9e5a4471f168d331d3201e87b986127c2dba292e7",
+    "capabilities": {
+      "available": true,
+      "sourceIsolation": "fixed-source-only",
+      "cancellation": true,
+      "timeout": true,
+      "childProcessCleanup": true,
+      "outputTokenLimit": false
+    }
+  }
+}

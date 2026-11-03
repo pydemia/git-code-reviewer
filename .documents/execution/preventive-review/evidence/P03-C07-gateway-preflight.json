@@ -1,0 +1,39 @@
+{
+  "recordedAt": "2026-09-13T07:58:45.295182+00:00",
+  "status": "read-only-preflight-incomplete",
+  "context": "PRISM-DEV",
+  "gateway": {
+    "namespace": "envoy-gateway-system",
+    "name": "envoy-gateway",
+    "listeners": [
+      {
+        "name": "http",
+        "protocol": "HTTP",
+        "port": 80,
+        "hostname": null,
+        "tlsConfigured": false
+      },
+      {
+        "name": "qdrant-tcp",
+        "protocol": "TCP",
+        "port": 6333,
+        "hostname": null,
+        "tlsConfigured": false
+      }
+    ]
+  },
+  "dns": {
+    "gcrHost": "pr-review.prism.ai",
+    "gcrResolved": true,
+    "proposedIdentityHost": "auth.pr-review.prism.ai",
+    "identityResolved": false
+  },
+  "pending": [
+    "A verified HTTPS entry point and certificate for GCR and the identity hostname",
+    "Identity DNS routing",
+    "Companion chart and Compose overlay",
+    "Recovery rehearsal and operational SAML cutover"
+  ],
+  "clusterChanged": false,
+  "rawArtifactSha256": "2b0510b656377560a66a00b62018d7098130c60b15f6461b933904ac4d0244c3"
+}

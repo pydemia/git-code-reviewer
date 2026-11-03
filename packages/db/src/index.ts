@@ -3,6 +3,17 @@ import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import pg from 'pg';
+import { databaseConnectionOptions, type DatabaseConnectionOptions } from './connection.js';
+
+export { DatabaseRoleError, secureDatabaseUrl } from './connection.js';
+export type { DatabaseConnectionOptions } from './connection.js';
+
+export {
+  inspectSharedPostgres,
+  provisionSharedPostgres,
+  SharedPostgresError,
+} from './shared-postgres.js';
+export type { SharedPostgresOptions, SharedPostgresPlan } from './shared-postgres.js';
 
 const { Pool } = pg;
 const migrationLockId = 746_278_431;
@@ -10,13 +21,18 @@ const migrationLockId = 746_278_431;
 export type Database = pg.Pool;
 export type DatabaseClient = pg.PoolClient;
 
-export function createDatabase(connectionString: string, max = 10): Database {
+export function createDatabase(
+  connectionString: string,
+  max = 10,
+  options: DatabaseConnectionOptions = {},
+): Database {
   return new Pool({
     connectionString,
     max,
     application_name: 'git-code-reviewer',
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
+    ...databaseConnectionOptions(connectionString, options, max),
   });
 }
 

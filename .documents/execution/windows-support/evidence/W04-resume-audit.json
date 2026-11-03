@@ -1,0 +1,79 @@
+{
+  "recordedAt": "2026-09-16T08:17:21.499Z",
+  "resumedFrom": "blocked W04",
+  "previousAudit": "W04-completion-audit.json",
+  "macEvidence": "W04-macos-validation.json",
+  "macIntegration": "W04-macos-integration.json",
+  "w04Complete": false,
+  "acceptance": {
+    "W-A01": "verified Windows ARM64; open user Host unknown",
+    "W-A02": "verified Windows native",
+    "W-A03": "verified local NTFS",
+    "W-A04": "verified existing actual Codex and synthetic API evidence",
+    "W-A05": "verified native boundaries; historical launcher failure retained",
+    "W-A06": "verified approved PR3/local GCR substitution only",
+    "W-A07": "verified W02 actual model judgments",
+    "W-A08": "verified W03 final artifact; report and launcher outcomes separate",
+    "W-A09": "verified macOS ARM64 final frozen packages and existing scoped Linux ARM64 container evidence",
+    "W-A10": "artifact/install/preservation verified; prior blocked Windows folders await manual cleanup"
+  },
+  "resolvedBlockers": [
+    {
+      "condition": "required macOS native environment/regression unavailable",
+      "resolvedBy": "user supplied macOS commits; 160 passed, 0 failed, 1 Windows-only skipped; packed native Keychain/IPC/isolation checked",
+      "gcrCommit": "dfa21e448619f889f0861d116ae604ec2d7c88d3",
+      "cdCommit": "d5804ae4ba58c078378c5802a34a852efd9230bd"
+    }
+  ],
+  "remainingBlockers": [
+    {
+      "condition": "prior rejected Windows fixture deletion",
+      "count": 19,
+      "action": "user manual cleanup; assistant read-only absence verification",
+      "paths": "W04-cleanup.md"
+    }
+  ],
+  "windowsAdditionalVerification": {
+    "suite": "packages/client-core/src/local-foundation.test.ts",
+    "initial": {
+      "passed": 5,
+      "failed": 3,
+      "cause": "pre-existing POSIX directory/chmod/symlink fixture failed NTFS private-storage requirements"
+    },
+    "fix": "Windows-only private-root, real DACL and junction fixture; no security relaxation; POSIX operations preserved",
+    "final": {
+      "passed": 8,
+      "failed": 0,
+      "durationMs": 4040
+    },
+    "lint": "passed",
+    "format": "prettier applied",
+    "testCommit": "883363d66456efe7d39db0cf71735f956fc4a2b5"
+  },
+  "productRuntimeChanged": false,
+  "packageRebuilt": false,
+  "vsixReinstalled": false,
+  "additionalModelCalls": 0,
+  "regressionReuse": "macOS and Linux product code unchanged; new fixture paths are Windows-only, existing POSIX operations unchanged",
+  "artifacts": "W04-artifact-linkage.json; all 11 runtime hashes rechecked in W04-macos-integration.json",
+  "preservation": "W04-resume-preservation.json",
+  "userHostAppliedVersion": "unverified; no forced reload",
+  "serviceState": [],
+  "limits": [
+    "Windows x64",
+    "other Windows/Node/VSCode/Codex combinations",
+    "already-open user Host extension version",
+    "WSL/Remote SSH/Dev Container deployment"
+  ],
+  "unsupported": [
+    "Linux Codex fixed-source account isolation",
+    "UNC/network/FAT for this Windows delivery"
+  ],
+  "historicalRealModelEvidence": {
+    "W03Calls": 2,
+    "W03AcceptedReports": 1,
+    "attempt1": "unaccepted: report body not inspected after exitCode1",
+    "attempt2": "report validation passed; outer launcher cleanup-failed",
+    "separateLifecycle": "passed with zero model calls; not merged into attempt2"
+  }
+}

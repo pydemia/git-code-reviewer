@@ -1,0 +1,45 @@
+{
+  "auditedAt": "2026-09-16T06:48:03.179Z",
+  "phase": "W03",
+  "status": "complete",
+  "repositories": [
+    {
+      "name": "GCR",
+      "branch": "codex/windows-native-support",
+      "w02Ancestor": "7ebd15502c1738c1ef1acc6aab88bc436c350c53",
+      "deliveredPayloadHead": "ec53dc92acaa5f9a898a34525412e400e31b4e48",
+      "remoteHeadAtAudit": "ec53dc92acaa5f9a898a34525412e400e31b4e48",
+      "commits": [
+        "ec53dc92acaa5f9a898a34525412e400e31b4e48 docs(windows): record W03 native service review and lifecycle evidence",
+        "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44 build(windows): pin native service artifacts and reuse unchanged contract package",
+        "95579315b635aa8fdb6d4a2f7e376fe6926aea35 feat(windows): secure native service IPC and lifecycle boundaries"
+      ]
+    },
+    {
+      "name": "CD",
+      "branch": "codex/windows-native-support",
+      "w02Ancestor": "c598134e37e03c883a2a3002ea28f89ebe3aec9a",
+      "deliveredPayloadHead": "43b6a1733f9db57aba082a45f4cba16ab058c954",
+      "remoteHeadAtAudit": "43b6a1733f9db57aba082a45f4cba16ab058c954",
+      "commits": [
+        "43b6a1733f9db57aba082a45f4cba16ab058c954 docs(windows): record W03 hooks artifacts and native Host validation",
+        "87384c730fad056d43ae385ebe8726edec935c85 test(windows): stop owned service before acceptance Host exits",
+        "b52cb72cc11e0ae45ce815f6d906c55420b96cd7 test(windows): validate service report before interpreting findings exit code",
+        "722b55cb6d93269aa76bf298e9e9531dc9ac7ecc build(windows): package native service alpha.38 in VSIX 2.12.4",
+        "2c2a40647c72e9ae00489ba0a5efaa7c3351792c feat(windows): connect opt-in native service and managed hooks"
+      ]
+    }
+  ],
+  "payloadHeadsMeaning": "These source/packaging/execution-record commits were pushed and read back from both remotes. The subsequent documentation-only audit commit contains this file.",
+  "artifactLinkage": "W03-artifact-linkage.json",
+  "validation": "W03-validation.json",
+  "realModel": "W03-native-host-attempt2.json",
+  "lifecycle": "W03-native-host-lifecycle.json",
+  "audit": "W03-completion-audit.json",
+  "cleanupLimitations": "W03-cleanup-blocked.json",
+  "installedVersion": "2.12.4",
+  "verificationHostVersion": "2.12.4",
+  "userHostAppliedVersion": "unverified; no forced reload",
+  "temporaryUserService": "stopped; no recorded owned process remains",
+  "wholeWindowsSupportCompleted": false
+}

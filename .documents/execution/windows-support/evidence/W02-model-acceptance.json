@@ -1,0 +1,95 @@
+{
+  "scope": "Windows native installed Host; local reconstructed HTTPS publisher; not current PRISM data",
+  "provider": "codex",
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "high",
+  "budget": {
+    "initialCalls": 3,
+    "used": 3,
+    "extra": 0,
+    "perCallTimeoutMs": 240000
+  },
+  "completed": 3,
+  "timeout": 0,
+  "partial": 0,
+  "failedModelCalls": 0,
+  "preparationFailures": 2,
+  "boundaryTestsExecuted": false,
+  "cases": [
+    {
+      "case": "defect",
+      "status": "completed",
+      "modelJudgment": "passed",
+      "durationMs": 84554,
+      "modelCalls": 1,
+      "findings": 1,
+      "centralRequests": 16,
+      "centralRequestsDuringModel": 0,
+      "readOnly": true,
+      "summary": "Complete review. The historical guidance from source 4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1 (https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279) applies: the current schema leaves cross-field validation in an uncalled standalone function, while the base used a model validator. Linked guidance skill-0 through skill-3 is applied and currently violated; collective memory 9ee94837-fd43-46f6-ac03-30bdfb8d3575 reaches the same conclusion. No tests were run.",
+      "source": {
+        "kind": "index",
+        "hash": "d0951ea5c9a2cdea841c372b8b03d0d5b6207309812dc425443e33b8e5a6ee06",
+        "objectFormat": "sha1",
+        "baseCommit": "79670ecf9e1d6504d42a56dff5df6e5f56858892",
+        "baseTree": "3491aa67852777ac83265d4ccb16ed51d624a527",
+        "sourceTree": "dd18640276922c440a043721ff6cc93c4fd0370f"
+      },
+      "contextHash": "87ea1a2a0dfe1a16bf92c3a0dc995870bcc3cf72fe3783ba753ce4074972f7a3",
+      "workerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+      "storedResultReopened": true,
+      "historyCommandOpened": true,
+      "cleanup": true
+    },
+    {
+      "case": "fixed",
+      "status": "completed",
+      "modelJudgment": "passed",
+      "durationMs": 97859,
+      "modelCalls": 1,
+      "findings": 0,
+      "centralRequests": 16,
+      "centralRequestsDuringModel": 0,
+      "readOnly": true,
+      "summary": "Complete source/base review found no supported defect. The validator now runs during both service entry points; callers, dependency constraints, and boundary tests are consistent. Tests were read but not executed. History source 4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1 (https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279) and memory 9ee94837-fd43-46f6-ac03-30bdfb8d3575 are applicable and already satisfied. Required skills skill-0 through skill-3, revision 1, were applied.",
+      "source": {
+        "kind": "index",
+        "hash": "1798b2f0c3ad4898b6b4b357f27eb5a8b387eb736e845dc0b876581a3dcc4000",
+        "objectFormat": "sha1",
+        "baseCommit": "1744dacba790bd1237be61e70a9d0e453d10b207",
+        "baseTree": "dd18640276922c440a043721ff6cc93c4fd0370f",
+        "sourceTree": "3491aa67852777ac83265d4ccb16ed51d624a527"
+      },
+      "contextHash": "97f91625cc503a2367861ac502975745d1b64157d1e3c5e12596021e595685b6",
+      "workerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+      "storedResultReopened": true,
+      "historyCommandOpened": true,
+      "cleanup": true
+    },
+    {
+      "case": "unrelated",
+      "status": "completed",
+      "modelJudgment": "passed",
+      "durationMs": 65889,
+      "modelCalls": 1,
+      "findings": 0,
+      "centralRequests": 16,
+      "centralRequestsDuringModel": 0,
+      "readOnly": true,
+      "summary": "Reviewed source/base and relevant schema, repository, API, tests, and dependency configuration. The change adds an archived-state guard without altering request validation; no concrete defect was found. History source 4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1 (https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279) is already satisfied: request-only cross-field validation remains in BlockUpdateRequest.model_validator. Tests were inspected but not executed.",
+      "source": {
+        "kind": "index",
+        "hash": "4a250f60c00963fc72a7b5b6754f55344dbb77df8097d1686e8f57525414afae",
+        "objectFormat": "sha1",
+        "baseCommit": "63b616a4cee026dc8441da3dfed9b494aef38a4a",
+        "baseTree": "380c66d1e31b57aa2a65334344ca5303274b8a94",
+        "sourceTree": "2900e5afc8ae4da86506b5b06c2f5af6022c8be2"
+      },
+      "contextHash": "66bdc4750852e7023bcccd9b43fb73bb25a89a7763d9b1736f3e0ff75fd6f7ad",
+      "workerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+      "storedResultReopened": true,
+      "historyCommandOpened": true,
+      "cleanup": true
+    }
+  ]
+}

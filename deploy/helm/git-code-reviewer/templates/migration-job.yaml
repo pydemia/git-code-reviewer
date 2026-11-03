@@ -1,3 +1,4 @@
+{{- $isolated := default dict .Values.database.isolated -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -5,11 +6,16 @@ metadata:
   labels:
     {{- include "git-code-reviewer.labels" . | nindent 4 }}
     app.kubernetes.io/component: migration
+  {{- if not (and $isolated.enabled .Values.postgresql.enabled .Release.IsInstall) }}
   annotations:
     "helm.sh/hook": {{ ternary "pre-upgrade" "pre-install,pre-upgrade" .Values.postgresql.enabled }}
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  {{- end }}
 spec:
+  {{- if $isolated.enabled }}
+  activeDeadlineSeconds: 1200
+  {{- end }}
   backoffLimit: 2
   template:
     metadata:
@@ -33,7 +39,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: ["migrate"]
           env:
-            {{- include "git-code-reviewer.databaseEnv" . | nindent 12 }}
+            {{- include "git-code-reviewer.migrationDatabaseEnv" . | nindent 12 }}
             {{- if .Values.trustedCa.existingConfigMap }}
             - name: NODE_EXTRA_CA_CERTS
               value: /run/config/trust/ca.crt
@@ -51,7 +57,7 @@ spec:
       volumes:
         - name: tmp
           emptyDir: { sizeLimit: 64Mi }
-        {{- include "git-code-reviewer.databaseVolume" . | nindent 8 }}
+        {{- include "git-code-reviewer.migrationDatabaseVolume" . | nindent 8 }}
         {{- if .Values.trustedCa.existingConfigMap }}
         - name: trusted-ca
           configMap:

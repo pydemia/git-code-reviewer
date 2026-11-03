@@ -1,0 +1,57 @@
+{
+  "date": "2026-09-27",
+  "context": "PRISM-DEV",
+  "namespace": "git-code-reviewer",
+  "release": "git-code-reviewer",
+  "helmRevisionBefore": 91,
+  "helmRevisionAfter": 92,
+  "status": "deployed",
+  "configSourceCommit": "c49737642e11c446b77236cf36dee48625280826",
+  "chartVersion": "0.10.79",
+  "appVersion": "0.8.0-alpha.83",
+  "imageDigest": "sha256:a6a8de1bbfc1317749be0e2367a05bdad8e08e8e954c86b98f66770a19988a43",
+  "largeAnalysisCalls": {
+    "before": 256,
+    "after": 512
+  },
+  "workerEffective": {
+    "groupMaxModelCalls": 512,
+    "groupMaxDurationMs": 10800000,
+    "generalMaxModelCalls": "runtime default (128)"
+  },
+  "serverEffective": {
+    "groupMaxModelCalls": 512
+  },
+  "modelAdmissionEnabledPreserved": true,
+  "workerConcurrencyPreserved": 2,
+  "helmValuesOnlyChange": "model.analysis.groupMaxModelCalls: 256 -> 512",
+  "nonHelmResourcesPreserved": 21,
+  "imagesUnchanged": true,
+  "replicasUnchanged": true,
+  "identityDeploymentUnchanged": true,
+  "dryRunChanges": [
+    {
+      "kind": "ConfigMap",
+      "name": "git-code-reviewer",
+      "paths": [
+        "/data/ANALYSIS_GROUP_MAX_MODEL_CALLS"
+      ]
+    },
+    {
+      "kind": "Deployment",
+      "name": "git-code-reviewer-server",
+      "paths": [
+        "/spec/template/metadata/annotations/checksum/config"
+      ]
+    }
+  ],
+  "workerRollingRestart": true,
+  "deploymentsReady": {
+    "git-code-reviewer-identity": 2,
+    "git-code-reviewer-server": 1,
+    "git-code-reviewer-worker": 1
+  },
+  "manualModelCalls": 0,
+  "analysisResumeRequested": false,
+  "githubCommentPublicationRequested": false
+}

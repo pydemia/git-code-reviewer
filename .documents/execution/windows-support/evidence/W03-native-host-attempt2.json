@@ -1,0 +1,653 @@
+{
+  "status": "passed",
+  "platform": "win32",
+  "arch": "arm64",
+  "node": "v24.18.1",
+  "vscode": "1.137.0",
+  "extensionVersion": "2.12.4",
+  "extensionPath": "C:\\Users\\pydemia\\.vscode\\extensions\\pydemia.commit-defender-2.12.4",
+  "extensionSha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83",
+  "standaloneWorkerSha256": "a07a7bca6225f87cde54693d88c14ccb73a793c3422ec5ecbbabf2019774685a",
+  "syntheticResponse": false,
+  "realModel": true,
+  "modelCalls": 1,
+  "maximumReviewInvocations": 1,
+  "timeoutMs": 240000,
+  "trigger": "commit",
+  "centralConnection": false,
+  "accountSource": "existing default Codex account via auth-only NTFS link",
+  "expected": "completed report identifies subtraction instead of addition in sum.ts; stored report can be reopened",
+  "route": "Extension Host opt-in -> Git for Windows pre-commit -> native Node advisory -> IPC -> native service review worker -> isolated Codex",
+  "workerPlacement": "private CLI service executes its review worker in the service Node process",
+  "processes": [
+    {
+      "ProcessId": 54596,
+      "ParentProcessId": 26748,
+      "Name": "node.exe",
+      "CreationDate": "/Date(1789540683920)/"
+    },
+    {
+      "ProcessId": 39516,
+      "ParentProcessId": 54596,
+      "Name": "windows-native.exe",
+      "CreationDate": "/Date(1789540685506)/"
+    },
+    {
+      "ProcessId": 41496,
+      "ParentProcessId": 39516,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540685523)/"
+    },
+    {
+      "ProcessId": 49180,
+      "ParentProcessId": 54596,
+      "Name": "windows-native.exe",
+      "CreationDate": "/Date(1789540714773)/"
+    },
+    {
+      "ProcessId": 54944,
+      "ParentProcessId": 49180,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540714799)/"
+    },
+    {
+      "ProcessId": 13380,
+      "ParentProcessId": 54596,
+      "Name": "windows-native.exe",
+      "CreationDate": "/Date(1789540721755)/"
+    },
+    {
+      "ProcessId": 26996,
+      "ParentProcessId": 13380,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540721779)/"
+    },
+    {
+      "ProcessId": 54472,
+      "ParentProcessId": 54596,
+      "Name": "windows-native.exe",
+      "CreationDate": "/Date(1789540723391)/"
+    },
+    {
+      "ProcessId": 51900,
+      "ParentProcessId": 54472,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540723424)/"
+    },
+    {
+      "ProcessId": 11736,
+      "ParentProcessId": 54472,
+      "Name": "codex.exe",
+      "CreationDate": "/Date(1789540723843)/"
+    },
+    {
+      "ProcessId": 43548,
+      "ParentProcessId": 11736,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540723873)/"
+    },
+    {
+      "ProcessId": 47440,
+      "ParentProcessId": 54596,
+      "Name": "windows-native.exe",
+      "CreationDate": "/Date(1789540730372)/"
+    },
+    {
+      "ProcessId": 57680,
+      "ParentProcessId": 47440,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540730394)/"
+    },
+    {
+      "ProcessId": 54448,
+      "ParentProcessId": 54596,
+      "Name": "windows-native.exe",
+      "CreationDate": "/Date(1789540759055)/"
+    },
+    {
+      "ProcessId": 39640,
+      "ParentProcessId": 54448,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540759074)/"
+    },
+    {
+      "ProcessId": 56332,
+      "ParentProcessId": 54596,
+      "Name": "windows-native.exe",
+      "CreationDate": "/Date(1789540765307)/"
+    },
+    {
+      "ProcessId": 49628,
+      "ParentProcessId": 56332,
+      "Name": "conhost.exe",
+      "CreationDate": "/Date(1789540765322)/"
+    }
+  ],
+  "catalogPreparation": "passed; zero review invocations",
+  "servicePid": 54596,
+  "hookDirectory": "C:\\Users\\pydemia\\AppData\\Local\\CommitDefender\\managed-hooks\\cffa38cfc0ea1495cf1c5872091d90dc5f8c466daaede8428e99a2ea5872e3b1",
+  "serviceProgram": "C:\\Users\\pydemia\\AppData\\Local\\CommitDefender\\service-programs\\438d4d4743b75cde86d7060186792687aa5a5f4c089ca63de6761e7f025854ef\\gcr.mjs",
+  "advisoryProgram": "C:/Users/pydemia/AppData/Local/CommitDefender/service-programs/d8e51003f2843450e95c756078045561afe74e15a17c0e157bcea620f1f75ee3/advisory.cjs",
+  "serviceSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364",
+  "serviceHelperSha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+  "serviceHelperManifest": {
+    "version": "1.0.3",
+    "format": "CLI AnyCPU / .NET Framework 4.x",
+    "buildArchitecture": "arm64",
+    "license": "Apache-2.0",
+    "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+    "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+  },
+  "servicePackage": {
+    "name": "@gcr/cli",
+    "version": "0.1.0-alpha.38",
+    "file": "gcr-cli-0.1.0-alpha.38.tgz",
+    "sha256": "01a7e41379e9f1f22d76a16cf89090345df986a1a2e542c147cb76d7d09631e5",
+    "sourceSha": "8ea024aa1fa8ea9bf6bf3c1a7d522e4008f62a44",
+    "clientPackages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.48",
+        "file": "gcr-client-contract-0.1.0-alpha.48.tgz",
+        "sha256": "1b1245f4540cecf8d00279a0491ec1124fa669b8c5ad5993f3d284c4d109d3b8"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-core-0.1.0-alpha.49.tgz",
+        "sha256": "0471d3f34a10a4c1badb7e6e8586bf6bb16f33308b15a117a71ad647b7a25be4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.49",
+        "file": "gcr-client-executors-0.1.0-alpha.49.tgz",
+        "sha256": "627faa3b2855a1f33c2e781c7036e28a6295ed231a7ad1f2a7cadf8d6c2e6e47"
+      }
+    ],
+    "native": {
+      "version": "1.0.3",
+      "format": "CLI AnyCPU / .NET Framework 4.x",
+      "buildArchitecture": "arm64",
+      "license": "Apache-2.0",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+      "sourceSha256": "51a74074de427637046c943879b70e9f950f2b61962ef73a273067ee17ce589e"
+    },
+    "bundleSha256": "47d59eb3b668d2d9067730ed963cedb244f96876e7708af61145fcf05b8ef364"
+  },
+  "source": {
+    "kind": "index",
+    "hash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+    "objectFormat": "sha1",
+    "baseCommit": "84010cf2c214e41227f8113e1342e8588c9eaae2",
+    "baseTree": "1979c44c3fbe476a789096e6e5c7f23c6924c391",
+    "sourceTree": "0070ebf2a98c2a31e5e3cf1f994a90767d43a0d3"
+  },
+  "fixedFiles": [
+    {
+      "path": "consumer.ts",
+      "side": "base",
+      "sha256": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e"
+    },
+    {
+      "path": "package.json",
+      "side": "base",
+      "sha256": "7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470"
+    },
+    {
+      "path": "sum.test.ts",
+      "side": "base",
+      "sha256": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca"
+    },
+    {
+      "path": "sum.ts",
+      "side": "base",
+      "sha256": "db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22"
+    },
+    {
+      "path": "consumer.ts",
+      "side": "source",
+      "sha256": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e"
+    },
+    {
+      "path": "package.json",
+      "side": "source",
+      "sha256": "7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470"
+    },
+    {
+      "path": "sum.test.ts",
+      "side": "source",
+      "sha256": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca"
+    },
+    {
+      "path": "sum.ts",
+      "side": "source",
+      "sha256": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15"
+    }
+  ],
+  "context": {
+    "source": "sum.ts uses total - value",
+    "base": "sum.ts uses total + value",
+    "caller": "consumer.ts invoiceTotal delegates to sum",
+    "rules": "sum([])=0; invoiceTotal([2,3])=5",
+    "tests": "sum.test.ts provides addition and empty-list boundary assertions",
+    "testExecution": "runner executes fixture tests before review; model reading tests is not test execution"
+  },
+  "startedAt": "2026-09-16T06:38:23.648Z",
+  "reviewTriggerAttempts": 1,
+  "modelCallCountConfirmed": true,
+  "receipt": {
+    "createdAt": 1789540709935,
+    "execution": {
+      "generation": 1,
+      "key": "8b49a182b2a5619a1140f7dfdd7e968e21809551745429411112ceb0ddd932c7"
+    },
+    "id": "dc201cda-c99d-4767-977d-87404e7a6fe5",
+    "owner": null,
+    "payloadHash": "589caaa56b2b0390105be4911ff33aa93cae51974a3eb19d41a69e9809ec75fc",
+    "registrationRevision": 1,
+    "repository": "a7f3fa28515a6549e0aa9e34bfd3e2d3d690e49803ebd470d87b0e512aa77e33",
+    "result": {
+      "exitCode": 1,
+      "runId": "52fed6e3-a728-49da-b799-78dfe34f3fee",
+      "status": "completed"
+    },
+    "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+    "startedAt": 1789540710140,
+    "state": "finished",
+    "trigger": "commit",
+    "version": 1
+  },
+  "finishedAt": "2026-09-16T06:39:27.865Z",
+  "report": {
+    "contractVersion": 1,
+    "runId": "52fed6e3-a728-49da-b799-78dfe34f3fee",
+    "identity": {
+      "client": {
+        "mode": "standalone",
+        "profileId": "w03-40cd2c45-1ad3-445d-8589-b4486779a294",
+        "repositoryKey": "6b84ea03b303d1df746f487cf688e8471ad907d54de19481405614e8c074a72a",
+        "worktreeKey": "196b1a17fdbfc96cf198eedaaad9b1d573d06c2292c4e8aeee744679d265e172",
+        "execution": {
+          "configuredMode": "standalone",
+          "effectiveMode": "standalone",
+          "knowledgeSource": "local",
+          "fallbackReason": null
+        }
+      },
+      "source": {
+        "kind": "index",
+        "hash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "objectFormat": "sha1",
+        "baseCommit": "84010cf2c214e41227f8113e1342e8588c9eaae2",
+        "baseTree": "1979c44c3fbe476a789096e6e5c7f23c6924c391",
+        "sourceTree": "0070ebf2a98c2a31e5e3cf1f994a90767d43a0d3"
+      },
+      "context": {
+        "hash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "entries": [
+          {
+            "origin": "builtin",
+            "kind": "skill",
+            "id": "gcr-standalone-review",
+            "revision": 1,
+            "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+          }
+        ],
+        "required": [
+          {
+            "kind": "knowledge",
+            "reference": "builtin:gcr-standalone-review",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:3cc2ae5b5767ead7782bdb6678e55a599c79c1c989d2242b98003c95384768e1",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:64b3d5880e0bbf90ebc82ce34112ea0f0cb6f571fcaa7da3ef6a0ee60f82fbd7",
+            "available": true,
+            "reason": ""
+          }
+        ]
+      },
+      "reviewProfile": {
+        "id": "gcr-standalone-review",
+        "revision": 1,
+        "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+      },
+      "executor": {
+        "id": "codex-account",
+        "version": "0.153.4/gcr-fixed-source-v1",
+        "model": "gpt-5.6-luna",
+        "configHash": "fa56d3f830a13fae49193a2c2b037d0b55ca0be3a4cf96fb6e90fa69b1263b02"
+      },
+      "toolsHash": "f19b2cbc1d968f19ebf56b92534330e9fe520e282f250716b7189732c8cfe5e8"
+    },
+    "status": "completed",
+    "trigger": "commit",
+    "requestedAt": "2026-09-16T06:38:40.590Z",
+    "startedAt": "2026-09-16T06:38:40.590Z",
+    "finishedAt": "2026-09-16T06:39:25.290Z",
+    "durationMs": 44700,
+    "summary": "Complete source review; found a regression in sum for every non-empty input.",
+    "sourceFiles": [
+      {
+        "path": "consumer.ts",
+        "side": "base",
+        "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+        "byteLength": 103,
+        "lineCount": 3,
+        "gitBlob": "3bee4aa4b25476f3634daf54bef5cabaf2ddfa27"
+      },
+      {
+        "path": "package.json",
+        "side": "base",
+        "hash": "7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470",
+        "byteLength": 64,
+        "lineCount": 2,
+        "gitBlob": "7e600b1f848327abb0d5af6d723891b5e6254759"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "base",
+        "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+        "byteLength": 245,
+        "lineCount": 6,
+        "gitBlob": "09f0d03d36c4add1451a2e5949c211e5af3badc3"
+      },
+      {
+        "path": "sum.ts",
+        "side": "base",
+        "hash": "db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22",
+        "byteLength": 110,
+        "lineCount": 4,
+        "gitBlob": "10aa3525b64afa21b251a09383f057b08e21d95b"
+      },
+      {
+        "path": "consumer.ts",
+        "side": "source",
+        "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+        "byteLength": 103,
+        "lineCount": 3,
+        "gitBlob": "3bee4aa4b25476f3634daf54bef5cabaf2ddfa27"
+      },
+      {
+        "path": "package.json",
+        "side": "source",
+        "hash": "7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470",
+        "byteLength": 64,
+        "lineCount": 2,
+        "gitBlob": "7e600b1f848327abb0d5af6d723891b5e6254759"
+      },
+      {
+        "path": "sum.test.ts",
+        "side": "source",
+        "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+        "byteLength": 245,
+        "lineCount": 6,
+        "gitBlob": "09f0d03d36c4add1451a2e5949c211e5af3badc3"
+      },
+      {
+        "path": "sum.ts",
+        "side": "source",
+        "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+        "byteLength": 110,
+        "lineCount": 4,
+        "gitBlob": "bf0534278936e18d09b7e31818bbde6818227fea"
+      }
+    ],
+    "files": [
+      {
+        "source": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "byteLength": 110,
+          "lineCount": 4,
+          "gitBlob": "bf0534278936e18d09b7e31818bbde6818227fea"
+        },
+        "status": "completed",
+        "summary": "Reviewed all 4 source lines and its fixed base."
+      }
+    ],
+    "excluded": [],
+    "problems": [],
+    "findings": [
+      {
+        "id": "df795a9e-4819-46ed-b260-fdc7f53b4f9d",
+        "title": "sum subtracts values instead of adding them",
+        "problem": "The reducer uses subtraction, so non-empty inputs produce the negated total rather than their sum.",
+        "impact": "Callers such as invoiceTotal return incorrect invoice totals for every non-empty price list.",
+        "recommendation": "Restore the reducer operation to total + value, and retain or expand tests for positive, negative, and multi-item inputs.",
+        "category": "correctness",
+        "severity": "P3",
+        "outcome": "violation",
+        "confidence": "high",
+        "followUp": "required",
+        "anchor": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "startLine": 2,
+          "endLine": 2
+        },
+        "anchorValidation": {
+          "status": "verified",
+          "checks": [
+            "fixed-source-hash",
+            "selected-file",
+            "returned-read-range"
+          ],
+          "reason": "Anchor matches a non-truncated source read. This does not prove the finding."
+        },
+        "evidenceAssessment": {
+          "level": "source-confirmed",
+          "rationale": "The fixed base adds each value, while the selected source subtracts each value. The reviewed caller directly delegates invoiceTotal to sum, and the existing test expects invoiceTotal([2, 3]) to equal 5. No test runner was executed.",
+          "conditions": [
+            "sum receives a non-empty array, including invoiceTotal receiving non-empty prices."
+          ],
+          "evidenceIds": [
+            "1556959b-a4c1-40b4-adaa-5c18c3a59316",
+            "af831df9-c579-4c6f-8735-ddd2c057852a",
+            "a5d740b9-f56b-4496-bc5d-e920c74c17ea",
+            "b4f65411-6aff-4a1f-ad85-5a42849b4245",
+            "d327c92f-29c9-4c86-ad52-594d1befb231",
+            "60eaf8c0-e869-4456-9ea8-091a85160477"
+          ],
+          "counterEvidence": {
+            "status": "reviewed",
+            "summary": "The empty-array behavior remains 0, but this does not mitigate the incorrect non-empty behavior. Existing tests were inspected but not executed.",
+            "evidenceIds": [
+              "d327c92f-29c9-4c86-ad52-594d1befb231",
+              "60eaf8c0-e869-4456-9ea8-091a85160477"
+            ]
+          }
+        },
+        "policy": {
+          "enforcement": "advisory"
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "source-read",
+        "id": "1556959b-a4c1-40b4-adaa-5c18c3a59316",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:1556959b-a4c1-40b4-adaa-5c18c3a59316"
+        },
+        "observedAt": "2026-09-16T06:38:48.201Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "source",
+          "hash": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+          "startLine": 1,
+          "endLine": 4
+        },
+        "observation": "Returned excerpt sha256=7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "af831df9-c579-4c6f-8735-ddd2c057852a",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:af831df9-c579-4c6f-8735-ddd2c057852a"
+        },
+        "observedAt": "2026-09-16T06:38:50.211Z",
+        "location": {
+          "path": "sum.ts",
+          "side": "base",
+          "hash": "db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22",
+          "startLine": 1,
+          "endLine": 4
+        },
+        "observation": "Returned excerpt sha256=db968d738bd14d2311ab53d2916d72888314e76246bf80d3840d40ab92d86b22; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "a5d740b9-f56b-4496-bc5d-e920c74c17ea",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:a5d740b9-f56b-4496-bc5d-e920c74c17ea"
+        },
+        "observedAt": "2026-09-16T06:38:56.960Z",
+        "location": {
+          "path": "consumer.ts",
+          "side": "source",
+          "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "b4f65411-6aff-4a1f-ad85-5a42849b4245",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:b4f65411-6aff-4a1f-ad85-5a42849b4245"
+        },
+        "observedAt": "2026-09-16T06:38:58.674Z",
+        "location": {
+          "path": "consumer.ts",
+          "side": "base",
+          "hash": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+          "startLine": 1,
+          "endLine": 3
+        },
+        "observation": "Returned excerpt sha256=f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "d327c92f-29c9-4c86-ad52-594d1befb231",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:d327c92f-29c9-4c86-ad52-594d1befb231"
+        },
+        "observedAt": "2026-09-16T06:39:00.719Z",
+        "location": {
+          "path": "sum.test.ts",
+          "side": "source",
+          "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+          "startLine": 1,
+          "endLine": 6
+        },
+        "observation": "Returned excerpt sha256=8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "60eaf8c0-e869-4456-9ea8-091a85160477",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:60eaf8c0-e869-4456-9ea8-091a85160477"
+        },
+        "observedAt": "2026-09-16T06:39:02.204Z",
+        "location": {
+          "path": "sum.test.ts",
+          "side": "base",
+          "hash": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+          "startLine": 1,
+          "endLine": 6
+        },
+        "observation": "Returned excerpt sha256=8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "1577253e-54bf-4c52-a2d2-6a0d72ec54af",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:1577253e-54bf-4c52-a2d2-6a0d72ec54af"
+        },
+        "observedAt": "2026-09-16T06:39:03.726Z",
+        "location": {
+          "path": "package.json",
+          "side": "source",
+          "hash": "7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470",
+          "startLine": 1,
+          "endLine": 2
+        },
+        "observation": "Returned excerpt sha256=7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "0070e153-0c48-40e8-8583-551579013bbc",
+        "sourceHash": "b1f8c55683c2ee95777fdcac94738a29618b013c5e536d9ca9ed0a14fea12658",
+        "contextHash": "0ef67a580e4e3455dfb8da7a4f6d875c982e4f415870eb0a400d8cff0e9667d8",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:0070e153-0c48-40e8-8583-551579013bbc"
+        },
+        "observedAt": "2026-09-16T06:39:05.570Z",
+        "location": {
+          "path": "package.json",
+          "side": "base",
+          "hash": "7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470",
+          "startLine": 1,
+          "endLine": 2
+        },
+        "observation": "Returned excerpt sha256=7196b3a3af6bbd9a8bc30c8657d4057032d67b00ab2ff8dcfceef1fd3afdd470; truncated=false. Port return only; no test executed."
+      }
+    ],
+    "questions": []
+  },
+  "encryptedHistoryReopened": true,
+  "historyRefreshCommand": true,
+  "pauseRestoredHooksAndRevokedGrants": true,
+  "serviceUnavailableAtCleanup": true,
+  "testHostExited": true,
+  "temporaryProfileAndKeyRemoved": true,
+  "fixtureDefectReproduced": true,
+  "reviewValidationStatus": "passed",
+  "hostLauncher": {
+    "code": null,
+    "error": "cleanup-failed"
+  },
+  "overallAttemptStatus": "launcher-cleanup-failed; model report validation passed",
+  "launcherRetest": "W03-native-host-lifecycle.json (zero model calls)"
+}

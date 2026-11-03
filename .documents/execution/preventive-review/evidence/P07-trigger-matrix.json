@@ -1,0 +1,424 @@
+{
+  "recordedAt": "2026-09-14T09:53:09.220630+00:00",
+  "status": "passed-with-explicit-scope",
+  "implementationCommit": "eee866cb562d9c6c9828a85228942474c1ace936",
+  "sourceSha256": "1d7cd8dde991714ac85a656853437c5034c245d224a6e715da5c3ff4ed3279ac",
+  "command": "npm run test:trigger-matrix",
+  "node": "v25.9.0",
+  "matrix": [
+    {
+      "mask": 0,
+      "enabled": [],
+      "calls": 0,
+      "hookJobs": 0,
+      "requests": []
+    },
+    {
+      "mask": 1,
+      "enabled": [
+        "save"
+      ],
+      "calls": 1,
+      "hookJobs": 0,
+      "requests": [
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    },
+    {
+      "mask": 2,
+      "enabled": [
+        "stage"
+      ],
+      "calls": 1,
+      "hookJobs": 0,
+      "requests": [
+        {
+          "reasons": [
+            "stage"
+          ],
+          "sourceKind": "index"
+        }
+      ]
+    },
+    {
+      "mask": 3,
+      "enabled": [
+        "save",
+        "stage"
+      ],
+      "calls": 2,
+      "hookJobs": 0,
+      "requests": [
+        {
+          "reasons": [
+            "stage"
+          ],
+          "sourceKind": "index"
+        },
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    },
+    {
+      "mask": 4,
+      "enabled": [
+        "commit"
+      ],
+      "calls": 1,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "commit"
+          ],
+          "sourceKind": "index"
+        }
+      ]
+    },
+    {
+      "mask": 5,
+      "enabled": [
+        "save",
+        "commit"
+      ],
+      "calls": 2,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "commit"
+          ],
+          "sourceKind": "index"
+        },
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    },
+    {
+      "mask": 6,
+      "enabled": [
+        "stage",
+        "commit"
+      ],
+      "calls": 1,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "commit",
+            "stage"
+          ],
+          "sourceKind": "index"
+        }
+      ]
+    },
+    {
+      "mask": 7,
+      "enabled": [
+        "save",
+        "stage",
+        "commit"
+      ],
+      "calls": 2,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "commit",
+            "stage"
+          ],
+          "sourceKind": "index"
+        },
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    },
+    {
+      "mask": 8,
+      "enabled": [
+        "push"
+      ],
+      "calls": 1,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        }
+      ]
+    },
+    {
+      "mask": 9,
+      "enabled": [
+        "save",
+        "push"
+      ],
+      "calls": 2,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        },
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    },
+    {
+      "mask": 10,
+      "enabled": [
+        "stage",
+        "push"
+      ],
+      "calls": 2,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        },
+        {
+          "reasons": [
+            "stage"
+          ],
+          "sourceKind": "index"
+        }
+      ]
+    },
+    {
+      "mask": 11,
+      "enabled": [
+        "save",
+        "stage",
+        "push"
+      ],
+      "calls": 3,
+      "hookJobs": 3,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        },
+        {
+          "reasons": [
+            "stage"
+          ],
+          "sourceKind": "index"
+        },
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    },
+    {
+      "mask": 12,
+      "enabled": [
+        "commit",
+        "push"
+      ],
+      "calls": 2,
+      "hookJobs": 6,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        },
+        {
+          "reasons": [
+            "commit"
+          ],
+          "sourceKind": "index"
+        }
+      ]
+    },
+    {
+      "mask": 13,
+      "enabled": [
+        "save",
+        "commit",
+        "push"
+      ],
+      "calls": 3,
+      "hookJobs": 6,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        },
+        {
+          "reasons": [
+            "commit"
+          ],
+          "sourceKind": "index"
+        },
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    },
+    {
+      "mask": 14,
+      "enabled": [
+        "stage",
+        "commit",
+        "push"
+      ],
+      "calls": 2,
+      "hookJobs": 6,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        },
+        {
+          "reasons": [
+            "commit",
+            "stage"
+          ],
+          "sourceKind": "index"
+        }
+      ]
+    },
+    {
+      "mask": 15,
+      "enabled": [
+        "save",
+        "stage",
+        "commit",
+        "push"
+      ],
+      "calls": 3,
+      "hookJobs": 6,
+      "requests": [
+        {
+          "reasons": [
+            "push"
+          ],
+          "sourceKind": "commit-tree"
+        },
+        {
+          "reasons": [
+            "commit",
+            "stage"
+          ],
+          "sourceKind": "index"
+        },
+        {
+          "reasons": [
+            "save"
+          ],
+          "sourceKind": "working-tree"
+        }
+      ]
+    }
+  ],
+  "uniqueTests": {
+    "runtimeMatrix": 16,
+    "automaticRegression": 15
+  },
+  "executor": {
+    "kind": "synthetic",
+    "calls": 28,
+    "realModelCalls": 0
+  },
+  "hookReceipts": 48,
+  "checks": [
+    "exact enabled reason sets in durable broker",
+    "editor debounce with controlled scheduler clock",
+    "no-op Save/index events do not start another executor",
+    "Stage and Commit reuse the same index result",
+    "working-tree, index, commit-tree scopes stay separate",
+    "three receipts per enabled hook reuse saved results",
+    "every finished hook job binds to journal key and matching result ID",
+    "actual local bare-remote push matches HEAD",
+    "each owned service unavailable after shutdown; owned profile, hook directory, Git fixture and memory keys cleaned"
+  ],
+  "scope": {
+    "vscodeEventSource": "synthetic adapter",
+    "model": "synthetic fixed-source executor",
+    "gitHooks": "actual compiled adapter with async Git commit/push",
+    "cli": "delivered alpha.23 capture and IPC",
+    "service": "real IPC and broker; test callback composes delivered alpha.27 core context/policy/review pipeline",
+    "clock": "editor scheduler controlled; service leases, IPC and Git use wall clock",
+    "credentials": "injected cloned-buffer memory key store; no OS credential or account access",
+    "sharedRuntimeCache": "immutable CLI/adapter cache retained"
+  },
+  "validation": {
+    "typecheckTest": "passed",
+    "buildIncludingSourceTypecheck": "passed",
+    "diffCheck": "passed"
+  },
+  "delivery": {
+    "extensionVersion": "2.7.0",
+    "installedVersionUnchanged": true,
+    "newVsix": false,
+    "serverRedeployed": false,
+    "reason": "test harness and optional scheduler clock port; production defaults unchanged"
+  },
+  "remaining": [
+    "actual model overlapping trigger paths",
+    "closed-host Save and headless watch/lifecycle",
+    "partial-hunk unstage",
+    "user-wide budgets, retention and other-UID checks",
+    "P03-P06 residual gates and P09-P13"
+  ],
+  "logs": {
+    "matrix": {
+      "path": "artifacts/operations/P07-trigger-matrix/matrix.log",
+      "sha256": "0a0438afbfc17342e8854c22f61557f4cd1e31c3ece703db39454a729ae58a33"
+    },
+    "automatic": {
+      "path": "artifacts/operations/P07-trigger-matrix/automatic.log",
+      "sha256": "6a12e4b0228a0c484d559b5d9bfe44deaa3f84b7f3facd1442128ed63f545184"
+    },
+    "types": {
+      "path": "artifacts/operations/P07-trigger-matrix/types.log",
+      "sha256": "f58657fe08afac399c242b614587569bd11df7cf08f5723a1ab3ee2b723f0b9b"
+    },
+    "build": {
+      "path": "artifacts/operations/P07-trigger-matrix/build.log",
+      "sha256": "be9c22e2664ec0adc9e6c62a51e81ec46b3cac909b8f161af279e81229a7f466"
+    }
+  }
+}

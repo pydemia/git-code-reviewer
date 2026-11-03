@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-09-15T15:44:00.689Z",
+  "id": "9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+  "revision": 1,
+  "state": "active",
+  "needsReview": false,
+  "publicationRequested": true,
+  "source": {
+    "id": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+    "pullNumber": 917,
+    "htmlUrl": "https://github.com/skccmygit/skax-successionX-backend/pull/917#discussion_r3967869279",
+    "contentHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+    "observationHash": "e7b0083ae75170b89c933d9f166f43d251054c3ef6a2fcd9339f3722cda431a7",
+    "upstreamState": "present"
+  },
+  "summary": "BlockUpdateRequest의 요청 값 검증은 Pydantic validator에서 수행한다",
+  "appliesTo": {
+    "languages": [
+      "Python"
+    ],
+    "filePaths": [
+      "data-management/mainapp/domains/position_management/block/schema.py",
+      "data-management/mainapp/domains/position_management/block/service.py"
+    ],
+    "symbols": [
+      "BlockUpdateRequest",
+      "validate_block_update_type_rules"
+    ],
+    "contracts": [
+      "BlockUpdateRequest의 요청 값만으로 판단할 수 있는 필드·필드 간 검증"
+    ],
+    "branches": []
+  },
+  "counterEvidence": [
+    "DB 조회, 권한, 저장된 block 상태가 필요한 검증은 요청 schema만으로 판단할 수 없으므로 이 지침에 따라 일괄 이동하지 않는다.",
+    "해당 제약이 기존 validator 또는 호출 전에 이미 검증되는 경우 중복 검증을 요구하지 않는다.",
+    "부분 수정에서 미전달 값과 명시적 null을 구분해야 하면 현재 Pydantic 설정과 호출 경로를 먼저 확인한다."
+  ]
+}

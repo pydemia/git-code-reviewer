@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "mode": "review",
+  "realModelCallsAllowed": 1,
+  "platform": "linux",
+  "arch": "arm64",
+  "codeSha256": "8872f37cb828d74498b0451ed923a141e5b144dfd9de9c8f41265bf90b0af98d",
+  "codexSha256": "4d76e542c222ea8c75861d8c4ade60a1a332a63255ce1c60bdaebf7c2a2869e6",
+  "sessionPath": "/tmp/cd-linux-host-hrLS7q/session-gKqBy7",
+  "encryptedKeyring": true,
+  "existingAccountDocumentsUnchanged": true,
+  "keyringFiles": [
+    "login.keyring",
+    "user.keystore"
+  ],
+  "keyringCollections": "(<[objectpath '/org/freedesktop/secrets/collection/session', '/org/freedesktop/secrets/collection/login']>,)",
+  "secretServiceRoundTrip": true,
+  "fixtureDefectReproduced": true,
+  "fixedSource": {
+    "sum.ts": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+    "consumer.ts": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+    "sum.test.ts": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+    "package.json": "8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e"
+  },
+  "baseCommit": "0ddc9b4c4b7f786534c9242c00d04a03fba773a8",
+  "hostPid": 312735,
+  "hostExitCode": 0,
+  "ownedProcessesStopped": true,
+  "accountInodePreserved": true,
+  "sessionAndEncryptedKeyringRemoved": true
+}

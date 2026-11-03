@@ -1,0 +1,534 @@
+{
+  "status": "runtime-deployed-and-verified; operational-role-tls-and-saml-cutover-pending",
+  "recordedAt": "2026-09-13T11:27:56.436011+00:00",
+  "sourceCommit": "797aab719717d911db42fb337ce6a38a7fc8d7de",
+  "releasePinCommit": "234be254a348dcc42bfff3b8d2ddbebbdb5854de",
+  "release": {
+    "revision": 48,
+    "updated": "2026-09-13T20:18:43.355865+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.36",
+    "app_version": "0.8.0-alpha.38",
+    "description": "Upgrade complete"
+  },
+  "image": {
+    "digest": "sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:5e6359d7cbeea71353155944f04b51e1f2b3562b9ee9359cf1d735bde70504ff"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:00848a721813e0ae89dd8e5928566e3150a82d7b7e55082e81d7c31c3f9305ac"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "source": "797aab719717d911db42fb337ce6a38a7fc8d7de",
+    "version": "0.8.0-alpha.38",
+    "runtimeImageId": "sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198",
+    "labels": {
+      "org.opencontainers.image.version": "0.8.0-alpha.38",
+      "org.opencontainers.image.revision": "797aab719717d911db42fb337ce6a38a7fc8d7de"
+    }
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:0f265886fe992c7a311af5bd2767ca70f50a9b923fc1921ae9ea4c2068d293c4",
+    "chartSha256": "f5a24350936b7ba78896520f714ce177775206e8f37121ff49387bc388b1e9dc"
+  },
+  "valuesStrategy": "reset-then-reuse-values",
+  "health": {
+    "/health/startup": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "schemaVersion": 1
+      }
+    },
+    "/health/live": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "schemaVersion": 1
+      }
+    },
+    "/health/ready": {
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "schemaVersion": 1,
+        "database": {
+          "status": "ok",
+          "latencyMs": 1
+        }
+      }
+    },
+    "/health/dependencies": {
+      "status": 200,
+      "body": {
+        "schemaVersion": 1,
+        "status": "ok",
+        "dependencies": {
+          "database": {
+            "status": "ok",
+            "latencyMs": 1
+          },
+          "github": {
+            "status": "ok",
+            "latencyMs": null
+          },
+          "model": {
+            "status": "ok",
+            "latencyMs": null
+          },
+          "authorization": {
+            "status": "disabled",
+            "latencyMs": null
+          }
+        }
+      }
+    },
+    "/api/v1/system": {
+      "status": 200,
+      "body": {
+        "schemaVersion": 1,
+        "service": "git-code-reviewer",
+        "version": "0.8.0-alpha.38",
+        "authMode": "local"
+      }
+    },
+    "/api/v1/me": {
+      "status": 401,
+      "body": null
+    }
+  },
+  "assets": {
+    "index-BWBpY8bo.js": "262328ed10f48680dcf48021c45cb48b09333772711e53430cba0425bb88e456",
+    "index-MAHxlrLj.css": "e5bbfba11ea7fa5f88d256a06c197bd299006e9763472add8effbbe95f23d397"
+  },
+  "runtime": {
+    "server": {
+      "pod": "git-code-reviewer-server-857657ff55-4wl5z",
+      "compiled": {
+        "auth/saml-state.js": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+        "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+        "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+        "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+        "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+        "config.js": "13b99ec43f315df37fc208fd91e864a8b11501ed9f427e67692fcc39c0c7602b",
+        "database.js": "d1a7df7dbdcb3569a3685f6f53ac2a8a9c4697cda11d0f7a18000fe5de12712f",
+        "migration-readiness.js": "1cae363b2cd3b60bf6c1aa2f87ca04cc061119a78a98844a5ce87f6e8a97f687",
+        "server.js": "ab79b6545255aaa69481ed13e086f673160c665182d6846f23d52f1279718f65",
+        "identity/keycloak-admin.js": "904fcbce5978f9c944f9603880951d4fd349da79f9fbe11db296d0a37c3d6cff",
+        "identity/config.js": "7fd502e01e0577e346a452306e3895d2c1cccdf875b4de8506228a7cafa93d1e",
+        "identity/operations.js": "7411cf0a2f831d5d6a21677d9def31bf6ca5e5ae29042817c5e14f402ea40bcd",
+        "identity/processor.js": "7752fbe5d88b90d42985748be442279a3ac6725fda6623b1c2ee4ad1484c0ccb",
+        "identity/routes.js": "1af59f708b94b36b8a3eccbd85445f50b511bb82fbe2a6ceaf5646da07eb53be",
+        "identity/keycloak-security.js": "13e294ba37cae134d37941068426225f0ba9a04972217473d424fcda30332c61",
+        "identity/security-state.js": "bd1c71ab08507afa415ba2da8fb52c51392436ec35d9993301724c5915e6ca0e",
+        "identity/security-processor.js": "2087a27cbe7befe3d3b466bf2e162bf4d74e25602acf0468e0817392608cf739",
+        "identity/revocation.js": "c0bbad9050bec5c7370641108cd28f8e089b2ed6427c90e3908114814cae9a28",
+        "identity/lifecycle.js": "1867a91fa0171e4478eb7afb2a0ea1ca83b8d08c13159000915704a6e00817dd",
+        "identity/reactivation.js": "6cdc22a554f933aa334f6f680d99c2e242c974b9db7f56eae67b9248505aaf6c",
+        "identity/remote-lease.js": "c11d76ebe99705d0edd06f44350346c6f09f488d7e7ee48f2407dc56ca885810",
+        "routes/admin.js": "6cf909bae73288869bfb176a6742ce0ae2d32e586755c0153780faf17dade298",
+        "jobs/worker.js": "39f1fe0e6bc9b1fce53a9ef2481de5e554399b4ca3d4b7aab54423517ef28b29"
+      },
+      "dbCompiled": {
+        "connection.js": "020ca381a553e6ac5c0b9364b9c9977b199e4486cb289bdabea4e8825213da1e",
+        "shared-postgres.js": "b1bf4f7229fe2d2f7eb938d5bee02ef6d403c378c58102d750dc8edfb32296f2",
+        "provision-cli.js": "afc63d766f825d8b3b164d9743df71784e7ea76001411365968747c6137eff07"
+      },
+      "node": "v22.23.2",
+      "uid": 1000,
+      "version": "0.8.0-alpha.38",
+      "static": "10.1.3",
+      "compiledSamlStateSha256": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+      "folders": [
+        "@fastify+static@10.1.3",
+        "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+        "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+      ],
+      "logCounts": {
+        "warn": 0,
+        "error": 0,
+        "fatal": 0,
+        "unstructured": 0
+      }
+    },
+    "worker": {
+      "pod": "git-code-reviewer-worker-7f8f9fcdbf-t8ptq",
+      "compiled": {
+        "auth/saml-state.js": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+        "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+        "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+        "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+        "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+        "config.js": "13b99ec43f315df37fc208fd91e864a8b11501ed9f427e67692fcc39c0c7602b",
+        "database.js": "d1a7df7dbdcb3569a3685f6f53ac2a8a9c4697cda11d0f7a18000fe5de12712f",
+        "migration-readiness.js": "1cae363b2cd3b60bf6c1aa2f87ca04cc061119a78a98844a5ce87f6e8a97f687",
+        "server.js": "ab79b6545255aaa69481ed13e086f673160c665182d6846f23d52f1279718f65",
+        "identity/keycloak-admin.js": "904fcbce5978f9c944f9603880951d4fd349da79f9fbe11db296d0a37c3d6cff",
+        "identity/config.js": "7fd502e01e0577e346a452306e3895d2c1cccdf875b4de8506228a7cafa93d1e",
+        "identity/operations.js": "7411cf0a2f831d5d6a21677d9def31bf6ca5e5ae29042817c5e14f402ea40bcd",
+        "identity/processor.js": "7752fbe5d88b90d42985748be442279a3ac6725fda6623b1c2ee4ad1484c0ccb",
+        "identity/routes.js": "1af59f708b94b36b8a3eccbd85445f50b511bb82fbe2a6ceaf5646da07eb53be",
+        "identity/keycloak-security.js": "13e294ba37cae134d37941068426225f0ba9a04972217473d424fcda30332c61",
+        "identity/security-state.js": "bd1c71ab08507afa415ba2da8fb52c51392436ec35d9993301724c5915e6ca0e",
+        "identity/security-processor.js": "2087a27cbe7befe3d3b466bf2e162bf4d74e25602acf0468e0817392608cf739",
+        "identity/revocation.js": "c0bbad9050bec5c7370641108cd28f8e089b2ed6427c90e3908114814cae9a28",
+        "identity/lifecycle.js": "1867a91fa0171e4478eb7afb2a0ea1ca83b8d08c13159000915704a6e00817dd",
+        "identity/reactivation.js": "6cdc22a554f933aa334f6f680d99c2e242c974b9db7f56eae67b9248505aaf6c",
+        "identity/remote-lease.js": "c11d76ebe99705d0edd06f44350346c6f09f488d7e7ee48f2407dc56ca885810",
+        "routes/admin.js": "6cf909bae73288869bfb176a6742ce0ae2d32e586755c0153780faf17dade298",
+        "jobs/worker.js": "39f1fe0e6bc9b1fce53a9ef2481de5e554399b4ca3d4b7aab54423517ef28b29"
+      },
+      "dbCompiled": {
+        "connection.js": "020ca381a553e6ac5c0b9364b9c9977b199e4486cb289bdabea4e8825213da1e",
+        "shared-postgres.js": "b1bf4f7229fe2d2f7eb938d5bee02ef6d403c378c58102d750dc8edfb32296f2",
+        "provision-cli.js": "afc63d766f825d8b3b164d9743df71784e7ea76001411365968747c6137eff07"
+      },
+      "node": "v22.23.2",
+      "uid": 1000,
+      "version": "0.8.0-alpha.38",
+      "static": "10.1.3",
+      "compiledSamlStateSha256": "32b0c62125ea6dda9a67abdefa3b08f3ef2ee59fae53dc529e9087dccbe15311",
+      "folders": [
+        "@fastify+static@10.1.3",
+        "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+        "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+      ],
+      "logCounts": {
+        "warn": 0,
+        "error": 0,
+        "fatal": 0,
+        "unstructured": 0
+      }
+    }
+  },
+  "runtimeMode": {
+    "server": {
+      "authMode": "local",
+      "identityAdministrationEnabled": false,
+      "identitySecurityEnabled": false,
+      "isolatedDatabaseRoles": false,
+      "databaseTlsMode": "legacy",
+      "databasePoolMax": 10
+    },
+    "worker": {
+      "authMode": "local",
+      "identityAdministrationEnabled": false,
+      "identitySecurityEnabled": false,
+      "isolatedDatabaseRoles": false,
+      "databaseTlsMode": "legacy",
+      "databasePoolMax": 10
+    }
+  },
+  "helmTest": {
+    "at": "2026-09-13T11:25:46.446504+00:00",
+    "revision": 48,
+    "status": "deployed",
+    "hooks": [
+      {
+        "name": "git-code-reviewer-test-connection",
+        "kind": "Pod",
+        "last_run": {
+          "started_at": "2026-09-13T20:24:50.978546+09:00",
+          "completed_at": "2026-09-13T20:24:54.008673+09:00",
+          "phase": "Succeeded"
+        }
+      },
+      {
+        "name": "git-code-reviewer-migrate-48",
+        "kind": "Job",
+        "last_run": {
+          "started_at": "2026-09-13T20:18:44.106952+09:00",
+          "completed_at": "2026-09-13T20:19:09.838168+09:00",
+          "phase": "Succeeded"
+        }
+      }
+    ]
+  },
+  "browser": {
+    "status": "passed",
+    "at": "2026-09-13T11:24:57.577Z",
+    "browser": "152.0.7977.84",
+    "headless": true,
+    "nativeGui": false,
+    "version": "0.8.0-alpha.38",
+    "authMode": "local",
+    "localLoginVisible": true,
+    "anonymousAdministration": [
+      {
+        "route": "/api/v1/admin/identity/capabilities",
+        "status": 404
+      },
+      {
+        "route": "/api/v1/admin/identity/operations",
+        "status": 404
+      }
+    ],
+    "pageErrors": [],
+    "apiMocks": 0,
+    "credentialsUsed": false
+  },
+  "preservation": {
+    "status": "passed",
+    "at": "2026-09-13T11:25:17.015433+00:00",
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "analysis_runs": {
+        "before": 153,
+        "after": 153,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "reports": {
+        "before": 145,
+        "after": 145,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true,
+        "identical": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true,
+        "identical": true
+      }
+    },
+    "legacySessionsPreserved": true,
+    "localCredentialFieldsPreserved": true,
+    "providerPreserved": true,
+    "runtimeMode": {
+      "authMode": "local",
+      "identityAdministrationEnabled": false,
+      "identitySecurityEnabled": false
+    },
+    "identityTablesEmpty": true,
+    "oldMigrationCount": 36,
+    "currentMigrationCount": 36,
+    "oldMigrationChecksumsPreserved": true,
+    "newMigrationChecksums": {},
+    "nonImageValuesHash": "9abc48b9861c0223aec5693151e5fa8b868ea84ab958909a3f5b127384f1ee14",
+    "nonImageComputedValuesHash": "47567d5259e93fe605ab4de7f9f35f9f2a65ce99df59859ff6530978c167b97d",
+    "existingComputedValuesPreserved": true,
+    "addedComputedDefaultPaths": [
+      "/auth/saml/configurationRevision",
+      "/auth/saml/entityId",
+      "/auth/saml/idpIssuer",
+      "/auth/saml/metadataConfigMap",
+      "/auth/saml/metadataKey",
+      "/auth/saml/privateKeyKey",
+      "/auth/saml/publicCertKey",
+      "/auth/saml/sessionSecretKey",
+      "/auth/saml/signingSecret",
+      "/database/isolated/budget/applicationConnectionLimit",
+      "/database/isolated/budget/keycloakConnectionLimit",
+      "/database/isolated/budget/maxConnections",
+      "/database/isolated/budget/migratorConnectionLimit",
+      "/database/isolated/budget/operatorReserve",
+      "/database/isolated/budget/otherConnections",
+      "/database/isolated/budget/reservedConnections",
+      "/database/isolated/budget/serverPeakReplicas",
+      "/database/isolated/budget/workerPeakReplicas",
+      "/database/isolated/enabled",
+      "/database/isolated/host",
+      "/database/isolated/migratorSecret",
+      "/database/isolated/name",
+      "/database/isolated/passwordKey",
+      "/database/isolated/port",
+      "/database/isolated/runtimeSecret",
+      "/database/migrationsWaitTimeoutMs",
+      "/database/tls/existingConfigMap",
+      "/database/tls/key",
+      "/database/tls/mode",
+      "/identity/adminBaseUrl",
+      "/identity/adminEnabled",
+      "/identity/clientId",
+      "/identity/clientSecretKey",
+      "/identity/configurationRevision",
+      "/identity/existingSecret",
+      "/identity/networkPolicy/adminPeers",
+      "/identity/networkPolicy/adminPort",
+      "/identity/networkPolicy/publicPeers",
+      "/identity/networkPolicy/publicPort",
+      "/identity/securityEnabled",
+      "/worker/databasePoolMax"
+    ],
+    "resourceUIDsAndDataPreserved": true,
+    "resourceVersionsChanged": [
+      "configmaps/git-code-reviewer"
+    ],
+    "persistentVolumesPreserved": 2,
+    "scope": "Existing user identity/access fields, record IDs for accounts/analyses/reports, membership/grants/memory ownership, local credential fields and web-session rows; unrelated new records may be appended."
+  },
+  "snapshotWindow": {
+    "before": "2026-09-13T11:15:55.626567+00:00",
+    "after": "2026-09-13T11:24:43.906112+00:00"
+  },
+  "legacySessionCount": 1,
+  "provider": [
+    {
+      "id": "747dc264-bfcf-4307-8f5f-8d4578d031de",
+      "version": 8,
+      "mode": "chatgpt-account",
+      "model_name": "gpt-5.6-terra",
+      "concurrency": 4,
+      "timeout_ms": 300000,
+      "configuration_hash": "2fdc6d40a3871aaeb3be7174891afee59582c1db4fea7428dddcdd4f064f0041"
+    }
+  ],
+  "pods": [
+    {
+      "name": "git-code-reviewer-postgresql-0",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "postgresql",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "registry-1.docker.io/bitnami/postgresql@sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-retention-29821640-rmfv7",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "retention",
+          "ready": false,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-server-857657ff55-4wl5z",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "server",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-test-connection",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "wget",
+          "ready": false,
+          "restarts": 0,
+          "imageID": "docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker-6bc77c644-xr9lh",
+      "deleting": "2026-09-13T12:19:25Z",
+      "containers": [
+        {
+          "name": "source-sandbox",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915"
+        },
+        {
+          "name": "worker",
+          "ready": false,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:2f17d3f8a2c35e6cc217d8f477dad9cced4770787460c0b66c568cb63d8bf915"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker-7f8f9fcdbf-t8ptq",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "source-sandbox",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198"
+        },
+        {
+          "name": "worker",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:890cbc324d5f2cc828ceea5c0abc8b70d79c36f3f38357777643696171072198"
+        }
+      ]
+    }
+  ],
+  "artifactSha256": {
+    "chart-readback.json": "8889f554dac9f977ac1f0d67e43f29b71ba9ea076f999991d8ab71ff08b54839",
+    "deploy.py": "fb2900b02cd8a6cfbb8eb922d6e7b769dfac91662bb4d88d7ec91a0282f2b2f6",
+    "helm-upgrade.log": "87328eb0ecca86248b6a55a78148d866f5b3c1c30049c1cf5c46c77805e4387e",
+    "helm-test.log": "5dc27175ac711d7bea25a7e474a81fa535810adefe80cb3737f74b01c1e9a219",
+    "helm-test.json": "220c3ff43c7ea8092ca31f84d2e0e04dfb3c686406abce4f787836e84d34961d",
+    "runtime-mode.json": "87463c09affd92e575989d4c0cad4a24e74d4cc3feb65fcce88d51dc5bcb6dc2",
+    "before-final-snapshot.json": "840c52118355c941edd944bfc0922bee39148ca6a89db2b83cf4f1db06039a84",
+    "after-snapshot.json": "2eafac184abccd0658e8503a8f786eae782ddc16f5f006439b41ed061bf9c167",
+    "persistent-volumes-before.json": "d5bfe80b703d604fed3e65b94a3b4ab2a935e1557fd78914a870630a16352b20",
+    "release-snapshot.py": "682002c1c87bb5a3343d0199f88d0dbd6419f077a1281d43a03d7e2ffe0ca95c",
+    "preservation.py": "94118ea2bf3843c272e45948dc335753e730c09e5c1d3a3e75aaf38bfb3a48b7",
+    "preservation.json": "ae4c6211c600cc04d2ab4c4f4488e92865277575ce33ff9d9c777eed667f5cd7",
+    "deployment-smoke.py": "7e33fb29dd74ffd92fd845352c10dbf0ee27c8e3baefad63f39ce9b3d2fac4b1",
+    "deployment-smoke.json": "e99a6fc4626e6ae4a094b3471fbc1b35aa0a05fcbc4aff1c88d4405bf4511fd9",
+    "deployed-login-browser.mjs": "b6985a7ef8de0fcec34b55be7be8b307509cef4dd655ebc884b63fa1ad9b2501",
+    "deployed-login-browser.json": "d2210f9f96d7482ac6a5b21c2422570810037b5c4402cfac63220a3dec85f53c"
+  },
+  "scope": {
+    "operationalDatabaseRoleTlsCutover": false,
+    "samlOperationalCutover": false,
+    "companionDeployed": false,
+    "nativeGuiVerified": false,
+    "oldWorkerGraceSeconds": 3600,
+    "oldWorkerForceDeleted": false,
+    "realModelCalls": 0,
+    "userCredentialsUsed": false
+  },
+  "remaining": [
+    "C06 operational database role/TLS transition",
+    "C07 companion amd64 image and chart, public/private TLS and CNI, full application SAML integration",
+    "C08 identity mapping, cutover and backup/restore rehearsal",
+    "P02 Commit Defender native GUI and release gates",
+    "P04–P13 implementation and delivery"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-09-16T03:12:34.516Z",
+  "branch": "codex/windows-native-support",
+  "scope": "W02 local validation; completion pending",
+  "gcr": {
+    "w01": "662825083579172cc24d4cdc5ee7f6106865a3f1",
+    "productSource": "c05dd04ce7227f070baf90d52416cc1d678f48c7",
+    "verifiedRemoteDelivery": "7b1dd888727759f7f500b98b1e5dd6e17c3b443f"
+  },
+  "cd": {
+    "w01": "aee8b2246bf82e98dbc88de5afd789fd2d1c92bd",
+    "productSource": "777d11511869225da39d2ecd5a57b4dfcfb71df7",
+    "verifiedRemoteDelivery": "35f555b2af57c17b89ca111304b1c76b04035945"
+  },
+  "worktreesCleanAtDelivery": true,
+  "remoteEqualsLocalAtDelivery": true,
+  "historyPreserved": true,
+  "forcePush": false,
+  "note": "The subsequent documentation-only audit commit records these verified delivery commits; product artifacts remain unchanged."
+}

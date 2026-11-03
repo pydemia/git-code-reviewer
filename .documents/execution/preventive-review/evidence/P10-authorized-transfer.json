@@ -1,0 +1,67 @@
+{
+  "recordedAt": "2026-09-14T12:38:51.552883+00:00",
+  "phase": "P10",
+  "scope": "P10-C01 transfer contract and scoped authorization only",
+  "completion": {
+    "P10-C01": false,
+    "P10": false,
+    "fullGoal": false
+  },
+  "files": {
+    "packages/client-contract/src/remote-review.ts": "d1151db5361919f593b30db2f886d9d62297a41c8c3a383d7230c07bea3f65d7",
+    "packages/client-core/src/remote-review.ts": "e9e052563a97b7383d022da456e42d5aff277bc7ddaeef7ab9e1732e5fd633e7",
+    "packages/client-core/src/remote-review.test.ts": "5ed44ff33c7f70c8bcc1fe7594080832ebc8ff18e14246600c9b7e3067a6c159",
+    "packages/contracts/src/client-credentials.ts": "8887a9eb3975f6f03375b44b746baf9e0e268b3092bfab5c04896e4665628898",
+    "packages/db/migrations/0046_client_model_scope.sql": "6c457cfc24716a71f9f8f2bc6f1e0047c2d591f1c3228cd9103e7731dc8faa44",
+    "apps/runtime/src/auth/index.ts": "3e094d71247d8f5271c4c349931d63511f3177083642a9a0eb0c45ea84245213",
+    "apps/runtime/src/auth/client-credentials.ts": "19621584abcd74af78ecc873b66a23f92ec5bebfd4639b425b3335386cc5f1a3",
+    "apps/runtime/src/auth/mutation-origin.ts": "5e14f2e072f3ba13849c0ff800a8bca99470e5a3586982ed88b9f18dc7b04cc1",
+    "apps/runtime/src/auth/client-credentials.integration.test.ts": "4364306355d7d75b391c5eb6d217ed6d557bfd3ade500b3301a491f93469a6a6"
+  },
+  "tests": {
+    "passed": 49,
+    "failed": 0,
+    "transfer": 34,
+    "postgresAuthorizationAndRegression": 15,
+    "actualModelCalls": 0,
+    "logs": {
+      "gcr-p10-combined-tests.log": "f8c004663aaab989e90b5bd00d0d03651515cc4328bad982bbd207949293d819",
+      "gcr-p10-combined-postgres.json": "125d5af413b5db5a4d4792c06ea76f95f1c00ad6cecf3fd38bda434875570936"
+    }
+  },
+  "database": {
+    "startedAt": "2026-09-14T12:38:03.298Z",
+    "backend": "native-postgresql",
+    "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+    "cleanup": true,
+    "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+    "commandExitCode": 0,
+    "finishedAt": "2026-09-14T12:38:09.812Z"
+  },
+  "checks": {
+    "clientContractBuild": "passed",
+    "contractsBuild": "passed",
+    "clientCoreBuild": "passed",
+    "runtimeTypecheck": "passed",
+    "changedTestsTypecheck": "passed",
+    "changedFilesLint": "passed"
+  },
+  "issuesResolved": [
+    "Explicit model routes initially rejected origin-less native bearer POST; mutation guard now recognizes only the explicit marker and still rejects hostile Origin."
+  ],
+  "environmentLimitations": [
+    "Pinned Docker PostgreSQL image could not be read because daemon content store returned input/output error. Native PostgreSQL fixture used for database semantics; container/TLS/deployment gates not claimed."
+  ],
+  "deployment": {
+    "performed": false,
+    "reason": "No job admission HTTP route or central worker wired yet. Existing client archives and installed VSIX unchanged."
+  },
+  "remaining": [
+    "Durable idempotent remote job intake/status/cancel/result endpoints",
+    "Central model account and external authorization at admission and execution",
+    "Budget ledger and worker ownership/checkpoint/cancellation",
+    "Enforced source/result retention and cleanup",
+    "Recoverable client executor, lost acknowledgement and no automatic local duplicate",
+    "CD selection and approval UI, package releases, actual model/deployment verification"
+  ]
+}

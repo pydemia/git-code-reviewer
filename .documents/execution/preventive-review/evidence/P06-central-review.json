@@ -1,0 +1,85 @@
+{
+  "checkpoint": "P06-C04 central context and authorized local execution core",
+  "verifiedAt": "2026-09-13T19:35:03.194944+00:00",
+  "status": "passed",
+  "baseCommit": "48954bcb650a02eb8cdc452f8ea013cd53dff187",
+  "reports": [
+    {
+      "path": "artifacts/operations/P06-client-regression-final.json",
+      "sha256": "9b99964d010157c9b300340c5354387ccdcfe080ee872ea9902f1e910293d7d8",
+      "tests": 251,
+      "passed": 251,
+      "failed": 0
+    },
+    {
+      "path": "artifacts/operations/P06-v2-server-tests-final.json",
+      "sha256": "59ecb96d421d80f8dcfe311b3a3a9763be83607a2818b428825c9ae374c183c2",
+      "tests": 40,
+      "passed": 40,
+      "failed": 0
+    }
+  ],
+  "totalTests": 291,
+  "builds": [
+    "pnpm build:clients: exit 0",
+    "pnpm --filter @gcr/runtime build: exit 0"
+  ],
+  "lint": "eslint all modified/new TypeScript: exit 0",
+  "externalModelCalls": 0,
+  "sourceHashes": {
+    ".documents/execution/preventive-review/P06.md": "451b9ed6beae6a8edcff84c3bbd00f013122df4bb3c51a35e3f769ed57f5d4ab",
+    "apps/runtime/src/auth/client-credentials.integration.test.ts": "6d5d85b47b44fc31f8b40b800541c70b80dff154cbd7965af7093e412600e97b",
+    "apps/runtime/src/routes/review-knowledge.integration.test.ts": "0930d6eb8fec8436681cd0bf66ba66ada7b98c40b2ea81a74b650edf0d876f8b",
+    "apps/runtime/src/routes/review-knowledge.ts": "fca75c928bea0956f537f51205b4df1ed9caa2be31313223b1aca49823e81856",
+    "apps/runtime/src/services/knowledge-manifest.ts": "3e0ff9aec73b8fc00096fe609ec298cfe3d9af7d30ffeffae4c3965f80e8a5c6",
+    "apps/runtime/src/services/knowledge-projection.ts": "eda7f9562c1f1e5c6d085921fa6e880edafc59882980b136ac76ec30b3986cd9",
+    "apps/runtime/src/services/knowledge-publication.integration.test.ts": "16191a1c79335155df4fc33d4ec55099e61877fedae294efccb4613e584d07e9",
+    "apps/runtime/src/services/knowledge-publication.ts": "a4740b05ad73f757beae8fc7eab99d684cb77e6429103e7afe5b92361eadb92c",
+    "apps/runtime/src/services/knowledge-status.ts": "68d91d508c71eaa93029d12d47de8fa5527fae6846a3392adf5e92b62e65faf8",
+    "docs/operations/review-knowledge-distribution.md": "db88def7f70753f8015b97d60b93f8b060d87fafb0a25c301269e8fda81ebda5",
+    "packages/client-contract/src/central-cache.ts": "f57bfdf0c1c99e0f3ec2b9b4fe40d491b7c774e2109d9dce86090e463f8392fe",
+    "packages/client-contract/src/central-knowledge.ts": "cbee7825da7bb9b90c549570b949e52202d66fd6ff9fb3f046097c332cf09928",
+    "packages/client-contract/src/knowledge-management.ts": "be3c31085941491e9df0b2ccaa3deb2fd6006f66b180b0b9a87bdd1350fed94f",
+    "packages/client-contract/src/knowledge-manifest.ts": "0261a6476aa49988feb542b7935a4ed262ce6a46981f787cc9e66cf10fca6e8e",
+    "packages/client-core/README.md": "c8ac05414a99a10371e6a89013af3fc972f1d885ae3d1f6b717be0e81995c978",
+    "packages/client-core/src/central-cache.test.ts": "02347e4b2aff4b53a58a00a5294777a9f7a4593665d6e28fb6fd1cfb84c07472",
+    "packages/client-core/src/central-cache.ts": "f84b63a2df2ef0b96e69e522711bd2c523ebb53e494f89c593932dc829524c23",
+    "packages/client-core/src/central-review.test.ts": "493064f0a0baebbe5240fdb558b5e5fd7e212de1394e4962ed6051d880c8b285",
+    "packages/client-core/src/central-selection.ts": "93abdce963c3661819fd14863480816f46aaae06078069c52976efbd259ede2d",
+    "packages/client-core/src/index.ts": "7717b64bf75db6dad2baa097124897cab91451a2dbabb04a7a5f346a57573e42",
+    "packages/client-core/src/knowledge-http.test.ts": "84567f03495cce124f86edd1394759db13922ed8da6d3ed6ff7199113815dcea",
+    "packages/client-core/src/knowledge-http.ts": "2d1202cffa88254ce21dc2293d62261784f46486cae6c855c7a54019e58136c7",
+    "packages/client-core/src/knowledge-signature.test.ts": "3637bf805e140d44a8849de685f5f5f259158811cdbe96cb55247e934e6e0fda",
+    "packages/client-core/src/knowledge-signature.ts": "7c1c8152a5a5f71098caf330b7890f557e52769467dfc181a2a71319cf0e3fb1",
+    "packages/client-core/src/review-context.ts": "d1891a3ea1cd6c6fb704bceb97a11c8181f25d6621a28328c9b69725a86a8cb6",
+    "packages/client-core/src/review-policy.ts": "9bae72cff7c5f08a3fb09386f6eaa79acaf72a978d57560d0720d00d4ce58cff",
+    "packages/client-core/src/review-runner.ts": "df48ebfc611a563f40948de4a04d00c5623ea99477293bab65355e19cff25390",
+    "packages/client-core/src/source-language.ts": "2bef482a6d79dd26a7c31b8554aef7311198c7657e7dc77295654eccb7745600",
+    "packages/db/migrations/0042_knowledge_precedence_contract.sql": "58131fd913f4cac92239507b44376456e6066a5a3c9ea4730586f1302d37e77b"
+  },
+  "verified": [
+    "v2 approved aggregation identity and grouping-change reapproval on real owned PostgreSQL",
+    "Requeue legacy catalog scopes, preserve release IDs and reject old-worker publication acknowledgement",
+    "Server v1/v3 rejection and v2 signed three-component distribution through scoped API keys",
+    "Actual temporary Git index/base through fixed source port and a synthetic executor",
+    "Per-file applicability before collective/personal precedence; lexical candidates, time-bounded exceptions and mandatory context budget",
+    "Exact local cache profile/worktree and authenticated audience before reads; separate standalone/central identity",
+    "Central knowledge transmission approval, immutable prompt and real source-read receipts",
+    "Ordinary signed updates retain pinned input and mark superseded; sync pauses further reads",
+    "Critical/auth revision/403 revocation blocks additional reads and late results; pre-run revocation prevents model admission",
+    "Executor ignoring abort cannot delay cancellation; closed review rejects later source reads"
+  ],
+  "limitations": [
+    "No new client/image/chart artifact or PRISM-DEV deployment; last observed GCR revision53 alpha.41 migration40 and Keycloak revision2 retain TLS",
+    "Synthetic model/key ports are not actual provider execution or installed OS credential-store verification",
+    "CLI/CD host centralized mode, API key UI/broker and repository mapping remain incomplete",
+    "Current server marks every component release as critical; ordinary/critical server classification remains work",
+    "Arbitrary local prose has no grouping identity; semantic conflict detection is not claimed",
+    "Legacy server PR memory selector has not been replaced with this common selector",
+    "P00-P13 objective remains active"
+  ],
+  "supersededAttempts": [
+    "P06-v2-server-tests.json: unsupported-version fixture used the newly supported version; corrected and rerun",
+    "P06-client-regression.json: newly added test file had a declaration syntax error; corrected, reformatted and full final client suite passed"
+  ]
+}

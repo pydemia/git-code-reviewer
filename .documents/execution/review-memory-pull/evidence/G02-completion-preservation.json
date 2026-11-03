@@ -1,0 +1,95 @@
+{
+  "status": "passed",
+  "at": "2026-09-15T09:17:01.084942+00:00",
+  "release": {
+    "revision": 73,
+    "updated": "2026-09-15T17:48:57.139509+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.59",
+    "app_version": "0.8.0-alpha.63",
+    "description": "Upgrade complete"
+  },
+  "tables": {
+    "users": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "chat_accounts": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "analysis_runs": {
+      "before": 183,
+      "after": 183,
+      "existingRowsPreserved": true
+    },
+    "reports": {
+      "before": 175,
+      "after": 175,
+      "existingRowsPreserved": true
+    },
+    "repository_grants": {
+      "before": 2,
+      "after": 2,
+      "existingRowsPreserved": true
+    },
+    "tenant_memberships": {
+      "before": 7,
+      "after": 7,
+      "existingRowsPreserved": true
+    },
+    "review_memories": {
+      "before": 4,
+      "after": 5,
+      "existingRowsPreserved": true
+    },
+    "localCredentials": {
+      "before": 6,
+      "after": 6,
+      "existingRowsPreserved": true
+    }
+  },
+  "existingUsersCredentialsAndGrantsUnchanged": true,
+  "providerAndSettingsUnchanged": true,
+  "existingSecretsRoutesPVCsPreserved": true,
+  "migrationCount": 53,
+  "migrationChecksumsUnchanged": true,
+  "addedGuidanceId": "9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+  "runtime": [
+    {
+      "name": "git-code-reviewer-server-598b8899f6-rt8l7",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "server",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+        }
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker-8494f5dfcd-hsddh",
+      "deleting": null,
+      "containers": [
+        {
+          "name": "source-sandbox",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+        },
+        {
+          "name": "worker",
+          "ready": true,
+          "restarts": 0,
+          "imageID": "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+        }
+      ]
+    }
+  ],
+  "userSessionsBefore": 0,
+  "userSessionsAfter": 0,
+  "sessionSnapshotUnchanged": true
+}

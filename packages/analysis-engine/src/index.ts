@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { assignFindingOccurrences } from './occurrences.js';
 import {
   reviewWritingGuidelines,
   type AnalysisProgress,
@@ -10,14 +11,20 @@ export * from './skills.js';
 export * from './review-windows.js';
 export * from './report-forms.js';
 export * from './review-prompt.js';
+export * from './impact-plan.js';
+export * from './review-task-store.js';
+export * from './test-code.js';
 import {
   composeReviewMemory,
   composeSkillReviewPrompt,
   type ReviewStageContext,
 } from './review-prompt.js';
 import { runSkillReview, type SkillReviewOutput } from './skill-review.js';
+import { runImpactReview, type ImpactReviewOptions } from './impact-review.js';
 import { assembleReviewAnalysis, filterContradictoryPraise } from './report-forms.js';
+import { isTestCodePath } from './test-code.js';
 import type { ReviewSkillBundle } from '@gcr/review-contract';
+import type { SharedCriterionContext } from '@gcr/review-contract';
 import {
   legacyAnalysisReportSchema,
   normalizeLegacyReport,
@@ -56,7 +63,13 @@ export type AnalysisInput = {
   severityLevel?: ReviewSeverityLevel;
   skills?: { bundle: ReviewSkillBundle; versionId: string | null; version: number | null };
   memory?: ReviewMemoryProjection[];
+  contextLimitations?: string[];
+  sharedCriteria?: SharedCriterionContext;
   budgets?: Partial<AnalysisBudgets>;
+  impactReview?: ImpactReviewOptions;
+  fileExclusions?: Map<string, string>;
+  includeTestCode?: boolean;
+  largeReview?: boolean;
   onProgress?: (stage: string, detail: AnalysisProgress) => Promise<void>;
 };
 
@@ -91,19 +104,46 @@ const defaultBudgets: AnalysisBudgets = {
 export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOutput> {
   const startedAt = performance.now();
   const budgets = { ...defaultBudgets, ...input.budgets };
-  const classified = input.files.map((file) => ({ ...file, ...classifyFile(file) }));
+  const classified = input.files.map((file) => ({
+    ...file,
+    ...classifyFile(file),
+    ...(input.fileExclusions?.has(file.id)
+      ? { analyzable: false, reason: input.fileExclusions.get(file.id)! }
+      : {}),
+  }));
   const eligible = classified.filter((file) => file.analyzable);
-  const selected = eligible.slice(0, budgets.maxFiles);
+  const productionFiles = eligible.filter((file) => !isTestCodePath(file.path));
+  const testFiles = eligible.filter((file) => isTestCodePath(file.path));
+  const largeReview = input.largeReview ?? Boolean(input.impactReview);
+  const reviewTestCode = Boolean(input.includeTestCode) && !largeReview;
+  // Preserve order within each class while spending the review budget on production
+  // code before tests. Grouped large reviews always retain tests as context only.
+  const reviewCandidates = [...productionFiles, ...(reviewTestCode ? testFiles : [])];
+  const selected = input.impactReview
+    ? reviewCandidates
+    : reviewCandidates.slice(0, budgets.maxFiles);
+  const sourceOnlyFiles = reviewTestCode ? [] : testFiles;
+  const exclusionReasons = new Map(input.fileExclusions);
+  for (const file of sourceOnlyFiles)
+    exclusionReasons.set(
+      file.id,
+      largeReview
+        ? '대규모 분석에서는 테스트 코드를 source context로만 사용합니다.'
+        : 'Repository 설정에 따라 테스트 코드를 source context로만 사용합니다.',
+    );
   const bytes = selected.reduce((total, file) => total + Buffer.byteLength(file.patch), 0);
-  const limitations: string[] = [];
-  if (eligible.length > selected.length)
-    limitations.push(`file budget: ${eligible.length - selected.length}개 file 생략`);
-  if (bytes > budgets.maxBytes) limitations.push('canonical diff byte budget 초과');
+  const limitations: string[] = [...(input.contextLimitations ?? [])];
+  if (reviewCandidates.length > selected.length)
+    limitations.push(`file budget: ${reviewCandidates.length - selected.length}개 file 생략`);
+  if (!input.impactReview && bytes > budgets.maxBytes)
+    limitations.push('canonical diff byte budget 초과');
   for (const file of classified.filter((candidate) => !candidate.analyzable)) {
-    limitations.push(`${file.path}: ${file.reason}`);
+    if (!input.impactReview) limitations.push(`${file.path}: ${file.reason}`);
   }
   const boundedFiles =
-    bytes > budgets.maxBytes ? takeWithinByteBudget(selected, budgets.maxBytes) : selected;
+    !input.impactReview && bytes > budgets.maxBytes
+      ? takeWithinByteBudget(selected, budgets.maxBytes)
+      : selected;
   const parsedFiles = boundedFiles.map((file) => ({
     ...file,
     headLines: extractHeadLines(file.patch),
@@ -131,7 +171,7 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     legacy = fixtureReview(parsedFiles.map((file) => file.path));
     reviewStatus = 'fixture';
   } else if (input.skills) {
-    skillResult = await runSkillReview({
+    const common = {
       files: boundedFiles,
       allFiles: input.files,
       skills: input.skills.bundle,
@@ -139,10 +179,23 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       ...(input.prompt ? { instructions: input.prompt.instructions } : {}),
       ...(input.severityLevel ? { severityLevel: input.severityLevel } : {}),
       ...(input.memory ? { memory: input.memory } : {}),
+      sourceOnlyFiles,
+      exclusionReasons,
       maxModelCalls: budgets.maxModelCalls,
       concurrency: input.concurrency ?? 1,
       ...(input.onProgress ? { onProgress: input.onProgress } : {}),
-    });
+    };
+    skillResult = input.impactReview
+      ? await runImpactReview({
+          ...common,
+          options: input.impactReview,
+          exclusionReasons: new Map(
+            classified
+              .filter((file) => !file.analyzable || exclusionReasons.has(file.id))
+              .map((file) => [file.id, exclusionReasons.get(file.id) ?? file.reason]),
+          ),
+        })
+      : await runSkillReview(common);
     legacy = skillResult.legacy;
     reviewStatus = skillResult.reviewStatus;
     limitations.push(...skillResult.limitations);
@@ -216,7 +269,12 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
       : {}),
     emptyImpact: impact,
     coverage,
+    ...(input.sharedCriteria ? { sharedCriteria: input.sharedCriteria } : {}),
   });
+  if (report.findings.some((finding) => finding.criteria?.rejected))
+    limitations.push(
+      '일부 지적의 공용 기준 연결을 확인하지 못했습니다. 기준 버전·적용 파일·코드 위치·반증 검토 조건을 확인하세요.',
+    );
   report.perFileSummaries = fillPerFileSummaries(report, parsedFiles);
   report.impact = impact;
   report.coverage = coverage;
@@ -271,15 +329,26 @@ export async function analyzeSnapshot(input: AnalysisInput): Promise<AnalysisOut
     model: input.fixtureMode ? 'fixture-v1' : (input.model?.profile ?? 'disabled'),
     review: reviewStatus,
     ...(input.severityLevel ? { severity: input.severityLevel } : {}),
-    policy: input.skills ? 'skill-review-v1' : 'default-v1',
+    policy: input.impactReview
+      ? 'impact-group-review-v1'
+      : input.skills
+        ? 'skill-review-v1'
+        : 'default-v1',
     prompt: input.prompt
       ? `tenant-v${input.prompt.version}:${input.prompt.hash.slice(0, 12)}`
       : 'builtin-v1',
     ...(input.skills
       ? { skills: input.skills.bundle.hash, report: 'commit-defender-total-summary-v1' }
       : {}),
+    testCodeTargets: largeReview
+      ? 'source-only-large-review'
+      : reviewTestCode
+        ? 'included-after-production'
+        : 'source-only',
   };
   report.durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+  if (!input.fixtureMode)
+    assignFindingOccurrences(report, boundedFiles, input.sharedCriteria?.pinHash);
   return {
     state: limitations.length > 0 ? 'partial' : 'completed',
     report: reviewReportSchema.parse(report),
@@ -347,6 +416,7 @@ export function modelReviewFromText(raw: string, files: string[]) {
         file_comments: value.file_comments,
         grade: value.grade,
         per_file_summaries: value.per_file_summaries,
+        reviewed_targets: value.reviewed_targets,
       },
     }),
     truncated,
@@ -702,12 +772,13 @@ const modelOutputSchema = legacyAnalysisReportSchema.shape.review.pick({
   grade: true,
   file_comments: true,
   per_file_summaries: true,
+  reviewed_targets: true,
 });
 
 export function parseModelReviewJson(raw: string): {
   value: Pick<
     LegacyAnalysisReport['review'],
-    'summary' | 'grade' | 'file_comments' | 'per_file_summaries'
+    'summary' | 'grade' | 'file_comments' | 'per_file_summaries' | 'reviewed_targets'
   >;
   truncated: boolean;
 } {

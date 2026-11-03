@@ -1,0 +1,197 @@
+{
+  "publicEndpoints": {
+    "pr-review.prism.ai/health/ready": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "pr-review.prism.ai/api/v1/system": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "auth.pr-review.prism.ai/realms/git-code-reviewer/protocol/saml/descriptor": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "auth.pr-review.prism.ai/admin/": {
+      "status": 404,
+      "tlsVerified": true
+    },
+    "auth.pr-review.prism.ai/realms/master": {
+      "status": 404,
+      "tlsVerified": true
+    },
+    "auth.pr-review.prism.ai/health/ready": {
+      "status": 404,
+      "tlsVerified": true
+    }
+  },
+  "at": "2026-09-13T15:34:53.339874+00:00",
+  "system": {
+    "schemaVersion": 1,
+    "service": "git-code-reviewer",
+    "version": "0.8.0-alpha.38",
+    "authMode": "local"
+  },
+  "samlMetadata": {
+    "entityId": "https://auth.pr-review.prism.ai/realms/git-code-reviewer",
+    "sameSigningCertificatesAfterRestart": true,
+    "sha256": "7c158131c6eb1d0569bddad890b7cc0a7e3683d0264bae2cbbfb1f1d3f8eaf61"
+  },
+  "preservation": {
+    "users": {
+      "count": 7,
+      "unchanged": true
+    },
+    "chat_accounts": {
+      "count": 7,
+      "unchanged": true
+    },
+    "repository_grants": {
+      "count": 2,
+      "unchanged": true
+    },
+    "tenant_memberships": {
+      "count": 7,
+      "unchanged": true
+    },
+    "review_memories": {
+      "count": 4,
+      "unchanged": true
+    },
+    "localCredentials": {
+      "count": 6,
+      "unchanged": true
+    },
+    "analysis_runs": {
+      "before": 155,
+      "after": 155,
+      "existingRowsPreserved": true
+    },
+    "reports": {
+      "before": 147,
+      "after": 147,
+      "existingRowsPreserved": true
+    },
+    "providerUnchanged": true,
+    "migrationsUnchanged": 36
+  },
+  "databaseTlsMode": "verify-full",
+  "authMode": "local",
+  "status": "passed",
+  "runtime": {
+    "application": {
+      "tlsMode": "verify-full",
+      "connection": {
+        "ssl": true,
+        "version": "TLSv1.3"
+      }
+    },
+    "databaseConnections": [
+      {
+        "role": "gcr_keycloak",
+        "database": "git_code_reviewer_keycloak",
+        "ssl": true,
+        "version": "TLSv1.3",
+        "connections": 6
+      },
+      {
+        "role": "git_code_reviewer",
+        "database": "git_code_reviewer",
+        "ssl": true,
+        "version": "TLSv1.3",
+        "connections": 4
+      }
+    ],
+    "identityPods": [
+      {
+        "name": "git-code-reviewer-identity-8486b74564-f7hsr",
+        "ready": true,
+        "image": "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+        "bootstrapEnvAbsent": true
+      },
+      {
+        "name": "git-code-reviewer-identity-8486b74564-v2jnx",
+        "ready": true,
+        "image": "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9",
+        "bootstrapEnvAbsent": true
+      }
+    ],
+    "releases": {
+      "git-code-reviewer": {
+        "revision": 50,
+        "updated": "2026-09-14T00:28:33.537993+09:00",
+        "status": "deployed",
+        "chart": "git-code-reviewer-0.10.36",
+        "app_version": "0.8.0-alpha.38",
+        "description": "Upgrade complete"
+      },
+      "git-code-reviewer-identity": {
+        "revision": 2,
+        "updated": "2026-09-14T00:31:42.000431+09:00",
+        "status": "deployed",
+        "chart": "gcr-identity-0.1.0",
+        "app_version": "26.7.3-gcr.1",
+        "description": "Upgrade complete"
+      }
+    },
+    "helmApplicationTest": "Succeeded: 2026-09-14 00:36:29 KST",
+    "status": "passed"
+  },
+  "configurationApply": {
+    "mode": "apply",
+    "realm": "git-code-reviewer",
+    "actions": [
+      "realm.create",
+      "profile.configure",
+      "events.configure",
+      "saml-client.create",
+      "admin-client.create",
+      "roles.assign",
+      "roles.scope",
+      "realm.enable"
+    ],
+    "converged": true,
+    "smtp": "unmanaged-delivery-unverified"
+  },
+  "configurationInspect": {
+    "mode": "inspect",
+    "realm": "git-code-reviewer",
+    "actions": [],
+    "converged": true,
+    "smtp": "unmanaged-delivery-unverified"
+  },
+  "databaseIsolationProbe": {
+    "status": "passed",
+    "tls": {
+      "connected": true,
+      "role": "gcr_keycloak",
+      "database": "git_code_reviewer_keycloak",
+      "ssl": true,
+      "version": "TLSv1.3"
+    },
+    "plaintext": {
+      "connected": false,
+      "code": "28000"
+    },
+    "crossDatabase": {
+      "connected": false,
+      "code": "28000"
+    }
+  },
+  "scope": {
+    "cluster": "PRISM-DEV",
+    "namespace": "git-code-reviewer",
+    "gcrSamlCutover": false,
+    "browserGcrSamlLoginVerified": false,
+    "smtpDeliveryVerified": false,
+    "developmentCaSystemTrustInstalled": false,
+    "applicationRoleIsolationMigrated": false,
+    "temporarySetupAdminRetained": true
+  },
+  "operations": {
+    "applicationRestartRequiredAfterDatabaseRestart": true,
+    "certificateIdentifiersCorrected": true,
+    "configurationFirstJobNoopThenFixedWithSubPath": true,
+    "notes": "Database TLS restarts temporarily interrupted GCR. Server/Worker were restarted and recovered; no model review jobs were active at the initial maintenance check."
+  }
+}

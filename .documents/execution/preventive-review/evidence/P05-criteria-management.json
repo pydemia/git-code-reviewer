@@ -1,0 +1,46 @@
+{
+  "at": "2026-09-13T16:00:45.807750+00:00",
+  "status": "passed",
+  "integration": {
+    "files": 3,
+    "passed": 26,
+    "failed": 0,
+    "database": "isolated local PostgreSQL",
+    "browser": "headless Google Chrome",
+    "authentication": "synthetic test actors; production criteria routes/services/migrations",
+    "manualEvaluation": "four synthetic cases; no model invocation"
+  },
+  "build": "pnpm build passed",
+  "lint": "targeted changed TypeScript/TSX passed",
+  "scope": [
+    "immutable decisions/revisions/source hashes",
+    "manual candidate evaluation and approval lifecycle",
+    "independent delegated high-risk approval including group grants",
+    "repository read/write isolation and optimistic concurrency",
+    "reader correction requests without modifying criteria",
+    "bounded exception request/independent approval/revocation and revision boundary",
+    "immutable history with repository deletion cascade",
+    "real browser candidate/evaluation/activation/revision/retirement and reader/owner exception flow",
+    "mobile viewport overflow check"
+  ],
+  "notYetImplemented": [
+    "model candidate generation",
+    "immutable bundle publication and signed manifest APIs",
+    "client synchronization/application of new rules",
+    "role delegation web UI"
+  ],
+  "sourceFiles": {
+    "packages/contracts/src/review-criteria.ts": "f6aefbc8cd848f2d84acd989d6e6394c2f655df032a161a6232b8f032627dea5",
+    "packages/db/migrations/0037_review_criteria.sql": "57604f31f962326b2695f7e23a79b9d44fb3676ca37083c98020d318840741ae",
+    "apps/runtime/src/services/review-criteria.ts": "d825e0c63dd981925dfae05378fc2d0ab00ff2b24d6ca0e62ef236d768d6b835",
+    "apps/runtime/src/routes/review-criteria.ts": "c8f9ef65fea7d4565c837556064997e68b187e93623ae2923e9667cec763c430",
+    "apps/web/src/ReviewCriteriaPage.tsx": "599d0980264526029ca8ae4bb45142f5f3b564254077b44ef284f81a71728485",
+    "apps/web/src/CriterionFeedbackPanel.tsx": "6386f8e25a5e115be0e8e2d8d386a0041467ca6e41909b10da7d925a7b850ef3"
+  },
+  "artifactDirectory": "artifacts/operations/P05-criteria/",
+  "keyboard": "Chrome: focused request submit button and Enter key completed the reader correction request",
+  "screenshots": [
+    "artifacts/operations/P05-criteria/workflow.png",
+    "artifacts/operations/P05-criteria/workflow-mobile.png"
+  ]
+}

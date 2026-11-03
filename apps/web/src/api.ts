@@ -1,4 +1,24 @@
 import {
+  criterionListSchema,
+  criterionDetailSchema,
+  criterionSourceListSchema,
+  criterionRoleListSchema,
+  criterionGenerationSchema,
+  criterionGenerationListSchema,
+  type CriterionRoleAssignment,
+  type CriterionGenerationCreate,
+  type CriterionCreate,
+  type CriterionAction,
+  type CriterionEvaluationCreate,
+  type CriterionFeedbackCreate,
+  type CriterionFeedbackResolution,
+  type CriterionExceptionRevoke,
+  identityAdministrationCapabilitiesSchema,
+  identityOperationListSchema,
+  identityOperationResponseSchema,
+  identityPreviewSchema,
+  type IdentityProvisioningRequest,
+  type IdentityLifecycleRequest,
   defaultReviewSeverityLevel,
   type ReviewSeverityLevel,
   analysisSkillSettingsSchema,
@@ -19,6 +39,7 @@ import {
   diffIndexSchema,
   githubConnectionListSchema,
   githubPrMemorySourceListSchema,
+  githubPrMessageHistorySchema,
   reviewMemoryListSchema,
   reviewMemoryResponseSchema,
   adminReviewMemoryListSchema,
@@ -48,9 +69,11 @@ import {
 } from '@gcr/contracts';
 
 export type WorklistItem = PullRequestSummary & { repository: Repository };
+export type AnalysisRevision = ReturnType<typeof analysisListSchema.parse>['items'][number];
 export type WorkspaceData = {
   pull: ReturnType<typeof pullRequestDetailSchema.parse>;
   analysis: ReturnType<typeof analysisListSchema.parse>['items'][number] | null;
+  analyses: AnalysisRevision[];
   files: ReturnType<typeof snapshotFileListSchema.parse>['items'];
   diff: ReturnType<typeof diffIndexSchema.parse> | null;
   commits: ReturnType<typeof snapshotCommitListSchema.parse>['commits'];
@@ -87,8 +110,169 @@ export async function loadCurrentUser(signal: AbortSignal): Promise<User> {
   return userSchema.parse(await fetchJson('/api/v1/me', signal));
 }
 
+export async function loadCriteriaRepositories(signal: AbortSignal) {
+  return repositoryListSchema.parse(await fetchJson('/api/v1/repositories', signal)).items;
+}
+export async function loadCriteria(repositoryId: string, signal: AbortSignal) {
+  return criterionListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria`, signal),
+  );
+}
+export async function loadCriterion(repositoryId: string, ruleId: string, signal: AbortSignal) {
+  return criterionDetailSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}`, signal),
+  );
+}
+export async function loadCriterionSources(repositoryId: string, signal: AbortSignal) {
+  return criterionSourceListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/sources`, signal),
+  ).items;
+}
+export async function saveCriterion(
+  repositoryId: string,
+  input: CriterionCreate,
+  previous?: { id: string; version: number },
+) {
+  const base = `/api/v1/repositories/${repositoryId}/review-criteria`;
+  return criterionDetailSchema.parse(
+    await mutateJson(previous ? `${base}/${previous.id}/revisions` : base, 'POST', {
+      ...input,
+      ...(previous ? { expectedVersion: previous.version } : {}),
+    }),
+  );
+}
+export async function saveCriterionEvaluation(
+  repositoryId: string,
+  ruleId: string,
+  input: CriterionEvaluationCreate,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/evaluations`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function applyCriterionAction(
+  repositoryId: string,
+  ruleId: string,
+  input: CriterionAction,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/actions`,
+      'POST',
+      input,
+    ),
+  );
+}
+
+export async function submitCriterionFeedback(
+  repositoryId: string,
+  ruleId: string,
+  input: CriterionFeedbackCreate,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/feedback`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function resolveCriterionFeedback(
+  repositoryId: string,
+  ruleId: string,
+  requestId: string,
+  input: CriterionFeedbackResolution,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/feedback/${requestId}/resolution`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function revokeCriterionException(
+  repositoryId: string,
+  ruleId: string,
+  exceptionId: string,
+  input: CriterionExceptionRevoke,
+) {
+  return criterionDetailSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/${ruleId}/exceptions/${exceptionId}/revocation`,
+      'POST',
+      input,
+    ),
+  );
+}
+
+export async function loadCriterionRoles(repositoryId: string, signal: AbortSignal) {
+  return criterionRoleListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/roles`, signal),
+  );
+}
+export async function assignCriterionRole(repositoryId: string, input: CriterionRoleAssignment) {
+  await mutateJson(`/api/v1/repositories/${repositoryId}/review-criteria/roles`, 'PUT', input);
+}
+export async function loadCriterionGenerations(repositoryId: string, signal: AbortSignal) {
+  return criterionGenerationListSchema.parse(
+    await fetchJson(`/api/v1/repositories/${repositoryId}/review-criteria/generations`, signal),
+  );
+}
+export async function requestCriterionGeneration(
+  repositoryId: string,
+  input: CriterionGenerationCreate,
+) {
+  return criterionGenerationSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/generations`,
+      'POST',
+      input,
+    ),
+  );
+}
+export async function cancelCriterionGeneration(repositoryId: string, generationId: string) {
+  return criterionGenerationSchema.parse(
+    await mutateJson(
+      `/api/v1/repositories/${repositoryId}/review-criteria/generations/${generationId}/cancel`,
+      'POST',
+      {},
+    ),
+  );
+}
+
 export async function loadProfile(signal: AbortSignal): Promise<Profile> {
   return profileSchema.parse(await fetchJson('/api/v1/profile', signal));
+}
+
+export async function loadIdentityAdministration(signal: AbortSignal) {
+  return identityAdministrationCapabilitiesSchema.parse(
+    await fetchJson('/api/v1/admin/identity/capabilities', signal),
+  );
+}
+export async function loadIdentityOperations(signal: AbortSignal) {
+  return identityOperationListSchema.parse(
+    await fetchJson('/api/v1/admin/identity/operations', signal),
+  ).items;
+}
+export async function previewKeycloakIdentity(keycloakUserId: string) {
+  return identityPreviewSchema.parse(
+    await mutateJson('/api/v1/admin/identity/preview', 'POST', { keycloakUserId }),
+  );
+}
+export async function requestIdentityOperation(
+  input: IdentityProvisioningRequest | IdentityLifecycleRequest,
+) {
+  return identityOperationResponseSchema.parse(
+    await mutateJson('/api/v1/admin/identity/operations', 'POST', input),
+  ).operation;
+}
+export async function retryIdentityOperation(operationId: string) {
+  await mutateJson(`/api/v1/admin/identity/operations/${operationId}/retry`, 'POST', {});
 }
 
 export async function updateProfile(displayName: string): Promise<Profile> {
@@ -127,9 +311,30 @@ export async function loginLocalAccount(
 }
 
 export async function logout(): Promise<void> {
-  const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
-  if (!response.ok && response.status !== 401) throw await requestError(response);
-  window.location.assign('/login');
+  try {
+    const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    if (!response.ok && response.status !== 401) throw await requestError(response);
+    if (response.status === 200) {
+      const body: unknown = await response.json();
+      if (
+        typeof body === 'object' &&
+        body !== null &&
+        'redirectTo' in body &&
+        typeof body.redirectTo === 'string'
+      ) {
+        const target = new URL(body.redirectTo);
+        if (target.protocol !== 'https:' || target.username || target.password)
+          throw new Error('로그아웃 주소를 확인할 수 없습니다.');
+        window.location.assign(target.href);
+        return;
+      }
+      throw new Error('로그아웃 응답을 확인할 수 없습니다.');
+    }
+    window.location.assign('/login');
+  } catch {
+    // A failed or lost response does not prove server/IdP session revocation.
+    window.location.assign('/login?logoutFailed=1');
+  }
 }
 
 export async function loadWorklist(
@@ -381,6 +586,8 @@ export async function updateAdminRepository(
     enabled?: boolean;
     pollingEnabled?: boolean;
     reviewPublishingEnabled?: boolean;
+    reviewCommentMinPriority?: 'P2' | 'P3';
+    reviewTestCode?: boolean;
     pollIntervalSeconds?: number;
   },
 ): Promise<void> {
@@ -450,10 +657,36 @@ export async function registerGitHubRepository(
     repositoryUrl: string;
     pollIntervalSeconds: number;
     reviewPublishingEnabled: boolean;
+    reviewTestCode: boolean;
     grantSubjects: string[];
   },
 ): Promise<void> {
   await mutateJson(`/api/v1/admin/github-connections/${connectionId}/repositories`, 'POST', values);
+}
+
+export async function loadAnalysisRevisions(
+  repositoryId: string,
+  pullNumber: number,
+  signal: AbortSignal,
+): Promise<AnalysisRevision[]> {
+  const items = new Map<string, AnalysisRevision>();
+  const cursors = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    const page = analysisListSchema.parse(
+      await fetchJson(
+        `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses${query}`,
+        signal,
+      ),
+    );
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    for (const item of page.items) items.set(item.id ?? item.snapshotId, item);
+    cursor = page.nextCursor ?? null;
+    if (cursor && cursors.has(cursor)) throw new Error('Analysis history cursor did not advance');
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
+  return [...items.values()];
 }
 
 export async function loadWorkspace(
@@ -462,18 +695,26 @@ export async function loadWorkspace(
   signal: AbortSignal,
   analysisId?: string,
 ): Promise<WorkspaceData> {
-  const [pullValue, analysesValue] = await Promise.all([
+  const [pullValue, analyses] = await Promise.all([
     fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}`, signal),
-    fetchJson(`/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/analyses`, signal),
+    loadAnalysisRevisions(repositoryId, pullNumber, signal),
   ]);
   const pull = pullRequestDetailSchema.parse(pullValue);
-  const analyses = analysisListSchema.parse(analysesValue).items;
   const analysis = analysisId
     ? (analyses.find((item) => item.id === analysisId) ?? null)
     : (analyses[0] ?? null);
   if (analysisId && !analysis) throw new Error('Analysis revision is unavailable');
   if (!analysis)
-    return { pull, analysis: null, files: [], diff: null, commits: [], report: null, objects: [] };
+    return {
+      pull,
+      analysis: null,
+      analyses,
+      files: [],
+      diff: null,
+      commits: [],
+      report: null,
+      objects: [],
+    };
   const reportReady =
     analysis.id && (analysis.state === 'completed' || analysis.state === 'partial')
       ? analysis.id
@@ -488,6 +729,7 @@ export async function loadWorkspace(
   return {
     pull,
     analysis,
+    analyses,
     files: snapshotFileListSchema.parse(filesValue).items,
     diff: diffIndexSchema.parse(diffValue),
     commits: snapshotCommitListSchema.parse(commitsValue).commits,
@@ -566,13 +808,13 @@ export async function loadGitHubPrMemorySources(
   repositoryId: string,
   pullNumber: number,
   signal: AbortSignal,
-): Promise<GitHubPrMemorySource[]> {
+): Promise<ReturnType<typeof githubPrMemorySourceListSchema.parse>> {
   return githubPrMemorySourceListSchema.parse(
     await fetchJson(
       `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources`,
       signal,
     ),
-  ).items;
+  );
 }
 
 export async function createReviewMemoryCandidate(
@@ -667,7 +909,7 @@ export async function waitForSnapshot(
   throw new Error('Snapshot operation timed out');
 }
 
-async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
+export async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(url, { signal, credentials: 'same-origin' });
   if (response.status === 401) {
     window.location.assign(`/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
@@ -677,7 +919,7 @@ async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
   return response.json();
 }
 
-async function mutateJson(
+export async function mutateJson(
   url: string,
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   body?: Record<string, unknown>,
@@ -719,4 +961,21 @@ function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
       { once: true },
     );
   });
+}
+
+export type GitHubPrMessageHistory = ReturnType<typeof githubPrMessageHistorySchema.parse>;
+export async function loadGitHubPrMessageHistory(
+  repositoryId: string,
+  pullNumber: number,
+  sourceId: string,
+  signal: AbortSignal,
+  cursor: string | null = null,
+): Promise<GitHubPrMessageHistory> {
+  const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  return githubPrMessageHistorySchema.parse(
+    await fetchJson(
+      `/api/v1/repositories/${repositoryId}/pulls/${pullNumber}/review-memory-sources/${sourceId}/history${query}`,
+      signal,
+    ),
+  );
 }

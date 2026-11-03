@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-09-15T15:59:11Z",
+  "deployments": [
+    {
+      "name": "git-code-reviewer-server",
+      "ready": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+      ]
+    },
+    {
+      "name": "git-code-reviewer-worker",
+      "ready": 1,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f",
+        "docker.io/pydemia/git-code-reviewer@sha256:b9d176b5eebaa26cadf19325a18a851405f50dd8fa53637c6781282f3f19993f"
+      ]
+    }
+  ],
+  "existingUserHostPid954StillRunning": true
+}

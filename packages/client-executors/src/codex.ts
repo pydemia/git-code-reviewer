@@ -1,0 +1,310 @@
+// Account selection and stdin/ephemeral CLI invocation derive from Commit Defender
+// src/ai/providers.ts at 35575ad (Apache-2.0). The fixed-source harness is GCR-owned.
+import { createHash } from 'node:crypto';
+import { createReadStream, constants } from 'node:fs';
+import { access, mkdtemp, mkdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import type { FixedSourceToolPort, ReviewChatQuestionPort } from '@gcr/client-contract';
+import {
+  codexAccountEnvironment,
+  codexReviewArgs,
+  codexReviewPrompt,
+  reviewModelCatalog,
+} from './codex-config.js';
+import { probeCodexCatalog } from './catalog-probe.js';
+import { ExecutorError, runManagedProcess } from './process.js';
+import { fixedSourceTools, reviewQuestionTool, startSourceBridge } from './source-bridge.js';
+import { runIsolatedCodex } from './codex-isolation.js';
+import { windowsPrivateTemporary, windowsEnvironmentValue } from '@gcr/client-core/windows-native';
+
+const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+async function binaryHash(command: string): Promise<string> {
+  const info = await stat(command);
+  if (!info.isFile() || info.size > 512 * 1024 * 1024)
+    throw new ExecutorError('executor-unavailable');
+  const digest = createHash('sha256');
+  for await (const bytes of createReadStream(command)) digest.update(bytes);
+  return digest.digest('hex');
+}
+async function executablePath(value: string): Promise<string> {
+  const candidates =
+    path.isAbsolute(value) || value.includes(path.sep)
+      ? [path.resolve(value)]
+      : ((process.platform === 'win32' ? windowsEnvironmentValue('PATH') : process.env.PATH) ?? '')
+          .split(path.delimiter)
+          .filter(Boolean)
+          .map((directory) =>
+            path.join(
+              directory,
+              process.platform === 'win32' && !path.extname(value) ? `${value}.exe` : value,
+            ),
+          );
+  for (const candidate of candidates) {
+    if (process.platform === 'win32' && !candidate.toLowerCase().endsWith('.exe')) continue;
+    try {
+      await access(candidate, constants.X_OK);
+      return await realpath(candidate);
+    } catch {
+      /* Try only the explicitly selected command name. */
+    }
+  }
+  throw new ExecutorError('executable-unavailable');
+}
+
+export interface CodexReviewRequest {
+  prompt: string;
+  source: FixedSourceToolPort;
+  timeoutMs: number;
+  signal?: AbortSignal;
+  /** Output schema constrains final JSON, not permissions or tool calls. */
+  responseSchema?: Record<string, unknown>;
+}
+export interface CodexReviewResult {
+  raw: string;
+  model: string;
+  reasoningEffort: string;
+  elapsedMs: number;
+  usage?: { inputTokens: number; outputTokens: number; cachedInputTokens: number };
+}
+
+class CodexAccountExecutor {
+  readonly conversationCapability = 'checkpoint-tool-v1' as const;
+  constructor(
+    private readonly command: string,
+    private readonly fingerprint: string,
+    private readonly catalog: string,
+    private readonly configHash: string,
+    private readonly environment: NodeJS.ProcessEnv,
+    private readonly cliVersion: string,
+    private readonly model: string,
+    private readonly effort: string,
+  ) {}
+  get descriptor() {
+    return {
+      id: 'codex-account',
+      version: `${this.cliVersion}/gcr-fixed-source-v1`,
+      model: this.model,
+      configHash: this.configHash,
+      capabilities: {
+        available: true,
+        sourceIsolation: 'fixed-source-only' as const,
+        cancellation: true,
+        timeout: true,
+        childProcessCleanup: true,
+        outputTokenLimit: false,
+      },
+    };
+  }
+  review(input: CodexReviewRequest): Promise<CodexReviewResult> {
+    return this.execute(input);
+  }
+  converse(
+    input: CodexReviewRequest & { questions: ReviewChatQuestionPort },
+  ): Promise<CodexReviewResult> {
+    return this.execute(input, input.questions);
+  }
+  private async execute(
+    input: CodexReviewRequest,
+    questions?: ReviewChatQuestionPort,
+  ): Promise<CodexReviewResult> {
+    if (input.signal?.aborted) throw new ExecutorError('cancelled');
+    if ((await binaryHash(this.command)) !== this.fingerprint)
+      throw new ExecutorError('executor-unavailable');
+    const root =
+      process.platform === 'win32'
+        ? windowsPrivateTemporary('gcr-codex-review-')
+        : await mkdtemp(path.join(os.tmpdir(), 'gcr-codex-review-'));
+    const started = performance.now();
+    let bridge: Awaited<ReturnType<typeof startSourceBridge>> | undefined;
+    try {
+      const cwd = path.join(root, 'cwd');
+      await mkdir(cwd, { mode: 0o700 });
+      await writeFile(path.join(root, 'models.json'), this.catalog, { mode: 0o600 });
+      bridge = await startSourceBridge(input.source, questions);
+      const args = codexReviewArgs(root, bridge.url, !!questions, this.model, this.effort);
+      const prompt = codexReviewPrompt(input.prompt, input.responseSchema);
+      args.push('-');
+      const response = await runIsolatedCodex({
+        command: this.command,
+        args,
+        cwd,
+        env: { ...this.environment, GCR_FIXED_SOURCE_TOKEN: bridge.token },
+        stdin: prompt,
+        timeoutMs: input.timeoutMs,
+        ...(input.signal ? { signal: input.signal } : {}),
+      });
+      if (response.code !== 0) throw new ExecutorError('process-failed');
+      const events = response.stdout
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+      const complete = events.filter((event) => event.type === 'turn.completed');
+      if (
+        complete.length !== 1 ||
+        events.some((event) => event.type === 'turn.failed' || event.type === 'error')
+      )
+        throw new ExecutorError('invalid-response');
+      const final = events
+        .filter((event) => event.type === 'item.completed')
+        .map((event) => event.item as Record<string, unknown>)
+        .filter((item) => item?.type === 'agent_message')
+        .at(-1);
+      if (typeof final?.text !== 'string' || !final.text.trim())
+        throw new ExecutorError('invalid-response');
+      const usage = complete[0]?.usage as Record<string, unknown> | undefined;
+      const counters = usage
+        ? [usage.input_tokens, usage.output_tokens, usage.cached_input_tokens]
+        : [];
+      const validUsage =
+        counters.length === 3 &&
+        counters.every((value) => Number.isSafeInteger(value) && (value as number) >= 0);
+      return {
+        raw: final.text,
+        model: this.model,
+        reasoningEffort: this.effort,
+        elapsedMs: Math.round(performance.now() - started),
+        ...(validUsage
+          ? {
+              usage: {
+                inputTokens: counters[0] as number,
+                outputTokens: counters[1] as number,
+                cachedInputTokens: counters[2] as number,
+              },
+            }
+          : {}),
+      };
+    } catch (error) {
+      if (error instanceof ExecutorError) throw error;
+      throw new ExecutorError('invalid-response');
+    } finally {
+      try {
+        await bridge?.close();
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  }
+}
+export type { CodexAccountExecutor };
+
+/** The selected executable must pass a real tool-catalog probe before it is enabled.
+ * No login, model, provider or executable fallback is attempted. */
+export async function prepareCodexAccountExecutor(options: {
+  executablePath?: string;
+  model: string;
+  reasoningEffort: string;
+}): Promise<CodexAccountExecutor> {
+  if (
+    !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(options.model) ||
+    !['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].includes(options.reasoningEffort) ||
+    !['darwin', 'linux', 'win32'].includes(process.platform)
+  )
+    throw new ExecutorError('executor-unavailable');
+  const command = await executablePath(options.executablePath ?? 'codex');
+  const root =
+    process.platform === 'win32'
+      ? windowsPrivateTemporary('gcr-codex-probe-')
+      : await mkdtemp(path.join(os.tmpdir(), 'gcr-codex-probe-'));
+  try {
+    const fingerprint = await binaryHash(command);
+    const env = {
+      ...(process.platform === 'win32' ? codexAccountEnvironment() : {}),
+      PATH: process.platform === 'win32' ? windowsEnvironmentValue('PATH') : '/usr/bin:/bin',
+      HOME: root,
+      CODEX_HOME: root,
+    };
+    const version = await runManagedProcess({
+      command,
+      args: ['--version'],
+      cwd: root,
+      env,
+      stdin: '',
+      timeoutMs: 5000,
+      outputBytes: 4096,
+    });
+    const cliVersion = version.stdout.trim().replace(/^codex-cli /, '');
+    if (
+      version.code !== 0 ||
+      !['codex-cli 0.153.4', 'codex-cli 0.154.0'].includes(version.stdout.trim())
+    )
+      throw new ExecutorError('executor-unavailable');
+    const bundled = await runManagedProcess({
+      command,
+      args: ['debug', 'models', '--bundled'],
+      cwd: root,
+      env,
+      stdin: '',
+      timeoutMs: 10_000,
+      outputBytes: 2_097_152,
+    });
+    if (bundled.code !== 0) throw new ExecutorError('executor-unavailable');
+    const catalog = reviewModelCatalog(bundled.stdout, options.model, options.reasoningEffort);
+    await writeFile(path.join(root, 'models.json'), catalog, { mode: 0o600 });
+    const tools = await probeCodexCatalog(
+      command,
+      root,
+      undefined,
+      false,
+      options.model,
+      options.reasoningEffort,
+    );
+    const conversationRoot = path.join(root, 'conversation');
+    await mkdir(conversationRoot, { mode: 0o700 });
+    await writeFile(path.join(conversationRoot, 'models.json'), catalog, { mode: 0o600 });
+    const conversationTools = await probeCodexCatalog(
+      command,
+      conversationRoot,
+      undefined,
+      true,
+      options.model,
+      options.reasoningEffort,
+    );
+    if ((await binaryHash(command)) !== fingerprint)
+      throw new ExecutorError('executor-unavailable');
+    const environment = codexAccountEnvironment();
+    const configHash = hash(
+      JSON.stringify({
+        version: 1,
+        command,
+        fingerprint,
+        cliVersion,
+        model: options.model,
+        effort: options.reasoningEffort,
+        catalogHash: hash(catalog),
+        tools,
+        toolDefinitions: fixedSourceTools,
+        conversationTools,
+        questionToolDefinition: reviewQuestionTool,
+        settings: codexReviewArgs(
+          '/gcr/run',
+          'http://127.0.0.1/source',
+          false,
+          options.model,
+          options.reasoningEffort,
+        ),
+        isolation:
+          process.platform === 'linux'
+            ? 'linux-private-account-link-v1'
+            : 'macos-global-instruction-deny-v1',
+        responseFormat: 'prompt-json-schema-v1',
+        authHome: environment.CODEX_HOME ?? path.join(os.homedir(), '.codex'),
+      }),
+    );
+    return new CodexAccountExecutor(
+      command,
+      fingerprint,
+      catalog,
+      configHash,
+      environment,
+      cliVersion,
+      options.model,
+      options.reasoningEffort,
+    );
+  } catch (error) {
+    if (error instanceof ExecutorError) throw error;
+    throw new ExecutorError('executor-unavailable');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}

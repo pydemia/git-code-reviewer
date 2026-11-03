@@ -346,6 +346,11 @@ export async function recallReviewMemories(
        join repositories repository on repository.id = memory.repository_id
       where memory.tenant_id = $1 and memory.repository_id = $2
         and memory.state = 'active' and repository.enabled
+        and (memory.source_anchor->>'format' is distinct from 'review-history-guidance-v1'
+          or exists(select 1 from github_pr_messages source where source.id=memory.source_github_pr_message_id
+            and source.repository_id=memory.repository_id and source.upstream_state='present'
+            and source.content_hash=memory.source_github_pr_message_content_hash
+            and source.observation_hash is not distinct from memory.source_anchor->>'observationHash'))
         and (memory.scope = 'collective'
           or ($3::uuid is not null and memory.scope = 'personal' and memory.owner_user_id = $3))
         and ($4::timestamptz is null or memory.reviewed_at <= $4::timestamptz)

@@ -1,6 +1,9 @@
+import { ciReader, type GitHubCiReader } from './ci-evidence.js';
+export type { GitHubCiReader } from './ci-evidence.js';
 import { createHash } from 'node:crypto';
 import { importPKCS8, SignJWT } from 'jose';
 import { z } from 'zod';
+import { enrichReviewThreads } from './review-threads.js';
 
 const pullSchema = z.object({
   id: z.number(),
@@ -36,15 +39,24 @@ const pullReviewSchema = z.object({
   body: z.string().nullable(),
   user: conversationAuthorSchema,
   commit_id: z.string().nullable().optional(),
-  submitted_at: z.string().nullable(),
+  submitted_at: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
 });
 const pullReviewCommentSchema = pullIssueCommentSchema.extend({
+  node_id: z.string().optional(),
   path: z.string(),
   line: z.number().int().positive().nullable().optional(),
   original_line: z.number().int().positive().nullable().optional(),
   side: z.enum(['LEFT', 'RIGHT']).nullable().optional(),
   commit_id: z.string().nullable().optional(),
   in_reply_to_id: z.number().int().positive().nullable().optional(),
+  pull_request_review_id: z.number().int().positive().nullable().optional(),
+  original_commit_id: z.string().nullable().optional(),
+  start_line: z.number().int().positive().nullable().optional(),
+  original_start_line: z.number().int().positive().nullable().optional(),
+  start_side: z.enum(['LEFT', 'RIGHT']).nullable().optional(),
+  subject_type: z.string().nullable().optional(),
+  diff_hunk: z.string().nullable().optional(),
 });
 
 export type PullRequestObservation = {
@@ -74,9 +86,28 @@ export type PullResult =
   | { outcome: 'not-modified'; etag: string | null; pulls: [] }
   | { outcome: 'updated'; etag: string | null; pulls: PullRequestObservation[] };
 
+export type PullRequestMessageProvenance = {
+  provider: 'github-rest';
+  reviewState: string | null;
+  reviewGithubId: string | null;
+  originalCommitSha: string | null;
+  originalLine: number | null;
+  startLine: number | null;
+  originalStartLine: number | null;
+  startSide: 'LEFT' | 'RIGHT' | null;
+  subjectType: string | null;
+  diffHunk: string | null;
+  commentNodeId?: string;
+  threadId?: string | null;
+  threadObservation?: 'observed' | 'not-observed' | 'unsupported' | 'unavailable' | 'partial';
+  threadResolved: boolean | null;
+  threadOutdated: boolean | null;
+};
+
 export type PullRequestMessageObservation = {
   githubId: number;
   kind: 'issue-comment' | 'review' | 'review-comment';
+  provenance?: PullRequestMessageProvenance;
   author: string;
   authorType: string;
   body: string;
@@ -105,16 +136,33 @@ export type PullRequestCommentPublication = {
   outcome: 'created' | 'updated';
 };
 
+export type PullRequestCommentInput = {
+  pullNumber: number;
+  expectedHeadSha: string;
+  marker: string;
+  body: string;
+  existingCommentId?: number | null;
+  /** Revalidate local publication ownership after the remote read and before each write. */
+  beforeWrite?: () => Promise<void>;
+};
+
+export class GitHubPublicationSupersededError extends Error {
+  constructor(public readonly reason: 'head-changed' | 'pull-closed' | 'target-changed') {
+    super(`Review publication skipped: ${reason}`);
+  }
+}
+
 export interface GitHubReviewPublisher {
   upsertPullRequestComment(
     target: RepositoryTarget,
-    input: {
-      pullNumber: number;
-      marker: string;
-      body: string;
-      existingCommentId?: number | null;
-    },
+    input: PullRequestCommentInput,
   ): Promise<PullRequestCommentPublication>;
+}
+
+export class GitHubConversationLimitError extends Error {
+  constructor() {
+    super('Conversation pagination limit reached before complete response');
+  }
 }
 
 export class GitHubRequestError extends Error {
@@ -129,7 +177,7 @@ export class GitHubRequestError extends Error {
 
 type CachedToken = { token: string; expiresAt: number };
 
-export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
+export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher, GitHubCiReader {
   private readonly tokens = new Map<string, CachedToken>();
   private keyPromise: Promise<CryptoKey> | undefined;
 
@@ -163,14 +211,25 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
     );
   }
 
+  async listValidationChecks(target: RepositoryTarget, headSha: string, name: string) {
+    return ciReader((url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    ).listValidationChecks(target, headSha, name);
+  }
+  async readValidationRun(target: RepositoryTarget, runId: string, attempt: number) {
+    return ciReader((url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    ).readValidationRun(target, runId, attempt);
+  }
+  async readValidationWorkflowHash(target: RepositoryTarget, headSha: string, workflow: string) {
+    return ciReader((url, init) =>
+      this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
+    ).readValidationWorkflowHash(target, headSha, workflow);
+  }
+
   async upsertPullRequestComment(
     target: RepositoryTarget,
-    input: {
-      pullNumber: number;
-      marker: string;
-      body: string;
-      existingCommentId?: number | null;
-    },
+    input: PullRequestCommentInput,
   ): Promise<PullRequestCommentPublication> {
     return upsertPullRequestComment(target, input, (url, init) =>
       this.installationRequest(target.installationId, target.apiBaseUrl, url, init),
@@ -218,6 +277,7 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
     );
     const response = await this.request(tokenUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(15_000),
       headers: {
         accept: 'application/vnd.github+json',
         authorization: `Bearer ${jwt}`,
@@ -249,7 +309,9 @@ export class GitHubAppClient implements GitHubReader, GitHubReviewPublisher {
   }
 }
 
-export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublisher {
+export class GitHubAccessTokenClient
+  implements GitHubReader, GitHubReviewPublisher, GitHubCiReader
+{
   constructor(
     private readonly token: string,
     private readonly request: typeof fetch = fetch,
@@ -274,14 +336,31 @@ export class GitHubAccessTokenClient implements GitHubReader, GitHubReviewPublis
     );
   }
 
+  async listValidationChecks(target: RepositoryTarget, headSha: string, name: string) {
+    return ciReader((url, init) => this.authenticatedRequest(url, init)).listValidationChecks(
+      target,
+      headSha,
+      name,
+    );
+  }
+  async readValidationRun(target: RepositoryTarget, runId: string, attempt: number) {
+    return ciReader((url, init) => this.authenticatedRequest(url, init)).readValidationRun(
+      target,
+      runId,
+      attempt,
+    );
+  }
+  async readValidationWorkflowHash(target: RepositoryTarget, headSha: string, workflow: string) {
+    return ciReader((url, init) => this.authenticatedRequest(url, init)).readValidationWorkflowHash(
+      target,
+      headSha,
+      workflow,
+    );
+  }
+
   async upsertPullRequestComment(
     target: RepositoryTarget,
-    input: {
-      pullNumber: number;
-      marker: string;
-      body: string;
-      existingCommentId?: number | null;
-    },
+    input: PullRequestCommentInput,
   ): Promise<PullRequestCommentPublication> {
     return upsertPullRequestComment(target, input, (url, init) =>
       this.authenticatedRequest(url, init),
@@ -348,42 +427,54 @@ async function listPullRequestMessages(
   pullNumber: number,
   request: AuthenticatedRequest,
 ): Promise<PullRequestMessageObservation[]> {
+  const restSignal = AbortSignal.timeout(60_000);
+  const restRequest: AuthenticatedRequest = (url, init) =>
+    request(url, { ...init, signal: restSignal, redirect: 'error' });
   const [issueComments, reviews, reviewComments] = await Promise.all([
-    paginatedRequest(target, `issues/${pullNumber}/comments`, pullIssueCommentSchema, request),
-    paginatedRequest(target, `pulls/${pullNumber}/reviews`, pullReviewSchema, request),
-    paginatedRequest(target, `pulls/${pullNumber}/comments`, pullReviewCommentSchema, request),
+    paginatedRequest(target, `issues/${pullNumber}/comments`, pullIssueCommentSchema, restRequest),
+    paginatedRequest(target, `pulls/${pullNumber}/reviews`, pullReviewSchema, restRequest),
+    paginatedRequest(target, `pulls/${pullNumber}/comments`, pullReviewCommentSchema, restRequest),
   ]);
-  return [
-    ...issueComments.flatMap((comment) =>
-      comment.body?.trim()
-        ? [
-            {
-              githubId: comment.id,
-              kind: 'issue-comment' as const,
-              author: comment.user?.login ?? 'unknown',
-              authorType: comment.user?.type ?? 'Unknown',
-              body: comment.body.trim(),
-              path: null,
-              line: null,
-              side: null,
-              commitSha: null,
-              inReplyToGithubId: null,
-              url: comment.html_url,
-              createdAt: comment.created_at,
-              updatedAt: comment.updated_at,
-            },
-          ]
-        : [],
-    ),
+  const provenance: PullRequestMessageProvenance = {
+    provider: 'github-rest',
+    reviewState: null,
+    reviewGithubId: null,
+    originalCommitSha: null,
+    originalLine: null,
+    startLine: null,
+    originalStartLine: null,
+    startSide: null,
+    subjectType: null,
+    diffHunk: null,
+    threadResolved: null,
+    threadOutdated: null,
+  };
+  const messages = [
+    ...issueComments.map((comment) => ({
+      githubId: comment.id,
+      kind: 'issue-comment' as const,
+      author: comment.user?.login ?? 'unknown',
+      authorType: comment.user?.type ?? 'Unknown',
+      body: comment.body ?? '',
+      path: null,
+      line: null,
+      side: null,
+      commitSha: null,
+      inReplyToGithubId: null,
+      url: comment.html_url,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at,
+      provenance,
+    })),
     ...reviews.flatMap((review) =>
-      review.body?.trim() && review.submitted_at
+      review.submitted_at
         ? [
             {
               githubId: review.id,
               kind: 'review' as const,
               author: review.user?.login ?? 'unknown',
               authorType: review.user?.type ?? 'Unknown',
-              body: review.body.trim(),
+              body: review.body ?? '',
               path: null,
               line: null,
               side: null,
@@ -392,35 +483,48 @@ async function listPullRequestMessages(
               url: review.html_url,
               createdAt: review.submitted_at,
               updatedAt: review.submitted_at,
+              provenance: {
+                ...provenance,
+                reviewState: review.state ?? null,
+                reviewGithubId: String(review.id),
+              },
             },
           ]
         : [],
     ),
-    ...reviewComments.flatMap((comment) =>
-      comment.body?.trim()
-        ? [
-            {
-              githubId: comment.id,
-              kind: 'review-comment' as const,
-              author: comment.user?.login ?? 'unknown',
-              authorType: comment.user?.type ?? 'Unknown',
-              body: comment.body.trim(),
-              path: comment.path,
-              line: comment.line ?? comment.original_line ?? null,
-              side: comment.side ?? null,
-              commitSha: comment.commit_id ?? null,
-              inReplyToGithubId: comment.in_reply_to_id ?? null,
-              url: comment.html_url,
-              createdAt: comment.created_at,
-              updatedAt: comment.updated_at,
-            },
-          ]
-        : [],
-    ),
+    ...reviewComments.map((comment) => ({
+      githubId: comment.id,
+      kind: 'review-comment' as const,
+      author: comment.user?.login ?? 'unknown',
+      authorType: comment.user?.type ?? 'Unknown',
+      body: comment.body ?? '',
+      path: comment.path,
+      line: comment.line ?? null,
+      side: comment.side ?? null,
+      commitSha: comment.commit_id ?? null,
+      inReplyToGithubId: comment.in_reply_to_id ?? null,
+      url: comment.html_url,
+      createdAt: comment.created_at,
+      updatedAt: comment.updated_at,
+      provenance: {
+        ...provenance,
+        ...(comment.node_id ? { commentNodeId: comment.node_id } : {}),
+        reviewGithubId:
+          comment.pull_request_review_id == null ? null : String(comment.pull_request_review_id),
+        originalCommitSha: comment.original_commit_id ?? null,
+        originalLine: comment.original_line ?? null,
+        startLine: comment.start_line ?? null,
+        originalStartLine: comment.original_start_line ?? null,
+        startSide: comment.start_side ?? null,
+        subjectType: comment.subject_type ?? null,
+        diffHunk: comment.diff_hunk ?? null,
+      },
+    })),
   ].sort(
     (left, right) =>
       left.createdAt.localeCompare(right.createdAt) || left.githubId - right.githubId,
   );
+  return enrichReviewThreads(target, pullNumber, messages, request);
 }
 
 async function paginatedRequest<T extends z.ZodTypeAny>(
@@ -437,29 +541,32 @@ async function paginatedRequest<T extends z.ZodTypeAny>(
     const response = await request(url, { method: 'GET' });
     const body = z.array(schema).parse(await response.json());
     items.push(...body);
-    if (body.length < 100) break;
+    if (body.length < 100) return items;
   }
-  return items;
+  throw new GitHubConversationLimitError();
 }
 
 async function upsertPullRequestComment(
   target: RepositoryTarget,
-  input: {
-    pullNumber: number;
-    marker: string;
-    body: string;
-    existingCommentId?: number | null;
-  },
+  input: PullRequestCommentInput,
   request: AuthenticatedRequest,
 ): Promise<PullRequestCommentPublication> {
   if (!Number.isInteger(input.pullNumber) || input.pullNumber < 1) {
     throw new Error('A positive pull request number is required');
   }
+  if (
+    input.existingCommentId != null &&
+    (!Number.isSafeInteger(input.existingCommentId) || input.existingCommentId < 1)
+  )
+    throw new Error('A positive safe comment ID is required');
+  if (!/^[a-f0-9]{40}$/i.test(input.expectedHeadSha))
+    throw new Error('A full expected head SHA is required');
   if (!input.marker || !input.body.includes(input.marker)) {
     throw new Error('The managed comment marker must be present in the body');
   }
 
   if (input.existingCommentId) {
+    await assertPublicationHead(target, input, request);
     try {
       return await writePullRequestComment(target, input.body, input.existingCommentId, request);
     } catch (error) {
@@ -473,7 +580,38 @@ async function upsertPullRequestComment(
     input.marker,
     request,
   );
+  await assertPublicationHead(target, input, request);
   return writePullRequestComment(target, input.body, recoveredCommentId, request, input.pullNumber);
+}
+
+/** No cached/conditional response can authorize a write. Each retry repeats this read. */
+async function assertPublicationHead(
+  target: RepositoryTarget,
+  input: PullRequestCommentInput,
+  request: AuthenticatedRequest,
+): Promise<void> {
+  const response = await request(repositoryApiUrl(target, `pulls/${input.pullNumber}`), {
+    method: 'GET',
+    signal: AbortSignal.timeout(15_000),
+    headers: { 'cache-control': 'no-cache' },
+  });
+  const current = z
+    .object({
+      number: z.number().int().positive(),
+      state: z.enum(['open', 'closed']),
+      head: z.object({ sha: z.string().regex(/^[a-f0-9]{40}$/i) }),
+      base: z.object({ repo: z.object({ full_name: z.string() }) }),
+    })
+    .parse(await response.json());
+  if (
+    current.number !== input.pullNumber ||
+    current.base.repo.full_name.toLowerCase() !== `${target.owner}/${target.name}`.toLowerCase()
+  )
+    throw new Error('GitHub returned a different pull request identity');
+  if (current.state !== 'open') throw new GitHubPublicationSupersededError('pull-closed');
+  if (current.head.sha.toLowerCase() !== input.expectedHeadSha.toLowerCase())
+    throw new GitHubPublicationSupersededError('head-changed');
+  await input.beforeWrite?.();
 }
 
 async function findManagedPullRequestComment(
@@ -495,7 +633,7 @@ async function findManagedPullRequestComment(
     if (match) return match.id;
     if (comments.length < 100) return null;
   }
-  return null;
+  throw new GitHubConversationLimitError();
 }
 
 async function writePullRequestComment(
@@ -560,6 +698,7 @@ export function buildPermanentFileUrl(
   );
   if (lineStart)
     url.hash = lineEnd && lineEnd !== lineStart ? `L${lineStart}-L${lineEnd}` : `L${lineStart}`;
+  if (lineStart && /\.(md|markdown|mdown|mkd)$/i.test(filePath)) url.searchParams.set('plain', '1');
   return url.toString();
 }
 

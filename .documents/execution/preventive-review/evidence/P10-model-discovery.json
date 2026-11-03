@@ -1,0 +1,135 @@
+{
+  "recordedAt": "2026-09-14T15:28:27.183380+00:00",
+  "baseRevision": "abfe98d8d2b748ae9e3be38451846636c29db387",
+  "scope": "P10 authorized model catalog, opt-in key capability and client delivery packages",
+  "packages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.33",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.33",
+        "file": "gcr-client-contract-0.1.0-alpha.33.tgz",
+        "sha256": "3226a1af83924dc3cc66e7396a9f64a5661185d62d4c85658dd121087c8620ff"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.33",
+        "file": "gcr-client-core-0.1.0-alpha.33.tgz",
+        "sha256": "d39ebd6db8b309ec58fd9df27e1d69cadf70114e65b089b5b5621b3cd58fa0d1"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.33",
+        "file": "gcr-client-executors-0.1.0-alpha.33.tgz",
+        "sha256": "54935618c89e66e9c3f579edad3be398c89259d20b89c99592397f9774119f8e"
+      }
+    ]
+  },
+  "cli": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.29",
+    "clientVersion": "0.1.0-alpha.33",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.33",
+        "file": "gcr-client-contract-0.1.0-alpha.33.tgz",
+        "sha256": "3226a1af83924dc3cc66e7396a9f64a5661185d62d4c85658dd121087c8620ff"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.33",
+        "file": "gcr-client-core-0.1.0-alpha.33.tgz",
+        "sha256": "d39ebd6db8b309ec58fd9df27e1d69cadf70114e65b089b5b5621b3cd58fa0d1"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.33",
+        "file": "gcr-client-executors-0.1.0-alpha.33.tgz",
+        "sha256": "54935618c89e66e9c3f579edad3be398c89259d20b89c99592397f9774119f8e"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.29",
+        "file": "gcr-cli-0.1.0-alpha.29.tgz",
+        "sha256": "606799c83e043411b28fda04154a609968cfa7e401b8217a49b70257c66b3055"
+      }
+    ]
+  },
+  "verification": {
+    "runtimeApiAndAuth": 49,
+    "webAndCliTargeted": {
+      "passed": 8,
+      "skipped": 21
+    },
+    "identityScopeFinal": 16,
+    "cliWithInvokeScopeFinal": {
+      "passed": 2,
+      "skipped": 21
+    },
+    "repeatedRunsNotAdded": true,
+    "runtimeBuild": true,
+    "webTypes": true,
+    "lint": true,
+    "cleanClientImports": [
+      "25.9.0",
+      "18.20.8"
+    ],
+    "cleanCliInstall": "25.9.0",
+    "changedTestTypes": true
+  },
+  "limits": {
+    "actualAccountCalls": 0,
+    "prismDeployment": false,
+    "extensionInstall": false,
+    "remoteExecutorDefaultEnabled": false,
+    "fullGoalComplete": false
+  },
+  "logs": [
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-models-api-tests.log",
+      "sha256": "b7f11e972a6a2add7cc50dd38d287bc846425ba9eb350024de86b4aee5f04530"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-models-ui-tests.log",
+      "sha256": "7799c61aac9ed60fa3c6b208b754a21cd6e3c7f452184942284a93c9606246ba"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-models-scope-tests.log",
+      "sha256": "a22c7b8602fa21cf2f5ca1f436565d6a529b87ee03228de878d47f7f47742c8f"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-models-scope-db.json",
+      "sha256": "b88cb54754e0a1847e708213a954eb4e69fe918a30d1e3a06d50b9d65eb10a61"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-models-auth-cli.log",
+      "sha256": "25e4c52d182a39791a0e7de603b78e6637134dfe71ec4129c1bae598daa2a5d5"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-pack33.log",
+      "sha256": "e97430b15e680798f9c23dfce4220c8bcb9e10b5fef7a818091d944d62622331"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-cli29-pack.log",
+      "sha256": "8aa2f9dac4c08b78b26914412501736e52fd4742a530198ba6f5dadc156e70d1"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-final-runtime-build.log",
+      "sha256": "baea4e7b1d6b09ba5dccdaa5dc259603c67c4b3b78170f6cb39d2ee713fe4e39"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-final-web-types.log",
+      "sha256": "89898932a1bdff94dd004bea08d8475c599ff0dc84f3a65962206f57c85910c1"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-final-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/operations/P10-model-discovery/gcr-p10-models-test-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

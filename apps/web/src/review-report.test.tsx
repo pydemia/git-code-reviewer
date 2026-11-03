@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 import { ReviewReportPanel } from './ReviewReportPanel.tsx';
 import type { WorkspaceData } from './api.ts';
+import { reviewedFileCoverage } from './analysis-progress.ts';
 
 it('separates PR and expanded file summaries from detailed FNB comments', () => {
   const coverage = {
@@ -77,7 +78,7 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(html).toContain('class="review-grade grade-positive"');
   expect(html).toContain('>양호</span>');
   expect(html).toContain('P2 Warning');
-  expect(html).toContain('분석 완료 · 제한 있음');
+  expect(html).toContain('일부 검토 · 제한 있음');
   expect(html).toContain('검토 범위 내');
   expect(html).toContain('href="/guide#review-grades"');
   expect(html).not.toContain('Grade: adequate');
@@ -87,7 +88,21 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   const comments = renderToStaticMarkup(
     <ReviewReportPanel
       report={report}
-      files={[]}
+      files={[{ id: 'file', path: 'src/main.ts', previousPath: null }] as WorkspaceData['files']}
+      diff={{
+        schemaVersion: 1,
+        patch: '',
+        files: [
+          {
+            path: 'src/main.ts',
+            previousPath: null,
+            status: 'modified',
+            additions: 1,
+            deletions: 1,
+            patch: '@@ -10 +10 @@\n-old();\n+validateInput();',
+          },
+        ],
+      }}
       section="comments"
       selectedFindingId="finding"
       onFileSelect={() => {}}
@@ -99,6 +114,9 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
   expect(comments).toContain('Unexpected access');
   expect(comments).toContain('Validate before use');
   expect(comments).toContain('변경 코드 · line 10');
+  expect(comments).toContain('validateInput();');
+  expect(comments).toContain('src/main.ts 코드 참조');
+  expect(comments).not.toContain('old();');
   expect(comments).toContain('코드 위치 확인');
   expect(comments).not.toContain('Unique file summary');
   expect(comments).not.toContain('<script>');
@@ -154,12 +172,92 @@ it('separates PR and expanded file summaries from detailed FNB comments', () => 
       onFileSelect={() => {}}
     />,
   );
-  expect(short).toContain('검토한 변경 범위에서 문제가 발견되지 않았습니다.');
+  expect(short).toContain('표시할 검토 의견이 없습니다.');
+  expect(short).not.toContain('src/main.ts');
   expect(short).not.toContain('추가로 지적할 사항');
   expect(short).toContain('PR 전체 변경 설명은 유지합니다.');
   expect(short).toContain('Coverage limitation');
   expect(short).toContain('분석 제한 1건');
   expect(short).toContain('<details class="report-limitations" open="">');
+
+  const large: typeof report = {
+    ...report,
+    summary: '확인된 검토 의견과 전체 완료 범위를 확인하세요.',
+    coverage: {
+      ...coverage,
+      filesChanged: 1045,
+      filesExamined: 1045,
+      limitations: [
+        'quiet/__init__.py: 분석 가능한 변경 line이 없습니다.',
+        '모델 호출 예산에 도달해 일부 파일을 검토하지 못했습니다.',
+      ],
+    },
+    analysis: {
+      ...noIssues.analysis!,
+      coverage: { filesCompleted: 26, windowsPlanned: 1100, windowsReviewed: 100, modelCalls: 127 },
+      files: [
+        {
+          ...noIssues.analysis!.files[0]!,
+          summary: '입력 검증이 필요합니다.',
+          unitIds: ['finding'],
+          priority: 'P2',
+        },
+        ...Array.from({ length: 1044 }, (_, index) => ({
+          fileId: `quiet-${index}`,
+          path: `quiet/file-${index}.py`,
+          status: 'not-reviewed' as const,
+          summary: 'AI review 미완료 — 분석 가능한 변경 line이 없습니다.',
+          priority: null,
+          unitIds: [],
+        })),
+      ],
+    },
+  };
+  large.analysis!.status = 'blocked';
+  const stored = JSON.stringify(large);
+  const largeHtml = renderToStaticMarkup(
+    <ReviewReportPanel
+      report={large}
+      files={[]}
+      section="summary"
+      selectedFindingId={null}
+      onFileSelect={() => {}}
+      onFindingSelect={() => {}}
+    />,
+  );
+  expect(largeHtml.match(/class="report-file-summary"/g)).toHaveLength(1);
+  expect(largeHtml).toContain('src/main.ts');
+  expect(largeHtml).not.toContain('quiet/');
+  expect(largeHtml).not.toContain('분석 가능한 변경 line');
+  expect(largeHtml).toContain('26<span> / 1045</span>');
+  expect(largeHtml).toContain('일부 검토 · BLOCKED');
+  expect(largeHtml).not.toContain('분석 완료');
+  expect(largeHtml).toContain('모델 호출 예산에 도달');
+  expect(JSON.stringify(large)).toBe(stored);
+
+  expect(reviewedFileCoverage(large, undefined)).toEqual({
+    percent: 2,
+    description: '26/1045파일 검토 완료',
+  });
+  expect(reviewedFileCoverage(report, undefined).percent).toBeNull();
+  expect(
+    reviewedFileCoverage(null, {
+      filesTotal: 1045,
+      filesProcessed: 1045,
+      filesReviewed: 1043,
+      filesSkipped: 2,
+      currentFile: null,
+    }).percent,
+  ).toBe(99);
+  expect(
+    reviewedFileCoverage(null, {
+      filesTotal: 1045,
+      filesProcessed: 1045,
+      filesReviewed: 1045,
+      filesSkipped: 0,
+      currentFile: null,
+    }).percent,
+  ).toBe(100);
 
   for (const versions of [{ model: 'fixture' }, { model: 'disabled' }, { review: 'failed' }]) {
     const unavailable = renderToStaticMarkup(

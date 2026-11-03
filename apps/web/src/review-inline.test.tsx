@@ -3,6 +3,38 @@ import { expect, it } from 'vitest';
 import { ReviewDiff } from './ReviewDiff.tsx';
 import type { WorkspaceData } from './api.ts';
 
+it('renders inline Markdown with safe links, code blocks and tables', () => {
+  const html = renderToStaticMarkup(
+    <ReviewDiff
+      fileId="file"
+      mode="unified"
+      patch={'@@ -0,0 +1 @@\n+input'}
+      target={null}
+      findings={
+        [
+          {
+            id: 'markdown',
+            anchor: { fileId: 'file', side: 'head', startLine: 1 },
+            title: 'Validate input',
+            priority: 'P2',
+            category: 'security',
+            problem:
+              '**Check** the [contract](https://example.com/contract).\n\n| Input | Result |\n| --- | --- |\n| None | Reject |',
+            impact: '<script>alert(1)</script>',
+            recommendation: '```python\nvalidate(input)\n```\n\n[unsafe](javascript:alert(1))',
+          },
+        ] as NonNullable<WorkspaceData['report']>['findings']
+      }
+    />,
+  );
+  expect(html).toContain('<strong>Check</strong>');
+  expect(html).toContain('<table>');
+  expect(html).toContain('class="language-python"');
+  expect(html).toContain('href="https://example.com/contract"');
+  expect(html).not.toContain('href="javascript:');
+  expect(html).not.toContain('<script>');
+});
+
 it.each(['split', 'unified'] as const)(
   'renders comments on both sides without requiring selection (%s)',
   (mode) => {

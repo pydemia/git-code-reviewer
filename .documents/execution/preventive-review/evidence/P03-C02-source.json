@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "testRuntime": "v22.23.2",
+  "testCommand": "GCR_SAML_STATE_EVIDENCE=<new absolute evidence path> npx --yes --package=node@22.23.2 node scripts/with-test-postgres.mjs node node_modules/vitest/vitest.mjs run --reporter=json --outputFile=<new report path>",
+  "wholeSuite": {
+    "success": true,
+    "numTotalTests": 767,
+    "numPassedTests": 767,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "testFiles": 99,
+  "samlStateTests": 33,
+  "fullReportSha256": "310a8e2dd3bb0999b2faedc29590f7c2318777e6d6f14394f9c33a7be5c9c4a6",
+  "sourceHashes": {
+    "apps/runtime/src/auth/saml-state.ts": "91d24c0943e4f6851ac1c8c9ac0a163c23fec90663cd4d1bf930db0de5e611fb",
+    "apps/runtime/src/auth/saml-state.integration.test.ts": "2e25deaf9412931e3bf80af8c7b5bb477fcdb44d2e10a9f6602018eed8128764",
+    "packages/db/migrations/0032_saml_identity_state.sql": "29490f3ab13dadbf4cc4997e8ef04be3136b3b366e5d2614df27b4788573da74"
+  },
+  "build": {
+    "command": "pnpm build",
+    "status": "passed"
+  },
+  "runtimeTypecheck": {
+    "command": "pnpm --filter @gcr/runtime typecheck",
+    "status": "passed"
+  },
+  "lint": {
+    "command": "pnpm exec eslint apps/runtime/src/auth/saml-state.ts apps/runtime/src/auth/saml-state.integration.test.ts",
+    "status": "passed"
+  },
+  "deploymentStatus": "pending; PRISM-DEV remains alpha.33 / migration 31",
+  "scope": "Additive migration and persistence API only. SAML routes, IdP provisioning/freshness workers and operating mode transition are later commits."
+}

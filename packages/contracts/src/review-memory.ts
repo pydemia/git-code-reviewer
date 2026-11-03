@@ -160,7 +160,28 @@ export const reviewMemoryReviewSchema = z
   .strict();
 export type ReviewMemoryReview = z.infer<typeof reviewMemoryReviewSchema>;
 
+export const githubPrMessageProvenanceSchema = z.object({
+  provider: z.literal('github-rest'),
+  reviewState: z.string().nullable(),
+  reviewGithubId: z.string().nullable(),
+  originalCommitSha: z.string().nullable(),
+  originalLine: z.number().int().positive().nullable(),
+  startLine: z.number().int().positive().nullable(),
+  originalStartLine: z.number().int().positive().nullable(),
+  startSide: z.enum(['LEFT', 'RIGHT']).nullable(),
+  subjectType: z.string().nullable(),
+  diffHunk: z.string().nullable(),
+  commentNodeId: z.string().optional(),
+  threadId: z.string().nullable().optional(),
+  threadObservation: z
+    .enum(['observed', 'not-observed', 'unsupported', 'unavailable', 'partial'])
+    .optional(),
+  threadResolved: z.boolean().nullable(),
+  threadOutdated: z.boolean().nullable(),
+});
+
 export const githubPrMemorySourceSchema = z.object({
+  upstreamState: z.enum(['present', 'not-returned']).optional(),
   id: z.string().uuid(),
   pullRequestId: z.string().uuid(),
   kind: z.enum(['issue-comment', 'review', 'review-comment']),
@@ -173,10 +194,25 @@ export const githubPrMemorySourceSchema = z.object({
   side: z.enum(['LEFT', 'RIGHT']).nullable(),
   commitSha: z.string().nullable(),
   inReplyToGithubId: z.string().nullable(),
+  provenance: githubPrMessageProvenanceSchema.nullable().default(null),
+  observationHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable()
+    .default(null),
   htmlUrl: z.string().url(),
   githubCreatedAt: z.string(),
   githubUpdatedAt: z.string(),
   state: z.enum(['available', 'saved', 'ignored']),
+});
+
+export const githubPrConversationSyncSchema = z.object({
+  state: z.enum(['unobserved', 'pending', 'syncing', 'current', 'failed', 'expired']),
+  lastAttemptAt: z.string().nullable(),
+  lastSuccessAt: z.string().nullable(),
+  nextAttemptAt: z.string().nullable(),
+  followUntil: z.string().nullable(),
+  errorCode: z.string().nullable(),
 });
 
 export const githubPrMemorySourceListSchema = z.object({
@@ -184,8 +220,26 @@ export const githubPrMemorySourceListSchema = z.object({
   repositoryId: z.string().uuid(),
   pullNumber: z.number().int().positive(),
   items: z.array(githubPrMemorySourceSchema),
+  sync: githubPrConversationSyncSchema.optional(),
 });
 
 export const githubPrMemorySourceStateSchema = z
   .object({ state: z.enum(['available', 'ignored']) })
   .strict();
+
+export const githubPrMessageHistorySchema = z.object({
+  schemaVersion: z.literal(1),
+  sourceId: z.string().uuid(),
+  items: z.array(
+    z.object({
+      id: z.string().regex(/^[1-9][0-9]*$/),
+      observationHash: z.string().regex(/^[0-9a-f]{64}$/),
+      observedAt: z.string(),
+      syncStartedAt: z.string(),
+      snapshot: githubPrMemorySourceSchema
+        .omit({ id: true, pullRequestId: true, state: true, observationHash: true })
+        .extend({ githubId: z.string() }),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+});

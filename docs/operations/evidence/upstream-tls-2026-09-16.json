@@ -1,0 +1,58 @@
+{
+  "at": "2026-09-16T14:01:07.314829+00:00",
+  "sourceSha": "ea8b814381a97474c4e31ca83b0facd28d92b704",
+  "userConfirmedTopology": "Browser HTTPS -> upstream TLS termination -> Envoy HTTP 80 -> GCR HTTP",
+  "redirectRemoved": true,
+  "publicBaseUrl": "https://pr-review.prism.ai",
+  "checks": [
+    {
+      "transport": "http",
+      "path": "/login",
+      "status": 200,
+      "redirect": false
+    },
+    {
+      "transport": "HTTP to Envoy 80",
+      "browserOrigin": "https://pr-review.prism.ai",
+      "xForwardedProto": "https",
+      "path": "/auth/local/login",
+      "status": 400,
+      "code": "INVALID_REQUEST",
+      "credentialsSent": false
+    },
+    {
+      "transport": "HTTP to Envoy 80",
+      "browserOrigin": "http://pr-review.prism.ai",
+      "xForwardedProto": "https",
+      "path": "/auth/local/login",
+      "status": 403,
+      "code": "INVALID_ORIGIN",
+      "credentialsSent": false
+    },
+    {
+      "transport": "HTTP to Envoy 80",
+      "browserOrigin": "https://untrusted.invalid",
+      "xForwardedProto": "https",
+      "path": "/auth/local/login",
+      "status": 403,
+      "code": "INVALID_ORIGIN",
+      "credentialsSent": false
+    }
+  ],
+  "browserFacingCertificate": "not determined: upstream terminator not inspected",
+  "envoyDirect443Certificate": {
+    "issuer": "PRISM-DEV GCR Development CA",
+    "subject": "CN=auth.pr-review.prism.ai",
+    "san": [
+      "auth.pr-review.prism.ai",
+      "pr-review.prism.ai"
+    ],
+    "notAfter": "2026-12-12T15:15:15Z",
+    "sha256": "26eedb98f0d7dde54025348d4e153cac5de7c6cd12378581d9256ecd4880aeaa"
+  },
+  "actualUserLoginVerified": false,
+  "originalUserErrorRootCause": "User browser HTTP Origin differs from configured HTTPS PUBLIC_BASE_URL",
+  "authenticationRelaxed": false,
+  "userReportedBrowserUrl": "http://pr-review.prism.ai/login?returnTo=%2F",
+  "topologyClarification": "The described upstream TLS termination topology does not make an http:// browser origin HTTPS; internal HTTP with HTTPS Origin is accepted."
+}

@@ -1,0 +1,21 @@
+{{- if or (eq .Values.auth.mode "saml") .Values.identity.adminEnabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "git-code-reviewer.fullname" . }}-identity
+  labels:
+    {{- include "git-code-reviewer.labels" . | nindent 4 }}
+data:
+  SAML_ENTITY_ID: {{ include "git-code-reviewer.identity.entityId" . | quote }}
+  SAML_IDP_ISSUER: {{ .Values.auth.saml.idpIssuer | quote }}
+  IDENTITY_ADMIN_ENABLED: {{ .Values.identity.adminEnabled | quote }}
+  IDENTITY_SECURITY_ENABLED: {{ .Values.identity.securityEnabled | quote }}
+  {{- if eq .Values.auth.mode "saml" }}
+  SAML_IDP_ENTRY_POINT: {{ printf "%s/protocol/saml" .Values.auth.saml.idpIssuer | quote }}
+  SAML_IDP_METADATA_URL: {{ printf "%s/protocol/saml/descriptor" .Values.auth.saml.idpIssuer | quote }}
+  {{- end }}
+  {{- if .Values.identity.adminEnabled }}
+  KEYCLOAK_ADMIN_BASE_URL: {{ .Values.identity.adminBaseUrl | quote }}
+  KEYCLOAK_ADMIN_CLIENT_ID: {{ .Values.identity.clientId | quote }}
+  {{- end }}
+{{- end }}

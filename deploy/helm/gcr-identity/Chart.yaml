@@ -1,0 +1,7 @@
+apiVersion: v2
+name: gcr-identity
+description: Keycloak companion for GCR using an existing shared PostgreSQL instance
+type: application
+version: 0.1.0
+appVersion: '26.7.3-gcr.1'
+kubeVersion: '>=1.27.0-0'

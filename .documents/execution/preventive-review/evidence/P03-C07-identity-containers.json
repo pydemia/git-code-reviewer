@@ -1,0 +1,250 @@
+{
+  "checkpoint": "P03-C07 actual Compose identity infrastructure",
+  "status": "local-arm64-infrastructure-verified; publication-and-operational-cutover-pending",
+  "recordedAt": "2026-09-13T11:03:23.080187+00:00",
+  "baseCommit": "926b3058e9bf62f6ff396ce3c2b07e4d8aebda11",
+  "sourceSha256": {
+    "compose.identity.yaml": "58ee28c2b81919f4484304c8b52e42174dbeaeae06a4f842c5880f36ee4365c2",
+    "deploy/identity/Dockerfile": "9a104d56c4380428c7f28436b12d51ebabaae94e8f19712f4289d6c8a2490b5c",
+    "deploy/identity/configuration.mjs": "cd64ec04c087a073afd5b9992725237e9d87a9c025ccc0d957d279b00da6aa08",
+    "scripts/verify-identity-configuration.mjs": "5e9247664c9317669b0b14d3bd99cd7a07aae91d99d4bf2ca73c9dcadb0666d3",
+    "scripts/verify-identity-containers.mjs": "0c60de765d115ce9b857cef367a0ab8f868fc6d311233470c528e71484efa9b3",
+    "scripts/identity-container-probe.mjs": "0e579f1ddc7028734a5802c0be55befd52f4627cea5d081c060b83ecabd5035a"
+  },
+  "corrections": [
+    "Persist KC_HTTP_MANAGEMENT_HEALTH_ENABLED=true during optimized image augmentation and retain the same runtime value.",
+    "Use PostgreSQL TCP readiness instead of the initdb temporary Unix-socket server.",
+    "Include basic/roles/service_account client scopes. basic supplies the service-account subject required by the C05 collector.",
+    "Compare client scope/URI string arrays without relying on server iteration order; missing, malformed or additional entries remain different.",
+    "Exercise automatic service_account insertion and response ordering in the stateful configuration fixture."
+  ],
+  "localImage": {
+    "reference": "gcr-identity@sha256:13ba0fe7c05d2725182b72ff0fb50239df17ff4a9d1e762cc4c1fa2192013485",
+    "architecture": "arm64",
+    "keycloak": "26.7.3",
+    "revisionLabel": "926b305-identity-management-worktree",
+    "registryPublished": false,
+    "dockerfileSha256": "9a104d56c4380428c7f28436b12d51ebabaae94e8f19712f4289d6c8a2490b5c",
+    "buildArtifact": "artifacts/operations/P03-C07/build-management-arm64.log",
+    "buildLogSha256": "12ebd455048485239bed965f26654bde7569f1841216428b8d7d4ef85b34697c",
+    "buildNetwork": "none"
+  },
+  "actualContainers": {
+    "startedAt": "2026-09-13T10:58:00.242Z",
+    "finishedAt": "2026-09-13T11:02:03.640Z",
+    "node": "v22.23.2",
+    "images": {
+      "GCR_RUNTIME_IMAGE": "node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+      "GCR_POSTGRES_IMAGE": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+      "GCR_IDENTITY_IMAGE": "gcr-identity@sha256:13ba0fe7c05d2725182b72ff0fb50239df17ff4a9d1e762cc4c1fa2192013485"
+    },
+    "checks": [
+      "actual-PostgreSQL-17-adapter-file-secret-TLS-and-separated-role-provisioning",
+      "actual-nonroot-Keycloak-file-secrets-readonly-root-and-no-inspect-plaintext",
+      "actual-configurer-apply-repeat-user-key-client-and-password-preservation",
+      "actual-configured-service-account-token-manage-users-and-view-events-only",
+      "two-normal-replicas-without-bootstrap-secrets-preserve-identity-and-credential",
+      "jdbc-ping-two-member-cluster-and-TLS-database-connections-within-two-pool-ceiling",
+      "single-replica-replacement-keeps-peer-serving-the-same-user-password-and-keys",
+      "retained-volume-PostgreSQL-recreation-and-DBA-repeat-preserve-Keycloak-identities",
+      "optimized-Keycloak-startup-rejects-wrong-database-CA-and-hostname"
+    ],
+    "readiness": [
+      {
+        "service": "postgres",
+        "count": 1,
+        "milliseconds": 7123
+      },
+      {
+        "service": "keycloak",
+        "count": 1,
+        "milliseconds": 27989
+      },
+      {
+        "service": "keycloak",
+        "count": 2,
+        "milliseconds": 17463
+      },
+      {
+        "service": "keycloak",
+        "count": 2,
+        "milliseconds": 16793
+      },
+      {
+        "service": "postgres",
+        "count": 1,
+        "milliseconds": 7156
+      },
+      {
+        "service": "keycloak",
+        "count": 2,
+        "milliseconds": 17370
+      }
+    ],
+    "identity": {
+      "sha256": "1f8e81ec053efe8e48039d59de73b7d9e765b37490f38ac51e3a539aef0f8334",
+      "userId": "1ef11b84-3580-479c-92c7-5f7d0595871f",
+      "keys": 4,
+      "ownedClients": 2,
+      "uid": 1000,
+      "groups": [
+        20,
+        1000
+      ]
+    },
+    "twoReplicaConnections": [
+      {
+        "datname": "git_code_reviewer_keycloak",
+        "ssl": true,
+        "connections": 6
+      }
+    ],
+    "tlsRejections": [
+      {
+        "name": "wrong-ca",
+        "exitCode": 1
+      },
+      {
+        "name": "wrong-hostname",
+        "exitCode": 1
+      }
+    ],
+    "cleanup": true
+  },
+  "actualContainersScope": {
+    "postgresVersion": "postgres (PostgreSQL) 17.11",
+    "postgresTlsKey": "postgres:postgres 600",
+    "runtimeImage": "Pinned Node 22 only; current compiled DBA CLI mounted read-only from checkout. GCR server/worker were not started.",
+    "credentials": "Fresh disposable files only; actual UID 1000/group 20 consumption and no plaintext in inspected PostgreSQL/Keycloak container configuration.",
+    "provisionApplyCount": 2,
+    "configurationActions": [
+      [
+        "realm.create",
+        "profile.configure",
+        "events.configure",
+        "saml-client.create",
+        "admin-client.create",
+        "roles.configure",
+        "realm.enable"
+      ],
+      [
+        "realm.create",
+        "profile.configure",
+        "events.configure",
+        "saml-client.create",
+        "admin-client.create",
+        "roles.assign",
+        "roles.scope",
+        "realm.enable"
+      ],
+      [],
+      []
+    ],
+    "identityPreservation": "Same test user representation, four realm keys, two owned client IDs and user password; service-account secret remains accepted.",
+    "appData": "No actual app migration/user/review fixture in this test. Existing C06 app preservation evidence is separate.",
+    "replicaReplacement": "One peer served login/password checks while the other was stopped and replaced. Both normal replicas were targeted separately.",
+    "tlsNegative": "Each run exited 1 without harness termination; diagnostics identified certificate trust or hostname verification failure.",
+    "postgresRecreation": "Same fresh fixture volume retained across PostgreSQL container recreation; not a backup restore or legacy production volume cutover.",
+    "publicProtocol": "Main Keycloak HTTPS health/metrics returned 404. Public proxy and browser SAML were not exercised."
+  },
+  "regressions": {
+    "configuration": {
+      "artifact": "artifacts/operations/P03-C07/identity-configuration-basic-service-account.json",
+      "sha256": "8c1c4c36d2849c29cbaadaeade801fc48e5773543a3dbe7f4aa4d55f85d39ed9",
+      "checks": 16,
+      "success": true
+    },
+    "composeModel": {
+      "artifact": "artifacts/operations/P03-C07/identity-compose-management-runtime.json",
+      "sha256": "6e4d150f7a4419559d9069cfad2f608901fab00f3b1d67e17d14625c58280807",
+      "checks": 16,
+      "success": true
+    },
+    "lintFormat": "Changed JavaScript ESLint and changed source/docs Prettier passed; git diff --check passed."
+  },
+  "attempts": [
+    {
+      "artifact": "artifacts/operations/P03-C07/identity-containers-attempt1.json",
+      "sha256": "24e50cd2f122cd9622eda0d7d49b0a7f3c63f027530896f93ec135d5f4bb9c34",
+      "status": "failed",
+      "startedAt": "2026-09-13T10:42:55.270Z",
+      "finishedAt": "2026-09-13T10:43:26.848Z",
+      "checksPassed": 1,
+      "cleanup": true,
+      "observation": "Keycloak exited before readiness; initial harness did not capture stderr. PostgreSQL adapter/provisioning passed."
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/identity-containers-attempt2.json",
+      "sha256": "8601d884324dcbafebfd9e1927692cc300dac0d8b7b0daca1acd103d032ddbfa",
+      "status": "failed",
+      "startedAt": "2026-09-13T10:44:40.610Z",
+      "finishedAt": "2026-09-13T10:44:58.724Z",
+      "checksPassed": 1,
+      "cleanup": true,
+      "observation": "Captured stderr: http-management-health-enabled differed from the optimized image build setting; Keycloak exited 2."
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/identity-containers-attempt3.json",
+      "sha256": "5dc9eaf0c7721dd5407c6ce1797613174cbe8b542f192b162227ceba01ce4f6d",
+      "status": "failed",
+      "startedAt": "2026-09-13T10:46:48.759Z",
+      "finishedAt": "2026-09-13T10:48:01.257Z",
+      "checksPassed": 2,
+      "cleanup": true,
+      "observation": "Rebuilt image started, but staged realm readback rejected a configuration difference before enabling the realm."
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/identity-containers-attempt4.json",
+      "sha256": "b605d2f81483a0027c6c7c79e2fa52035299cd17144d2aa82ad7bfbcab4cafe1",
+      "status": "failed",
+      "startedAt": "2026-09-13T10:49:01.454Z",
+      "finishedAt": "2026-09-13T10:50:03.209Z",
+      "checksPassed": 2,
+      "cleanup": true,
+      "observation": "Readback identified Keycloak automatically attaching service_account; no user/key/client reset was performed."
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/identity-containers-attempt5.json",
+      "sha256": "c88a56aae2d935f9b5d690b61f15ffa25032079bbccd654a633ec2a62ac89d91",
+      "status": "failed",
+      "startedAt": "2026-09-13T10:52:05.144Z",
+      "finishedAt": "2026-09-13T10:53:16.377Z",
+      "checksPassed": 2,
+      "cleanup": true,
+      "observation": "Realm apply and inspection converged; fixture probe failed on a misplaced image assertion (ReferenceError)."
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/identity-containers-attempt6.json",
+      "sha256": "0cb151de1e0ba77c2c20ebb78f75aad8db141c1a413dc8d2255cfd60419cc6c5",
+      "status": "failed",
+      "startedAt": "2026-09-13T10:54:28.292Z",
+      "finishedAt": "2026-09-13T10:56:39.504Z",
+      "checksPassed": 4,
+      "cleanup": true,
+      "observation": "Actual user/password and limited token checks passed; per-replica probe used an unsupported Compose run flag."
+    },
+    {
+      "artifact": "artifacts/operations/P03-C07/identity-containers-attempt7.json",
+      "sha256": "9a2c62ab33098ecb4a7a9126a65ac267e35fb7e45742ed12efbdc05c8433d35e",
+      "status": "passed",
+      "startedAt": "2026-09-13T10:58:00.242Z",
+      "finishedAt": "2026-09-13T11:02:03.640Z",
+      "checksPassed": 9,
+      "cleanup": true,
+      "observation": "All nine actual-container checks passed after fixing the verifier targeting overlay."
+    }
+  ],
+  "remaining": [
+    "Build/verify deployment architecture and publish immutable GCR and optimized identity images/charts.",
+    "Actual application image, shared-DB migrations/data preservation, public proxy/browser SAML and SMTP integration.",
+    "Operational C06 role/TLS cutover and C07 identity Service/deployment; the existing auth HTTPRoute still awaits its backend.",
+    "C08 backup/restore, mapping, named administrator/MFA recovery and identity/key rotation.",
+    "Commit Defender native UI/invalid-output investigation/release gates and P04-P13."
+  ],
+  "operationalMutation": false,
+  "sources": [
+    "https://www.keycloak.org/server/containers",
+    "https://www.keycloak.org/server/management-interface",
+    "https://raw.githubusercontent.com/keycloak/keycloak/26.7.3/services/src/main/java/org/keycloak/protocol/oidc/OIDCLoginProtocolFactory.java"
+  ]
+}

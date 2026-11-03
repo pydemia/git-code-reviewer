@@ -1,0 +1,368 @@
+{
+  "version": "2.12.6",
+  "sourceSha": "3a39933b64750e89b8e5dc793bf4d0ab24cff124",
+  "vsceVersion": "4.0.0",
+  "buildPlatform": "win32",
+  "buildArch": "arm64",
+  "published": false,
+  "nativeExecutionImpliedByTarget": false,
+  "packages": [
+    {
+      "target": "win32-arm64",
+      "file": "commit-defender-2.12.6-win32-arm64.vsix",
+      "sha256": "5ad4d88df6ce1cb4d328fce1bfb7dceb8472260218a4ad05302047ee5b67dbe5",
+      "bytes": 709938
+    },
+    {
+      "target": "win32-x64",
+      "file": "commit-defender-2.12.6-win32-x64.vsix",
+      "sha256": "460c93215e2726fbf8a66d6c9dbe02b3bcf5ce792e482dd1c336a543b1a726e4",
+      "bytes": 709938
+    },
+    {
+      "target": "darwin-arm64",
+      "file": "commit-defender-2.12.6-darwin-arm64.vsix",
+      "sha256": "ca17b717a247ce8e919a583ec1b91a5e8114489328e94e45a740d611330f4e4d",
+      "bytes": 709938
+    },
+    {
+      "target": "darwin-x64",
+      "file": "commit-defender-2.12.6-darwin-x64.vsix",
+      "sha256": "8380f38eabd273e350a09f3510ff3f4b4079c815fe8ca8a341102f5338c46abd",
+      "bytes": 709937
+    },
+    {
+      "target": "linux-arm64",
+      "file": "commit-defender-2.12.6-linux-arm64.vsix",
+      "sha256": "c5bde768642900f84dcc5584a03ae74cbbca85417624e9b37fdeda6e5dce22b1",
+      "bytes": 709938
+    },
+    {
+      "target": "linux-x64",
+      "file": "commit-defender-2.12.6-linux-x64.vsix",
+      "sha256": "8b08aa522992e3af4382df650f4d24d28d7cc6c36733b66f8586d7473a6a0b10",
+      "bytes": 709937
+    }
+  ],
+  "recordedAt": "2026-09-16T13:01:49.539Z",
+  "checks": [
+    {
+      "target": "win32-arm64",
+      "files": 52,
+      "allowlist": "passed",
+      "readmeLines": 377,
+      "sourcePinnedLinks": true,
+      "runtime": [
+        {
+          "file": "out/advisory-hook.cjs",
+          "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+        },
+        {
+          "file": "out/extension.js",
+          "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+        },
+        {
+          "file": "out/gcr-service/main.mjs",
+          "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+        },
+        {
+          "file": "out/gcr-service/manifest.json",
+          "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+        },
+        {
+          "file": "out/gcr-service/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/gcr-service/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        },
+        {
+          "file": "out/hook-cli.js",
+          "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+        },
+        {
+          "file": "out/review-chat-worker.js",
+          "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+        },
+        {
+          "file": "out/standalone-review-worker.js",
+          "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+        },
+        {
+          "file": "out/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        }
+      ]
+    },
+    {
+      "target": "win32-x64",
+      "files": 52,
+      "allowlist": "passed",
+      "readmeLines": 377,
+      "sourcePinnedLinks": true,
+      "runtime": [
+        {
+          "file": "out/advisory-hook.cjs",
+          "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+        },
+        {
+          "file": "out/extension.js",
+          "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+        },
+        {
+          "file": "out/gcr-service/main.mjs",
+          "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+        },
+        {
+          "file": "out/gcr-service/manifest.json",
+          "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+        },
+        {
+          "file": "out/gcr-service/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/gcr-service/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        },
+        {
+          "file": "out/hook-cli.js",
+          "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+        },
+        {
+          "file": "out/review-chat-worker.js",
+          "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+        },
+        {
+          "file": "out/standalone-review-worker.js",
+          "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+        },
+        {
+          "file": "out/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        }
+      ]
+    },
+    {
+      "target": "darwin-arm64",
+      "files": 52,
+      "allowlist": "passed",
+      "readmeLines": 377,
+      "sourcePinnedLinks": true,
+      "runtime": [
+        {
+          "file": "out/advisory-hook.cjs",
+          "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+        },
+        {
+          "file": "out/extension.js",
+          "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+        },
+        {
+          "file": "out/gcr-service/main.mjs",
+          "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+        },
+        {
+          "file": "out/gcr-service/manifest.json",
+          "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+        },
+        {
+          "file": "out/gcr-service/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/gcr-service/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        },
+        {
+          "file": "out/hook-cli.js",
+          "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+        },
+        {
+          "file": "out/review-chat-worker.js",
+          "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+        },
+        {
+          "file": "out/standalone-review-worker.js",
+          "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+        },
+        {
+          "file": "out/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        }
+      ]
+    },
+    {
+      "target": "darwin-x64",
+      "files": 52,
+      "allowlist": "passed",
+      "readmeLines": 377,
+      "sourcePinnedLinks": true,
+      "runtime": [
+        {
+          "file": "out/advisory-hook.cjs",
+          "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+        },
+        {
+          "file": "out/extension.js",
+          "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+        },
+        {
+          "file": "out/gcr-service/main.mjs",
+          "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+        },
+        {
+          "file": "out/gcr-service/manifest.json",
+          "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+        },
+        {
+          "file": "out/gcr-service/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/gcr-service/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        },
+        {
+          "file": "out/hook-cli.js",
+          "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+        },
+        {
+          "file": "out/review-chat-worker.js",
+          "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+        },
+        {
+          "file": "out/standalone-review-worker.js",
+          "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+        },
+        {
+          "file": "out/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        }
+      ]
+    },
+    {
+      "target": "linux-arm64",
+      "files": 52,
+      "allowlist": "passed",
+      "readmeLines": 377,
+      "sourcePinnedLinks": true,
+      "runtime": [
+        {
+          "file": "out/advisory-hook.cjs",
+          "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+        },
+        {
+          "file": "out/extension.js",
+          "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+        },
+        {
+          "file": "out/gcr-service/main.mjs",
+          "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+        },
+        {
+          "file": "out/gcr-service/manifest.json",
+          "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+        },
+        {
+          "file": "out/gcr-service/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/gcr-service/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        },
+        {
+          "file": "out/hook-cli.js",
+          "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+        },
+        {
+          "file": "out/review-chat-worker.js",
+          "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+        },
+        {
+          "file": "out/standalone-review-worker.js",
+          "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+        },
+        {
+          "file": "out/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        }
+      ]
+    },
+    {
+      "target": "linux-x64",
+      "files": 52,
+      "allowlist": "passed",
+      "readmeLines": 377,
+      "sourcePinnedLinks": true,
+      "runtime": [
+        {
+          "file": "out/advisory-hook.cjs",
+          "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+        },
+        {
+          "file": "out/extension.js",
+          "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+        },
+        {
+          "file": "out/gcr-service/main.mjs",
+          "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+        },
+        {
+          "file": "out/gcr-service/manifest.json",
+          "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+        },
+        {
+          "file": "out/gcr-service/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/gcr-service/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        },
+        {
+          "file": "out/hook-cli.js",
+          "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+        },
+        {
+          "file": "out/review-chat-worker.js",
+          "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+        },
+        {
+          "file": "out/standalone-review-worker.js",
+          "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+        },
+        {
+          "file": "out/windows-native.exe",
+          "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+        },
+        {
+          "file": "out/windows-native.json",
+          "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+        }
+      ]
+    }
+  ]
+}

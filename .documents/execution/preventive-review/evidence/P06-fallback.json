@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "checkpoint": "P06-C03 shared fallback and execution provenance",
+  "clientPackageVersion": "0.1.0-alpha.17",
+  "cliVersion": "0.1.0-alpha.11",
+  "validation": {
+    "regressionPassed": 339,
+    "regressionSkipped": 1,
+    "files": 19,
+    "seconds": 250.64,
+    "skip": "opt-in real-account CLI smoke",
+    "buildAndTypecheck": true,
+    "focusedEslint": true,
+    "cleanInstalledConsumer": true
+  },
+  "packages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.17",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.17",
+        "file": "gcr-client-contract-0.1.0-alpha.17.tgz",
+        "sha256": "155d93af4ce1ac3ab09aa73f88863eba54c00f0aeae066d4c5c7d03033637cc5"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.17",
+        "file": "gcr-client-core-0.1.0-alpha.17.tgz",
+        "sha256": "16b7413363857f63e058ed4577ec5c9837be2efee7f5e3b2fe3a7e433d4f9781"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.17",
+        "file": "gcr-client-executors-0.1.0-alpha.17.tgz",
+        "sha256": "39fa2ad4f3e57d1894718ab920f1ef07b0a5093f28624845511f24b3f5ceb2f1"
+      }
+    ]
+  },
+  "checks": [
+    "configured/effective/knowledgeSource/fallbackReason validated in client identity",
+    "standalone identity rejects central snapshot or entries",
+    "cache-only and pause block unusable central knowledge before model",
+    "ordinary outage selects valid cache",
+    "identity failure and revocation never authorize cached fallback",
+    "confirmed local fallback uses original approved executor only",
+    "first publication failure returns authenticated connection ID and removes failed key",
+    "fallback results stored in local history and scoped by confirmed connection",
+    "late cancellation/busy/superseded/corrupt storage do not trigger fallback"
+  ],
+  "remaining": [
+    "401 credential renewal",
+    "remote mapping",
+    "central readonly body/export authorization",
+    "Linux native environment verification",
+    "remaining P00-P13 requirements"
+  ]
+}

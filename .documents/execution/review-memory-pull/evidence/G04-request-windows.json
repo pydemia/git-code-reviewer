@@ -1,0 +1,673 @@
+{
+  "windows": [
+    {
+      "case": "defect",
+      "runId": "2aa22028-cc97-4a47-a8ae-c2eeda36e287",
+      "start": 1789486133935.7944,
+      "end": 1789486279236.0,
+      "modelInvocationCount": 1,
+      "provider": {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "high"
+      },
+      "gcrWriteRequests": 0,
+      "gcrRequests": [
+        {
+          "time": 1789486135413,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "3c242426-2b08-4ac0-8bb5-15ae952d5bc8"
+        },
+        {
+          "time": 1789486135492,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+          "requestId": "928f4cf6-d585-4510-92f9-646eb7d797e4"
+        },
+        {
+          "time": 1789486135575,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages",
+          "requestId": "d9273012-ff73-4f26-9d79-8be9d8376007"
+        },
+        {
+          "time": 1789486135785,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/915/messages",
+          "requestId": "14b22a49-f70f-42c2-b0f2-22ec9297e9de"
+        },
+        {
+          "time": 1789486135890,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "cfecb00d-0463-4fee-87ba-f59fd0908a9f"
+        },
+        {
+          "time": 1789486135979,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "e24959a7-5e18-4be3-b27b-a632e4581c08"
+        },
+        {
+          "time": 1789486135997,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1/versions",
+          "requestId": "713ee054-91a6-4850-a435-7716254c3b80"
+        },
+        {
+          "time": 1789486136079,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1/history",
+          "requestId": "2c0383a2-de0e-466d-a143-e21e8a446541"
+        },
+        {
+          "time": 1789486136175,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance?sourceId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "d35ad8bf-7f6c-42ae-91e5-39547e446dcb"
+        },
+        {
+          "time": 1789486136282,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+          "requestId": "ccfe6392-a7b7-466f-9c6b-8adb6b288202"
+        },
+        {
+          "time": 1789486141195,
+          "method": "GET",
+          "url": "/api/v1/client-auth/me",
+          "requestId": "ef95a67a-45f4-4b73-b44f-de560f9e89e4"
+        },
+        {
+          "time": 1789486141358,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "ebacd8f4-5977-484e-b11b-9f8fc0283b03"
+        },
+        {
+          "time": 1789486142296,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "3aeb64a6-f019-40f2-b00b-3edd978b5a00"
+        },
+        {
+          "time": 1789486142811,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+          "requestId": "6d22eb00-2bb7-4dc9-bee2-7ac57593f4c0"
+        },
+        {
+          "time": 1789486143242,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/c10eec35-c291-46c3-9d0d-32860f0599cd",
+          "requestId": "883c6b5d-be28-4d40-9411-22baf17112a1"
+        },
+        {
+          "time": 1789486143606,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+          "requestId": "6fc3f326-4d39-4b72-958f-82ee75af3fd3"
+        },
+        {
+          "time": 1789486144845,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "f7354475-2aea-4f42-85f7-b84614f99274"
+        },
+        {
+          "time": 1789486146444,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+          "requestId": "e91e79aa-ecf8-4fb9-85d6-00b5bb2494e4"
+        },
+        {
+          "time": 1789486147565,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "e4768674-c9e4-4552-a7bb-b4ec81946639"
+        },
+        {
+          "time": 1789486152736,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+          "requestId": "ed6c86be-d859-4326-a9a4-46c6f9d44eb6"
+        },
+        {
+          "time": 1789486153836,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "a530455f-d7df-414e-ae1d-59caaf689162"
+        },
+        {
+          "time": 1789486154889,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "8d33a6ef-6bc1-4a5f-a277-cf568895b42d"
+        },
+        {
+          "time": 1789486156339,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "requestId": "2526d50c-b216-4427-a1ca-0a940dbb8c60"
+        },
+        {
+          "time": 1789486182344,
+          "method": "GET",
+          "url": "/api/v1/repositories/9496bca9-8853-4344-b2d1-af9496608232/review-history",
+          "requestId": "65fd0680-0b13-488b-bc52-46fd5edb97fe"
+        },
+        {
+          "time": 1789486208097,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "8f2df332-5bdd-4332-b2ee-b731c5859d70"
+        },
+        {
+          "time": 1789486253197,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history",
+          "requestId": "ddfe6a56-9f03-4d1e-a583-ab42d4972b13"
+        },
+        {
+          "time": 1789486253477,
+          "method": "GET",
+          "url": "/api/v1/repositories/9496bca9-8853-4344-b2d1-af9496608232/review-history",
+          "requestId": "b825dab4-7f5d-41be-a1ea-0f415c9a0b74"
+        }
+      ]
+    },
+    {
+      "case": "fixed",
+      "runId": "c9102c5c-fc61-4c6c-8b37-379f3ad7481a",
+      "start": 1789486357990.1514,
+      "end": 1789486442542.0,
+      "modelInvocationCount": 1,
+      "provider": {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "high"
+      },
+      "gcrWriteRequests": 0,
+      "gcrRequests": [
+        {
+          "time": 1789486364033,
+          "method": "GET",
+          "url": "/api/v1/client-auth/me",
+          "requestId": "d13c8c18-8416-426c-8eb8-6fb1816565fc"
+        },
+        {
+          "time": 1789486364189,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "8ce02d66-c260-4067-abab-618f9509f92b"
+        },
+        {
+          "time": 1789486364907,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "3af57955-1510-450c-a84c-053047035da9"
+        },
+        {
+          "time": 1789486365573,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+          "requestId": "081a6fc1-e8c7-4546-acf2-6479ce0cb0be"
+        },
+        {
+          "time": 1789486366236,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/c10eec35-c291-46c3-9d0d-32860f0599cd",
+          "requestId": "8b90a521-f84a-4b3a-8be7-ba1bd524fa1b"
+        },
+        {
+          "time": 1789486366642,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+          "requestId": "a8ad4f45-ffd6-4d83-97c1-64eae8f0e64a"
+        },
+        {
+          "time": 1789486367926,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "f66636f8-b222-4f1c-8e82-654b72ac7f6c"
+        },
+        {
+          "time": 1789486368998,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+          "requestId": "74dfd6b6-79d9-4902-92a5-d8582bead9ee"
+        },
+        {
+          "time": 1789486370042,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "31c51115-ac9e-48f4-8039-47c5148dec18"
+        },
+        {
+          "time": 1789486375368,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+          "requestId": "9339106f-558c-43a7-a501-e21bc4bcd8d4"
+        },
+        {
+          "time": 1789486376432,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "31caf6ef-4d80-4919-8fe3-65971046a538"
+        },
+        {
+          "time": 1789486377440,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "37c99ddf-5891-401e-9633-6252bbd99037"
+        },
+        {
+          "time": 1789486378444,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "requestId": "1011a5f1-94e6-49ad-b514-fc3961f366d9"
+        }
+      ]
+    },
+    {
+      "case": "unrelated",
+      "runId": "f5b87096-e8c2-4e9e-9f75-76b1779a2431",
+      "start": 1789486716940.1882,
+      "end": 1789486826486.0,
+      "modelInvocationCount": 1,
+      "provider": {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "high"
+      },
+      "gcrWriteRequests": 0,
+      "gcrRequests": [
+        {
+          "time": 1789486723864,
+          "method": "GET",
+          "url": "/api/v1/client-auth/me",
+          "requestId": "7f9d28fe-96d4-4196-9282-7f58bcee8918"
+        },
+        {
+          "time": 1789486724040,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "f93c6f0b-b2b4-4d56-ac66-7537f5409fa7"
+        },
+        {
+          "time": 1789486724747,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "b6b84cb9-a011-4218-a8f3-0d50489970c3"
+        },
+        {
+          "time": 1789486725251,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+          "requestId": "5636f417-f70e-4729-b6e7-6db5e5f4ad42"
+        },
+        {
+          "time": 1789486725618,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/c10eec35-c291-46c3-9d0d-32860f0599cd",
+          "requestId": "03c5a55b-e0cb-41c3-8d74-86d3995fa5b5"
+        },
+        {
+          "time": 1789486726131,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+          "requestId": "b0bd1ccd-1fe6-42c9-907d-3c72fb4edc09"
+        },
+        {
+          "time": 1789486727469,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "40f1c0ae-d63d-4006-a12e-f3995d9fc200"
+        },
+        {
+          "time": 1789486728633,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+          "requestId": "49a7ffc4-41a4-4ad4-80d8-2b5521731220"
+        },
+        {
+          "time": 1789486729825,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "f53af3bf-39ae-4549-8535-3ecc6a72c159"
+        },
+        {
+          "time": 1789486735101,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+          "requestId": "add8f3d5-1acc-44ab-b379-fe0bc6be2d90"
+        },
+        {
+          "time": 1789486736594,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "9b329896-c6d9-453d-93a3-5260d8044af4"
+        },
+        {
+          "time": 1789486737617,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "f74cf998-cf4c-4506-8c8b-a9ea98833771"
+        },
+        {
+          "time": 1789486738696,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "requestId": "538cddd9-9290-48d0-be6d-321b781ced92"
+        }
+      ]
+    },
+    {
+      "case": "final-defect",
+      "runId": "ef6114c6-47ae-4466-ae83-2ec63e70ab47",
+      "start": 1789487227977.0479,
+      "end": 1789487361112.0,
+      "modelInvocationCount": 1,
+      "provider": {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "high"
+      },
+      "gcrWriteRequests": 0,
+      "gcrRequests": [
+        {
+          "time": 1789487234395,
+          "method": "GET",
+          "url": "/api/v1/client-auth/me",
+          "requestId": "cf10b405-bd70-4e1b-88b1-b5661e624714"
+        },
+        {
+          "time": 1789487234602,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "c3be260d-2adc-432b-a82c-8f56c1f43fef"
+        },
+        {
+          "time": 1789487235382,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "7a594279-a03e-49f6-bf5e-6dbcd3527386"
+        },
+        {
+          "time": 1789487235948,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+          "requestId": "0f535e3d-ea46-41e9-aad6-a1e4e5b54daa"
+        },
+        {
+          "time": 1789487236371,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/c10eec35-c291-46c3-9d0d-32860f0599cd",
+          "requestId": "5ad3a986-024a-4bc1-a5ae-fc43df2797c3"
+        },
+        {
+          "time": 1789487236819,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+          "requestId": "19eeb0c2-88d0-4bb2-9764-45e4e914be40"
+        },
+        {
+          "time": 1789487238355,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "9ff8366b-9b01-4d9c-b99f-5ce98f709853"
+        },
+        {
+          "time": 1789487239491,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+          "requestId": "6af6c6aa-dace-4cf1-bace-a54026009107"
+        },
+        {
+          "time": 1789487240610,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "2b3e414c-1789-400f-9b0d-4158c5cc7041"
+        },
+        {
+          "time": 1789487246062,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+          "requestId": "85344155-290b-4cc5-b3f5-f26d259a1fff"
+        },
+        {
+          "time": 1789487247122,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "c6a82f58-5446-4d79-8869-8f9137341a1f"
+        },
+        {
+          "time": 1789487248218,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "4e2fe9ea-d05a-4d25-8782-a3c7a691d106"
+        },
+        {
+          "time": 1789487249224,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "requestId": "ad23fdf4-1c13-4282-a0f7-b87cc4d48849"
+        }
+      ]
+    },
+    {
+      "case": "final-fixed",
+      "runId": "60b219af-5592-4877-8d84-9b5ac8d563c7",
+      "start": 1789487394375.7566,
+      "end": 1789487689584.0,
+      "modelInvocationCount": 1,
+      "provider": {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "high"
+      },
+      "gcrWriteRequests": 0,
+      "gcrRequests": [
+        {
+          "time": 1789487400670,
+          "method": "GET",
+          "url": "/api/v1/client-auth/me",
+          "requestId": "734c182d-072e-4899-a70c-71edd92541ce"
+        },
+        {
+          "time": 1789487401244,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "cc0931c8-5be2-4024-8618-e483ee420a2c"
+        },
+        {
+          "time": 1789487401981,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "9227e5b4-4a1b-47bc-8402-d746b12a26a3"
+        },
+        {
+          "time": 1789487402394,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+          "requestId": "0c521bd0-27d5-4ae3-b87f-5144b78325c2"
+        },
+        {
+          "time": 1789487402803,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/c10eec35-c291-46c3-9d0d-32860f0599cd",
+          "requestId": "e4dfc3d3-aa6d-4459-97d6-985061b67607"
+        },
+        {
+          "time": 1789487403178,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+          "requestId": "7fa3f23e-497f-483d-ba70-7b99eb6997e9"
+        },
+        {
+          "time": 1789487536743,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "273fbceb-e97f-4449-ab54-44c0e396da03"
+        },
+        {
+          "time": 1789487537147,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "5a89e50f-ec23-45e8-a351-9c02c0f35ffc"
+        },
+        {
+          "time": 1789487538698,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "87956a54-9075-456f-98bf-c2f85069d577"
+        },
+        {
+          "time": 1789487539819,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+          "requestId": "d5f7e44d-7bb8-428f-ac8a-75b90ac23d47"
+        },
+        {
+          "time": 1789487540900,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "8a37116c-8e00-49db-92a8-d6fa035043a3"
+        },
+        {
+          "time": 1789487546524,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+          "requestId": "c53f7596-414b-40a6-9838-2ea3577c6e57"
+        },
+        {
+          "time": 1789487547604,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "b895ce56-9e58-4eed-b2b6-7790cc3addd9"
+        },
+        {
+          "time": 1789487548678,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "3d3f07a2-9e27-4cfc-9cd5-f8c3788f8268"
+        },
+        {
+          "time": 1789487549761,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "requestId": "8cfc8af0-f631-4ea2-b233-d17abdf80330"
+        }
+      ]
+    },
+    {
+      "case": "final-unrelated",
+      "runId": "c2f106ae-9850-482c-a041-557c84926a79",
+      "start": 1789487702097.5938,
+      "end": 1789487920130.0,
+      "modelInvocationCount": 1,
+      "provider": {
+        "provider": "codex",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "high"
+      },
+      "gcrWriteRequests": 0,
+      "gcrRequests": [
+        {
+          "time": 1789487709056,
+          "method": "GET",
+          "url": "/api/v1/client-auth/me",
+          "requestId": "93a97f48-f394-4307-905c-0cb679ed5d1b"
+        },
+        {
+          "time": 1789487709268,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "e4af23df-bd2d-4070-8b42-10be07ad01ca"
+        },
+        {
+          "time": 1789487710021,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "eaca1735-6a0a-490b-bc4c-e64d20277778"
+        },
+        {
+          "time": 1789487710372,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/a57a4f12-d8b2-4c52-97cc-5d765750c8b5",
+          "requestId": "1a42958f-13f7-4ac6-8978-0824cdccb728"
+        },
+        {
+          "time": 1789487710767,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/c10eec35-c291-46c3-9d0d-32860f0599cd",
+          "requestId": "eb75255c-76f7-410d-a5f0-c885bc236ee7"
+        },
+        {
+          "time": 1789487711409,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/bundles/db3247ae-e995-4fb8-ac79-f9ac9fb9a40a",
+          "requestId": "fa3e4951-b443-4219-ac2b-6f17a4140394"
+        },
+        {
+          "time": 1789487838406,
+          "method": "GET",
+          "url": "/api/v1/client-repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57",
+          "requestId": "108256c4-853a-4e36-a3c5-473b82b66b51"
+        },
+        {
+          "time": 1789487838787,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-knowledge/manifest",
+          "requestId": "79c96f53-ae4a-423d-8938-bb79253af850"
+        },
+        {
+          "time": 1789487840328,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=917",
+          "requestId": "55da132a-f2a9-4c49-92d3-cd67034a2014"
+        },
+        {
+          "time": 1789487841452,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history?pullNumber=915",
+          "requestId": "0db7a203-30b8-46cc-9c1f-fe532e12e1f4"
+        },
+        {
+          "time": 1789487842580,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "c76133d4-2999-4799-b98d-0625bde7447c"
+        },
+        {
+          "time": 1789487847966,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/guidance/9ee94837-fd43-46f6-ac03-30bdfb8d3575",
+          "requestId": "4cfc9d58-6abe-4274-94ca-4f723dea48ff"
+        },
+        {
+          "time": 1789487848972,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "e80d6e3f-0d53-4e8c-aa66-bd45b6d6422b"
+        },
+        {
+          "time": 1789487849971,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages?parentId=4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+          "requestId": "4993c7eb-4899-4548-b0f9-84181a3195d6"
+        },
+        {
+          "time": 1789487850995,
+          "method": "GET",
+          "url": "/api/v1/repositories/c4a2bf3b-0c69-40c6-859a-ccea02de1e57/review-history/pulls/917/messages/6da4eab2-1f9a-4bf3-9ea8-7d1258fc83c3",
+          "requestId": "7f9d1287-080c-40ca-9e66-1e017868013b"
+        }
+      ]
+    }
+  ],
+  "observation": "Server access-log time windows, not credential-exclusive packet capture. No headers or bodies retained. Model CLI invocations are separate from these GCR read requests.",
+  "modelGateway": "No central model endpoint invoked; the local selected Codex executor uses the default account.",
+  "sourcePolicy": "GCR knowledge/history transport is GET-only with typed server-known IDs/cursors/revisions; localDiff rejection and provider adapter regressions are separate evidence."
+}

@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T17:15:22.190973+00:00",
+  "scope": "P05-C04 local bundle projection/outbox/immutable publication; no deployment or signed distribution API claim",
+  "tests": {
+    "broadSuite": {
+      "passed": 103,
+      "failed": 0,
+      "sha256": "ae4b363ae63f8aa369294b8c4a66ff6e1d49ad04415f76f57eb4a7081c76e354"
+    },
+    "finalPublicationSuiteAfterSourceReferences": {
+      "passed": 10,
+      "failed": 0,
+      "sha256": "e8df2759c32a6513ec6124f8168419fd1755eb33bbf75bf512ef2bb8da8213db"
+    }
+  },
+  "build": "pnpm build passed; final client-contract and runtime builds passed",
+  "lint": "changed TypeScript lint and Helm lint passed",
+  "migration": "0039_review_knowledge_publication.sql tested in isolated PostgreSQL; not applied to PRISM-DEV",
+  "featureFlag": {
+    "environment": "KNOWLEDGE_PUBLICATION_ENABLED",
+    "helm": "knowledgePublication.enabled",
+    "default": false
+  },
+  "sourceHashes": {
+    "packages/client-contract/src/central-knowledge.ts": "17f71819040f48635e92e1228d5c01c7f2cef4b904736c02ce112afed5e0cf24",
+    "packages/db/migrations/0039_review_knowledge_publication.sql": "dfecc682923e24feda011eb743ce4c9b0a093c61527d4785f8264f25930ef17d",
+    "apps/runtime/src/services/knowledge-projection.ts": "a45fb1fbe00178174ef0d3d9d8ab7b52ea7c0774e2b86f22572b713c61b11243",
+    "apps/runtime/src/services/knowledge-publication.ts": "76496df3811988c919d107f3946eaa7e611981e34a7004924995e67943cf904c",
+    "apps/runtime/src/services/knowledge-publication.integration.test.ts": "f1763bdd2d293bda3135e11b9236a8a4cd3cad4adf2a6790910eaf0e45ffcd16",
+    "apps/runtime/src/jobs/worker.ts": "ea6986bdd815b658d086185089777ddc2d9df70921d2f02d3b0792673071c992",
+    "Dockerfile": "637999c251836288039e748b2d6a806069c316a4969cc6e06a57e256180f71cc"
+  },
+  "validated": [
+    "source/outbox rollback atomicity",
+    "full Skill markdown and instructions",
+    "draft/unevaluated/high-risk unapproved criteria exclusion",
+    "separate explicit memory projection approval",
+    "owner-only personal approval and components",
+    "projection hash independent of redacted sources",
+    "immutable old bytes after source change",
+    "partial storage failure preserves old pointer",
+    "orphan reuse on retry",
+    "duplicate and expired/stale execution fencing",
+    "retirement and public-to-personal source withdrawal",
+    "PR source edits and owner ignore state",
+    "retention advisory lock cooperation",
+    "repository cascade and registry cleanup",
+    "UTF-8 oversize rejects before writing without truncation"
+  ],
+  "limitations": [
+    "No signed manifest, lease or rollback API yet",
+    "No authorized bundle/source download or projection management API yet",
+    "No publication UI or client sync yet",
+    "No new container image or PRISM-DEV deployment for this change",
+    "Lost execution/storage failure tested by injected conditions, not a live Pod kill"
+  ],
+  "production": {
+    "version": "0.8.0-alpha.40",
+    "helmRevision": 52,
+    "migrationCount": 38
+  }
+}

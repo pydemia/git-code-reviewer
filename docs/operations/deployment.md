@@ -18,7 +18,8 @@ Frontend는 Server가 제공하는 정적 asset으로 image에 포함된다. 별
 Release image는 amd64/arm64 manifest, BuildKit provenance와 SBOM을 함께 게시한다. `latest` 대신 version과 source revision tag를 사용한다.
 
 ```bash
-export VERSION=0.8.0-alpha.10
+export VERSION="$(sed -n "s/^appVersion: ['\"]*\([^'\"]*\)['\"]*$/\1/p" deploy/helm/git-code-reviewer/Chart.yaml)"
+export CHART_VERSION="$(awk '/^version:/ {print $2}' deploy/helm/git-code-reviewer/Chart.yaml)"
 export REVISION="$(git rev-parse HEAD)"
 
 docker buildx build \
@@ -53,17 +54,17 @@ cosign sign "docker.io/pydemia/git-code-reviewer@sha256:..."
 cosign verify "docker.io/pydemia/git-code-reviewer@sha256:..."
 ```
 
-Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 tag 충돌을 피하기 위해 image tag는 `0.8.0-alpha.10`, chart version tag는 `0.10.9`를 사용한다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
+Helm chart도 같은 Docker Hub 계정의 OCI artifact로 게시한다. Image와 chart가 같은 repository를 사용하므로 서로 다른 version을 사용한다. 위 명령은 checkout의 `Chart.yaml`에서 `appVersion`과 chart `version`을 읽는다. 재빌드한 artifact를 게시할 때는 기존 tag를 덮어쓰지 않도록 먼저 release version을 올린다. Docker Hub는 같은 repository에 container image와 Helm chart 같은 OCI artifact를 함께 저장할 수 있다. [Docker Hub OCI artifacts](https://docs.docker.com/docker-hub/repos/manage/hub-images/oci-artifacts/)
 
 ```bash
 helm registry login registry-1.docker.io -u pydemia
 helm dependency build deploy/helm/git-code-reviewer
 helm package deploy/helm/git-code-reviewer --destination dist/helm
-helm push dist/helm/git-code-reviewer-0.10.9.tgz \
+helm push "dist/helm/git-code-reviewer-${CHART_VERSION}.tgz" \
   oci://registry-1.docker.io/pydemia
 helm show chart \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.10.9
+  --version "$CHART_VERSION"
 ```
 
 OCI push 대상에는 chart 이름과 tag를 붙이지 않는다. Helm이 `Chart.yaml`의 name/version으로 이를 결정한다. [Helm OCI registry](https://helm.sh/docs/topics/registries/)
@@ -160,7 +161,7 @@ OCI chart를 사용할 때에는 local chart 경로를 다음 주소와 version�
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.10.9 \
+  --version "$CHART_VERSION" \
   -n "$NAMESPACE" \
   -f /tmp/git-code-reviewer-pilot.yaml \
   --atomic --wait --timeout 20m
@@ -520,7 +521,7 @@ account PVC에는 access/refresh token이 포함되므로 encrypted StorageClass
 - `postgresql.enabled`: 외부 DB는 `false`, 자체 포함 pilot은 `true`; 번들 모드에서는 DB PVC StorageClass와 용량
 - `keycloak.enabled`: enterprise 예시는 `true`; Keycloak hostname/TLS, app/admin/DB Secret과 전용 DB PVC를 실제 환경 값으로 교체
 - 분석과 Chat의 provider mode 및 **명시적인 model name**. 관리자 분석 Provider를 쓸 경우 `admin.enabled`, master key, exact origin allowlist. ChatGPT account mode이면 account Secret, bootstrap revision과 전용 PVC
-- retention 기간. `chatDays`는 `reportDays`보다 클 수 없다.
+- retention 기간. `chatDays`는 `reportDays`보다 클 수 없다. Merge 완료 PR의 review·Chat·snapshot은 merge 후 `mergedDays`(기본 7일)가 지나거나 같은 repository에서 더 최근에 merge된 PR이 `mergedMaxLen`개(기본 30개) 이상이면 정리한다. 진행 중인 Chat과 작업은 끝날 때까지 보존한다. Artifact 파일은 `deleteGraceHours` 유예 후 삭제한다.
 - NetworkPolicy를 켤 경우 DB, GHES, OIDC, model endpoint의 실제 CIDR egress. values 예시의 documentation CIDR을 그대로 사용하지 않는다.
 - private registry를 사용할 경우 모든 Server/Worker/migration/retention Pod에 적용할 `imagePullSecrets`
 
@@ -544,7 +545,7 @@ Source checkout 없이 Docker Hub의 chart를 직접 설치할 수도 있다. �
 ```bash
 helm upgrade --install git-code-reviewer \
   oci://registry-1.docker.io/pydemia/git-code-reviewer \
-  --version 0.10.9 \
+  --version "$CHART_VERSION" \
   -n git-code-reviewer -f values.enterprise.yaml \
   --atomic --wait --timeout 20m
 ```

@@ -1,0 +1,50 @@
+{
+  "platform": "linux",
+  "arch": "arm64",
+  "node": "v22.23.2",
+  "git": "git version 2.54.0",
+  "packageVersion": "0.1.0-alpha.6",
+  "verification": "installed-artifact",
+  "encryptedStoreIterator": true,
+  "keyStore": "in-memory-test-port",
+  "activeSkillAndPinnedRevision": true,
+  "residualCentralSettingsUntouched": true,
+  "centralFetchCalls": 0,
+  "requiredSourceAndKnowledgeGates": true,
+  "executorAndSourceApprovalBinding": true,
+  "unknownIsolationDenied": true,
+  "unapprovedModelDenied": true,
+  "arbitrarySkillToolsDenied": true,
+  "advisoryOnly": true,
+  "modelCallReservationLimit": true,
+  "syntheticCapabilityDescriptor": true,
+  "executorInvocations": 0,
+  "syntheticData": true,
+  "modelCalls": 0,
+  "cleanup": "completed",
+  "image": "node@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "artifacts": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.6",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.6",
+        "file": "gcr-client-contract-0.1.0-alpha.6.tgz",
+        "sha256": "ccfa2682d7ff054542d93dccb0840b0b0a6e1d1ead59c643218e314c59f0cb83"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.6",
+        "file": "gcr-client-core-0.1.0-alpha.6.tgz",
+        "sha256": "04b0ce878b6770e18d02aca439a2235471958fdfc76ad6553f8072b621d76d74"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.6",
+        "file": "gcr-client-executors-0.1.0-alpha.6.tgz",
+        "sha256": "b8f9c400901d93c540a5eb056b8aff3acd44fb630f69b844531d86603f1ffe87"
+      }
+    ]
+  }
+}

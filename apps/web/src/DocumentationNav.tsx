@@ -1,5 +1,7 @@
 const documents = [
   { href: '/introduction', label: 'Introduction' },
+  { href: '/getting-started', label: '설치·연결' },
+  { href: '/architecture', label: '아키텍처' },
   { href: '/features', label: '기능 목록' },
   { href: '/guide', label: '사용 가이드' },
 ];

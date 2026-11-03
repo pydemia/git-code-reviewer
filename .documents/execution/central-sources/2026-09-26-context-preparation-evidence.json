@@ -1,0 +1,380 @@
+{
+  "at": "2026-09-26T11:31:33.118234+00:00",
+  "cause": "Source provenance was appended after selection and overflowed the fixed context budget (central-context-budget).",
+  "budgetBytes": 65536,
+  "gcrSourceSha": "fcb100d6ea4c4a560fcf2a8cde25d7b344824cd1",
+  "cdSourceSha": "79496503ed4c7b3160a620f678f004be85e2f501",
+  "actualUserDirectory": {
+    "path": "/Users/a09255/git/semantic-query/src/semantic_query/adapters",
+    "fileCount": 14,
+    "connectedSourceCount": 2,
+    "before": {
+      "at": "2026-09-26T11:14:47.725Z",
+      "fileCount": 14,
+      "localStatus": "ready",
+      "results": [
+        {
+          "freshness": "offline",
+          "status": "unavailable",
+          "problems": [
+            {
+              "code": "missing-context",
+              "message": "A complete authorized central review context could not be validated or loaded."
+            }
+          ]
+        },
+        {
+          "freshness": "online",
+          "status": "unavailable",
+          "problems": [
+            {
+              "code": "missing-context",
+              "message": "A complete authorized central review context could not be validated or loaded."
+            }
+          ]
+        }
+      ],
+      "actualModelCalls": 0
+    },
+    "after": {
+      "at": "2026-09-26T11:23:31.089Z",
+      "fileCount": 14,
+      "localStatus": "ready",
+      "results": [
+        {
+          "freshness": "offline",
+          "status": "ready",
+          "problems": [],
+          "bytes": 65387,
+          "unavailable": []
+        },
+        {
+          "freshness": "online",
+          "status": "ready",
+          "problems": [],
+          "bytes": 65387,
+          "unavailable": []
+        }
+      ],
+      "actualModelCalls": 0
+    },
+    "scope": "read-only preparation, no model execution"
+  },
+  "tests": {
+    "gcrCore": {
+      "files": 4,
+      "passed": 94
+    },
+    "cd": {
+      "centralSources": 6,
+      "centralReview": 12,
+      "standaloneReview": 17,
+      "reviewSecurity": 10,
+      "clientContract": 22,
+      "localProviderExecutor": 10,
+      "reviewChat": 4,
+      "centralSync": 3,
+      "passed": 84
+    },
+    "typecheckAndLint": "passed",
+    "models": "synthetic executors and fake CLIs only"
+  },
+  "clientArtifact": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.54",
+    "sourceSha": "fcb100d6ea4c4a560fcf2a8cde25d7b344824cd1",
+    "buildPlatform": "darwin",
+    "buildArchitecture": "arm64",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.51",
+        "file": "gcr-client-contract-0.1.0-alpha.51.tgz",
+        "sha256": "2f89f2166ac723e11844898b7c3977f0604fa7d2d49eccfb509e32a04182274c"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.53",
+        "file": "gcr-client-core-0.1.0-alpha.53.tgz",
+        "sha256": "ca236538e44eac1ebefd8fdf6b32b2fd0cbb978402c1a50ebf18b10e7885c5e4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.54",
+        "file": "gcr-client-executors-0.1.0-alpha.54.tgz",
+        "sha256": "eeeb0ad1ed7967a04c9ad9d87201fcefa0afe9b420653449bc39a65d1e8f2a0b"
+      }
+    ]
+  },
+  "embeddedServiceArtifact": {
+    "schemaVersion": 1,
+    "sourceSha": "fcb100d6ea4c4a560fcf2a8cde25d7b344824cd1",
+    "cliVersion": "0.1.0-alpha.43",
+    "clientVersion": "0.1.0-alpha.54",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.51",
+        "file": "gcr-client-contract-0.1.0-alpha.51.tgz",
+        "sha256": "2f89f2166ac723e11844898b7c3977f0604fa7d2d49eccfb509e32a04182274c"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.53",
+        "file": "gcr-client-core-0.1.0-alpha.53.tgz",
+        "sha256": "ca236538e44eac1ebefd8fdf6b32b2fd0cbb978402c1a50ebf18b10e7885c5e4"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.54",
+        "file": "gcr-client-executors-0.1.0-alpha.54.tgz",
+        "sha256": "eeeb0ad1ed7967a04c9ad9d87201fcefa0afe9b420653449bc39a65d1e8f2a0b"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.43",
+        "file": "gcr-cli-0.1.0-alpha.43.tgz",
+        "sha256": "fb11914a5c4614024c6f08b7e33a349626c7532b64199c0b805cf2a777577106"
+      }
+    ]
+  },
+  "vsix": {
+    "version": "2.13.5",
+    "sourceSha": "79496503ed4c7b3160a620f678f004be85e2f501",
+    "target": "darwin-arm64",
+    "path": "/Users/a09255/git/commit-defender-windows-macos/vscode-extension/test-results/commit-defender-2.13.5-darwin-arm64.vsix",
+    "sha256": "53d9b7515a3b474b4ff897d5d653607dcb849bba922555e6b58f8badc27f793f",
+    "bytes": 743998,
+    "marketplacePublished": false
+  },
+  "extensionHost": {
+    "status": "passed",
+    "vscode": "1.138.0",
+    "node": "24.18.1",
+    "electron": "42.10.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "extensionVersion": "2.13.5",
+    "delivery": "packaged-extension",
+    "commandCount": 27,
+    "activation": true,
+    "encryptedActivityFixture": false,
+    "hookDefault": "disable",
+    "modelCalled": false,
+    "directConnection": {
+      "discovery": "URL and masked-key flow metadata",
+      "signedConnection": "connected",
+      "cache": "ready",
+      "sources": [
+        {
+          "repositoryId": "repository",
+          "sourceName": "team/reviewer",
+          "snapshot": "snapshot",
+          "manifestHash": "c5960330ea5bd4abed4789c5cf0697765115a3fb0cfb96da8a79298640f13ee5",
+          "referenceOnly": true
+        },
+        {
+          "repositoryId": "host-reference",
+          "sourceName": "team/helm",
+          "snapshot": "snapshot-host-reference",
+          "manifestHash": "dfb9cdbd6244d10bac84d501efc5a01a7b51fb37cba7e19f08a3ee352060b4b1",
+          "referenceOnly": true
+        }
+      ],
+      "requests": [
+        {
+          "method": "GET",
+          "route": "/base/api/v1/client-auth/config",
+          "queryKeys": [],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/client-auth/connection-options",
+          "queryKeys": [],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/client-auth/me",
+          "queryKeys": [],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/manifest",
+          "queryKeys": [
+            "clientContractVersion"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/bundles/policy",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/bundles/collective",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/repository/review-knowledge/bundles/personal",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/client-auth/me",
+          "queryKeys": [],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/host-reference/review-knowledge/manifest",
+          "queryKeys": [
+            "clientContractVersion"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/host-reference/review-knowledge/bundles/policy",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/host-reference/review-knowledge/bundles/collective",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "route": "/base/api/v1/repositories/host-reference/review-knowledge/bundles/personal",
+          "queryKeys": [
+            "snapshotId"
+          ],
+          "bodyBytes": 0
+        }
+      ],
+      "localUploadBytes": 0,
+      "modelCalls": 0,
+      "multiSourcePreview": "read-only real Extension Host webview created and closed; DOM content assertion only",
+      "source": "owned HTTPS publisher, no production credentials"
+    },
+    "checks": [
+      "activation",
+      "command registration",
+      "central executor and upstream submission commands absent",
+      "clear findings",
+      "cancel without run",
+      "no hook installed",
+      "standalone defaults and user profile",
+      "empty history refresh creates no local store or OS key",
+      "local activity webview opens, refreshes and closes on invalidation without creating storage"
+    ]
+  },
+  "extensionHostObservationLimit": "HTML source and tab creation assertions; no rendered DOM inspection. Fixture credentials used an in-memory port, not the production reader key.",
+  "installation": {
+    "at": "2026-09-26T11:29:56.904686+00:00",
+    "version": "2.13.5",
+    "directory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.13.5",
+    "files": [
+      {
+        "path": "out/extension.js",
+        "sha256": "af8722f8ff4e92a7d85791288b635d4390e9652824e05b71076bdd041760e9da",
+        "matchesVsix": true
+      },
+      {
+        "path": "out/hook-cli.js",
+        "sha256": "4cf8b0c14bc5796efe8b761543a755d9012a355d678a57748a4dd12f0428a018",
+        "matchesVsix": true
+      },
+      {
+        "path": "out/standalone-review-worker.js",
+        "sha256": "13bd6d1a48942912ca8c80db9ae30b9e01a750b4a5e942ad3de80000f1492b22",
+        "matchesVsix": true
+      },
+      {
+        "path": "out/review-chat-worker.js",
+        "sha256": "4b17e79a5e9a8656044569213b3b9a3d70f12b87cfff361bb7751f05a3a33d91",
+        "matchesVsix": true
+      },
+      {
+        "path": "out/advisory-hook.cjs",
+        "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217",
+        "matchesVsix": true
+      },
+      {
+        "path": "out/gcr-service/main.mjs",
+        "sha256": "72296be9c3d75bc09ee8f4d3a6c027707db31fb416f15aec4d95671ac1680e0e",
+        "matchesVsix": true
+      },
+      {
+        "path": "out/windows-native.exe",
+        "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+        "matchesVsix": true
+      },
+      {
+        "path": "out/gcr-service/windows-native.exe",
+        "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89",
+        "matchesVsix": true
+      }
+    ],
+    "packageMatchesVsix": true,
+    "settingsUnchanged": true,
+    "settingsSha256": "53adcde703c9efcb9ba64b5e6ff3c42e250ad9398c761cf895c3acb1a5e8a7fc",
+    "encryptedConnectionFilesUnchanged": true,
+    "unchangedEncryptedFileCount": 9,
+    "windowsHelperUnchanged": true,
+    "userHostAdoption": "not forced or inspected; normal Reload Window may be required",
+    "marketplacePublished": false
+  },
+  "gcrRuntime": {
+    "name": "git-code-reviewer",
+    "namespace": "git-code-reviewer",
+    "revision": "91",
+    "updated": "2026-09-26 19:54:20.185879 +0900 KST",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.79",
+    "app_version": "0.8.0-alpha.83"
+  },
+  "gcrRedeployed": false,
+  "actualModelCalls": 0,
+  "cleanup": {
+    "failedFixtures": {
+      "ownedFixtureDirectoriesRemoved": 5,
+      "libreSslGeneratedKeyFileRemoved": true,
+      "bounds": "2026-09-26 20:22:00 through 20:22:13 Asia/Seoul"
+    },
+    "ownedHostExtractionRemoved": true,
+    "isolatedHostAndCredentialPortsCleanedByRunner": true,
+    "productionKeysCreatedOrChanged": false
+  },
+  "resolvedVerificationFailures": [
+    "The initial mandatory-budget fixture included optional memories that could be dropped. Its corrected fixture contains only mandatory policy.",
+    "The macOS default LibreSSL produced a temporary fixture key file rather than the OpenSSL output expected by the existing test helper. The owned file and five failed fixtures were removed; tests passed with installed OpenSSL 3.",
+    "The first CLI packaging command attempted to repack frozen client artifacts. --reuse-clients completed with workspace metadata and every bundle input hash verified.",
+    "The first Host launch used an obsolete Electron executable filename. The installed app Info.plist identifies Code; the packaged Host passed with that executable."
+  ],
+  "limits": [
+    "No real model review was started; actual directory context preparation and synthetic review regressions are distinct.",
+    "Existing user Extension Host adoption was not forced or inspected.",
+    "No new Windows/Linux native OS verification or Marketplace publication.",
+    "Optional reference material can be omitted by the unchanged budget; required current-repository policy remains mandatory."
+  ]
+}

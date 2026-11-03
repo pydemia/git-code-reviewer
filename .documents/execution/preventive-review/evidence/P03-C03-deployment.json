@@ -1,0 +1,448 @@
+{
+  "status": "passed",
+  "sourceCommit": "d1f62bfdb6a1212f093fff6c3c00f0a933a739cc",
+  "releasePinCommit": "30d63f184019c0b77d0cf4fe4f8837241232a492",
+  "artifactEvidence": "P03-C03-artifact.json",
+  "release": {
+    "revision": 45,
+    "updated": "2026-09-13T09:30:10.570808+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.33",
+    "app_version": "0.8.0-alpha.35",
+    "description": "Upgrade complete"
+  },
+  "registry": {
+    "name": "0.8.0-alpha.35",
+    "digest": "sha256:f434a80b6f6aaf2b653057a26b9f19d03964a9f49e9c79a259c1cb8921950403",
+    "images": [
+      {
+        "architecture": "amd64",
+        "features": "",
+        "variant": null,
+        "digest": "sha256:b6937ca1d3069ab567efac4a35d02c95569842ece27a21a3232ffc4d866bd687",
+        "os": "linux",
+        "os_features": "",
+        "os_version": null,
+        "size": 403091238,
+        "status": "active",
+        "last_pulled": "2026-09-13T00:27:11.765007233Z",
+        "last_pushed": "2026-09-13T00:27:10.749703454Z"
+      },
+      {
+        "architecture": "unknown",
+        "features": "",
+        "variant": null,
+        "digest": "sha256:328aa2e5cc154038076d20ba9dbdae2281e0ac0d0ff02a20d62e225e6505182e",
+        "os": "unknown",
+        "os_features": "",
+        "os_version": null,
+        "size": 1821796,
+        "status": "active",
+        "last_pulled": "2026-09-13T00:27:12.981650759Z",
+        "last_pushed": "2026-09-13T00:27:11.813715894Z"
+      }
+    ]
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:a496dcd4a6059ef905a191b6ef431acef29edf8e9a9986656d6715e85d2be794",
+    "chartSha256": "5095ecbb4e32255a70773f9cd8ba5a8f393c4973c4479be565294272ac025da4"
+  },
+  "smoke": {
+    "at": "2026-09-13T00:31:21.483574+00:00",
+    "health": {
+      "/health/startup": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1
+        }
+      },
+      "/health/live": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1
+        }
+      },
+      "/health/ready": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "schemaVersion": 1,
+          "database": {
+            "status": "ok",
+            "latencyMs": 1
+          }
+        }
+      },
+      "/health/dependencies": {
+        "status": 200,
+        "body": {
+          "schemaVersion": 1,
+          "status": "ok",
+          "dependencies": {
+            "database": {
+              "status": "ok",
+              "latencyMs": 1
+            },
+            "github": {
+              "status": "ok",
+              "latencyMs": null
+            },
+            "model": {
+              "status": "ok",
+              "latencyMs": null
+            },
+            "authorization": {
+              "status": "disabled",
+              "latencyMs": null
+            }
+          }
+        }
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "body": {
+          "schemaVersion": 1,
+          "service": "git-code-reviewer",
+          "version": "0.8.0-alpha.35",
+          "authMode": "local"
+        }
+      },
+      "/api/v1/me": {
+        "status": 401,
+        "body": null
+      }
+    },
+    "assets": {
+      "index-T_jmTDvd.css": "e3dfa4e3389c0f71155cf8ba8cdf23de78c65ae0cc63f6c3006119a04d18e44e",
+      "index-jmmTaJuT.js": "007d8a62da6d5bf0d841b4c7d0680e4a81fba94e6b77daa911f493a41e7366ae"
+    },
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-6ff466b89f-nmgr4",
+        "compiled": {
+          "auth/saml-state.js": "1d2ee5c3fdb967e1e77a5a5aa179f3bd23ca54302f3ae67c8217d9467641503d",
+          "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+          "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+          "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+          "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+          "config.js": "e98334252a402fb88e773ede64393b5219f7d2a6348246c68a892825e725f954",
+          "server.js": "69a2adfe2ec42dd384de5884c25b50405719aeba79600dba29aa9c1d1ebfc1eb"
+        },
+        "node": "v22.23.2",
+        "uid": 1000,
+        "version": "0.8.0-alpha.35",
+        "static": "10.1.3",
+        "compiledSamlStateSha256": "1d2ee5c3fdb967e1e77a5a5aa179f3bd23ca54302f3ae67c8217d9467641503d",
+        "folders": [
+          "@fastify+static@10.1.3",
+          "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+          "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+        ],
+        "logCounts": {
+          "warn": 0,
+          "error": 0,
+          "fatal": 0,
+          "unstructured": 0
+        }
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-8f4c48b88-rzkjr",
+        "compiled": {
+          "auth/saml-state.js": "1d2ee5c3fdb967e1e77a5a5aa179f3bd23ca54302f3ae67c8217d9467641503d",
+          "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+          "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+          "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+          "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+          "config.js": "e98334252a402fb88e773ede64393b5219f7d2a6348246c68a892825e725f954",
+          "server.js": "69a2adfe2ec42dd384de5884c25b50405719aeba79600dba29aa9c1d1ebfc1eb"
+        },
+        "node": "v22.23.2",
+        "uid": 1000,
+        "version": "0.8.0-alpha.35",
+        "static": "10.1.3",
+        "compiledSamlStateSha256": "1d2ee5c3fdb967e1e77a5a5aa179f3bd23ca54302f3ae67c8217d9467641503d",
+        "folders": [
+          "@fastify+static@10.1.3",
+          "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+          "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+        ],
+        "logCounts": {
+          "warn": 0,
+          "error": 0,
+          "fatal": 0,
+          "unstructured": 0
+        }
+      }
+    },
+    "status": "passed"
+  },
+  "preservation": {
+    "status": "passed",
+    "before": "2026-09-13T00:25:04.462027+00:00",
+    "after": "2026-09-13T00:31:21.432467+00:00",
+    "checks": {
+      "database/users": true,
+      "database/chat_accounts": true,
+      "database/analysis_runs": true,
+      "database/reports": true,
+      "database/repository_grants": true,
+      "database/tenant_memberships": true,
+      "database/review_memories": true,
+      "database/legacySessions": true,
+      "database/provider": true,
+      "database/samlBoundSessions": true,
+      "nonImageValuesHash": true,
+      "nonImageComputedValuesHash": true,
+      "existingMigrations": true,
+      "migration33": true,
+      "identityStateEmpty": true,
+      "boundSessionsZero": true,
+      "resource/secrets/git-code-reviewer-auth": true,
+      "resource/secrets/git-code-reviewer-credential-registry": true,
+      "resource/secrets/git-code-reviewer-postgresql-auth": true,
+      "resourceUid/configmaps/git-code-reviewer": true,
+      "resource/configmaps/git-code-reviewer-corporate-ca": true,
+      "resource/httproutes/git-code-reviewer-route": true,
+      "resource/persistentvolumeclaims/data-git-code-reviewer-postgresql-0": true,
+      "resource/persistentvolumeclaims/git-code-reviewer-artifacts": true,
+      "applicationConfigMapData": true
+    },
+    "nonImageValuesHash": "9abc48b9861c0223aec5693151e5fa8b868ea84ab958909a3f5b127384f1ee14",
+    "rows": {
+      "users": {
+        "count": 7,
+        "sha256": "8de337690bef70d4a89f12afc9503facb0a38774b45e2b28db8898480cb8c40a"
+      },
+      "chat_accounts": {
+        "count": 7,
+        "sha256": "732359ffa24e2e25e954c1e51222857203debfb0b2f2f3c44337f5e73033ec18"
+      },
+      "analysis_runs": {
+        "count": 142,
+        "sha256": "6f308dcbf494402ef382ceb8485f6ee5cb5d83858fe1c6eb8a42784b63a790bb"
+      },
+      "reports": {
+        "count": 134,
+        "sha256": "ac8422f5582fd65a83d3879ce5b29058ecb9f33106cd77c9d751cbd008c29619"
+      },
+      "repository_grants": {
+        "count": 2,
+        "sha256": "bc2409a2baec9769dc91a54d9363895224fa116c53fb0da06c06a18c89755d9d"
+      },
+      "tenant_memberships": {
+        "count": 7,
+        "sha256": "708dc8ed69302bda63f095629f122ac89fa14f552c11da07de80184d535c5201"
+      },
+      "review_memories": {
+        "count": 4,
+        "sha256": "31c03aa41d774bafac1bd8ec7d62c9f1a11be96b073fd2bd9b8f9d6e2efa2a1e"
+      },
+      "legacySessions": {
+        "count": 1,
+        "sha256": "83c1fb9e0a88209b7eca90c45932f10dcbf969ee09db11d13775a4297c676d22"
+      },
+      "identityState": {
+        "user_identities": 0,
+        "saml_transactions": 0,
+        "saml_message_consumptions": 0,
+        "saml_session_revocations": 0,
+        "identity_admin_operations": 0,
+        "identity_admin_outbox": 0
+      },
+      "samlBoundSessions": 0,
+      "provider": [
+        {
+          "id": "747dc264-bfcf-4307-8f5f-8d4578d031de",
+          "version": 8,
+          "mode": "chatgpt-account",
+          "model_name": "gpt-5.6-terra",
+          "concurrency": 4,
+          "timeout_ms": 300000,
+          "configuration_hash": "2fdc6d40a3871aaeb3be7174891afee59582c1db4fea7428dddcdd4f064f0041"
+        }
+      ]
+    },
+    "migrations": [
+      {
+        "version": "0001_foundation.sql",
+        "checksum": "d8b22ddf293b824cd7e42a0e7695b4b309a50671b6dd101eecfd4f46029cc983"
+      },
+      {
+        "version": "0002_worklist.sql",
+        "checksum": "03591eff1122ea04d731011df846df70e6814a93d7fdad301191d4796ab08069"
+      },
+      {
+        "version": "0003_snapshot_pipeline.sql",
+        "checksum": "f74a61cc1496cf42cc9350f0d9522fa4f1284131c976b53e1b9cbe0f2c6ef065"
+      },
+      {
+        "version": "0004_review_reports.sql",
+        "checksum": "a61f09e936fd0b23e51dd4fad956638c3f0b78e6a8af9596959d332313d84a07"
+      },
+      {
+        "version": "0005_review_chat.sql",
+        "checksum": "9b6187b34873a53d30ead9bf4b7653ecdf4f7220df2fba5af961c0b0ebb53ccb"
+      },
+      {
+        "version": "0006_artifact_lifecycle.sql",
+        "checksum": "7760cbdb43a722eb56399f8e237306ab96efe6f39bbc03033a59daf0846c4bec"
+      },
+      {
+        "version": "0007_tenancy_authorization_prompts.sql",
+        "checksum": "0dc280265766ff2fe8605e13254144b642053b3b5fa6f11eedf641242f37a266"
+      },
+      {
+        "version": "0008_analysis_provider_administration.sql",
+        "checksum": "e038ef93fc023021d64769ca3f86b8acf17041750d6b547e2c86147c655b2b09"
+      },
+      {
+        "version": "0009_account_and_ghes_registries.sql",
+        "checksum": "cdec5cd1419960dbf97e2a871598d68526c3c6dd6bdfb24ffb52465ebab34293"
+      },
+      {
+        "version": "0010_local_accounts.sql",
+        "checksum": "c77f4704f1a747b6a3ad598f91395734c759dbf08e4a91ea93f65d38fb959b4d"
+      },
+      {
+        "version": "0011_github_review_publication.sql",
+        "checksum": "ffd4cbcdd97e8d49ee2361e625f1e3be787f9d3c1c285267666972ec6923d6e1"
+      },
+      {
+        "version": "0012_repository_deletion.sql",
+        "checksum": "eaace61cffd7c2b0c499cdcc39643699619dcba8597a1366dac09fbb3a90dd5f"
+      },
+      {
+        "version": "0013_analysis_chat_account.sql",
+        "checksum": "a56a5b58ea7a1ffad9eb18ff5363f3af58cfd7bb41f046aa77779d81eea46f8e"
+      },
+      {
+        "version": "0014_analysis_skills.sql",
+        "checksum": "9e785f3269609b80d6f49cd33467aa8b38d206f8580a759e43fdd2e9c0c1b20c"
+      },
+      {
+        "version": "0015_skill_finding_categories.sql",
+        "checksum": "935e6e2f3a84c735e65ec91ecae981ee379a562ed20c65ec65ec7b592f3b6e98"
+      },
+      {
+        "version": "0016_analysis_progress.sql",
+        "checksum": "f3c0f13166f8b4e2dc5e7d1a8c668435b539caa2b12afaa3a08f37bb8fca14f6"
+      },
+      {
+        "version": "0017_analysis_severity.sql",
+        "checksum": "ff540ff7f17c8c2daa6584441840cb8a4b7d25f02a0e079cb895ad002d01aa79"
+      },
+      {
+        "version": "0018_personal_chat_prompt.sql",
+        "checksum": "91859fe9ff95be583810be97360a15111677939b8579a93dc1022e3188a39bc5"
+      },
+      {
+        "version": "0019_user_deletion.sql",
+        "checksum": "27dc261bde47817158cd6b8ed97fee071578870b47486725ee22901b7d9d4061"
+      },
+      {
+        "version": "0020_review_memory.sql",
+        "checksum": "2489b0c6e8f86b6c9668ee218ad7a9b95258f66a9d2e88c64f0f78b2b80a7dd2"
+      },
+      {
+        "version": "0021_review_memory_workflow.sql",
+        "checksum": "c8d8c81d492aa3dc8a74ce40c62046a3b2a15f01a68b949dde32c83f94d2d1bd"
+      },
+      {
+        "version": "0022_github_pr_memory_sources.sql",
+        "checksum": "9445add77724bf5aa699f6ea34a387f8ae203c743b4c0c770e4354e2345ca2a4"
+      },
+      {
+        "version": "0023_chat_memory_context.sql",
+        "checksum": "89480f642698f13b78c46e62e984ce14e9a77214d4fdea310b3f229d66791a35"
+      },
+      {
+        "version": "0024_interactive_chat.sql",
+        "checksum": "89ebef3dc65fd14ec31fc5edd60ab2cdd001ee37f14c3f20616d1969220900c4"
+      },
+      {
+        "version": "0025_model_capacity_window.sql",
+        "checksum": "9e44132348e782938feacaf72eb12c680a66c6a1011031608f166cf8371bc426"
+      },
+      {
+        "version": "0026_model_admission_priority.sql",
+        "checksum": "54eae068ffcb4483b2f1b5b5e031fb64366205540ba85cd9db2c2f121a08bc70"
+      },
+      {
+        "version": "0027_analysis_checkpoints.sql",
+        "checksum": "fb9597f117481b75949dc00bc26446e9be33368dc851cb01fdd25b9f1ef1b733"
+      },
+      {
+        "version": "0028_source_workspace_leases.sql",
+        "checksum": "b4e41621175b033bff5524ca69a42b5fcf54349240cf1c11b53b63c725748557"
+      },
+      {
+        "version": "0029_pull_request_state_sync.sql",
+        "checksum": "52e532efc71df2e6e659aba4cffc64981c0edb135cd6d0eeadbb7e69ee42bddb"
+      },
+      {
+        "version": "0030_parallel_analysis.sql",
+        "checksum": "853739a3bdf8934ef6f3356776392ece299f3addba2655f67c844de4f9a80cb4"
+      },
+      {
+        "version": "0031_registry_deletion.sql",
+        "checksum": "13be3a7770d1e867be93f80471cee7668229b35f98be347a9058caf82db2c601"
+      },
+      {
+        "version": "0032_saml_identity_state.sql",
+        "checksum": "29490f3ab13dadbf4cc4997e8ef04be3136b3b366e5d2614df27b4788573da74"
+      },
+      {
+        "version": "0033_saml_session_revocations.sql",
+        "checksum": "c7d2ebe6b3bdc0684ec0f51229a5077b40fdc18eaaaeac58880777124807e33d"
+      }
+    ],
+    "configMapDataSha256": "878e4fdaa7fa4e1f9d75283ee2f76203cc4fa210526248b6a3b998648db7fb72",
+    "metadataChanges": "App ConfigMap resourceVersion changed with release metadata; UID and all data values preserved."
+  },
+  "browser": {
+    "status": "passed",
+    "at": "2026-09-13T00:31:14.143Z",
+    "browser": "152.0.7977.84",
+    "headless": true,
+    "operatingAuthMode": "local",
+    "system": {
+      "schemaVersion": 1,
+      "service": "git-code-reviewer",
+      "version": "0.8.0-alpha.35",
+      "authMode": "local"
+    },
+    "checks": [
+      "deployed-alpha35-local-password-form",
+      "logout-uncertainty-notice",
+      "unknown-mode-has-no-login-fallback",
+      "system-failure-has-no-login-fallback",
+      "no-uncaught-browser-errors"
+    ],
+    "limitations": [
+      "Read-only login UI verification; no actual user credential or session was used.",
+      "Chrome does not replace native Safari callback verification."
+    ]
+  },
+  "helmTest": {
+    "status": "Succeeded",
+    "startedAt": "2026-09-13T09:31:21+09:00",
+    "completedAt": "2026-09-13T09:31:24+09:00",
+    "logSha256": "b0e9d5d6ad51fe933dcd0bf9efd44c58501566c909c18e7514e2432882ad43a6"
+  },
+  "cleanup": {
+    "ownedBuildContextAndRegistryCredentialsRemoved": true,
+    "ownedHelmRegistryCredentialsRemoved": true,
+    "ownedBrowserAndTestDatabaseCleanup": "passed in application/fixture runner",
+    "olderWorker": "source-sandbox graceful termination respected; no forced deletion"
+  },
+  "remaining": [
+    "P03-C03 native Safari callback is still pending because the Mac is locked.",
+    "P03-C04/C05 provisioning and identity security-state synchronization.",
+    "P03-C06/C07 shared DB ACL and companion Keycloak deployment.",
+    "P03-C08 recovery rehearsal and production SAML mode transition.",
+    "Remaining P02 GUI/invalid-output work and P04–P13 remain open."
+  ]
+}

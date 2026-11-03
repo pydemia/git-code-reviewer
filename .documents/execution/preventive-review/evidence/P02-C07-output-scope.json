@@ -1,0 +1,206 @@
+{
+  "recordedAt": "2026-09-13T12:51:32.520389+00:00",
+  "status": "source-packed-and-extension-delivered; six-real-fixture-cases-passed; native-GUI-and-public-release-pending",
+  "trigger": {
+    "consumerRepository": "commit-defender",
+    "sourceCommit": "3da1a23",
+    "evidence": "P02-C07-worker-output-scope-failure.json",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "normal": "completed",
+    "defect": "invalid-output/unselected-file",
+    "rawResponseRetained": false,
+    "interpretation": "A response file had an unselected path/side; its exact value was not retained. Historical failures may have other causes."
+  },
+  "change": {
+    "outputFiles": "Trusted application supplies the exact selected path/side pairs as opaque data in the existing prompt.",
+    "supportingReads": "Explicit instructions keep base, caller and test reads as supporting evidence; availability and reading do not select them as output files.",
+    "decoderChanged": false,
+    "schemaChanged": false,
+    "retryAdded": false,
+    "modelFallbackAdded": false
+  },
+  "sourceSha256": {
+    "packages/client-core/src/review-runner.ts": "db8c42ea91d3a347fed7076dcc484f46cd5666fd93d7603b6fa04d79267b4d8a",
+    "packages/client-core/src/review-runner.test.ts": "9add14272d3b7fed6cf85712bad096d782aa7b0eb3b6b3421ceb619952cecec6",
+    "packages/client-core/README.md": "09a907cb42674ef25d7c808f71efe235bec65f3cf23c7fe6e8bc6a4e0ada8a31"
+  },
+  "validation": {
+    "runtime": "22.23.2",
+    "testFiles": 2,
+    "testsPassed": 31,
+    "testsFailed": 0,
+    "legitimateCallerAndBaseReadCannotAddOutputFile": true,
+    "fullSupportingReadAcknowledgementStillRequired": true,
+    "eslint": "passed",
+    "packedConsumerRuntimes": [
+      "18.20.8",
+      "22.23.2"
+    ],
+    "cliRuntime": "22.23.2",
+    "packManifest": {
+      "schemaVersion": 1,
+      "cliVersion": "0.1.0-alpha.5",
+      "clientVersion": "0.1.0-alpha.11",
+      "packages": [
+        {
+          "name": "@gcr/client-contract",
+          "version": "0.1.0-alpha.11",
+          "file": "gcr-client-contract-0.1.0-alpha.11.tgz",
+          "sha256": "28775b39abcecf816fc95dd1b5c0e28796479f0255d0c447a03b78edbba6f67c"
+        },
+        {
+          "name": "@gcr/client-core",
+          "version": "0.1.0-alpha.11",
+          "file": "gcr-client-core-0.1.0-alpha.11.tgz",
+          "sha256": "b48927d536f30871bc2b331bc50e08a0aa84682098d1d7efc0d0b777df802e17"
+        },
+        {
+          "name": "@gcr/client-executors",
+          "version": "0.1.0-alpha.11",
+          "file": "gcr-client-executors-0.1.0-alpha.11.tgz",
+          "sha256": "e7f2c725eb58fd4504a9111749e34685d6aa7e57cdbe6697058f32bcf3f2dec5"
+        },
+        {
+          "name": "@gcr/cli",
+          "version": "0.1.0-alpha.5",
+          "file": "gcr-cli-0.1.0-alpha.5.tgz",
+          "sha256": "08e06b5e3c3d3d73e2ba2e4611b691b5036eca5e22bc4985fd5c3997c99f3ee8"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Six real fixture cases passed after the correction; this is not a statistical guarantee or proof of every historical invalid-output cause.",
+    "Native GUI, final VSIX installation/verification and Marketplace release remain."
+  ],
+  "extensionRecheck": {
+    "repository": "commit-defender",
+    "commit": "ebd6b28",
+    "packageVersion": "0.1.0-alpha.11",
+    "bundles": {
+      "extension.js": "2bb9e17724deda6c0d4ed3b8e7e3aa7c43d122732c3a748f7b039d0b9187f733",
+      "hook-cli.js": "15f3198658bb8845532b41a22bf1fe9c2653965497a2a5cbd9fec4521e806597",
+      "standalone-review-worker.js": "8c7df3910d229a2756bba50081ddeaa7f4dea622ada24be9ad11bb3d276148fe"
+    },
+    "realModel": {
+      "model": "gpt-6-astra",
+      "reasoningEffort": "xhigh",
+      "workerRunAttempts": 6,
+      "diagnosticWorker": false,
+      "gui": "not-run",
+      "centralRequests": 0,
+      "cleanup": "completed",
+      "installedCliSha256": "e8a617451c8fd3b79aedfa57f1713a4be849c1310ad23fa630f8c76869278a36",
+      "cases": [
+        {
+          "case": "python/defect",
+          "status": "completed",
+          "exitCode": 1,
+          "findings": 1,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "python/fix",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "python/normal",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "typescript/defect",
+          "status": "completed",
+          "exitCode": 1,
+          "findings": 1,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "typescript/fix",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        },
+        {
+          "case": "typescript/normal",
+          "status": "completed",
+          "exitCode": 0,
+          "findings": 0,
+          "history": {
+            "cliExactMatch": true,
+            "freshExtensionProcessExactMatch": true
+          },
+          "sourceNavigation": {
+            "selectedSourceRetainedAfterWorkerExit": true,
+            "resolvesExactCapturedBytesAfterWorkingTreeEdit": true,
+            "guiVerified": false
+          },
+          "verified": true
+        }
+      ],
+      "evidenceSha256": "35d706159fe8550df8d9d8984ce609bba8f769fc070a3cd6b62c471f8449f84f"
+    }
+  },
+  "nativeFollowUp": {
+    "repository": "commit-defender",
+    "commit": "b27fe32",
+    "evidence": "P02-C07-native-output-scope.json",
+    "status": "incomplete",
+    "observation": "Native restricted-mode rejection was verified. After a trusted staged run, a cancelled report was persisted at 180350 ms but the native status stayed in progress. Worker exit/cleanup is under investigation; root cause is unproven.",
+    "vsixSha256": "6a1ab0e7607b107d2a9d529669e666ca19e13f4741a491ce8b89d5c266fa490f",
+    "published": false,
+    "followUp": "P02-C07-deadline-classification.json: worker and execution completed; native AX later displayed cancelled. Original observation retained; worker lifecycle defect was not confirmed."
+  }
+}

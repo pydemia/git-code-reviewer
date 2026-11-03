@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "status": "installed-and-verified",
+  "commitDefenderSourceCommit": "80f3598ffaf3ba6814f61410fdeeb89f7126a52b",
+  "gcrSourceCommit": "dbd7a46",
+  "installation": {
+    "status": "installed-and-byte-verified",
+    "version": "2.6.0",
+    "sourceCommit": "80f3598ffaf3ba6814f61410fdeeb89f7126a52b",
+    "directory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.6.0",
+    "vsixSha256": "2fd1469ca48e02e7876e3629a39f3e48a26bd74e718edcb41cff9d831d0dfccd",
+    "files": {
+      "extension.js": "e91b4aede60ab885b5f7ce25e4a0bc3a6f4c25216149dd84b5385bc5410b52b4",
+      "hook-cli.js": "50f283dd454100ddd73b634fc5e704c4b9b71a0e486f12c3caaeff1ab6ff28d0",
+      "standalone-review-worker.js": "00f5e0b5706aa963775d1b4e43e128b896a4f767f072a8922149117e6a978109",
+      "review-chat-worker.js": "eeaa64c2d5e4ea300b237d9456f0ccf7ebb646e41eed449f0f89a093570e6d36",
+      "advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "gcr-service/main.mjs": "c654f0325ccc9c8aab9fc7057cdb00aa4414f4d3a179d1d12cc6347f9161ec52",
+      "gcr-service/manifest.json": "95251b24880107474bb760c190b30b9e7fdff8243df9aa562b7c69e4bd0a54c3"
+    },
+    "previous": {
+      "version": "2.5.0",
+      "directory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.5.0",
+      "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-cd-recovery/installed-backup-2.5.0"
+    },
+    "forcedWindowReload": false,
+    "globalCliReplaced": false,
+    "prismRuntimeChanged": false,
+    "installedAt": "2026-09-14T09:01:29.998507+00:00"
+  },
+  "validation": {
+    "distinctRegressionPassed": 185,
+    "minimumHost": "VS Code 1.90.2; 26 commands; no model or key creation",
+    "nativeUi": {
+      "status": "passed",
+      "profileId": "cd-recovery-8375da7c-bbb4-4a34-a993-24217a3d4a8f",
+      "artifact": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-cd-recovery/unpacked/extension",
+      "syntheticExecutorCalls": 1,
+      "externalModelCalls": 0,
+      "fixture": "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-recovery-ui-pfcHEp",
+      "originalRunId": "7604c7bc-fa60-4c1d-9578-7ae619b867a5",
+      "interruptedVisible": true,
+      "recoveryMessageVisible": true,
+      "recovered": {
+        "id": "b2e03219-afe1-4acd-950e-c6545492c703",
+        "runId": "7604c7bc-fa60-4c1d-9578-7ae619b867a5",
+        "status": "completed",
+        "sourceHash": "8fac2569ca0b1d619477244b49b5d165ffb11b11934aaab6601cd0c125ec1d3e"
+      },
+      "host": {
+        "stage": "passed",
+        "vscode": "1.135.0",
+        "extensionVersion": "2.6.0"
+      },
+      "serviceStopped": true,
+      "ownedKeysRemoved": 3,
+      "ownedFilesRemoved": true,
+      "finishedAt": "2026-09-14T08:57:08.112Z",
+      "extensionSha256": "e91b4aede60ab885b5f7ce25e4a0bc3a6f4c25216149dd84b5385bc5410b52b4"
+    },
+    "syntheticExecutors": true,
+    "externalModelCalls": 0,
+    "initialObserverFailurePreserved": true,
+    "oldObserverFixtureCleanup": {
+      "status": "cleaned",
+      "originalDriverStatus": "failed",
+      "nativeHostOutcome": {
+        "stage": "passed",
+        "vscode": "1.135.0",
+        "extensionVersion": "2.6.0"
+      },
+      "nativeProcesses": 0,
+      "serviceUnavailable": true,
+      "ownedKeysRemoved": 3,
+      "ownedFilesRemoved": true,
+      "note": "Notification was cleared in the same live host after the observer selector timed out. Original failed evidence is retained."
+    }
+  },
+  "remaining": [
+    "P07 combined trigger execution and missed events",
+    "Headless watching, user-wide budgets, retention and other-UID checks",
+    "Original P03-P06 and P09-P13 remaining gates"
+  ]
+}

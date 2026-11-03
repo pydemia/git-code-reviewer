@@ -1,0 +1,191 @@
+# @gcr/client-core
+
+Central propagation is one-way: download central review knowledge and prompts, then review with the configured local model. Local source, reports, feedback and conversations are never uploaded. Submission commands and central model execution are unavailable.
+
+`LocalReviewSourcePort(snapshot, policy, budget)` implements the contract's process-local fixed source port for executors. It binds the actual repository/worktree and snapshot to the approved policy, paginates file metadata (at most 100 files per page), reads bounded fixed source/base lines and searches only approved files. Each attempt consumes the shared tool budget; returned UTF-8 JSON consumes transmission bytes. Successful port responses produce hash/byte receipts, which do not by themselves prove model receipt or semantic understanding. The caller reserves a logical executor invocation before running it. With an account CLI, `modelCalls` counts those invocations, not the CLI's internal sampling/HTTP requests.
+
+GCR-owned client logic for extension and headless consumers. Local storage supports user-owned memory, review-only Skills, review/chat history and retention. The package captures immutable Git/source views, resolves local context and approves a bounded standalone review. `runLocalReview` assembles an injected executor with those fixed inputs and produces a validated report. Central snapshot synchronization is available through an injected transport; authenticated CD/CLI integration remains P04/P06 work. Chat persistence here is an archive; interactive execution and checkpoints follow in P08.
+
+`runLocalReview({ snapshot, context, policy, executor, signal, trigger })` reserves a logical invocation before each model call. If a response references an unknown `readId`, it may make one correction call using the same fixed source port, deadline and run budget. That call receives only the actual read IDs and their source ranges, not the rejected model output. A second invalid response fails normally; there is no provider fallback. Each successful `read_file` return has an unpredictable `readId` and a copied local observation (path, side, hash, exact returned range, excerpt hash and truncation). The model response must reference real IDs. Completion requires all selected source/base lines and required source to be fully returned and acknowledged; truncated reads, missing file results, required questions, conflicting counter-evidence and exhausted budgets cannot yield a clean completed report. Invalid identities, anchors, duplicated or forged references are rejected. Application code supplies identity, evidence and advisory enforcement; model JSON cannot supply test execution, exceptions or central authority. Source-confirmed findings still depend on model reasoning and counter-evidence assessment, not a test runner. `reads`/`receipts` are process observations, not cryptographic attestations of model understanding.
+
+The request includes `outputFiles`, the exact selected path/side pairs permitted in file results and finding anchors. Captured base files and related callers/tests remain readable evidence; reading them does not add a selected result. Their read IDs belong to the relevant selected file or finding.
+
+Invalid model output keeps the stable `invalid-output` problem code and adds a fixed rejection reason to its message (for example, `unknown-read-id`, `anchor-outside-read`, `invalid-json` or `invalid-schema`). Rejection discards model summaries, findings and questions. Messages never interpolate provider output, parser errors, paths, read IDs or model names; actual source-read evidence remains available. These diagnostics do not change acceptance rules.
+
+The package depends only on the pure client contract and Node built-ins. It does not import VS Code, GCR server/DB packages or Commit Defender source. It targets Node 18 or later with ES2022/ESM.
+
+```js
+import { LocalRecordStore, LocalKnowledgeStore } from '@gcr/client-core';
+
+const records = await LocalRecordStore.open({
+  scope: { kind: 'profile', profileId: 'local-profile' },
+});
+const knowledge = new LocalKnowledgeStore(records);
+// create/edit/setState/remove/list/active/importKnowledge/exportKnowledge/exportFile
+// Knowledge starts as a candidate. setState is an explicit user action.
+records.close();
+```
+
+Repository scopes include profile, repository and worktree keys. `discoverLocalIdentity` uses canonical Git common/worktree directories; same-name clones and linked worktrees stay distinct. Moving a checkout to a different canonical location requires an explicit knowledge import; changing a remote URL does not change the local identity. Local keys do not contain central authorization IDs or remote credentials.
+
+Managed records, including Skill Markdown and history, use AES-256-GCM. The master key lives in the OS credential store; only its opaque reference is stored in application data. macOS uses `/usr/bin/security` and Linux uses `/usr/bin/secret-tool` with a persistent Secret Service collection. Linux needs that helper and an available desktop/headless Secret Service. Windows has no supported key-store adapter yet. Missing/locked key stores fail explicitly and never select a plaintext or environment-key fallback. Host key-store ports are available for integration and tests. Their references must be fresh identifiers owned by the caller; they do not provide a generic credential compare-and-swap operation.
+
+Private application directories use mode 0700 and files use 0600. Symbolic-link or shared-permission storage is rejected. Memory and Skill edits require an expected revision. Immutable encrypted bodies and exclusively linked revision markers prevent stale writers from overwriting newer edits. A `commit-unknown` error means publication may have happened: read the current revision before retrying. Cleanup failures are returned separately from a committed deletion. Old body cleanup retains revision markers to fence stale writers; interrupted private staging/orphan ciphertext can require later cleanup. This is not a secure-erasure or rollback-resistant storage claim.
+
+A caller abort with the exact reason `timeout` produces a failed report with problem code `timeout`; other abort reasons produce `cancelled`. The caller's terminal reason takes precedence over a late executor response or error. Source-read evidence already returned remains available, while findings and questions from an unfinished response are discarded.
+
+`LocalHistoryStore` retains full terminal reports without changing partial/failed/cancelled status, and stores user/assistant chat archives. Retention defaults to 90 days and 1000 entries for reviews and chats separately; `configureRetention` persists changes in the same scope. Local memory/Skills are outside history pruning. Existing records may be read or explicitly deleted; new completed reviews are not fabricated to replace missing history. `exportFile` is an explicit plaintext export to a new file with mode 0600; it never overwrites an existing file.
+
+Records are limited to 16 MiB of canonical plaintext JSON, 24 MiB of encrypted envelope and 64 nesting levels. Retention accepts 1–3650 days and 1–10000 entries. State is process-independent; keys and decrypted records are never logged. Package packing and distribution follow `docs/development/client-package-delivery.md` in GCR. `scripts/local-store-smoke.mjs` tests actual OS-key retrieval, restoration in a new process, eight concurrent writers and deletion using synthetic data and zero model calls.
+
+## Fixed local source
+
+`captureLocalSource({ cwd, kind: 'index' | 'working-tree', baseRef?, paths?, includeUntracked?, excludePatterns?, limits? })` returns a `LocalSourceSnapshot` read port. `paths` selects exact files; omitted means changes against base. An explicit `baseRef` is resolved once and compared using its merge-base with HEAD. Index capture supports SHA-1/SHA-256, initial commits, intent-to-add, split/version-4/sparse indexes, linked worktrees and explicit or environment-supplied alternate indexes. Captures never stash/reset/check out files, fetch, or write the user's index or object storage. Generated trees, objects and indexes live in a private temporary directory removed before return.
+
+Working-tree capture reads saved bytes of tracked files and explicitly included untracked files. It does not read editor buffers or run clean/smudge filters, so CRLF/BOM and filter-transformed working bytes remain distinct from Git base bytes. Index removal is a deletion unless the remaining untracked file is explicitly included. Missing sparse working files are unavailable; index mode can read their fixed Git objects. This is a bounded observation of files during capture, not a filesystem-wide atomic transaction. Changed opened files, HEAD or evaluated ignore decisions make capture fail. Each returned body is independently SHA-256/Git-blob verified, and no later query accesses Git or the original filesystem.
+
+`identity`, `repository`, `headCommit`, `branchName`, `selected`, `sourceFiles`, `limitations` and `diff` describe the actual captured input. Deleted files retain their base side; rename patches retain the old path. `readFile`, `readLines` and literal `search` only return captured bodies. Absent means absent from this authorized snapshot, not proof that an arbitrary file does not exist on disk. Metadata getters return copies. `close` releases retained bodies; this is not a secure-memory-erasure claim. Snapshots are currently in memory. Historical Git IDs alone do not guarantee reconstruction after the temporary objects are removed; a consumer must retain an authorized source view or report unavailable.
+
+Defaults are 1 MiB per file, 32 MiB/10,000 bodies across both sides, 50,000 enumerated paths and a 30-second capture deadline. Callers can select smaller limits; hard maxima are 4 MiB/file, 128 MiB total, 10,000 bodies, 50,000 paths and 120 seconds. Git command output/time is bounded separately. Index input is a regular, non-symlink file limited to 64 MiB; bounded nonblocking reads refuse FIFOs and growth during the copy. Source omission is explicit: binary/invalid UTF-8, LFS pointers, submodules, unsafe paths/modes, ignored/private/generated files and size limits never become empty successful source. An unavailable opposite side is excluded from diff comparison, preventing false additions/deletions. Broken/unmerged Git metadata fails capture without working-tree fallback.
+
+Repository `.gitignore` and `.git/info/exclude` decisions are checked at capture. Global/system Git configuration is disabled. Explicit `excludePatterns` use a deny-only subset: `*`, `?`, whole-component `**`, root-relative paths and directory prefixes. A matching path also excludes descendants; a trailing slash is a prefix spelling. Negation, character classes and escaping are rejected, not silently reinterpreted as Git ignore syntax. Private defaults cannot be overridden. A working-tree parent symlink also makes ignore evaluation for that path unavailable, including index capture; it is recorded rather than traversed.
+
+Git filesystem monitors, hooks, external diff/textconv, lazy fetch and protocols are disabled. Index writes and diff commands see an empty working tree because even a temporary index write can otherwise consult working files and invoke a clean filter. This does not sandbox a model CLI: C05 must enforce executor isolation separately. Capture is synchronous; extension/UI consumers should run it outside the UI event loop. `scripts/local-source-smoke.mjs` verifies installed artifacts with synthetic Git data and zero model calls.
+
+The source implementation adapts safe Git environment/path/blob verification from GCR `packages/git-engine/src/{workspace,local-tools}.ts` and temporary-index/exact-tree filtering from Commit Defender `vscode-extension/src/{gitSnapshot,sourcePolicy}.ts` at `35575ad`. Commit Defender is Apache-2.0 licensed. These files were modified for independent client packaging, private object storage, bounded eager capture, source hashes, explicit limitations and a read port with no mutable checkout fallback; no upstream NOTICE file was present.
+
+## Local context and execution policy
+
+`resolveReviewMode` defaults to standalone only when mode is absent. Residual server addresses, credentials and caches are not read. Explicit centralized mode is unavailable in this phase and never acquires a local store or invokes a central request. `resolveLocalContext` accepts up to two local store readers (profile and repository/worktree), a captured source view and optional required knowledge/source. It validates hashes and exact scopes, and rejects duplicate identities, corrupt records and executable Skill fields. `LocalKnowledgeStore.entries()` authenticates one record at a time; context scanning does not require loading every body into an array first.
+
+Only active, unexpired local material is eligible. Path, language and lexical-symbol conditions must match the same selected file; branch conditions use the captured branch/HEAD. Source carries its actual repository/worktree keys, so a different clone/worktree cannot reuse context or source approval even when its bytes and source hash match. Branch observations supplied by a caller must match the capture. A branch-only change during capture also fails. Extension-based language labels and literal symbol candidates do not establish semantic binding; unknown languages are not inferred. Each applicability dimension accepts up to 128 values, symbols up to 128 characters, and paths/branches use the same bounded pattern subset as source policy. Unsupported scopes are recorded as omissions; required omitted material prevents readiness.
+
+The built-in review Skill is application-owned and required. Local Memory/Skills remain separate untrusted review material with their bodies, rationale/counter-evidence, origins and exact revisions/hashes preserved. Required items take priority, followed by repository material and profile material in stable ID order. Optional omissions are explicit and participate in conservative context invalidation. Source requirements include the selected side and available fixed base, plus explicitly requested related files. Missing, denied or over-budget required material returns `needs-context`; store/identity/hash failures return `unavailable`. General item edits do not mutate a prepared context. Expiry is checked again at execution admission.
+
+Context defaults are 64 KiB of selected serialized built-in/local material and a scan of at most 5000 records/16 MiB. Hard maxima are 1 MiB of selected material and 10,000 records/64 MiB of scanned records. Scan exhaustion is incomplete context, not a successful partial index. Local getters return copies; consumers explicitly choose what to display or serialize. No context operation runs a model, executes a Skill, uploads personal material or changes enforcement.
+
+`resolveLocalExecutionPolicy` requires a trusted workspace, an `ApprovedLocalScope` from trusted application state/user invocation, and the exact selected executor/model/configuration. It compares profile/repository/worktree and optional source hash; filters source by approved paths, base and related-source flags; and refuses unapproved knowledge transmission. Repository files, remote material and Skill bodies cannot issue approval. This is a local application gate, not a cryptographic authorization service. The caller must obtain current user approval/capability observations from the appropriate application boundary and handle later revocation.
+
+An executor descriptor must report available fixed-source isolation, cancellation, timeout and descendant cleanup. Unknown/unrestricted capabilities are unavailable; the policy never switches accounts/providers or substitutes another model. A requested `outputTokensPerCall` requires a verified hard limit in that adapter. Policy readiness is neither a model execution nor an attestation that a supplied capability claim is true; the actual adapter and OS boundary are verified in P02-C05.
+
+Allowed review tools are `list_files`, `read_file` and `search_code`. Source admission compares the full captured descriptor, including hashes, and standalone enforcement is always advisory. `ReviewRunBudget` provides monotonic, synchronous per-run reservations: defaults are two model calls, 120 seconds, 1 MiB of source body bytes and 100 tool calls. Hard maxima are 10 model calls, 600 seconds, 32 MiB and 1000 tools. Optional output-token caps are 1–32,768 per call; they are not a measured whole-run token balance. Retries consume model reservations. C05 must use these primitives and enforce process deadlines/cancellation and provider parameters. Persistent, cross-process/project admission and usage accounting remain P07 work.
+
+`scripts/local-context-smoke.mjs` exercises installed artifacts with encrypted temporary storage and an in-memory test key port, an explicitly synthetic executor descriptor and zero executor/model calls. It does not replace the actual OS-key tests in P02-C02 or the actual executor verification in P02-C05.
+
+## Central manifest verification
+
+`verifyKnowledgeManifest(value, { audience, trustedKeys, now, mode, minimumAuthorizationRevision?, minimumSequences?, clientContractVersion? })` validates the signed central contract with a caller-pinned Ed25519 public key. It checks canonical payload SHA-256, the protocol-specific signature context, exact server/tenant/repository/user audience, online or offline expiry, and persisted authorization/component sequence floors. Supply trusted keys out of band and retain those floors per audience; a key in an HTTP response is not a trust anchor. The verifier does not download bundles, persist central cache/replay state or establish client authentication. The cache and transport below provide persistence and HTTP access; host authentication integration remains P04/P06 work. See `docs/operations/review-knowledge-distribution.md` in GCR.
+
+## Central snapshot cache
+
+`KnowledgeHttpTransport(binding, { bindingId, readToken }, ca?)` connects this cache to the GCR manifest/bundle HTTP endpoints using a separately issued scoped API key. The host supplies the credential port for this exact binding. Requests preserve base paths, never send cookies, never follow redirects, and always verify HTTPS certificate/hostname trust. A custom CA is optional; disabling verification is not supported. This does not implement the OS credential broker, key management UI or client login flows. See `docs/operations/client-api-keys.md` in GCR.
+
+`TrustedCentralBinding` requires an explicit server URL, authenticated server/tenant/repository/user audience and pinned Ed25519 public keys. URL normalization preserves base paths and rejects credentials, query/fragment values, traversal and encoded separators. HTTP is available only with explicit loopback permission. Binding identity includes the canonical URL and every audience field; rotating pins does not reset replay floors. Remote resolution and authentication must be implemented by the host.
+
+`CentralKnowledgeCache.open({ scope, dataDirectory?, keys?, binding, now? })` requires a repository scope. Central records live below `central-cache/<binding hash>` with their own OS key reference, apart from editable/exportable local knowledge. `synchronize(transport, { signal?, timeoutMs? })` conditionally fetches a manifest, persists verified authorization/revocation floors, and downloads only components whose hashes changed. Streams are limited by signed size and the 2 MiB contract ceiling. Canonical bytes, signature, audience, schema, owner, hashes, versions and lease are verified before all three encrypted record references become active in one index compare-and-swap.
+
+The persisted synchronization claim has a deadline and generation. Another process may take over an expired claim, but the old owner cannot commit over it. Public `read()` returns `busy` while any claim remains, including an expired claim: a crash or failed write may have prevented a received revocation from being persisted. Resynchronization must resolve that uncertainty. Ordinary failed downloads release the claim and preserve the previous complete cache if its lease and authorization floors still permit it. Explicit revocation floors are effective before download completion. A 304 reuses the original signed lease; it never extends it. `read('offline')` checks that lease again after disk reads.
+
+401 stops central use as `authentication-required`; the future authenticated transport must perform its bounded refresh before returning that final status. 403 disables access and removes the active pointer; 503 preserves eligible fallback. A received denial remains blocked in the current instance even if persistence fails, and the persisted claim bars other instances from reading until resynchronization. Cancellation observed before the activation write prevents activation. Once the atomic activation commits, cancellation/cleanup failure cannot roll it back; `commit-unknown` requires re-reading rather than assuming failure or retrying an old pointer.
+
+`disable()` persists a disconnected generation before purging its captured inventory, returns `cleanupPending`, and leaves local knowledge untouched. `resume(expectedGeneration)` requires a new explicit host authorization for this same binding and retains replay floors. Cleanup only removes captured obsolete bodies; interrupted staging or failed cleanup can leave orphan ciphertext and tombstones. This is not secure erasure or protection against restoring the entire cache directory from an older backup. Scheduling/backoff, the OS credential broker and central review UI remain integration work. The explicit central context/runner entry point below enforces running-review revocation. The standalone review mode is unchanged until those paths are wired.
+
+## Central review context
+
+`resolveCentralContext({client, snapshot, cache, freshness, stores, ...localContextOptions})` requires an explicitly centralized identity and the matching repository/profile/worktree cache with the exact authenticated audience. It verifies a complete cache snapshot before scanning local records. `freshness` is `online` or `offline`; neither option starts synchronization or a model call. Generic `resolveReviewMode` still rejects centralized mode until the CLI/extension host integrates authentication and cache lifecycle.
+
+Knowledge client protocol v2 includes the approved memory `aggregationKey`. The manifest envelope and signature domain remain v1; HTTP requests use `clientContractVersion=2`. Older bundles remain decodable for immutable history, but central precedence refuses v1 bundles. `verifyKnowledgeManifest` defaults to v2 negotiation; `clientContractVersion: 1` is only an explicit legacy verification option, not an automatic downgrade.
+
+The shared selection function applies path, case-insensitive language label, captured branch, lexical symbol and lexical contract conditions to the same file before comparing aggregation keys. Active criterion exceptions exclude only their matching files. The next relevant exception boundary and selected memory expiry bound context validity. Enabled central Skills and applicable criteria are required. Missing mandatory instructions, local records explicitly marked required, or source/base context prevent readiness. The selected serialized built-in, central and local materials share a 64 KiB default budget (1 MiB maximum); the runner additionally charges the full prompt and source responses to its transmission budget.
+
+For the same approved grouping identity on the same file, collective content is authoritative. Personal content remains available on uncovered files; overlapping files retain only personal source references and counter-evidence. Arbitrary local notes remain separate supplemental records. They have no shared aggregation identity, so this selector does not claim semantic conflict detection for local prose. Historical statements and lexical scope matches never establish a current defect or grant executable tools.
+
+Context getters return copies. The context hash pins mode/audience, source, manifest/three component hashes, local identities, selected scopes, exceptions, omissions and precedence decisions. `resolveLocalExecutionPolicy` requires explicit knowledge transmission approval for central material as well as local knowledge. `runLocalReview` accepts this context with the approved local executor and sends central items separately from local data. No provider credential or central API key enters the prompt.
+
+The runner observes its originating cache before model admission, before each source tool and after the model response; a sequential 100 ms monitor detects changes while the model is running. Source reads pause during an active sync claim. An expired unresolved claim, expired context, revoked access or raised authorization/critical sequence floor cancels the run; an executor that ignores abort cannot keep the report waiting or submit a usable late result. Ordinary content updates preserve the pinned prompt and return `superseded` with a reason. Closed runs reject further tool requests. This is local observation of confirmed changes, not immediate offline remote revocation.
+
+Cache indexes now distinguish accepted sequence high-water marks from explicit revocation floors. Legacy indexes retain their older conservative floor. The current server still raises revocation floors on every component release, so real server updates currently cancel affected running reviews. The ordinary-update behavior is verified with signed synthetic manifests whose revocation floors remain unchanged; release classification and host integration remain separate work.
+
+## Central connection credentials and lifecycle
+
+`CentralConnections.open({scope, dataDirectory?, keys?, credentials?})` assembles the encrypted connection registry, the shared signed cache and an OS API-key port. Repository scope is required. The default `PlatformCentralCredentialStore` uses a separate macOS Keychain/Linux Secret Service namespace and sends key writes through stdin, never command arguments. API keys are not persisted in registry/cache files. Injected credential ports are trusted host dependencies, not selectable repository configuration.
+
+`connect(config, key, clientId, signal?)` verifies HTTPS identity, client type, expiry and repository grant, derives the user audience, claims a pending registry revision, writes a unique OS credential reference, synchronizes the signed v2 bundles and activates that exact revision. Concurrent registrations cannot overwrite an active key. Failed registration cannot activate a partial connection; pending records from a crashed process can be explicitly disconnected. Reconnect requires explicit disconnect and retains cache replay floors. Key rotation does not implicitly change server or user.
+
+`review(id, freshness, signal?)` returns the explicit central client, cache and connection assertion accepted by `resolveCentralContext`. The assertion remains attached to the context and is checked throughout execution; disconnect/reconnect of the same binding cannot revive a run admitted under an older registry revision. `synchronize`, `status`, `list` and `disconnect` never run a model. Status reports locally observed cache validity, not a live remote authorization probe. API key expiry prevents admission even with an otherwise valid offline lease. Logout does not revoke the server-side key; explicit server revocation remains a separate web action.
+
+Registry data and central review history are separate from standalone data. `LocalHistoryStore(records, now?, audience?)` continues to accept only standalone reports by default; an explicit audience switches it to central reports for that exact audience. Hosts must use a separate encrypted directory and enforce connection access before exposing central history, as the CLI does. The library does not infer a connection, transmit Git remotes, schedule periodic synchronization or enable an extension UI.
+
+Initial connection keeps its registry pending and cache claim held while waiting for the first publication. `KnowledgeHttpTransport.initialPublication()` retries only actual HTTP 503 manifest responses, with a 1/2/4-second capped exponential delay and 0.75–1.25 jitter, at most 15 retries. `CentralConnections.connect` supplies a 60-second synchronization deadline and propagates cancellation. Every request rereads the bound credential. Authentication rejection, redirects, TLS/network errors, malformed successful responses and bundle verification failures stop the connection; failed pending credentials are removed. Ordinary synchronization retains its existing behavior.
+
+## Automatic review event adapters
+
+`AutomaticReviewScheduler` serializes debounced host events, replaces obsolete work for the same key, fences late results, and waits while a manual review owns execution. Stage priority and durable request `retryAt` scheduling are host inputs. The scheduler does not authorize models, persist source payloads, or run a background service.
+
+`observeAutomaticRepository` reads HEAD and the real Git index path, including linked worktrees. It rejects changing metadata and returns only reviewable staged paths. `await newlyStagedPaths(previous, current)` excludes unchanged index content, whole-file and partial-hunk unstaging, and HEAD transitions. It compares fixed base/previous/current blobs with Git’s minimal line diff; returning existing changes toward the base does not introduce new review input. Mode changes and mixed new edits still trigger review. Missing objects, binary content or the bounded comparison limit yield an unavailable observation rather than a guessed partial unstage. `observeAutomaticFile` applies path/ignore and symlink policy before a bounded read, then returns the saved-byte hash and working-tree change status relative to HEAD. Hosts must revalidate these observations against the captured source before model admission.
+
+## Commit and push source inputs
+
+`captureLocalSource({kind: 'commit-tree', sourceCommit, baseCommit, ...})` reads exact full commit OIDs; `baseCommit: null` declares an empty base. It does not substitute HEAD, read the current index, or compute a merge-base. The result carries `sourceCommit` and `sourceTree` in its identity. An optional explicit `targetBranch` supplies the destination branch for knowledge selection. Ignore rules from both fixed trees and the current checkout can exclude input. Git objects, temporary ignore trees and index writes remain in the capture's private temporary directory.
+
+Index capture continues to honor `indexFile` or inherited `GIT_INDEX_FILE`, including Git's temporary index during `commit --only` and `--amend --only`. Its base is the pre-operation HEAD, so an amend review covers the changes introduced by that amend relative to the previous commit, not the rewritten commit's entire parent-to-child diff.
+
+`resolvePrePush(cwd, stdin, excludes)` parses all four fields on every pre-push line before reviewing anything, up to 64 refs and 256 KiB. Source selection uses the supplied object IDs; the local ref text is retained as metadata. Existing refs compare the exact old and new commits, including force updates. New refs explicitly use an empty base. Deleted refs are `ref-deleted` with no source review, and unchanged refs are `unchanged`. Commit tags are peeled to commits; missing/noncommit objects or invalid destination refs remain `unsupported`. No network fetch is attempted. This resolver does not install hooks or enqueue background work.
+
+## Frozen source and local service
+
+`snapshot.freeze()` exports a bounded (8 MiB) source payload. `restoreLocalSource` verifies file sizes, line counts, content and Git blob hashes, source policy, selection metadata and the original snapshot identity without reopening the checkout/index. Hosts must keep this payload private; the service encrypts it before acknowledging submission.
+
+`startLocalService({profileId, dataDirectory?, keys?, run})` hosts a private Unix socket with explicit encrypted worktree registrations and a serial execution lane. `callLocalService` exposes registration, submit, status, job, cancel and stop operations. Registration controls triggers and executable/model/source budgets; submitting clients cannot override those grants. The same OS user is the trust boundary. No repository-supplied configuration grants automatic execution.
+
+`ServiceJobs` persists queued sources and receipts in the profile's `local-service` store. A CAS owner record plus process liveness prevents a second live service from replacing the socket. Queued payloads survive restart; previously running receipts become interrupted and are never automatically replayed. Finished/cancelled payloads are purged; failed cleanup is recorded. The full model deduplication and result storage remain host responsibilities, wired by the CLI to `executeReviewRequest` and encrypted history. Shutdown aborts active work, closes clients, releases ownership, clears store keys, and resolves `closed` with an explicit `problem` if cleanup failed.
+
+This service is not a file watcher or managed hook installer. It limits pending/interrupted receipts to 64 and applies per-review budgets. Service registrations also bound shared profile/worktree starts per hour (default 6). A pre-model budget deferral retains encrypted source as queued with a notBefore time; the worker admits other ready requests. User-wide budgets and receipt retention remain pending. Unix permission checks do not establish isolation from other processes running as the same OS user.
+
+### Interactive review conversations
+
+`ReviewConversationStore` stores an immutable source snapshot, its review report,
+execution identity, conversation turns, and pending questions in the encrypted
+`conversations` namespace. Legacy `LocalHistoryStore` transcript archives remain
+separate. A repository-scoped record store is required. For centralized reviews,
+pass the current `CentralAudience` as the third constructor argument; standalone
+and other audiences cannot read, list, or delete those conversations.
+
+Create a conversation while the original snapshot is still available, using the
+report and the same resolved execution policy. `append` accepts a caller-owned turn
+ID for idempotency. `runReviewConversation` requires a `LocalReviewChatExecutor`
+with the verified `checkpoint-tool-v1` capability and a host-owned
+`assertAuthorized` callback. Resolve current context and policy again on resume;
+the saved identity is a comparison value, not authorization. If source, knowledge,
+model, approved paths, or budgets change, start a new review/conversation rather
+than silently changing the existing conversation.
+
+The Codex executor exposes `ask_user` only for `converse`. The host commits the
+question and continuation state before cancelling the model process. Answering the
+question queues the same turn; it does not call a model. A subsequent runner call
+reconstructs the conversation in a new isolated process using the captured source.
+It does not save a provider thread, hidden reasoning, or credentials. Every cited
+source must be read again by the current step. Search matches and historical read
+IDs cannot be used as current-step citations.
+
+Model calls, transferred bytes, tool calls, and execution time share the turn's
+persisted budget across question/answer steps. Waiting for user input consumes no
+execution time. An in-flight step reserves its remaining budget before admission;
+an unconfirmed process failure stays `running` with its reservation. `interrupt`
+requires the observed revision and closes it as `failed/interrupted`, without
+retrying the model. A concurrent cancellation or answer cannot be overwritten by
+a late result. `close` prevents further turns. `remove` uses a caller-supplied
+revision. Hosts should call `prune` at startup and after terminal changes: it uses
+the existing chat retention settings, expires questions after 24 hours, and keeps
+queued/running work until explicitly reconciled.
+
+The library does not install a watcher or Git hook, upload local review data, or make
+source edits. Client UI and CLI/MCP commands are separate
+integration work.
+
+
+Manual review callers using `executeReviewRequest` hold renewable scheduling priority while waiting for an owner or executing. Automatic service work waits before executor preparation, and the common broker checks again at model admission. Priority is scoped to the same profile/repository/worktree and ordered with encrypted CAS writes. Already admitted reviews continue; identical source requests still share their result. Priority leases expire after 30 seconds without renewal. Expiry releases priority only and never marks an unknown model complete or retries it. Older clients do not participate until upgraded.
+
+Repository-aware hosts pass `repositoryRoot` to `CentralConnections.open`. When a new connection has Git remotes, the client reads the selected repository identity from `GET /api/v1/client-repositories/:repoId` and compares effective fetch URLs locally. It never uploads remote URLs or source. Matching ignores URL credentials, query strings and fragments and accepts standard GitHub HTTPS/SSH forms. Nonstandard ports and installation path prefixes remain distinct.
+
+The stored binding includes the authenticated repository identity and a hash of normalized remotes. Changing a remote or receiving a different repository identity on sync requires reconnection; signed offline cache does not bypass this check. Disconnect remains available after a mismatch. Existing records and explicit connections without remotes remain manual and are not labeled as verified; reconnect with remotes to establish a binding.

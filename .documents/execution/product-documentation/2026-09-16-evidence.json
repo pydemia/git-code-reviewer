@@ -1,0 +1,183 @@
+{
+  "date": "2026-09-16",
+  "gcrSource": "0bb8a2225181db1b89c5fe316b10e386402d27d1",
+  "cdSource": "708710178ae1c47cd89e822d7d982fe437a8e5fd",
+  "gcrBrowser": {
+    "origin": "http://127.0.0.1:5173",
+    "syntheticApi": true,
+    "modelCalls": 0,
+    "productionMutations": 0,
+    "pages": [
+      {
+        "route": "/getting-started",
+        "width": 1360,
+        "dimensions": {
+          "viewport": 1360,
+          "document": 1360
+        },
+        "anchors": 7
+      },
+      {
+        "route": "/architecture",
+        "width": 1360,
+        "dimensions": {
+          "viewport": 1360,
+          "document": 1360
+        },
+        "anchors": 6
+      },
+      {
+        "route": "/features",
+        "width": 1360,
+        "dimensions": {
+          "viewport": 1360,
+          "document": 1360
+        },
+        "anchors": 14
+      },
+      {
+        "route": "/introduction",
+        "width": 1360,
+        "dimensions": {
+          "viewport": 1360,
+          "document": 1360
+        },
+        "anchors": 8
+      },
+      {
+        "route": "/guide",
+        "width": 1360,
+        "dimensions": {
+          "viewport": 1360,
+          "document": 1360
+        },
+        "anchors": 14
+      },
+      {
+        "route": "/review-history",
+        "width": 1360,
+        "dimensions": {
+          "viewport": 1360,
+          "document": 1360
+        },
+        "anchors": 0
+      },
+      {
+        "route": "/__docs-fixture",
+        "width": 1360,
+        "dimensions": {
+          "viewport": 1360,
+          "document": 1360
+        },
+        "anchors": 0
+      },
+      {
+        "route": "/getting-started",
+        "width": 390,
+        "dimensions": {
+          "viewport": 390,
+          "document": 390
+        },
+        "anchors": 7
+      },
+      {
+        "route": "/architecture",
+        "width": 390,
+        "dimensions": {
+          "viewport": 390,
+          "document": 390
+        },
+        "anchors": 6
+      },
+      {
+        "route": "/features",
+        "width": 390,
+        "dimensions": {
+          "viewport": 390,
+          "document": 390
+        },
+        "anchors": 14
+      },
+      {
+        "route": "/introduction",
+        "width": 390,
+        "dimensions": {
+          "viewport": 390,
+          "document": 390
+        },
+        "anchors": 8
+      },
+      {
+        "route": "/guide",
+        "width": 390,
+        "dimensions": {
+          "viewport": 390,
+          "document": 390
+        },
+        "anchors": 14
+      },
+      {
+        "route": "/review-history",
+        "width": 390,
+        "dimensions": {
+          "viewport": 390,
+          "document": 390
+        },
+        "anchors": 0
+      },
+      {
+        "route": "/__docs-fixture",
+        "width": 390,
+        "dimensions": {
+          "viewport": 390,
+          "document": 390
+        },
+        "anchors": 0
+      }
+    ],
+    "errors": []
+  },
+  "cdHtml": [
+    {
+      "name": "status",
+      "errors": [],
+      "actualHtmlRenderer": true,
+      "mockedVsCode": true,
+      "extensionHost": false
+    },
+    {
+      "name": "history",
+      "errors": [],
+      "actualHtmlRenderer": true,
+      "mockedVsCode": true,
+      "extensionHost": false
+    }
+  ],
+  "links": {
+    "checked": 100,
+    "route_links": 9,
+    "issues": []
+  },
+  "commands": {
+    "checked": 8,
+    "unmatched": 0
+  },
+  "validation": {
+    "gcrBuild": "pass",
+    "gcrModifiedSourceEslint": "pass",
+    "gcrReportRegressionTests": 7,
+    "gcrClientCredentialBrowserTests": 5,
+    "cdBuild": "pass",
+    "cdTestTypecheck": "pass",
+    "cdCentralViewTests": 6,
+    "cdCentralHistoryTests": 2,
+    "cdClientContractTests": 22
+  },
+  "delivery": {
+    "newVsix": false,
+    "installedExtensionChanged": false,
+    "helmDeployment": false,
+    "marketplacePublish": false,
+    "realModelCalls": 0
+  }
+}

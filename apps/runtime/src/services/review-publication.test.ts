@@ -74,10 +74,35 @@ describe('GitHub review publication', () => {
       ],
       marker: '<!-- git-code-reviewer:managed -->',
     });
-    expect(body).toContain('조치가 필요한 finding은 발견되지 않았습니다.');
+    expect(body).toContain('PR 알림 기준에 해당하는 검토 의견이 없습니다.');
     expect(body).toContain('**코드 품질:** 우수 (proficient)');
     expect(body).not.toContain('전체 review와 evidence 보기');
   });
+
+  it.each(['P2', 'P3'] as const)(
+    'filters legacy comments at %s without leaking the full summary',
+    (priority) => {
+      const findings = (['P0', 'P1', 'P2', 'P3'] as const).map((priority) => ({
+        priority,
+        title: `title ${priority}`,
+        problem: `problem ${priority}`,
+        recommendation: `fix ${priority}`,
+      }));
+      const body = renderReviewComment({
+        context: { ...context, reviewCommentMinPriority: priority },
+        findings,
+        marker: '<!-- synthetic -->',
+      });
+      expect(body).toContain('title P3');
+      expect(body.includes('title P2')).toBe(priority === 'P2');
+      for (const hidden of ['P0', 'P1']) {
+        expect(body).not.toContain(`title ${hidden}`);
+        expect(body).not.toContain(`problem ${hidden}`);
+      }
+      expect(body).not.toContain('권한 검증에');
+      expect(body).toContain('6/7 files');
+    },
+  );
 
   it('publishes with the stored comment id and persists publication metadata', async () => {
     const query = vi.fn(async (sql: string) => {

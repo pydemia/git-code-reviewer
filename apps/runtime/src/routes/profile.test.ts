@@ -52,7 +52,8 @@ describe('profile routes', () => {
     expect(
       query.mock.calls.some(([sql]) => String(sql).includes('delete from user_sessions')),
     ).toBe(true);
-    expect(response.headers['set-cookie']).toContain('gcr_session=');
+    expect(String(response.headers['set-cookie'])).toContain('gcr_session=;');
+    expect(String(response.headers['set-cookie'])).toContain('gcr_http_session=;');
     expect(connection.release).toHaveBeenCalledOnce();
     await app.close();
   });

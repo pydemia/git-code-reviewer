@@ -234,4 +234,213 @@ describe
         expect(response.json().items).toBeUndefined();
       }
     });
+    it('refreshes due conversations on 304 and retries a failed final closed-PR collection', async () => {
+      let metadata = true,
+        fail = true;
+      const seen: number[] = [];
+      const isolated: GitHubReader = {
+        listPulls: async () =>
+          metadata
+            ? {
+                outcome: 'updated',
+                etag: 'new-metadata',
+                pulls: [pull(901, 'open'), pull(902, 'open')],
+              }
+            : { outcome: 'not-modified', etag: 'new-metadata', pulls: [] },
+        listPullRequestMessages: async (_target, number) => {
+          seen.push(number);
+          if (number === 901 && fail) throw Error('transient source failure');
+          return [];
+        },
+      };
+      await pollRepository(db, isolated, repositoryId);
+      const state = async (number: number) =>
+        (
+          await db.query(
+            'select s.* from pull_request_conversation_sync s join pull_requests p on p.id=s.pull_request_id where p.repository_id=$1 and p.number=$2',
+            [repositoryId, number],
+          )
+        ).rows[0];
+      expect((await state(901)).consecutive_failures).toBe(1);
+      expect((await state(902)).last_success_at).not.toBeNull();
+      expect(
+        (await db.query('select etag from poll_states where repository_id=$1', [repositoryId]))
+          .rows[0].etag,
+      ).toBe('new-metadata');
+      const closed: GitHubReader = {
+        ...isolated,
+        listPulls: async () => ({
+          outcome: 'updated',
+          etag: 'closed-metadata',
+          pulls: [pull(901, 'closed')],
+        }),
+      };
+      await pollRepository(db, closed, repositoryId);
+      expect((await state(901)).follow_until).not.toBeNull();
+      expect((await state(901)).last_success_at).toBeNull();
+      metadata = false;
+      fail = false;
+      await db.query(
+        "update pull_request_conversation_sync set next_attempt_at='-infinity' where pull_request_id in (select id from pull_requests where repository_id=$1 and number in (901,902))",
+        [repositoryId],
+      );
+      const before = seen.length;
+      await pollRepository(db, isolated, repositoryId);
+      expect(seen.slice(before)).toEqual(expect.arrayContaining([901, 902]));
+      expect((await state(901)).last_success_at).not.toBeNull();
+      expect((await state(901)).consecutive_failures).toBe(0);
+      // Ended monitoring must not become an unbounded historical backfill.
+      await db.query(
+        "update pull_request_conversation_sync set follow_until=clock_timestamp()-interval '1 second',next_attempt_at='-infinity' where pull_request_id=(select id from pull_requests where repository_id=$1 and number=901)",
+        [repositoryId],
+      );
+      const done = seen.length;
+      await pollRepository(db, isolated, repositoryId);
+      expect(seen.slice(done)).not.toContain(901);
+    });
+
+    it('bounds each batch and rotates pending PRs without scheduling closed historical reviews', async () => {
+      const seen: number[] = [];
+      const batch: GitHubReader = {
+        listPulls: async () => ({
+          outcome: 'updated',
+          etag: 'batch',
+          pulls: Array.from({ length: 23 }, (_, i) => pull(1000 + i, 'open')),
+        }),
+        listPullRequestMessages: async (_t, n) => {
+          seen.push(n);
+          return [];
+        },
+      };
+      // Previously due fixtures do not consume this batch's budget.
+      await db.query("update pull_request_conversation_sync set next_attempt_at='infinity'");
+      await pollRepository(db, batch, repositoryId);
+      expect(seen).toHaveLength(10);
+      const unchanged: GitHubReader = {
+        ...batch,
+        listPulls: async () => ({ outcome: 'not-modified', etag: 'batch', pulls: [] }),
+      };
+      await pollRepository(db, unchanged, repositoryId);
+      expect(seen).toHaveLength(20);
+      await pollRepository(db, unchanged, repositoryId);
+      expect(seen).toHaveLength(23);
+      expect(new Set(seen).size).toBe(23);
+      expect(
+        (
+          await db.query(
+            'select count(*)::int as n from pull_request_conversation_sync s join pull_requests p on p.id=s.pull_request_id where p.number between 10 and 214',
+          )
+        ).rows[0].n,
+      ).toBe(0);
+    });
+
+    it('uses per-PR claims across concurrent pollers and recovers an expired claim', async () => {
+      await db.query("update pull_request_conversation_sync set next_attempt_at='infinity'");
+      await pollRepository(
+        db,
+        {
+          listPulls: async () => ({
+            outcome: 'updated',
+            etag: 'lease',
+            pulls: [pull(1200, 'open')],
+          }),
+        },
+        repositoryId,
+      );
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let started!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      let calls = 0;
+      const leased: GitHubReader = {
+        listPulls: async () => ({ outcome: 'not-modified', etag: 'lease', pulls: [] }),
+        listPullRequestMessages: async () => {
+          calls++;
+          started();
+          await held;
+          return [];
+        },
+      };
+      const first = pollRepository(db, leased, repositoryId);
+      await entered;
+      await pollRepository(db, leased, repositoryId);
+      expect(calls).toBe(1);
+      release();
+      await first;
+      await db.query(
+        "update pull_request_conversation_sync set next_attempt_at='-infinity',claim_token=gen_random_uuid(),claim_until=clock_timestamp()-interval '1 second' where pull_request_id=(select id from pull_requests where repository_id=$1 and number=1200)",
+        [repositoryId],
+      );
+      await pollRepository(db, leased, repositoryId);
+      expect(calls).toBe(2);
+    });
+    it('does not let an expired owner acknowledge success after a newer retry failed', async () => {
+      await db.query("update pull_request_conversation_sync set next_attempt_at='infinity'");
+      await pollRepository(
+        db,
+        {
+          listPulls: async () => ({
+            outcome: 'updated',
+            etag: 'obsolete',
+            pulls: [pull(1201, 'open')],
+          }),
+        },
+        repositoryId,
+      );
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let entered!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const metadata: GitHubReader['listPulls'] = async () => ({
+        outcome: 'not-modified',
+        etag: 'obsolete',
+        pulls: [],
+      });
+      const first = pollRepository(
+        db,
+        {
+          listPulls: metadata,
+          listPullRequestMessages: async () => {
+            entered();
+            await held;
+            return [];
+          },
+        },
+        repositoryId,
+      );
+      await started;
+      await db.query(
+        "update pull_request_conversation_sync set claim_until=clock_timestamp()-interval '1 second' where pull_request_id=(select id from pull_requests where repository_id=$1 and number=1201)",
+        [repositoryId],
+      );
+      await pollRepository(
+        db,
+        {
+          listPulls: metadata,
+          listPullRequestMessages: async () => {
+            throw Error('new owner failed');
+          },
+        },
+        repositoryId,
+      );
+      release();
+      await first;
+      const row = (
+        await db.query(
+          'select s.* from pull_request_conversation_sync s join pull_requests p on p.id=s.pull_request_id where p.repository_id=$1 and p.number=1201',
+          [repositoryId],
+        )
+      ).rows[0];
+      expect(row.last_success_at).toBeNull();
+      expect(row.consecutive_failures).toBe(1);
+      expect(row.last_error_code).toBe('CONVERSATION_READ_FAILED');
+    });
   });

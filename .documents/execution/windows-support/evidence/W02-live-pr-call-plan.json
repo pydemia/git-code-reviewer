@@ -1,0 +1,68 @@
+{
+  "recordedAt": "2026-09-16T04:51:20.6801995Z",
+  "permission": "User explicitly allowed posting test review comments and reply",
+  "gcrSourceSha": "a423a77d9123cb345057c9ac9eed27ed04407256",
+  "cdHarnessSourceSha": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e",
+  "pullUrl": "https://github.com/pydemia/commit-defender/pull/3",
+  "githubHeadSha": "2aca9bbc54e811f0d7d8d0c966148d85fff1636a",
+  "source": {
+    "id": "d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+    "githubId": 4022589067,
+    "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "observationHash": "37c2918dd85844a3b5e52018816baae9ca576bc43721abcb2162bd4ee68d6c0e",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067"
+  },
+  "reply": {
+    "id": "49768448-b77c-40d6-9cfe-114a178ebc83",
+    "githubId": 4022595630,
+    "kind": "review-comment",
+    "contentHash": "94870a7a0fb5c2037b04faeebe5a32684c77269f58a43844a59349ac101f15af",
+    "observationHash": "e680a3fdb5d5b2b4dc28675b521fad8a060022a94ca2adc130f2159242fd29a4",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022595630",
+    "inReplyToGithubId": 4022589067,
+    "bodyExact": true
+  },
+  "guidance": {
+    "id": "4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+    "revision": 1,
+    "contentSha256": "0fd783fcb03543546e29181d1405f92851e550a5a17650864dd5dd2765d23a5f",
+    "sourceContentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "state": "active"
+  },
+  "bodyVersions": [
+    {
+      "id": "1819b3a1-aa64-4b8e-98d9-7f0880d5a2e8",
+      "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+      "githubUpdatedAt": "2026-09-16T04:49:47Z"
+    },
+    {
+      "id": "32979be9-35cb-4f9b-8deb-dfbf69f46243",
+      "contentHash": "683e732c2e8bfa05f89b130b3e7195eefd9e3bfd05a09ceec26d8e44ba88bb3a",
+      "githubUpdatedAt": "2026-09-16T04:48:44Z"
+    }
+  ],
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "high",
+  "maximumCalls": 3,
+  "timeoutSecondsPerCall": 240,
+  "cases": [
+    {
+      "name": "defect",
+      "expected": "Report detached validator bypass for missing/null reference_id in both model_validate callers, citing current source and linked PR guidance"
+    },
+    {
+      "name": "fixed",
+      "expected": "Explain validator already satisfies guidance and do not repeat resolved defect"
+    },
+    {
+      "name": "unrelated",
+      "expected": "Exclude persisted archived-state check from request-only guidance with a current-source reason"
+    }
+  ],
+  "fixedContext": "G04 schema/service/api/repository/dependency declarations/boundary tests with PR fixture prefix; per-case base/tree SHA and per-file base/source hashes saved before model execution",
+  "boundaryTestsExecuted": false,
+  "workerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+  "onlineManifestMaximumSeconds": 300,
+  "offlineLeaseSeconds": 3600,
+  "retries": "No automatic retry; record cause, change and additional budget first"
+}

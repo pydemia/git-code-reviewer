@@ -29,6 +29,9 @@ export function checkpointReviewModel(
     async review(...input) {
       if (draining()) throw Error('worker_draining');
       await assertJobLease(database, job);
+      // Group completion is persisted only after per-target coverage and anchors
+      // pass engine validation. A merely well-formed HTTP result is not a checkpoint.
+      if (input[3]?.group) return model.review(...input);
       const hash = createHash('sha256')
         .update(JSON.stringify({ version: 1, profile: model.profile, input }))
         .digest('hex');

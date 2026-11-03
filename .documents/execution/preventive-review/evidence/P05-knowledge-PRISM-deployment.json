@@ -1,0 +1,196 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T18:08:03.522912+00:00",
+  "scope": "P05 knowledge publication, signed distribution and management UI deployed to PRISM-DEV; full P00-P13 remains active",
+  "release": {
+    "revision": 53,
+    "updated": "2026-09-14T03:03:54.266325+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.39",
+    "app_version": "0.8.0-alpha.41",
+    "description": "Upgrade complete"
+  },
+  "image": {
+    "digest": "sha256:aba6f16edf97d06f30bc5b2cbbde32974f83deecd31fcc18d60462760e6cf262",
+    "source": "8ce10a9123c49a9bbc37ca8ecc7a4de402130fe6",
+    "version": "0.8.0-alpha.41",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:c6fe896723ac24360c2d339a4ad3ef87670d6b9a4642dd5f10bc0d321fec29ff"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:f1d272b81d141eeb1a8447c69e2d3a1d79f9a614183bdd784d22e4a0321eadd7"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "labels": {
+      "org.opencontainers.image.revision": "8ce10a9123c49a9bbc37ca8ecc7a4de402130fe6",
+      "org.opencontainers.image.version": "0.8.0-alpha.41"
+    },
+    "architecture": "amd64"
+  },
+  "sourceCommit": "8ce10a9123c49a9bbc37ca8ecc7a4de402130fe6",
+  "releasePinCommit": "c2f14bb",
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:de9e20267e41122275e61aeebc8c64c725fb60ba0a2f4f61abcf75190b684c24",
+    "chartSha256": "e5bfa02bdd7101a94a21616147c077f9f6a825919e3d13259e46eef114ca0b23"
+  },
+  "migrationCount": 40,
+  "old38MigrationChecksumsPreserved": true,
+  "runtime": {
+    "server": {
+      "pod": "git-code-reviewer-server-9565b88cb-b5vvs",
+      "imageDigest": "sha256:aba6f16edf97d06f30bc5b2cbbde32974f83deecd31fcc18d60462760e6cf262",
+      "compiledMatchesImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    },
+    "worker": {
+      "pod": "git-code-reviewer-worker-86475f55c9-fnzlb",
+      "imageDigest": "sha256:aba6f16edf97d06f30bc5b2cbbde32974f83deecd31fcc18d60462760e6cf262",
+      "compiledMatchesImageProof": true,
+      "databaseTlsMode": "verify-full",
+      "ready": true
+    }
+  },
+  "databaseTLS": {
+    "mode": "verify-full",
+    "ssl": true,
+    "protocol": "TLSv1.3"
+  },
+  "dataAfterFixtureCleanup": {
+    "users": {
+      "before": 7,
+      "afterOwnedFixtureCleanup": 7,
+      "existingRowsPreserved": true
+    },
+    "chat_accounts": {
+      "before": 7,
+      "afterOwnedFixtureCleanup": 7,
+      "existingRowsPreserved": true
+    },
+    "analysis_runs": {
+      "before": 160,
+      "afterOwnedFixtureCleanup": 161,
+      "existingRowsPreserved": true
+    },
+    "reports": {
+      "before": 152,
+      "afterOwnedFixtureCleanup": 153,
+      "existingRowsPreserved": true
+    },
+    "repository_grants": {
+      "before": 2,
+      "afterOwnedFixtureCleanup": 2,
+      "existingRowsPreserved": true
+    },
+    "tenant_memberships": {
+      "before": 7,
+      "afterOwnedFixtureCleanup": 7,
+      "existingRowsPreserved": true
+    },
+    "review_memories": {
+      "before": 4,
+      "afterOwnedFixtureCleanup": 4,
+      "existingRowsPreserved": true
+    },
+    "localCredentials": {
+      "before": 6,
+      "afterOwnedFixtureCleanup": 6,
+      "existingRowsPreserved": true
+    }
+  },
+  "nonKnowledgeSettingsPreserved": true,
+  "existingSecretsRoutesPVCsPreserved": true,
+  "onlyKnowledgePublicationAndServerSigningSettingsAdded": true,
+  "livePublication": {
+    "requestId": "26c82142-cba5-485b-9bdb-01f6f1531123",
+    "status": "passed",
+    "version": "0.8.0-alpha.41",
+    "externalModelCalls": 0,
+    "syntheticOnly": true,
+    "checks": [
+      "deployed-local-session-login",
+      "actual-worker-first-use-three-component-publication",
+      "signature-with-separately-pinned-public-key",
+      "authenticated-304",
+      "empty-owner-personal-bundle",
+      "projection-approval-http-api",
+      "personal-only-worker-republication",
+      "curated-content-without-raw-source",
+      "stale-snapshot-409",
+      "published-status-and-unknown-client-sync"
+    ],
+    "publicKeyHash": "9accaa7042c6dc3610ba54d3919db55ec744243408e49bf9397b646ff8424551",
+    "componentSequences": {
+      "before": {
+        "policy": 1,
+        "collective": 1,
+        "personal": 1
+      },
+      "after": {
+        "policy": 1,
+        "collective": 1,
+        "personal": 2
+      }
+    },
+    "ownedRepositoryRemoved": true,
+    "ownedSessionLoggedOut": true,
+    "ownedUserRemoved": true
+  },
+  "httpsEndpoints": {
+    "/health/startup": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/live": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/health/ready": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/system": {
+      "status": 200,
+      "tlsVerified": true
+    },
+    "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+      "status": 401,
+      "tlsVerified": true
+    },
+    "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+      "status": 401,
+      "tlsVerified": true
+    }
+  },
+  "assetsMatchVerifiedImage": true,
+  "identityReady": 2,
+  "helmTest": {
+    "status": "passed",
+    "completedKST": "2026-09-14 03:05:36"
+  },
+  "proofHashes": {
+    "image-smoke.json": "369a9f9a8a03436fae59f599be14809fa03aeff0fc11ce70c24a522687f932a5",
+    "image-attestations.json": "038db823ed484cb83d1e1af70294c1607b09d518d463668e37ad4f0122d3d1c2",
+    "preflight.json": "bdb4e22525e41379e41f194ddaf51caabb9a046ee4d8473b64de843690717a76",
+    "deployment-verification.json": "8cfc60f8efbb1b8fc4b12ae94fe16fcc4f16ae485f8b4ea25dfef56e950b2d08",
+    "live-publication.json": "0fc70f4c0afa1da66f997f1ede481cb217b0915edf3b00673a2ea839b53228bd",
+    "live-database-tls.json": "4252d1ae320302d643fed98b5fe07e7572dcffb96cd2bef1336685470efadad0",
+    "post-live-snapshot.json": "0a3292561e4d0afcb4f83564276e9143833c1fdf56b83bb88cfae77e7663c9f7",
+    "helm-test.log": "ad6edc12cb17698219cb80c5ed798b9d6f5c959f4082c9eaab0f7acdc0ce5057"
+  },
+  "limitations": [
+    "Explicit high-sequence knowledge rollback is not implemented",
+    "Remote-to-repository resolve and source detail endpoints remain",
+    "P04 client credentials and P06 atomic cache/sync remain; no installed Commit Defender central sync claim",
+    "Client sync status is unknown; no client telemetry collector is implemented",
+    "GCR authentication remains local, not a completed production SAML login cutover",
+    "Old worker may remain in its configured graceful shutdown interval; it was not forcibly killed"
+  ]
+}

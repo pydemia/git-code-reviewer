@@ -1,0 +1,84 @@
+{
+  "recordedAt": "2026-09-16T12:55:50.027Z",
+  "status": "planned",
+  "maximumActualCalls": 1,
+  "maximumDurationMs": 240000,
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "high",
+  "gcrSource": "2958d916abbca7f598818e6821db64349c20d3d1",
+  "cdProductSource": "3be0dc0ff3e243bb8e8fa7aa4fcac254d9ad7977",
+  "cdHarnessSource": "713daf6966d6c4977ceb043634b7472a21490ea1",
+  "route": "WSL Linux ARM64 VS Code Extension Host -> fixed bundled worker -> Codex 0.153.4",
+  "account": "existing WSL user private auth inode; no credential export",
+  "vscode": {
+    "version": "1.137.0",
+    "commit": "645f29cc3176500b4b5762ba887cf2a7f0ffdf2c",
+    "sha256": "8872f37cb828d74498b0451ed923a141e5b144dfd9de9c8f41265bf90b0af98d"
+  },
+  "codex": {
+    "version": "0.153.4",
+    "sha256": "4d76e542c222ea8c75861d8c4ade60a1a332a63255ce1c60bdaebf7c2a2869e6"
+  },
+  "runtime": [
+    {
+      "file": "extension.js",
+      "sha256": "8f504e515fa31932cd8083c525a8fd40cd5e0f82e694933389edf82c9b276e83"
+    },
+    {
+      "file": "hook-cli.js",
+      "sha256": "42318d2952e197f456d5e2186b55d9ee72e804f3311e2ecc135f0d4c89e5ed2c"
+    },
+    {
+      "file": "advisory-hook.cjs",
+      "sha256": "e8270bb445528abab7493172a0b08c343451822d4efa310b928cee11e0919217"
+    },
+    {
+      "file": "standalone-review-worker.js",
+      "sha256": "58e83a2b8f457bcc29504630fef999aeb0aa89a91df692cdbc82ca9a83c6e74e"
+    },
+    {
+      "file": "review-chat-worker.js",
+      "sha256": "9f482716685c292c6f55b99302c27ca70d1633996c9e96dc25122bee202b4878"
+    },
+    {
+      "file": "windows-native.exe",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    {
+      "file": "windows-native.json",
+      "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+    },
+    {
+      "file": "gcr-service/main.mjs",
+      "sha256": "c245681b326264ec81af7ebba610c19762c711634921f1f084fd720dd86af656"
+    },
+    {
+      "file": "gcr-service/manifest.json",
+      "sha256": "8f8c37bc3e7aae3f20c95b602eadcacddf2ae7d880e716dd6937e6772c67e613"
+    },
+    {
+      "file": "gcr-service/windows-native.exe",
+      "sha256": "c289d819f52c2f610c7c69d0d27393b4aaaebeb6103a0e6f442f024559018e89"
+    },
+    {
+      "file": "gcr-service/windows-native.json",
+      "sha256": "282d96234498d6d3d0e735cc46f304d80a3acb03f56296906ebe33fb3fccf575"
+    }
+  ],
+  "fixture": {
+    "base": "sum reduces by addition from zero",
+    "source": "only sum.ts line 2 changes addition to subtraction",
+    "caller": "invoiceTotal([2,3]) must return 5",
+    "tests": "sum.test.ts: nonempty [2,3] = 5; empty [] = 0. Harness runs both before model; model reading these is not test execution.",
+    "sourceHashes": {
+      "sum.ts": "7fd0e8135bc4ee28312236b3b16aa30a84d7c699f586b5b199b0bcdd93224a15",
+      "consumer.ts": "f85cf538f660353bb8ab53e0ffbbb3ebff896fc6305bed5fff41bfe475516a9e",
+      "sum.test.ts": "8aa30d66740c132f01417b7d436a1d9f60cf43e732a9d33d355cb45eabaea8ca",
+      "package.json": "8b01933ff1c1506397317c3adc7fbe93d2334a42039249b9854e2b3d70811d7e"
+    },
+    "expected": "completed report with no problems; identifies wrong -5 instead of 5 at sum.ts:2; evidence references issued read IDs; excluded .env absent; encrypted history deep-equals saved report; showHistoryEntry opens"
+  },
+  "finalVsix": "Not packaged yet. Capture these frozen runtime hashes now; compare all 11 against final six VSIX files. Documentation-only changes do not need another model call.",
+  "centralConnection": false,
+  "cleanup": "Owned Host group, worker, Codex descendants, private auth link, keyring, fixture/profile removed; original login inode and global documents preserved"
+}

@@ -1,0 +1,90 @@
+{
+  "recordedAt": "2026-09-13T09:55:17.218453+00:00",
+  "checkpoint": "P03-C07 Compose infrastructure and TLS edge source",
+  "baseCommit": "fe0a76ff82b2382802f844170c2762a36109b5e0",
+  "scope": "source/configuration checkpoint; not C07 completion or an operational deployment",
+  "proxy": {
+    "startedAt": "2026-09-13T09:38:56.672Z",
+    "completedAt": "2026-09-13T09:38:57.217Z",
+    "node": "v22.23.2",
+    "success": true,
+    "cleanup": true,
+    "sourceSha256": "10af45ac7d13cf8f58a2ecd680b79c315f192d86523f710e8077abb8b30c70f3",
+    "checks": [
+      "verified-leaf-TLS-and-application-routing",
+      "realm-protocol-static-resource-and-encoded-query-forwarding",
+      "public-admin-master-management-and-ambiguous-paths-never-reach-backend",
+      "SAML-POST-body-cookie-origin-preservation-and-proxy-header-overwrite",
+      "redirect-and-multiple-secure-SameSite-cookies-preserved",
+      "SSE-first-event-received-before-backend-completes",
+      "upstream-disconnect-returns-static-502",
+      "invalid-host-realm-port-upstream-and-TLS-key-material-refused",
+      "client-rejects-untrusted-chain-and-hostname-mismatch",
+      "duplicate-Host-and-unsupported-upgrade-refused",
+      "container-healthcheck-uses-verified-TLS-and-fails-wrong-host"
+    ],
+    "backend": "HTTP fixture servers; real Node HTTPS edge; no Keycloak or browser"
+  },
+  "compose": {
+    "startedAt": "2026-09-13T09:53:39.737Z",
+    "node": "v22.23.2",
+    "checks": [
+      "new-private-directory-distinct-secrets-and-readable-consumer-group",
+      "separate-public-private-and-database-TLS-leaves-signed-by-local-CA",
+      "repeat-preparation-never-overwrites-and-unpinned-images-or-Git-directory-refused",
+      "fresh-plan-omits-legacy-owner-and-preserves-two-database-contract",
+      "one-original-PostgreSQL-service-and-persistent-volume-no-identity-database-volume",
+      "only-loopback-HTTPS-published-inherited-app-and-DB-ports-removed",
+      "development-bypass-build-and-secret-values-absent-from-merged-model",
+      "role-specific-secret-mounts-and-no-CA-key-or-bootstrap-secret-in-normal-runtime",
+      "DB-maintenance-and-migration-bridges-separated-from-identity-admin-peers",
+      "explicit-DBA-inspection-first-two-replicas-verified-TLS-and-worker-drain",
+      "bootstrap-overlay-only-adds-temporary-Keycloak-admin-and-single-replica",
+      "custom-HTTPS-port-and-hostnames-consistent-inside-and-outside-network",
+      "four-compiled-runtime-commands-load-rendered-role-TLS-and-SAML-configuration",
+      "entrypoint-shell-syntax"
+    ],
+    "cleanup": true,
+    "startedContainers": 0,
+    "databaseConnected": false,
+    "metadataResponse": "fixture",
+    "realKeycloak": false,
+    "sourceSha256": {
+      "compose.identity.yaml": "6b06aab29ff6aee3cb39f5c62995c950e15239c8ea5998f4ac64143eaa8a73b0",
+      "compose.identity.bootstrap.yaml": "96bc7f4b070841f2f6719000e0fdb2de20052ddf33858ad9587ce7ce80df5726",
+      "scripts/prepare-identity-compose.mjs": "97dac2dfd2cd2c28ad94bc0d874b3a157e3165ee7e1c4ccc310ce1d3b5fd6950",
+      "deploy/identity/runtime-entrypoint.sh": "ee16d15e6bead8d93076e0850540512dc73dd45a2b1f65da3b64b6f0ce2b4bae",
+      "deploy/identity/keycloak-entrypoint.sh": "d127eace1c1e2a4c2dd5cf8d6150f7363a32c8d685f2cdf3ebef8942c28cf4f8",
+      "deploy/identity/postgres-entrypoint.sh": "932cafd68428c707545535efeae17342a9629abe26f43f78546e718a6f27e8aa",
+      "deploy/identity/pg_hba.conf": "060500dccda3d140bc392967ec0b3c65256d5d847138d1f84654ac4c4650cd6c",
+      "apps/runtime/dist/config.js": "13b99ec43f315df37fc208fd91e864a8b11501ed9f427e67692fcc39c0c7602b",
+      "apps/runtime/dist/auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a"
+    },
+    "composeVersion": "5.1.1",
+    "success": true,
+    "completedAt": "2026-09-13T09:53:41.445Z"
+  },
+  "sourceVerification": {
+    "eslint": "passed: changed JS and config",
+    "format": "passed: changed JS, Compose models, new operation guide and evidence",
+    "gitDiffCheck": "passed"
+  },
+  "initialComposeFailure": {
+    "cause": "Metadata fixture lacked required XML content-type and SingleLogoutService; production SAML loader rejected it.",
+    "change": "Corrected the test fixture; runtime validation was unchanged."
+  },
+  "unchanged": [
+    "compose.yaml standalone development model",
+    "runtime and SQL source",
+    "operational Helm release, databases, credentials and HTTPRoutes",
+    "Commit Defender source and release"
+  ],
+  "remaining": [
+    "repeatable owned-realm/client/profile/event/SMTP identity-configure job",
+    "actual Docker file permissions and existing PostgreSQL 17 volume transition with this overlay",
+    "optimized Keycloak two-replica preservation and login during replacement",
+    "SAML browser and SMTP integration through this Compose edge",
+    "image publication and production DNS/TLS/SMTP, C06-C08 migration and restore",
+    "Commit Defender native verification/publication and P04-P13"
+  ]
+}

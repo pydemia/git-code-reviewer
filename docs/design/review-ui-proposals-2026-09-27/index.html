@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GCR — 색상·리뷰 화면 디자인 후보</title>
+    <link rel="stylesheet" href="study.css" />
+    <script src="palettes.js" defer></script>
+    <script src="study.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#preview">화면 시안으로 이동</a>
+    <header class="study-header board-only">
+      <a class="wordmark" href="index.html">GCR <span>DESIGN STUDY / 01</span></a>
+      <nav aria-label="시안 자료">
+        <a href="?sheet=colors">색상 비교</a>
+        <a href="?sheet=uis">화면 비교</a>
+        <a href="README.md">설계 기록</a>
+      </nav>
+    </header>
+    <main>
+      <section class="study-intro board-only">
+        <p class="eyebrow">GIT CODE REVIEWER · REVIEW / HISTORY / OBSERVATIONS</p>
+        <h1>리뷰 화면 디자인 후보</h1>
+        <p>색상 5안 × 화면 5안과 선택하신 U1/U2 통합 시안을 비교해 보세요.</p>
+        <p class="intro-note">
+          기존 청록 <code>#176B5D</code>과 수정 제안 박스를 유지합니다. 제공하신 화면의 내용을
+          재배치한 시안이며, 분석이나 서버 요청은 실행하지 않습니다.
+        </p>
+      </section>
+      <div class="choice-grid board-only">
+        <fieldset id="palette-options">
+          <legend>01 <span>Colormap</span></legend>
+        </fieldset>
+        <fieldset id="ui-options">
+          <legend>02 <span>화면 구조</span></legend>
+        </fieldset>
+      </div>
+      <section class="preview-region" id="preview" aria-label="선택한 화면 시안">
+        <header class="preview-description board-only">
+          <div>
+            <p class="eyebrow">LIVE PREVIEW</p>
+            <h2 id="selection-title"></h2>
+            <p id="selection-note"></p>
+          </div>
+          <div class="preview-tools">
+            <label for="content-state">내용 상태</label
+            ><select id="content-state">
+              <option value="normal">제공된 리뷰</option>
+              <option value="long">긴 Markdown·표</option>
+              <option value="empty">의견 없음</option>
+              <option value="error">원문 조회 실패</option>
+              <option value="loading">조회 중</option></select
+            ><a id="screen-link" href="?capture=U1&palette=C1" target="_blank" rel="noopener"
+              >화면만 열기 ↗</a
+            >
+          </div>
+        </header>
+        <div id="stage"></div>
+        <p
+          class="selection-status board-only"
+          id="selection-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </section>
+      <section id="color-sheet" class="sheet" hidden></section>
+      <section id="ui-sheet" class="sheet" hidden></section>
+      <footer class="study-footer board-only">
+        선택은 URL에만 기록됩니다. 색상은 원본 colormap의 UI 파생안이며, UI 후보는 공식 컴포넌트
+        문서를 참고한 구조 시안입니다.
+      </footer>
+    </main>
+  </body>
+</html>

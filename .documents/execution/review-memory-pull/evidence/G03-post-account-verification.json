@@ -1,0 +1,13 @@
+{
+  "userSettingsSha256": "f7d5589d404a720a80eaa0924e59a9444ee3ddd41e529ceb90870983c752ea5b",
+  "userSettingsUnchanged": true,
+  "installedWorkerSha256": "a17892ace9992eafadf4f810775210fbc52eb6a083482bdf04481d4597105bcd",
+  "installedWorkerMatchesRealHostProof": true,
+  "ownedReaderKeyRevoked": true,
+  "ownedSessionClosed": true,
+  "ownedSessionPrivateFileRemoved": true,
+  "marketplacePublished": false,
+  "forcedReload": false,
+  "existingUserHostApplied": "not confirmed",
+  "verificationAfter": "G03-native-model-luna-timeout.json"
+}

@@ -1,0 +1,65 @@
+{
+  "formatVersion": 1,
+  "phase": "P03-C01",
+  "status": "failed",
+  "startedAt": "2026-09-12T22:24:12.349Z",
+  "node": "v25.9.0",
+  "platform": "darwin-arm64",
+  "keycloakVersion": "26.7.3",
+  "keycloakImage": "quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+  "postgresImage": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+  "nodeSaml": "5.1.0",
+  "xmlCrypto": "6.1.2",
+  "checks": [
+    "approved-https-idp-metadata",
+    "sp-metadata-endpoints-persistent-nameid",
+    "node-https-rejects-untrusted-certificate"
+  ],
+  "limitations": [
+    "isolated PoC, not the application authentication routes",
+    "Chromium headless; Safari and interactive browser operation pending",
+    "test-specific generated TLS leaf SPKI pins; no system trust installation",
+    "in-memory transaction ledger; PostgreSQL cross-replica replay is P03-C02",
+    "ephemeral single identity DB; shared DB ACL and existing-volume migration are P03-C06"
+  ],
+  "cleanup": {
+    "containersRemoved": true,
+    "networkRemoved": true,
+    "temporaryFilesRemoved": true
+  },
+  "sourceSha256": {
+    "saml-contract.mjs": "cd0954bb03890711fef60a4d8a61e09d8a9a38f3148bae43ff1e2b67a046da44",
+    "saml-contract-smoke.mjs": "074d5b4fc2d070ae8e50ad2b933d7997e425462098191d15211dc05750416051"
+  },
+  "idpMetadataSha256": "ec9a5275ba052b1bb1893d8948db012b8419a0183aaac70fa2e95d46c2dc3f90",
+  "browser": {
+    "channel": "chrome",
+    "version": "152.0.7977.84",
+    "headless": true,
+    "ignoreHTTPSErrors": false,
+    "tlsTrust": "exact-generated-leaf-SPKI"
+  },
+  "failure": {
+    "stage": "first-https-login:submit",
+    "type": "TimeoutError",
+    "browserPath": "/realms/gcr-contract/protocol/saml",
+    "title": "Sign in to gcr-contract",
+    "inputs": [
+      {
+        "name": "username",
+        "type": "text"
+      },
+      {
+        "name": "password",
+        "type": "password"
+      },
+      {
+        "name": "credentialId",
+        "type": "hidden"
+      }
+    ],
+    "keycloakError": ""
+  },
+  "rejectedRequests": [],
+  "finishedAt": "2026-09-12T22:25:10.659Z"
+}

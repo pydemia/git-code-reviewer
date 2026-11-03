@@ -1,0 +1,79 @@
+{
+  "recordedAt": "2026-09-14T13:28:56.729672+00:00",
+  "phase": "P10-C02",
+  "scope": "Worker ownership/provider-send fence, atomic report checkpoint, and registered-model fixed-source executor; upload-to-worker pipeline still incomplete",
+  "complete": false,
+  "files": {
+    "apps/runtime/src/auth/client-credentials.ts": "306c59b4e4784a158f28848ab717581acc1a547c220bc0a450b7c96c0a92464c",
+    "apps/runtime/src/jobs/worker.ts": "56fe72531e6dcf6e96d6d3db87615e4940d31532d0477ad3e063922258f9a804",
+    "apps/runtime/src/routes/remote-reviews.integration.test.ts": "15d41f8641dfe678d694775a321dcb877d69b96fdf47e7d814cb4cf935384fc7",
+    "apps/runtime/src/services/model-admission.ts": "f9dcb034a533625022a6e6478bb1dc114a8c878d61b301b13f3e9560d334094f",
+    "apps/runtime/src/services/remote-review-jobs.ts": "c0cc22b528ad060a89a60d1c56e16d1f566b2bdf6ec58a47ecdf8fa1c37fad13",
+    "apps/runtime/src/services/remote-review-execution.ts": "57f77713d1631a25815b4556f1f503d6292bfab0c430c04a03e4fd5ced6865f3",
+    "apps/runtime/src/services/central-review-executor.ts": "980c95cacfbea25d75edeaf799702fe21f721d4df8e60d23f962d4db6ba7b82a",
+    "apps/runtime/src/services/central-review-executor.test.ts": "87bf7a56096d91808aa0b0982e24a24f64bbce2e576bf74f4b10001a99a556d3",
+    "packages/client-contract/src/index.ts": "0ec56d39e3f0e3548d40d4781395de33a4f968f4d7e7896ff69b5271ec5631a8",
+    "packages/client-contract/src/remote-review.ts": "94316e35eb65339b4e37569335b48297d1466e791dca5e632e98f55f7cebfc3d",
+    "packages/client-contract/src/source-tools.ts": "923836b19325410bdc41930d9dbee6698be077dabde97d26866b7efd253d4ab7",
+    "packages/client-core/src/remote-review.test.ts": "bbddc84d9d4573b23f77f2e82f38ed00587d67771a7cff1831a2c7d7e623be7c",
+    "packages/client-executors/src/source-bridge.ts": "f547f067f11f11d08e27d2dbe6d283e0ed0a4166826545b0e2b51a8cb235a77f",
+    "packages/db/migrations/0048_remote_review_execution_fence.sql": "9ead65ea84ad023a2217fce3a5eeb48c4f28b3c09550741d7f0a684e0dd38653"
+  },
+  "tests": {
+    "passed": 88,
+    "failed": 0,
+    "jobApiAndExecutionOwnership": 21,
+    "clientCredentials": 15,
+    "modelAdmission": 6,
+    "centralExecutor": 8,
+    "sourceBridge": 3,
+    "remoteTransfer": 35,
+    "actualAccountModelCalls": 0,
+    "sourceFixture": "Real temporary Git index captured; registered model supplied synthetic tool requests and review JSON; common core produced completed source-coverage report."
+  },
+  "checks": {
+    "clientPackagesBuild": "passed",
+    "runtimeBuild": "passed",
+    "webTypecheck": "passed",
+    "changedTestsTypecheck": "passed",
+    "changedFilesLint": "passed"
+  },
+  "database": {
+    "startedAt": "2026-09-14T13:25:16.784Z",
+    "backend": "native-postgresql",
+    "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+    "cleanup": true,
+    "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+    "commandExitCode": 0,
+    "finishedAt": "2026-09-14T13:25:24.035Z"
+  },
+  "logs": {
+    "gcr-p10-execution-verified.log": "082410cfc79b7a46c0b32fe120595323d8cd6c3f24a3d1ccd48a6b39d567b952",
+    "gcr-p10-execution-verified-postgres.json": "cccf9846c06be7eb6a94a11cf8a2834d09af8b522e9af8881f405d119e9cb5c3"
+  },
+  "verified": [
+    "Concurrent claim grants one unique owner",
+    "Original key and current model assignment revalidated without copying bearer token",
+    "Model capacity wait leaves invocation marker absent",
+    "Denied beforeSend releases model slot without calling fetch",
+    "Send fence visible in PostgreSQL before fetch callback",
+    "Pre-send lease expiry requeues with new owner; post-fence expiry becomes uncertain",
+    "Old owner cannot heartbeat/send/complete after replacement",
+    "Wrong source/account model configuration and completion after cancel rejected",
+    "Encrypted report and completed receipt commit atomically; source cleared",
+    "Shared tool declarations preserve MCP source bridge behavior",
+    "Unsupported explicit token cap rejected by admission and executor; omitted cap remains omitted"
+  ],
+  "deployment": {
+    "performed": false,
+    "admissionDefault": "disabled",
+    "reason": "No automatic upload-to-model worker pipeline yet. No CLI/VSIX release in this checkpoint."
+  },
+  "remaining": [
+    "Restore approved uploaded changes including rename/base semantics into the common source view without inventing capture provenance",
+    "Restore approved context and preserve centralized knowledge pinning/authorization",
+    "Connect claim, heartbeats, registered account resolution, beforeSend, runner, cancellation and checkpoint in the actual worker loop",
+    "Actual authorized central model and operational cancellation/recovery verification",
+    "Client remote executor, CD selection/approval UI, packaged releases and Helm rollout"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T17:57:05.528420+00:00",
+  "scope": "P05-C07 publication status and C06 memory projection management UI; no deployment claim",
+  "tests": {
+    "broadSuite": {
+      "passed": 118,
+      "failed": 0,
+      "sha256": "108f2d9c65bae2787b292dc1b64ef2a827e26f9dd9f2dac5171019aa123763c2"
+    },
+    "finalApiAndChromeAfterReloadRaceFix": {
+      "passed": 18,
+      "failed": 0,
+      "sha256": "10dc14b474a50a2166e2bc17a48d2a53cbcb74b466d731446c73196ca03625a9"
+    }
+  },
+  "build": "pnpm build and final web build passed",
+  "lint": "changed TypeScript/TSX passed",
+  "sourceHashes": {
+    "packages/client-contract/src/knowledge-management.ts": "fabb64c7e2543181ab27a67fc9bb772dd4e0861596cc07e67c7830028dda0c4a",
+    "apps/runtime/src/services/knowledge-status.ts": "843e6abce10c2cae31767b669c93e8d5255c00f8368f827b6b2dd30a3b0c5512",
+    "apps/runtime/src/routes/review-knowledge.ts": "1942261629792760eff9ddb366432b9db0ef51b7ff78975884c7479970d24f93",
+    "apps/web/src/ReviewKnowledgePanel.tsx": "c6aba7e1aeec99574f63e8326c0b4315b238224eb58afdb249e1bb8ae4821e02",
+    "apps/web/src/knowledge-api.ts": "3e92548e43bc4930f740afbeecd490009880eb79618728c27416fc9961ad2ce7",
+    "apps/web/src/ReviewCriteriaPage.tsx": "98bd49e7c0d986b02caa5bbbb963ef2434391df97b1f67a974bd68e7e0af616c",
+    "apps/web/src/review-criteria.css": "97bdca38910eedd888ab52ceff17f4e3d0b0f37c574c721c0aae68fc250120b6",
+    "apps/runtime/src/routes/review-knowledge.integration.test.ts": "22d2e92e5b141bf041d2d4191063bf649442e65e66b2ecaca7cb9fe33455e267"
+  },
+  "screenshots": {
+    "knowledge-management-mobile-desktop.png": "aea5c8edc241694500a591d67fe31e74ac090b5977f4c4ee2264491f5d6e3983",
+    "knowledge-management-mobile.png": "82257a6c3b621f3bb140476037884ec441807b1945c706aebb3c11b8755963a9"
+  },
+  "verified": [
+    "published/pending/failed/unavailable/disabled status and component identity",
+    "sync unknown without fabricated observations",
+    "private scope ownership even for administrators",
+    "maintainer-only collective memory selection",
+    "100-item cursor pagination",
+    "source-version 409 preserves typed content",
+    "explicit reload immediately removes the prior editor",
+    "keyboard approval and actual published download bytes",
+    "desktop and 390px mobile rendering inspected; no viewport overflow",
+    "stale/missing/disabled publication regression",
+    "anonymous/cross-user/revoked access and signature regression"
+  ],
+  "limitations": [
+    "No explicit high-sequence rollback",
+    "No remote resolution or raw-source detail API",
+    "No client credential/sync/cache/telemetry integration",
+    "PRISM-DEV remains alpha.40/migration 38 at this source checkpoint"
+  ],
+  "externalModelCalls": 0
+}

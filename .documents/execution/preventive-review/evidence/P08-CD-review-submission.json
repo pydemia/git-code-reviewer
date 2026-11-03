@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": "P08-C05",
+  "status": "client-delivered-central-intake-pending",
+  "sourceCommit": "221afd6cc5e5522a816350c776133703ef874a46",
+  "extensionVersion": "2.4.0",
+  "libraries": "0.1.0-alpha.25",
+  "bundledCli": "0.1.0-alpha.17",
+  "package": {
+    "vsixSha256": "6baec4e599408dc4bff6dec689591e8702135afc60834eb482575afb65cea3a0",
+    "files": {
+      "out/extension.js": "997c55dd80d3500cc8ee15ad6e8fd78b97a8d6b23b1481ce3870604605c66061",
+      "out/hook-cli.js": "a89b6969e1a422ca54403dd6809a3d6b9d118b6663ee80d5d5522211c5225579",
+      "out/standalone-review-worker.js": "dd0967c8d131e4b9fb6ed2e92e8df8e6668a7290125115a865a1800e08ace783",
+      "out/review-chat-worker.js": "766d176ef323a9a93f64876e73062d8fada02356f7d7b0bd756e1f1097136c4b",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "out/gcr-service/main.mjs": "c855b77e9a66bd8059cd1c395bec8eeeca30ceb6a7275bc3eba9c481f98b66bf",
+      "out/gcr-service/manifest.json": "928770b3fbceb28a714559a52d3644c33531fedfa08aa8a72b78c3ace3d362e3",
+      "package.json": "375f3353649e71aeddcf4309f22318768a8216886bacd37ee57809d26b0b49b5"
+    },
+    "path": "/Users/a09255/git/commit-defender-preventive-review/vscode-extension/test-results/commit-defender-2.4.0-feedback.vsix",
+    "installed": {
+      "directory": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.4.0",
+      "executableAndManifestHashesMatch": true,
+      "packageMetadataMatches": true,
+      "forcedWindowReload": false
+    },
+    "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P08-before-review-feedback-installed-extension"
+  },
+  "regression": {
+    "passed": 172,
+    "failed": 0,
+    "submissionTests": 6,
+    "sourceAndTestTypecheck": "passed",
+    "build": "passed",
+    "summaryLayoutFollowup": "client-contract suite passed after wrapping the added header action"
+  },
+  "nativeHosts": [
+    {
+      "vscode": "1.135.0",
+      "delivery": "source-checkout",
+      "status": "passed",
+      "syntheticReview": true,
+      "realOsCredentialsAndTls": true,
+      "submissionCalls": 1,
+      "ui": {
+        "verified": true,
+        "preview": true,
+        "confirmation": true,
+        "noHtmlInjection": true,
+        "outboxReopen": true,
+        "localCandidate": true,
+        "explicitSubmission": true
+      },
+      "changedConfigurationClosesPanel": true,
+      "credentialAndFixtureRemoved": true
+    },
+    {
+      "vscode": "1.90.2",
+      "delivery": "extracted-final-vsix",
+      "status": "passed",
+      "syntheticReview": true,
+      "realOsCredentialsAndTls": true,
+      "submissionCalls": 1,
+      "ui": {
+        "verified": true,
+        "preview": true,
+        "confirmation": true,
+        "noHtmlInjection": true,
+        "outboxReopen": true,
+        "localCandidate": true,
+        "explicitSubmission": true
+      },
+      "changedConfigurationClosesPanel": true,
+      "credentialAndFixtureRemoved": true
+    }
+  ],
+  "externalModelCalls": 0,
+  "productionServerMutations": 0,
+  "remaining": [
+    "Central intake disposition and conversion to a criterion/feedback candidate",
+    "Authorized candidate approval and its status in the submission flow",
+    "New bundle synchronization and actual re-review after approval",
+    "Remaining P08-C04 executor verification and conversation turns; P08-C06 Skill",
+    "P03/P04/P05/P06/P07 remaining gates and P09-P13 including Marketplace publication"
+  ],
+  "limitations": [
+    "Native hosts used synthetic source reviews and a task-owned HTTPS submission server; no production feedback review/approval or actual model re-review was exercised.",
+    "Native screenshot capture is clipped; functional proof comes from actual webview interaction, saved encrypted records, server receipt and terminal host checks.",
+    "The first native launch used a nonexistent Electron binary path and never started; it was terminal before retrying the correct Code executable. Its empty fixture was removed."
+  ]
+}

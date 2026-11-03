@@ -1,0 +1,253 @@
+{
+  "checkpoint": "P03-C06 operational PostgreSQL image persistence and TLS init pin",
+  "status": "local image persistence verified; operational database cutover pending",
+  "recordedAt": "2026-09-13T07:24:44.190176+00:00",
+  "parentCommit": "da7e7c029e09caef77f8d0f9c56c5e353e2d8726",
+  "sourceSha256": {
+    "scripts/verify-postgres-persistence.mjs": "450bba637da910f8366300937ae699aee07ebd702e6eb9d72ebdc41779368062",
+    "scripts/verify-shared-database-chart.py": "69fe946c5238934ae011082e2fda16267a4e2d481e0d42b3ba21f8b7f64ca35d",
+    "deploy/postgres/isolated-helm.example.yaml": "b835b6da24b0a3134a72b94d89c696b75c2adc9d17631dc87dea95c4707c8291"
+  },
+  "operationalInspection": {
+    "observedAt": "2026-09-13T06:53:26.659729+00:00",
+    "pod": "git-code-reviewer-postgresql-0",
+    "readOnly": true,
+    "image": "registry-1.docker.io/bitnami/postgresql@sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204"
+  },
+  "operationalLibrarySha256": "ac83d1d7e5f7d469d172b5c3fb9018151f217cad41bbb70b815e6bf82e28f34a",
+  "localLibraryMatchesOperationalPod": true,
+  "persistence": {
+    "startedAt": "2026-09-13T07:15:30.167Z",
+    "image": "registry-1.docker.io/bitnami/postgresql@sha256:e39896e0b1ba7b0d5b8de7ab8792118eaac3cc27f89659aa9fe2c788b395e204",
+    "node": "v22.23.2",
+    "cases": [
+      {
+        "kind": "empty",
+        "initial": {
+          "version": "18.6",
+          "ssl": "on",
+          "max_connections": "100"
+        },
+        "restarted": {
+          "version": "18.6",
+          "ssl": "on",
+          "max_connections": "100"
+        },
+        "distinctContainerIds": [
+          "1a9ceb07a64833c95d71f2c208e4cde78303fd529b91ca452a51dc45384d4120",
+          "0ebc1cecdb9af0ebd048426692b5a8d9c7a11448f7bf89238a2e792aeeeb7f89"
+        ],
+        "preserved": {
+          "roles": {
+            "count": 5,
+            "sha256": "7f921858ac82f3039ffd32d4bafa50ced3444b1c7ef467038b3b31a660d9e55d"
+          },
+          "databases": {
+            "count": 5,
+            "sha256": "d7ca9407c97ab30db6945cff6abd04054d393d33d10c44c3b7e319e2e26662bc"
+          },
+          "membership": {
+            "count": 3,
+            "sha256": "89e61b2bf348ef0c53e0ac0a6e5d9fca3b3976d12193238478c9804d94f59e5f"
+          },
+          "schemas": {
+            "git_code_reviewer": {
+              "count": 245,
+              "sha256": "9e49c7900530d947a8681e8ecb8bb64252cd6f9a8a8f1b20a396f8c738004616"
+            },
+            "git_code_reviewer_keycloak": {
+              "count": 6,
+              "sha256": "4b1f867a186f68bb244da587de1ef2b5ba61055044bf59f88ea0d3a6a3a50c17"
+            }
+          },
+          "application": {
+            "users": {
+              "count": 1,
+              "sha256": "a3364b9b38c6d596f74c5c2d2faf1f739d9b2b17cd0a6f6324160dad8703ba32"
+            },
+            "service_metadata": {
+              "count": 1,
+              "sha256": "8b268c177a48330d94bc23223d1c24a72d42e939ad01475b361cc807c74be849"
+            },
+            "schema_migrations": {
+              "count": 36,
+              "sha256": "9d0e987e7699fdc71fdae9920eafae66c34306dbfdeedb3ed21851bb5f6161b3"
+            }
+          },
+          "identity": {
+            "count": 1,
+            "sha256": "f0d8589f0377aeea0ac736baa742bfb50071da0c6414d7c8a2ea493696b85470"
+          }
+        },
+        "repeatApply": true,
+        "isolationAfterRestartAndRepeatApply": true,
+        "connectionBudget": {
+          "gcr_app": 42,
+          "gcr_migrator": 2,
+          "gcr_keycloak": 30
+        },
+        "syntheticIdentityData": true,
+        "nonRootReadOnlyCertificateCopy": true
+      },
+      {
+        "kind": "existing",
+        "initial": {
+          "version": "18.6",
+          "ssl": "off",
+          "max_connections": "100"
+        },
+        "restarted": {
+          "version": "18.6",
+          "ssl": "on",
+          "max_connections": "100"
+        },
+        "distinctContainerIds": [
+          "8f9da5fc5d6437eff039c7af839bdce753e1032ef9e3b7094fa2b7429cee2211",
+          "e14c2cacfd736860f12461a75a9bb5d4cd0e1eba409c2177e691f6762beb36d3",
+          "fe06e839a93d17456106aa191320de29be8a0dcd7777389fbaf005c137bec4f7"
+        ],
+        "applicationBeforeProvisioning": {
+          "users": {
+            "count": 1,
+            "sha256": "d44a583b55dbdf58d385a0a3643a0ae6e4027d7602f63fbbf15971b901ca5f55"
+          },
+          "service_metadata": {
+            "count": 2,
+            "sha256": "8b877e10a5af7aeee309477e9ac792980731d8d6dc533503d0442d63eb933bfd"
+          },
+          "schema_migrations": {
+            "count": 36,
+            "sha256": "cac8041612edfcd14e14dff925fdc25f52a137bf9be5a22863527a49144e12f6"
+          }
+        },
+        "preserved": {
+          "roles": {
+            "count": 5,
+            "sha256": "25a0311d7f8d65bc95626eabc6693008364701885f84b800834f6468e6ecfeef"
+          },
+          "databases": {
+            "count": 5,
+            "sha256": "d7ca9407c97ab30db6945cff6abd04054d393d33d10c44c3b7e319e2e26662bc"
+          },
+          "membership": {
+            "count": 3,
+            "sha256": "89e61b2bf348ef0c53e0ac0a6e5d9fca3b3976d12193238478c9804d94f59e5f"
+          },
+          "schemas": {
+            "git_code_reviewer": {
+              "count": 245,
+              "sha256": "1407103e9dcf9d8a61f5a37c60029ec37af1f84a2cb6a2775ae4959f9b3810ed"
+            },
+            "git_code_reviewer_keycloak": {
+              "count": 6,
+              "sha256": "ebee27b2049ee1174d88ab4c728f7d79506e858da7cf64bcc7c1cf2d6bc80f1e"
+            }
+          },
+          "application": {
+            "users": {
+              "count": 1,
+              "sha256": "d44a583b55dbdf58d385a0a3643a0ae6e4027d7602f63fbbf15971b901ca5f55"
+            },
+            "service_metadata": {
+              "count": 2,
+              "sha256": "8b877e10a5af7aeee309477e9ac792980731d8d6dc533503d0442d63eb933bfd"
+            },
+            "schema_migrations": {
+              "count": 36,
+              "sha256": "cac8041612edfcd14e14dff925fdc25f52a137bf9be5a22863527a49144e12f6"
+            }
+          },
+          "identity": {
+            "count": 1,
+            "sha256": "f0d8589f0377aeea0ac736baa742bfb50071da0c6414d7c8a2ea493696b85470"
+          }
+        },
+        "repeatApply": true,
+        "isolationAfterRestartAndRepeatApply": true,
+        "connectionBudget": {
+          "gcr_app": 42,
+          "gcr_migrator": 2,
+          "gcr_keycloak": 30
+        },
+        "syntheticIdentityData": true,
+        "nonRootReadOnlyCertificateCopy": true
+      }
+    ],
+    "clusterAccess": false,
+    "scriptSha256": "450bba637da910f8366300937ae699aee07ebd702e6eb9d72ebdc41779368062",
+    "imageStartupScriptSha256": "ac83d1d7e5f7d469d172b5c3fb9018151f217cad41bbb70b815e6bf82e28f34a",
+    "lastStep": "existing: persistence and repeat provisioning passed",
+    "status": "passed",
+    "ownedResourcesRemoved": true,
+    "finishedAt": "2026-09-13T07:21:54.306Z"
+  },
+  "persistenceReportSha256": "d9289adaf280abb7fbf9a2cb1fc9fe177a770acc113cab1143a15e90e9e7a2f0",
+  "helm": {
+    "status": "passed",
+    "checks": [
+      "isolated-external-install",
+      "isolated-external-upgrade",
+      "isolated-bundled-install",
+      "isolated-bundled-upgrade",
+      "separate-worker-pool",
+      "sandbox-without-database-secrets",
+      "bundled-service-port",
+      "reject-database.isolated.migratorSecret",
+      "reject-database.tls.mode",
+      "reject-database.tls.existingConfigMap",
+      "reject-database.isolated.host",
+      "reject-keycloak.enabled",
+      "reject-database.isolated.budget.applicationConnectionLimit",
+      "reject-database.isolated.budget.maxConnections",
+      "reject-database.isolated.budget.operatorReserve",
+      "reject-database.isolated.budget.workerPeakReplicas",
+      "reject-server.databasePoolMax",
+      "reject-worker.databasePoolMax",
+      "reject-bootstrap-secret-in-runtime",
+      "reject-bundled-plaintext-backend",
+      "reject-migrator-secret-in-auth-env",
+      "example-overlay-backend-tls-hba-and-pinned-init-image",
+      "legacy-parity-external-install",
+      "legacy-parity-external-upgrade",
+      "legacy-parity-bundled-install",
+      "legacy-parity-bundled-upgrade"
+    ],
+    "clusterAccess": false,
+    "baseline": "da7e7c029e09caef77f8d0f9c56c5e353e2d8726"
+  },
+  "helmReportSha256": "e866cf90cd8b8403b59795c15b48382b71eab7a01872bb2e893a9b27e077161f",
+  "runtimeRegressionEvidence": {
+    "sourceCommit": "da7e7c029e09caef77f8d0f9c56c5e353e2d8726",
+    "tests": 940,
+    "rerunThisCheckpoint": false,
+    "reason": "No runtime or SQL source changes",
+    "source": ".documents/execution/preventive-review/evidence/P03-C06-runtime-connections.json"
+  },
+  "initialFindings": [
+    {
+      "source": "artifacts/operations/P03-C06/bitnami/persistence-attempt1.json",
+      "finding": "Docker copy-up of an empty named volume replaced its prepared ownership with image mount-point metadata; fixture uses volume-nocopy to match Kubernetes fsGroup preparation."
+    },
+    {
+      "source": "artifacts/operations/P03-C06/bitnami/persistence-attempt2.json",
+      "finding": "Raw ACL representation changed from null to explicit owner defaults on repeat provisioning; compare PostgreSQL acldefault-normalized privileges and exclude default-ACL catalog row OIDs."
+    },
+    {
+      "finding": "Bundled chart defaulted main and TLS copy-certs init image tags to latest; explicit isolated overlay pins both to the verified operational PostgreSQL amd64 digest."
+    }
+  ],
+  "deployment": {
+    "operationalDatabaseChanged": false,
+    "operationalSecretsChanged": false,
+    "operationalReleaseChanged": false,
+    "imagePublished": false,
+    "chartPublished": false
+  },
+  "remaining": [
+    "Operating storage-driver behavior and database backup/restore rehearsal",
+    "Real Keycloak realm/user/signing-key persistence on the shared PostgreSQL database",
+    "Keycloak companion chart and Compose identity overlay, TLS/DNS/SMTP configuration",
+    "Runtime image/chart publication and operational role/TLS cutover",
+    "Native VS Code/Safari validation and the remaining implementation phases"
+  ]
+}

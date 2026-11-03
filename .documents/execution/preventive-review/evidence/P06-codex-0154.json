@@ -1,0 +1,177 @@
+{
+  "checkpoint": "P06 Codex 0.154.0 and installed account-backed central CLI",
+  "verifiedAt": "2026-09-13T20:25:14.058510+00:00",
+  "status": "passed",
+  "baseCommit": "5598d84cc7d91de85cdcbd841e352eb60cd4b514",
+  "reports": [
+    {
+      "path": "artifacts/operations/P06-codex-0154-regression.json",
+      "sha256": "f2e22121dd567d69f31ae9ac9ff7e387c067f25c424cb5784b0815615e37b880",
+      "passed": 275,
+      "failed": 3,
+      "skipped": 1
+    },
+    {
+      "path": "artifacts/operations/P06-codex-0154-regression-recheck.json",
+      "sha256": "63ce1c6652ea2b2f6589a497a64e0ed7f5e961340f8616d9b620ec05191b4aa7",
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "path": "artifacts/operations/P06-central-model-0154-complete-tests.json",
+      "sha256": "d15a84a06d872cb6c29da82285bd4dc2ccc76ca008534feaabc003ee564473e4",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 10
+    }
+  ],
+  "uniquePassedTests": 279,
+  "artifacts": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.8",
+    "clientVersion": "0.1.0-alpha.14",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.14",
+        "file": "gcr-client-contract-0.1.0-alpha.14.tgz",
+        "sha256": "e9def1d095af8804abe52e9a2544e0aa1a32236a7d366ddbb7df652e7f7b01ca"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.14",
+        "file": "gcr-client-core-0.1.0-alpha.14.tgz",
+        "sha256": "57dc7efa4496dae16f0f9691757a8fa6f54b7c412c6416efe6ea0c6be209761e"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.14",
+        "file": "gcr-client-executors-0.1.0-alpha.14.tgz",
+        "sha256": "15ae43015a3f7dec326ed94ed7788fb051c4b7ba7ba71e924513f48aeed7c55f"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.8",
+        "file": "gcr-cli-0.1.0-alpha.8.tgz",
+        "sha256": "1a42b6ef62d235898377cdcb0282ffb27891c91bfb867d3b9f93d1c736655e68"
+      }
+    ]
+  },
+  "installedEntrySha256": "b09a22ed237a026e1a39f04bc5adfe51c1fdc4f64ddc81165ff5af0893213296",
+  "actualModel": {
+    "executableVersion": "0.154.0",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "syntheticSourceAndCentralServer": true,
+    "accountInvocations": 4,
+    "completedStatus": "completed",
+    "exitCode": 1,
+    "durationMs": 69651,
+    "findings": [
+      {
+        "id": "161f469b-f3a2-4b94-8f7e-41fb50dbf4dc",
+        "title": "Preserve cents in total()",
+        "problem": "The added division by 100 converts the cent sum to dollars, violating contract CENTRAL_CENTS_36c4a93f643aacf8dc9ad753. By source evaluation, total([125, 75]) now returns 2 instead of 200; the fixed base returned 200.",
+        "impact": "The unchanged invoice() caller assigns that result to amountCents, producing 2 cents instead of 200. Inputs such as [1] also produce fractional cents.",
+        "recommendation": "Remove `/ 100` so total() returns the sum in cents. Perform any display conversion outside this API.",
+        "category": "correctness",
+        "severity": "P2",
+        "outcome": "violation",
+        "confidence": "high",
+        "followUp": "required",
+        "anchor": {
+          "path": "a.ts",
+          "side": "source",
+          "hash": "af63abd1b982de7a427b790cb6af71a5786a80c37671118272e1bdfb90091ab8",
+          "startLine": 2,
+          "endLine": 2
+        },
+        "anchorValidation": {
+          "status": "verified",
+          "checks": [
+            "fixed-source-hash",
+            "selected-file",
+            "returned-read-range"
+          ],
+          "reason": "Anchor matches a non-truncated source read. This does not prove the finding."
+        },
+        "evidenceAssessment": {
+          "level": "source-confirmed",
+          "rationale": "The base implementation, unchanged amountCents caller and existing assertion expecting 200 all corroborate the specified cents contract. This is a source-confirmed regression, not a test-execution result.",
+          "conditions": [
+            "total() receives cent-denominated amounts with a finite, nonzero sum."
+          ],
+          "evidenceIds": [
+            "0ad2ee8f-4db7-488d-a202-1c1eecfb9e9e",
+            "10fdaf6c-3020-4fb2-b994-e64c40d9d6a2",
+            "16609cd1-5f3f-4872-9983-79147d3c8df7",
+            "9fa0d59c-374f-49ec-835f-b41ed7a319f9",
+            "0d693995-c2cf-47fe-a8b6-c6053c67f409",
+            "7811f223-4e54-479b-8199-e15709cf88c9"
+          ],
+          "counterEvidence": {
+            "status": "reviewed",
+            "summary": "Empty and zero-sum inputs still return zero, but do not validate nonzero totals. Neither the caller nor the tests migrated to dollar units; both remain unchanged from base.",
+            "evidenceIds": [
+              "16609cd1-5f3f-4872-9983-79147d3c8df7",
+              "9fa0d59c-374f-49ec-835f-b41ed7a319f9",
+              "0d693995-c2cf-47fe-a8b6-c6053c67f409",
+              "7811f223-4e54-479b-8199-e15709cf88c9"
+            ]
+          }
+        },
+        "policy": {
+          "enforcement": "advisory"
+        }
+      }
+    ],
+    "sourceReads": 6,
+    "historyRestoredExactly": true,
+    "disconnectAndOfflineDenial": true,
+    "testKeychainEntriesRemoved": true
+  },
+  "diagnostics": {
+    "artifacts/operations/P06-codex-0154-catalog.json": "4ff6adc7522fa7d58579dda6f9198b092e7c029bba0904a03a58fba32d2abcd9",
+    "artifacts/operations/P06-central-model-0154-build.json": "3d6e0be4313d2d1da18b14b57a33b5eb5410978779126f3487831706f7ecd84c",
+    "artifacts/operations/P06-central-model-0154-installed-tests.json": "79f5837a4bcf663bfae716bc3ac5ae6f34c49972c6f69efbbf3625aa832f5820",
+    "artifacts/operations/P06-central-model-0154-installed-final.json": "a5f9cce10c8dc9dbd8988fd5e417378018dc4d170504928d92ca37d2213a5189",
+    "artifacts/operations/P06-central-model-0154-caller.json": "b087474c601c7ebbe67fb98f68fd47820a372872a861eaac55241296f4310c43",
+    "artifacts/operations/P06-central-model-0154-complete.json": "1b2697e41f4dd5e4f6259a74108466ff342f68a83bcaa796dc061dce0bde85e5",
+    "artifacts/operations/P06-central-model-cents-runtime.json": "f29d99e6d1af329ab586bfd9e2af8dcf33d24158e9e0b1c8b02bd9c073823ac7",
+    "artifacts/operations/P06-cli-alpha8-executor-status.json": "667a4267513e38caf5239da884d19bd1841668e6e5afadacd79f766dc4d6b6ac",
+    "artifacts/operations/P06-codex-0154-pack.log": "b885d909f68179ad286151dfa6ff3c01ed26bd76181ee80befb9e887ea238e02"
+  },
+  "sourceHashes": {
+    ".documents/execution/preventive-review/P06.md": "0bc4305580448cbe57394c35b1174352ed7993c0bfb6dec87d20afc060f6b2c5",
+    "apps/cli/README.md": "a0c168fbdb5a645b94f05dbbb3a26a7ee3737ebe4739b8220d452937b721ec9d",
+    "apps/cli/package.json": "e37df5153bd7f87603dbf9ec1c3e7224e2572787c8393629bb801709c702cdb0",
+    "apps/cli/src/central.test.ts": "0666b4c718399224f6e1b91b094627ee5795d18ec347599bf68bc80ee87b20e0",
+    "packages/client-contract/package.json": "f53727a4982b8b62dd80ade54981b01eab302481201c300cf31458a42557dc2c",
+    "packages/client-contract/src/index.ts": "bb47651a2740c4356ae5c079698315ad2bba5c83b6bbdcdbe255680cfeb212ee",
+    "packages/client-core/package.json": "3f7a8bcaae935e879e295736868bb92772673eef6666ccfe439ac8e042611612",
+    "packages/client-core/src/index.ts": "97e80462e560a8ed5e9a3e346b96c40d1d634feabc8454b66ebb627539c25b01",
+    "packages/client-executors/README.md": "ba0fe6f1aa2c316340d3e55423f75b115d654a344f6b420c4fe2927578a30c3a",
+    "packages/client-executors/package.json": "22e86cfbb2d6386907b91245a8a80572d49bfa26cb199cc20a91a8aacdd336ab",
+    "packages/client-executors/src/codex-isolation.test.ts": "4d4351edd2c408142366f25830e702e7beb3b59c8bc977d283f4cb1fe9f5f129",
+    "packages/client-executors/src/codex.ts": "bb9414adbe483602c8f2842c976b419cf4678ca71a37b749c7a1d0f95536a476",
+    "packages/client-executors/src/index.ts": "642a2d34fe5ee7581def609ce11d5ea247c4477a4e8f15477b47d6b56b7f11de"
+  },
+  "validation": [
+    "build:cli",
+    "pack:cli --verify",
+    "CLI typecheck",
+    "eslint modified TypeScript",
+    "installed = packed = built entry hash",
+    "actual Codex catalog canaries and fixed tool surface",
+    "independent cents fixture execution matches source/base hashes"
+  ],
+  "limitations": [
+    "macOS executor only",
+    "PRISM-DEV v2/API key deployment pending",
+    "Commit Defender central UI/worker pending",
+    "CLI tarball local only; no public publication",
+    "Default review budget remains 120 seconds; actual smoke explicitly uses 240 seconds",
+    "Three first regression failures recorded STACK_TRACE_ERROR; all affected files passed singly"
+  ]
+}

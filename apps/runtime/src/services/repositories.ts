@@ -12,6 +12,8 @@ import type { Database, DatabaseClient } from '@gcr/db';
 import type { AppConfig } from '../config.js';
 import { enqueueSnapshot } from './operations.js';
 import { registeredGitHubReader } from './account-registry.js';
+import { syncRepositoryConversations } from './conversation-sync.js';
+import { assertJobLease, type JobLease } from './analysis-checkpoint.js';
 
 const schedulerLockId = 746_278_432;
 
@@ -77,15 +79,8 @@ export async function pollRepository(
 
   try {
     const result = await reader.listPulls(repository, pollState.rows[0]?.etag);
-    if (result.outcome === 'updated') {
-      const conversationPulls = await persistPulls(database, repositoryId, result.pulls);
-      if (reader.listPullRequestMessages) {
-        for (const pull of conversationPulls) {
-          const messages = await reader.listPullRequestMessages(repository, pull.number);
-          await persistPullRequestMessages(database, repositoryId, pull.number, messages);
-        }
-      }
-    }
+    if (result.outcome === 'updated') await persistPulls(database, repositoryId, result.pulls);
+    await syncRepositoryConversations(database, repository, reader);
     await database.query(
       `insert into poll_states(repository_id, next_poll_at, last_polled_at, etag, consecutive_failures, backoff_until, last_outcome, last_error_code, updated_at)
        values ($1, clock_timestamp() + ($2 * interval '1 second'), clock_timestamp(), $3, 0, null, $4, null, clock_timestamp())
@@ -290,6 +285,19 @@ async function persistPulls(
       const previous = current.rows[0];
       // 과거 Closed/Merged PR은 metadata만 동기화하며 분석이나 대화 전체 backfill을 시작하지 않는다.
       if (pull.state === 'open' || previous?.state === 'open') conversationPulls.push(pull);
+      if (pull.state === 'open' || previous?.state === 'open') {
+        await connection.query(
+          `insert into pull_request_conversation_sync(pull_request_id,follow_until)
+           values($1,case when $2='closed' then clock_timestamp()+interval '7 days' end)
+           on conflict(pull_request_id) do update set
+             follow_until=case when $2='open' then null
+               when $3 then clock_timestamp()+interval '7 days' else pull_request_conversation_sync.follow_until end,
+             next_attempt_at=case when $3 then least(pull_request_conversation_sync.next_attempt_at,clock_timestamp())
+               else pull_request_conversation_sync.next_attempt_at end`,
+          [persisted.rows[0]!.id, pull.state, previous?.state !== pull.state],
+        );
+      }
+
       if (
         pull.state === 'open' &&
         (!previous ||
@@ -323,32 +331,66 @@ export async function persistPullRequestMessages(
   repositoryId: string,
   pullNumber: number,
   messages: PullRequestMessageObservation[],
-): Promise<void> {
+  syncStartedAt = new Date(),
+  claimToken?: string,
+  options: { complete?: boolean; lease?: JobLease } = {},
+): Promise<boolean> {
   const connection = await database.connect();
   try {
     await connection.query('begin');
+    if (options.lease) await assertJobLease(connection, options.lease);
     const pull = await connection.query<{ pullRequestId: string; tenantId: string }>(
       `select pull_request.id as "pullRequestId", repository.tenant_id as "tenantId"
          from pull_requests pull_request
          join repositories repository on repository.id = pull_request.repository_id
         where pull_request.repository_id = $1 and pull_request.number = $2
           and repository.enabled and repository.deleted_at is null
-        for share of pull_request, repository`,
+        for update of pull_request for share of repository`,
       [repositoryId, pullNumber],
     );
     const context = pull.rows[0];
     if (!context) {
       await connection.query('commit');
-      return;
+      return false;
+    }
+    if (claimToken) {
+      const owned = await connection.query(
+        `select pull_request_id from pull_request_conversation_sync where pull_request_id=$1
+         and claim_token=$2 and claim_until>clock_timestamp() for update`,
+        [context.pullRequestId, claimToken],
+      );
+      if (!owned.rowCount) {
+        await connection.query('rollback');
+        return false;
+      }
     }
     for (const message of messages) {
       const contentHash = createHash('sha256').update(message.body).digest('hex');
+      const snapshot = {
+        githubId: String(message.githubId),
+        kind: message.kind,
+        authorLogin: message.author,
+        authorType: message.authorType,
+        body: message.body,
+        contentHash,
+        path: message.path,
+        line: message.line,
+        side: message.side,
+        commitSha: message.commitSha,
+        inReplyToGithubId:
+          message.inReplyToGithubId == null ? null : String(message.inReplyToGithubId),
+        htmlUrl: message.url,
+        githubCreatedAt: message.createdAt,
+        githubUpdatedAt: message.updatedAt,
+        provenance: message.provenance ?? null,
+      };
+      const observationHash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
       const persisted = await connection.query<{ id: string }>(
         `insert into github_pr_messages(
            tenant_id, repository_id, pull_request_id, github_id, kind, author_login,
            author_type, body, content_hash, path, line, side, commit_sha, in_reply_to_github_id,
-           html_url, github_created_at, github_updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+           html_url, github_created_at, github_updated_at, provenance, observation_hash, last_sync_started_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20)
          on conflict (repository_id, kind, github_id) do update set
            pull_request_id = excluded.pull_request_id, author_login = excluded.author_login,
            author_type = excluded.author_type, body = excluded.body,
@@ -356,7 +398,14 @@ export async function persistPullRequestMessages(
            side = excluded.side, commit_sha = excluded.commit_sha,
            in_reply_to_github_id = excluded.in_reply_to_github_id,
            html_url = excluded.html_url, github_updated_at = excluded.github_updated_at,
-           last_observed_at = clock_timestamp()
+           provenance = excluded.provenance, observation_hash = excluded.observation_hash,
+           upstream_state = 'present',
+           last_sync_started_at = excluded.last_sync_started_at, last_observed_at = clock_timestamp()
+         where (github_pr_messages.last_sync_started_at is null
+                or github_pr_messages.last_sync_started_at < excluded.last_sync_started_at
+                or (github_pr_messages.last_sync_started_at = excluded.last_sync_started_at
+                    and github_pr_messages.observation_hash = excluded.observation_hash))
+           and github_pr_messages.github_updated_at <= excluded.github_updated_at
          returning id`,
         [
           context.tenantId,
@@ -376,7 +425,18 @@ export async function persistPullRequestMessages(
           message.url,
           message.createdAt,
           message.updatedAt,
+          message.provenance ? JSON.stringify(message.provenance) : null,
+          observationHash,
+          syncStartedAt,
         ],
+      );
+      // A late response must not replace a newer observation or republish old source.
+      if (!persisted.rows[0]) continue;
+      await connection.query(
+        `insert into github_pr_message_observations(message_id,observation_hash,snapshot,sync_started_at)
+         select $1,$2,$3::jsonb,$4 where $2 is distinct from
+           (select observation_hash from github_pr_message_observations where message_id=$1 order by id desc limit 1)`,
+        [persisted.rows[0].id, observationHash, JSON.stringify(snapshot), syncStartedAt],
       );
       await connection.query(
         `insert into github_pr_message_versions(
@@ -395,7 +455,66 @@ export async function persistPullRequestMessages(
         ],
       );
     }
+    if (options.complete) {
+      const previous = (
+        await connection.query(
+          'select sync_started_at from review_history_coverage where pull_request_id=$1',
+          [context.pullRequestId],
+        )
+      ).rows[0];
+      if (!previous || new Date(previous.sync_started_at) < syncStartedAt) {
+        const identities = messages.map((m) => `${m.kind}:${m.githubId}`);
+        const missing = (
+          await connection.query(
+            `select m.*,o.snapshot from github_pr_messages m left join lateral
+           (select snapshot from github_pr_message_observations where message_id=m.id order by id desc limit 1) o on true
+           where m.pull_request_id=$1 and m.upstream_state='present'
+             and (m.last_sync_started_at is null or m.last_sync_started_at<$2)
+             and not ((m.kind||':'||m.github_id::text)=any($3::text[])) for update of m`,
+            [context.pullRequestId, syncStartedAt, identities],
+          )
+        ).rows;
+        for (const row of missing) {
+          const snapshot = {
+            ...(row.snapshot ?? {
+              githubId: String(row.github_id),
+              kind: row.kind,
+              authorLogin: row.author_login,
+              authorType: row.author_type,
+              body: row.body,
+              contentHash: row.content_hash,
+              path: row.path,
+              line: row.line,
+              side: row.side,
+              commitSha: row.commit_sha,
+              inReplyToGithubId:
+                row.in_reply_to_github_id == null ? null : String(row.in_reply_to_github_id),
+              htmlUrl: row.html_url,
+              githubCreatedAt: new Date(row.github_created_at).toISOString(),
+              githubUpdatedAt: new Date(row.github_updated_at).toISOString(),
+              provenance: row.provenance,
+            }),
+            upstreamState: 'not-returned',
+          };
+          const hash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
+          await connection.query(
+            "update github_pr_messages set upstream_state='not-returned',observation_hash=$2,last_sync_started_at=$3 where id=$1",
+            [row.id, hash, syncStartedAt],
+          );
+          await connection.query(
+            'insert into github_pr_message_observations(message_id,observation_hash,snapshot,sync_started_at) values($1,$2,$3::jsonb,$4)',
+            [row.id, hash, JSON.stringify(snapshot), syncStartedAt],
+          );
+        }
+        await connection.query(
+          `insert into review_history_coverage(pull_request_id,sync_started_at,message_count) values($1,$2,$3)
+          on conflict(pull_request_id) do update set sync_started_at=excluded.sync_started_at,observed_at=clock_timestamp(),message_count=excluded.message_count`,
+          [context.pullRequestId, syncStartedAt, identities.length],
+        );
+      }
+    }
     await connection.query('commit');
+    return true;
   } catch (error) {
     await connection.query('rollback');
     throw error;

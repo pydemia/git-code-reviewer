@@ -1,0 +1,770 @@
+{
+  "platform": "win32",
+  "arch": "arm64",
+  "node": "v24.18.1",
+  "vscode": "1.137.0",
+  "extensionVersion": "2.12.3",
+  "extensionPath": "C:\\Users\\pydemia\\.vscode\\extensions\\pydemia.commit-defender-2.12.3",
+  "workerSha256": "3afc229fdcd4bceb89e94aba4a4802b2e8a4131fa58fc5080413d6dbc2c3e6b2",
+  "hostHarnessSha256": "f8a3a591295f028929d01f546fcefc9686839a9a32db48b85b3efca3be8d9162",
+  "realCentralServer": true,
+  "localHttpsPublisher": true,
+  "realGitHubOriginals": true,
+  "reconstructedHistory": false,
+  "syntheticResponse": false,
+  "realModel": true,
+  "modelCalls": 1,
+  "case": "defect",
+  "status": "passed",
+  "fixtureBaseSha": "bbc49e610c167b99224d2577dee3a40f363401b6",
+  "fixtureTreeSha": "cf80be4d964ed708e6ddd6ca85341977142fbcc4",
+  "fixedContext": [
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/schema.py",
+      "baseSha256": "8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab",
+      "sourceSha256": "4c51afd728488ee93326bb1caa2e8f39bb5819a9a6536b6856cc1ff6f1edb31b"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/service.py",
+      "baseSha256": "35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba",
+      "sourceSha256": "35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/api.py",
+      "baseSha256": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c",
+      "sourceSha256": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/repository.py",
+      "baseSha256": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374",
+      "sourceSha256": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/tests/test_block_update.py",
+      "baseSha256": "e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252",
+      "sourceSha256": "e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252"
+    },
+    {
+      "path": "vscode-extension/test/fixtures/w02-history/pyproject.toml",
+      "baseSha256": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b",
+      "sourceSha256": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b"
+    }
+  ],
+  "githubHeadSha": "2aca9bbc54e811f0d7d8d0c966148d85fff1636a",
+  "boundaryTests": "fixed source only; not executed",
+  "modelSelection": {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "high"
+  },
+  "readerParity": [
+    {
+      "request": {
+        "kind": "pulls",
+        "pullNumber": 3
+      },
+      "exactOffline": true,
+      "revision": "c8154c99c5590a7edaab0a831c628d1a85c27286d0fdc29792b2612751c58bcb",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "messages",
+        "pullNumber": 3
+      },
+      "exactOffline": true,
+      "revision": "c8154c99c5590a7edaab0a831c628d1a85c27286d0fdc29792b2612751c58bcb",
+      "count": 4
+    },
+    {
+      "request": {
+        "kind": "message",
+        "pullNumber": 3,
+        "sourceId": "d04489d1-9a82-49ad-ae11-52e605d4ee0e"
+      },
+      "exactOffline": true,
+      "revision": "c8154c99c5590a7edaab0a831c628d1a85c27286d0fdc29792b2612751c58bcb"
+    },
+    {
+      "request": {
+        "kind": "messages",
+        "pullNumber": 3,
+        "parentId": "d04489d1-9a82-49ad-ae11-52e605d4ee0e"
+      },
+      "exactOffline": true,
+      "revision": "c8154c99c5590a7edaab0a831c628d1a85c27286d0fdc29792b2612751c58bcb",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "message",
+        "pullNumber": 3,
+        "sourceId": "49768448-b77c-40d6-9cfe-114a178ebc83"
+      },
+      "exactOffline": true,
+      "revision": "c8154c99c5590a7edaab0a831c628d1a85c27286d0fdc29792b2612751c58bcb"
+    },
+    {
+      "request": {
+        "kind": "versions",
+        "pullNumber": 3,
+        "sourceId": "d04489d1-9a82-49ad-ae11-52e605d4ee0e"
+      },
+      "exactOffline": true,
+      "revision": "c8154c99c5590a7edaab0a831c628d1a85c27286d0fdc29792b2612751c58bcb",
+      "count": 2
+    },
+    {
+      "request": {
+        "kind": "observations",
+        "pullNumber": 3,
+        "sourceId": "d04489d1-9a82-49ad-ae11-52e605d4ee0e"
+      },
+      "exactOffline": true,
+      "revision": "c8154c99c5590a7edaab0a831c628d1a85c27286d0fdc29792b2612751c58bcb",
+      "count": 2
+    },
+    {
+      "request": {
+        "kind": "guidance",
+        "sourceId": "d04489d1-9a82-49ad-ae11-52e605d4ee0e"
+      },
+      "exactOffline": true,
+      "revision": "36632ca1b9ae70a890d350388698304f1a0276b5c62715559bc9b43e3fdde47d",
+      "count": 1
+    },
+    {
+      "request": {
+        "kind": "guidance-detail",
+        "guidanceId": "4b0f4c10-f4ca-4d1c-b064-e8c673256169"
+      },
+      "exactOffline": true,
+      "revision": 1
+    }
+  ],
+  "bodyVersions": [
+    {
+      "id": "1819b3a1-aa64-4b8e-98d9-7f0880d5a2e8",
+      "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084"
+    },
+    {
+      "id": "32979be9-35cb-4f9b-8deb-dfbf69f46243",
+      "contentHash": "683e732c2e8bfa05f89b130b3e7195eefd9e3bfd05a09ceec26d8e44ba88bb3a"
+    }
+  ],
+  "sourceParity": {
+    "sourceId": "d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067",
+    "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "observationHash": "37c2918dd85844a3b5e52018816baae9ca576bc43721abcb2162bd4ee68d6c0e",
+    "githubOriginalBodyVerified": true,
+    "replyBodyVerified": true,
+    "guidanceId": "4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+    "revision": 1
+  },
+  "sourcePanel": true,
+  "manifest": {
+    "payload": {
+      "schemaVersion": 1,
+      "audience": {
+        "serverId": "ccad0e0a-48a0-4e9d-98c0-ed3eee33ded4",
+        "tenantId": "3d7a2ce8-0298-4d9c-ada8-1af1f29d76e7",
+        "repositoryId": "011d3c24-f4ef-46b1-bcbe-aa83bc127cb8",
+        "userId": "cd6549ec-1ba5-4914-bcb4-37e72a921e23"
+      },
+      "snapshotId": "73eeb55a-f82d-4fa3-8cb4-d2fbf7113f90",
+      "authorizationRevision": 4,
+      "components": {
+        "policy": {
+          "bundleId": "6667bad0-421f-47bb-a911-1e757bfbaf90",
+          "releaseSequence": 1,
+          "contentHash": "e137bcf5bb2ceb7c3b3c1f6e8b67b5f23b04ff77bc7453a7c185913be4b89b83",
+          "sizeBytes": 48536
+        },
+        "collective": {
+          "bundleId": "ad9bfc44-b212-4959-a400-3fc4049edd85",
+          "releaseSequence": 2,
+          "contentHash": "77a08fac5aa2247327909538f625c1dc25a62740522acbfa1f1327c3836bb0b7",
+          "sizeBytes": 2464
+        },
+        "personal": {
+          "bundleId": "5abe5c17-e3c2-4a4a-8dff-321fa13eb2ca",
+          "releaseSequence": 1,
+          "contentHash": "91f2580682e089dcf95c8d67084ee44e1e4c42dfb63e7f9150d77f0f1ca1845f",
+          "sizeBytes": 213
+        }
+      },
+      "revocations": {
+        "policyMinimumSequence": 1,
+        "collectiveMinimumSequence": 2,
+        "personalMinimumSequence": 1
+      },
+      "compatibleClientContracts": {
+        "minimum": 2,
+        "maximum": 3
+      },
+      "issuedAt": "2026-09-16T04:51:35.920Z",
+      "refreshAfter": "2026-09-16T04:56:35.920Z",
+      "offlineValidUntil": "2026-09-16T05:51:35.920Z",
+      "signingKeyId": "w02-github"
+    },
+    "manifestHash": "a7ba39b4cf23df214469aa69d55d8c6f1fa5411acf03be3e6786f8bbafbbba90",
+    "signature": "NNEcJwGxkxgC2v2vlQ-smmoNf0A13v7HMxYbsXkuMQT6Yz1ocxqwqBOktB8qJk_CudJZ0g08l8dN2Ko7TGqACA"
+  },
+  "startedAt": "2026-09-16T04:52:15.104Z",
+  "finishedAt": "2026-09-16T04:54:09.742Z",
+  "centralRequestsDuringModel": 0,
+  "report": {
+    "contractVersion": 1,
+    "runId": "f21a0774-fad7-4919-815d-a71faaf647fb",
+    "status": "completed",
+    "identity": {
+      "client": {
+        "mode": "centralized",
+        "profileId": "w02-9434f832-9d9b-425b-b0b5-37ebbf09594c",
+        "repositoryKey": "6d2df234367619f9f8bf0438de12ba3e45887ee3d3f303240234ca8c748bb6ac",
+        "worktreeKey": "0eb005387464356bf5dab6ff8c02d974233402e7549b861cc18db1ec9008fd99",
+        "audience": {
+          "serverId": "ccad0e0a-48a0-4e9d-98c0-ed3eee33ded4",
+          "tenantId": "3d7a2ce8-0298-4d9c-ada8-1af1f29d76e7",
+          "userId": "cd6549ec-1ba5-4914-bcb4-37e72a921e23",
+          "repositoryId": "011d3c24-f4ef-46b1-bcbe-aa83bc127cb8"
+        },
+        "execution": {
+          "configuredMode": "centralized",
+          "effectiveMode": "centralized",
+          "knowledgeSource": "central-cache",
+          "fallbackReason": null,
+          "connectionId": "41087683a3c5bc48c80932685f4f3423d149d30f3ba8f5445afee7e7102e072e",
+          "lastSynchronizedAt": "2026-09-16T04:51:37.396Z"
+        }
+      },
+      "source": {
+        "kind": "index",
+        "hash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "objectFormat": "sha1",
+        "baseCommit": "bbc49e610c167b99224d2577dee3a40f363401b6",
+        "baseTree": "417b1f8937fae935f3be1071e7d2aa0f8489580f",
+        "sourceTree": "cf80be4d964ed708e6ddd6ca85341977142fbcc4"
+      },
+      "context": {
+        "hash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "entries": [
+          {
+            "origin": "builtin",
+            "kind": "skill",
+            "id": "gcr-standalone-review",
+            "revision": 1,
+            "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "correctness",
+            "revision": 2,
+            "hash": "94db57b36a78e52031b16e4ff1f4c5991d637d747ea2d04293dbb693076a8836",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "maintenance",
+            "revision": 2,
+            "hash": "15adce8cd250526247f6d47957064e644c74c3b055df3393d851c468315f8c94",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "optimization",
+            "revision": 2,
+            "hash": "2b55f19da38642374072522ac41e8868c98f04ebe676be90be01bf47ec73aa48",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "overall-summary",
+            "revision": 3,
+            "hash": "f17b91c4f6cc560b6baa1df5d8d0dae285b374ac8f8a0406e76e2c0770b4cf9a",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "review-history",
+            "revision": 2,
+            "hash": "cfbc44036e75a8c1230d6e80ad3a450d545a2f7825c41162496fea54e31c682a",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "security",
+            "revision": 2,
+            "hash": "d5493168788e1a631b0aac184e7ec491339e3b3938ec001adb23d1a992af0a9c",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "setting",
+            "revision": 2,
+            "hash": "d989ccc4d713088d26a1f1cc575034611d9a823be7174fe237b1a112ee87e389",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "total-summary",
+            "revision": 3,
+            "hash": "f6d5431f09c2af51ab2a41252435a137eb560bdd53784d04a6ba791e18be230f",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "skill",
+            "id": "unit-comment-block",
+            "revision": 2,
+            "hash": "75aa97865768baaef6c09186029da9e2173a1d5e20840b98878738be97a58dbf",
+            "component": "policy"
+          },
+          {
+            "origin": "central",
+            "kind": "memory",
+            "id": "4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+            "revision": 1,
+            "hash": "0233403b443f161b2ef6a67ba8bfaae0423d2ed245fa965f1f6c81f15b4ba954",
+            "component": "collective"
+          },
+          {
+            "origin": "central",
+            "kind": "memory",
+            "id": "history-d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+            "revision": 1,
+            "hash": "5c22cc18ac7d1ea26cfcc1fdb302c2ff5926da49ba7cf297b403e89a6b4b2912",
+            "component": "collective"
+          }
+        ],
+        "centralSnapshot": {
+          "id": "73eeb55a-f82d-4fa3-8cb4-d2fbf7113f90",
+          "hash": "a7ba39b4cf23df214469aa69d55d8c6f1fa5411acf03be3e6786f8bbafbbba90",
+          "audience": {
+            "serverId": "ccad0e0a-48a0-4e9d-98c0-ed3eee33ded4",
+            "tenantId": "3d7a2ce8-0298-4d9c-ada8-1af1f29d76e7",
+            "userId": "cd6549ec-1ba5-4914-bcb4-37e72a921e23",
+            "repositoryId": "011d3c24-f4ef-46b1-bcbe-aa83bc127cb8"
+          },
+          "authorizationRevision": "4",
+          "offlineValidUntil": "2026-09-16T05:51:35.920Z"
+        },
+        "required": [
+          {
+            "kind": "knowledge",
+            "reference": "builtin:gcr-standalone-review",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:1ce691f8619cd9070fb67bca99e92569681b7520544a02b608f786f8f31f11c0",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "source",
+            "reference": "source:4393f736c3f27c8d78350cb462753b3e66585dd2b48114a30be3055502cc21b4",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:correctness",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:maintenance",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:optimization",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:overall-summary",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:review-history",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:security",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:setting",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:total-summary",
+            "available": true,
+            "reason": ""
+          },
+          {
+            "kind": "policy",
+            "reference": "central:policy:skill:unit-comment-block",
+            "available": true,
+            "reason": ""
+          }
+        ]
+      },
+      "reviewProfile": {
+        "id": "gcr-standalone-review",
+        "revision": 1,
+        "hash": "8ff77f482a027cd0d848a2cc5d913ce654772b6245b69e6385b6a3db4f1efe77"
+      },
+      "executor": {
+        "id": "codex-account",
+        "version": "0.153.4/gcr-fixed-source-v1",
+        "model": "gpt-5.6-luna",
+        "configHash": "fa56d3f830a13fae49193a2c2b037d0b55ca0be3a4cf96fb6e90fa69b1263b02"
+      },
+      "toolsHash": "8cc22f2428cd8752c5f291db0ca55c41f1ad0f01b0885d6a7c0030f6331c3484"
+    },
+    "summary": "Review history d04489d1-9a82-49ad-ae11-52e605d4ee0e (https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067)는 현재 코드에도 동일한 검증 누락이 있어 적용했습니다. 답글의 수정 주장은 현재 source와 base로 확인되지 않았습니다. Correctness guidance와 decision memory 4b0f4c10-f4ca-4d1c-b064-e8c673256169도 적용했으며, DB 상태 관련 예외는 이 요청값 검증과 무관합니다. Maintenance, optimization, security, setting guidance에서는 추가로 뒷받침되는 문제를 찾지 못했습니다.",
+    "findings": [
+      {
+        "id": "2c922c66-70bf-4ef0-9ab3-3f39c1e8af0d",
+        "title": "`reference_id` 필드 간 검증이 실행되지 않음",
+        "problem": "`validate_block_update_type_rules`가 `BlockUpdateRequest` 바깥의 일반 함수로 정의되어 있지만 이를 호출하는 코드가 없습니다. 따라서 Pydantic의 `model_validate`는 `block_type=\"reference\"`와 `reference_id` 누락 또는 `None` 조합을 거부하지 않습니다.",
+        "impact": "`preview_block`과 `update_block` 모두 잘못된 reference 요청을 성공 처리합니다. 특히 update 결과가 후속 저장 경로로 전달되면 reference block이 참조 대상 없이 저장될 수 있고, preview도 동일한 잘못된 입력을 유효하다고 표시합니다.",
+        "recommendation": "base에 있던 `@model_validator(mode=\"after\")` 메서드를 `BlockUpdateRequest` 안에 복원하고 `self`를 반환하세요. 그러면 두 service 진입점의 `model_validate`에 동일한 요청값 검증이 자동 적용됩니다.",
+        "category": "correctness",
+        "severity": "P2",
+        "outcome": "violation",
+        "confidence": "high",
+        "followUp": "required",
+        "anchor": {
+          "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "4c51afd728488ee93326bb1caa2e8f39bb5819a9a6536b6856cc1ff6f1edb31b",
+          "startLine": 9,
+          "endLine": 11
+        },
+        "anchorValidation": {
+          "status": "verified",
+          "checks": [
+            "fixed-source-hash",
+            "selected-file",
+            "returned-read-range"
+          ],
+          "reason": "Anchor matches a non-truncated source read. This does not prove the finding."
+        },
+        "evidenceAssessment": {
+          "level": "source-confirmed",
+          "rationale": "현재 source는 line 9에서 검증 함수를 모듈 수준에 정의하고 line 11에서 오류를 발생시킬 뿐입니다. 반면 `service.py`의 두 진입점은 `BlockUpdateRequest.model_validate(payload)`만 호출하며 이 helper를 호출하지 않습니다. `api.py`도 두 service 함수를 그대로 위임 호출합니다. 고정 base에는 같은 조건을 검사하는 `@model_validator(mode=\"after\")`가 클래스 내부에 있었으므로 이번 변경으로 검증 경로가 제거된 회귀입니다. 테스트 source/base는 두 진입점에서 누락·null reference ID가 `ValidationError`여야 한다고 명시하지만 실행 결과는 제공되지 않았습니다.",
+          "conditions": [
+            "호출자가 `block_type=\"reference\"`를 전달한다.",
+            "`reference_id`를 생략하거나 명시적으로 `None`으로 전달한다.",
+            "요청이 `preview_block` 또는 `update_block`을 통해 `BlockUpdateRequest.model_validate`로 처리된다."
+          ],
+          "evidenceIds": [
+            "85a00177-389a-421b-9293-dac1de3b0e46",
+            "428f4cc6-4679-44a0-994a-69b7e1a94f1c",
+            "f883ff68-0b49-402c-80e6-fa78d46ce73b",
+            "25afda3e-93e6-4f6f-bea8-f98f6c0353bc",
+            "6378979a-5a57-483b-934b-c714a363bf68",
+            "305fd089-0140-410f-a5c2-a9a5cb3fa731"
+          ],
+          "counterEvidence": {
+            "status": "reviewed",
+            "summary": "`Field(gt=0)`는 양수 값 자체를 검사하고 있어 중복 지적하지 않았습니다. `repository.py`의 archived 상태는 요청 schema 검증과 무관하며 service에서 사용되지 않습니다. 현재 source에서 helper를 호출하는 다른 근거는 확인되지 않았고, base에는 정상적인 class-level validator가 존재했습니다.",
+            "evidenceIds": [
+              "428f4cc6-4679-44a0-994a-69b7e1a94f1c",
+              "f883ff68-0b49-402c-80e6-fa78d46ce73b",
+              "25afda3e-93e6-4f6f-bea8-f98f6c0353bc",
+              "c0c44c48-7889-4b04-8aa4-4423e5f48695"
+            ]
+          }
+        },
+        "policy": {
+          "enforcement": "advisory"
+        }
+      }
+    ],
+    "files": [
+      {
+        "source": {
+          "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "4c51afd728488ee93326bb1caa2e8f39bb5819a9a6536b6856cc1ff6f1edb31b",
+          "byteLength": 458,
+          "lineCount": 12,
+          "gitBlob": "7f7bfa1a7775ad6c6bd22d92ac0b0b417c55ac65"
+        },
+        "status": "completed",
+        "summary": "`BlockUpdateRequest`의 요청 필드 간 검증 함수가 모델 validator가 아닌 호출되지 않는 모듈 함수로 분리되어 있습니다."
+      }
+    ],
+    "evidence": [
+      {
+        "kind": "source-read",
+        "id": "85a00177-389a-421b-9293-dac1de3b0e46",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:85a00177-389a-421b-9293-dac1de3b0e46"
+        },
+        "observedAt": "2026-09-16T04:52:26.795Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "source",
+          "hash": "4c51afd728488ee93326bb1caa2e8f39bb5819a9a6536b6856cc1ff6f1edb31b",
+          "startLine": 1,
+          "endLine": 12
+        },
+        "observation": "Returned excerpt sha256=4c51afd728488ee93326bb1caa2e8f39bb5819a9a6536b6856cc1ff6f1edb31b; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "428f4cc6-4679-44a0-994a-69b7e1a94f1c",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:428f4cc6-4679-44a0-994a-69b7e1a94f1c"
+        },
+        "observedAt": "2026-09-16T04:52:30.366Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/schema.py",
+          "side": "base",
+          "hash": "8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab",
+          "startLine": 1,
+          "endLine": 14
+        },
+        "observation": "Returned excerpt sha256=8a8fe0dcdbcb2da29c44e51bb01a9076c2a50af20b8245a65cafe8344d8efdab; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "f883ff68-0b49-402c-80e6-fa78d46ce73b",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:f883ff68-0b49-402c-80e6-fa78d46ce73b"
+        },
+        "observedAt": "2026-09-16T04:52:39.183Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/service.py",
+          "side": "source",
+          "hash": "35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba",
+          "startLine": 1,
+          "endLine": 10
+        },
+        "observation": "Returned excerpt sha256=35892627870394c6320572dd87e8f0c1efb6096173e484a4c6542603223e93ba; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "c0c44c48-7889-4b04-8aa4-4423e5f48695",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:c0c44c48-7889-4b04-8aa4-4423e5f48695"
+        },
+        "observedAt": "2026-09-16T04:52:43.943Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/repository.py",
+          "side": "source",
+          "hash": "39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374",
+          "startLine": 1,
+          "endLine": 11
+        },
+        "observation": "Returned excerpt sha256=39de9db2fed6fe3fc8ca1175eb91c904e775dabc518906087d6a94ea038fe374; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "25afda3e-93e6-4f6f-bea8-f98f6c0353bc",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:25afda3e-93e6-4f6f-bea8-f98f6c0353bc"
+        },
+        "observedAt": "2026-09-16T04:52:53.494Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/data-management/mainapp/domains/position_management/block/api.py",
+          "side": "source",
+          "hash": "d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c",
+          "startLine": 1,
+          "endLine": 10
+        },
+        "observation": "Returned excerpt sha256=d583635f3925c2124209418131847d8b1fc06be51a46f047a675138e7914f46c; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "6378979a-5a57-483b-934b-c714a363bf68",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:6378979a-5a57-483b-934b-c714a363bf68"
+        },
+        "observedAt": "2026-09-16T04:52:56.082Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/tests/test_block_update.py",
+          "side": "source",
+          "hash": "e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252",
+          "startLine": 1,
+          "endLine": 21
+        },
+        "observation": "Returned excerpt sha256=e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "305fd089-0140-410f-a5c2-a9a5cb3fa731",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:305fd089-0140-410f-a5c2-a9a5cb3fa731"
+        },
+        "observedAt": "2026-09-16T04:52:59.274Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/tests/test_block_update.py",
+          "side": "base",
+          "hash": "e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252",
+          "startLine": 1,
+          "endLine": 21
+        },
+        "observation": "Returned excerpt sha256=e75a86601fec195a7eaa1d36eadbd100ec8225d5548a0e00f849b9a7f80ef252; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "source-read",
+        "id": "657a3324-845a-4a4e-b407-40359a04c9fa",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "fixed-source-read:657a3324-845a-4a4e-b407-40359a04c9fa"
+        },
+        "observedAt": "2026-09-16T04:53:02.415Z",
+        "location": {
+          "path": "vscode-extension/test/fixtures/w02-history/pyproject.toml",
+          "side": "source",
+          "hash": "4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b",
+          "startLine": 1,
+          "endLine": 8
+        },
+        "observation": "Returned excerpt sha256=4e155e2fd5a54c1cc8915dcce9b391d615a881515a926789dee96937f353c21b; truncated=false. Port return only; no test executed."
+      },
+      {
+        "kind": "reasoning",
+        "id": "history-d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+        "sourceHash": "3107abcc82d530c4ec84c74bf32b4c70e53ff6dadae915cd1431bbec4f07e39b",
+        "contextHash": "a8043c4bb24935b1018eea23796785cc4832c889f1da4fd4817b34d9943bf366",
+        "provenance": {
+          "kind": "local-observation",
+          "producer": "@gcr/client-core",
+          "reference": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067"
+        },
+        "observedAt": "2026-09-16T04:52:16.107Z",
+        "statementSha256": "3f3f73e229d02da296f60c7bdc654bf011c314b0c69cfb75567655d3cf21de78"
+      }
+    ]
+  },
+  "reviewCompletionConfirmed": true,
+  "contextMetadataMatched": true,
+  "modelJudgment": {
+    "accepted": true,
+    "decision": "applied",
+    "evidenceFields": [
+      "report.summary",
+      "report.findings[0].evidenceAssessment"
+    ],
+    "reason": "실제 summary가 과거 source ID/URL과 guidance ID를 인용해 적용을 설명한다. 미호출 validator와 두 model_validate 호출부를 근거로 누락/null 우회를 P2로 지적한다. 답글의 수정 주장을 현재 source/base로 검증해 거부한다."
+  },
+  "encryptedHistoryReopened": true,
+  "savedResultCommandOpened": true,
+  "centralReadOnly": true,
+  "temporaryReaderCredentialRemoved": true,
+  "testHostExited": true,
+  "temporaryProfileAndKeyRemoved": true,
+  "fixtureDefectReproduced": "not executed; boundary tests supplied as fixed source",
+  "rawEvidenceSha256": "bfb58695650f91d0b32932ede5924241f6c89ed1206aa36516628bada65bc848",
+  "providerEvents": [
+    {
+      "at": "2026-09-16T04:52:11.004Z",
+      "event": "native-process-request",
+      "kind": "loopback-probe",
+      "timeoutMs": 30000,
+      "shell": false,
+      "modelSelected": true,
+      "highSelected": true
+    },
+    {
+      "at": "2026-09-16T04:52:11.818Z",
+      "event": "native-process-closed",
+      "kind": "loopback-probe",
+      "code": 0,
+      "signal": null
+    },
+    {
+      "at": "2026-09-16T04:52:12.598Z",
+      "event": "native-process-request",
+      "kind": "loopback-probe",
+      "timeoutMs": 30000,
+      "shell": false,
+      "modelSelected": true,
+      "highSelected": true
+    },
+    {
+      "at": "2026-09-16T04:52:13.347Z",
+      "event": "native-process-closed",
+      "kind": "loopback-probe",
+      "code": 0,
+      "signal": null
+    },
+    {
+      "at": "2026-09-16T04:52:17.500Z",
+      "event": "native-process-request",
+      "kind": "account-review",
+      "timeoutMs": 239955,
+      "shell": false,
+      "modelSelected": true,
+      "highSelected": true
+    },
+    {
+      "at": "2026-09-16T04:54:08.688Z",
+      "event": "native-process-closed",
+      "kind": "account-review",
+      "code": 0,
+      "signal": null
+    }
+  ],
+  "boundaryTestsExecuted": false
+}

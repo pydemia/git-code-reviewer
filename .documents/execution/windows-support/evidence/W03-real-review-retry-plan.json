@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-09-16T06:37:01.283Z",
+  "priorAttempt": "W03-native-host-attempt1.json",
+  "initialCallsConsumed": 1,
+  "acceptedCompletions": 0,
+  "additionalReviewInvocationLimit": 1,
+  "maximumTotalInvocations": 2,
+  "perInvocationTimeoutMs": 240000,
+  "model": "gpt-5.6-luna",
+  "reasoning": "high",
+  "cause": "Acceptance harness asserted exitCode 0, but existing CLI returns 1 for completed findings; report evidence was not retained before profile cleanup.",
+  "changes": [
+    "Capture stored report before final assertions",
+    "Require final job/report completed and zero report problems; compare exit code with existing reviewExitCode(report)",
+    "Canonicalize advisory path before cleanup parent comparison",
+    "Persist service stop confirmation immediately"
+  ],
+  "productRuntimeChanged": false,
+  "rebuildRequired": false,
+  "artifacts": "same immutable VSIX 2.12.4 / core49 / helper1.0.3 / service38",
+  "retest": "Same Commit trigger in new disposable native Extension Host; verify defect anchor/evidence, final report, history reread and cleanup",
+  "automaticRetries": false,
+  "cleanupBlocked": {
+    "path": "C:/Users/pydemia/AppData/Local/Temp/cd-w03-host-BKUtKA",
+    "reason": "Automatic execution approval rejected explicit recursive cleanup: blocked by policy; no detailed reason supplied; no workaround attempted"
+  },
+  "harnessSha256": "362c0d73bcf087ea545483ce4656b9ad2829a54c155de15ff2c85acc1538218d"
+}

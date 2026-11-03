@@ -1,6 +1,56 @@
 # PRISM-DEV 배포
 
+2026-09-15 01:20 KST: 중앙→로컬 단방향 전파 수정판 alpha.49·chart 0.10.45·Helm revision 59를 배포했다. 클라이언트 키는 읽기 전용이며 로컬 리뷰 결과·피드백 POST와 중앙 모델 실행을 제외한다. DB schema 45·verify-full과 기존 인증·데이터를 유지한다. [검증 기록](../../../docs/operations/one-way-propagation-2026-09-15.md)을 참고한다.
+
+2026-09-14 03:05 KST: GCR alpha.41·chart 0.10.39·Helm revision 53에 지식 bundle 발행·서명·다운로드와 메모리 배포 승인/상태 화면을 배포했다. 실제 worker 발행과 별도 공개키 서명 검증을 수행하고 임시 자료를 정리했다. DB verify-full TLS와 local 인증을 유지한다. [배포 증거](../../../.documents/execution/preventive-review/evidence/P05-knowledge-PRISM-deployment.json)를 참고한다.
+
+2026-09-14: Keycloak을 이 namespace에 별도 Helm release로 배포했다. Identity revision 2이며 GCR·Keycloak DB 연결에 TLS를 적용했다. 실제 앱 SAML 전환은 미완료이고 기존 local 로그인을 유지한다. [배포·검증 기록](../../../docs/operations/prism-keycloak-deployment-2026-09-14.md)을 참고한다.
+
+## Identity HTTPRoute 준비 (2026-09-13)
+
+사용자 요청으로 2026-09-13 `identity-httproute.yaml`을 PRISM-DEV에 적용했다. 최초에는 `auth.pr-review.prism.ai`의 `/realms/git-code-reviewer`, `/resources`를 `git-code-reviewer-identity:80`으로 연결하도록 준비했다. 2026-09-14 HTTPS 배포 후 이 HTTPRoute는 해당 경로를 HTTPS로 redirect하며 실제 backend 연결은 `identity-https-routes.yaml`에서 담당한다. `/admin`, `/realms/master`, health·metrics는 공개 route에 포함하지 않는다.
+
+Gateway는 새 route를 수락했다(`Accepted=True`). Keycloak Service는 아직 배포되지 않아 `ResolvedRefs=False / BackendNotFound`이며 realm 요청은 현재 HTTP 500이다. `/admin/`은 404, 기존 GCR `/health/ready`는 200을 확인했다. 이번 cluster 변경은 새 HTTPRoute 하나이며 기존 앱 HTTPRoute·Gateway listener는 변경하지 않았다. [적용 기록](../../../.documents/execution/preventive-review/evidence/P03-C07-identity-route.json)에 상태를 남겼다.
+
+사용자가 Mac의 `/etc/hosts`에 추가한 인증 hostname은 로컬에서 조회된다. 이 변경으로 pod의 이름 조회와 HTTPS 설정까지 준비됐다고 판단하지 않는다. 기존 동작을 보존하며 companion·서버 측 연결·TLS를 별도로 준비한다.
+
 이 폴더는 `~/.kube/config`의 `PRISM-DEV` context에 Git Code Reviewer를 검증하기 위한 환경별 설정을 보관한다. 공통 Kubernetes resource는 `deploy/helm/git-code-reviewer` chart를 사용한다.
+
+## C06 runtime 배포 (2026-09-13 20:18 KST)
+
+현재 PRISM-DEV는 `0.8.0-alpha.39`, chart `0.10.37`, Helm revision `51`, migration 37개다. 리뷰 기준 관리 화면·API를 포함한다. 실제 설정은 local 인증·DB `verify-full`, identity administration/security 비활성이다. Keycloak은 별도 Helm release revision 2로 배포했다. [리뷰 기준 배포 기록](../../../docs/operations/review-criteria-management-2026-09-14.md)을 참고한다.
+
+새 Server/Worker·health·compiled module/asset hash·20:24:50 Helm test·실제 headless 로그인 화면을 확인했다. 사용자 7명·account 7개·분석 153건·report 145건의 기존 데이터, local credential·세션·Provider와 기존 설정·Secret·CA·HTTPRoute·PVC/PV를 보존했다. `--reset-then-reuse-values`로 새 비활성 기본값을 반영했으며 기존 computed 값은 모두 같다. [배포 기록](../../../docs/operations/shared-postgresql-2026-09-13.md)에 digest·검증 범위와 운영 role/TLS·SAML 전환의 남은 조건을 정리했다.
+
+## 2026-09-13 보안 이벤트·계정 lifecycle 코드 배포
+
+13:47:54 KST에 application `0.8.0-alpha.37`, chart `0.10.35`를 Helm revision **47**로 배포했다. Source `bdf1aef`·release pin `af31451`을 push하고 적용했다. 보안 이벤트 수집·세션 폐기·freshness·관리자 차단/재활성화/전체 로그아웃과 migration 0035/0036을 포함한다. 운영 인증은 local이며 조직 계정 관리와 보안 수집은 비활성이다.
+
+전체 983개 테스트와 실제 Keycloak·PostgreSQL·compiled 관리자 화면·worker 검증을 통과했다. 배포 후 신규 Pod·health·module/asset hash·Helm test·익명 관리 API 차단과 기존 사용자·권한·분석/report ID·credential·세션·Provider·설정·Secret·CA·HTTPRoute·PVC/PV 보존을 확인했다. [배포 기록](../../../docs/operations/identity-security-reconciliation-2026-09-13.md)에 digest와 검증 범위를 정리했다. 공유 DB·companion·운영 SAML 전환과 복구, native GUI 검증은 남아 있다.
+
+## 2026-09-13 조직 계정 관리 코드 배포
+
+11:06:32 KST에 application `0.8.0-alpha.36`, chart `0.10.34`를 Helm revision **46**으로 배포했다. Source `82aa12e`·release pin `d84fb34`를 push하고 적용했다. 조직 계정 관리 API·화면·Worker와 migration 0034를 포함하며 운영 인증은 local, 새 관리 기능은 비활성이다.
+
+전체 914개 테스트와 실제 Keycloak·PostgreSQL·compiled 관리자 화면·격리 SMTP 검증을 통과했다. 배포 후 Server/Worker·health·module/asset hash·Helm test·익명 관리 API 차단, 기존 사용자·권한·memory owner·분석·report·세션·Provider·image 외 설정·Secret·CA·HTTPRoute·PVC/PV 보존을 확인했다. [운영 기록](../../../docs/operations/keycloak-user-administration-2026-09-13.md)에 digest와 한계를 정리했다. Native GUI·freshness/event 수집·공유 DB·운영 SAML 전환은 남아 있다.
+
+## 2026-09-13 SAML 앱 인증 코드 배포
+
+09:30:10 KST에 application `0.8.0-alpha.35`, chart `0.10.33`을 Helm revision **45**로 배포했다. P03-C03 source `d1f62bf`·release pin `30d63f1`을 push한 뒤 적용했다. SAML login/ACS/metadata/SLO, DB session 검증, LoginPage와 migration 0033을 포함하며 운영 인증은 기존 local mode다.
+
+전체 테스트 861개, 실제 Keycloak/Chrome 앱 로그인·로그아웃, build·typecheck·lint·audit·게시 image 검증을 통과했다. 배포 후 Server/Worker·health·gateway asset hash·09:31:24 Helm test와 local 로그인 화면을 확인했다. 기존 사용자·권한·memory owner·분석·report·local session·Provider·image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다. Native Safari와 계정 provisioning·freshness 수집·공유 DB·운영 SAML 전환은 미완료다. [배포 기록](../../../docs/operations/saml-web-authentication-2026-09-13.md)에 digest와 범위를 정리했다.
+
+## 2026-09-13 SAML DB 기반 배포
+
+08:28:45 KST에 application `0.8.0-alpha.34`, chart `0.10.32`를 Helm revision **44**로 배포했다. P03-C02 source `b24ebe2`·release pin `4137629` push 후 신원 연결·일회성 로그인 상태·SessionIndex·freshness·관리 outbox의 migration 0032를 적용했다. 운영 인증은 local mode다.
+
+전체 테스트 767개, 두 Node replica의 DB replay 차단, build·typecheck·lint와 실제 image 검사를 통과했다. Health 4종·gateway asset hash·08:30:17 Helm test도 성공했다. 기존 사용자·권한·credential·local session·개인 memory owner·분석·report·운영 설정·Secret·PVC/PV를 보존했고 새 identity 테이블은 모두 빈 상태다. SAML route와 운영 인증 전환은 후속 단계다. Digest·검증 범위는 [배포 기록](../../../docs/operations/saml-state-2026-09-13.md)을 따른다.
+
+## 2026-09-13 Runtime 보안 수정 배포
+
+08:03:12 KST에 application `0.8.0-alpha.33`, chart `0.10.31`을 Helm revision **43**으로 배포했다. Static·Vitest/mocker 보안 수정과 runtime base에 남는 구버전 package·web bundle 제거를 포함한다. Source `aa33032`·release pin `c22c422` push 후 적용했다.
+
+전체 테스트 734개, build·runtime typecheck, npm advisory 0개와 실제 image 파일 검사를 통과했다. Health 4종·gateway JS/CSS hash·08:06:19 Helm test도 성공했다. 사용자 7명·account 7개·분석 142건·report 134건, 권한·memory owner·Provider v8·migration 31개, image 외 values·Secret·CA·HTTPRoute·PVC/PV를 보존했다. 인증은 local mode다. Digest·검증 범위는 [배포 기록](../../../docs/operations/runtime-security-2026-09-13.md)을 따른다.
 
 ## 2026-09-10 PR 메시지·공통 작성 지침 배포
 
@@ -97,16 +147,16 @@ alpha.18–21 canary에서 발견한 provider stream·Git TLS·신규 파일 부
 
 누적 실패 8건의 원인은 중복 코드 심볼의 DB 고유 제약 위반과 재시도 시 동일 artifact 경로 충돌이었다. 심볼 정의 line 구분, 내용 hash 기반 artifact 경로와 단일 report 발행 잠금을 적용했다. 부분 완료의 호출 예산 문제에는 window 크기 조정, 요약 호출 예약, 기본 128회 상한과 한 번의 제한된 모델 재시도를 적용했다. 미지원 symbol adapter는 graph·impact coverage에 남기고 AI 리뷰 완료 상태와 분리했다. 자세한 집계는 [실패 조사 기록](../../../docs/operations/analysis-failures-2026-09-08.md)에 있다.
 
-| 검증 | 결과 |
-| --- | --- |
-| 테스트 | UTF-8 local PostgreSQL integration을 포함한 57개 파일·346개 테스트, lint·typecheck·production build 통과 |
-| 실제 입력 재생 | 실패 8건의 기존 DB 오류 재현. 실패·호출 예산 사례 22건 모두 수정된 graph 저장 성공. Fixture model으로 모든 window·요약 완료, 최대 124회, 예산 초과·요약 누락 0건 |
-| Container | Node 22.23.2, UID 1000, network-none·read-only 실행 검증. 기본 호출 예산 128, YAML AI fixture 완료와 graph 제한 분리, 실행 image에 build CA secret 없음 |
-| Helm·Workload | Lint·server-side dry-run·upgrade 성공. 새 Server·Worker 각 1/1 Ready, restart 0회, 이전 Pod 종료. 20:04:06 KST Helm test 성공 |
-| HTTP | 실제 Host 경로의 health 4종 HTTP 200·ok, system version `0.8.0-alpha.17`, 비로그인 repository API 401 |
-| DB·데이터 | Migration 23개와 checksum 일치, 신규 migration 없음. Users 7명, Chat accounts 4개, analyses 56건, reports 48건과 과거 실패 8건 보존 |
-| 운영 설정 | Image 외 Helm values SHA-256 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef` 동일. Secret·corporate CA·HTTPRoute UID/resourceVersion과 두 PVC의 UID·PV 보존. 앱 ConfigMap만 새 release로 갱신 |
-| 배포 직후 | 새 Server·Worker warning/error 0건, 새 분석 실패 0건, pending job 0건 |
+| 검증           | 결과                                                                                                                                                                                                             |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 테스트         | UTF-8 local PostgreSQL integration을 포함한 57개 파일·346개 테스트, lint·typecheck·production build 통과                                                                                                         |
+| 실제 입력 재생 | 실패 8건의 기존 DB 오류 재현. 실패·호출 예산 사례 22건 모두 수정된 graph 저장 성공. Fixture model으로 모든 window·요약 완료, 최대 124회, 예산 초과·요약 누락 0건                                                 |
+| Container      | Node 22.23.2, UID 1000, network-none·read-only 실행 검증. 기본 호출 예산 128, YAML AI fixture 완료와 graph 제한 분리, 실행 image에 build CA secret 없음                                                          |
+| Helm·Workload  | Lint·server-side dry-run·upgrade 성공. 새 Server·Worker 각 1/1 Ready, restart 0회, 이전 Pod 종료. 20:04:06 KST Helm test 성공                                                                                    |
+| HTTP           | 실제 Host 경로의 health 4종 HTTP 200·ok, system version `0.8.0-alpha.17`, 비로그인 repository API 401                                                                                                            |
+| DB·데이터      | Migration 23개와 checksum 일치, 신규 migration 없음. Users 7명, Chat accounts 4개, analyses 56건, reports 48건과 과거 실패 8건 보존                                                                              |
+| 운영 설정      | Image 외 Helm values SHA-256 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef` 동일. Secret·corporate CA·HTTPRoute UID/resourceVersion과 두 PVC의 UID·PV 보존. 앱 ConfigMap만 새 release로 갱신 |
+| 배포 직후      | 새 Server·Worker warning/error 0건, 새 분석 실패 0건, pending job 0건                                                                                                                                            |
 
 배포된 Server에서 등록된 ChatGPT account의 `gpt-5.6-sol:medium`으로 과거 실패 snapshot의 YAML 설정과 중복 메서드가 있는 Python schema 파일을 실제 분석했다. 두 파일 모두 `reviewed`, 4/4 window 완료, 파일·전체 요약 완료, 모델 호출 8회, finding 3건, 소요 141.6초였다. 결과는 `completed`/`model`/`pass`, AI coverage 제한 0건이고 graph 심볼 식별자는 모두 고유했다. YAML의 symbol adapter 제한은 graph/impact에만 남았다. 이 smoke test는 전체 PR 재분석이 아니며 검증 report를 운영 DB에 저장하거나 GitHub 댓글로 게시하지 않았다.
 
@@ -123,17 +173,17 @@ alpha.18–21 canary에서 발견한 provider stream·Git TLS·신규 파일 부
 - OCI chart: `sha256:562dac5fde65bbd36ff02f3c7e81a9d286069d21b79163d76ef95986821f5c62`
 - Registry에서 SPDX SBOM과 SLSA provenance v1 predicate를 확인했다.
 
-| 검증 | 결과 |
-| --- | --- |
-| 선행 기능 검증 | Memory 개발 시 단위 테스트 295건과 DB integration 4건 통과. 문서 변경 후 웹 테스트 65건, lint·웹 빌드와 문서 메뉴·목차·링크 렌더링 검증 통과 |
-| Container | 전체 production build 성공. Network-none·read-only 실행에서 UID 1000, migration 23개, Memory module과 제품 문서의 JS 포함 확인. Build CA secret은 실행 image에 없음 |
-| Helm | Lint·server-side dry-run·upgrade 성공. 19:19:50 KST connection test Succeeded |
-| Migration | 0020–0023 추가 적용. DB의 전체 migration 23개 checksum이 source와 일치 |
-| Workload | Server·Worker 각 1/1 Ready, restart 0회. 이전 Pod 종료. Retention CronJob도 같은 image digest 사용 |
-| HTTP | 실제 `pr-review.prism.ai` Host에서 live·ready·startup·dependencies가 HTTP 200·ok, system version은 `0.8.0-alpha.16` |
-| 문서·인증 | `/login`, `/introduction`, `/features`, `/guide` HTTP 200. Profile·repository·Memory·PR 대화 API의 비로그인 요청은 401 |
-| 데이터·설정 | Users 7명, Chat accounts 4개, GHES credential 1개, 활성 repository 2개, analyses 55건, reports 47건 유지. Image 외 Helm values와 기존 Secret·CA·HTTPRoute·PVC/PV 유지 |
-| Log | 확인한 새 Server·Worker log의 warning/error 0건. Poll scheduler leadership 획득 확인 |
+| 검증           | 결과                                                                                                                                                                  |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 선행 기능 검증 | Memory 개발 시 단위 테스트 295건과 DB integration 4건 통과. 문서 변경 후 웹 테스트 65건, lint·웹 빌드와 문서 메뉴·목차·링크 렌더링 검증 통과                          |
+| Container      | 전체 production build 성공. Network-none·read-only 실행에서 UID 1000, migration 23개, Memory module과 제품 문서의 JS 포함 확인. Build CA secret은 실행 image에 없음   |
+| Helm           | Lint·server-side dry-run·upgrade 성공. 19:19:50 KST connection test Succeeded                                                                                         |
+| Migration      | 0020–0023 추가 적용. DB의 전체 migration 23개 checksum이 source와 일치                                                                                                |
+| Workload       | Server·Worker 각 1/1 Ready, restart 0회. 이전 Pod 종료. Retention CronJob도 같은 image digest 사용                                                                    |
+| HTTP           | 실제 `pr-review.prism.ai` Host에서 live·ready·startup·dependencies가 HTTP 200·ok, system version은 `0.8.0-alpha.16`                                                   |
+| 문서·인증      | `/login`, `/introduction`, `/features`, `/guide` HTTP 200. Profile·repository·Memory·PR 대화 API의 비로그인 요청은 401                                                |
+| 데이터·설정    | Users 7명, Chat accounts 4개, GHES credential 1개, 활성 repository 2개, analyses 55건, reports 47건 유지. Image 외 Helm values와 기존 Secret·CA·HTTPRoute·PVC/PV 유지 |
+| Log            | 확인한 새 Server·Worker log의 warning/error 0건. Poll scheduler leadership 획득 확인                                                                                  |
 
 Image 외 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. 두 PVC의 UID·PV·용량·access mode를 보존했다. 기존 auth·credential registry·PostgreSQL Secret과 corporate CA·HTTPRoute의 UID 및 resourceVersion도 유지했다.
 
@@ -182,7 +232,7 @@ PRISM-DEV의 outbound HTTPS는 `SK holdings C&C` TLS inspection CA로 다시 서
 
 아래 namespace·Secret·CA 생성은 최초 설치 절차다. 재배포에서는 기존 Secret과 CA를 유지하고 `helm upgrade`와 검증만 수행한다. 특히 PostgreSQL password와 credential encryption key를 다시 생성하면 기존 데이터나 등록 credential을 사용할 수 없게 된다.
 
-사용자 요청에 따라 기능·설정 변경을 commit·push하면 PRISM-DEV 배포와 검증도 함께 수행한다. 재배포는 현재 release의 `--reuse-values`에 새 image tag·digest만 지정해 관리자가 변경한 운영 설정을 보존한다. 배포 결과만 기록하는 후속 documentation commit에는 image rebuild·재배포가 필요하지 않다.
+사용자 요청에 따라 기능·설정 변경을 commit·push하면 PRISM-DEV 배포와 검증도 함께 수행한다. 재배포는 현재 release의 사용자 설정과 새 image tag·digest를 사용한다. Chart 0.10.36 전환에서는 새 `identity`·`auth.saml` schema 기본값이 필요해 `--reset-then-reuse-values`를 사용한다. 기존 `--reuse-values`는 해당 항목 누락으로 server dry-run에서 거부됐다. 적용 전 manifest를 비교하고 적용 후 기존 computed value가 모두 보존됐는지 확인한다. 배포 결과만 기록하는 후속 documentation commit에는 image rebuild·재배포가 필요하지 않다.
 
 ```bash
 kubectl --kubeconfig="$HOME/.kube/config" --context=PRISM-DEV \
@@ -220,10 +270,19 @@ openssl rand -base64 32 \
 
 helm dependency build deploy/helm/git-code-reviewer
 
+# 기존 release에만 저장된 TLS·client key·지식 배포 설정을 먼저 보존한다.
+# 환경 values만 전달하면 파일에 없는 기존 override가 chart 기본값으로 돌아간다.
+umask 077
+CURRENT_RELEASE_VALUES="$(mktemp /tmp/git-code-reviewer-current-values.XXXXXX.yaml)"
+helm --kubeconfig="$HOME/.kube/config" --kube-context=PRISM-DEV \
+  get values git-code-reviewer --namespace=git-code-reviewer -o yaml \
+  > "$CURRENT_RELEASE_VALUES"
+
 helm upgrade --install git-code-reviewer deploy/helm/git-code-reviewer \
   --kubeconfig="$HOME/.kube/config" \
   --kube-context=PRISM-DEV \
   --namespace=git-code-reviewer \
+  --values="$CURRENT_RELEASE_VALUES" \
   --values=deploy/environments/prism-dev/values.yaml \
   --rollback-on-failure --wait --timeout=20m
 
@@ -528,18 +587,18 @@ Vitest 169건 통과, PostgreSQL integration 20건 skip, web lint·typecheck·pr
 
 ChatGPT model catalog 조회, 분석 미수행 Report 정리, 분석 진행률/status API, 구조화된 Summary·AI Comments와 inline 설명을 포함한다. Image에는 SPDX SBOM과 SLSA provenance attestation이 있으며 registry manifest에서도 두 predicate를 확인했다. Build CA는 BuildKit secret으로 전달했고 image에는 남기지 않았다.
 
-| 검증 항목 | 결과 |
-| --- | --- |
-| Local 검증 | 38 files, 212 tests 통과. 전용 PostgreSQL integration 포함, skip 없음. Lint·typecheck·production build 통과 |
-| Container | Linux/amd64, UID 1000, read-only/network-none smoke 통과. Built-in Skill 9개·migration 16개·새 status API와 model catalog 함수 확인 |
-| Helm | Chart lint, server-side dry-run, upgrade와 Helm test 통과 |
-| Migration | `0016_analysis_progress.sql` 적용. `analysis_runs.progress_detail`은 nullable JSONB, 기존 데이터 수정 없음 |
-| Workload | Server·Worker 각각 1/1 Ready, restart 0회. Retention CronJob도 동일 digest로 갱신 |
-| Route/Health | 기존 HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200 |
-| Web/API | `/api/v1/system`의 version `0.8.0-alpha.11`. `/login`·`/guide`와 새 bundle HTTP 200. 비로그인 repository/status API HTTP 401 |
-| 운영 데이터 | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 36건, report 31건 유지 |
-| Storage/Secret | 기존 두 PVC의 PV ID와 auth/registry/PostgreSQL Secret UID·resourceVersion 유지 |
-| Log | 새 Server/Worker warning/error log 0건, Server의 scheduler leadership 재획득 확인 |
+| 검증 항목      | 결과                                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Local 검증     | 38 files, 212 tests 통과. 전용 PostgreSQL integration 포함, skip 없음. Lint·typecheck·production build 통과                         |
+| Container      | Linux/amd64, UID 1000, read-only/network-none smoke 통과. Built-in Skill 9개·migration 16개·새 status API와 model catalog 함수 확인 |
+| Helm           | Chart lint, server-side dry-run, upgrade와 Helm test 통과                                                                           |
+| Migration      | `0016_analysis_progress.sql` 적용. `analysis_runs.progress_detail`은 nullable JSONB, 기존 데이터 수정 없음                          |
+| Workload       | Server·Worker 각각 1/1 Ready, restart 0회. Retention CronJob도 동일 digest로 갱신                                                   |
+| Route/Health   | 기존 HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200                     |
+| Web/API        | `/api/v1/system`의 version `0.8.0-alpha.11`. `/login`·`/guide`와 새 bundle HTTP 200. 비로그인 repository/status API HTTP 401        |
+| 운영 데이터    | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 36건, report 31건 유지                              |
+| Storage/Secret | 기존 두 PVC의 PV ID와 auth/registry/PostgreSQL Secret UID·resourceVersion 유지                                                      |
+| Log            | 새 Server/Worker warning/error log 0건, Server의 scheduler leadership 재획득 확인                                                   |
 
 Server startup probe와 Worker readiness probe가 listen 직전 각각 한 번 connection refused를 기록했지만 이후 정상화됐고 container restart는 없다. Health의 model 상태는 실제 ChatGPT inference 성공을 뜻하지 않는다. 운영 account로 모델 조회·분석·Chat을 실행하거나 PR 댓글을 새로 게시하는 검증은 하지 않았다. 새 UI는 실제 제공되는 bundle에 model catalog route·progressDetail·분석 단계 문구가 포함됐는지 확인했으며 이번 배포에서 별도 visual browser 검토는 수행하지 않았다.
 
@@ -554,18 +613,18 @@ Server startup probe와 Worker readiness probe가 listen 직전 각각 한 번 c
 
 Files 기본 전체 펼침, LNB 숨김 toggle, Chat 기본 너비 569px, 하단 Comments와 기본 높이 280px를 반영했다. Summary는 PR 전체 요약 다음에 펼쳐진 파일별 검토를 보여준다. 현재 파일의 inline comment를 기본 표시하고 선택 시작 line만 강조하며 comment 너비는 최대 880px로 제한한다.
 
-| 검증 항목 | 결과 |
-| --- | --- |
-| Source 검증 | 선행 UI 작업에서 PostgreSQL integration을 포함한 218 tests / 39 files, lint·typecheck·Web build·desktop/mobile browser 검증 통과 |
-| Container | 기본 `node:22-alpine`에서 전체 production build 통과. Linux/amd64, UID 1000, read-only/network-none smoke 통과. Built-in Skill 9개·migration 16개 확인 |
-| Supply chain | Registry의 SPDX SBOM·SLSA provenance predicate 확인. Build CA는 BuildKit secret으로 전달했으며 runtime image에 없음 |
-| Helm | Lint·server-side dry-run·upgrade 통과. 10:05 KST Helm connection test 성공 |
-| Workload | 신규 Server·Worker 각각 1/1 Ready, restart 0회. Retention CronJob image도 동일 digest로 갱신 |
-| Route/Health | 기존 HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200 |
-| Web/API | `/api/v1/system` version `0.8.0-alpha.12`, `/login`·`/guide` HTTP 200. 비로그인 repository API HTTP 401 |
-| 운영 데이터 | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, report 31건 유지. Migration 16개로 신규 migration 없음 |
-| Storage/Secret | 두 PVC의 PV ID, auth/registry/PostgreSQL Secret UID·resourceVersion, Corporate CA와 HTTPRoute 유지 |
-| Log | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 재획득 확인 |
+| 검증 항목      | 결과                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Source 검증    | 선행 UI 작업에서 PostgreSQL integration을 포함한 218 tests / 39 files, lint·typecheck·Web build·desktop/mobile browser 검증 통과                       |
+| Container      | 기본 `node:22-alpine`에서 전체 production build 통과. Linux/amd64, UID 1000, read-only/network-none smoke 통과. Built-in Skill 9개·migration 16개 확인 |
+| Supply chain   | Registry의 SPDX SBOM·SLSA provenance predicate 확인. Build CA는 BuildKit secret으로 전달했으며 runtime image에 없음                                    |
+| Helm           | Lint·server-side dry-run·upgrade 통과. 10:05 KST Helm connection test 성공                                                                             |
+| Workload       | 신규 Server·Worker 각각 1/1 Ready, restart 0회. Retention CronJob image도 동일 digest로 갱신                                                           |
+| Route/Health   | 기존 HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200                                        |
+| Web/API        | `/api/v1/system` version `0.8.0-alpha.12`, `/login`·`/guide` HTTP 200. 비로그인 repository API HTTP 401                                                |
+| 운영 데이터    | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, report 31건 유지. Migration 16개로 신규 migration 없음                          |
+| Storage/Secret | 두 PVC의 PV ID, auth/registry/PostgreSQL Secret UID·resourceVersion, Corporate CA와 HTTPRoute 유지                                                     |
+| Log            | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 재획득 확인                                                           |
 
 실제 HTTPRoute가 제공하는 JS·CSS의 SHA-256이 선행 browser 검증에 사용한 production bundle과 일치했다.
 
@@ -593,19 +652,19 @@ Files 기본 전체 펼침, LNB 숨김 toggle, Chat 기본 너비 569px, 하단 
 
 6개 perspective의 한국어 원문 번역 version 2와 tenant별 Severity Level을 포함한다. 앞서 미배포였던 Summary Markdown, comment block 전체 클릭, Chat 입력창·글자 크기와 하단 Model 선택, Reviews GNB 설정 버튼 수정도 함께 반영했다. 기존 Helm values를 `--reuse-values`로 유지하고 image tag·digest만 override했다.
 
-| 검증 항목 | 결과 |
-| --- | --- |
-| 선행 source 검증 | 46 files, 256 tests 통과. 전용 local PostgreSQL integration 포함. Typecheck·lint·Web build·합성 desktop/mobile 검증 완료 |
-| Container | `node:22-alpine` 전체 production build 성공. Linux/amd64, UID 1000, read-only/network-none smoke에서 Skill 9개·migration 17개·5개 level 확인 |
-| Supply chain | Registry의 SPDX SBOM·SLSA provenance predicate 확인. Build CA는 BuildKit secret으로 전달하며 runtime image에 없음 |
-| Helm | Lint·server-side dry-run·upgrade 성공. 13:04 KST Helm connection test Succeeded |
-| Migration | `0017_analysis_severity.sql` 적용. DB checksum `ff540ff7f17c8c2daa6584441840cb8a4b7d25f02a0e079cb895ad002d01aa79` 일치 |
-| Workload | Server·Worker 각 1/1 Ready, restart 0회. 기존 Pod 종료 확인. Retention CronJob template도 새 digest로 갱신 |
-| Route/Health | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200, 모두 ok |
-| Web/API | `/api/v1/system` version `0.8.0-alpha.13`. `/login`·`/guide` HTTP 200. 비로그인 repository API 401, 관리자 API는 기존 정보 은닉 정책대로 404 |
-| 데이터 보존 | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 43건, report 35건 유지. 기존 analysis 43건의 level은 NULL 유지 |
-| 설정·Storage | 기존 두 PVC/PV ID, auth/registry/PostgreSQL Secret UID·resourceVersion, Corporate CA와 HTTPRoute UID·resourceVersion 유지 |
-| Log | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인 |
+| 검증 항목        | 결과                                                                                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 선행 source 검증 | 46 files, 256 tests 통과. 전용 local PostgreSQL integration 포함. Typecheck·lint·Web build·합성 desktop/mobile 검증 완료                       |
+| Container        | `node:22-alpine` 전체 production build 성공. Linux/amd64, UID 1000, read-only/network-none smoke에서 Skill 9개·migration 17개·5개 level 확인   |
+| Supply chain     | Registry의 SPDX SBOM·SLSA provenance predicate 확인. Build CA는 BuildKit secret으로 전달하며 runtime image에 없음                              |
+| Helm             | Lint·server-side dry-run·upgrade 성공. 13:04 KST Helm connection test Succeeded                                                                |
+| Migration        | `0017_analysis_severity.sql` 적용. DB checksum `ff540ff7f17c8c2daa6584441840cb8a4b7d25f02a0e079cb895ad002d01aa79` 일치                         |
+| Workload         | Server·Worker 각 1/1 Ready, restart 0회. 기존 Pod 종료 확인. Retention CronJob template도 새 digest로 갱신                                     |
+| Route/Health     | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200, 모두 ok                            |
+| Web/API          | `/api/v1/system` version `0.8.0-alpha.13`. `/login`·`/guide` HTTP 200. 비로그인 repository API 401, 관리자 API는 기존 정보 은닉 정책대로 404   |
+| 데이터 보존      | users 3명, Chat account 1개, GHES credential 1개, 활성 repository 2개, analysis 43건, report 35건 유지. 기존 analysis 43건의 level은 NULL 유지 |
+| 설정·Storage     | 기존 두 PVC/PV ID, auth/registry/PostgreSQL Secret UID·resourceVersion, Corporate CA와 HTTPRoute UID·resourceVersion 유지                      |
+| Log              | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인                                                     |
 
 Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. 기존 `nfs-csi` artifact RWX, PostgreSQL RWO PVC는 모두 10Gi·Bound다.
 
@@ -627,19 +686,19 @@ Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb
 
 프로필의 개인 Prompt 편집·저장과 본인 Review Chat 적용, assistant Markdown 렌더링과 여러 파일/line range 링크, PR 게시의 AI Comments 기본 접기, Grade 한글 문구·색상 개선을 포함한다. 기존 shared PR 분석 지침·account·report·게시된 댓글을 일괄 수정하지 않는다. PR 댓글 형식은 다음 정상 게시·갱신부터 적용된다.
 
-| 검증 항목 | 결과 |
-| --- | --- |
-| 선행 source 검증 | 312 tests / 52 files 통과, skip 없음. 로컬 PostgreSQL 16 integration, lint·전체 typecheck·Web build와 합성 desktop/mobile Profile 검증 완료 |
-| Container | `node:22-alpine` 전체 production build. Linux/amd64, UID 1000, read-only/network-none smoke에서 Skill 9개·migration 18개·Prompt 최대 4,000자·Grade `양호` 확인 |
-| Supply chain | Registry의 SPDX SBOM·SLSA provenance 확인. Build CA는 BuildKit secret으로 전달하며 runtime image에 없음 |
-| Helm | Lint·server-side dry-run·upgrade 성공. 15:13 KST connection test Succeeded |
-| Migration | `0018_personal_chat_prompt.sql` 적용. DB checksum `91859fe9ff95be583810be97360a15111677939b8579a93dc1022e3188a39bc5` 일치. `users.personal_prompt`는 text·NOT NULL·빈 문자열 기본값·4,000자 CHECK |
-| Workload | Server·Worker 각 1/1 Ready, restart 0회. 기존 Pod 종료. Retention CronJob도 동일 image digest로 갱신 |
-| Route/Health | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200, 모두 ok |
-| Web/API | `/api/v1/system` version `0.8.0-alpha.14`. `/login`·`/guide`·`/profile` HTTP 200. 비로그인 profile/repository GET 401. Prompt PUT은 Origin 누락 시 403, 올바른 Origin의 비로그인 요청은 401 |
-| 운영 데이터 | users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개, analysis 46건, report 38건 유지. 기존 사용자 7명의 개인 Prompt는 빈 값 |
-| 설정·Storage | Image 외 Helm values hash, 두 PVC/PV ID·10Gi·Bound·access mode, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute UID/resourceVersion 유지 |
-| Log | 검증 중 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인 |
+| 검증 항목        | 결과                                                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 선행 source 검증 | 312 tests / 52 files 통과, skip 없음. 로컬 PostgreSQL 16 integration, lint·전체 typecheck·Web build와 합성 desktop/mobile Profile 검증 완료                                                       |
+| Container        | `node:22-alpine` 전체 production build. Linux/amd64, UID 1000, read-only/network-none smoke에서 Skill 9개·migration 18개·Prompt 최대 4,000자·Grade `양호` 확인                                    |
+| Supply chain     | Registry의 SPDX SBOM·SLSA provenance 확인. Build CA는 BuildKit secret으로 전달하며 runtime image에 없음                                                                                           |
+| Helm             | Lint·server-side dry-run·upgrade 성공. 15:13 KST connection test Succeeded                                                                                                                        |
+| Migration        | `0018_personal_chat_prompt.sql` 적용. DB checksum `91859fe9ff95be583810be97360a15111677939b8579a93dc1022e3188a39bc5` 일치. `users.personal_prompt`는 text·NOT NULL·빈 문자열 기본값·4,000자 CHECK |
+| Workload         | Server·Worker 각 1/1 Ready, restart 0회. 기존 Pod 종료. Retention CronJob도 동일 image digest로 갱신                                                                                              |
+| Route/Health     | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies HTTP 200, 모두 ok                                                                               |
+| Web/API          | `/api/v1/system` version `0.8.0-alpha.14`. `/login`·`/guide`·`/profile` HTTP 200. 비로그인 profile/repository GET 401. Prompt PUT은 Origin 누락 시 403, 올바른 Origin의 비로그인 요청은 401       |
+| 운영 데이터      | users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개, analysis 46건, report 38건 유지. 기존 사용자 7명의 개인 Prompt는 빈 값                                                     |
+| 설정·Storage     | Image 외 Helm values hash, 두 PVC/PV ID·10Gi·Bound·access mode, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute UID/resourceVersion 유지                                                 |
+| Log              | 검증 중 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인                                                                                                |
 
 Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. Artifact PVC의 resourceVersion은 변경됐지만 UID·연결 PV·용량·RWX 정책은 유지됐다. PostgreSQL RWO PVC와 데이터도 유지됐다.
 
@@ -663,19 +722,19 @@ Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb
 
 시스템관리자는 `설정 → 사용자` 행의 휴지통 버튼을 누르고 Local username 또는 외부 Subject를 입력해 삭제한다. 삭제 시 session·개별 권한·개인 Prompt·Local password hash를 정리하고 tombstone으로 재로그인·identity 재사용을 막는다. 개인 Chat은 기존 retention에 따라 보관하며 공동 PR report·설정·audit은 보존한다. 현재 로그인한 본인과 마지막 활성 관리자 제거를 차단한다. 외부 IdP 원본 계정은 삭제하지 않는다.
 
-| 검증 항목 | 결과 |
-| --- | --- |
-| 선행 source 검증 | 323 tests / 54 files 통과, skip 0. 로컬 PostgreSQL 16 integration·전체 typecheck·lint·Web build·합성 Browser 검증 완료 |
-| Container | `node:22-alpine` 전체 production build. Linux/amd64, UID 1000, read-only/network-none smoke에서 migration 19개·Skill 9개·새 Web asset 확인 |
-| Supply chain | Registry의 SPDX SBOM·SLSA provenance 확인. Build CA는 BuildKit secret으로만 전달하며 runtime image에 없음 |
-| Helm | Lint·server-side dry-run·upgrade 통과. 16:01:47 KST connection test Succeeded |
-| Migration | `0019_user_deletion.sql` 적용, checksum `27dc261bde47817158cd6b8ed97fee071578870b47486725ee22901b7d9d4061` 일치. Nullable timestamptz `deleted_at`과 삭제 시 비활성·빈 Prompt CHECK 확인 |
-| Workload | 새 Server·Worker 각 1/1 Ready, restart 0회. Retention CronJob도 새 digest로 갱신. 기존 Server는 종료됐으며 기존 Worker는 진행 중인 분석을 마무리하는 동안 종료 대기 |
-| Route/Health | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies 모두 HTTP 200·ok |
-| Web/API | `/api/v1/system` version `0.8.0-alpha.15`. `/login`·`/guide`·`/admin?tab=users` HTTP 200. 비로그인 사용자 목록과 존재하지 않는 UUID에 대한 DELETE는 정보 은닉 정책대로 404, profile GET은 401 |
-| 운영 데이터 | users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개 유지. 삭제된 사용자는 0명. 기존 polling 중 analysis 48→49건, report 39→40건으로 증가 |
-| 설정·Storage | Image 외 Helm values hash, 두 PVC/PV ID·10Gi·Bound·access mode, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute UID/resourceVersion 유지 |
-| Log | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인 |
+| 검증 항목        | 결과                                                                                                                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 선행 source 검증 | 323 tests / 54 files 통과, skip 0. 로컬 PostgreSQL 16 integration·전체 typecheck·lint·Web build·합성 Browser 검증 완료                                                                        |
+| Container        | `node:22-alpine` 전체 production build. Linux/amd64, UID 1000, read-only/network-none smoke에서 migration 19개·Skill 9개·새 Web asset 확인                                                    |
+| Supply chain     | Registry의 SPDX SBOM·SLSA provenance 확인. Build CA는 BuildKit secret으로만 전달하며 runtime image에 없음                                                                                     |
+| Helm             | Lint·server-side dry-run·upgrade 통과. 16:01:47 KST connection test Succeeded                                                                                                                 |
+| Migration        | `0019_user_deletion.sql` 적용, checksum `27dc261bde47817158cd6b8ed97fee071578870b47486725ee22901b7d9d4061` 일치. Nullable timestamptz `deleted_at`과 삭제 시 비활성·빈 Prompt CHECK 확인      |
+| Workload         | 새 Server·Worker 각 1/1 Ready, restart 0회. Retention CronJob도 새 digest로 갱신. 기존 Server는 종료됐으며 기존 Worker는 진행 중인 분석을 마무리하는 동안 종료 대기                           |
+| Route/Health     | HTTPRoute Accepted/ResolvedRefs=True. Host `pr-review.prism.ai`로 live·ready·startup·dependencies 모두 HTTP 200·ok                                                                            |
+| Web/API          | `/api/v1/system` version `0.8.0-alpha.15`. `/login`·`/guide`·`/admin?tab=users` HTTP 200. 비로그인 사용자 목록과 존재하지 않는 UUID에 대한 DELETE는 정보 은닉 정책대로 404, profile GET은 401 |
+| 운영 데이터      | users 7명, Chat account 4개, GHES credential 1개, 활성 repository 2개 유지. 삭제된 사용자는 0명. 기존 polling 중 analysis 48→49건, report 39→40건으로 증가                                    |
+| 설정·Storage     | Image 외 Helm values hash, 두 PVC/PV ID·10Gi·Bound·access mode, auth/registry/PostgreSQL Secret과 Corporate CA·HTTPRoute UID/resourceVersion 유지                                             |
+| Log              | 확인한 신규 Server/Worker log에서 warning/error 0건. Server scheduler leadership 획득 확인                                                                                                    |
 
 Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb90f2309b478847b9451db7f9fb48513a7b9e876e69ef`로 동일하다. Artifact PVC의 resourceVersion은 Helm 갱신으로 달라졌지만 UID·PV·10Gi·RWX는 유지됐다. PostgreSQL PVC도 기존 RWO·PV를 유지한다.
 
@@ -687,3 +746,5 @@ Image를 제외한 Helm values의 SHA-256은 배포 전후 `88e6a71dd9b5ec5f03cb
 배포 직전 분석 1건이 실행 중이었다. Worker의 기존 900초 종료 유예와 진행 중 작업 완료 대기를 유지했으며 강제 삭제하지 않았다. 운영 사용자를 삭제하거나 개인 Prompt·credential 내용을 읽지 않았다. 실제 모델·Chat·PR 게시를 검증용으로 별도 요청하지 않았고 기존 polling·queue 실행은 유지했다. 로그인 후 live Browser E2E는 수행하지 않았으며 [합성 Browser와 DB integration 검증](../../../.documents/verification-user-deletion-2026-09-08.md)과 배포 검증을 구분한다.
 
 16:08 KST 확인 시 기존 Worker `git-code-reviewer-worker-76779559d4-6ljqx`는 아직 Terminating 상태다. 해당 job은 15:58:51 시작했고 heartbeat는 16:07:51까지 갱신됐으며 outcome/error_code는 NULL이다. Pod 삭제 확인을 위한 45초 대기 두 번은 timeout됐지만 신규 deployment의 rollout·health는 통과했다. 새 Server·Worker는 1/1 Ready·restart 0회이며 기존 Worker만 분석을 마무리한 후 회수될 예정이다.
+
+지식 배포 설정은 [knowledge-publication-values.yaml](knowledge-publication-values.yaml)에 있다. 재설치 시 같은 server ID와 Secret의 Ed25519 key를 유지해야 한다. 공개키만 Git에 보관한다. 클라이언트는 서버 응답의 공개키를 자동 신뢰하지 않고 사전에 등록한 신뢰 키를 사용해야 한다.

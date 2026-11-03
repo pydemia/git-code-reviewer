@@ -1,0 +1,266 @@
+{
+  "status": "passed",
+  "platform": "win32",
+  "arch": "arm64",
+  "node": "v24.16.0",
+  "realProductReaderRoutes": true,
+  "realPrismData": false,
+  "modelCalls": 0,
+  "databaseRuntime": "Docker Linux ARM64 PostgreSQL; API/client run in Windows Node",
+  "image": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+  "phase": "revocation",
+  "requests": [
+    {
+      "method": "GET",
+      "route": "/api/v1/client-auth/me",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-knowledge/manifest",
+      "queryKeys": [
+        "clientContractVersion"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-knowledge/bundles/bfdc3c42-9c72-43d0-97ef-5ba3090c37db",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-knowledge/bundles/1b85e60f-ca02-4127-9a80-a9e148eac9d4",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-knowledge/bundles/e6bd0712-119e-4295-8d8c-1245ebdef581",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-history",
+      "queryKeys": [
+        "pullNumber"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-history",
+      "queryKeys": [
+        "pullNumber"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-history/pulls/917/messages/fe39b0d4-c5bb-49b1-91bb-c411102c8d6b",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-history/pulls/917/messages",
+      "queryKeys": [
+        "parentId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-history/pulls/917/messages/fe39b0d4-c5bb-49b1-91bb-c411102c8d6b/versions",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-history/pulls/917/messages/fe39b0d4-c5bb-49b1-91bb-c411102c8d6b/history",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-history/guidance/a8aacb06-3254-4d5a-8f5e-f9cc1ef0a6d5",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/8d439d42-df33-4240-bbe3-25427fadb30a/review-history",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/client-auth/me",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "method": "GET",
+      "route": "/api/v1/repositories/7c59a753-81d6-48aa-895e-29855b13c415/review-knowledge/manifest",
+      "queryKeys": [
+        "clientContractVersion"
+      ],
+      "bodyBytes": 0
+    }
+  ],
+  "readerResults": [
+    {
+      "request": {
+        "kind": "pulls",
+        "pullNumber": 917
+      },
+      "revision": "742acbf589b20aae834d6d50895021256357e206a053943ca7f5adf252683e70",
+      "count": 1,
+      "offlineExact": true
+    },
+    {
+      "request": {
+        "kind": "pulls",
+        "pullNumber": 915
+      },
+      "revision": "742acbf589b20aae834d6d50895021256357e206a053943ca7f5adf252683e70",
+      "count": 1,
+      "offlineExact": true
+    },
+    {
+      "request": {
+        "kind": "message",
+        "pullNumber": 917,
+        "sourceId": "fe39b0d4-c5bb-49b1-91bb-c411102c8d6b"
+      },
+      "revision": "742acbf589b20aae834d6d50895021256357e206a053943ca7f5adf252683e70",
+      "offlineExact": true
+    },
+    {
+      "request": {
+        "kind": "messages",
+        "pullNumber": 917,
+        "parentId": "fe39b0d4-c5bb-49b1-91bb-c411102c8d6b"
+      },
+      "revision": "742acbf589b20aae834d6d50895021256357e206a053943ca7f5adf252683e70",
+      "count": 1,
+      "offlineExact": true
+    },
+    {
+      "request": {
+        "kind": "versions",
+        "pullNumber": 917,
+        "sourceId": "fe39b0d4-c5bb-49b1-91bb-c411102c8d6b"
+      },
+      "revision": "742acbf589b20aae834d6d50895021256357e206a053943ca7f5adf252683e70",
+      "count": 1,
+      "offlineExact": true
+    },
+    {
+      "request": {
+        "kind": "observations",
+        "pullNumber": 917,
+        "sourceId": "fe39b0d4-c5bb-49b1-91bb-c411102c8d6b"
+      },
+      "revision": "742acbf589b20aae834d6d50895021256357e206a053943ca7f5adf252683e70",
+      "count": 1,
+      "offlineExact": true
+    },
+    {
+      "request": {
+        "kind": "guidance-detail",
+        "guidanceId": "a8aacb06-3254-4d5a-8f5e-f9cc1ef0a6d5"
+      },
+      "revision": 1,
+      "offlineExact": true
+    }
+  ],
+  "sourceSha": "90594b4fb5cda5d37c0fa038244253e725518c49",
+  "harnessSha256": "1033bb9597f0ff23153553abf5aa0c87f8c36e07a112a840e973e029b81d64b8",
+  "dockerEndpoint": "npipe:////./pipe/dockerDesktopLinuxEngine",
+  "manifest": {
+    "payload": {
+      "schemaVersion": 1,
+      "audience": {
+        "serverId": "2f6ad044-ded3-4e0c-aca6-987c8d106b93",
+        "tenantId": "5885477f-4de5-487d-ab04-927458619976",
+        "repositoryId": "7c59a753-81d6-48aa-895e-29855b13c415",
+        "userId": "b97aa504-53a4-4644-815d-28c7ef6cf926"
+      },
+      "snapshotId": "d5e6e563-4806-439a-8bc2-0ed5778aaa8b",
+      "authorizationRevision": 4,
+      "components": {
+        "policy": {
+          "bundleId": "bfdc3c42-9c72-43d0-97ef-5ba3090c37db",
+          "releaseSequence": 1,
+          "contentHash": "5763d19cec4a0581cadeb5040ab87a52cc7e12de826c80fcb5d642970d1a1aa2",
+          "sizeBytes": 48536
+        },
+        "collective": {
+          "bundleId": "1b85e60f-ca02-4127-9a80-a9e148eac9d4",
+          "releaseSequence": 1,
+          "contentHash": "b9f394a83e3364c78905b6fcb52263bf0d685f3155dc2e4994d850f628e4d1da",
+          "sizeBytes": 2479
+        },
+        "personal": {
+          "bundleId": "e6bd0712-119e-4295-8d8c-1245ebdef581",
+          "releaseSequence": 1,
+          "contentHash": "1118adf62c24a4c3b03c4343b4dec44d99960da1b146046d1a7137803061a092",
+          "sizeBytes": 213
+        }
+      },
+      "revocations": {
+        "policyMinimumSequence": 1,
+        "collectiveMinimumSequence": 1,
+        "personalMinimumSequence": 1
+      },
+      "compatibleClientContracts": {
+        "minimum": 2,
+        "maximum": 3
+      },
+      "issuedAt": "2026-09-16T03:08:25.734Z",
+      "refreshAfter": "2026-09-16T03:13:25.734Z",
+      "offlineValidUntil": "2026-09-16T04:08:25.734Z",
+      "signingKeyId": "w02-local"
+    },
+    "manifestHash": "48df0819351135d289f1c906868f64770907df1619ec4ebbd608403fe612afec",
+    "signature": "vYC1ngDWQ8CgI6qW19RKp56Rc1uCG8mo-hSu8yxOA8T9VPxB35s4Og17hlr9gGGUCcyobxNX1L5QqzvNfSnKCg"
+  },
+  "localGuidance": {
+    "id": "a8aacb06-3254-4d5a-8f5e-f9cc1ef0a6d5",
+    "revision": 1,
+    "state": "active",
+    "sourceId": "fe39b0d4-c5bb-49b1-91bb-c411102c8d6b",
+    "localSourceHash": "282120718fe373fa3e0109a865c75aee00796f497c91c57965da1794a1d9c907",
+    "historicalSourceId": "4f94ce45-2f0e-42e5-98b4-6ed2c2fde3e1",
+    "historicalSourceHash": "cbd37830adf4e6ab6af75cca68c8695103c465bdce3b7e92c0faea22686f0696",
+    "guidanceContentEqual": true
+  },
+  "deniedRepository": {
+    "status": 403,
+    "code": "CLIENT_SCOPE_DENIED"
+  },
+  "expiredCredential": {
+    "status": 401,
+    "code": "CLIENT_AUTHENTICATION_REQUIRED",
+    "cause": "Dedicated test key expiry shortened in owned DB; no renewal"
+  },
+  "revokedTestReaderDenied": true,
+  "readOnlyHttp": true,
+  "cleanup": {
+    "containerRemoved": true,
+    "volumeRemoved": true,
+    "readerCredentialRemoved": true,
+    "profileKeysRemoved": true,
+    "temporaryFilesRemoved": true
+  }
+}

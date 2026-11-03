@@ -1,0 +1,11 @@
+# Add only when configuration-plan.json specifies SMTP authentication. The
+# password file must be prepared separately; it is never generated or logged.
+services:
+  identity-configure:
+    environment:
+      GCR_IDENTITY_CONFIG_SMTP_PASSWORD_FILE: /run/secrets/configuration-smtp-password
+    secrets: [configuration-smtp-password]
+
+secrets:
+  configuration-smtp-password:
+    { file: '${GCR_IDENTITY_DIRECTORY:?set the prepared identity directory}/smtp-password' }

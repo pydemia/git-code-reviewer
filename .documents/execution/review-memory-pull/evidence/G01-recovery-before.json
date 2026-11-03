@@ -1,0 +1,74 @@
+{
+  "at": "2026-09-15T07:41:58.876Z",
+  "job": [
+    {
+      "id": "f90dfba0-298d-430a-89ea-4e6e6aebaaea",
+      "type": "analysis.run",
+      "state": "running",
+      "attempt_count": 1,
+      "recovery_count": 0,
+      "heartbeat_at": "2026-09-15T02:34:49.585Z",
+      "lease_expires_at": "2026-09-15T02:35:19.585Z",
+      "last_error": null
+    }
+  ],
+  "analysis": [
+    {
+      "id": "3fc73277-6934-4cf8-8275-241ee842b6a4",
+      "state": "analyzing",
+      "stage": "unit-comment-block",
+      "progress": 25,
+      "finished_at": null,
+      "limitations": []
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "executor": "git-code-reviewer-worker-7c7fc4bf59-9h2gb:7",
+      "started_at": "2026-09-15T02:33:19.578Z",
+      "ended_at": null,
+      "outcome": null,
+      "error_code": null
+    }
+  ],
+  "checkpoints": [],
+  "ledger": [
+    {
+      "id": "833144f9-05f5-4bf0-ba5d-a5a544bc346f",
+      "state": "sent",
+      "created_at": "2026-09-15T02:34:49.542Z",
+      "finished_at": null
+    }
+  ],
+  "reports": [],
+  "events": [],
+  "publication": [],
+  "originalQueue": [
+    {
+      "id": "3a3ece8f-2090-4575-a921-2b62ec09f535",
+      "state": "queued",
+      "attempt_count": 0,
+      "recovery_count": 0
+    },
+    {
+      "id": "c2ad403a-6009-4578-9c9b-04a0a748e329",
+      "state": "queued",
+      "attempt_count": 0,
+      "recovery_count": 0
+    },
+    {
+      "id": "e1b0713e-5a73-4b07-8a2a-b3054d9534d4",
+      "state": "queued",
+      "attempt_count": 0,
+      "recovery_count": 0
+    }
+  ],
+  "expiredJobs": [
+    {
+      "id": "f90dfba0-298d-430a-89ea-4e6e6aebaaea",
+      "type": "analysis.run",
+      "state": "running"
+    }
+  ]
+}

@@ -34,6 +34,7 @@ export function gitEnvironment(home: string): NodeJS.ProcessEnv {
   };
 }
 export type WorkspaceManifest = {
+  format?: 2;
   base: string;
   mergeBase: string;
   head: string;
@@ -70,7 +71,11 @@ export async function workspaceSize(directory: string, limit: number): Promise<n
   return total;
 }
 export async function prepareSourceWorkspace(
-  input: GitSnapshotInput & { mergeBaseSha: string; maxBytes: number },
+  input: Omit<GitSnapshotInput, 'credential'> & {
+    credential: GitSnapshotInput['credential'] | (() => Promise<GitSnapshotInput['credential']>);
+    mergeBaseSha: string;
+    maxBytes: number;
+  },
 ): Promise<WorkspaceManifest> {
   for (const sha of [input.baseSha, input.headSha, input.mergeBaseSha])
     if (!/^[a-f0-9]{40}$/.test(sha)) throw Error('invalid_revision');
@@ -104,6 +109,8 @@ export async function prepareSourceWorkspace(
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
+  const credential =
+    typeof input.credential === 'function' ? await input.credential() : input.credential;
   const askpass = path.join(input.workspace, 'askpass.sh');
   await writeFile(
     askpass,
@@ -114,8 +121,8 @@ export async function prepareSourceWorkspace(
     ...gitEnvironment(input.workspace),
     ...(await gitTrustEnvironment(input.workspace)),
     GIT_ASKPASS: askpass,
-    GCR_GIT_USERNAME: input.credential.username,
-    GCR_GIT_PASSWORD: input.credential.password,
+    GCR_GIT_USERNAME: credential.username,
+    GCR_GIT_PASSWORD: credential.password,
   };
   const run = async (arguments_: string[], maxBuffer = 8 * 1024 * 1024) =>
     (
@@ -161,40 +168,33 @@ export async function prepareSourceWorkspace(
     }
     let bytes = await workspaceSize(input.workspace, input.maxBytes);
     let files = 0;
-    for (const [revision, sha] of Object.entries({
+    for (const sha of Object.values({
       head: input.headSha,
       base: input.baseSha,
       mergeBase: input.mergeBaseSha,
     })) {
       if ((await run(['rev-parse', `${sha}^{commit}`])).trim() !== sha)
         throw Error('revision_unavailable');
-      const view = path.join(input.workspace, 'views', revision);
-      await run(['worktree', 'add', '--quiet', '--detach', '--no-checkout', view, sha]);
       const entries = (await run(['ls-tree', '-r', '-z', '--long', sha]))
         .split('\0')
         .filter(Boolean);
       if (entries.length > 50000) throw Error('workspace_file_limit');
       for (const entry of entries) {
-        const [header, filePath] = entry.split('\t');
-        const [mode, type, blob, size] = header!.trim().split(/\s+/);
+        const separator = entry.indexOf('\t');
+        if (separator < 0) throw Error('invalid_source_tree');
+        const filePath = entry.slice(separator + 1);
+        const [mode, type, , size] = entry.slice(0, separator).trim().split(/\s+/);
         if (type !== 'blob' || !['100644', '100755'].includes(mode!)) continue;
-        safeSourcePath(filePath!);
+        safeSourcePath(filePath);
         const length = Number(size);
         if (length > 1024 * 1024) continue;
         bytes += length;
         if (bytes > input.maxBytes) throw Error('workspace_size_limit');
-        const content = await execute(
-          'git',
-          [...safeGitOptions, '--git-dir', gitDirectory, 'cat-file', 'blob', blob!],
-          { env: environment, encoding: 'buffer', maxBuffer: 1024 * 1024, timeout: 30000 },
-        );
-        const target = path.join(view, filePath!);
-        await mkdir(path.dirname(target), { recursive: true });
-        await writeFile(target, content.stdout, { mode: 0o444 });
         files += 1;
       }
     }
     const manifest = {
+      format: 2 as const,
       head: input.headSha,
       base: input.baseSha,
       mergeBase: input.mergeBaseSha,

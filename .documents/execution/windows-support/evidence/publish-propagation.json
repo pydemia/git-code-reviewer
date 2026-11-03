@@ -1,0 +1,87 @@
+{
+  "recordedAt": "2026-09-16T11:32:04.790Z",
+  "status": "public-gallery-validation-passed",
+  "observations": [
+    {
+      "at": "2026-09-16T11:30:37.363Z",
+      "publicQuery": "2.12.5 absent",
+      "installation": "Marketplace CLI returned version not found; exit 1",
+      "success": false
+    },
+    {
+      "at": "2026-09-16T11:31:28.008Z",
+      "authenticatedGallery": {
+        "version": "2.12.5",
+        "target": "win32-arm64",
+        "flags": 0,
+        "validationResultMessage": null,
+        "sha256": "42e3f49567afca1c74d36892fc6e36b3c0de347be4d4cf411fa19e9b40f9008c"
+      },
+      "meaning": "upload persisted; gallery validation not yet confirmed"
+    },
+    {
+      "at": "2026-09-16T11:32:33.068Z",
+      "publicVersions": []
+    },
+    {
+      "at": "2026-09-16T11:34:26.409Z",
+      "publicVersions": []
+    },
+    {
+      "at": "2026-09-16T11:35:14.234Z",
+      "authenticatedVersions": [
+        {
+          "version": "2.12.5",
+          "targetPlatform": "win32-arm64",
+          "flags": 0,
+          "validationResultMessage": null
+        }
+      ]
+    },
+    {
+      "at": "2026-09-16T11:37:05.599Z",
+      "publicVersions": []
+    },
+    {
+      "at": "2026-09-16T11:38:58.347Z",
+      "publicVersions": [
+        {
+          "version": "2.12.5",
+          "targetPlatform": "win32-arm64",
+          "flags": 1,
+          "validationResultMessage": null,
+          "properties": [
+            {
+              "key": "Microsoft.VisualStudio.Code.Engine",
+              "value": "^1.90.0"
+            },
+            {
+              "key": "Microsoft.VisualStudio.Services.VsixSha256",
+              "value": "42e3f49567afca1c74d36892fc6e36b3c0de347be4d4cf411fa19e9b40f9008c"
+            }
+          ]
+        }
+      ],
+      "authenticatedVersions": [
+        {
+          "version": "2.12.5",
+          "targetPlatform": "win32-arm64",
+          "flags": 1,
+          "validationResultMessage": null,
+          "properties": [
+            {
+              "key": "Microsoft.VisualStudio.Code.Engine",
+              "value": "^1.90.0"
+            },
+            {
+              "key": "Microsoft.VisualStudio.Services.VsixSha256",
+              "value": "42e3f49567afca1c74d36892fc6e36b3c0de347be4d4cf411fa19e9b40f9008c"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "publishRequests": 1,
+  "reuploads": 0
+}

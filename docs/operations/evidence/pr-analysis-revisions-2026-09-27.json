@@ -1,0 +1,133 @@
+{
+  "sourceSHA": "3e4e35be68259486838a967ccdf95b2b85a84b01",
+  "releaseCommit": "b5f456a",
+  "appVersion": "0.8.0-alpha.84",
+  "chartVersion": "0.10.80",
+  "imageDigest": "sha256:39a27baa0cd99cd69491f1f3f2a982937513d3bd80d0597535ba7d8eb88300ec",
+  "platform": "linux/amd64",
+  "chartRegistryDigest": "sha256:3486b4b43f477cc8ea70622e535957a633f70538332458d32bb8d1313704aaf8",
+  "chartFileSHA256": "132e0693673456ab7568ac61b410773fa19f57841f77915e5ba9073df52f0eda",
+  "migrationSHA256": "8fba555e7e9e25e26dab1d590eec8e036fb9895a78a30582c3510190655b106f",
+  "verification": {
+    "historyAndLifecycleTests": 25,
+    "workerRecoveryPublicationTests": 20,
+    "build": "passed",
+    "typecheck": "passed",
+    "changedFileLint": "passed",
+    "wholeRepoLint": "failed-existing-5-errors",
+    "frozenImageSmoke": {
+      "status": "passed",
+      "node": "v22.23.2",
+      "user": 1000,
+      "versions": {
+        "static": "10.1.3",
+        "vitest": "4.1.11"
+      },
+      "packageFolders": [
+        "@fastify+static@10.1.3",
+        "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+        "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+      ],
+      "assets": {
+        "index-BCVKZWrI.js": "f7daf22c1512640fe4c67728b16fd2f084c75188e999baa77623756658ecf204",
+        "index-CZ_QPx3R.css": "6cfede7b188ccf1ea95c81a448a8a671b96cb35ff9eb7e42053bd2d881d12687"
+      },
+      "artifactChecks": [
+        "no-obsolete-runtime-packages",
+        "no-obsolete-browser-bundles",
+        "public-asset-content-and-cache",
+        "traversal-denied",
+        "no-build-secret"
+      ],
+      "network": "none",
+      "rootFilesystem": "read-only"
+    },
+    "chartDownloadIdentical": true,
+    "helmDryRunOnlyImageValuesChanged": true
+  },
+  "manualProductionAnalysisRequests": 0,
+  "additionalLiveModelTests": 0,
+  "manualGitHubCommentRequests": 0,
+  "githubOpenComparison": {
+    "backend": [1084, 1059],
+    "helm": [242, 245, 217],
+    "stateMismatches": [],
+    "observedAt": "2026-09-27T12:04:00Z"
+  },
+  "recordedAt": "2026-09-27T12:42:24.171064+00:00",
+  "namespace": "git-code-reviewer",
+  "kubeContext": "PRISM-DEV",
+  "helmRevision": 93,
+  "helmStatus": "deployed",
+  "helmTest": "succeeded",
+  "databasePreservation": {
+    "analyses": {
+      "baselineCount": 312,
+      "afterCount": 312,
+      "changedOrMissingBaselineRows": 0
+    },
+    "artifacts": {
+      "baselineCount": 13092,
+      "afterCount": 13121,
+      "changedOrMissingBaselineRows": 0
+    },
+    "settingsPreserved": true
+  },
+  "resourcePreservation": {
+    "protectedResources": 21,
+    "uidAndDataSpecUnchanged": true,
+    "existingHelmValuesPreserved": true,
+    "onlyChangedValues": ["image.tag", "image.digest"],
+    "largePRModelCallCap": 512,
+    "workerConcurrency": 2
+  },
+  "rollout": {
+    "git-code-reviewer-server": {
+      "desired": 1,
+      "ready": 1,
+      "updated": 1,
+      "generation": 93,
+      "observedGeneration": 93,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:39a27baa0cd99cd69491f1f3f2a982937513d3bd80d0597535ba7d8eb88300ec"
+      ]
+    },
+    "git-code-reviewer-worker": {
+      "desired": 1,
+      "ready": 1,
+      "updated": 1,
+      "generation": 90,
+      "observedGeneration": 90,
+      "images": [
+        "docker.io/pydemia/git-code-reviewer@sha256:39a27baa0cd99cd69491f1f3f2a982937513d3bd80d0597535ba7d8eb88300ec",
+        "docker.io/pydemia/git-code-reviewer@sha256:39a27baa0cd99cd69491f1f3f2a982937513d3bd80d0597535ba7d8eb88300ec"
+      ]
+    },
+    "git-code-reviewer-identity": {
+      "desired": 2,
+      "ready": 2,
+      "updated": 2,
+      "generation": 2,
+      "observedGeneration": 2,
+      "images": [
+        "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+      ]
+    }
+  },
+  "browserVerification": {
+    "surface": "existing authenticated browser, agent-created tab",
+    "defaultOpenCount": 6,
+    "closedCount": 1271,
+    "latestPull1084Revision": 4,
+    "collectiveRevisions": [4, 3, 2, 1],
+    "personalRevisions": [1],
+    "historicalSelectionURL": "/reviews/e6bf9d55-377a-463d-8f9e-6a0eee501615",
+    "latestLinkURL": "/reviews/76d05789-7a15-4de2-8c7d-15126182c70f",
+    "latestSelectedLabel": "Revision 4 · 2ec99968 · 일부 검토",
+    "actualHistoricalSelectionAndReturn": "passed",
+    "desktopOverflow": "none at observed width 2501",
+    "screenshot": "not-captured-browser-tool-timeout",
+    "mobileAndPhysicalKeyboard": "not-verified"
+  },
+  "applicationCounterReadWritePrivilege": true
+}

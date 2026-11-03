@@ -1,0 +1,74 @@
+{
+  "recordedAt": "2026-09-14T13:48:06.899543+00:00",
+  "phase": "P10-C02",
+  "complete": false,
+  "scope": "Approved uploaded source view connected to common review context/policy/runner and registered-model adapter; context restore and automatic worker loop pending",
+  "files": {
+    "packages/client-contract/src/remote-review.ts": "507f114ea7d526e9037783aeb3cdb666556417c99acc1de548343de56a22db00",
+    "packages/client-core/src/review-source.ts": "7295af97d1e6ca25dcba7c0ea84c56e0fbfa7250ebd218be2f0d92f4efbb2d20",
+    "packages/client-core/src/remote-review-source.ts": "71ef1f0452d8dad088757ffb6081249c16b60b256b0bae0fcee0f0ac26e84d72",
+    "packages/client-core/src/remote-review-source.test.ts": "1ca37ef292eae7770f58f82cd7f9781432961f7ac00e468fca04c3c801fce085",
+    "packages/client-core/src/source-snapshot.ts": "78466ab09fbcf35458e4c1c0457685b4dd8257f331e040f7bab0706af3133ec1",
+    "packages/client-core/src/remote-review.ts": "0bafe0e8ed5f5e2093007ed6e37756cf7da755e77b2960af57e6278d0a3d3a23",
+    "packages/client-core/src/review-context.ts": "f6a911394da5b7c423228663236144cedda3d8a83045ab567a35e33692cb358b",
+    "packages/client-core/src/review-policy.ts": "957b41f215f1492fd23906c10b02888a78245c7d64315236d801022d5d2083dd",
+    "packages/client-core/src/review-source-port.ts": "cc36eda49d0c4907a691bc8ded4896636f7e303689d3c0f84c2d8f9b994fb589",
+    "packages/client-core/src/review-runner.ts": "847d75f710175285c44eda8c52dade108c486d87d02f200f432014a576289a60",
+    "packages/client-core/src/index.ts": "505dd363f31e16411d4d2f5a4f558d2fbdb42b1c15936ce33ec4f143e8cd75c1",
+    "apps/runtime/src/services/remote-review-jobs.ts": "800d69a6d1bebde652bfd8d454f210c85c43dc1896697bd4248b729589bebd8a",
+    "apps/runtime/src/services/central-review-executor.test.ts": "c71191602c617325b85af300c5b574fc4326e9463f469c8bd6caa92ca61b5885",
+    "apps/runtime/src/routes/remote-reviews.integration.test.ts": "3c5311fb5c1faeed7d2925d66d9ce038a612c600546f4ca50197103c6230c136"
+  },
+  "tests": {
+    "uniquePassed": 176,
+    "failed": 0,
+    "coreSourceContextRunnerCentralAndBridge": 146,
+    "registeredExecutor": 8,
+    "jobApiAndDatabase": 22,
+    "newSourceViewIncludedInCore": 13,
+    "finalDatabaseExecutorSourceRun": 43,
+    "actualAccountModelCalls": 0
+  },
+  "checks": {
+    "clientPackagesBuild": "passed",
+    "runtimeBuild": "passed",
+    "changedTestsTypecheck": "passed",
+    "changedFilesLint": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "database": {
+    "startedAt": "2026-09-14T13:45:58.957Z",
+    "backend": "native-postgresql",
+    "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+    "cleanup": true,
+    "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+    "commandExitCode": 0,
+    "finishedAt": "2026-09-14T13:46:41.389Z"
+  },
+  "logs": {
+    "gcr-p10-upload-source-tests.log": "82b37f507f8b36c2be73c88c4597c6e4c7007d5d971b4dc199c21f0eccd48783",
+    "gcr-p10-upload-view-final.log": "cf6f598a9df0da3e6c9573e9cdeceb2edef138901343377e4ac30347a406b2eb",
+    "gcr-p10-upload-view-final-postgres.json": "61725285b00c2c9b60d9dad739fd9b5358212a82a23b4c8fc762406167caa741"
+  },
+  "verified": [
+    "Actual Git additions/modifications/deletions/renames survive removal of original checkout and produce a core report",
+    "Missing uploaded base blocks execution; missing acknowledged base prevents complete coverage",
+    "Untransmitted related files are unavailable, not presumed absent",
+    "Capture failure disclosed without excluded filenames and prevents completed status",
+    "Exact change metadata bound to approval; malformed side/rename/selection/base rejected",
+    "Admission rejects new requests without change description but legacy encrypted receipt replay keeps one reservation",
+    "Authorized database payload restores exact file bytes and change metadata",
+    "Registered model adapter reads uploaded source after local capture/checkout removal using synthetic model turns"
+  ],
+  "deployment": {
+    "performed": false,
+    "clientRelease": false,
+    "reason": "Approved context restoration and actual automatic worker execution are incomplete"
+  },
+  "remaining": [
+    "Restore exactly approved local context and preserve centralized knowledge pin and authorization",
+    "Connect source/context to actual remote worker scheduling, heartbeats, registered account resolution, beforeSend fence, cancellation and final checkpoint",
+    "Actual authorized provider invocation and cancellation/recovery verification",
+    "CD/CLI remote executor and approval UI, package and VSIX releases, Helm rollout"
+  ]
+}

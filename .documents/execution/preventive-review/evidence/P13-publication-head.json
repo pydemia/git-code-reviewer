@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "phase": "P13-C03 publication head guard",
+  "recordedAt": "2026-09-14T21:43:37.046570+00:00",
+  "sourceCommit": "ece327afedef9b25b94184e62bfdf142c7dd582c",
+  "releasePinCommit": "0310c8e",
+  "branch": "feat/preventive-review-platform",
+  "scope": [
+    "Require current open GitHub PR and exact analyzed head before every comment write.",
+    "Revalidate DB publication target and enabled repository/instance, selected credential and remote identity after the remote read.",
+    "Repeat guards after stored comment 404 recovery; reject incomplete marker searches and invalid stored comment IDs.",
+    "Choose latest public current-head analysis; keep newer targets safe from old jobs."
+  ],
+  "tests": {
+    "suites": 5,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "database": {
+      "startedAt": "2026-09-14T21:34:46.484Z",
+      "backend": "native-postgresql",
+      "binaryDirectory": "/opt/homebrew/Cellar/postgresql@18/18.3/bin",
+      "cleanup": true,
+      "version": "postgres (PostgreSQL) 18.3 (Homebrew)",
+      "commandExitCode": 0,
+      "finishedAt": "2026-09-14T21:34:56.066Z"
+    },
+    "runtimeBuild": true,
+    "githubBuild": true,
+    "focusedEslint": true,
+    "helmLint": true,
+    "imageHttpGuard": {
+      "transport": "owned-loopback-http",
+      "checks": [
+        "fresh-head-then-patch",
+        "stale-no-write",
+        "closed-no-write",
+        "forbidden-no-write",
+        "404-recovery-rechecks-head",
+        "changed-local-target-no-write"
+      ],
+      "requests": [
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/pulls/7"
+        },
+        {
+          "method": "PATCH",
+          "url": "/repos/owned/fixture/issues/comments/7"
+        },
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/pulls/7"
+        },
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/pulls/7"
+        },
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/pulls/7"
+        },
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/pulls/7"
+        },
+        {
+          "method": "PATCH",
+          "url": "/repos/owned/fixture/issues/comments/7"
+        },
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/issues/7/comments?per_page=100&page=1"
+        },
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/pulls/7"
+        },
+        {
+          "method": "GET",
+          "url": "/repos/owned/fixture/pulls/7"
+        }
+      ],
+      "writes": 2,
+      "externalGitHubWrites": 0
+    }
+  },
+  "deployment": {
+    "status": "passed",
+    "at": "2026-09-14T21:41:31.488221+00:00",
+    "release": {
+      "revision": 69,
+      "updated": "2026-09-15T06:40:11.754611+09:00",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.55",
+      "app_version": "0.8.0-alpha.59",
+      "description": "Upgrade complete"
+    },
+    "image": {
+      "digest": "sha256:eabd1593c656ddad8add950491ce90306037f779979faea9c8bb31092ea15bd1",
+      "source": "ece327afedef9b25b94184e62bfdf142c7dd582c",
+      "version": "0.8.0-alpha.59",
+      "images": [
+        {
+          "architecture": "amd64",
+          "os": "linux",
+          "digest": "sha256:eabd1593c656ddad8add950491ce90306037f779979faea9c8bb31092ea15bd1"
+        }
+      ],
+      "buildMetadataMatches": true,
+      "labels": {
+        "org.opencontainers.image.description": "Browser-based pull request review service for GitHub Enterprise Server",
+        "org.opencontainers.image.revision": "ece327afedef9b25b94184e62bfdf142c7dd582c",
+        "org.opencontainers.image.source": "https://github.com/pydemia/git-code-reviewer",
+        "org.opencontainers.image.title": "Git Code Reviewer",
+        "org.opencontainers.image.version": "0.8.0-alpha.59"
+      },
+      "architecture": "amd64"
+    },
+    "tables": {
+      "users": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "chat_accounts": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "analysis_runs": {
+        "before": 176,
+        "after": 176,
+        "existingRowsPreserved": true
+      },
+      "reports": {
+        "before": 168,
+        "after": 168,
+        "existingRowsPreserved": true
+      },
+      "repository_grants": {
+        "before": 2,
+        "after": 2,
+        "existingRowsPreserved": true
+      },
+      "tenant_memberships": {
+        "before": 7,
+        "after": 7,
+        "existingRowsPreserved": true
+      },
+      "review_memories": {
+        "before": 4,
+        "after": 4,
+        "existingRowsPreserved": true
+      },
+      "localCredentials": {
+        "before": 6,
+        "after": 6,
+        "existingRowsPreserved": true
+      }
+    },
+    "migrationCount": 51,
+    "oldMigrationChecksumsPreserved": true,
+    "unrelatedSettingsPreserved": true,
+    "existingSecretsRoutesPVCsPreserved": true,
+    "onlyRuntimeImageChanged": true,
+    "endpoints": {
+      "/health/startup": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/live": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/health/ready": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/system": {
+        "status": 200,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-criteria": {
+        "status": 401,
+        "tlsVerified": true
+      },
+      "/api/v1/repositories/00000000-0000-4000-8000-000000000001/review-knowledge/status": {
+        "status": 401,
+        "tlsVerified": true
+      }
+    },
+    "assetsMatchVerifiedImage": true,
+    "runtime": {
+      "server": {
+        "pod": "git-code-reviewer-server-bbfc6d9db-5dfpg",
+        "imageDigest": "sha256:eabd1593c656ddad8add950491ce90306037f779979faea9c8bb31092ea15bd1",
+        "compiledMatchesImageProof": true,
+        "publicationHeadGuardMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      },
+      "worker": {
+        "pod": "git-code-reviewer-worker-5dd8544c78-wdh8r",
+        "imageDigest": "sha256:eabd1593c656ddad8add950491ce90306037f779979faea9c8bb31092ea15bd1",
+        "compiledMatchesImageProof": true,
+        "publicationHeadGuardMatchesImageProof": true,
+        "databaseTlsMode": "verify-full",
+        "ready": true
+      }
+    },
+    "identityReady": 2,
+    "scope": "Published image filesystem and static server smoke; live readiness, HTTPS assets, compiled module equality, unchanged schema51 and configuration/data preservation. Paid model execution is not part of this verification."
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:5cd349765d9cd1bc550cb7d1267a60ad4cb3ed5b85065cfa85c6cae1d8f3350c",
+    "chartSha256": "db67b7c62d8ca774990c9a8137999521eca7995712465ca4c5750af6e67cb796"
+  },
+  "cleanup": {
+    "status": "passed",
+    "at": "2026-09-14T21:42:19.053699+00:00",
+    "ownedResourcesRemoved": [
+      "deployment/gcr-prism-publication-head0",
+      "pod/gcr-publication-head-image-smoke",
+      "configmap/gcr-publication-head-image-smoke",
+      "networkpolicy/gcr-publication-head-image-smoke",
+      "configmap/gcr-publication-head-build-ca",
+      "serviceaccount/gcr-publication-head-build"
+    ],
+    "ownedBuildPodsAbsent": true
+  },
+  "retiringWorkers": {
+    "retiringWorkers": [
+      {
+        "name": "git-code-reviewer-worker-6c6858dd9b-qdb4v",
+        "deletionTimestamp": "2026-09-14T22:40:46Z",
+        "graceSeconds": 3600,
+        "containers": [
+          {
+            "name": "source-sandbox",
+            "ready": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T20:55:21Z"
+              }
+            }
+          },
+          {
+            "name": "worker",
+            "ready": false,
+            "state": {
+              "running": {
+                "startedAt": "2026-09-14T20:55:21Z"
+              }
+            }
+          }
+        ],
+        "execProbe": {
+          "exitCode": 1,
+          "containerExecAvailable": false,
+          "containerNotFound": true
+        }
+      }
+    ],
+    "forcedTermination": false
+  },
+  "unchanged": {
+    "schema": 51,
+    "localCommitDefender": "2.10.0",
+    "localCli": "0.1.0-alpha.34",
+    "localModelsAndAccounts": true,
+    "centralToLocalOnly": true,
+    "databaseTlsMode": "verify-full"
+  },
+  "limits": [
+    "GitHub issue-comment writes do not atomically compare PR head; the final read/write race remains.",
+    "Verification used an owned synthetic HTTP server and real test PostgreSQL, not external GitHub comment publication.",
+    "No paid model quality or billing validation in this release.",
+    "Remaining P00–P13 requirements are not complete."
+  ],
+  "artifactDirectory": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P13-publication-head",
+  "overallGoalComplete": false
+}

@@ -1,0 +1,71 @@
+{
+  "status": "passed",
+  "at": "2026-09-13T18:37:48.462024+00:00",
+  "scope": "P06 encrypted snapshot sync core with explicit trusted bindings and lifecycle primitives; no authenticated CD/CLI integration or deployment claim",
+  "sourceParent": "b7a9c2f33f1c17ee112ecc08065340024bd85b50",
+  "sourceHashes": {
+    "packages/client-contract/src/central-cache.ts": "457ff2cb9940469649fd664b1991ec2059778e710ab605039053273157c62038",
+    "packages/client-contract/src/index.ts": "1ff608ba975f057d8f8490adf65d2c1078881e0c7bf10154b007b1efd03c3764",
+    "packages/client-core/src/central-binding.ts": "e7d1bdb526dc9dc66a0415b0638c45bc7baa92b54ba07e26a066912d41cffebe",
+    "packages/client-core/src/central-cache.ts": "fa73ddd28ebe2b24752b97342b716e71f26ce9f99f228302b35da514c4badd8b",
+    "packages/client-core/src/index.ts": "da6af921b48c35f18fb3b68f4bb7c2b4545a3c654f36a59e2be6668829099de1",
+    "packages/client-core/src/central-cache.test.ts": "58bd57a52477dccd15c9a4ef98c69d11953aa381d189777969e133f61ba939ec",
+    "packages/client-core/test-fixtures/central-cache-process.mjs": "ddfe0a46fd0e332aec437a20548eed588878f974fd38cb78fb1455535f518c31"
+  },
+  "build": {
+    "command": "pnpm build:clients",
+    "result": "passed",
+    "node": "v22.23.2"
+  },
+  "lint": {
+    "result": "passed",
+    "scope": "changed TypeScript implementation and tests"
+  },
+  "tests": {
+    "finalCentralCache": {
+      "passed": 40,
+      "failed": 0,
+      "reportSha256": "2739f75f551aaf79d7740a4378920632bc6350c61a394f3af65bddfac7e499ba"
+    },
+    "existingClientRegression": {
+      "passed": 167,
+      "failed": 0,
+      "suites": {
+        "index.test.ts": 63,
+        "knowledge-signature.test.ts": 6,
+        "local-foundation.test.ts": 8,
+        "local-history.test.ts": 6,
+        "local-records.test.ts": 14,
+        "review-context.test.ts": 19,
+        "review-runner.test.ts": 29,
+        "source-snapshot.test.ts": 22
+      },
+      "reportSha256": "4eac53f3205ad4f493ad7c95ae48702e15f6e578f9d88807ba728bf45b031992"
+    },
+    "earlierFailure": "The first broad run had 206 passes and one fixture failure: corruption selected an obsolete encrypted tombstone instead of an active body. The fixture now reads the active policy reference before corrupting its ciphertext. All 40 central-cache tests passed after that fixture-only change; the implementation was unchanged."
+  },
+  "verified": [
+    "Canonical base paths, unsafe URL rejection, pinned key copies and rotation without resetting scope identity",
+    "Separate central/local encryption key references and no plaintext or master-key bytes in fixture files",
+    "All three components activate through one encrypted index CAS; only changed personal content downloads",
+    "Real independent Node processes contest a claim; an expired predecessor cannot replace its successor",
+    "Explicit revocation/auth revision floors persisted before download; lower accepted sequences rejected",
+    "Manifest audience, personal owner, hashes, sizes, canonical schema and UTF-8 checked",
+    "304 never extends original online or offline leases; expiry rechecked after disk reads",
+    "401/403 disable access while 503 allows still-authorized fallback",
+    "Remaining authorization claim bars cross-process cache use when denial/floor persistence fails",
+    "ENOSPC injected at staging, activation and authority persistence; no partial snapshot activated",
+    "Ambiguous committed activation is readable as a complete new snapshot, without rolling back",
+    "Non-cooperative manifest/stream cancellation and timeout; local records survive disconnect/resume",
+    "Active ciphertext corruption fails without choosing an older snapshot"
+  ],
+  "modelCalls": 0,
+  "limitations": [
+    "Injected synthetic transport and key store; no actual HTTP credentials, remote mapping or new OS-key verification",
+    "Public reads return busy during sync and for an unresolved expired claim; host retry/scheduling remains to be wired",
+    "Cancellation observed before activation prevents it; a committed activation is not rolled back",
+    "Interrupted staging and failed cleanup may leave ciphertext/tombstones; directory rollback protection and secure erasure are not claimed",
+    "P04 client authentication, P06 lifecycle scheduling/context/CD UI and macOS/Linux connected reviews remain incomplete",
+    "Client artifact version/pins and deployed GCR server unchanged at this checkpoint; P00-P13 goal remains active"
+  ]
+}

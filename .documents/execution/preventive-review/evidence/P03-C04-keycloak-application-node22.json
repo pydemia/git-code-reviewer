@@ -1,0 +1,138 @@
+{
+  "formatVersion": 1,
+  "phase": "P03-C04",
+  "status": "passed",
+  "startedAt": "2026-09-13T01:59:02.525Z",
+  "node": "v22.23.2",
+  "platform": "darwin-arm64",
+  "keycloakVersion": "26.7.3",
+  "keycloakImage": "quay.io/keycloak/keycloak@sha256:ff4257d0d64efbe99ed1ddfaf07765cc3c36dc7518bf8324d41961327f441c54",
+  "postgresImage": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+  "nodeSaml": "5.1.0",
+  "xmlCrypto": "6.1.2",
+  "checks": [
+    "approved-https-idp-metadata",
+    "sp-metadata-endpoints-persistent-nameid",
+    "keycloak-rejects-unsigned-authnrequest",
+    "keycloak-rejects-unregistered-acs",
+    "node-https-rejects-untrusted-certificate",
+    "browser-rejects-unpinned-tls-certificate",
+    "signed-redirect-login-real-keycloak",
+    "cross-site-https-post-transaction-cookie",
+    "host-only-secure-httponly-lax-session",
+    "signed-redirect-slo-local-session-cleared",
+    "persistent-nameid-after-email-and-display-name-change",
+    "real-login-and-logout-replay-rejected",
+    "replayed-https-acs-does-not-create-session",
+    "slo-requires-credentials-on-next-login",
+    "real-idp-signing-key-rotation-overlap",
+    "old-trust-rejects-new-idp-key"
+  ],
+  "limitations": [
+    "compiled administration UI and actual HTTP API use real PostgreSQL and Keycloak; processor is invoked explicitly, worker scheduling is not exercised",
+    "Chrome headless; native Safari and interactive browser operation remain pending",
+    "test-specific generated TLS leaf SPKI pins; no system trust installation",
+    "fixture administrator provisions the realm, service-account roles and synthetic test passwords only",
+    "private disposable SMTP sink, reserved example.test recipients; no external mail delivery",
+    "security freshness and application-wide revocation remain P03-C05"
+  ],
+  "cleanup": {
+    "containersRemoved": true,
+    "networkRemoved": true,
+    "temporaryFilesRemoved": true
+  },
+  "sourceSha256": {
+    "../apps/runtime/src/auth/saml-protocol.ts": "2eafd5b0bc69b610bae9f4803366caeb14710ee5d676e1b128c5cddb40e06d9c",
+    "saml-contract.mjs": "483a1334ca9a0d8034f6c542b8802c0b8c727a58a20c1b4ca7ad34306a65ae2f",
+    "saml-contract-smoke.mjs": "7228c28732e4e49aad8c096775b15f9b8e08b21b3d2dfe707edea0f87d205a6a",
+    "keycloak-admin-smoke.mjs": "39c52defa80f3ca9980343fb14a240ee81dc597aef1f47565b875d41ea6a8cdd",
+    "identity-application-smoke.mjs": "bcfccc0b473a00d611278bc1d5bb9954041c08d4a41c67768410801983e87637",
+    "identity-smtp-fixture.mjs": "f9f4fffce6389b66b9f8e68358cb69fbccd16e8ddb8a71c8d9f40cd4a8823af1",
+    "../apps/runtime/src/identity/keycloak-admin.ts": "620f97262b1d8c76e7b79f3851df811207db14397f7611edaea4989c77f748ce",
+    "../apps/runtime/src/identity/operations.ts": "4b8870cec08eb23a258999b7e07b2a30800d9bb6a6fbc7360488d26d539c5649",
+    "../apps/runtime/src/identity/processor.ts": "3913063a76f0a89e35c3d2c39b9f734d28d8b6deaa803da91eee0ee13becfbc8",
+    "../apps/runtime/src/identity/routes.ts": "8ee7f69d59aa0fb88ffd982bf2c92b1b6f8e351f2c2ec1b0d5a9fe4300bb32e2",
+    "../apps/runtime/src/identity/config.ts": "a0602d78e59bbef6134ddbba60289de02703206a191f15b0e137267f78d88ad8",
+    "../apps/runtime/src/server.ts": "9aa8cc301b7ed144ab04942ec61a23a0897bc40f19e547fb55826f4531527d83",
+    "../apps/runtime/src/routes/admin.ts": "9f0806e534c4d35bf4fb9cdb114c5f750443525b1fef0b37dd30937306e675fa",
+    "../apps/web/src/AdminPage.tsx": "4feecbae07e76e3cae625a3725debc2ae2c9e2a32f7f819021729e467e905d04",
+    "../apps/web/src/IdentityAdministrationPanel.tsx": "31cdef642d088602300c5a88e0dee6f821cf9199aebecf9322c95be521f1d751",
+    "../apps/web/src/api.ts": "e4b5bd1a43208a647ccaab82e25f08745a7d04dd23906212ab8dceacb7f0d35b",
+    "../packages/contracts/src/identity-admin.ts": "a281592d5691e31d4d56fe347c4fc238beabe8a381345db951b01d8de952a4ae",
+    "../packages/db/migrations/0034_identity_provisioning_operations.sql": "06336db10a7835b5ce74cf2a575dc997df2c099b658114b36a57d30cc00c6d40"
+  },
+  "idpMetadataSha256": "8a8ebe4bea3d48305fa7b1faee74603bcea2676e7bab1d52fe33a4ce518da318",
+  "browser": {
+    "channel": "chrome",
+    "version": "152.0.7977.84",
+    "headless": true,
+    "ignoreHTTPSErrors": false,
+    "tlsTrust": "exact-generated-leaf-SPKI"
+  },
+  "loginCount": 3,
+  "postgresVersion": "17.11",
+  "allCallbacksCrossSite": true,
+  "nameIdStable": true,
+  "signingCertificateCount": 2,
+  "rejectedRequests": [
+    {
+      "route": "/auth/saml/acs",
+      "errorType": "SamlContractError"
+    }
+  ],
+  "administration": {
+    "status": "passed",
+    "application": {
+      "status": "passed",
+      "checks": [
+        "compiled-login-and-complete-admin-page-with-real-api",
+        "compiled-create-form-to-outbox-keycloak-and-stable-app-identity",
+        "compiled-invite-form-to-real-private-smtp-acceptance",
+        "compiled-reset-form-revokes-gcr-sessions-before-idp-logout-and-email",
+        "production-origin-guard-rejects-injected-cross-origin-operation",
+        "realm-account-preview-through-real-authenticated-http"
+      ],
+      "pageErrors": [],
+      "mockedApiResponses": 0,
+      "workerScheduling": "explicit-production-processor-invocation",
+      "authMode": "local",
+      "headless": true
+    },
+    "checks": [
+      "disabled-user-without-password",
+      "persistent-admin-only-operation-markers",
+      "lost-create-response-reconciles-one-user",
+      "repeated-operation-does-not-create-duplicate",
+      "username-match-with-another-gcr-user-rejected",
+      "disabled-user-email-rejected",
+      "manage-users-only-realm-role",
+      "realm-client-key-and-master-administration-forbidden",
+      "real-postgresql-outbox-to-keycloak-to-stable-gcr-identity",
+      "application-enabled-only-after-verified-provisioning",
+      "provisioning-does-not-renew-security-freshness",
+      "smtp-failure-visible-without-automatic-resend",
+      "invite-and-reset-email-accepted-by-private-sink",
+      "lost-email-response-is-unconfirmed-and-not-repeated",
+      "end-user-cannot-read-or-change-provisioning-markers-and-nameid",
+      "actual-signed-persistent-nameid-matches-planned-admin-attribute",
+      "actual-signed-nameid-has-no-qualifiers",
+      "provisioned-user-cross-site-saml-and-slo",
+      "admin-logout-all-removes-idp-sessions",
+      "disabled-user-cannot-produce-saml-callback"
+    ],
+    "createRequests": 2,
+    "emailRequests": 6,
+    "smtpMessages": 5,
+    "standardRealmRoles": [
+      "manage-users"
+    ],
+    "unmanagedAttributePolicy": "ADMIN_EDIT",
+    "productionCredentialFlows": [
+      "client_credentials"
+    ],
+    "smtpImage": "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+    "appDatabaseMigrations": 34
+  },
+  "finishedAt": "2026-09-13T01:59:39.186Z",
+  "applicationScreenshotSha256": "1015036f6043d8c98499b084cc8301fb7e6955b6bf66b86408d25ba9c2593ae1"
+}

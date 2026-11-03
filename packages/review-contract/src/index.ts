@@ -1,6 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { findingOccurrenceSchema, reviewRecurrenceSchema } from '@gcr/contracts';
 import { reviewAnalysisSchema } from './skills.js';
+import {
+  criterionAssessmentInputSchema,
+  findingCriteriaSchema,
+  bindFindingCriteria,
+  type SharedCriterionContext,
+} from './criteria.js';
+export * from './criteria.js';
 export * from './skills.js';
 
 export const prioritySchema = z.enum(['P0', 'P1', 'P2', 'P3']);
@@ -82,6 +90,8 @@ export const reviewFindingSchema = z.object({
   anchor: evidenceLocatorSchema,
   evidence: z.array(evidenceLocatorSchema),
   fingerprint: z.string().min(1),
+  criteria: findingCriteriaSchema.optional(),
+  occurrence: findingOccurrenceSchema.optional(),
 });
 export type ReviewFinding = z.infer<typeof reviewFindingSchema>;
 
@@ -171,6 +181,7 @@ export const reviewReportSchema = z.object({
   versions: z.record(z.string(), z.string()),
   durationMs: z.number().int().nonnegative(),
   analysis: reviewAnalysisSchema.optional(),
+  recurrence: reviewRecurrenceSchema.optional(),
 });
 export type ReviewReport = z.infer<typeof reviewReportSchema>;
 
@@ -212,11 +223,13 @@ export const legacyAnalysisReportSchema = z.object({
         title: z.string().optional(),
         impact: z.string().optional(),
         recommendation: z.string().optional(),
+        criterion_assessments: z.array(criterionAssessmentInputSchema).max(16).optional(),
         category: z.string(),
         priority: z.string(),
       }),
     ),
     grade: z.string(),
+    reviewed_targets: z.array(z.string().min(1)).optional(),
     per_file_summaries: z
       .array(
         z.object({
@@ -240,6 +253,7 @@ type LegacyContext = {
   allowedCategories?: string[];
   emptyImpact: ReviewReport['impact'];
   coverage: Coverage;
+  sharedCriteria?: SharedCriterionContext;
 };
 
 export function normalizeLegacyReport(
@@ -263,6 +277,7 @@ export function normalizeLegacyReport(
       producer: 'commit-defender-lint',
       rule: finding.rule,
       kind: 'analyzer' as const,
+      assessments: undefined,
     })),
     ...report.review.file_comments.map((finding) => ({
       file: finding.file,
@@ -278,6 +293,7 @@ export function normalizeLegacyReport(
       producer: 'commit-defender-model',
       rule: undefined,
       kind: 'model' as const,
+      assessments: finding.criterion_assessments,
     })),
   ];
   const fingerprints = new Set<string>();
@@ -344,6 +360,20 @@ export function normalizeLegacyReport(
       anchor: evidence,
       evidence: [evidence],
       fingerprint,
+      ...(item.kind === 'model'
+        ? {
+            criteria: bindFindingCriteria(
+              item.assessments,
+              {
+                path: item.file,
+                side: item.side,
+                priority,
+                anchorVerified: verified,
+              },
+              context.sharedCriteria,
+            ),
+          }
+        : {}),
     });
   }
   const grade = gradeSchema.safeParse(report.review.grade).success

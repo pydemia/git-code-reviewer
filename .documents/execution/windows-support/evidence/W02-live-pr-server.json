@@ -1,0 +1,717 @@
+{
+  "status": "stopped",
+  "platform": "win32",
+  "arch": "arm64",
+  "node": "v24.16.0",
+  "realGitHubOriginals": true,
+  "reconstructedHistory": false,
+  "realGcrAuthentication": true,
+  "realGcrCollection": true,
+  "realGcrReader": true,
+  "databaseRuntime": "Docker Linux PostgreSQL; GCR API and CD run on Windows",
+  "pullUrl": "https://github.com/pydemia/commit-defender/pull/3",
+  "modelCalls": 0,
+  "requests": [
+    {
+      "at": "2026-09-16T04:51:34.582Z",
+      "method": "GET",
+      "route": "/api/v1/client-auth/me",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:35.893Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/manifest",
+      "queryKeys": [
+        "clientContractVersion"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:36.719Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/6667bad0-421f-47bb-a911-1e757bfbaf90",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:36.938Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/ad9bfc44-b212-4959-a400-3fc4049edd85",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:37.214Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/5abe5c17-e3c2-4a4a-8dff-321fa13eb2ca",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:39.550Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history",
+      "queryKeys": [
+        "pullNumber"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:41.369Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:43.142Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:44.961Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [
+        "parentId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:46.817Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/49768448-b77c-40d6-9cfe-114a178ebc83",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:48.576Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/versions",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:50.306Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/history",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:52.023Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance",
+      "queryKeys": [
+        "sourceId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:51:53.798Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance/4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:17.751Z",
+      "method": "GET",
+      "route": "/api/v1/client-auth/me",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:19.455Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/manifest",
+      "queryKeys": [
+        "clientContractVersion"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:20.103Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/6667bad0-421f-47bb-a911-1e757bfbaf90",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:20.284Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/ad9bfc44-b212-4959-a400-3fc4049edd85",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:20.453Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/5abe5c17-e3c2-4a4a-8dff-321fa13eb2ca",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:22.568Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history",
+      "queryKeys": [
+        "pullNumber"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:24.314Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:25.905Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:27.558Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [
+        "parentId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:29.210Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/49768448-b77c-40d6-9cfe-114a178ebc83",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:31.393Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/versions",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:33.105Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/history",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:34.805Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance",
+      "queryKeys": [
+        "sourceId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T04:55:36.578Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance/4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:09.345Z",
+      "method": "GET",
+      "route": "/api/v1/client-auth/me",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:10.977Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/manifest",
+      "queryKeys": [
+        "clientContractVersion"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:11.853Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/6667bad0-421f-47bb-a911-1e757bfbaf90",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:12.038Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/ad9bfc44-b212-4959-a400-3fc4049edd85",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:12.225Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/5abe5c17-e3c2-4a4a-8dff-321fa13eb2ca",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:15.993Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history",
+      "queryKeys": [
+        "pullNumber"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:19.347Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:21.964Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:24.440Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [
+        "parentId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:26.817Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/49768448-b77c-40d6-9cfe-114a178ebc83",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:29.320Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/versions",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:31.919Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/history",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:34.407Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance",
+      "queryKeys": [
+        "sourceId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:02:37.045Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance/4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:30.052Z",
+      "method": "GET",
+      "route": "/api/v1/client-auth/me",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:31.856Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/manifest",
+      "queryKeys": [
+        "clientContractVersion"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:32.853Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/6667bad0-421f-47bb-a911-1e757bfbaf90",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:33.111Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/ad9bfc44-b212-4959-a400-3fc4049edd85",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:33.342Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-knowledge/bundles/5abe5c17-e3c2-4a4a-8dff-321fa13eb2ca",
+      "queryKeys": [
+        "snapshotId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:36.622Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history",
+      "queryKeys": [
+        "pullNumber"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:39.202Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:41.771Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:44.306Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages",
+      "queryKeys": [
+        "parentId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:46.833Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/49768448-b77c-40d6-9cfe-114a178ebc83",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:49.348Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/versions",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:52.027Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/pulls/3/messages/d04489d1-9a82-49ad-ae11-52e605d4ee0e/history",
+      "queryKeys": [],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:54.617Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance",
+      "queryKeys": [
+        "sourceId"
+      ],
+      "bodyBytes": 0
+    },
+    {
+      "at": "2026-09-16T05:09:56.989Z",
+      "method": "GET",
+      "route": "/api/v1/repositories/011d3c24-f4ef-46b1-bcbe-aa83bc127cb8/review-history/guidance/4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+      "queryKeys": [],
+      "bodyBytes": 0
+    }
+  ],
+  "githubRequests": [
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3",
+      "queryKeys": []
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/issues/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/reviews",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/graphql",
+      "queryKeys": []
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/issues/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/reviews",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/graphql",
+      "queryKeys": []
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/issues/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/reviews",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/graphql",
+      "queryKeys": []
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/issues/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/reviews",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/repos/pydemia/commit-defender/pulls/3/comments",
+      "queryKeys": [
+        "per_page",
+        "page"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/graphql",
+      "queryKeys": []
+    }
+  ],
+  "collections": [
+    {
+      "id": "5418e338-efca-4a40-952d-48157bd83bd3",
+      "state": "completed",
+      "parity": [
+        {
+          "id": "d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+          "githubId": 4022589067,
+          "kind": "review-comment",
+          "contentHash": "683e732c2e8bfa05f89b130b3e7195eefd9e3bfd05a09ceec26d8e44ba88bb3a",
+          "observationHash": "f24eb412c343b995d5ceb468d3dc9e0964d6056f584b693ec8efdd7cc0210b6f",
+          "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067",
+          "inReplyToGithubId": null,
+          "bodyExact": true
+        },
+        {
+          "id": "c2dab6eb-0879-4ced-8e45-d7ca5936f9f2",
+          "githubId": 5218609168,
+          "kind": "review",
+          "contentHash": "d20ed633b32939794da0dcdcfeffa30f05d666098aba65c0a8df9fbc07ced72a",
+          "observationHash": "e7f72cb13d180aa65f428e32c76fef162cc28a7e00f13ea0377a2d0129b953db",
+          "url": "https://github.com/pydemia/commit-defender/pull/3#pullrequestreview-5218609168",
+          "inReplyToGithubId": null,
+          "bodyExact": true
+        }
+      ]
+    },
+    {
+      "id": "d453800f-4dad-4e00-a836-38e9b6b9b436",
+      "state": "completed",
+      "parity": [
+        {
+          "id": "d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+          "githubId": 4022589067,
+          "kind": "review-comment",
+          "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+          "observationHash": "37c2918dd85844a3b5e52018816baae9ca576bc43721abcb2162bd4ee68d6c0e",
+          "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067",
+          "inReplyToGithubId": null,
+          "bodyExact": true
+        },
+        {
+          "id": "c2dab6eb-0879-4ced-8e45-d7ca5936f9f2",
+          "githubId": 5218609168,
+          "kind": "review",
+          "contentHash": "d20ed633b32939794da0dcdcfeffa30f05d666098aba65c0a8df9fbc07ced72a",
+          "observationHash": "e7f72cb13d180aa65f428e32c76fef162cc28a7e00f13ea0377a2d0129b953db",
+          "url": "https://github.com/pydemia/commit-defender/pull/3#pullrequestreview-5218609168",
+          "inReplyToGithubId": null,
+          "bodyExact": true
+        },
+        {
+          "id": "49768448-b77c-40d6-9cfe-114a178ebc83",
+          "githubId": 4022595630,
+          "kind": "review-comment",
+          "contentHash": "94870a7a0fb5c2037b04faeebe5a32684c77269f58a43844a59349ac101f15af",
+          "observationHash": "e680a3fdb5d5b2b4dc28675b521fad8a060022a94ca2adc130f2159242fd29a4",
+          "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022595630",
+          "inReplyToGithubId": 4022589067,
+          "bodyExact": true
+        },
+        {
+          "id": "57ea10f5-775f-4a4e-a3f2-328d67d21691",
+          "githubId": 5218617696,
+          "kind": "review",
+          "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "observationHash": "d84df25b94bfa896e3488e173f055c8b4c4316c49d9682df3f69be7937a8fb26",
+          "url": "https://github.com/pydemia/commit-defender/pull/3#pullrequestreview-5218617696",
+          "inReplyToGithubId": null,
+          "bodyExact": true
+        }
+      ]
+    }
+  ],
+  "sourceSha": "a423a77d9123cb345057c9ac9eed27ed04407256",
+  "harnessSha256": "ce5717ffafbda5632959d862257dacf90259c7b4bc7e365e1c225cf4c977e8db",
+  "dockerEndpoint": "npipe:////./pipe/dockerDesktopLinuxEngine",
+  "phase": "ready-for-host",
+  "pull": {
+    "number": 3,
+    "githubId": 4543940727,
+    "url": "https://github.com/pydemia/commit-defender/pull/3",
+    "baseSha": "df7fc59ea64d17e85829327004f66807ef9e7504",
+    "headSha": "2aca9bbc54e811f0d7d8d0c966148d85fff1636a"
+  },
+  "address": "https://127.0.0.1:53421",
+  "source": {
+    "id": "d04489d1-9a82-49ad-ae11-52e605d4ee0e",
+    "githubId": 4022589067,
+    "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "observationHash": "37c2918dd85844a3b5e52018816baae9ca576bc43721abcb2162bd4ee68d6c0e",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022589067"
+  },
+  "reply": {
+    "id": "49768448-b77c-40d6-9cfe-114a178ebc83",
+    "githubId": 4022595630,
+    "kind": "review-comment",
+    "contentHash": "94870a7a0fb5c2037b04faeebe5a32684c77269f58a43844a59349ac101f15af",
+    "observationHash": "e680a3fdb5d5b2b4dc28675b521fad8a060022a94ca2adc130f2159242fd29a4",
+    "url": "https://github.com/pydemia/commit-defender/pull/3#discussion_r4022595630",
+    "inReplyToGithubId": 4022589067,
+    "bodyExact": true
+  },
+  "guidance": {
+    "id": "4b0f4c10-f4ca-4d1c-b064-e8c673256169",
+    "revision": 1,
+    "contentSha256": "0fd783fcb03543546e29181d1405f92851e550a5a17650864dd5dd2765d23a5f",
+    "sourceContentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+    "state": "active"
+  },
+  "bodyVersions": [
+    {
+      "id": "1819b3a1-aa64-4b8e-98d9-7f0880d5a2e8",
+      "contentHash": "4bff080a8b3250f0ec7a084c9cd94c84a38fad33afe57af3f87102713c6b7084",
+      "githubUpdatedAt": "2026-09-16T04:49:47.000Z"
+    },
+    {
+      "id": "32979be9-35cb-4f9b-8deb-dfbf69f46243",
+      "contentHash": "683e732c2e8bfa05f89b130b3e7195eefd9e3bfd05a09ceec26d8e44ba88bb3a",
+      "githubUpdatedAt": "2026-09-16T04:48:44.000Z"
+    }
+  ],
+  "readerReadOnly": true,
+  "testReaderRevoked": true,
+  "cleanup": {
+    "readerCredentialRemoved": true,
+    "containerRemoved": true,
+    "volumeRemoved": true,
+    "temporaryFilesRemoved": true
+  }
+}

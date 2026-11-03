@@ -1,0 +1,95 @@
+{
+  "at": "2026-09-13T02:05:46.482345+00:00",
+  "status": "passed",
+  "sourceCommit": "82aa12e19b331ed4120fbe293bbd6a96a4c3855e",
+  "sourceArchive": "clean git archive",
+  "appVersion": "0.8.0-alpha.36",
+  "chartVersion": "0.10.34",
+  "imageIndexDigest": "sha256:dcc6f96997acbb9fb34dc80f90a5e2c3829b1825d46918a2e01bb440f4d5601a",
+  "platformManifests": [
+    {
+      "architecture": "amd64",
+      "os": "linux",
+      "digest": "sha256:bbf92c4b58b0aeb41ad2d277a533127770cb56697e9357907af94f7f67ef897d"
+    },
+    {
+      "architecture": "unknown",
+      "os": "unknown",
+      "digest": "sha256:eda3bb32d3620a04de77cd7a4764df3de7134fc09c803a117034e99e3ca0209e"
+    }
+  ],
+  "buildNodeImage": "node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+  "runtimeBase": "docker.io/pydemia/git-code-reviewer@sha256:c1885ba5ac3ec11558865ea143f867ca3af4dc0c41a5ada262ccc292072d3f77",
+  "runtimeSamlAndIdentityValidation": {
+    "status": "passed",
+    "node": "v22.23.2",
+    "compiled": {
+      "auth/saml-state.js": "a78a99ac3399a4ce93e5e337117ac912f7d6cb8835e58de2286b47dd185b3d85",
+      "auth/saml-protocol.js": "0fd71b62cb5862b968dcb06f7a54d6352df2053875d659f389979f3b3ba81790",
+      "auth/saml-config.js": "e3a1df56ea66a39d245d471b0a3a55da9b25e0673dbcd06e5c674beca1dfb29a",
+      "auth/saml-routes.js": "e0a5fce124426346b751d662ceb7c39fef71c7cbee34e5399a07427ee6af71bd",
+      "auth/index.js": "064e466791a472d6643e1ac99c53622aa392e6e3fa8fa35521437ab28a4d2dd9",
+      "config.js": "efc8656ccde6be6acb293cf4a35b54da5c6f294b1c469da71c66434932a71565",
+      "server.js": "1845a3afd0ac7ef6ffd49c4e2350a55bbc7b4bdceb8e3c93a7f949c4cfeea636",
+      "identity/keycloak-admin.js": "393fc97679afd66c8b29e447ad5d689795eb8159b5214143b1b861364811785e",
+      "identity/config.js": "ce362c92488caf56bd8ced3f0644acb60925a0e0b43a90ff61db6ce149893955",
+      "identity/operations.js": "db656dd63cc9e3b05fcd5578d8f9bdfbdcd4b400f0898b773af49d1e4a9012d8",
+      "identity/processor.js": "beedc2b20ba720d3a4726e8967cc6e20d443bb7d865fd99f3964a73a714367a5",
+      "identity/routes.js": "0c1aaa8f7fd2c470f3a9a3f0a84b7578924230e83486bd619d6cbfb5beb94bed",
+      "routes/admin.js": "835333b2ed413551aa7a2a82b5d844077649407dbb5e784641f0bb10a7a7e497",
+      "jobs/worker.js": "1499e642d58ab7433f2226cf2d15d27c23cd60612b4bf19e0725b1ca69e1b0c7"
+    },
+    "compiledSamlStateSha256": "a78a99ac3399a4ce93e5e337117ac912f7d6cb8835e58de2286b47dd185b3d85",
+    "migrationCount": 34,
+    "migration33Sha256": "c7d2ebe6b3bdc0684ec0f51229a5077b40fdc18eaaaeac58880777124807e33d",
+    "versions": {
+      "@node-saml/node-saml": "5.1.0",
+      "@xmldom/xmldom": "0.9.12",
+      "xml-crypto": "6.1.2"
+    },
+    "checks": [
+      "compiled-image-signed-login",
+      "wrong-request-rejected",
+      "compiled-image-signed-idp-logout",
+      "opaque-relay-parameter-names",
+      "tampered-logout-rejected",
+      "metadata-signing",
+      "runtime-saml-dependencies",
+      "identity-disabled-default",
+      "compiled-nameid-binding",
+      "bootstrap-admin-client-rejected",
+      "reset-revocation-confirmation-required"
+    ]
+  },
+  "runtimeFilesystemValidation": {
+    "status": "passed",
+    "node": "v22.23.2",
+    "user": 1000,
+    "versions": {
+      "static": "10.1.3",
+      "vitest": "4.1.11"
+    },
+    "packageFolders": [
+      "@fastify+static@10.1.3",
+      "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+      "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+    ],
+    "assets": {
+      "index-Bgec2Wa1.js": "a9f66cb141a12209b5a4016b0501ca7e2095acbc70c660dbdb27cc7716d7176b",
+      "index-MAHxlrLj.css": "e5bbfba11ea7fa5f88d256a06c197bd299006e9763472add8effbbe95f23d397"
+    },
+    "artifactChecks": [
+      "no-obsolete-runtime-packages",
+      "no-obsolete-browser-bundles",
+      "public-asset-content-and-cache",
+      "traversal-denied",
+      "no-build-secret"
+    ],
+    "network": "none",
+    "rootFilesystem": "read-only"
+  },
+  "migration34Sha256": "06336db10a7835b5ce74cf2a575dc997df2c099b658114b36a57d30cc00c6d40",
+  "helmServerDryRun": "passed; only image tag/digest differ in user values",
+  "chartArchiveSha256": "2b14cbf5385e388e65a1939f6ca1d60fcd68e75e96191b5ee9399402fa2e177c",
+  "deploymentStatus": "pending; alpha.35, AUTH_MODE local, identity administration disabled"
+}

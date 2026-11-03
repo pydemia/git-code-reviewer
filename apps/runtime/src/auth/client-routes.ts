@@ -1,0 +1,277 @@
+import type { Database } from '@gcr/db';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import type { AppConfig } from '../config.js';
+import { requireUser } from './index.js';
+import { browserSessionCookie } from './browser-session.js';
+import { isAllowedBrowserOrigin } from './mutation-origin.js';
+import {
+  ClientCredentialError,
+  clientKeyInput,
+  issueClientKey,
+  listClientKeys,
+  revokeClientKey,
+} from './client-credentials.js';
+import type { AuthorizationService } from '../services/authorization.js';
+import { canReadRepository } from '../routes/worklist.js';
+import { readFile } from 'node:fs/promises';
+import { X509Certificate } from 'node:crypto';
+import {
+  centralConnectionInput,
+  centralConnectionOptions,
+  centralRepositoryIdentity,
+} from '@gcr/client-contract';
+import type { KnowledgeSigner } from '../services/knowledge-manifest.js';
+
+export async function loadClientConnectionCa(file?: string): Promise<string | null> {
+  if (!file) return null;
+  try {
+    const pem = await readFile(file, 'utf8');
+    const certificates = pem.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g);
+    if (
+      Buffer.byteLength(pem) > 65536 ||
+      !certificates?.length ||
+      pem.replace(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g, '').trim() ||
+      certificates.some((value) => !new X509Certificate(value).ca)
+    )
+      throw Error();
+    return pem;
+  } catch {
+    throw Error(
+      'Invalid configuration: CLIENT_CONNECTION_CA_FILE must contain only public CA certificates',
+    );
+  }
+}
+
+export async function registerClientCredentialRoutes(
+  app: FastifyInstance,
+  database: Database,
+  config: AppConfig,
+  authorization: AuthorizationService,
+  signer?: KnowledgeSigner,
+) {
+  const enabled =
+    config.CLIENT_API_KEYS_ENABLED &&
+    !!config.KNOWLEDGE_SERVER_ID &&
+    config.KNOWLEDGE_DISTRIBUTION_ENABLED &&
+    ['local', 'saml'].includes(config.AUTH_MODE);
+  const ca = enabled ? await loadClientConnectionCa(config.CLIENT_CONNECTION_CA_FILE) : null;
+  const web = async (request: FastifyRequest) => {
+    if (!enabled) throw new ClientCredentialError(503, 'CLIENT_AUTH_DISABLED');
+    if (
+      !request.user ||
+      !request.cookies[browserSessionCookie(request, config)] ||
+      request.headers.authorization
+    )
+      throw new ClientCredentialError(401, 'CLIENT_WEB_REAUTHENTICATION_REQUIRED');
+    if (
+      !['GET', 'HEAD'].includes(request.method) &&
+      (!config.PUBLIC_BASE_URL || !isAllowedBrowserOrigin(request, config))
+    )
+      throw new ClientCredentialError(403, 'INVALID_ORIGIN');
+  };
+  await app.register(async (routes) => {
+    routes.addHook('onRequest', async (_request, reply) => {
+      reply.header('cache-control', 'private, no-store').header('vary', 'Cookie, Authorization');
+    });
+    routes.setErrorHandler((error, request, reply) => {
+      if (error instanceof ClientCredentialError || error instanceof z.ZodError)
+        return reply.code(error instanceof z.ZodError ? 400 : error.statusCode).send({
+          error: {
+            code: error instanceof z.ZodError ? 'INVALID_CLIENT_REQUEST' : error.code,
+            message: '클라이언트 인증 요청을 처리하지 못했습니다.',
+            requestId: request.id,
+          },
+        });
+      throw error;
+    });
+    routes.get('/api/v1/client-auth/config', async () => ({
+      schemaVersion: 1,
+      serverId: config.KNOWLEDGE_SERVER_ID ?? null,
+      methods: enabled ? ['api-key'] : [],
+      clientIds: enabled ? ['commit-defender', 'gcr-cli'] : [],
+      scopes: enabled ? ['knowledge:read'] : [],
+    }));
+    routes.get(
+      '/api/v1/client-auth/me',
+      { config: { clientKnowledgeRead: true }, preHandler: requireUser },
+      async (request) => {
+        const principal = request.clientPrincipal;
+        if (!principal) throw new ClientCredentialError(401, 'CLIENT_AUTHENTICATION_REQUIRED');
+        const effective: string[] = [];
+        for (const id of principal.repositoryIds)
+          if (await canReadRepository(database, authorization, request, id)) effective.push(id);
+        return {
+          schemaVersion: 1,
+          serverId: config.KNOWLEDGE_SERVER_ID,
+          userId: principal.user.id,
+          displayName: principal.user.displayName,
+          tenantId: principal.tenantId,
+          repositoryIds: effective,
+          scopes: principal.scopes,
+          clientId: principal.clientId,
+          keyId: principal.keyId,
+          expiresAt: principal.expiresAt,
+        };
+      },
+    );
+    routes.get('/api/v1/me/client-credentials', { preHandler: web }, async (request) => {
+      const { cursor } = z
+        .object({ cursor: z.string().uuid().optional() })
+        .strict()
+        .parse(request.query);
+      return { schemaVersion: 1, ...(await listClientKeys(database, request.user!.id, cursor)) };
+    });
+    routes.get(
+      '/api/v1/client-auth/connection-options',
+      { config: { clientKnowledgeRead: true }, preHandler: requireUser },
+      async (request) => {
+        const principal = request.clientPrincipal;
+        if (!principal) throw new ClientCredentialError(401, 'CLIENT_AUTHENTICATION_REQUIRED');
+        if (!signer || signer.serverId !== config.KNOWLEDGE_SERVER_ID || !config.PUBLIC_BASE_URL)
+          throw new ClientCredentialError(503, 'CLIENT_CONNECTION_UNAVAILABLE');
+        const repositories = [];
+        for (const repositoryId of principal.repositoryIds) {
+          if (!(await canReadRepository(database, authorization, request, repositoryId))) continue;
+          const row = (
+            await database.query<{
+              tenant_id: string;
+              instance_id: string;
+              web_base_url: string;
+              owner: string;
+              name: string;
+            }>(
+              `select r.tenant_id,r.instance_id,i.web_base_url,r.owner,r.name from repositories r
+            join github_instances i on i.id=r.instance_id where r.id=$1 and r.tenant_id=$2
+            and r.deleted_at is null and r.enabled and i.enabled`,
+              [repositoryId, principal.tenantId],
+            )
+          ).rows[0];
+          if (!row) continue;
+          const webBase = new URL(row.web_base_url);
+          webBase.username = '';
+          webBase.password = '';
+          webBase.search = '';
+          webBase.hash = '';
+          repositories.push(
+            centralRepositoryIdentity({
+              schemaVersion: 1,
+              serverId: signer.serverId,
+              tenantId: row.tenant_id,
+              repositoryId,
+              instanceId: row.instance_id,
+              webBaseUrl: webBase.href,
+              owner: row.owner,
+              name: row.name,
+            }),
+          );
+        }
+        return centralConnectionOptions({
+          schemaVersion: 1,
+          serverUrl: config.PUBLIC_BASE_URL,
+          serverId: signer.serverId,
+          tenantId: principal.tenantId,
+          clientId: principal.clientId,
+          trustedKeys: [{ id: signer.keyId, pem: signer.publicKeyPem }],
+          ca,
+          repositories,
+        });
+      },
+    );
+    routes.get(
+      '/api/v1/client-repositories/:repoId',
+      { config: { clientKnowledgeRead: true }, preHandler: requireUser },
+      async (request) => {
+        const { repoId } = z.object({ repoId: z.string().uuid() }).parse(request.params);
+        const principal = request.clientPrincipal;
+        if (!principal) throw new ClientCredentialError(401, 'CLIENT_AUTHENTICATION_REQUIRED');
+        if (
+          !principal.repositoryIds.includes(repoId) ||
+          !(await canReadRepository(database, authorization, request, repoId))
+        )
+          throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+        const row = (
+          await database.query<{
+            tenant_id: string;
+            instance_id: string;
+            web_base_url: string;
+            owner: string;
+            name: string;
+          }>(
+            `select r.tenant_id,r.instance_id,i.web_base_url,r.owner,r.name from repositories r
+           join github_instances i on i.id=r.instance_id where r.id=$1 and r.tenant_id=$2
+           and r.deleted_at is null and r.enabled and i.enabled`,
+            [repoId, principal.tenantId],
+          )
+        ).rows[0];
+        if (!row) throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+        const webBase = new URL(row.web_base_url);
+        webBase.username = '';
+        webBase.password = '';
+        webBase.search = '';
+        webBase.hash = '';
+        return centralRepositoryIdentity({
+          schemaVersion: 1,
+          serverId: config.KNOWLEDGE_SERVER_ID,
+          tenantId: row.tenant_id,
+          repositoryId: repoId,
+          instanceId: row.instance_id,
+          webBaseUrl: webBase.href,
+          owner: row.owner,
+          name: row.name,
+        });
+      },
+    );
+    routes.get('/api/v1/me/client-connection-config', { preHandler: web }, async (request) => {
+      const { repositoryId } = z
+        .object({ repositoryId: z.string().uuid() })
+        .strict()
+        .parse(request.query);
+      if (!signer || signer.serverId !== config.KNOWLEDGE_SERVER_ID || !config.PUBLIC_BASE_URL)
+        throw new ClientCredentialError(503, 'CLIENT_CONNECTION_UNAVAILABLE');
+      if (!(await canReadRepository(database, authorization, request, repositoryId)))
+        throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+      const repository = (
+        await database.query<{ tenant_id: string }>(
+          'select tenant_id from repositories where id=$1 and deleted_at is null',
+          [repositoryId],
+        )
+      ).rows[0];
+      if (!repository) throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+      return centralConnectionInput({
+        serverUrl: config.PUBLIC_BASE_URL,
+        serverId: signer.serverId,
+        tenantId: repository.tenant_id,
+        repositoryId,
+        trustedKeys: [{ id: signer.keyId, pem: signer.publicKeyPem }],
+        ca,
+      });
+    });
+    routes.post('/api/v1/me/client-credentials', { preHandler: web }, async (request, reply) => {
+      const input = clientKeyInput.parse(request.body);
+      if (input.scopes.some((scope) => scope !== 'knowledge:read'))
+        throw new ClientCredentialError(403, 'CLIENT_READ_ONLY');
+      for (const id of input.repositoryIds)
+        if (!(await canReadRepository(database, authorization, request, id)))
+          throw new ClientCredentialError(403, 'CLIENT_SCOPE_DENIED');
+      const result = await issueClientKey(database, {
+        user: request.user!,
+        sessionToken: request.cookies[browserSessionCookie(request, config)]!,
+        serverId: config.KNOWLEDGE_SERVER_ID!,
+        authMode: config.AUTH_MODE,
+        requestId: request.id,
+        input,
+      });
+      return reply.code(201).send({ schemaVersion: 1, ...result });
+    });
+    routes.delete(
+      '/api/v1/me/client-credentials/:keyId',
+      { preHandler: web },
+      async (request, reply) => {
+        const { keyId } = z.object({ keyId: z.string().uuid() }).parse(request.params);
+        await revokeClientKey(database, request.user!.id, keyId, request.id);
+        return reply.code(204).send();
+      },
+    );
+  });
+}

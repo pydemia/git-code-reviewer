@@ -1,0 +1,12 @@
+GCR CLI includes @gcr/client-contract, @gcr/client-core and @gcr/client-executors
+under the Apache License, Version 2.0. Their exact versions and artifact hashes
+are recorded in the release manifest distributed with this CLI tarball.
+
+The account selection, stdin/ephemeral invocation and original process helper
+derive from Commit Defender vscode-extension/src/ai/providers.ts at 35575ad,
+under Apache-2.0. GCR adds fixed-source isolation, authenticated MCP transport,
+capability probing, process-group cleanup and review orchestration.
+Commit Defender source: https://github.com/pydemia/commit-defender
+
+Node.js and the selected account CLI are user-provided executables and are not
+included in this package. esbuild is a build tool and is not included at runtime.

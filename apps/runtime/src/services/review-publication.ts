@@ -2,7 +2,13 @@ import { createHash, createHmac } from 'node:crypto';
 import { FilesystemArtifactStore } from '@gcr/artifact-store';
 import { formatReviewGrade, formatReviewMarkdown } from '@gcr/contracts';
 import type { Database, DatabaseClient } from '@gcr/db';
-import type { GitHubReader, GitHubReviewPublisher, RepositoryTarget } from '@gcr/github';
+import {
+  GitHubPublicationSupersededError,
+  buildPermanentFileUrl,
+  type GitHubReader,
+  type GitHubReviewPublisher,
+  type RepositoryTarget,
+} from '@gcr/github';
 import { reviewReportSchema, type ReviewFinding, type ReviewReport } from '@gcr/review-contract';
 import type { AppConfig } from '../config.js';
 import { appendEvent } from '../events/index.js';
@@ -21,16 +27,19 @@ type PublicationContext = RepositoryTarget & {
   repositoryId: string;
   credentialId: string | null;
   headSha: string;
+  webBaseUrl?: string;
+  mergeBaseSha?: string;
   reportId: string;
   skillHash: string | null;
   reportLocator: string | null;
+  reviewCommentMinPriority?: 'P2' | 'P3';
   report: Pick<ReviewReport, 'grade' | 'summary' | 'hasCriticalFindings' | 'coverage'>;
 };
 
 type PublicationRow = {
   commentId: string | null;
   bodyHash: string | null;
-  publishedAnalysisCreatedAt: string | null;
+  publishedIsCurrentOrNewer: boolean | null;
 };
 
 export class ReviewPublicationError extends Error {
@@ -56,6 +65,8 @@ export async function enqueueReviewPublication(
      join pull_requests pull_request on pull_request.id = request.pull_request_id
      join repositories repository on repository.id = pull_request.repository_id
      where analysis.id = $1 and pull_request.id = $2 and repository.enabled
+       and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
+       and pull_request.state = 'open' and repository.deleted_at is null
        and repository.review_publishing_enabled
        and (repository.credential_id is not null or $3::boolean)`,
     [analysisId, pullRequestId, githubAppEnabled],
@@ -70,7 +81,10 @@ export async function enqueueReviewPublication(
        target_analysis_run_id = excluded.target_analysis_run_id,
        head_sha = excluded.head_sha, state = 'pending',
        last_error_code = null, last_error_message = null,
-       updated_at = clock_timestamp()`,
+       updated_at = clock_timestamp()
+     where github_review_publications.target_analysis_run_id is distinct from excluded.target_analysis_run_id
+       and (select (created_at,id) from analysis_runs where id=excluded.target_analysis_run_id)
+           >= (select (created_at,id) from analysis_runs where id=github_review_publications.target_analysis_run_id)`,
     [pullRequestId, analysisId, eligible.rows[0].headSha],
   );
   await connection.query(
@@ -109,7 +123,8 @@ export async function enqueueLatestReviewPublication(
        join reports report on report.analysis_run_id = analysis.id
        where request.pull_request_id = pull_request.id
          and analysis.state in ('completed', 'partial')
-       order by analysis.created_at desc limit 1
+         and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
+       order by analysis.created_at desc, analysis.id desc limit 1
      ) latest_analysis on true
      where pull_request.repository_id = $1 and pull_request.state = 'open'`,
       [repositoryId],
@@ -148,29 +163,25 @@ export async function publishReviewToGitHub(
     if (!context) {
       await connection.query(
         `update github_review_publications set state = 'disabled', updated_at = clock_timestamp()
-         where pull_request_id = $1`,
-        [pullRequestId],
+         where pull_request_id = $1 and target_analysis_run_id = $2`,
+        [pullRequestId, analysisId],
       );
       return;
     }
-    const publication = await loadPublication(connection, pullRequestId);
-    if (
-      publication?.publishedAnalysisCreatedAt &&
-      new Date(publication.publishedAnalysisCreatedAt).getTime() >=
-        new Date(context.analysisCreatedAt).getTime()
-    ) {
+    const publication = await loadPublication(connection, pullRequestId, analysisId);
+    if (publication?.publishedIsCurrentOrNewer) {
       return;
     }
 
     const findings = await loadFindings(connection, context.reportId);
     let canonicalReport: ReviewReport | undefined;
-    if (context.skillHash) {
+    if (context.skillHash || context.reportLocator) {
       if (!context.reportLocator)
         throw new ReviewPublicationError('Report artifact를 읽을 수 없습니다.', true);
       canonicalReport = reviewReportSchema.parse(await artifacts.readJson(context.reportLocator));
       if (
         canonicalReport.analysisRevisionId !== analysisId ||
-        canonicalReport.analysis?.skills.bundleHash !== context.skillHash
+        (context.skillHash && canonicalReport.analysis?.skills.bundleHash !== context.skillHash)
       ) {
         throw new ReviewPublicationError(
           'Report의 analysis/Skill snapshot이 일치하지 않습니다.',
@@ -179,19 +190,36 @@ export async function publishReviewToGitHub(
       }
     }
     const marker = managedCommentMarker(config, pullRequestId);
+    const files =
+      canonicalReport && context.webBaseUrl
+        ? (
+            await connection.query<{
+              id: string;
+              path: string;
+              previousPath: string | null;
+            }>(
+              `select sf.id,sf.path,sf.previous_path as "previousPath" from snapshot_files sf
+        join analysis_runs ar on ar.snapshot_id=sf.snapshot_id where ar.id=$1`,
+              [analysisId],
+            )
+          ).rows
+        : [];
     const body = renderReviewComment({
       context,
       findings,
       marker,
       ...(canonicalReport ? { canonicalReport } : {}),
+      codePermalinks: canonicalReport
+        ? reviewCodePermalinks(canonicalReport, context, files)
+        : new Map(),
       ...(config.PUBLIC_BASE_URL ? { publicBaseUrl: config.PUBLIC_BASE_URL } : {}),
     });
     const bodyHash = createHash('sha256').update(body).digest('hex');
     await connection.query(
       `update github_review_publications set state = 'publishing', last_attempt_at = clock_timestamp(),
          last_error_code = null, last_error_message = null, updated_at = clock_timestamp()
-       where pull_request_id = $1`,
-      [pullRequestId],
+       where pull_request_id = $1 and target_analysis_run_id = $2`,
+      [pullRequestId, analysisId],
     );
 
     const publisher = context.credentialId
@@ -207,12 +235,62 @@ export async function publishReviewToGitHub(
       throw new ReviewPublicationError('GitHub review publisher credential is unavailable', true);
     }
     const existingCommentId = publication?.commentId ? Number(publication.commentId) : null;
-    const result = await publisher.upsertPullRequestComment(context, {
-      pullNumber: context.pullNumber,
-      marker,
-      body,
-      existingCommentId,
-    });
+    let result;
+    try {
+      result = await publisher.upsertPullRequestComment(context, {
+        pullNumber: context.pullNumber,
+        expectedHeadSha: context.headSha,
+        marker,
+        body,
+        existingCommentId,
+        beforeWrite: async () => {
+          // The remote lookup or marker recovery may take time. Recheck the exact
+          // job target and credential selection without holding an SQL transaction over HTTP.
+          const current = await loadPublicationContext(connection, analysisId, pullRequestId);
+          const target = await connection.query(
+            'select 1 from github_review_publications where pull_request_id=$1 and target_analysis_run_id=$2',
+            [pullRequestId, analysisId],
+          );
+          if (
+            !current ||
+            !target.rowCount ||
+            current.credentialId !== context.credentialId ||
+            current.installationId !== context.installationId ||
+            current.apiBaseUrl !== context.apiBaseUrl ||
+            current.owner !== context.owner ||
+            current.name !== context.name ||
+            current.pullNumber !== context.pullNumber
+          )
+            throw new GitHubPublicationSupersededError('target-changed');
+          if (
+            (current.reviewCommentMinPriority ?? 'P2') !==
+            (context.reviewCommentMinPriority ?? 'P2')
+          )
+            throw new ReviewPublicationError(
+              'PR comment notification priority changed; retry with current settings',
+              true,
+            );
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof GitHubPublicationSupersededError)) throw error;
+      const skipped = await connection.query(
+        `update github_review_publications set state='disabled', last_error_code=$3,
+         last_error_message='Publication no longer matches the current pull request or selected target.',
+         updated_at=clock_timestamp() where pull_request_id=$1 and target_analysis_run_id=$2`,
+        [
+          pullRequestId,
+          analysisId,
+          `GITHUB_REVIEW_${error.reason.replaceAll('-', '_').toUpperCase()}`,
+        ],
+      );
+      if (skipped.rowCount)
+        await appendEvent(connection, 'pull_request', pullRequestId, 'github.review.skipped', {
+          analysisId,
+          reason: error.reason,
+        });
+      return;
+    }
 
     await connection.query(
       `update github_review_publications set
@@ -236,6 +314,7 @@ export async function publishReviewToGitHub(
     await appendEvent(connection, 'pull_request', pullRequestId, 'github.review.published', {
       analysisId,
       headSha: context.headSha,
+      reviewCommentMinPriority: context.reviewCommentMinPriority ?? 'P2',
       commentId: result.commentId,
       commentUrl: result.commentUrl,
       outcome: result.outcome,
@@ -265,6 +344,8 @@ async function loadPublicationContext(
     owner: string;
     name: string;
     headSha: string;
+    webBaseUrl: string;
+    mergeBaseSha: string;
     reportId: string;
     skillHash: string | null;
     reportLocator: string | null;
@@ -272,14 +353,17 @@ async function loadPublicationContext(
     summary: string;
     hasCriticalFindings: boolean;
     coverage: ReviewReport['coverage'];
+    reviewCommentMinPriority: 'P2' | 'P3';
   }>(
     `select analysis.id as "analysisId", analysis.created_at as "analysisCreatedAt",
             pull_request.id as "pullRequestId", pull_request.number as "pullNumber",
             repository.id as "repositoryId", repository.credential_id as "credentialId",
             repository.installation_id as "installationId", instance.api_base_url as "apiBaseUrl",
             repository.owner, repository.name, request.head_sha as "headSha",
+            instance.web_base_url as "webBaseUrl", coalesce(snapshot.merge_base_sha,request.base_sha) as "mergeBaseSha",
             report.id as "reportId", report.grade, report.summary,
             report.has_critical_findings as "hasCriticalFindings", report.coverage,
+            repository.review_comment_min_priority as "reviewCommentMinPriority",
             analysis.skill_hash as "skillHash", artifact.locator as "reportLocator"
      from analysis_runs analysis
      join reports report on report.analysis_run_id = analysis.id
@@ -290,7 +374,9 @@ async function loadPublicationContext(
      join repositories repository on repository.id = pull_request.repository_id
      join github_instances instance on instance.id = repository.instance_id
      where analysis.id = $1 and pull_request.id = $2
+       and analysis.memory_owner_user_id is null and request.head_sha = pull_request.head_sha
        and analysis.state in ('completed', 'partial')
+       and pull_request.state = 'open' and repository.deleted_at is null
        and repository.enabled and repository.review_publishing_enabled and instance.enabled`,
     [analysisId, pullRequestId],
   );
@@ -301,15 +387,16 @@ async function loadPublicationContext(
 async function loadPublication(
   database: Pick<DatabaseClient, 'query'>,
   pullRequestId: string,
+  analysisId: string,
 ): Promise<PublicationRow | null> {
   const result = await database.query<PublicationRow>(
     `select publication.comment_id as "commentId", publication.body_hash as "bodyHash",
-            published_analysis.created_at as "publishedAnalysisCreatedAt"
+            (published_analysis.created_at,published_analysis.id) >= (select created_at,id from analysis_runs where id=$2) as "publishedIsCurrentOrNewer"
      from github_review_publications publication
      left join analysis_runs published_analysis
        on published_analysis.id = publication.published_analysis_run_id
      where publication.pull_request_id = $1`,
-    [pullRequestId],
+    [pullRequestId, analysisId],
   );
   return result.rows[0] ?? null;
 }
@@ -332,14 +419,23 @@ async function loadFindings(
 export function renderReviewComment(input: {
   context: Pick<
     PublicationContext,
-    'analysisId' | 'owner' | 'name' | 'pullNumber' | 'headSha' | 'report'
+    | 'analysisId'
+    | 'owner'
+    | 'name'
+    | 'pullNumber'
+    | 'headSha'
+    | 'report'
+    | 'reviewCommentMinPriority'
   >;
   findings: Array<Pick<ReviewFinding, 'priority' | 'title' | 'problem' | 'recommendation'>>;
   marker: string;
   publicBaseUrl?: string;
   canonicalReport?: ReviewReport;
+  codePermalinks?: ReadonlyMap<string, string>;
 }): string {
-  const { context, findings, marker } = input;
+  const { context, marker } = input;
+  const minimumPriority = context.reviewCommentMinPriority ?? 'P2';
+  const findings = input.findings.filter((finding) => finding.priority >= minimumPriority);
   if (input.canonicalReport) {
     const heading = `${marker}\n## Git Code Reviewer 결과\n\n`;
     const tail = '\n\n_이 댓글은 새 분석이 완료되면 같은 위치에서 갱신됩니다._';
@@ -351,6 +447,8 @@ export function renderReviewComment(input: {
       formatReviewMarkdown(input.canonicalReport, [], {
         includeTitle: false,
         audience: 'pull-request',
+        minimumPriority,
+        ...(input.codePermalinks ? { codePermalinks: input.codePermalinks } : {}),
         ...(reportUrl ? { reportUrl } : {}),
         maxLength: 60000 - heading.length - tail.length,
       }) +
@@ -372,7 +470,8 @@ export function renderReviewComment(input: {
     '',
     `**코드 품질:** ${formatReviewGrade(context.report.grade)}${context.report.hasCriticalFindings ? ' · 조치가 필요한 P3 finding이 있습니다.' : ''}`,
     '',
-    escapeMarkdown(context.report.summary),
+    `PR 댓글 알림: ${minimumPriority === 'P2' ? 'P2 Warning 이상' : 'P3 Critical만'} · 전체 분석 결과는 보고서에서 확인할 수 있습니다.`,
+    ...(findings.length === input.findings.length ? [escapeMarkdown(context.report.summary)] : []),
     '',
     '| Priority | P3 | P2 | P1 | P0 |',
     '|---|---:|---:|---:|---:|',
@@ -396,7 +495,7 @@ export function renderReviewComment(input: {
     }
     lines.push('');
   } else {
-    lines.push('조치가 필요한 finding은 발견되지 않았습니다.', '');
+    lines.push('PR 알림 기준에 해당하는 검토 의견이 없습니다.', '');
   }
   if (input.publicBaseUrl) {
     lines.push(
@@ -406,6 +505,41 @@ export function renderReviewComment(input: {
   }
   lines.push('_이 댓글은 새 분석이 완료되면 같은 위치에서 갱신됩니다._');
   return lines.join('\n').slice(0, 60_000);
+}
+
+export function reviewCodePermalinks(
+  report: ReviewReport,
+  context: Pick<PublicationContext, 'webBaseUrl' | 'owner' | 'name' | 'headSha' | 'mergeBaseSha'>,
+  files: Array<{ id: string; path: string; previousPath: string | null }>,
+): Map<string, string> {
+  const links = new Map<string, string>();
+  if (!context.webBaseUrl) return links;
+  const paths = new Map(files.map((file) => [file.id, file]));
+  for (const finding of report.findings) {
+    const anchor = finding.anchor,
+      file = paths.get(anchor.fileId);
+    if (!file || !anchor.startLine || finding.verification.status !== 'verified') continue;
+    const commit =
+      anchor.commitOid ?? (anchor.side === 'mergeBase' ? context.mergeBaseSha : context.headSha);
+    if (!commit) continue;
+    try {
+      links.set(
+        finding.id,
+        buildPermanentFileUrl(
+          context.webBaseUrl,
+          context.owner,
+          context.name,
+          commit,
+          anchor.side === 'mergeBase' ? (file.previousPath ?? file.path) : file.path,
+          anchor.startLine,
+          anchor.endLine,
+        ),
+      );
+    } catch {
+      // Invalid historical anchors keep their report link, without inventing a code reference.
+    }
+  }
+  return links;
 }
 
 export function managedCommentMarker(config: AppConfig, pullRequestId: string): string {

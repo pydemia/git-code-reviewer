@@ -11,6 +11,7 @@ RUN --mount=type=secret,id=build_ca \
   if [ -s /run/secrets/build_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/build_ca; fi \
   && npm install --global pnpm@10.17.1
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml tsconfig.base.json ./
+COPY scripts/build-windows-native.mjs ./scripts/build-windows-native.mjs
 COPY apps ./apps
 COPY packages ./packages
 COPY docs/product ./docs/product
@@ -33,6 +34,7 @@ USER root
 RUN --mount=type=secret,id=build_ca \
   if [ -s /run/secrets/build_ca ]; then export SSL_CERT_FILE=/run/secrets/build_ca; fi \
   && if [ "${REUSE_RUNTIME_BASE}" != "true" ]; then apk add --no-cache git tini; fi \
+  && rm -rf /app \
   && mkdir -p /app /var/lib/git-code-reviewer/artifacts /tmp/git-code-reviewer/workspaces \
   && chown -R node:node /app /var/lib/git-code-reviewer /tmp/git-code-reviewer
 WORKDIR /app
@@ -49,6 +51,11 @@ COPY --from=build --chown=node:node /app/apps/runtime/package.json ./apps/runtim
 COPY --from=build --chown=node:node /app/apps/runtime/node_modules ./apps/runtime/node_modules
 COPY --from=build --chown=node:node /app/apps/runtime/dist ./apps/runtime/dist
 COPY --from=build --chown=node:node /app/apps/web/dist ./apps/web/dist
+COPY --from=build --chown=node:node /app/packages/client-contract/package.json ./packages/client-contract/package.json
+COPY --from=build --chown=node:node /app/packages/client-contract/dist ./packages/client-contract/dist
+COPY --from=build --chown=node:node /app/packages/client-core/package.json ./packages/client-core/package.json
+COPY --from=build --chown=node:node /app/packages/client-core/node_modules ./packages/client-core/node_modules
+COPY --from=build --chown=node:node /app/packages/client-core/dist ./packages/client-core/dist
 COPY --from=build --chown=node:node /app/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=build --chown=node:node /app/packages/contracts/node_modules ./packages/contracts/node_modules
 COPY --from=build --chown=node:node /app/packages/contracts/dist ./packages/contracts/dist

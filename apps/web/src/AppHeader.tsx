@@ -1,4 +1,11 @@
-import { BookOpenText, CircleUserRound, LogOut, Settings, ShieldCheck } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpenText,
+  CircleUserRound,
+  LogOut,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 import { logout, type User } from './api.ts';
 
 type AppHeaderProps = {
@@ -46,6 +53,29 @@ export function AppHeader({
                   </select>
                 </label>
               ) : null}
+              {user ? (
+                <a
+                  className="header-guide-link"
+                  href="/review-observations"
+                  aria-label="리뷰 관측"
+                  aria-current={
+                    window.location.pathname === '/review-observations' ? 'page' : undefined
+                  }
+                >
+                  <BarChart3 size={15} />
+                  <span>리뷰 관측</span>
+                </a>
+              ) : null}
+              {user ? (
+                <a
+                  className="header-guide-link"
+                  href="/review-history"
+                  aria-current={window.location.pathname === '/review-history' ? 'page' : undefined}
+                >
+                  <BookOpenText size={15} />
+                  <span>리뷰 이력</span>
+                </a>
+              ) : null}
               {user?.role === 'administrator' ? (
                 <a className="icon-button" href="/admin" title="관리" aria-label="관리">
                   <Settings size={17} />
@@ -54,9 +84,27 @@ export function AppHeader({
               {user ? (
                 <a
                   className="header-guide-link"
+                  href="/review-criteria"
+                  aria-current={
+                    window.location.pathname === '/review-criteria' ? 'page' : undefined
+                  }
+                >
+                  <ShieldCheck size={15} />
+                  <span>리뷰 기준</span>
+                </a>
+              ) : null}
+              {user ? (
+                <a
+                  className="header-guide-link"
                   href="/guide"
                   aria-current={
-                    ['/guide', '/introduction', '/features'].includes(window.location.pathname)
+                    [
+                      '/guide',
+                      '/introduction',
+                      '/features',
+                      '/getting-started',
+                      '/architecture',
+                    ].includes(window.location.pathname)
                       ? 'page'
                       : undefined
                   }

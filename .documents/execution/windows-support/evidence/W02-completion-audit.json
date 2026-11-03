@@ -1,0 +1,162 @@
+{
+  "checkedAt": "2026-09-16T05:18:49.550Z",
+  "goalStatus": "W02 completion conditions met under user-approved PR #3 substitution",
+  "scope": "User-approved actual PR #3 and local GCR substitution for inaccessible #917/#915",
+  "originalPrismDataVerified": false,
+  "userAuthorizedTestPrAndComments": true,
+  "requirements": [
+    {
+      "id": "W02-C01",
+      "state": "verified for Windows ARM64",
+      "evidence": [
+        "W02-regression.json",
+        "W02-synthetic-host.json",
+        "W02-product-reader.json",
+        "W02-live-pr-server.json"
+      ],
+      "detail": "Native secure storage, restart access, TLS/CA/pin, scope and failure boundaries preserved; native macOS/Linux not rerun."
+    },
+    {
+      "id": "W02-C02",
+      "state": "verified under user-approved PR #3 substitution",
+      "evidence": [
+        "W02-live-pr-server.json",
+        "W02-live-pr-defect.json",
+        "W02-live-pr-fixed.json",
+        "W02-live-pr-unrelated.json"
+      ],
+      "detail": "Actual GitHub originals, reply, two observed body versions, active revision and exact hashes match real GCR reader; signed context fixed for reviews."
+    },
+    {
+      "id": "W02-C03",
+      "state": "verified",
+      "evidence": [
+        "W02-artifact-linkage.json",
+        "W02-vsix-contents.json",
+        "W02-live-pr-preservation.json"
+      ],
+      "detail": "Immutable alpha.48/helper1.0.2/VSIX2.12.3 reused; installed/tested worker matches. Existing user Host applied version remains unverified without forced reload."
+    },
+    {
+      "id": "W02-C04",
+      "state": "verified under user-approved PR #3 substitution",
+      "evidence": [
+        "W02-live-pr-call-plan.json",
+        "W02-live-pr-acceptance.json",
+        "W02-live-pr-server.json"
+      ],
+      "detail": "Three real Luna/high reviews completed within 240 seconds each; manual assessment of applied/satisfied/excluded decisions, saved report reread, source display and GET-only traffic."
+    },
+    {
+      "id": "cleanup",
+      "state": "verified",
+      "evidence": [
+        "W02-live-pr-preservation.json",
+        "W02-live-pr-server.json"
+      ],
+      "detail": "Owned profiles, reader, key, session, processes, DB container/volume cleaned. Prior rejected cache removal resolved by user deletion and read-only absence check."
+    }
+  ],
+  "totalAccountReviews": 7,
+  "initialReconstructedCases": 3,
+  "authorizedLivePrCases": 3,
+  "livePrCompleted": 3,
+  "livePrFailed": 1,
+  "livePrRetries": 1,
+  "originalDataLimitation": "Original PRISM #917/#915 remain unverified. User explicitly replaced that target, not the required end-to-end behavior.",
+  "previousAudit": {
+    "checkedAt": "2026-09-16T03:22:55.9406394Z",
+    "goalStatus": "blocked, incomplete",
+    "previousGoalTurn": "progress: confirmed original-data absence, audited preserved history evidence, committed and pushed the unchanged completion requirements",
+    "userConfirmedOriginalDataAbsent": true,
+    "blockedCondition": "Current #917/#915 original history and active guidance cannot be fetched from this PC; no local original dataset/export is available.",
+    "consecutiveGoalTurnsWithThisCondition": 3,
+    "additionalModelCalls": 0,
+    "sourceSearch": {
+      "directory": ".documents/execution/review-memory-pull/evidence",
+      "jsonFiles": 59,
+      "stringValuesHashed": 6425,
+      "bodyFields": 0,
+      "nonEmptyHistoricalHashes": 32,
+      "exactOriginalBodyHashMatches": 0,
+      "rawTextLogged": false
+    },
+    "requirements": [
+      {
+        "id": "W02-C01",
+        "state": "verified for Windows ARM64 scope",
+        "evidence": [
+          "W02-regression.json",
+          "W02-synthetic-host.json",
+          "W02-product-reader.json"
+        ],
+        "detail": "Native credential reopen, TLS/CA/signing pin, private cache and scope/error boundaries; native macOS/Linux not rerun."
+      },
+      {
+        "id": "W02-C02",
+        "state": "not achieved",
+        "evidence": [
+          "W02-product-reader.json",
+          "W02-local-defect.json",
+          "W02-local-fixed.json",
+          "W02-local-unrelated.json"
+        ],
+        "detail": "Reader integration and pinned source history work on reconstructed local data. Current #917/#915 original bodies/replies/versions and active guidance revision are absent; the original-data chain is unverified."
+      },
+      {
+        "id": "W02-C03",
+        "state": "verified",
+        "evidence": [
+          "W02-artifact-linkage.json",
+          "W02-vsix-contents.json",
+          "W02-source-push.json"
+        ],
+        "detail": "Immutable alpha.48/helper1.0.2/VSIX2.12.3; installed runtime hash matches tested Host; existing user Host applied version remains unverified without forced reload."
+      },
+      {
+        "id": "W02-C04",
+        "state": "partially verified",
+        "evidence": [
+          "W02-model-acceptance.json",
+          "W02-product-reader.json"
+        ],
+        "detail": "Three real Luna/high reviews completed with fixed G04 fixtures and reconstructed context, with source citations, decisions and saved-result reread. This does not prove real original-data retrieval and use. Real product reader test had zero model calls and is a separate run."
+      },
+      {
+        "id": "cleanup",
+        "state": "partially verified",
+        "evidence": [
+          "W02-preservation-cleanup.json"
+        ],
+        "detail": "Owned Host/profile/credentials/processes/reader containers and volumes removed. Interrupted synthetic cache folder remains after automatic approval review rejected recursive removal."
+      }
+    ],
+    "delivery": {
+      "gcr": "8518ff4b85784be39382a778eec47aa859fff0b5",
+      "cd": "257407eac4829ffa0d378c4ae3f71fe47efb3c17"
+    },
+    "completionDecision": "Do not mark W02 complete or redefine success as reconstructed-fixture-only verification. Resume original-data validation only when an authorized existing dataset or reader route is available.",
+    "blockedAudit": "Third consecutive goal turn with the same unavailable original-data condition. Current branches and clean worktrees rechecked; no new dataset or reader access is available. Independent implementation and local validation are complete. Goal marked blocked without narrowing its objective."
+  },
+  "delivery": [
+    {
+      "repository": "git-code-reviewer",
+      "branch": "codex/windows-native-support",
+      "verifiedRemoteCodeAndHarnessDelivery": "a423a77d9123cb345057c9ac9eed27ed04407256",
+      "verificationSource": "a423a77d9123cb345057c9ac9eed27ed04407256",
+      "verifiedEvidenceDelivery": "96581979ef5370d699218545613fa0ad37d0a36b",
+      "remoteEqualsLocal": true,
+      "worktreeCleanAtDelivery": true
+    },
+    {
+      "repository": "commit-defender",
+      "branch": "codex/windows-native-support",
+      "verifiedRemoteCodeAndHarnessDelivery": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e",
+      "verificationSource": "4ec39113d085bdaa2ff3d073a01abbe57bcd419e",
+      "verifiedEvidenceDelivery": "4e40e611355fd3ca20c91f1f4e00e2e299f8fafd",
+      "remoteEqualsLocal": true,
+      "worktreeCleanAtDelivery": true
+    }
+  ],
+  "completionDecision": "Complete W02 after this audit is pushed. The original inaccessible PRISM dataset is explicitly unverified; the user-approved real GitHub PR and local GCR chain passed."
+}

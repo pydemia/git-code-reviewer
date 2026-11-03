@@ -1,0 +1,648 @@
+{
+  "scope": "P07 editor Save provenance, independent Save/Stage delivery and verified CD 2.8.0 installation; full P00-P13 remains active",
+  "sourceCommits": {
+    "gitCodeReviewer": "479240a9da187f82fd71a3109317b70cea2c5021",
+    "commitDefender": "3e806732b3b81c9dc7e7d76aaf8f63752e18575a"
+  },
+  "clientVersion": "0.1.0-alpha.30",
+  "cliVersion": "0.1.0-alpha.26",
+  "extensionVersion": "2.8.0",
+  "packages": [
+    {
+      "name": "@gcr/client-contract",
+      "version": "0.1.0-alpha.30",
+      "file": "gcr-client-contract-0.1.0-alpha.30.tgz",
+      "sha256": "9e419f1d7ca91f4847fdbd2feceec0cebe0d6c27b16989647cf724d6af41c2f7"
+    },
+    {
+      "name": "@gcr/client-core",
+      "version": "0.1.0-alpha.30",
+      "file": "gcr-client-core-0.1.0-alpha.30.tgz",
+      "sha256": "bf64a48011bf57d5b7bbc9202bc2446085428ff03421d7a1617e39c962523829"
+    },
+    {
+      "name": "@gcr/client-executors",
+      "version": "0.1.0-alpha.30",
+      "file": "gcr-client-executors-0.1.0-alpha.30.tgz",
+      "sha256": "7609450b5070c9a7f3a5b795c7247149d7c242dffcad69c6027dcc053ce6e988"
+    },
+    {
+      "name": "@gcr/cli",
+      "version": "0.1.0-alpha.26",
+      "file": "gcr-cli-0.1.0-alpha.26.tgz",
+      "sha256": "f770460b5dff71e8ad50f3b1d85b963032faefbac835225c42c377927eedfe6d"
+    }
+  ],
+  "vsix": {
+    "file": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-editor-save/commit-defender-2.8.0.vsix",
+    "sha256": "d5e394c7aef40a972741c210fd37540311819c15d3395753513f58517fb6c035"
+  },
+  "verification": {
+    "gcr": {
+      "passed": 47,
+      "skipped": 1,
+      "files": {
+        "service-watch": 13,
+        "local-service": 8,
+        "cli-service": 6,
+        "central": 20
+      },
+      "skip": "Opt-in actual-account test; synthetic central HTTPS/client-binding test passed",
+      "transitionRecheck": {
+        "passed": 13,
+        "additionalUniqueTests": 0
+      },
+      "sourceBuild": "passed",
+      "packageImports": [
+        "18.20.8",
+        "22.23.2"
+      ],
+      "isolatedCliInstall": "passed on Node 22.23.2"
+    },
+    "commitDefender": {
+      "regression": {
+        "tests": 197,
+        "pass": 197,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      },
+      "sourceBuildAndTestTypecheck": "passed",
+      "triggerMatrix": {
+        "passed": 16,
+        "syntheticExecutorCalls": 28,
+        "serviceReceipts": 64,
+        "rows": [
+          {
+            "mask": 0,
+            "enabled": [],
+            "calls": 0,
+            "serviceJobs": 0,
+            "requests": []
+          },
+          {
+            "mask": 1,
+            "enabled": [
+              "save"
+            ],
+            "calls": 1,
+            "serviceJobs": 1,
+            "requests": [
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 2,
+            "enabled": [
+              "stage"
+            ],
+            "calls": 1,
+            "serviceJobs": 1,
+            "requests": [
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 3,
+            "enabled": [
+              "save",
+              "stage"
+            ],
+            "calls": 2,
+            "serviceJobs": 2,
+            "requests": [
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 4,
+            "enabled": [
+              "commit"
+            ],
+            "calls": 1,
+            "serviceJobs": 3,
+            "requests": [
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 5,
+            "enabled": [
+              "save",
+              "commit"
+            ],
+            "calls": 2,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 6,
+            "enabled": [
+              "stage",
+              "commit"
+            ],
+            "calls": 1,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 7,
+            "enabled": [
+              "save",
+              "stage",
+              "commit"
+            ],
+            "calls": 2,
+            "serviceJobs": 5,
+            "requests": [
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 8,
+            "enabled": [
+              "push"
+            ],
+            "calls": 1,
+            "serviceJobs": 3,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              }
+            ]
+          },
+          {
+            "mask": 9,
+            "enabled": [
+              "save",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 10,
+            "enabled": [
+              "stage",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 4,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 11,
+            "enabled": [
+              "save",
+              "stage",
+              "push"
+            ],
+            "calls": 3,
+            "serviceJobs": 5,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 12,
+            "enabled": [
+              "commit",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 6,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 13,
+            "enabled": [
+              "save",
+              "commit",
+              "push"
+            ],
+            "calls": 3,
+            "serviceJobs": 7,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          },
+          {
+            "mask": 14,
+            "enabled": [
+              "stage",
+              "commit",
+              "push"
+            ],
+            "calls": 2,
+            "serviceJobs": 7,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              }
+            ]
+          },
+          {
+            "mask": 15,
+            "enabled": [
+              "save",
+              "stage",
+              "commit",
+              "push"
+            ],
+            "calls": 3,
+            "serviceJobs": 8,
+            "requests": [
+              {
+                "reasons": [
+                  "push"
+                ],
+                "sourceKind": "commit-tree"
+              },
+              {
+                "reasons": [
+                  "commit",
+                  "stage"
+                ],
+                "sourceKind": "index"
+              },
+              {
+                "reasons": [
+                  "save"
+                ],
+                "sourceKind": "working-tree"
+              }
+            ]
+          }
+        ],
+        "scope": "Synthetic editor events and model executor; real IPC, source capture, managed Git hooks and local bare-remote push. All automatic triggers execute in the service. Exact service debounce timing is not asserted."
+      }
+    },
+    "minimumHost": {
+      "status": "passed",
+      "vscode": "1.90.2",
+      "node": "20.9.0",
+      "electron": "29.4.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.8.0",
+      "delivery": "packaged-extension",
+      "commandCount": 26,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    },
+    "priorCorrections": [
+      "Corrected source decoder callback and async activation/type placement build errors before final builds passed; earlier failed builds are not counted as passing."
+    ]
+  },
+  "actualNative": {
+    "status": "passed",
+    "vscode": "1.135.0",
+    "runtime": "v24.18.1",
+    "autoSaveSuppressed": true,
+    "liveDiagnostics": 1,
+    "changedSourceClearedDiagnostics": true,
+    "manualRunningBeforeHostExit": true,
+    "manualRunningAfterHostExit": true,
+    "cleanEditorDetach": true,
+    "nativeExitObserved": true,
+    "modelExecInvocations": 3,
+    "selectedBinaryUnchanged": true,
+    "trackedProcesses": 210,
+    "liveOwnedProcesses": [],
+    "ownedKeysRemoved": 3,
+    "ownedFilesRemoved": true,
+    "startedAt": "2026-09-14T11:29:15.363Z",
+    "finishedAt": "2026-09-14T11:33:55.144Z",
+    "reports": [
+      {
+        "scenario": "uiReport",
+        "runId": "0ccef96c-2a4d-4436-bfa0-f74a8c269cf9",
+        "receiptId": "93525887-777c-46e0-a5b5-855472351fc8",
+        "status": "completed",
+        "model": "gpt-6-astra",
+        "reasoningEffort": "xhigh",
+        "trigger": "save",
+        "durationMs": 70433,
+        "findings": 1,
+        "sourceReads": [
+          {
+            "path": "sum.ts",
+            "side": "source"
+          },
+          {
+            "path": "sum.ts",
+            "side": "base"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source"
+          },
+          {
+            "path": "sum.test.ts",
+            "side": "source"
+          },
+          {
+            "path": "package.json",
+            "side": "source"
+          },
+          {
+            "path": "caller.ts",
+            "side": "base"
+          },
+          {
+            "path": "sum.test.ts",
+            "side": "base"
+          },
+          {
+            "path": "package.json",
+            "side": "base"
+          }
+        ],
+        "testCommandsExecuted": false
+      },
+      {
+        "scenario": "manualReport",
+        "runId": "f10b961a-bb38-4acc-929d-aa8469f12c33",
+        "receiptId": "876b9bc8-c37f-4232-bd7e-6111fb27b96a",
+        "status": "completed",
+        "model": "gpt-6-astra",
+        "reasoningEffort": "xhigh",
+        "trigger": "save",
+        "durationMs": 63796,
+        "findings": 1,
+        "sourceReads": [
+          {
+            "path": "sum.ts",
+            "side": "source"
+          },
+          {
+            "path": "sum.ts",
+            "side": "base"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source"
+          },
+          {
+            "path": "sum.test.ts",
+            "side": "source"
+          },
+          {
+            "path": "package.json",
+            "side": "source"
+          },
+          {
+            "path": "caller.ts",
+            "side": "base"
+          },
+          {
+            "path": "sum.test.ts",
+            "side": "base"
+          }
+        ],
+        "testCommandsExecuted": false
+      },
+      {
+        "scenario": "externalReport",
+        "runId": "dbd6a0b5-432c-41a6-9c0d-20067b050667",
+        "receiptId": "ce9d44e3-b6c6-4361-9229-73c4c965019c",
+        "status": "completed",
+        "model": "gpt-6-astra",
+        "reasoningEffort": "xhigh",
+        "trigger": "save",
+        "durationMs": 72453,
+        "findings": 1,
+        "sourceReads": [
+          {
+            "path": "sum.ts",
+            "side": "source"
+          },
+          {
+            "path": "sum.ts",
+            "side": "base"
+          },
+          {
+            "path": "caller.ts",
+            "side": "source"
+          },
+          {
+            "path": "sum.test.ts",
+            "side": "source"
+          },
+          {
+            "path": "package.json",
+            "side": "source"
+          },
+          {
+            "path": "caller.ts",
+            "side": "base"
+          },
+          {
+            "path": "sum.test.ts",
+            "side": "base"
+          }
+        ],
+        "testCommandsExecuted": false
+      }
+    ]
+  },
+  "installation": {
+    "version": "2.8.0",
+    "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.8.0",
+    "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-editor-save/installed-backup-2.7.1",
+    "runtimeHashes": {
+      "out/extension.js": "59cc7e4cbdb03788feda181dd8cd1b7365fb2d49a4840b8914342f9494d5db50",
+      "out/standalone-review-worker.js": "fa724e7558452948924ae2bde1578bea427fe8cfb8f99a34bb29c8bab7d2dbbc",
+      "out/review-chat-worker.js": "9d093967720756fcb327014ba1f49cf58f3825e2a88c0195828f23fe2dcb90d2",
+      "out/hook-cli.js": "22172f321aa26c39a99014549ca8e1ab5904f20afa5b3d66d2d41bc519e345c1",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "out/gcr-service/main.mjs": "866ecc09c72ca6d1adb18ff74cb7fc767ba17cf7c9efb78e170da5cc377ffb02",
+      "out/gcr-service/manifest.json": "0af6a5057a3af0b98090e973401f74ae78fa9270eace0e45a9844bcac6c30655"
+    },
+    "packageMatchesExceptVSCodeMetadata": true,
+    "forcedReload": false,
+    "globalCliReplaced": false,
+    "serverRedeployed": false
+  },
+  "centralBinding": "The service explicitly uses the registered commit-defender connection; ordinary CLI still requires gcr-cli. Verified against synthetic HTTPS server, not an actual PRISM central model.",
+  "localEvidence": {
+    "directory": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-editor-save",
+    "sha256": {
+      "native.json": "06e5761cab9f6e70727cc1d1f2416673677c13d2b7e689f03fc82eb3b401f6cd",
+      "native-summary.json": "740ae9d1526bfc4a7bcf1dcf04d4c982f296efbe7daeadc0c5b3325f944a4c41",
+      "minimum-host.json": "09b0e4d05cb2bd61cda767d3e5cbdfd9f56a9ab1713fb7cf3a3fc4782cb4c364",
+      "trigger-matrix.json": "290b5996c999ebabdd025e7825a1377a3bfa0d96cfe1b5e73433009dcce45860",
+      "installation.json": "147de48dfbffd574234e3679147219553fe6ae2f069df789cfccce9c8a70d0a8",
+      "cd-editor-full-tests.log": "43cbc34a67b7ebebedfd19d9d10d8b933de31c04fe6b502100253859f15658b5",
+      "cd-editor-matrix.log": "698d4e145f463c04d86f7f6a0c5df64308b60d1701d00ac54c9d0c8dea3f90b4",
+      "gcr-editor-tests-final.log": "8111553f7f88b457e999a839fce5252efd590d232de075e2769310ab401e4b56",
+      "gcr-editor-transitions.log": "b5d36a02d5c7ede76c893365c8f925fb0b712a1115b8c3010eaca05c2e25d61f",
+      "gcr-editor-pack.log": "aaa9bffb49533ca75ded987b95ba07f64e3f718ba39d8c964432f65040f7920f"
+    }
+  },
+  "remaining": [
+    "Editor startup before provenance registration, failed handoff and full abnormal-exit lifecycle verification",
+    "Manual execution priority across extension and independent service",
+    "Partial-hunk unstage without extra model execution",
+    "User-wide call/token/time budgets and retention",
+    "OS login autostart, Linux actual executor and other-UID IPC check",
+    "P03-P06 remaining operational gates; P09 public release; P10-P13 central execution, runner, learning and PR workflow"
+  ],
+  "deploymentScope": "Client and extension only. PRISM runtime/Helm/DB TLS configuration unchanged; no public Marketplace publication."
+}

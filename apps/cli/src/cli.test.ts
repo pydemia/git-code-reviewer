@@ -1,0 +1,469 @@
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  clientReviewReport,
+  type LocalKnowledge,
+  type LocalReviewResponse,
+} from '@gcr/client-contract';
+import {
+  contentHash,
+  LocalRecordStore,
+  ReviewConversationStore,
+  restoreLocalSource,
+  type LocalKeyStore,
+  type LocalReviewExecutor,
+} from '@gcr/client-core';
+import { executeCli } from './cli.js';
+
+let root: string, repo: string, data: string;
+const secrets = new Map<string, Uint8Array>();
+const keys: LocalKeyStore = {
+  read: async (id) => (secrets.get(id) ? Buffer.from(secrets.get(id)!) : undefined),
+  write: async (id, value) => {
+    secrets.set(id, Uint8Array.from(value));
+  },
+  remove: async (id) => {
+    secrets.delete(id);
+  },
+};
+let modelCalls = 0;
+const descriptor = {
+  id: 'fixture',
+  version: '1',
+  model: 'fixture-model',
+  configHash: contentHash('cli-fixture'),
+  capabilities: {
+    available: true,
+    sourceIsolation: 'fixed-source-only' as const,
+    cancellation: true,
+    timeout: true,
+    childProcessCleanup: true,
+    outputTokenLimit: false,
+  },
+};
+const executor: LocalReviewExecutor = {
+  descriptor,
+  review: async (request) => {
+    modelCalls++;
+    const reads = await Promise.all(
+      ['source', 'base'].map(async (side) =>
+        JSON.parse(await request.source.execute('read_file', { path: 'load.py', side })),
+      ),
+    );
+    const response: LocalReviewResponse = {
+      summary: 'Fixture response.',
+      files: [
+        {
+          path: 'load.py',
+          side: 'source',
+          complete: true,
+          summary: 'Fixture coverage.',
+          readIds: reads.map((read) => read.readId),
+        },
+      ],
+      findings: [],
+      questions: [{ prompt: 'Optional design clarification.', required: false }],
+    };
+    return { raw: JSON.stringify(response), model: descriptor.model };
+  },
+};
+beforeAll(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcr-cli-test-'));
+  repo = path.join(root, 'repo');
+  data = path.join(root, 'data');
+  fs.mkdirSync(repo);
+  const git = (...args: string[]) =>
+    execFileSync(
+      'git',
+      [
+        '-C',
+        repo,
+        '-c',
+        'user.name=Fixture',
+        '-c',
+        'user.email=fixture@example.invalid',
+        '-c',
+        'core.hooksPath=/dev/null',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      {
+        stdio: 'pipe',
+        env: {
+          PATH: process.env.PATH,
+          HOME: root,
+          GIT_CONFIG_NOSYSTEM: '1',
+          GIT_CONFIG_GLOBAL: '/dev/null',
+        },
+      },
+    );
+  git('init', '-b', 'main');
+  fs.writeFileSync(path.join(repo, 'load.py'), 'def load():\n    return 1\n');
+  git('add', '.');
+  git('commit', '-m', 'base');
+  fs.writeFileSync(path.join(repo, 'load.py'), 'def load():\n    return 2\n');
+  git('add', '.');
+});
+afterAll(() => {
+  if (root) fs.rmSync(root, { recursive: true, force: true });
+  for (const secret of secrets.values()) secret.fill(0);
+  secrets.clear();
+});
+const cli = (args: string[], input?: unknown) =>
+  executeCli([...args, '--cwd', repo, '--data-dir', data, '--profile', 'cli-test'], {
+    keys,
+    prepareExecutor: async () => executor,
+    ...(input === undefined ? {} : { readStdin: async () => JSON.stringify(input) }),
+  });
+describe('standalone CLI assembly', () => {
+  it('status is read-only and does not prepare an executor or create local storage', async () => {
+    const result = await cli(['status']);
+    expect(result.exitCode).toBe(0);
+    expect(fs.existsSync(data)).toBe(false);
+    expect(modelCalls).toBe(0);
+  });
+  it('reads empty observations without storage or model work and validates windows first', async () => {
+    const value = await cli(['history', '--stats']);
+    expect(value).toMatchObject({
+      exitCode: 0,
+      value: {
+        days: 30,
+        coverage: { includedRecords: 0 },
+        providerCalls: null,
+        tokenUsage: null,
+        billedCost: null,
+      },
+    });
+    for (const args of [
+      ['--stats', '--days', '1'],
+      ['--days', '7'],
+      ['--stats', 'unexpected'],
+    ])
+      expect((await cli(['history', ...args])).exitCode).toBe(2);
+    expect(fs.existsSync(data)).toBe(false);
+    expect(secrets.size).toBe(0);
+    expect(modelCalls).toBe(0);
+  });
+  it('rejects unsupported central mode and invalid options before source/model work', async () => {
+    const result = await cli(['review', '--mode', 'centralized']);
+    expect(result.exitCode).toBe(2);
+    expect(result.value).toMatchObject({
+      mode: 'centralized',
+      status: 'unavailable',
+      centralRequests: 'forbidden',
+    });
+    expect((await cli(['review', '--api-key', 'secret-canary'])).exitCode).toBe(2);
+    expect(fs.existsSync(data)).toBe(false);
+    expect(modelCalls).toBe(0);
+  });
+  it.each(['memory', 'skill'])(
+    'supports %s candidate/activation/CAS/export/import/archive/delete across reopened stores',
+    async (kind) => {
+      const created = await cli([kind, 'create', '--input', '-'], {
+        title: `${kind} title`,
+        body: 'private-knowledge-canary',
+        appliesTo: { paths: ['load.py'], languages: ['python'], symbols: [], branches: [] },
+      });
+      expect(created.exitCode).toBe(0);
+      let item = created.value as LocalKnowledge;
+      expect(item.state).toBe('candidate');
+      expect((await cli([kind, 'show', item.id])).value).toEqual(item);
+      expect((await cli([kind, 'activate', item.id, '--revision', '99'])).exitCode).toBe(2);
+      item = (await cli([kind, 'activate', item.id, '--revision', '1'])).value as LocalKnowledge;
+      expect(item.state).toBe('active');
+      const context = await cli(['context', '--require-knowledge', item.id]);
+      expect(context.exitCode).toBe(0);
+      expect(JSON.stringify(context.value)).toContain(item.hash);
+      expect(JSON.stringify(context.value)).not.toContain(item.body);
+      item = (
+        await cli([kind, 'edit', item.id, '--revision', '2', '--input', '-'], {
+          body: 'updated-knowledge-canary',
+        })
+      ).value as LocalKnowledge;
+      expect(item.revision).toBe(3);
+      const output = path.join(root, `${kind}.json`);
+      expect((await cli([kind, 'export', item.id, '--output', output])).exitCode).toBe(0);
+      expect(fs.statSync(output).mode & 0o777).toBe(0o600);
+      expect((await cli([kind, 'export', item.id, '--output', output])).exitCode).toBe(2);
+      const imported = (await cli([kind, 'import', '--input', output])).value as LocalKnowledge;
+      expect(imported.id).not.toBe(item.id);
+      expect(imported.state).toBe('candidate');
+      expect((await cli([kind, 'deactivate', item.id, '--revision', '3'])).value).toMatchObject({
+        state: 'inactive',
+        revision: 4,
+      });
+      expect((await cli(['context', '--require-knowledge', item.id])).exitCode).toBe(2);
+      expect((await cli([kind, 'archive', item.id, '--revision', '4'])).value).toMatchObject({
+        state: 'archived',
+        revision: 5,
+      });
+      expect((await cli([kind, 'delete', item.id, '--revision', '5'])).exitCode).toBe(0);
+      expect((await cli([kind, 'show', item.id])).exitCode).toBe(2);
+      const walk = (directory: string): string =>
+        fs
+          .readdirSync(directory, { withFileTypes: true })
+          .map((entry) =>
+            entry.isDirectory()
+              ? walk(path.join(directory, entry.name))
+              : fs.readFileSync(path.join(directory, entry.name), 'utf8'),
+          )
+          .join('');
+      expect(walk(data)).not.toContain('knowledge-canary');
+    },
+    30_000,
+  );
+  it('keeps profile knowledge usable outside Git and checks kind/scope before mutation', async () => {
+    const create = await executeCli(
+      [
+        'memory',
+        'create',
+        '--scope',
+        'profile',
+        '--data-dir',
+        data,
+        '--profile',
+        'cli-test',
+        '--input',
+        '-',
+      ],
+      { cwd: root, keys, readStdin: async () => '{"title":"profile","body":"body"}' },
+    );
+    expect(create.exitCode).toBe(0);
+    const item = create.value as LocalKnowledge;
+    expect((await cli(['skill', 'show', item.id, '--scope', 'profile'])).exitCode).toBe(2);
+    expect((await cli(['memory', 'show', item.id])).exitCode).toBe(2);
+  });
+  it('rejects invalid drafts, revision misuse and symlink input', async () => {
+    expect(
+      (await cli(['memory', 'create', '--input', '-'], { title: 'a', body: 'b', state: 'active' }))
+        .exitCode,
+    ).toBe(2);
+    expect((await cli(['memory', 'list', '--revision', '1'])).exitCode).toBe(2);
+    const link = path.join(root, 'linked.json');
+    fs.symlinkSync(path.join(root, 'memory.json'), link);
+    expect((await cli(['memory', 'import', '--input', link])).exitCode).toBe(2);
+  });
+  it('saves a terminal report and reads it after all stores have closed', async () => {
+    const result = await cli(['review']);
+    expect(result.exitCode).toBe(1);
+    const report = clientReviewReport(result.value);
+    expect(report.status).toBe('completed');
+    const reread = await cli(['result', report.runId]);
+    expect(reread.exitCode).toBe(1);
+    expect(reread.value).toEqual(report);
+    expect((await cli(['history'])).value).toMatchObject([
+      { runId: report.runId, status: 'completed', exitCode: 1 },
+    ]);
+    const stats = await cli(['history', '--stats', '--days', '7']);
+    expect(stats).toMatchObject({
+      exitCode: 0,
+      value: {
+        days: 7,
+        coverage: { includedRecords: 1 },
+        statuses: { completed: 1 },
+        models: [{ executor: 'fixture', model: 'fixture-model', reviews: 1 }],
+      },
+    });
+    expect(modelCalls).toBe(1);
+    const repeat = await cli(['review']);
+    expect(repeat.value).toEqual(report);
+    expect(repeat.diagnostics).toContainEqual(expect.objectContaining({ code: 'review-reused' }));
+    const requests = await cli(['requests']);
+    expect(requests.value).toMatchObject([
+      { state: 'finished', reasons: ['manual'], resultId: report.runId },
+    ]);
+    expect(modelCalls).toBe(1);
+    const client = report.identity.client;
+    const records = await LocalRecordStore.open({
+      scope: {
+        kind: 'repository',
+        profileId: client.profileId,
+        repositoryKey: client.repositoryKey,
+        worktreeKey: client.worktreeKey,
+      },
+      dataDirectory: data,
+      keys,
+    });
+    try {
+      const conversation = await new ReviewConversationStore(records).get(report.runId);
+      expect(conversation.conversation.turns).toEqual([]);
+      const source = restoreLocalSource(conversation.source);
+      try {
+        expect(source.identity).toEqual(report.identity.source);
+        expect(source.readFile('load.py', 'source').status).toBe('available');
+      } finally {
+        source.close();
+      }
+    } finally {
+      records.close();
+    }
+  }, 20000);
+  it('does not describe an unavailable executor as a completed or clean review', async () => {
+    const result = await executeCli(
+      ['review', '--cwd', repo, '--data-dir', data, '--profile', 'cli-test'],
+      {
+        keys,
+        prepareExecutor: async () => {
+          throw Error('private credential diagnostic');
+        },
+      },
+    );
+    expect(result.exitCode).toBe(2);
+    expect(result.value).toMatchObject({ status: 'failed' });
+    expect(JSON.stringify(result.value)).not.toContain('private credential');
+    expect(modelCalls).toBe(1);
+  });
+});
+
+describe('commit and pre-push foreground reviews', () => {
+  const git = (...args: string[]) =>
+    execFileSync(
+      'git',
+      [
+        '-C',
+        repo,
+        '-c',
+        'core.hooksPath=/dev/null',
+        '-c',
+        'user.name=Fixture',
+        '-c',
+        'user.email=fixture@example.invalid',
+        ...args,
+      ],
+      { encoding: 'utf8', stdio: 'pipe' },
+    ).trim();
+  it('records a commit reason from an explicit index and reuses the identical manual input', async () => {
+    const common = ['--cwd', repo, '--data-dir', data, '--profile', 'commit-hook-test'];
+    const index = git('rev-parse', '--path-format=absolute', '--git-path', 'index');
+    const run = (args: string[]) =>
+      executeCli([...args, ...common], { keys, prepareExecutor: async () => executor });
+    const before = modelCalls;
+    const result = await run(['review', '--trigger', 'commit', '--index-file', index]);
+    const report = clientReviewReport(result.value);
+    expect(report.status).toBe('completed');
+    expect(report.trigger).toBe('commit');
+    expect(clientReviewReport((await run(['review'])).value).runId).toBe(report.runId);
+    expect(modelCalls - before).toBe(1);
+  }, 30000);
+  it('processes all pre-push refs and retains a deletion and an unsupported ref without reviewing them', async () => {
+    const base = git('rev-parse', 'HEAD');
+    const tree = git('write-tree');
+    const source = git('commit-tree', tree, '-p', base, '-m', 'push fixture');
+    const before = modelCalls,
+      stream = `HEAD ${source} refs/heads/first ${base}\nHEAD ${source} refs/heads/second ${base}\n(delete) ${'0'.repeat(40)} refs/heads/gone ${base}\nHEAD ${source} refs/heads/unknown ${'a'.repeat(40)}\n`;
+    const result = await executeCli(
+      ['push-review', '--cwd', repo, '--data-dir', data, '--profile', 'push-hook-test'],
+      { keys, prepareExecutor: async () => executor, readStdin: async () => stream },
+    );
+    expect(result.exitCode).toBe(2);
+    const batch = result.value as {
+      status: string;
+      refs: Array<{ status: string; review?: unknown }>;
+    };
+    expect(batch.status).toBe('incomplete');
+    expect(batch.refs.map((r) => r.status)).toEqual([
+      'ready',
+      'ready',
+      'ref-deleted',
+      'unsupported',
+    ]);
+    for (const entry of batch.refs.slice(0, 2)) {
+      const report = clientReviewReport(entry.review);
+      expect(report.trigger).toBe('push');
+      expect(report.identity.source).toMatchObject({
+        kind: 'commit-tree',
+        sourceCommit: source,
+        baseCommit: base,
+      });
+    }
+    expect(modelCalls - before).toBe(2);
+  }, 30000);
+  it('rejects an incomplete stream and incompatible trigger/source options before model admission', async () => {
+    const before = modelCalls;
+    const result = await executeCli(
+      ['push-review', '--cwd', repo, '--data-dir', data, '--profile', 'push-invalid-test'],
+      { keys, prepareExecutor: async () => executor, readStdin: async () => 'BAD\n' },
+    );
+    expect(result.exitCode).toBe(2);
+    expect((await cli(['review', '--trigger', 'push'])).exitCode).toBe(2);
+    expect(
+      (await cli(['review', '--source', 'working-tree', '--index-file', '/tmp/not-used'])).exitCode,
+    ).toBe(2);
+    expect(modelCalls).toBe(before);
+  });
+});
+
+it('prepares once, reads fixed source after edits, reopens and reviews with the same context', async () => {
+  const common = ['--cwd', repo, '--data-dir', data, '--profile', 'prepared-test'];
+  const run = (args: string[], input?: unknown) =>
+    executeCli([...args, ...common], {
+      keys,
+      prepareExecutor: async () => executor,
+      ...(input === undefined ? {} : { readStdin: async () => JSON.stringify(input) }),
+    });
+  const before = modelCalls;
+  const prepared = await run(['prepare']);
+  expect(prepared.exitCode).toBe(0);
+  const value = prepared.value as {
+    preparedId: string;
+    source: { hash: string };
+    context: { hash: string };
+    modelExecuted: boolean;
+  };
+  expect(value.modelExecuted).toBe(false);
+  expect(modelCalls).toBe(before);
+  const original = await run(['read-source', '--prepared', value.preparedId, '--file', 'load.py']);
+  expect(original.exitCode).toBe(0);
+  const file = path.join(repo, 'load.py'),
+    bytes = fs.readFileSync(file);
+  try {
+    fs.writeFileSync(file, 'CHANGED_AFTER_PREPARATION_CANARY\n');
+    expect(await run(['read-source', '--prepared', value.preparedId, '--file', 'load.py'])).toEqual(
+      original,
+    );
+    const context = await run(['context', '--prepared', value.preparedId, '--include-knowledge']);
+    expect(context.exitCode).toBe(0);
+    expect(JSON.stringify(context.value)).toContain('gcr-standalone-review');
+    expect(
+      (await run(['get-rule', '--prepared', value.preparedId, '--id', 'gcr-standalone-review']))
+        .exitCode,
+    ).toBe(0);
+    const reviewed = await run(['review', '--prepared', value.preparedId]);
+    expect(reviewed.exitCode).toBe(1);
+    const report = clientReviewReport(reviewed.value);
+    expect(report.identity.source.hash).toBe(value.source.hash);
+    expect(report.identity.context.hash).toBe(value.context.hash);
+    expect(JSON.stringify(report)).not.toContain('CHANGED_AFTER_PREPARATION_CANARY');
+    expect(modelCalls).toBe(before + 1);
+    const changed = await run([
+      'review',
+      '--prepared',
+      value.preparedId,
+      '--source',
+      'working-tree',
+    ]);
+    expect(changed.exitCode).toBe(2);
+    expect(
+      (await run(['read-source', '--prepared', value.preparedId, '--file', '../outside'])).exitCode,
+    ).toBe(2);
+    const memory = (
+      await run(['memory', 'create', '--input', '-'], {
+        title: 'New applicable knowledge',
+        body: 'Confirm the prepared review is refreshed after this active knowledge changes.',
+      })
+    ).value as LocalKnowledge;
+    expect(
+      (await run(['memory', 'activate', memory.id, '--revision', String(memory.revision)]))
+        .exitCode,
+    ).toBe(0);
+    const stale = await run(['review', '--prepared', value.preparedId]);
+    expect(stale.value).toMatchObject({ error: { code: 'prepared-context-changed' } });
+    expect(modelCalls).toBe(before + 1);
+  } finally {
+    fs.writeFileSync(file, bytes);
+  }
+}, 30000);

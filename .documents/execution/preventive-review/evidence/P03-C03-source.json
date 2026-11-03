@@ -1,0 +1,56 @@
+{
+  "phase": "P03-C03",
+  "implementationValidation": "passed",
+  "phaseGate": "pending native Safari callback; not a complete P03 phase",
+  "at": "2026-09-13T00:23:44.774361+00:00",
+  "testRuntime": "v22.23.2",
+  "wholeSuite": {
+    "success": true,
+    "numTotalTests": 861,
+    "numPassedTests": 861,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "testFiles": 103,
+  "fullReportSha256": "08e0e8ad100bfaf35319598ce45f2695020435e46bff525ebf400109b143c4ca",
+  "sourceHashes": {
+    "apps/runtime/package.json": "f573718b0775253475da1949f5c2a9cefed867be4bf758a2e7afcde977a68cdc",
+    "apps/runtime/src/auth/index.ts": "230b4fefd693f8a6ad30a5545cea4d9aeee5bfb2876a2c127b545f62602922fd",
+    "apps/runtime/src/auth/saml-state.ts": "deb043d7c55b56cfd1ceac1c0024bc83ac2896f65e5adc7b525d76b8bfed1225",
+    "apps/runtime/src/auth/saml-state.integration.test.ts": "5c07ce85ad20ec906a2ad7d382d2e070c41f6c108f4ed44ae4f42195b04f4a15",
+    "apps/runtime/src/auth/saml-protocol.ts": "2eafd5b0bc69b610bae9f4803366caeb14710ee5d676e1b128c5cddb40e06d9c",
+    "apps/runtime/src/auth/saml-protocol.test.ts": "ed4a3cab9a1a82c8266a31eaf8854cbb61ae1b2b7e0479430e1e117913617c71",
+    "apps/runtime/src/auth/saml-config.ts": "01e9a2cfc06051ada0faf7a5bb5a86b126a1df845818a5dbdb038fdadfce4a40",
+    "apps/runtime/src/auth/saml-config.test.ts": "4cad6cd7b86c0fb1c3bd51c704d410f52bc7feca2b5923621819209f3f8a8003",
+    "apps/runtime/src/auth/saml-routes.ts": "2f7fab25007225f55396dfd5e8d5d5cbff0b78453cff60c8687bcc86135dbb99",
+    "apps/runtime/src/auth/saml-routes.integration.test.ts": "4dcdb7b5d86f68b98a395206c428f4b96e897652b509e4bb92c99374192fc3d2",
+    "apps/runtime/src/config.ts": "049439fd19d5cd64c1353c50cb794d0aa23baf8b4b5e57065e7b645f370b0c69",
+    "apps/runtime/src/server.ts": "ecc446946af993fd4e4434461b610b3942de5acf9f24839a28334bcc18128734",
+    "apps/web/src/LoginPage.tsx": "ca6e32441126fb9845ee87dfeb4fd44f5358872bcd9a2c6b947de1f2f8472a34",
+    "apps/web/src/api.ts": "0fb69e7907eeea47727af9834dfe8fef925a2e99aa57bdc7617145f049c82e9e",
+    "apps/web/src/logout-api.test.ts": "33ed962d3e825dc62dde97f132a99436e7eb5f31a8bbacccf0c0fabf9a50a9ec",
+    "packages/db/migrations/0033_saml_session_revocations.sql": "c7d2ebe6b3bdc0684ec0f51229a5077b40fdc18eaaaeac58880777124807e33d",
+    "scripts/saml-contract.mjs": "483a1334ca9a0d8034f6c542b8802c0b8c727a58a20c1b4ca7ad34306a65ae2f",
+    "scripts/saml-contract-fixtures.mjs": "cd6040517d301e8e5b9ccd6b4e480f5d609a562afde054e8bcfc25c860501c62",
+    "scripts/saml-contract-smoke.mjs": "06aa7bfe4e325b5e3f8dac5070948000a2f258eb537dae9fede1a9ff80444f92",
+    "scripts/saml-application-smoke.mjs": "8c96875f55664cce438684d541b6aa5346b0453d17cf7aefee6ffbf520048c39",
+    "pnpm-lock.yaml": "6ccd8fce91f5236ce931012bd14d12963618114ce67bdf9b7966094ee52755b7",
+    "package.json": "e743c8bb8b30cd3ab2006b09df0ce3d94c869b793d2e3a22f4d59dbd3153731f"
+  },
+  "checks": {
+    "typecheck": "passed: full workspace on Node 22.23.2",
+    "build": "passed: full workspace on Node 22.23.2",
+    "lint": "passed: full repository",
+    "format": "changed source passed; full repository reports five pre-existing unrelated markdown files",
+    "contractFixtures": "44 passed on Node 22.23.2",
+    "actualApplication": "real Keycloak 26.7.3, PostgreSQL 17.11, two app instances, Chrome 152 headless with exact generated TLS SPKI pins",
+    "guiProbe": "Mac locked; native Safari callback not verified"
+  },
+  "deploymentStatus": "pending: PRISM-DEV remains alpha.34 / migration 32 / AUTH_MODE local",
+  "limitations": [
+    "Explicit fixture-only identity mapping/activation; production provisioning and freshness jobs are P03-C04/C05.",
+    "No production authentication mode change or user mapping.",
+    "Native Safari/interactive operation pending.",
+    "The 33 state tests include the earlier C02 cross-process regression; same-process app replicas separately exercise actual signed ACS/SLO routes."
+  ]
+}

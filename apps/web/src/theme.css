@@ -1,0 +1,22 @@
+/* C5 beige-navy UI roles; source swatches remain in the design palette registry. */
+:root {
+  --canvas: #f7f5ef;
+  --surface: #fffefb;
+  --surface-subtle: #f0eee5;
+  --surface-muted: var(--surface-subtle);
+  --surface-hover: var(--surface-subtle);
+  --text: #25313b;
+  --muted: #526570;
+  --secondary: #426a7e;
+  --border: #d9d1bc;
+  --border-strong: #9f957d;
+  --accent: #176b5d;
+  --accent-soft: #e3f2ee;
+  --warning: #b54708;
+  --warning-soft: #fff0d9;
+  --danger: #b42318;
+  --danger-soft: #fce9e7;
+  --suggestion: #f1f8f5;
+  --referenced-line: #fff8c5;
+  --code: #161a20;
+}

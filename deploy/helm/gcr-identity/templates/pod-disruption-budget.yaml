@@ -1,0 +1,11 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "gcr-identity.fullname" . }}
+  labels:
+    {{- include "gcr-identity.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "gcr-identity.selectorLabels" . | nindent 6 }}

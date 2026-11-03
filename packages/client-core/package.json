@@ -1,0 +1,33 @@
+{
+  "name": "@gcr/client-core",
+  "version": "0.1.0-alpha.54",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "exports": {
+    "./windows-native": {
+      "types": "./dist/windows-native.d.ts",
+      "import": "./dist/windows-native.js"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "native/windows/Native.cs",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node ../../scripts/build-windows-native.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@gcr/client-contract": "workspace:*"
+  }
+}

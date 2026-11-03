@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "phase": "P08-C03",
+  "verifiedAt": "2026-09-14T04:29:05.044Z",
+  "status": "passed",
+  "sourceCommit": "ff1aab90dfb8368183ca857c7a37a740d02746d2",
+  "deploymentConfigCommit": "ef87037",
+  "image": {
+    "digest": "sha256:95a026d264d950b5cdf3342908b72a8535d106292dd81b93db0714c9de147161",
+    "source": "ff1aab90dfb8368183ca857c7a37a740d02746d2",
+    "version": "0.8.0-alpha.44",
+    "images": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:c8ba70dfc1ccc65ce09bef6e99b8c65b7b7e61f4dc568f56a4db8d41e8b20ac9"
+      },
+      {
+        "architecture": "unknown",
+        "os": "unknown",
+        "digest": "sha256:6d2f29978b790cab79f285a3a24e92004fbf11c94b332793eea76f1c06a3026b"
+      }
+    ],
+    "buildMetadataMatches": true,
+    "labels": {
+      "org.opencontainers.image.revision": "ff1aab90dfb8368183ca857c7a37a740d02746d2",
+      "org.opencontainers.image.version": "0.8.0-alpha.44"
+    },
+    "architecture": "amd64"
+  },
+  "release": {
+    "revision": 55,
+    "updated": "2026-09-14T13:27:15.191973+09:00",
+    "status": "deployed",
+    "chart": "git-code-reviewer-0.10.41",
+    "app_version": "0.8.0-alpha.44",
+    "description": "Upgrade complete"
+  },
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:fc6dce8a1ca94a90c9af051042b7c47e00e2cb41d726af9eb8e8de9fe9b94f6c",
+    "chartSha256": "a09a4fc12ce1c6fb0aa8dcbad2042f166d93fd2eac73e697d233e2d020aa32e5"
+  },
+  "clientPackages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.25",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-contract-0.1.0-alpha.25.tgz",
+        "sha256": "821011063529946b1b1052ce4d667d354d2c6c9795d0fc6a052c7a7c9b590c1e"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-core-0.1.0-alpha.25.tgz",
+        "sha256": "e4a102a347f0ab9d7e39b3bbef9f1238ccc21beee23e59330e760083c848b818"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-executors-0.1.0-alpha.25.tgz",
+        "sha256": "8e62814f95ad93e4fd6c69767450186c71c75a8ebea390d91ff0ffc70eb4c096"
+      }
+    ]
+  },
+  "cli": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.19",
+    "clientVersion": "0.1.0-alpha.25",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-contract-0.1.0-alpha.25.tgz",
+        "sha256": "821011063529946b1b1052ce4d667d354d2c6c9795d0fc6a052c7a7c9b590c1e"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-core-0.1.0-alpha.25.tgz",
+        "sha256": "e4a102a347f0ab9d7e39b3bbef9f1238ccc21beee23e59330e760083c848b818"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.25",
+        "file": "gcr-client-executors-0.1.0-alpha.25.tgz",
+        "sha256": "8e62814f95ad93e4fd6c69767450186c71c75a8ebea390d91ff0ffc70eb4c096"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.19",
+        "file": "gcr-cli-0.1.0-alpha.19.tgz",
+        "sha256": "120ce37f25909262a2beb05847b82dfe8cfc5ed761f9f37608f8e272683892ef"
+      }
+    ]
+  },
+  "verification": {
+    "focusedClientTests": 84,
+    "productionOriginApiTests": 12,
+    "compiledImage": [
+      "migration-42-to-43-existing-user-preserved",
+      "full-production-server-registration",
+      "local-password-session-login",
+      "anonymous-criteria-401",
+      "cross-origin-mutation-403",
+      "create-and-read-candidate",
+      "new-immutable-revision",
+      "stale-revision-409",
+      "built-criteria-web-route",
+      "non-root-runtime",
+      "idempotent-generation-queue",
+      "compiled-worker-generation-service",
+      "model-candidate-draft-only",
+      "admin-role-list",
+      "server-key-file-loading",
+      "three-component-publication",
+      "ed25519-signed-manifest",
+      "authenticated-304",
+      "scoped-bundle-download-integrity",
+      "publication-status-api",
+      "public-connection-config",
+      "client-key-issue-bearer-v2-revoke",
+      "old-contract-426",
+      "read-key-feedback-denied",
+      "explicit-feedback-scope",
+      "originless-native-submission",
+      "cross-origin-and-originless-cookie-denied",
+      "idempotent-feedback-receipt",
+      "private-field-rejection",
+      "repository-feedback-list"
+    ],
+    "liveHttps": {
+      "requestId": "3e0b5052-ce93-4f5c-84a3-4e57531d2337",
+      "status": "passed",
+      "version": "0.8.0-alpha.44",
+      "clientVersion": "0.1.0-alpha.25",
+      "checks": [
+        "trusted-https-session-login",
+        "downloaded-public-configuration-matches-independent-CA-and-key",
+        "read-only-key-denied",
+        "macos-keychain-connection",
+        "explicit-encrypted-queue-no-auto-send",
+        "actual-https-feedback-receipt",
+        "idempotent-repeat",
+        "web-repository-candidate-list",
+        "explicit-minimal-result-submission",
+        "revocation-rejects-submission-and-offline-review"
+      ],
+      "externalModelCalls": 0,
+      "syntheticOnly": true,
+      "receipt": {
+        "audience": {
+          "repositoryId": "64b5c7c9-abe4-409d-831b-80e12e2bb18a",
+          "serverId": "06cba99b-d58c-438c-a9c1-9a7c6c340477",
+          "tenantId": "449d754b-27b5-4fc9-aa48-26c742947c10",
+          "userId": "27b56a88-11dc-4f2a-bc7e-73f733e7c9e5"
+        },
+        "clientId": "gcr-cli",
+        "evidence": "client-reported",
+        "expiresAt": "2026-10-14T04:28:59.445Z",
+        "id": "025d8468-77eb-4df7-a8cb-3c254a236ab0",
+        "kind": "feedback",
+        "payloadHash": "25de907ea088e5a4a1cc9c9ccdc73d89cf4b579a865292fcb9ebde94c50fabb5",
+        "receivedAt": "2026-09-14T04:28:59.445Z",
+        "requestId": "ccf3d650-421b-4a3a-8926-6446b67f8f5a",
+        "schemaVersion": 1,
+        "status": "submitted"
+      },
+      "ownedKeychainEntriesRemoved": true,
+      "ownedServerRowsRemoved": true,
+      "ownedLocalFilesRemoved": true,
+      "verifiedAt": "2026-09-14T04:29:05.044Z"
+    },
+    "postLiveOriginalRowsAndResourcesPreserved": true,
+    "serverAndWorkerDatabaseTlsMode": "verify-full",
+    "migrationCount": 43,
+    "identityReadyReplicas": 2,
+    "externalModelCalls": 0
+  },
+  "evidenceFiles": [
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/registry-image.json",
+      "sha256": "7f7135e8638d76441d6554c7dbb8ddc096357985949262417050e87bf1666b33"
+    },
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/image-attestations.json",
+      "sha256": "0530b2dd267129978136776d3194f2befa6fb58b5627a3c05bb90871dc2573ca"
+    },
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/image-smoke.json",
+      "sha256": "d55dcf03f9a06c0a545f793313785eafd80b16fca1bdb458a120915238f28e76"
+    },
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/preflight.json",
+      "sha256": "23d4a2974caa503a7151948d72a22ebe3dc975fe3759db8acbe8d258400740ba"
+    },
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/chart-readback.json",
+      "sha256": "52a821527c9dab43a9398a55c61f69aff6342077b9c444e635bbcb9744ab92bf"
+    },
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/deployment-verification.json",
+      "sha256": "b55b060c6ba976bd7132bdbb17557e35a84ef0edf3d4e45ca2c57d1ba158bf5c"
+    },
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/live-feedback.json",
+      "sha256": "cd95bc3bc2e2f69827f372c2840ff4354d8aa94d9d2226aa032ea98ebef0c1ca"
+    },
+    {
+      "path": "artifacts/operations/P08-feedback-release-alpha44/post-live-snapshot.json",
+      "sha256": "a74a426c6978832facaf52f448052153fe48ca6588fa3c5a81ff94f552876258"
+    }
+  ],
+  "supersededCandidate": {
+    "version": "0.8.0-alpha.43",
+    "deployed": false,
+    "reason": "Production Origin guard rejected native bearer POST; fixed and verified in alpha.44."
+  },
+  "scope": {
+    "complete": "Explicit result/feedback API, encrypted per-connection queue, authorization and idempotency, PRISM-DEV deployment and live HTTPS verification using installed client library.",
+    "pending": [
+      "CLI/MCP command exposure (P08-C04)",
+      "Commit Defender submission confirmation UI and candidate approval/publication/resync (P08-C05)",
+      "Skill delivery (P08-C06)",
+      "Remaining P00-P13 completion gates"
+    ],
+    "userVsCodeChanged": false,
+    "globalCliChanged": false
+  }
+}

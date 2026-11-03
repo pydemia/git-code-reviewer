@@ -29,7 +29,9 @@ import {
 } from '@gcr/contracts';
 import { SeverityLevelField } from './SeverityLevelField';
 import { UserDeleteDialog } from './UserDeleteDialog';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { IdentityAdministrationCapabilities } from '@gcr/contracts';
+import { IdentityAdministrationPanel } from './IdentityAdministrationPanel';
 import {
   activateAnalysisProvider,
   activateAnalysisPrompt,
@@ -49,6 +51,7 @@ import {
   pollAdminRepository,
   loadAdminTenants,
   loadAdminUsers,
+  loadIdentityAdministration,
   loadAnalysisProvider,
   loadAnalysisPrompts,
   loadCurrentUser,
@@ -132,6 +135,9 @@ export function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [identityCapabilities, setIdentityCapabilities] =
+    useState<IdentityAdministrationCapabilities | null>(null);
+  const reloadUsers = useCallback(() => setReloadToken((value) => value + 1), []);
   const [selectedTenantId, setSelectedTenantId] = useState(
     () => window.localStorage.getItem(ADMIN_TENANT_STORAGE_KEY) ?? '',
   );
@@ -175,6 +181,7 @@ export function AdminPage() {
       loadAdminChatAccounts(controller.signal),
       loadGitHubConnections(controller.signal),
       loadAdminRepositories(controller.signal),
+      loadIdentityAdministration(controller.signal),
     ]).then(
       ([
         currentUser,
@@ -184,6 +191,7 @@ export function AdminPage() {
         accountItems,
         connectionItems,
         repositories,
+        identity,
       ]) => {
         if (currentUser.role !== 'administrator') {
           window.location.replace('/');
@@ -192,6 +200,7 @@ export function AdminPage() {
         setUser(currentUser);
         setTenants(tenantItems);
         setUsers(userItems);
+        setIdentityCapabilities(identity);
         setProviderData(providerSettings);
         setProviderDraft(providerDraftFrom(providerSettings));
         setChatAccounts(accountItems);
@@ -580,6 +589,7 @@ export function AdminPage() {
 
           {tab === 'users' ? (
             <UserPanel
+              localAccountsAllowed={identityCapabilities?.authMode === 'local'}
               currentUserId={user?.id ?? ''}
               users={visibleUsers}
               tenants={tenants}
@@ -640,6 +650,15 @@ export function AdminPage() {
                   `${item.displayName}의 테넌트 멤버십을 변경했습니다.`,
                 )
               }
+            />
+          ) : null}
+
+          {tab === 'users' && identityCapabilities?.enabled ? (
+            <IdentityAdministrationPanel
+              users={users}
+              tenants={tenants}
+              onChanged={reloadUsers}
+              actions={identityCapabilities.actions}
             />
           ) : null}
 
@@ -803,6 +822,20 @@ export function AdminPage() {
                   `repository:publishing:${repositoryId}`,
                   () => updateAdminRepository(repositoryId, { reviewPublishingEnabled: enabled }),
                   `PR review 결과 게시를 ${enabled ? '활성화' : '중지'}했습니다.`,
+                )
+              }
+              onRepositoryCommentPriorityChange={(repositoryId, reviewCommentMinPriority) =>
+                runMutation(
+                  `repository:publishing:${repositoryId}`,
+                  () => updateAdminRepository(repositoryId, { reviewCommentMinPriority }),
+                  'PR 알림 등급을 저장했습니다. 다음 댓글 게시부터 적용됩니다.',
+                )
+              }
+              onRepositoryTestCodeChange={(repositoryId, reviewTestCode) =>
+                runMutation(
+                  `repository:test-code:${repositoryId}`,
+                  () => updateAdminRepository(repositoryId, { reviewTestCode }),
+                  `테스트 코드 검토 대상을 ${reviewTestCode ? '포함' : '제외'}하도록 저장했습니다.`,
                 )
               }
               onPollNow={(repositoryId) =>
@@ -1013,6 +1046,7 @@ function TenantPanel({
 }
 
 export function UserPanel({
+  localAccountsAllowed = true,
   currentUserId,
   users,
   tenants,
@@ -1030,6 +1064,7 @@ export function UserPanel({
   onAccessChange,
   onMembershipChange,
 }: {
+  localAccountsAllowed?: boolean;
   currentUserId: string;
   users: AdminUser[];
   tenants: Tenant[];
@@ -1056,9 +1091,11 @@ export function UserPanel({
             사용자
           </h1>
         </div>
-        <button className="command-button primary" type="button" onClick={onCreate}>
-          <Plus size={15} /> 사용자 생성
-        </button>
+        {localAccountsAllowed ? (
+          <button className="command-button primary" type="button" onClick={onCreate}>
+            <Plus size={15} /> 사용자 생성
+          </button>
+        ) : null}
       </div>
       <div className="admin-toolbar">
         <label className="toolbar-search">
@@ -1142,7 +1179,7 @@ export function UserPanel({
                   type="button"
                   title="사용자 편집"
                   aria-label={`${item.displayName} 편집`}
-                  disabled={item.identityType !== 'local'}
+                  disabled={item.identityType === 'external'}
                   onClick={() => onEdit(item)}
                 >
                   <Pencil size={14} />
@@ -1152,7 +1189,7 @@ export function UserPanel({
                   type="button"
                   title="비밀번호 재설정"
                   aria-label={`${item.displayName} 비밀번호 재설정`}
-                  disabled={item.identityType !== 'local'}
+                  disabled={!localAccountsAllowed || item.identityType !== 'local'}
                   onClick={() => onResetPassword(item)}
                 >
                   <KeyRound size={14} />
@@ -2277,7 +2314,7 @@ export function ChatAccountPanel({
   );
 }
 
-function GitHubConnectionPanel({
+export function GitHubConnectionPanel({
   connections,
   repositories,
   tenants,
@@ -2289,6 +2326,8 @@ function GitHubConnectionPanel({
   onRegisterRepository,
   onRepositoryPollingChange,
   onRepositoryPublishingChange,
+  onRepositoryCommentPriorityChange,
+  onRepositoryTestCodeChange,
   onDeleteRepository,
   onPollNow,
 }: {
@@ -2314,11 +2353,17 @@ function GitHubConnectionPanel({
       repositoryUrl: string;
       pollIntervalSeconds: number;
       reviewPublishingEnabled: boolean;
+      reviewTestCode: boolean;
       grantSubjects: string[];
     },
   ) => Promise<unknown>;
   onRepositoryPollingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
   onRepositoryPublishingChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
+  onRepositoryCommentPriorityChange: (
+    repositoryId: string,
+    priority: 'P2' | 'P3',
+  ) => Promise<unknown>;
+  onRepositoryTestCodeChange: (repositoryId: string, enabled: boolean) => Promise<unknown>;
   onDeleteRepository: (repository: AdminRepository) => Promise<string | null>;
   onPollNow: (repositoryId: string) => Promise<unknown>;
 }) {
@@ -2333,6 +2378,7 @@ function GitHubConnectionPanel({
   const [repositoryUrl, setRepositoryUrl] = useState('');
   const [pollIntervalSeconds, setPollIntervalSeconds] = useState(120);
   const [reviewPublishingEnabled, setReviewPublishingEnabled] = useState(true);
+  const [reviewTestCode, setReviewTestCode] = useState(false);
   const [grantSubject, setGrantSubject] = useState('');
   const [editingConnection, setEditingConnection] = useState<GitHubConnection | null>(null);
   const [deletingRepository, setDeletingRepository] = useState<AdminRepository | null>(null);
@@ -2372,6 +2418,7 @@ function GitHubConnectionPanel({
       repositoryUrl: repositoryPreview.url,
       pollIntervalSeconds,
       reviewPublishingEnabled,
+      reviewTestCode,
       grantSubjects: grantSubject ? [grantSubject] : [],
     });
   };
@@ -2580,6 +2627,14 @@ function GitHubConnectionPanel({
           />
           분석 완료 후 PR timeline에 review 결과 게시
         </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={reviewTestCode}
+            onChange={(event) => setReviewTestCode(event.target.checked)}
+          />
+          테스트 코드도 검토 대상에 포함
+        </label>
         <button
           className="command-button primary"
           type="submit"
@@ -2619,6 +2674,44 @@ function GitHubConnectionPanel({
                 GHES 댓글 열기
               </a>
             ) : null}
+            <label className="review-comment-priority">
+              PR 댓글 알림 등급
+              <select
+                aria-label={`${repository.owner}/${repository.name} PR 댓글 알림 등급`}
+                aria-describedby={`comment-priority-help-${repository.id}`}
+                value={repository.reviewCommentMinPriority}
+                disabled={busyKey !== null}
+                onChange={(event) =>
+                  void onRepositoryCommentPriorityChange(
+                    repository.id,
+                    event.target.value as 'P2' | 'P3',
+                  )
+                }
+              >
+                <option value="P2">P2 Warning 이상 (기본값)</option>
+                <option value="P3">P3 Critical만</option>
+              </select>
+              <small id={`comment-priority-help-${repository.id}`}>
+                다음 댓글 게시부터 적용됩니다. 분석 강도와 전체 보고서는 유지됩니다.
+              </small>
+            </label>
+            <label className="review-test-code-setting">
+              <span>
+                <input
+                  type="checkbox"
+                  checked={repository.reviewTestCode}
+                  disabled={busyKey !== null}
+                  onChange={(event) =>
+                    void onRepositoryTestCodeChange(repository.id, event.target.checked)
+                  }
+                />
+                테스트 코드도 검토 대상에 포함
+              </span>
+              <small>
+                꺼져 있으면 테스트 코드는 source context로만 사용합니다. 켜도 대규모 분석에서는 일반
+                코드를 우선하고 테스트 코드는 자동으로 대상에서 제외합니다.
+              </small>
+            </label>
             <div className="registry-card-actions">
               <button
                 className="command-button"

@@ -1,0 +1,11 @@
+{
+  "suiteGroups": 20,
+  "tests": 203,
+  "passed": 203,
+  "failed": 0,
+  "cancelled": 0,
+  "skipped": 0,
+  "method": "npm test through review-backend, followed by corrected pinned-artifact check and all remaining package scripts",
+  "syntheticProviderResponses": true,
+  "realModelCalls": 0
+}

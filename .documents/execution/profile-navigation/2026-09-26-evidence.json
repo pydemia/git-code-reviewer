@@ -1,0 +1,538 @@
+{
+  "date": "2026-09-26",
+  "sourceSha": "c4452d68704353c89e5d726be776745377385c6e",
+  "releasePinSha": "30a5843fa97ffc4afd4329fdc221f89a24b47e69",
+  "appVersion": "0.8.0-alpha.80",
+  "chartVersion": "0.10.76",
+  "helmRevision": 88,
+  "imageDigest": "sha256:9259b79e583cfc74f68d947b93c2f01209f330d073ee267043813833143d9657",
+  "chart": {
+    "status": "passed",
+    "ociDigest": "sha256:e11a7b07befdf6a86bf1c63849de03b5a514bc6309ec451b8006da0f99214f8e",
+    "chartSha256": "7e258492513ea9272edc0ea1ef8205209077d7acc86c159850844d143313a36d",
+    "publishedBytesIdentical": true
+  },
+  "checks": {
+    "webTypecheckAndBuild": true,
+    "changedFilesLint": true,
+    "changedFilesFormat": true,
+    "existingTestsPassed": 11,
+    "linuxAmd64ImageSmoke": {
+      "status": "passed",
+      "node": "v22.23.2",
+      "user": 1000,
+      "versions": {
+        "static": "10.1.3",
+        "vitest": "4.1.11"
+      },
+      "packageFolders": [
+        "@fastify+static@10.1.3",
+        "@vitest+mocker@4.1.11_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_",
+        "vitest@4.1.11_@types+node@24.13.3_vite@7.3.6_@types+node@24.13.3_tsx@4.23.13_"
+      ],
+      "assets": {
+        "index-DACWWy3I.css": "29f4bbb70e7cafbc64802d1703587b04ad37770c4bb725f507e1a74dcfe8319c",
+        "index-Z95NnLMW.js": "2646c7f3dea06879aac22ffe89c1d2a1fec7a5a07a74c04748ac7de491202292"
+      },
+      "artifactChecks": [
+        "no-obsolete-runtime-packages",
+        "no-obsolete-browser-bundles",
+        "public-asset-content-and-cache",
+        "traversal-denied",
+        "no-build-secret"
+      ],
+      "network": "none",
+      "rootFilesystem": "read-only"
+    },
+    "helmStrictLint": true,
+    "render": {
+      "imageDigest": "sha256:9259b79e583cfc74f68d947b93c2f01209f330d073ee267043813833143d9657",
+      "unexpectedResourceChanges": [],
+      "gcrImageReferences": 7,
+      "allGcrImagesPinned": true
+    },
+    "helmTest": {
+      "name": "git-code-reviewer-test-connection",
+      "uid": "bc6cfa25-0905-4b5c-bef9-ad9386871f45",
+      "phase": "Succeeded",
+      "images": [
+        "busybox:1.36"
+      ]
+    }
+  },
+  "browser": {
+    "fixture": [
+      {
+        "height": 733,
+        "prompt": "메뉴 전환 중 유지할 Prompt",
+        "step": "prompt-back",
+        "url": "http://127.0.0.1:4182/profile?tab=prompt",
+        "visiblePanes": [
+          "profile-pane-prompt"
+        ]
+      },
+      {
+        "displayName": "미저장 표시 이름",
+        "scrollHeight": 906,
+        "step": "profile-return",
+        "viewport": 720,
+        "visiblePanes": [
+          "profile-pane-profile"
+        ]
+      },
+      {
+        "focused": "<a href=\"/getting-started\">설치·연결 절차와 사용 예시</a>",
+        "name": "메뉴 전환 확인용",
+        "scrollHeight": 1036,
+        "step": "clients-return",
+        "visiblePanes": [
+          "profile-pane-clients"
+        ]
+      },
+      {
+        "documentWidth": 420,
+        "pageWidth": 420,
+        "scrollHeight": 1400,
+        "step": "mobile-clients",
+        "viewport": {
+          "height": 760,
+          "width": 420
+        },
+        "visiblePanes": [
+          "profile-pane-clients"
+        ]
+      },
+      {
+        "documentWidth": 420,
+        "saveBottom": 934.171875,
+        "scrollHeight": 1029,
+        "scrollTop": 0,
+        "step": "mobile-prompt"
+      },
+      {
+        "headerTop": 0,
+        "saveBottom": 665.171875,
+        "scrollTop": 269,
+        "step": "mobile-prompt-bottom"
+      },
+      {
+        "prompt": "메뉴 전환 중 유지할 Prompt",
+        "step": "reload-deeplink",
+        "tab": "profile-nav-prompt"
+      },
+      {
+        "focusType": "current-password",
+        "scrollHeight": 1238,
+        "step": "mobile-profile-keyboard",
+        "visiblePanes": [
+          "profile-pane-profile"
+        ]
+      },
+      {
+        "documentWidth": 420,
+        "passwordBottom": 665.171875,
+        "scrollTop": 478,
+        "step": "mobile-profile-bottom"
+      },
+      {
+        "step": "forward",
+        "tab": "profile-nav-clients",
+        "url": "http://127.0.0.1:4182/profile?tab=clients"
+      }
+    ],
+    "minimum320pxNoHorizontalOverflow": true,
+    "requestsBeforeLastNavigation": [
+      {
+        "method": "GET",
+        "path": "/api/v1/profile"
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/client-auth/config"
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/repositories"
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/client-credentials"
+      },
+      {
+        "method": "PUT",
+        "path": "/api/v1/profile/prompt"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/v1/profile"
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/profile"
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/client-auth/config"
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/repositories"
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/me/client-credentials"
+      }
+    ],
+    "production": [
+      {
+        "assets": [
+          "/assets/index-Z95NnLMW.js"
+        ],
+        "pageHeight": 1257,
+        "scrollHeight": 1257,
+        "tab": "profile-nav-profile",
+        "viewport": {
+          "height": 1257,
+          "width": 2501
+        },
+        "visiblePanes": [
+          "profile-pane-profile"
+        ]
+      },
+      {
+        "scrollHeight": 1257,
+        "tab": "profile-nav-prompt",
+        "visiblePanes": [
+          "profile-pane-prompt"
+        ]
+      },
+      {
+        "keyCount": 0,
+        "noExpirationOption": true,
+        "scrollHeight": 1257,
+        "tab": "profile-nav-clients",
+        "visiblePanes": [
+          "profile-pane-clients"
+        ]
+      }
+    ],
+    "productionPageErrors": [],
+    "productionScreenshot": "Page capture timed out; production UI verified through accessibility tree and read-only DOM; fixture screenshots saved",
+    "userChromeTabDraftPreserved": true,
+    "productionMutations": 0
+  },
+  "httpHttps": {
+    "at": "2026-09-26T05:42:53.540Z",
+    "appVersion": "0.8.0-alpha.80",
+    "tlsVerification": true,
+    "checks": [
+      {
+        "origin": "http://pr-review.prism.ai",
+        "statuses": {
+          "/health/startup": 200,
+          "/health/live": 200,
+          "/health/ready": 200,
+          "/api/v1/system": 200,
+          "/profile": 200,
+          "/api/v1/profile": 401,
+          "/api/v1/me/client-credentials": 401,
+          "/assets/index-DACWWy3I.css": 200,
+          "/assets/index-Z95NnLMW.js": 200
+        },
+        "bundleHashesMatchImage": true
+      },
+      {
+        "origin": "https://pr-review.prism.ai",
+        "statuses": {
+          "/health/startup": 200,
+          "/health/live": 200,
+          "/health/ready": 200,
+          "/api/v1/system": 200,
+          "/profile": 200,
+          "/api/v1/profile": 401,
+          "/api/v1/me/client-credentials": 401,
+          "/assets/index-DACWWy3I.css": 200,
+          "/assets/index-Z95NnLMW.js": 200
+        },
+        "bundleHashesMatchImage": true
+      }
+    ]
+  },
+  "httpsTrust": "Existing deployed development CA public certificate plus corporate CA; process-only trust with chain and hostname checks enabled",
+  "preservation": {
+    "secrets": [
+      {
+        "name": "git-code-reviewer-auth",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-credential-registry",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-db-keycloak",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-development-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-administration",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-bootstrap",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-preparation-backup",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-tls",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-knowledge-signing-v1",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-auth",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-tls",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-saml-sp",
+        "preserved": true
+      },
+      {
+        "name": "sh.helm.release.v1.git-code-reviewer-identity.v1",
+        "preserved": true
+      },
+      {
+        "name": "sh.helm.release.v1.git-code-reviewer-identity.v2",
+        "preserved": true
+      }
+    ],
+    "configMaps": [
+      {
+        "name": "git-code-reviewer",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-corporate-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-configuration",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-ca",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-postgresql-configuration",
+        "preserved": true
+      },
+      {
+        "name": "kube-root-ca.crt",
+        "preserved": true
+      }
+    ],
+    "persistentVolumes": [
+      {
+        "name": "data-git-code-reviewer-postgresql-0",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-artifacts",
+        "preserved": true
+      }
+    ],
+    "routes": [
+      {
+        "name": "git-code-reviewer-https-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-https-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-identity-route",
+        "preserved": true
+      },
+      {
+        "name": "git-code-reviewer-route",
+        "preserved": true
+      }
+    ],
+    "identityReleaseUnchanged": true,
+    "helm": {
+      "name": "git-code-reviewer",
+      "namespace": "git-code-reviewer",
+      "revision": "88",
+      "updated": "2026-09-26 14:41:32.896467 +0900 KST",
+      "status": "deployed",
+      "chart": "git-code-reviewer-0.10.76",
+      "app_version": "0.8.0-alpha.80"
+    },
+    "helmValuesOnlyImageChanged": true,
+    "database": {
+      "tables": {
+        "users": {
+          "before": 8,
+          "after": 8,
+          "preserved": true
+        },
+        "chat_accounts": {
+          "before": 7,
+          "after": 7,
+          "preserved": true
+        },
+        "analysis_runs": {
+          "before": 280,
+          "after": 280,
+          "preserved": true
+        },
+        "reports": {
+          "before": 272,
+          "after": 272,
+          "preserved": true
+        },
+        "repository_grants": {
+          "before": 2,
+          "after": 2,
+          "preserved": true
+        },
+        "tenant_memberships": {
+          "before": 8,
+          "after": 8,
+          "preserved": true
+        },
+        "review_memories": {
+          "before": 10,
+          "after": 10,
+          "preserved": true
+        },
+        "local_credentials": {
+          "before": 7,
+          "after": 7,
+          "preserved": true
+        },
+        "review_rules": {
+          "before": 0,
+          "after": 0,
+          "preserved": true
+        },
+        "review_rule_revisions": {
+          "before": 0,
+          "after": 0,
+          "preserved": true
+        },
+        "review_knowledge_releases": {
+          "before": 11,
+          "after": 11,
+          "preserved": true
+        },
+        "review_history_collections": {
+          "before": 1,
+          "after": 1,
+          "preserved": true
+        },
+        "repositories": {
+          "before": 3,
+          "after": 3,
+          "preserved": true
+        },
+        "client_api_keys": {
+          "before": 8,
+          "after": 8,
+          "preserved": true
+        },
+        "user_client_credential_epochs": {
+          "before": 1,
+          "after": 1,
+          "preserved": true
+        },
+        "analysis_review_tasks": {
+          "before": 409,
+          "after": 409,
+          "preserved": true
+        },
+        "model_request_ledger": {
+          "before": 10126,
+          "after": 10126,
+          "preserved": true
+        }
+      },
+      "migrationsUnchanged": true,
+      "migrationCount": 59,
+      "tls": {
+        "ssl": true,
+        "version": "TLSv1.3",
+        "cipher": "TLS_AES_256_GCM_SHA384"
+      },
+      "tlsMode": "verify-full"
+    },
+    "deployments": [
+      {
+        "name": "git-code-reviewer-identity",
+        "generation": 2,
+        "observedGeneration": 2,
+        "ready": 2,
+        "updated": 2,
+        "desired": 2,
+        "images": [
+          "docker.io/pydemia/gcr-identity@sha256:227f5e4fe2aee7e229a14d03d264e083ff070015d11f44439d3453810d3830a9"
+        ]
+      },
+      {
+        "name": "git-code-reviewer-server",
+        "generation": 88,
+        "observedGeneration": 88,
+        "ready": 1,
+        "updated": 1,
+        "desired": 1,
+        "images": [
+          "docker.io/pydemia/git-code-reviewer@sha256:9259b79e583cfc74f68d947b93c2f01209f330d073ee267043813833143d9657"
+        ]
+      },
+      {
+        "name": "git-code-reviewer-worker",
+        "generation": 85,
+        "observedGeneration": 85,
+        "ready": 1,
+        "updated": 1,
+        "desired": 1,
+        "images": [
+          "docker.io/pydemia/git-code-reviewer@sha256:9259b79e583cfc74f68d947b93c2f01209f330d073ee267043813833143d9657",
+          "docker.io/pydemia/git-code-reviewer@sha256:9259b79e583cfc74f68d947b93c2f01209f330d073ee267043813833143d9657"
+        ]
+      }
+    ]
+  },
+  "modelCalls": 0,
+  "publicComments": 0,
+  "screenshots": {
+    "profile-desktop.png": "10add13616760a38a8c01834a565417b0d1d3e5c6b51ed9a97cfb964dc81916c",
+    "prompt-desktop.png": "de4f6bce7744e207526cdfa2f4bc419552056689dce7a601a9ab52fce42ded72",
+    "clients-desktop.png": "067e3bae516a6b9097a7e8f0dddac9be9c252b896a7f668ffba52e7c9513be14"
+  },
+  "cleanup": {
+    "ownedFixtureAndTabs": true,
+    "temporaryRegistryCredentials": true,
+    "verificationCertificate": true,
+    "helmTestPod": true,
+    "privateHelmValuesAndManifests": "removed after record generation"
+  }
+}

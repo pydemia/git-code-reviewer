@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-09-16T06:31:46.161Z",
+  "initialInvocationLimit": 1,
+  "perInvocationTimeoutMs": 240000,
+  "model": "gpt-5.6-luna",
+  "reasoning": "high",
+  "account": "existing default account; auth-only NTFS link; no login change",
+  "trigger": "Commit only, opt-in in disposable profile",
+  "route": "Windows Extension Host -> Git for Windows managed pre-commit -> native Node advisory -> same-user named pipe -> private native service Node review worker -> isolated Codex",
+  "fixture": {
+    "repository": "temporary generated repository, space/Korean path",
+    "source": "sum.ts changes total + value to total - value on line 2; staged index snapshot",
+    "base": "baseline committed addition",
+    "caller": "consumer.ts invoiceTotal delegates to sum",
+    "rules": [
+      "sum([])=0",
+      "invoiceTotal([2,3])=5"
+    ],
+    "tests": "sum.test.ts addition fails and empty boundary passes before review; reading by model is not execution",
+    "sourceIdentity": "snapshot hash/base/index/read-context hashes will be persisted before trigger by Host"
+  },
+  "expected": {
+    "job": "finished",
+    "resultStatus": "completed",
+    "reportStatus": "completed",
+    "reportProblems": 0,
+    "finding": "sum.ts line 2, verified anchor and source-confirmed subtraction defect",
+    "history": "same encrypted report after close/reopen",
+    "hooks": "pause revokes grants and restores original .hooks",
+    "cleanup": "stop only owned profile service, remove temporary profile/key/session/fixture"
+  },
+  "centralConnection": false,
+  "artifacts": "W03-artifact-linkage.json",
+  "testHarness": {
+    "hostSha256": "c37adb0bcb32464973e9aacd6483999bf3d0abcef679fbfc6da639be10e6422c",
+    "runnerSha256": "e0f14e703e3e0fe69f9ab887b823afbfaba4bab3dbbb692e8283f3de26194898",
+    "bundleSha256": "8c4b8245861c012152b42d7060790ad3539a127ff8ef356e38ef6ad8a8ea717d"
+  },
+  "failurePolicy": "No automatic retry. Record cause, changes, affected scope and additional invocation/timeout before another call. Unavailable model requires user choice."
+}

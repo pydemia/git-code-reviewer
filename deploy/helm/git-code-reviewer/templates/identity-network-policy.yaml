@@ -1,0 +1,32 @@
+{{- if and .Values.networkPolicy.enabled (or (eq .Values.auth.mode "saml") .Values.identity.adminEnabled) }}
+{{- range $component := list "server" "worker" }}
+{{- if or (eq $component "server") $.Values.identity.adminEnabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "git-code-reviewer.fullname" $ }}-{{ $component }}-to-identity
+  labels:
+    {{- include "git-code-reviewer.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "git-code-reviewer.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $component }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- include "git-code-reviewer.identity.peers" $.Values.identity.networkPolicy.publicPeers | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.identity.networkPolicy.publicPort }}
+    {{- if $.Values.identity.adminEnabled }}
+    - to:
+        {{- include "git-code-reviewer.identity.peers" $.Values.identity.networkPolicy.adminPeers | nindent 8 }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.identity.networkPolicy.adminPort }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

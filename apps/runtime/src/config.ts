@@ -1,6 +1,10 @@
+import { createPublicKey } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { z } from 'zod';
-import { localPasswordMinimumLength } from '@gcr/contracts';
+import { localPasswordMinimumLength, ciTrustPolicySchema } from '@gcr/contracts';
+import { validateSamlSettings } from './auth/saml-config.js';
+import { identityAdministrationConfig } from './identity/config.js';
 
 const booleanString = z
   .enum(['true', 'false'])
@@ -13,19 +17,45 @@ const optionalUrl = z.preprocess(
 );
 
 const configSchema = z.object({
+  TRUSTED_CI_POLICIES: z
+    .string()
+    .default('[]')
+    .transform((value, context) => {
+      try {
+        const policies = z.array(ciTrustPolicySchema).max(50).parse(JSON.parse(value));
+        if (
+          new Set(policies.map((policy) => `${policy.apiBaseUrl}:${policy.repositoryId}`)).size !==
+          policies.length
+        )
+          throw Error('duplicate repository policy');
+        for (const policy of policies) {
+          if (createPublicKey(policy.publicKey).asymmetricKeyType !== 'ed25519')
+            throw Error('Expected Ed25519 public key');
+        }
+        return policies;
+      } catch {
+        context.addIssue({ code: 'custom', message: 'Invalid trusted CI policies' });
+        return z.NEVER;
+      }
+    }),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(4000),
   PUBLIC_BASE_URL: optionalUrl,
+  LOCAL_HTTP_ORIGIN: optionalUrl,
   WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4001),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
   DATABASE_URL: z.string().min(1),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
+  DATABASE_ISOLATED_ROLES: booleanString,
+  DATABASE_TLS_MODE: z.enum(['legacy', 'verify-full']).default('legacy'),
+  DATABASE_TLS_CA_FILE: z.string().min(1).optional(),
+  MIGRATIONS_WAIT_TIMEOUT_MS: z.coerce.number().int().min(100).max(900_000).default(600_000),
   WEB_DIST: z.string().default('/app/apps/web/dist'),
   MIGRATIONS_DIR: z.string().optional(),
   ARTIFACT_ROOT: z.string().default('/var/lib/git-code-reviewer/artifacts'),
   WORKSPACE_ROOT: z.string().default('/tmp/git-code-reviewer/workspaces'),
-  AUTH_MODE: z.enum(['development', 'local', 'oidc', 'proxy']).default('development'),
+  AUTH_MODE: z.enum(['development', 'local', 'oidc', 'proxy', 'saml']).default('development'),
   AUTHORIZATION_MODE: z.enum(['local', 'cerbos']).default('local'),
   CERBOS_URL: optionalUrl,
   CERBOS_TIMEOUT_MS: z.coerce.number().int().positive().max(10_000).default(2_000),
@@ -79,6 +109,17 @@ const configSchema = z.object({
   CHAT_HOURLY_LIMIT: z.coerce.number().int().positive().default(30),
   CHAT_SESSION_MESSAGE_LIMIT: z.coerce.number().int().positive().default(200),
   CREDENTIAL_REGISTRY_ENABLED: booleanString,
+  KNOWLEDGE_PUBLICATION_ENABLED: booleanString,
+  CLIENT_API_KEYS_ENABLED: booleanString,
+  CLIENT_CONNECTION_CA_FILE: z.string().min(1).optional(),
+  KNOWLEDGE_DISTRIBUTION_ENABLED: booleanString,
+  KNOWLEDGE_SERVER_ID: z.string().uuid().optional(),
+  KNOWLEDGE_SIGNING_KEY_ID: z
+    .string()
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/)
+    .optional(),
+  KNOWLEDGE_SIGNING_KEY_FILE: z.string().min(1).optional(),
+  KNOWLEDGE_OFFLINE_LEASE_SECONDS: z.coerce.number().int().min(0).max(86400).default(86400),
   CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
   ANALYSIS_MAX_FILES: z.coerce.number().int().positive().default(500),
   ANALYSIS_MAX_BYTES: z.coerce
@@ -87,12 +128,34 @@ const configSchema = z.object({
     .positive()
     .default(10 * 1024 * 1024),
   ANALYSIS_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().max(1000).default(128),
+  ANALYSIS_GROUP_MAX_MODEL_CALLS: z.coerce.number().int().nonnegative().max(1000).default(128),
+  ANALYSIS_GROUP_MAX_DURATION_MS: z.coerce
+    .number()
+    .int()
+    .min(60000)
+    .max(86400000)
+    .default(10800000),
+  ANALYSIS_GROUPING_THRESHOLD: z.coerce.number().int().min(2).default(50),
+  ANALYSIS_GROUP_MAX_INPUT_BYTES: z.coerce.number().int().min(2048).max(96_000).default(64_000),
+  ANALYSIS_GROUP_MAX_FILES: z.coerce.number().int().min(2).max(100).default(20),
   OIDC_ISSUER: optionalUrl,
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),
   OIDC_REDIRECT_URI: optionalUrl,
   OIDC_ADMIN_GROUP: z.string().default('git-code-reviewer-admins'),
   OIDC_ADMIN_ROLE: z.string().default('git-code-reviewer-admin'),
+  SAML_ENTITY_ID: optionalUrl,
+  SAML_IDP_ISSUER: optionalUrl,
+  SAML_IDP_ENTRY_POINT: optionalUrl,
+  SAML_IDP_METADATA_URL: optionalUrl,
+  SAML_IDP_METADATA_FILE: z.string().optional(),
+  SAML_PRIVATE_KEY_FILE: z.string().optional(),
+  SAML_PUBLIC_CERT_FILE: z.string().optional(),
+  IDENTITY_ADMIN_ENABLED: booleanString,
+  IDENTITY_SECURITY_ENABLED: booleanString,
+  KEYCLOAK_ADMIN_BASE_URL: optionalUrl,
+  KEYCLOAK_ADMIN_CLIENT_ID: z.string().optional(),
+  KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: z.string().optional(),
   DEFAULT_TENANT_SLUG: z
     .string()
     .regex(/^[a-z0-9][a-z0-9-]{1,62}$/)
@@ -104,6 +167,8 @@ const configSchema = z.object({
   TRUST_PROXY: booleanString,
   RETENTION_REPORT_DAYS: z.coerce.number().int().positive().default(90),
   RETENTION_CHAT_DAYS: z.coerce.number().int().positive().default(30),
+  RETENTION_MERGED_DAYS: z.coerce.number().int().positive().default(7),
+  RETENTION_MERGED_MAX_LEN: z.coerce.number().int().positive().default(30),
   RETENTION_EVENT_LOG_HOURS: z.coerce.number().int().positive().default(24),
   RETENTION_ORPHAN_GRACE_HOURS: z.coerce.number().int().positive().default(24),
   RETENTION_DELETE_GRACE_HOURS: z.coerce.number().int().nonnegative().default(1),
@@ -112,42 +177,136 @@ const configSchema = z.object({
 
 export type AppConfig = z.infer<typeof configSchema>;
 
-function withDatabaseUrl(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (environment.DATABASE_URL) return environment;
+export type RuntimeCommand = 'serve' | 'worker' | 'migrate' | 'retention' | 'wait-migrations';
 
-  const host = environment.DATABASE_HOST;
-  const port = environment.DATABASE_PORT;
-  const database = environment.DATABASE_NAME;
-  const username = environment.DATABASE_USER;
-  const passwordFile = environment.DATABASE_PASSWORD_FILE;
-  if (!host || !port || !database || !username || !passwordFile) return environment;
+function withDatabaseUrl(
+  environment: NodeJS.ProcessEnv,
+  command: RuntimeCommand,
+): NodeJS.ProcessEnv {
+  const migrationConfigured = Object.keys(environment).some(
+    (key) => key.startsWith('MIGRATION_DATABASE_') && environment[key],
+  );
+  if (command !== 'migrate' && migrationConfigured)
+    throw Error('Invalid configuration: migration credentials are only valid for migrate');
+  if (
+    command === 'migrate' &&
+    environment.DATABASE_ISOLATED_ROLES === 'true' &&
+    !migrationConfigured
+  )
+    throw Error('Invalid configuration: MIGRATION_DATABASE connection settings are required');
+  const prefix = command === 'migrate' && migrationConfigured ? 'MIGRATION_DATABASE_' : 'DATABASE_';
+  const selected = {
+    ...environment,
+    DATABASE_TLS_MODE: environment[`${prefix}TLS_MODE`] ?? environment.DATABASE_TLS_MODE,
+    DATABASE_TLS_CA_FILE: environment[`${prefix}TLS_CA_FILE`] ?? environment.DATABASE_TLS_CA_FILE,
+  };
+  const connectionString = environment[`${prefix}URL`];
+  const host = environment[`${prefix}HOST`];
+  const port = environment[`${prefix}PORT`];
+  const database = environment[`${prefix}NAME`];
+  const username = environment[`${prefix}USER`];
+  const passwordFile = environment[`${prefix}PASSWORD_FILE`];
+  const components = [host, port, database, username, passwordFile];
+  if (connectionString) {
+    if (environment.DATABASE_ISOLATED_ROLES === 'true' && components.some(Boolean))
+      throw Error('Invalid configuration: use a database URL or connection components, not both');
+    return { ...selected, DATABASE_URL: connectionString };
+  }
+  if (!components.every(Boolean)) {
+    if (prefix === 'MIGRATION_DATABASE_')
+      throw Error('Invalid configuration: incomplete MIGRATION_DATABASE connection settings');
+    return selected;
+  }
 
   let password: string;
   try {
-    password = readFileSync(passwordFile, 'utf8').trim();
+    password = readFileSync(passwordFile!, 'utf8').trim();
   } catch {
-    throw new Error('Invalid configuration: DATABASE_PASSWORD_FILE');
+    throw new Error(`Invalid configuration: ${prefix}PASSWORD_FILE`);
   }
-  if (!password) throw new Error('Invalid configuration: DATABASE_PASSWORD_FILE');
+  if (!password) throw new Error(`Invalid configuration: ${prefix}PASSWORD_FILE`);
 
-  const url = new URL('postgresql://localhost');
-  url.hostname = host;
-  url.port = port;
-  url.username = username;
+  const portNumber = Number(port);
+  if (!Number.isSafeInteger(portNumber) || portNumber < 1 || portNumber > 65535)
+    throw Error(`Invalid configuration: ${prefix}PORT`);
+  let url: URL;
+  try {
+    if (/[\s/@?#%]/.test(host!)) throw Error();
+    const hostname = isIP(host!) === 6 ? `[${host}]` : host!;
+    url = new URL(`postgresql://${hostname}:${portNumber}/`);
+    if (url.hostname !== hostname) throw Error();
+  } catch {
+    throw Error(`Invalid configuration: ${prefix}HOST`);
+  }
+  url.username = username!;
   url.password = password;
-  url.pathname = `/${database}`;
-  return { ...environment, DATABASE_URL: url.toString() };
+  url.pathname = `/${encodeURIComponent(database!)}`;
+  return { ...selected, DATABASE_URL: url.toString() };
 }
 
 export function loadConfig(
   environment: NodeJS.ProcessEnv = process.env,
-  command: 'serve' | 'worker' | 'migrate' | 'retention' = 'serve',
+  command: RuntimeCommand = 'serve',
 ): AppConfig {
-  const result = configSchema.safeParse(withDatabaseUrl(environment));
+  const result = configSchema.safeParse(withDatabaseUrl(environment, command));
   if (!result.success) {
     const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Invalid configuration: ${fields}`);
   }
+  if (result.data.LOCAL_HTTP_ORIGIN) {
+    const http = new URL(result.data.LOCAL_HTTP_ORIGIN);
+    const primary = result.data.PUBLIC_BASE_URL ? new URL(result.data.PUBLIC_BASE_URL) : null;
+    if (
+      result.data.AUTH_MODE !== 'local' ||
+      http.protocol !== 'http:' ||
+      http.origin !== result.data.LOCAL_HTTP_ORIGIN ||
+      primary?.protocol !== 'https:' ||
+      http.hostname !== primary.hostname
+    )
+      throw Error(
+        'Invalid configuration: LOCAL_HTTP_ORIGIN requires local auth and an exact HTTP origin on the HTTPS public hostname',
+      );
+  }
+  if (
+    command === 'serve' &&
+    result.data.KNOWLEDGE_DISTRIBUTION_ENABLED &&
+    (!result.data.KNOWLEDGE_PUBLICATION_ENABLED ||
+      !result.data.KNOWLEDGE_SERVER_ID ||
+      !result.data.KNOWLEDGE_SIGNING_KEY_ID ||
+      !result.data.KNOWLEDGE_SIGNING_KEY_FILE)
+  )
+    throw Error(
+      'Invalid configuration: knowledge distribution requires publication, server ID and signing key settings',
+    );
+  if (command === 'serve' && result.data.CLIENT_API_KEYS_ENABLED) {
+    const origin = result.data.PUBLIC_BASE_URL ? new URL(result.data.PUBLIC_BASE_URL) : undefined;
+    const localTest =
+      origin &&
+      result.data.NODE_ENV !== 'production' &&
+      ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname);
+    if (
+      !result.data.KNOWLEDGE_DISTRIBUTION_ENABLED ||
+      !['local', 'saml'].includes(result.data.AUTH_MODE) ||
+      !origin ||
+      (origin.protocol !== 'https:' && !localTest)
+    )
+      throw Error(
+        'Invalid configuration: client API keys require knowledge distribution, local/SAML authentication and an HTTPS public origin',
+      );
+  }
+  if (result.data.DATABASE_ISOLATED_ROLES && result.data.DATABASE_TLS_MODE !== 'verify-full')
+    throw Error('Invalid configuration: isolated database roles require verify-full TLS');
+  if (result.data.DATABASE_TLS_MODE === 'verify-full' && !result.data.DATABASE_TLS_CA_FILE)
+    throw Error('Invalid configuration: DATABASE_TLS_CA_FILE is required for verify-full TLS');
+  if (
+    result.data.DATABASE_ISOLATED_ROLES &&
+    ['serve', 'worker'].includes(command) &&
+    result.data.DATABASE_POOL_MAX < 2
+  )
+    throw Error(
+      'Invalid configuration: isolated server/worker DATABASE_POOL_MAX must be at least 2',
+    );
+  if (command === 'serve' || command === 'worker') identityAdministrationConfig(result.data);
   if (result.data.RETENTION_CHAT_DAYS > result.data.RETENTION_REPORT_DAYS) {
     throw new Error(
       'Invalid configuration: RETENTION_CHAT_DAYS must not exceed RETENTION_REPORT_DAYS',
@@ -210,6 +369,7 @@ export function loadConfig(
       'Invalid configuration: proxy identity settings are required for proxy auth mode',
     );
   }
+  if (command === 'serve' && result.data.AUTH_MODE === 'saml') validateSamlSettings(result.data);
   if (
     ['serve', 'worker'].includes(command) &&
     result.data.GITHUB_MODE === 'app' &&

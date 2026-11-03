@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 1,
+  "phase": "P13-C04 local activity",
+  "status": "implemented-packaged-installed",
+  "recordedAt": "2026-09-14T21:24:29.146074+00:00",
+  "gcrSourceCommit": "2dbaf55bc5a2128e4898047e21c8c66e93bc2954",
+  "commitDefenderSourceCommit": "fecf93274af43cdf9737af495343988e074292fc",
+  "branch": "feat/preventive-review-platform",
+  "versions": {
+    "clientLibraries": "0.1.0-alpha.39",
+    "cli": "0.1.0-alpha.34",
+    "commitDefender": "2.10.0"
+  },
+  "package": {
+    "version": "2.10.0",
+    "vsixSha256": "e91f91f0e63372b4105511c1f5f939fe79ac5bdb4613e5d18d6ab9901bca387b",
+    "cliVersion": "0.1.0-alpha.34",
+    "cliBundleSha256": "1f96d3da23f53e936c1fd612dbd26fd81294ccdf561d96f3dd39109606721aa8",
+    "fileCount": 52
+  },
+  "verification": {
+    "gcr": {
+      "suites": 4,
+      "passed": 46,
+      "skipped": 1,
+      "skipReason": "Existing opt-in real-account/OS CLI smoke was not enabled; no paid model run."
+    },
+    "extension": {
+      "status": "passed",
+      "suites": 18,
+      "tests": 195,
+      "results": {
+        "test:providers": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:source-policy": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:git-snapshot": {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:review-outcome": {
+          "tests": 23,
+          "pass": 23,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:review-security": {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:review-backend": {
+          "tests": 13,
+          "pass": 13,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:client-contract": {
+          "tests": 21,
+          "pass": 21,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:standalone-review": {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:standalone-config": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:model-credentials": {
+          "tests": 13,
+          "pass": 13,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:central-review": {
+          "tests": 12,
+          "pass": 12,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:central-view": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:central-sync": {
+          "tests": 3,
+          "pass": 3,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:automatic-review": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:managed-hooks": {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:review-chat": {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:background-recovery": {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "skipped": 0
+        },
+        "test:local-activity": {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "skipped": 0
+        }
+      },
+      "initialFailures": [
+        "Missing new vendor provenance metadata; supplied source commit and manifest hash, reran failed suite and remaining suites.",
+        "Cancellation UI mock selected the first item for an absent choice; used its explicit cancellation choice and reran activity tests."
+      ]
+    },
+    "node18ActivityTests": 5,
+    "clientConsumerRuntimes": [
+      "22.23.2",
+      "18.20.8"
+    ],
+    "browser": {
+      "status": "passed",
+      "synthetic": true,
+      "modelCalled": false,
+      "checks": [
+        {
+          "width": 1360,
+          "scroll": 1360,
+          "height": 2400,
+          "injected": false,
+          "requests": 0,
+          "overflow": false,
+          "scriptExecution": false,
+          "bottomReached": true
+        },
+        {
+          "width": 420,
+          "scroll": 420,
+          "height": 2856,
+          "injected": false,
+          "requests": 0,
+          "overflow": false,
+          "scriptExecution": false,
+          "bottomReached": true
+        }
+      ]
+    },
+    "extensionHosts": [
+      {
+        "status": "passed",
+        "vscode": "1.90.2",
+        "node": "20.9.0",
+        "electron": "29.4.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.10.0",
+        "delivery": "packaged-extension",
+        "commandCount": 26,
+        "activation": true,
+        "encryptedActivityFixture": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "central executor and upstream submission commands absent",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key",
+          "local activity webview opens, refreshes and closes on invalidation without creating storage"
+        ]
+      },
+      {
+        "status": "passed",
+        "vscode": "1.137.0",
+        "node": "24.18.1",
+        "electron": "42.10.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "extensionVersion": "2.10.0",
+        "delivery": "packaged-extension",
+        "commandCount": 26,
+        "activation": true,
+        "encryptedActivityFixture": true,
+        "hookDefault": "disable",
+        "modelCalled": false,
+        "checks": [
+          "activation",
+          "command registration",
+          "central executor and upstream submission commands absent",
+          "clear findings",
+          "cancel without run",
+          "no hook installed",
+          "standalone defaults and user profile",
+          "empty history refresh creates no local store or OS key",
+          "local activity webview opens, refreshes and closes on invalidation without creating storage"
+        ]
+      }
+    ],
+    "packagedCli": {
+      "status": "passed",
+      "cliVersion": "0.1.0-alpha.34",
+      "node": "22.23.2",
+      "modelCalled": false,
+      "emptyDataDirectoryCreated": false,
+      "result": {
+        "formatVersion": 1,
+        "observedAt": "2026-09-14T21:18:41.143Z",
+        "from": "2026-09-07T21:18:41.143Z",
+        "days": 7,
+        "coverage": {
+          "availableRecords": 0,
+          "includedRecords": 0,
+          "duplicateRecords": 0,
+          "futureRecords": 0,
+          "incompleteHistory": false,
+          "deletedOrUnsaved": "unknown"
+        },
+        "statuses": {},
+        "triggers": {},
+        "duration": {
+          "startedRecords": 0,
+          "unstartedRecords": 0,
+          "reportedMs": 0
+        },
+        "findings": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        },
+        "findingOutcomes": {},
+        "knowledge": {
+          "local": 0,
+          "centralOnline": 0,
+          "centralCache": 0,
+          "unrecorded": 0,
+          "withPinnedSnapshot": 0,
+          "withSelectedPublicCriteria": 0,
+          "withLocalFallback": 0
+        },
+        "models": [],
+        "omittedModelGroups": 0,
+        "providerCalls": null,
+        "tokenUsage": null,
+        "billedCost": null
+      }
+    }
+  },
+  "installation": {
+    "status": "passed",
+    "version": "2.10.0",
+    "installedPath": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.10.0",
+    "packageMetadataMatches": true,
+    "verifiedFiles": {
+      "readme.md": "76e4e8376b37c7af3fa578f73777e6b7460b06333f5a832744178b6a232f5628",
+      "gear-settings-svgrepo-com.svg": "63f5dddb385ee497406a836eeaca06e76894deaac6f57a172491abaac6120a16",
+      "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/hook-cli.js": "35f68e6ce9b7e57fe2ada3dbcd67c832828ef9d96ad41facefb626cd20538d1f",
+      "out/standalone-review-worker.js": "19d0ae2fcd289c14ab697c9e76bf33e78f0740eeaccdda732bedd4e3689b3410",
+      "out/advisory-hook.cjs": "0dfa237d096ca87009377de9032a68ba1e21367d8a45c0b885e648b135292ced",
+      "out/review-chat-worker.js": "b91bce1e9ba2d6b2d73d16d913a82b3640744e7391f2500d3af2b2f05713fe3f",
+      "out/extension.js": "9c42abdbbf7a9f198af749f322f979ec458412347cdf6c90f47b9cc92715bd0b",
+      "docs/automatic-reviews.md": "0df472bb3db236ef34ba19e3d4998c719d8662d76c75ed7cadf65d76b495328d",
+      "docs/review-conversations.md": "659846084bec1a612105db33e05d3a251e107a68fbaa812a9ac9b458e8c3c711",
+      "docs/central-review.md": "35467e53d1436cfa61a594cbbad008a63729e65873d8df2db6e22e687a29bbbe",
+      "docs/model-credentials.md": "20609945e9a5679b31e64bbd1318f933c8d1dbc761b230f2eae48a0dfaac054d",
+      "docs/review-submissions.md": "947ba20aeaa5cf4323b5f862198377131b6ed89923851aac13cf92e1e8ff5608",
+      "docs/standalone-review.md": "5f34b97fcd103cfb8350c77a89a6e9ff229103f9ea554ac4cb4901b76bf84b65",
+      "media/icon.png": "08e5c0ab7e5fb8d9fa4ecd588bfbe943de623c023df5ab58f18c9a6d2509c5eb",
+      "media/shield.svg": "2010a057014fec006c2e21bd99b4920eca6f62557bdbf40aba8107174322f317",
+      "media/icon.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/checklist.svg": "21dd71ecaf23a444021007f6e19b051977bac55cf9bc2a4b353e191f6fd2585a",
+      "media/icon-options/E-prism.svg": "4c8e90762a1461742c2c536f79db5f08073a494ba396610329c87a30bb1a72f4",
+      "media/icon-options/C4-split.svg": "00d7331f1e3bd832a3c3f150074786166935e8f6b95b964a243778e0dbb29358",
+      "media/icon-options/C3-ring.svg": "06136d4882b76fe4bfdd9fa3912615e28505bcf22cfb336dfe23236421bb3cc6",
+      "media/icon-options/B-terminal.svg": "3997643541cc731d198e42ac8870cd2ccaf3f952717f1567aab6f18fbe8ad489",
+      "media/icon-options/C-sunset.svg": "27d42d0ef7711cf14529285e183ab7d78c87d8a887ee6586bc2937d6426ae92e",
+      "media/icon-options/C2-faceted.svg": "fda7451ff6b0e308d764ef1a4df1624c6814cfee5c4b8d68c904d7f30be51606",
+      "media/icon-options/C5-stroke.svg": "7d555608dd8c17829b267acf4edd1bcd2e819de9b3d8d5c8e0dcbb7b0757d07f",
+      "media/icon-options/C1-razor.svg": "aaa7d9373c99e2cbd3d0856437c0748e5e51522941a797828b1101bcd08e998b",
+      "media/icon-options/D-arctic.svg": "da4073ab7183ba9e93cf5f8bf43b5db309bc52cd05942dfb30989820bd3f0c39",
+      "media/icon-options/A-apex.svg": "159597f286f7c1d4198dfb990d776279e5966d772aefc4b2e43117eb6e579375",
+      "third-party/gcr-cli/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr-cli/NOTICE": "20250998d1506d715bd504d0c929a503b26290c51e370ab48fc9d69866f268bc",
+      "third-party/gcr-cli/manifest.json": "633f9474153c2137ad91eebba8abaa82870c8c5f4ea00ea1acd3e77d935a6451",
+      "third-party/gcr/README.md": "1db3f4db41fc2f7608ff0af9347e87640f2657acd91a029e87b7a913c54897c6",
+      "third-party/gcr/client-contract/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-executors/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "third-party/gcr/client-core/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "out/gcr-service/main.mjs": "1f96d3da23f53e936c1fd612dbd26fd81294ccdf561d96f3dd39109606721aa8",
+      "out/gcr-service/manifest.json": "237df6373fe58fbb45a8dec86e4e9795150409e4b8aa440341756aa7a8e0f88c"
+    },
+    "settingsUnchanged": true,
+    "forcedWindowReload": false,
+    "globalCliReplaced": false,
+    "rollbackVsixSha256": "0ff5fe77f98537a404f80844d39e9bc8b073553a5c753c2f790a9345e9177ee7"
+  },
+  "architecture": {
+    "direction": "central-to-local downloads only",
+    "reviewExecutor": "existing locally selected model/account",
+    "activityNetworkRequests": 0,
+    "uploadsAdded": false,
+    "centralExecutorAdded": false,
+    "serverDeploymentPerformed": false,
+    "databaseMigrationAdded": false,
+    "historicalReportsModified": false
+  },
+  "limits": [
+    "Only saved authorized profile/worktree/connection history; deleted and unsaved runs remain unknown.",
+    "No actual provider call/token/billing measurements or quality/defect reduction claims.",
+    "UI/native verification used synthetic records, not a paid model.",
+    "Local activity remains unavailable to central dashboards.",
+    "Marketplace publication and the remaining P00–P13 implementation are still pending."
+  ],
+  "initialCorrections": [
+    "CLI HTTPS fixture accepted only contract version 2 requests; updated its route to the current version 3 request while retaining version 2 response compatibility.",
+    "CD package verification required new vendor provenance metadata; recorded source commit and manifest hash.",
+    "Activity cancellation test needed the existing mock’s explicit cancellation choice."
+  ],
+  "artifactDirectory": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P13-local-review-activity",
+  "overallGoalComplete": false
+}

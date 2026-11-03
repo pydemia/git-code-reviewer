@@ -186,6 +186,80 @@ describe('GitHub adapter', () => {
     ]);
   });
 
+  it('preserves empty submitted review states, exact bodies and original positions without inventing resolution', async () => {
+    const client = new GitHubAccessTokenClient('test-token', async (input) => {
+      if (String(input).includes('/issues/7/comments')) return Response.json([]);
+      if (String(input).includes('/pulls/7/reviews'))
+        return Response.json([
+          {
+            id: 20,
+            html_url: 'https://github.example/review/20',
+            body: '',
+            user: null,
+            state: 'APPROVED',
+            submitted_at: '2026-09-08T01:00:00Z',
+          },
+          {
+            id: 21,
+            html_url: 'https://github.example/review/21',
+            body: null,
+            user: null,
+            state: 'DISMISSED',
+            submitted_at: '2026-09-08T01:01:00Z',
+          },
+          {
+            id: 22,
+            html_url: 'https://github.example/review/22',
+            body: 'private draft',
+            user: null,
+            state: 'PENDING',
+          },
+        ]);
+      return Response.json([
+        {
+          id: 23,
+          html_url: 'https://github.example/comment/23',
+          body: '  preserve whitespace\n',
+          user: null,
+          path: 'src/retry.ts',
+          line: null,
+          original_line: 42,
+          original_start_line: 40,
+          start_line: null,
+          side: 'RIGHT',
+          original_commit_id: 'a'.repeat(40),
+          commit_id: 'b'.repeat(40),
+          pull_request_review_id: 20,
+          in_reply_to_id: 19,
+          diff_hunk: '@@ -1 +1 @@\n+ code',
+          created_at: '2026-09-08T01:02:00Z',
+          updated_at: '2026-09-08T01:03:00Z',
+        },
+      ]);
+    });
+    const messages = await client.listPullRequestMessages(target, 7);
+    expect(messages).toHaveLength(3);
+    expect(messages[0]).toMatchObject({
+      body: '',
+      provenance: { reviewState: 'APPROVED', reviewGithubId: '20' },
+    });
+    expect(messages[1]).toMatchObject({ body: '', provenance: { reviewState: 'DISMISSED' } });
+    expect(messages[2]).toMatchObject({
+      body: '  preserve whitespace\n',
+      line: null,
+      inReplyToGithubId: 19,
+      provenance: {
+        originalLine: 42,
+        originalStartLine: 40,
+        originalCommitSha: 'a'.repeat(40),
+        reviewGithubId: '20',
+        threadResolved: null,
+        threadOutdated: null,
+      },
+    });
+    expect(messages.some((m) => m.githubId === 22)).toBe(false);
+  });
+
   it('creates a managed PR timeline comment when none exists', async () => {
     const calls: Array<{ url: string; method: string; body: string | null }> = [];
     const client = new GitHubAccessTokenClient('secret-token', async (input, init) => {
@@ -194,6 +268,13 @@ describe('GitHub adapter', () => {
         method: init?.method ?? 'GET',
         body: typeof init?.body === 'string' ? init.body : null,
       });
+      if (String(input).endsWith('/pulls/7'))
+        return Response.json({
+          number: 7,
+          state: 'open',
+          head: { sha: 'b'.repeat(40) },
+          base: { repo: { full_name: 'platform/reviewer-api' } },
+        });
       if ((init?.method ?? 'GET') === 'GET') return Response.json([]);
       return Response.json(
         {
@@ -208,6 +289,7 @@ describe('GitHub adapter', () => {
     await expect(
       client.upsertPullRequestComment(target, {
         pullNumber: 7,
+        expectedHeadSha: 'b'.repeat(40),
         marker: '<!-- managed -->',
         body: '<!-- managed -->\n검토 결과',
       }),
@@ -216,15 +298,22 @@ describe('GitHub adapter', () => {
       commentUrl: 'https://github.example/platform/reviewer-api/pull/7#issuecomment-91',
       outcome: 'created',
     });
-    expect(calls.map((call) => call.method)).toEqual(['GET', 'POST']);
+    expect(calls.map((call) => call.method)).toEqual(['GET', 'GET', 'POST']);
     expect(calls[0]!.url).toContain('/repos/platform/reviewer-api/issues/7/comments');
-    expect(calls[1]!.body).toContain('검토 결과');
+    expect(calls[2]!.body).toContain('검토 결과');
   });
 
   it('updates the stored comment without listing the PR timeline', async () => {
     const calls: Array<{ url: string; method: string }> = [];
     const client = new GitHubAccessTokenClient('secret-token', async (input, init) => {
       calls.push({ url: String(input), method: init?.method ?? 'GET' });
+      if (String(input).endsWith('/pulls/7'))
+        return Response.json({
+          number: 7,
+          state: 'open',
+          head: { sha: 'b'.repeat(40) },
+          base: { repo: { full_name: 'platform/reviewer-api' } },
+        });
       return Response.json({
         id: 91,
         html_url: 'https://github.example/platform/reviewer-api/pull/7#issuecomment-91',
@@ -234,12 +323,14 @@ describe('GitHub adapter', () => {
 
     const result = await client.upsertPullRequestComment(target, {
       pullNumber: 7,
+      expectedHeadSha: 'b'.repeat(40),
       marker: '<!-- managed -->',
       body: '<!-- managed -->\n새 검토 결과',
       existingCommentId: 91,
     });
     expect(result.outcome).toBe('updated');
     expect(calls).toEqual([
+      { method: 'GET', url: 'https://github.example/api/v3/repos/platform/reviewer-api/pulls/7' },
       {
         method: 'PATCH',
         url: 'https://github.example/api/v3/repos/platform/reviewer-api/issues/comments/91',
@@ -252,6 +343,13 @@ describe('GitHub adapter', () => {
     const client = new GitHubAccessTokenClient('secret-token', async (_input, init) => {
       const method = init?.method ?? 'GET';
       methods.push(method);
+      if (String(_input).endsWith('/pulls/7'))
+        return Response.json({
+          number: 7,
+          state: 'open',
+          head: { sha: 'b'.repeat(40) },
+          base: { repo: { full_name: 'platform/reviewer-api' } },
+        });
       if (method === 'GET') {
         return Response.json([
           {
@@ -270,11 +368,12 @@ describe('GitHub adapter', () => {
 
     const result = await client.upsertPullRequestComment(target, {
       pullNumber: 7,
+      expectedHeadSha: 'b'.repeat(40),
       marker: '<!-- managed -->',
       body: '<!-- managed -->\n최신 검토 결과',
     });
     expect(result).toMatchObject({ commentId: 34, outcome: 'updated' });
-    expect(methods).toEqual(['GET', 'PATCH']);
+    expect(methods).toEqual(['GET', 'GET', 'PATCH']);
   });
 
   it('classifies missing write permission as a non-retryable GitHub error', async () => {
@@ -287,6 +386,7 @@ describe('GitHub adapter', () => {
     await expect(
       client.upsertPullRequestComment(target, {
         pullNumber: 7,
+        expectedHeadSha: 'b'.repeat(40),
         marker: '<!-- managed -->',
         body: '<!-- managed -->\n검토 결과',
       }),

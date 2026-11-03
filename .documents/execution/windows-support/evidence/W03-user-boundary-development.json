@@ -1,0 +1,16 @@
+{
+  "native": true,
+  "status": "passed",
+  "method": "ordinary Windows user token against non-elevated native service",
+  "accountDeleted": true,
+  "profileDeleted": true,
+  "fixtureDeleted": true,
+  "step": "impostor-server",
+  "helperSha256": "a961a21ed678b7a9a61dac62c66e145490aa1c814a47e9584f172671c72204aa",
+  "otherUserToken": true,
+  "sameUserConnected": true,
+  "otherUserDenied": true,
+  "impostorDenied": true,
+  "impostorReceivedNoRequest": true,
+  "nonElevatedServiceSameUserStatus": "running"
+}

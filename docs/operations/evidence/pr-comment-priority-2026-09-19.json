@@ -1,0 +1,176 @@
+{
+  "version": "0.8.0-alpha.68",
+  "chartVersion": "0.10.64",
+  "helmRevision": 78,
+  "codeCommits": [
+    "d27f4330b1e83cf5ff9242b2354d701180b12441",
+    "c0f76ec7565f228b6c88fbe9631f78dc4ac1f8c0"
+  ],
+  "planCommit": "946bf0a04c06072a9b73bd75b0821f45dc1ed6ab",
+  "imageSource": "e56f659fc9c3459670a02fa9ea17afbaa13924db",
+  "deploymentSource": "66b12f87f5d93eb6db6dd741eac291c517019f1b",
+  "imageDigest": "sha256:8adef4f66a2b8d9f9ce9ece11047fe5aa35de1c89c130fd75931a91867559fd6",
+  "chartDigest": "sha256:780f912781fc190b1c1af90fccb6332b9e7d93e4abe34dd1ee93582353b375ee",
+  "chartSha256": "f8470de00138bf4d210c32dbc48713d5f66ae64702273774c63f26d50c03120a",
+  "checks": {
+    "unitTestsPassed": 36,
+    "isolatedPostgresTestsPassed": 7,
+    "typecheck": "passed",
+    "eslint": "passed",
+    "webAndImageBuild": "passed",
+    "helmLint": "passed",
+    "helmTest": "passed",
+    "ociChartDownloadIdentical": true
+  },
+  "liveVerification": {
+    "recordedAt": "2026-09-19T00:07:42.216Z",
+    "version": "0.8.0-alpha.68",
+    "sessions": [
+      {
+        "scheme": "https",
+        "login": 200,
+        "cookieName": "gcr_session",
+        "secure": true,
+        "httpOnly": true,
+        "sameSite": "Lax",
+        "logout": {
+          "status": 204,
+          "meAfter": 401
+        }
+      },
+      {
+        "scheme": "http",
+        "login": 200,
+        "cookieName": "gcr_http_session",
+        "secure": false,
+        "httpOnly": true,
+        "sameSite": "Lax",
+        "logout": {
+          "status": 204,
+          "meAfter": 401
+        }
+      }
+    ],
+    "browser": {
+      "engine": "Chrome",
+      "liveDefault": "P2",
+      "widths": [1440, 420],
+      "mockedWrites": [
+        {
+          "priority": "P3",
+          "status": 200
+        },
+        {
+          "priority": "P2",
+          "status": 403
+        },
+        {
+          "priority": "P2",
+          "status": 200
+        }
+      ],
+      "productionWrites": 0,
+      "blockedAutomaticWrites": [
+        "/api/v1/analyses/a0b82489-d0df-462b-97fe-a64f6315b80f/chat-sessions"
+      ],
+      "pageErrors": [],
+      "reloadAndFailure": "passed",
+      "keyboard": "focus and Tab passed; native popup arrow selection not established"
+    },
+    "modelCalls": 0,
+    "externalComments": 0,
+    "report": {
+      "changed": 1045,
+      "reviewed": 26,
+      "fileBlocks": 16,
+      "rawFindings": 25,
+      "emptyLineNotices": 0
+    }
+  },
+  "database": {
+    "tablesCompared": 12,
+    "tableHashesUnchanged": true,
+    "migrationsBefore": 53,
+    "migrationsAfter": 54,
+    "previousChecksumsUnchanged": true,
+    "tls": {
+      "ssl": true,
+      "version": "TLSv1.3",
+      "cipher": "TLS_AES_256_GCM_SHA384"
+    },
+    "tlsMode": "verify-full"
+  },
+  "helmValuesChange": ["image.tag", "image.digest"],
+  "screenshots": {
+    "pr1024-review-summary.png": "c3b9d1bbca569adf6b8209de529a431af1fecdd8bad216c7ac6e85a2492989e5",
+    "notification-settings-live-mobile.png": "74dc0b18b1599a4854897e2902b872a6f2247ca964a2265321cf8869447458ba",
+    "notification-settings-live-desktop.png": "6030b8cd6e77b1b2c196ec065a19b3f9656fb1d523a3ce6e358878599d967480"
+  },
+  "largePrPlanner": {
+    "snapshot": "d71a259f-b82f-42f4-b5fe-20259e41ccc5",
+    "files": 1045,
+    "patchBytes": 2894826,
+    "types": {
+      "py": 610,
+      "env": 1,
+      "none": 1,
+      "yaml": 1,
+      "md": 8,
+      "yml": 80,
+      "sql": 314,
+      "gitignore": 1,
+      "gitkeep": 27,
+      "json": 1,
+      "example": 1
+    },
+    "noWindows": 95,
+    "plans": [
+      {
+        "files": 500,
+        "coreLines": 500,
+        "windows": 578,
+        "filesWithWindows": 465,
+        "minimumModelCalls": 1044
+      },
+      {
+        "files": 1045,
+        "coreLines": 500,
+        "windows": 1079,
+        "filesWithWindows": 950,
+        "minimumModelCalls": 2030
+      }
+    ]
+  },
+  "largePrEvidenceHashes": {
+    "read-only-state.json": "1ac1d2d8969c1503ef597e3e7f9430966916bcd58c0e5e2171af6976e7144a13",
+    "plan-size.json": "e21d0c3dd76ac560a9d0a606923ac2acf592c2cf2306ab1099edcda704ac17cd"
+  },
+  "browserAttempts": [
+    {
+      "outcome": "failed",
+      "cause": "Summary was not selected in the initial harness"
+    },
+    {
+      "outcome": "failed",
+      "cause": "Native popup arrow sequence did not establish a changed selection"
+    },
+    {
+      "outcome": "failed",
+      "cause": "Existing automatic chat session POST was blocked and triggered the no-unexpected-write assertion"
+    },
+    {
+      "outcome": "passed",
+      "scope": "Live read-only view, mocked setting changes, focus and Tab; no native popup arrow claim"
+    }
+  ],
+  "cleanup": {
+    "verificationSessionsLoggedOut": true,
+    "helmTestPodDeleted": true,
+    "privateRegistryFilesRemoved": true
+  },
+  "deferred": [
+    "LP01-LP05 impact-group engine implementation",
+    "Actual PR #1024 reanalysis",
+    "Existing PR comment republishing"
+  ]
+}

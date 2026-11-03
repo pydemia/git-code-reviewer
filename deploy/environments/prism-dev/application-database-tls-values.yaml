@@ -1,0 +1,7 @@
+# Apply after PostgreSQL server TLS is healthy. Runtime, worker, migrator and
+# retention verify the DB certificate; application roles remain unchanged.
+database:
+  tls:
+    mode: verify-full
+    existingConfigMap: git-code-reviewer-postgresql-ca
+    key: ca.crt

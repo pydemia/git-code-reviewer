@@ -33,16 +33,9 @@ try {
   const sha = (await command('git', ['rev-parse', 'HEAD'], { cwd: initial })).trim();
   await mkdir(workspace, { recursive: true });
   await command('git', ['clone', '--bare', '-q', initial, path.join(workspace, 'repository.git')]);
-  for (const revision of ['head', 'base', 'mergeBase']) {
-    await mkdir(path.join(workspace, 'views', revision), { recursive: true });
-    await writeFile(
-      path.join(workspace, 'views', revision, 'unchanged.ts'),
-      'export const retryCount = 3;\n',
-    );
-  }
   await writeFile(
     path.join(workspace, 'manifest.json'),
-    JSON.stringify({ base: sha, mergeBase: sha, head: sha }),
+    JSON.stringify({ format: 2, base: sha, mergeBase: sha, head: sha }),
   );
   await command('docker', [
     'run',

@@ -63,6 +63,8 @@ function analyze(
   maxModelCalls = 32,
   skills = bundle,
   concurrency = 1,
+  includeTestCode = false,
+  largeReview = false,
 ) {
   return analyzeSnapshot({
     analysisId: randomUUID(),
@@ -73,6 +75,8 @@ function analyze(
     files,
     fixtureMode: false,
     concurrency,
+    includeTestCode,
+    largeReview,
     skills: { bundle: skills, versionId: randomUUID(), version: 7 },
     ...(model ? { model } : {}),
     budgets: { maxModelCalls },
@@ -81,6 +85,90 @@ function analyze(
 }
 
 describe('Skill-based review orchestration', () => {
+  it('uses changed tests as source context without reviewing them by default', async () => {
+    const files = [
+      file('src/calculate.ts', '@@ -0,0 +1 @@\n+export const calculate = () => 2;\n'),
+      file(
+        'src/calculate.test.ts',
+        "@@ -0,0 +1,2 @@\n+import { calculate } from './calculate';\n+expect(calculate()).toBe(2);\n",
+      ),
+    ];
+    const unitPaths: string[] = [];
+    const result = await analyze(files, {
+      profile: 'synthetic-test-context',
+      review: async (body, paths, _instructions, context) => {
+        if (context?.stage === 'unit-comment-block') {
+          unitPaths.push(...paths);
+          expect(body).toContain('context_only_test_sources');
+          expect(body).toContain('src/calculate.test.ts');
+        }
+        return output('검토 완료');
+      },
+    });
+    expect(unitPaths).toEqual(['src/calculate.ts']);
+    expect(result.report.analysis?.files).toContainEqual(
+      expect.objectContaining({
+        path: 'src/calculate.test.ts',
+        status: 'not-reviewed',
+        summary: 'Repository 설정에 따라 테스트 코드를 source context로만 사용합니다.',
+      }),
+    );
+    expect(result.report.versions.testCodeTargets).toBe('source-only');
+    expect(result.state).toBe('completed');
+  });
+
+  it('reviews production code before test code when the repository setting is enabled', async () => {
+    const files = [
+      file('src/calculate.test.ts'),
+      file('src/calculate.ts'),
+      file('tests/integration.py'),
+      file('src/format.py'),
+    ];
+    const unitPaths: string[] = [];
+    const result = await analyze(
+      files,
+      {
+        profile: 'synthetic-test-targets',
+        review: async (_body, paths, _instructions, context) => {
+          if (context?.stage === 'unit-comment-block') unitPaths.push(paths[0]!);
+          return output('검토 완료');
+        },
+      },
+      32,
+      bundle,
+      1,
+      true,
+    );
+    expect(unitPaths).toEqual([
+      'src/calculate.ts',
+      'src/format.py',
+      'src/calculate.test.ts',
+      'tests/integration.py',
+    ]);
+    expect(result.report.versions.testCodeTargets).toBe('included-after-production');
+  });
+
+  it('keeps tests source-only for a large review even without grouped analysis', async () => {
+    const files = [file('src/calculate.ts'), file('src/calculate.test.ts')];
+    const unitPaths: string[] = [];
+    const result = await analyze(
+      files,
+      {
+        profile: 'synthetic-large-ungrouped',
+        review: async (_body, paths, _instructions, context) => {
+          if (context?.stage === 'unit-comment-block') unitPaths.push(paths[0]!);
+          return output('검토 완료');
+        },
+      },
+      32,
+      bundle,
+      1,
+      true,
+      true,
+    );
+    expect(unitPaths).toEqual(['src/calculate.ts']);
+    expect(result.report.versions.testCodeTargets).toBe('source-only-large-review');
+  });
   it('reviews four files concurrently, preserving report order and waiting before total summary', async () => {
     const files = Array.from({ length: 6 }, (_, n) => file(`file-${n}.ts`));
     let active = 0,

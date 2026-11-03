@@ -1,10 +1,26 @@
+import {
+  executeHistoryCollectionJob,
+  HistoryCollectionError,
+} from '../services/review-history-collection.js';
+import { observeReport } from '../services/report-observation.js';
+import {
+  pinSharedKnowledge,
+  readSharedKnowledgePin,
+  prepareSharedAnalysisKnowledge,
+  withSharedKnowledge,
+  sharedCriterionContext,
+} from '../services/analysis-shared-knowledge.js';
 import { createHash, randomUUID } from 'node:crypto';
+import { loadReviewRecurrence } from '../services/review-recurrence.js';
+import { captureSnapshotChangeSource } from '../services/criterion-code-sources.js';
+import { reconcileCriterionDeadlines } from '../services/criterion-recheck.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { analyzeSnapshot, type AnalysisFile } from '@gcr/analysis-engine';
 import { defaultReviewSeverityLevel, type ReviewSeverityLevel } from '@gcr/contracts';
 import { FilesystemArtifactStore, type ArtifactCommit } from '@gcr/artifact-store';
-import { createDatabase, type Database, type DatabaseClient } from '@gcr/db';
+import type { Database, DatabaseClient } from '@gcr/db';
+import { openRuntimeDatabase } from '../database.js';
 import {
   materializeFixtureSnapshot,
   materializeGitSnapshot,
@@ -14,10 +30,28 @@ import { GitHubRequestError, type GitHubReader } from '@gcr/github';
 import type { RelationshipGraph, ReviewReport } from '@gcr/review-contract';
 import Fastify from 'fastify';
 import type { AppConfig } from '../config.js';
+import { identityAdministrationConfig } from '../identity/config.js';
+import { KeycloakAdminClient } from '../identity/keycloak-admin.js';
+import { processIdentityOperation, type IdentityAdministration } from '../identity/processor.js';
+import { KeycloakSecurityClient } from '../identity/keycloak-security.js';
+import {
+  reconcileIdentitySecurity,
+  type IdentitySecurityAdministration,
+} from '../identity/security-processor.js';
+import { processIdentityReactivation } from '../identity/reactivation.js';
 import { appendEvent } from '../events/index.js';
 import { claimAgentRun, executeAgentRun } from '../services/chat-agent.js';
+import { removeExpiredKnowledgeManifests } from '../services/knowledge-manifest.js';
+import { publishNextKnowledge } from '../services/knowledge-publication.js';
 import { withModelBudget } from '../services/model-admission.js';
+import { deferModelJob } from '../services/model-job-defer.js';
+import {
+  claimCriterionGeneration,
+  executeCriterionGeneration,
+} from '../services/criterion-generation.js';
 import { assertJobLease, checkpointReviewModel } from '../services/analysis-checkpoint.js';
+import { databaseReviewTaskStore } from '../services/review-task-store.js';
+import { sourcePathPolicy } from '@gcr/client-core';
 import { recoverExpiredJobs } from './recovery.js';
 import { withAnalysisSourceContext } from '../services/analysis-source-context.js';
 import {
@@ -47,6 +81,7 @@ type JobPayload = {
   operationId?: string;
   pullRequestId: string;
   snapshotRequestId?: string;
+  historyCollectionId?: string;
   analysisId?: string;
   snapshotId?: string;
   memoryOwnerUserId?: string;
@@ -56,7 +91,7 @@ type JobPayload = {
 
 type ClaimedJob = {
   id: string;
-  type: 'snapshot.materialize' | 'analysis.run' | 'github.review.publish';
+  type: 'snapshot.materialize' | 'analysis.run' | 'github.review.publish' | 'history.collect';
   payload: JobPayload;
   attempt_count: number;
   max_attempts: number;
@@ -68,21 +103,54 @@ type Logger = {
   error(value: object, message: string): void;
 };
 
-export async function runWorker(config: AppConfig): Promise<void> {
+export async function runWorker(
+  config: AppConfig,
+  options: {
+    readonly identityAdministration?: IdentityAdministration;
+    readonly identitySecurity?: IdentitySecurityAdministration;
+    readonly signal?: AbortSignal;
+  } = {},
+): Promise<void> {
   await mkdir(config.WORKSPACE_ROOT, { recursive: true });
   await mkdir(config.ARTIFACT_ROOT, { recursive: true });
-  const database = createDatabase(config.DATABASE_URL, Math.max(2, config.DATABASE_POOL_MAX));
+  const database = await openRuntimeDatabase(config, Math.max(2, config.DATABASE_POOL_MAX));
   const github = await createGitHubReader(config);
   const artifacts = new FilesystemArtifactStore(config.ARTIFACT_ROOT);
   const executor = `${process.env.HOSTNAME ?? 'local'}:${process.pid}`;
   const health = Fastify({ logger: true });
+  const identityConfig = identityAdministrationConfig(config);
+  const identityAdmin = identityConfig
+    ? (options.identityAdministration ?? new KeycloakAdminClient(identityConfig.settings))
+    : undefined;
+  let identityRunning = false,
+    nextIdentityAt = 0;
+  const identitySecurity =
+    identityConfig && config.IDENTITY_SECURITY_ENABLED
+      ? (options.identitySecurity ?? new KeycloakSecurityClient(identityConfig.settings))
+      : undefined;
+  let knowledgeRunning = false;
+  let nextKnowledgeAt = 0;
+  let nextManifestCleanupAt = 0;
   let lastLoopAt = Date.now();
   let stopping = false;
   const active = new Set<Promise<void>>();
   let preferChat = true;
+  let preferCriteria = true;
+  const startCriteria = async () => {
+    if (!config.CREDENTIAL_REGISTRY_ENABLED) return false;
+    const run = await claimCriterionGeneration(database, executor);
+    if (!run) return false;
+    const task = executeCriterionGeneration(database, config, run).catch(() =>
+      health.log.error({ generationId: run.id }, 'criterion generation failed'),
+    );
+    active.add(task);
+    void task.finally(() => active.delete(task));
+    preferCriteria = false;
+    return true;
+  };
   let activeBatch = 0;
   let lastRecoveryAt = 0;
-  const shutdown = stopSignal().then(() => {
+  const shutdown = stopSignal(options.signal).then(() => {
     stopping = true;
   });
 
@@ -92,65 +160,147 @@ export async function runWorker(config: AppConfig): Promise<void> {
       ? { status: 'ok' }
       : reply.code(503).send({ status: 'degraded' }),
   );
-  await health.listen({ host: config.HOST, port: config.WORKER_HEALTH_PORT });
+  try {
+    await health.listen({ host: config.HOST, port: config.WORKER_HEALTH_PORT });
 
-  while (!stopping) {
-    lastLoopAt = Date.now();
-    if (Date.now() - lastRecoveryAt > 10000) {
-      await recoverExpiredJobs(database);
-      lastRecoveryAt = Date.now();
-    }
-    let claimed = false;
-    while (!stopping && active.size < config.WORKER_CONCURRENCY) {
-      const batchAvailable =
-        !config.CHAT_AGENT_ENABLED ||
-        config.WORKER_CONCURRENCY === 1 ||
-        activeBatch < config.WORKER_CONCURRENCY - 1;
-      const priorityJob = !preferChat && batchAvailable ? await claimJob(database, executor) : null;
-      if (config.CHAT_AGENT_ENABLED && !priorityJob) {
-        const run = await claimAgentRun(database, executor);
-        if (run) {
-          preferChat = false;
+    while (!stopping) {
+      lastLoopAt = Date.now();
+      if (identityConfig && identityAdmin && !identityRunning && Date.now() >= nextIdentityAt) {
+        identityRunning = true;
+        // One sequential pass gives provisioning, reactivation and revocation a
+        // turn. Independent timers could repeatedly contend for the realm lease.
+        const identityTask = (async () => {
+          const phases = [
+            () => processIdentityOperation(database, identityConfig.binding, identityAdmin),
+            ...(identitySecurity
+              ? [
+                  () =>
+                    processIdentityReactivation(database, identityConfig.binding, identitySecurity),
+                  () =>
+                    reconcileIdentitySecurity(database, identityConfig.binding, identitySecurity),
+                ]
+              : []),
+          ];
+          for (const phase of phases) {
+            if (stopping) break;
+            try {
+              await phase();
+            } catch {
+              health.log.error(
+                { code: 'IDENTITY_RECONCILIATION_UNAVAILABLE' },
+                'identity background phase paused',
+              );
+            }
+          }
+        })().finally(() => {
+          nextIdentityAt = Date.now() + 2000;
+          identityRunning = false;
+          active.delete(identityTask);
+        });
+        active.add(identityTask);
+      }
+      if (Date.now() - lastRecoveryAt > 10000) {
+        await recoverExpiredJobs(database);
+        lastRecoveryAt = Date.now();
+      }
+      if (
+        config.KNOWLEDGE_PUBLICATION_ENABLED &&
+        !knowledgeRunning &&
+        Date.now() >= nextKnowledgeAt &&
+        active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY
+      ) {
+        knowledgeRunning = true;
+        const task = (async () => {
+          if (Date.now() >= nextManifestCleanupAt) {
+            await reconcileCriterionDeadlines(database);
+            await removeExpiredKnowledgeManifests(database);
+            nextManifestCleanupAt = Date.now() + 60000;
+          }
+          await publishNextKnowledge(database, artifacts);
+        })()
+          .catch(() => {
+            health.log.error(
+              { code: 'KNOWLEDGE_PUBLICATION_UNAVAILABLE' },
+              'knowledge publication paused',
+            );
+          })
+          .finally(() => {
+            knowledgeRunning = false;
+            nextKnowledgeAt = Date.now() + 2000;
+            active.delete(task);
+          });
+        active.add(task);
+      }
+      let claimed = false;
+      while (!stopping && active.size - (identityRunning ? 1 : 0) < config.WORKER_CONCURRENCY) {
+        if (preferCriteria && (await startCriteria())) {
           claimed = true;
-          const task = executeAgentRun(database, config, run).catch(() =>
-            health.log.error({ runId: run.id }, 'chat run failed'),
-          );
-          active.add(task);
-          void task.finally(() => active.delete(task));
           continue;
         }
+        const batchAvailable =
+          !config.CHAT_AGENT_ENABLED ||
+          config.WORKER_CONCURRENCY === 1 ||
+          activeBatch < config.WORKER_CONCURRENCY - 1;
+        const priorityJob =
+          !preferChat && batchAvailable ? await claimJob(database, executor) : null;
+        if (config.CHAT_AGENT_ENABLED && !priorityJob) {
+          const run = await claimAgentRun(database, executor);
+          if (run) {
+            preferChat = false;
+            preferCriteria = true;
+            claimed = true;
+            const task = executeAgentRun(database, config, run).catch(() =>
+              health.log.error({ runId: run.id }, 'chat run failed'),
+            );
+            active.add(task);
+            void task.finally(() => active.delete(task));
+            continue;
+          }
+        }
+        const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
+        if (!job) {
+          if (await startCriteria()) {
+            claimed = true;
+            continue;
+          }
+          break;
+        }
+        preferCriteria = true;
+        preferChat = true;
+        claimed = true;
+        const task = executeJob(
+          database,
+          github,
+          artifacts,
+          config,
+          executor,
+          job,
+          health.log,
+          () => stopping,
+        ).catch((error: unknown) => {
+          health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
+        });
+        active.add(task);
+        activeBatch++;
+        void task.finally(() => {
+          active.delete(task);
+          activeBatch--;
+        });
       }
-      const job = priorityJob ?? (batchAvailable ? await claimJob(database, executor) : null);
-      if (!job) break;
-      preferChat = true;
-      claimed = true;
-      const task = executeJob(
-        database,
-        github,
-        artifacts,
-        config,
-        executor,
-        job,
-        health.log,
-        () => stopping,
-      ).catch((error: unknown) => {
-        health.log.error({ err: error, jobId: job.id }, 'worker loop failed');
-      });
-      active.add(task);
-      activeBatch++;
-      void task.finally(() => {
-        active.delete(task);
-        activeBatch--;
-      });
+      if (!claimed || active.size >= config.WORKER_CONCURRENCY) {
+        await Promise.race([shutdown, delay(500), ...active]);
+      }
     }
-    if (!claimed || active.size >= config.WORKER_CONCURRENCY) {
-      await Promise.race([shutdown, delay(500), ...active]);
+  } finally {
+    // A dead loop must not leave a live health server that prevents restart.
+    stopping = true;
+    await health.close();
+    try {
+      await Promise.allSettled(active);
+    } finally {
+      await database.end();
     }
   }
-
-  await Promise.all(active);
-  await health.close();
-  await database.end();
 }
 
 export async function claimJob(database: Database, executor: string): Promise<ClaimedJob | null> {
@@ -160,7 +310,7 @@ export async function claimJob(database: Database, executor: string): Promise<Cl
     const result = await connection.query<Omit<ClaimedJob, 'attempt_id'>>(
       `with candidate as (
          select id from jobs
-         where type in ('snapshot.materialize', 'analysis.run', 'github.review.publish')
+         where type in ('snapshot.materialize', 'analysis.run', 'github.review.publish', 'history.collect')
            and state = 'queued' and available_at <= clock_timestamp()
            and attempt_count < max_attempts
          order by priority, available_at, created_at
@@ -223,6 +373,8 @@ async function executeJob(
       await executeSnapshotJob(database, github, artifacts, config, workspace, job);
     } else if (job.type === 'analysis.run') {
       await executeAnalysisJob(database, artifacts, config, job, draining);
+    } else if (job.type === 'history.collect') {
+      await executeHistoryCollectionJob(database, github, config, job);
     } else {
       await publishReviewToGitHub(database, github, config, job, artifacts);
     }
@@ -353,6 +505,7 @@ async function persistMaterialization(
       headSha: materialization.headSha,
       mergeBaseSha: materialization.mergeBaseSha,
       resolution: materialization.resolution,
+      trees: materialization.trees ?? null,
       fileCount: materialization.files.length,
     }),
   );
@@ -366,8 +519,8 @@ async function persistMaterialization(
       [snapshotRequestId],
     );
     await connection.query(
-      `insert into snapshots(id, request_id, version, merge_base_sha, resolution, policy_version, manifest_checksum)
-       values ($1,$2,$3,$4,$5,'snapshot-v1',$6)`,
+      `insert into snapshots(id, request_id, version, merge_base_sha, resolution, policy_version, manifest_checksum, source_trees)
+       values ($1,$2,$3,$4,$5,'snapshot-v1',$6,$7::jsonb)`,
       [
         snapshotId,
         snapshotRequestId,
@@ -375,6 +528,7 @@ async function persistMaterialization(
         materialization.mergeBaseSha,
         materialization.resolution,
         manifest.checksum,
+        materialization.trees ? JSON.stringify(materialization.trees) : null,
       ],
     );
     await insertArtifact(
@@ -410,6 +564,7 @@ async function persistMaterialization(
           artifactId,
         ],
       );
+      await captureSnapshotChangeSource(connection, fileArtifact.id, fileArtifact.file.patch);
     }
     await connection.query(`update snapshot_requests set state = 'materialized' where id = $1`, [
       snapshotRequestId,
@@ -426,10 +581,14 @@ async function persistMaterialization(
         repository_id: string;
         pull_title: string;
         requested_by: string | null;
+        branch: string | null;
+        review_test_code: boolean;
       }>(
         `select active_prompt.id, active_prompt.content_hash, active_prompt.severity_level,
                 repository.tenant_id, repository.id as repository_id,
-                pull_request.title as pull_title, operation.requested_by
+                pull_request.title as pull_title, operation.requested_by,
+                repository.review_test_code,
+                case when pull_request.head_sha=request.head_sha then pull_request.head_ref else null end as branch
          from snapshot_requests request
          join pull_requests pull_request on pull_request.id = request.pull_request_id
          join repositories repository on repository.id = pull_request.repository_id
@@ -449,16 +608,26 @@ async function persistMaterialization(
       const providerVersionId = activeProvider?.id ?? null;
       const providerHash =
         activeProvider?.configurationHash ?? deploymentProvider.configurationHash;
-      const skills = await getEffectiveReviewSkills(connection);
-      memoryOwnerUserId = prompt.rows[0]?.requested_by ?? null;
-      const memory = await recallReviewMemories(connection, {
+      const shared = await pinSharedKnowledge(connection, artifacts, {
         tenantId: prompt.rows[0]!.tenant_id,
         repositoryId: prompt.rows[0]!.repository_id,
-        ...(memoryOwnerUserId ? { ownerUserId: memoryOwnerUserId } : {}),
-        filePaths: materialization.files.map(({ path: filePath }) => filePath),
-        queryText: prompt.rows[0]!.pull_title,
-        approvedBefore: new Date(),
+        branch: prompt.rows[0]!.branch,
+        enabled: config.KNOWLEDGE_PUBLICATION_ENABLED,
       });
+      // Keep the base Skill binding independent of optional published knowledge.
+      const skills = await getEffectiveReviewSkills(connection);
+      memoryOwnerUserId = prompt.rows[0]?.requested_by ?? null;
+      const memory =
+        shared.value.status === 'ready' && !memoryOwnerUserId
+          ? { items: [], hash: createHash('sha256').update('[]').digest('hex') }
+          : await recallReviewMemories(connection, {
+              tenantId: prompt.rows[0]!.tenant_id,
+              repositoryId: prompt.rows[0]!.repository_id,
+              ...(memoryOwnerUserId ? { ownerUserId: memoryOwnerUserId } : {}),
+              filePaths: materialization.files.map(({ path: filePath }) => filePath),
+              queryText: prompt.rows[0]!.pull_title,
+              approvedBefore: new Date(),
+            });
       const modelProfile = activeProvider
         ? activeProvider.mode === 'chatgpt-account'
           ? `chatgpt-account:${activeProvider.modelName}:${activeProvider.reasoningEffort}`
@@ -471,19 +640,20 @@ async function persistMaterialization(
            snapshot_id, analysis_key, state, stage, progress, model_profile,
            prompt_version_id, prompt_hash, provider_version_id, provider_hash, policy_hash,
            skill_version_id, skill_bundle, skill_hash, severity_level, memory_hash,
-           memory_context, memory_owner_user_id
+           memory_context, memory_owner_user_id, shared_knowledge, shared_knowledge_hash,
+           review_test_code
          ) values ($1, $2, 'queued', 'planning', 0, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
-           $11, $12, $13, $14::jsonb, $15)
+           $11, $12, $13, $14::jsonb, $15, $16::jsonb, $17, $18)
          on conflict (analysis_key) do update set analysis_key = excluded.analysis_key returning id`,
         [
           snapshotId,
-          `analysis:${snapshotId}:default:v7:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}`,
+          `analysis:${snapshotId}:default:v11:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memoryOwnerUserId ?? 'collective'}:${memory.hash}:${shared.hash}:review-tests-${prompt.rows[0]!.review_test_code ? 'include' : 'source-only'}`,
           modelProfile,
           promptVersionId,
           promptHash,
           providerVersionId,
           providerHash,
-          `default-v4:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}`,
+          `default-v8:${promptHash}:${severityLevel}:${providerHash}:${skills.bundle.hash}:${memory.hash}:${shared.hash}:review-tests-${prompt.rows[0]!.review_test_code ? 'include' : 'source-only'}`,
           skills.versionId,
           JSON.stringify(skills.bundle),
           skills.bundle.hash,
@@ -491,6 +661,9 @@ async function persistMaterialization(
           memory.hash,
           JSON.stringify(memory.items),
           memoryOwnerUserId,
+          JSON.stringify(shared.value),
+          shared.hash,
+          prompt.rows[0]!.review_test_code,
         ],
       );
       analysisId = analysis.rows[0]!.id;
@@ -567,6 +740,10 @@ export async function executeAnalysisJob(
   const identity = await database.query<{
     base_sha: string;
     head_sha: string;
+    merge_base_sha: string;
+    started_at: Date;
+    shared_knowledge: unknown;
+    shared_knowledge_hash: string | null;
     prompt_instructions: string | null;
     prompt_version: number | null;
     prompt_hash: string;
@@ -577,17 +754,20 @@ export async function executeAnalysisJob(
     skill_bundle: unknown;
     skill_hash: string | null;
     tenantId: string;
+    repositoryId: string;
     credentialId: string | null;
     installationId: string;
     memory_context: import('../services/review-memory.js').ReviewMemoryProjection[];
+    review_test_code: boolean;
   }>(
-    `select sr.base_sha, sr.head_sha, prompt.instructions as prompt_instructions,
+    `select sr.base_sha, sr.head_sha, snapshot.merge_base_sha, analysis.started_at, analysis.shared_knowledge, analysis.shared_knowledge_hash, prompt.instructions as prompt_instructions,
             prompt.version as prompt_version, analysis.prompt_hash, analysis.severity_level,
-            analysis.provider_version_id, repository.tenant_id as "tenantId",
+            analysis.provider_version_id, repository.tenant_id as "tenantId", repository.id as "repositoryId",
             analysis.skill_version_id, analysis.skill_bundle, analysis.skill_hash,
             skills.version as skill_version,
             repository.credential_id as "credentialId",
-            repository.installation_id as "installationId", analysis.memory_context
+            repository.installation_id as "installationId", analysis.memory_context,
+            analysis.review_test_code
      from snapshots snapshot
      join snapshot_requests sr on sr.id = snapshot.request_id
      join pull_requests pr on pr.id = sr.pull_request_id
@@ -608,7 +788,7 @@ export async function executeAnalysisJob(
       ? withAnalysisSourceContext(baseModel, database, artifacts, config, analysisId, snapshotId)
       : null;
   const contextualModel = sourceContext?.model ?? baseModel;
-  const model = contextualModel
+  let model = contextualModel
     ? checkpointReviewModel(
         contextualModel,
         database,
@@ -634,29 +814,120 @@ export async function executeAnalysisJob(
     path: string;
   }>('select id, path from snapshot_files where snapshot_id = $1', [snapshotId]);
   const fileIds = new Map(fileRows.rows.map((file) => [file.path, file.id]));
-  const files: AnalysisFile[] = diff.files.flatMap((file) => {
+  const files: AnalysisFile[] = diff.files.map((file) => {
     const id = fileIds.get(file.path);
-    return id ? [{ id, ...file }] : [];
+    if (!id) throw Error('Snapshot file manifest is incomplete');
+    return { id, ...file };
   });
+  const largeReview =
+    files.length >= config.ANALYSIS_GROUPING_THRESHOLD ||
+    Buffer.byteLength(diff.patch) > config.ANALYSIS_MAX_BYTES;
+  const grouped =
+    Boolean(skillBundle) && !isFixtureRepository(config.GITHUB_MODE, row) && largeReview;
+  const sourcePolicy = sourcePathPolicy();
+  const fileExclusions = new Map(
+    files.flatMap((file) => {
+      const reason =
+        sourcePolicy(file.path) ?? (file.previousPath ? sourcePolicy(file.previousPath) : null);
+      return reason ? [[file.id, reason] as const] : [];
+    }),
+  );
+  let sharedPin: ReturnType<typeof readSharedKnowledgePin> = null;
+  let sharedKnowledgeUnavailable = false;
+  try {
+    sharedPin = readSharedKnowledgePin(row.shared_knowledge, row.shared_knowledge_hash);
+    if (
+      sharedPin &&
+      (sharedPin.repositoryId !== row.repositoryId || sharedPin.tenantId !== row.tenantId)
+    )
+      throw Error('shared_knowledge_scope');
+  } catch {
+    // Invalid optional data must never enter the model or disable the base review.
+    sharedPin = null;
+    sharedKnowledgeUnavailable = true;
+  }
+  const contextLimitations: string[] = [];
+  let sharedValidUntil: string | null = null;
+  let sharedSelectionHash: string | null = null;
+  let sharedCriteria: ReturnType<typeof sharedCriterionContext> | undefined;
+  if (sharedPin && sharedPin.status !== 'disabled') {
+    try {
+      const selection = await prepareSharedAnalysisKnowledge(
+        database,
+        config,
+        analysisId,
+        snapshotId,
+        sharedPin,
+        files,
+        { head: row.head_sha, mergeBase: row.merge_base_sha },
+      );
+      sharedValidUntil = selection.validUntil;
+      sharedSelectionHash = (
+        await database.query<{ context_hash: string }>(
+          'select context_hash from analysis_shared_selections where analysis_id=$1',
+          [analysisId],
+        )
+      ).rows[0]!.context_hash;
+      sharedCriteria = sharedCriterionContext(
+        selection,
+        row.shared_knowledge_hash!,
+        sharedSelectionHash,
+      );
+      if (model) model = withSharedKnowledge(model, selection);
+    } catch {
+      sharedKnowledgeUnavailable = true;
+      sharedValidUntil = null;
+      sharedSelectionHash = null;
+      sharedCriteria = undefined;
+    }
+  }
   await updateAnalysisState(database, job, 'analyzing', 'review', 25);
   try {
     const output = await withModelBudget(
       {
         runKey: `analysis:${analysisId}`,
-        maxCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+        durableGroup: grouped,
+        lane: 'batch',
+        maxCalls: grouped ? config.ANALYSIS_GROUP_MAX_MODEL_CALLS : config.ANALYSIS_MAX_MODEL_CALLS,
+        ...(grouped
+          ? { deadline: row.started_at.getTime() + config.ANALYSIS_GROUP_MAX_DURATION_MS }
+          : {}),
         wait: true,
         concurrency: provider.concurrency ?? 1,
       },
       () =>
         analyzeSnapshot({
           concurrency: provider.concurrency ?? 1,
+          ...(grouped
+            ? {
+                impactReview: {
+                  store: databaseReviewTaskStore(database, analysisId, job),
+                  identity: {
+                    snapshotId,
+                    base: row.base_sha,
+                    head: row.head_sha,
+                    provider: provider.configurationHash,
+                    prompt: row.prompt_hash,
+                    skills: row.skill_hash,
+                    sharedSelection: sharedSelectionHash,
+                    sharedKnowledgeUnavailable,
+                  },
+                  maxInputBytes: config.ANALYSIS_GROUP_MAX_INPUT_BYTES,
+                  maxFilesPerGroup: config.ANALYSIS_GROUP_MAX_FILES,
+                },
+              }
+            : {}),
           onProgress: async (stage, detail) => {
             if (draining()) throw Error('worker_draining');
             await assertJobLease(database, job);
             const progress =
               stage === 'total-summary'
                 ? 85
-                : 25 + Math.floor((60 * detail.filesProcessed) / Math.max(1, detail.filesTotal));
+                : 25 +
+                  Math.floor(
+                    (60 * (detail.tasksCompleted ?? detail.filesProcessed)) /
+                      Math.max(1, detail.tasksTotal ?? detail.filesTotal),
+                  );
             await updateAnalysisState(database, job, 'analyzing', stage, progress, detail);
           },
           analysisId,
@@ -665,7 +936,12 @@ export async function executeAnalysisJob(
           headSha: row.head_sha,
           patch: diff.patch,
           files,
+          fileExclusions,
+          includeTestCode: row.review_test_code,
+          largeReview,
           memory: row.memory_context,
+          contextLimitations,
+          ...(sharedCriteria ? { sharedCriteria } : {}),
           fixtureMode: isFixtureRepository(config.GITHUB_MODE, row),
           ...(row.severity_level ? { severityLevel: row.severity_level } : {}),
           ...(model ? { model } : {}),
@@ -690,12 +966,41 @@ export async function executeAnalysisJob(
           budgets: {
             maxFiles: config.ANALYSIS_MAX_FILES,
             maxBytes: config.ANALYSIS_MAX_BYTES,
-            maxModelCalls: config.ANALYSIS_MAX_MODEL_CALLS,
+            maxModelCalls: grouped
+              ? config.ANALYSIS_GROUP_MAX_MODEL_CALLS
+              : config.ANALYSIS_MAX_MODEL_CALLS,
           },
         }),
     );
+    if (sharedPin || sharedKnowledgeUnavailable) {
+      if (row.shared_knowledge_hash)
+        output.report.versions.sharedKnowledge = row.shared_knowledge_hash;
+      output.report.versions.sharedKnowledgeStatus = sharedKnowledgeUnavailable
+        ? 'unavailable'
+        : sharedSelectionHash
+          ? 'selected'
+          : sharedPin!.status;
+      if (sharedSelectionHash) output.report.versions.sharedSelection = sharedSelectionHash;
+      if (sharedKnowledgeUnavailable)
+        output.report.versions.sharedKnowledgeReason =
+          '공용 리뷰 자료를 확인하지 못해 적용하지 않았습니다. 기본 리뷰 결과와 별개의 상태입니다.';
+    }
+    if (sharedValidUntil && sharedValidUntil <= new Date().toISOString()) {
+      output.state = 'partial';
+      output.report.coverage.truncated = true;
+      output.report.coverage.limitations.push(
+        '검토 중 공용 기준의 예외·만료 시각에 도달했습니다. 새 분석이 필요합니다.',
+      );
+      output.graph.coverage.truncated = true;
+      if (output.report.analysis && output.report.analysis.status === 'pass')
+        output.report.analysis.status = 'incomplete';
+    }
     await updateAnalysisState(database, job, 'analyzing', 'persisting', 90);
+    // Include durable waits and recovered attempts in the new report's elapsed time.
+    output.report.durationMs = Math.max(0, Date.now() - row.started_at.getTime());
     if (sourceContext) output.report.coverage.limitations.push(...sourceContext.limitations);
+    const recurrence = await loadReviewRecurrence(database, artifacts, output.report);
+    if (recurrence) output.report.recurrence = recurrence;
     await persistAnalysis(
       database,
       artifacts,
@@ -764,8 +1069,8 @@ export async function persistAnalysis(
     );
     await connection.query(
       `insert into reports(id, analysis_run_id, schema_version, grade, summary,
-         has_critical_findings, coverage, impact, artifact_id)
-       values ($1,$2,1,$3,$4,$5,$6::jsonb,$7::jsonb,$8)`,
+         has_critical_findings, coverage, impact, artifact_id, observation)
+       values ($1,$2,1,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9::jsonb)`,
       [
         reportId,
         analysisId,
@@ -775,6 +1080,7 @@ export async function persistAnalysis(
         JSON.stringify(report.coverage),
         JSON.stringify(report.impact),
         reportArtifactId,
+        JSON.stringify(observeReport(report)),
       ],
     );
     for (const finding of report.findings) {
@@ -836,10 +1142,15 @@ export async function persistAnalysis(
         ],
       );
     }
+    const taskProgress = await connection.query<{ progress: number }>(
+      `select case when count(*)=0 then 100 else floor(100.0*count(*) filter(where state='completed')/count(*)) end::integer as progress from analysis_review_tasks where analysis_id=$1`,
+      [analysisId],
+    );
+    const finalProgress = taskProgress.rows[0]!.progress;
     await connection.query(
-      `update analysis_runs set state = $2, stage = 'published', progress = 100,
+      `update analysis_runs set state = $2, stage = 'published', progress = $4,
        limitations = $3::jsonb, finished_at = clock_timestamp() where id = $1`,
-      [analysisId, state, JSON.stringify(report.coverage.limitations)],
+      [analysisId, state, JSON.stringify(report.coverage.limitations), finalProgress],
     );
     await connection.query(
       `update operations set state = 'completed', finished_at = clock_timestamp(),
@@ -851,7 +1162,7 @@ export async function persistAnalysis(
       revision: locked.rows[0]!.revision,
       state,
       stage: 'published',
-      progress: 100,
+      progress: finalProgress,
       reportUrl: `/api/v1/analyses/${analysisId}`,
     };
     if (!job.payload.memoryOwnerUserId) {
@@ -981,21 +1292,28 @@ async function failJob(database: Database, job: ClaimedJob, error: unknown) {
 }
 
 async function recordJobFailure(database: DatabaseClient, job: ClaimedJob, error: unknown) {
+  if (await deferModelJob(database, job, error)) return;
   const retryable =
-    error instanceof GitHubRequestError
+    error instanceof HistoryCollectionError
       ? error.retryable
-      : error instanceof ReviewPublicationError
+      : error instanceof GitHubRequestError
         ? error.retryable
-        : true;
+        : error instanceof ReviewPublicationError
+          ? error.retryable
+          : true;
   const terminal = job.attempt_count >= job.max_attempts || !retryable;
   const code =
-    job.type === 'snapshot.materialize'
-      ? 'SNAPSHOT_FAILED'
-      : job.type === 'analysis.run'
-        ? 'ANALYSIS_FAILED'
-        : error instanceof GitHubRequestError && error.status === 403
-          ? 'GITHUB_REVIEW_PERMISSION_DENIED'
-          : 'GITHUB_REVIEW_PUBLISH_FAILED';
+    job.type === 'history.collect'
+      ? error instanceof HistoryCollectionError
+        ? error.code
+        : 'HISTORY_READ_FAILED'
+      : job.type === 'snapshot.materialize'
+        ? 'SNAPSHOT_FAILED'
+        : job.type === 'analysis.run'
+          ? 'ANALYSIS_FAILED'
+          : error instanceof GitHubRequestError && error.status === 403
+            ? 'GITHUB_REVIEW_PERMISSION_DENIED'
+            : 'GITHUB_REVIEW_PUBLISH_FAILED';
   const retryAfterSeconds =
     error instanceof GitHubRequestError && error.retryAfterSeconds
       ? error.retryAfterSeconds
@@ -1015,6 +1333,7 @@ async function recordJobFailure(database: DatabaseClient, job: ClaimedJob, error
       retryAfterSeconds,
     ],
   );
+  if (job.type === 'history.collect') return;
   if (job.type === 'github.review.publish') {
     const analysisId = job.payload.analysisId ?? null;
     const pullRequestId = job.payload.pullRequestId ?? null;
@@ -1102,7 +1421,12 @@ function errorMessage(error: unknown): string {
 }
 
 let signalPromise: Promise<void> | undefined;
-function stopSignal(): Promise<void> {
+function stopSignal(signal?: AbortSignal): Promise<void> {
+  if (signal)
+    return new Promise((resolve) => {
+      if (signal.aborted) resolve();
+      else signal.addEventListener('abort', () => resolve(), { once: true });
+    });
   signalPromise ??= new Promise((resolve) => {
     process.once('SIGTERM', resolve);
     process.once('SIGINT', resolve);

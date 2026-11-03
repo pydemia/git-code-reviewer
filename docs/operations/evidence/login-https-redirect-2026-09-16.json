@@ -1,0 +1,70 @@
+{
+  "recordedAt": "2026-09-16T13:57:59.091798+00:00",
+  "deploymentCommit": "dde78c01d0486771a7e18e8635d4b0272cb8c1fd",
+  "before": {
+    "httpLoginStatus": 403,
+    "httpLoginCode": "INVALID_ORIGIN",
+    "httpsEmptyLoginStatus": 400,
+    "httpsEmptyLoginCode": "INVALID_REQUEST"
+  },
+  "checks": [
+    {
+      "request": "http://pr-review.prism.ai/",
+      "status": 301,
+      "location": "https://pr-review.prism.ai/",
+      "httpsStatus": 200,
+      "tlsVerified": true
+    },
+    {
+      "request": "http://pr-review.prism.ai/login?returnTo=%2F",
+      "status": 301,
+      "location": "https://pr-review.prism.ai/login?returnTo=%2F",
+      "httpsStatus": 200,
+      "tlsVerified": true
+    },
+    {
+      "route": "/auth/local/login",
+      "origin": "https://pr-review.prism.ai",
+      "status": 400,
+      "code": "INVALID_REQUEST",
+      "credentialsSent": false
+    },
+    {
+      "route": "/auth/local/login",
+      "origin": "http://pr-review.prism.ai",
+      "status": 403,
+      "code": "INVALID_ORIGIN",
+      "credentialsSent": false
+    },
+    {
+      "route": "/auth/local/login",
+      "origin": "https://untrusted.invalid",
+      "status": 403,
+      "code": "INVALID_ORIGIN",
+      "credentialsSent": false
+    }
+  ],
+  "routeConditions": [
+    {
+      "lastTransitionTime": "2026-09-16T13:57:04Z",
+      "message": "Route is accepted",
+      "observedGeneration": 3,
+      "reason": "Accepted",
+      "status": "True",
+      "type": "Accepted"
+    },
+    {
+      "lastTransitionTime": "2026-09-16T13:57:04Z",
+      "message": "Resolved all the Object references for the Route",
+      "observedGeneration": 3,
+      "reason": "ResolvedRefs",
+      "status": "True",
+      "type": "ResolvedRefs"
+    }
+  ],
+  "passwordChanged": false,
+  "authenticationRelaxed": false,
+  "actualCredentialLoginPerformed": false,
+  "imageUnchanged": "0.8.0-alpha.64",
+  "helmRevisionUnchanged": 74
+}

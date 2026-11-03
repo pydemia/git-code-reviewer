@@ -65,3 +65,25 @@ export function firstChangedLine(patch: string) {
       }
     : undefined;
 }
+
+export function referencedCode(
+  lines: DiffLine[],
+  side: 'mergeBase' | 'head',
+  start: number | undefined,
+  end = start,
+) {
+  const column = side === 'mergeBase' ? 'base' : 'head';
+  const source = lines.filter((line) => line[column] !== null);
+  const index = source.findIndex((line) => line[column] === start);
+  if (index < 0 || !start || !end) return { rows: [], partial: true };
+  const rows = source
+    .slice(Math.max(0, index - 2), index + 10)
+    .filter((line) => line[column]! <= end + 2)
+    .map((line) => ({
+      number: line[column]!,
+      content: line.content,
+      selected: line[column]! >= start && line[column]! <= end,
+    }));
+  const selected = rows.filter((row) => row.selected);
+  return { rows, partial: selected.length !== end - start + 1 };
+}

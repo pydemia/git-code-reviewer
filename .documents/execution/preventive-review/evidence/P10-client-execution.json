@@ -1,0 +1,147 @@
+{
+  "recordedAt": "2026-09-14T14:57:48.471618+00:00",
+  "baseRevision": "6e75741994d70c247570bc59fbf1902cf4031faa",
+  "phase": "P10-C03 client transport, durable recovery, explicit CLI execution",
+  "checks": {
+    "clientRegression": {
+      "passed": 116,
+      "skipped": 1
+    },
+    "targetedClientAndWait": {
+      "passed": 21,
+      "skipped": 22,
+      "overlapsClientRegression": true,
+      "newWaitCases": 2
+    },
+    "cliFinalActions": {
+      "passed": 2,
+      "skipped": 21,
+      "overlapsClientRegression": true
+    },
+    "runtimeRegression": {
+      "passed": 46,
+      "skipped": 0
+    },
+    "actualClientHttpToWorker": {
+      "passed": 1,
+      "skipped": 31,
+      "overlapsRuntimeRegression": true
+    },
+    "clientCliRuntimeBuild": true,
+    "testTypes": true,
+    "editedFileLint": true
+  },
+  "verified": [
+    "Encrypted metadata fence before POST and recovery after lost acknowledgement/reopening",
+    "Explicit exact-payload retry keeps original approval time and ID; cancellation intent blocks retry",
+    "Bounded status-only wait retries transient DB HTTP 409 and transport failure; no local fallback",
+    "Response and report scope/hash/account/model/context/file/retention checks",
+    "HTTPS CLI preview with standalone or pinned central knowledge; hash-confirmed submission, lookup, cancellation and wait",
+    "Actual runtime HTTP client admission and result verification through registered synthetic provider and real worker loop"
+  ],
+  "provider": {
+    "realUserAccountCalls": 0,
+    "runtimeWorkerModel": "synthetic registered account and local HTTP Responses fixture",
+    "localFallbackCallsDuringRemoteCliTests": 0
+  },
+  "database": {
+    "backend": "native PostgreSQL 18.3",
+    "fixturesCleaned": true,
+    "containerOrProductionEvidence": false
+  },
+  "delivery": {
+    "committedInThisCheckpoint": [
+      "packages/client-contract/src/remote-review.ts",
+      "packages/client-core/src/remote-review.ts",
+      "packages/client-core/src/remote-review-client.ts",
+      "packages/client-core/src/remote-review-client.test.ts",
+      "packages/client-core/src/knowledge-http.ts",
+      "packages/client-core/src/central-connection.ts",
+      "packages/client-core/src/index.ts",
+      "apps/cli/src/arguments.ts",
+      "apps/cli/src/cli.ts",
+      "apps/cli/src/main.ts",
+      "apps/cli/src/central.test.ts",
+      "apps/runtime/src/services/central-review-executor.ts",
+      "apps/runtime/src/routes/remote-reviews.integration.test.ts"
+    ],
+    "packagesVersionBumped": false,
+    "cliInstalled": false,
+    "cdChanged": false,
+    "imageBuiltOrPushed": false,
+    "prismDeploymentChanged": false
+  },
+  "remaining": [
+    "CD executor selection and approval/progress UI",
+    "Repository-scoped available central account/model discovery and client capability/key issuance UI",
+    "Package/CLI/VSIX release and installation",
+    "Real user account execution/cancellation validation",
+    "Docker storage recovery, image build and PRISM rollout",
+    "P10 complete acceptance and remaining P00-P13 requirements"
+  ],
+  "sourceHashes": {
+    "packages/client-contract/src/remote-review.ts": "300f772dc6010166275e4895bbef3f5bf50eb1a7e4f8560b1a64055fb0f817e4",
+    "packages/client-core/src/remote-review.ts": "b2574e47c0281df391866e0b246c82693f1a7efeceaf372d137abb63c9087a63",
+    "packages/client-core/src/remote-review-client.ts": "8ae832d3d5d7fe62e92f57f637c71aa0cfc6e1c84bd942109bd20c5f5c42c9df",
+    "packages/client-core/src/remote-review-client.test.ts": "74055f61ef9c38d699ed9d7e82c51cb37aa8c488183a918d3c0bf7440062403c",
+    "packages/client-core/src/knowledge-http.ts": "b4e5be07da5c4fac79deafd20323d78a0a9c2f8892d117d7e56aea3af57c90dc",
+    "packages/client-core/src/central-connection.ts": "cab025047341380c0c1e27da11aa5b38f87eb3e664eccda5a052398eb125fa21",
+    "packages/client-core/src/index.ts": "04ba5f7f31bb0e3033d4993995178c34815ab839bfaf6dc9b11c8f1eee8f358a",
+    "apps/cli/src/arguments.ts": "07cbe8ef3502b4c4bba5816977e3d9df3b9a760a4ed91b0a87f0ef3ec6cc8b1d",
+    "apps/cli/src/cli.ts": "4e442b40cbff62488a4bcbd1bb640dd1f66537d96e55ea8cc0ea22bc5d002ca1",
+    "apps/cli/src/main.ts": "b0451b010eef20ae963a472381ac8536e41dc20fc00198d51cff8d8ad3f69f0d",
+    "apps/cli/src/central.test.ts": "ec38a20d8efc40e50a90b13489ddeab676ba9cc026a27341dddb3a4ba0cc7d76",
+    "apps/runtime/src/services/central-review-executor.ts": "d57dae667ab90c84457a457378a5d04a6594ac8cd1def623e62cf5af76b4fa92",
+    "apps/runtime/src/routes/remote-reviews.integration.test.ts": "dcf68d374577d46b4849d2f731397eb62a6639b9dad4100ff38fcee7c7d0f35f"
+  },
+  "artifacts": {
+    "client-regression.log": {
+      "path": "artifacts/operations/P10-client-execution/client-regression.log",
+      "sha256": "caa05ebb7247fdb11cb8ae8580de6e62c5e177777648563650aba6517ec871de"
+    },
+    "client-wait-tests.log": {
+      "path": "artifacts/operations/P10-client-execution/client-wait-tests.log",
+      "sha256": "a07a1cbed5a46d5071b4165fcdf2f44cd1e072c305bea1d76b87edbc06c6d4f2"
+    },
+    "cli-wait-tests.log": {
+      "path": "artifacts/operations/P10-client-execution/cli-wait-tests.log",
+      "sha256": "703a2086fbeee9d39e7d44f73697573fd08149e3915bb472c79032f8cc436170"
+    },
+    "runtime-regression.log": {
+      "path": "artifacts/operations/P10-client-execution/runtime-regression.log",
+      "sha256": "727ec163ae79e98daab521f73843a4b0b763718ca56c31d5be778bafcf54fba8"
+    },
+    "worker-http.log": {
+      "path": "artifacts/operations/P10-client-execution/worker-http.log",
+      "sha256": "88789f9daa27cb2aeb06e46fa83e87193e09dedbc92106c250a86c52ba77399b"
+    },
+    "build.log": {
+      "path": "artifacts/operations/P10-client-execution/build.log",
+      "sha256": "bd1fedbb3437b69fb43931859a068602df20a9d3856ac4f8707177547d07a8cc"
+    },
+    "test-types.log": {
+      "path": "artifacts/operations/P10-client-execution/test-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "cli-test-types.log": {
+      "path": "artifacts/operations/P10-client-execution/cli-test-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lint.log": {
+      "path": "artifacts/operations/P10-client-execution/lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "cli-test-lint.log": {
+      "path": "artifacts/operations/P10-client-execution/cli-test-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "runtime-db.json": {
+      "path": "artifacts/operations/P10-client-execution/runtime-db.json",
+      "sha256": "a207356685a0689e69543463e2d56474f6e973169b0add8a4994f71e2a00e600"
+    },
+    "worker-http-db.json": {
+      "path": "artifacts/operations/P10-client-execution/worker-http-db.json",
+      "sha256": "69e2d7a9770b603a24ffd84b78373a68afd40ef4333461bb1afdc0801c031054"
+    }
+  }
+}

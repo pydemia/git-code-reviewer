@@ -1,0 +1,22 @@
+{
+  "completedAt": "2026-09-15T16:00:25.786Z",
+  "ownedKeyId": "b625d86d-5003-4b12-85f5-035b64098d4e",
+  "keyRevoked": true,
+  "ownedSessionLoggedOut": true,
+  "privateFileRemoved": true,
+  "readerAfterRevocation": {
+    "status": 403,
+    "code": "CLIENT_ACCESS_REVOKED"
+  },
+  "otherAccountsOrCredentialsModified": false,
+  "ownedHostTemporaryRootsRemaining": {
+    "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-g03-host-5I5VlT": false,
+    "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-g03-host-BOSpNg": false,
+    "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-g03-host-DDXH4x": false,
+    "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-g03-host-KKiWIW": false,
+    "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-g03-host-VwDo7j": false,
+    "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-g03-host-xD3pDV": false,
+    "/var/folders/ht/0ztx9m_d3xz1lg1m0rsy6bk80000gn/T/cd-g03-host-xcLEA7": false
+  },
+  "profileKeysAndDataCleanup": "All host runners exited after their finally cleanup removed only each unique task profile and its OS key references."
+}

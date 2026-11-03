@@ -1,0 +1,32 @@
+/** Increment only when readers must reject an incompatible contract. */
+export const CLIENT_CONTRACT_VERSION = 1 as const;
+
+export * from './identity.js';
+export * from './knowledge.js';
+export * from './review.js';
+export { ContractError, sourcePath } from './codec.js';
+
+export interface ClientPackageInfo {
+  readonly name: string;
+  readonly version: string;
+  readonly contractVersion: number;
+}
+
+export const clientContractPackage: ClientPackageInfo = Object.freeze({
+  name: '@gcr/client-contract',
+  version: '0.1.0-alpha.51',
+  contractVersion: CLIENT_CONTRACT_VERSION,
+});
+export * from './legacy.js';
+export * from './executor.js';
+export * from './local-review-response.js';
+export * from './central-knowledge.js';
+export * from './knowledge-manifest.js';
+export * from './knowledge-management.js';
+export * from './central-cache.js';
+export * from './central-connection.js';
+export * from './review-execution.js';
+export * from './review-request.js';
+export * from './review-chat.js';
+export * from './review-submission.js';
+export * from './review-history.js';

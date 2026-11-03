@@ -1,0 +1,93 @@
+{
+  "status": "passed",
+  "goal": "G04 only",
+  "criteria": [
+    {
+      "id": "A01",
+      "status": "passed",
+      "evidence": [
+        "G01-verification.json",
+        "G02-verification.json",
+        "G04-runtime-recovery.json",
+        "G04-runtime-final.json"
+      ]
+    },
+    {
+      "id": "A02",
+      "status": "passed",
+      "evidence": [
+        "G02-source-comparison.json",
+        "G04-reader-parity.json"
+      ]
+    },
+    {
+      "id": "A03",
+      "status": "passed",
+      "evidence": [
+        "G04-guidance-state.json",
+        "G04-final-defect.json"
+      ]
+    },
+    {
+      "id": "A04",
+      "status": "passed",
+      "evidence": [
+        "G04-cross-repository.json",
+        "G03-alpha41-regressions.json",
+        "G04-final-defect.json",
+        "G04-final-fixed.json",
+        "G04-final-unrelated.json"
+      ]
+    },
+    {
+      "id": "A05",
+      "status": "passed",
+      "evidence": [
+        "G04-model-acceptance.json",
+        "G04-final-display.json"
+      ]
+    },
+    {
+      "id": "A06",
+      "status": "passed",
+      "evidence": [
+        "G04-request-windows.json",
+        "G04-regression-summary.json"
+      ]
+    },
+    {
+      "id": "A07",
+      "status": "passed",
+      "evidence": [
+        "G03-alpha41-regressions.json",
+        "G04-regression-summary.json",
+        "G04-initial-fixed.json",
+        "G04-cleanup.json"
+      ]
+    },
+    {
+      "id": "A08",
+      "status": "passed",
+      "evidence": [
+        "G04-final-installation.json",
+        "G04-artifact-linkage.json",
+        "G04-preservation.json",
+        "G04-final-display.json"
+      ]
+    }
+  ],
+  "gcrProductSourceSha": "efd53207819c2105f0034a13f1be193f4a972e4c",
+  "cdProductSourceSha": "57220c48302d04bb25f48244d0d5e8e4a1189b05",
+  "cdVerificationSourceSha": "f62948be89f3d608c452532e25e0169f320f496a",
+  "finalArtifact": "CD 2.11.3 / clients alpha.42 / internal service alpha.37",
+  "settingsUnchanged": true,
+  "temporaryAuthRemoved": true,
+  "limits": [
+    "Existing user Host version unconfirmed; no forced reload.",
+    "Actual model coverage is Codex Luna/high and three fixed cases; other providers use contract regression evidence.",
+    "Online manifest five-minute lifetime remains enforced.",
+    "G02 upstream collection limits and G01 recovered report partial criterion-linkage limitation remain.",
+    "Actual native tab creation plus same-source HTML checks; no native DOM screenshot."
+  ],
+  "pushVerification": "Final branch push and remote HEAD checks follow this documentation commit."
+}

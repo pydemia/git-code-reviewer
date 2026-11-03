@@ -1,0 +1,104 @@
+{
+  "status": "cleanup-blocked",
+  "reason": "Execution tool automatic approval rejected recursive cleanup: blocked by policy",
+  "action": "Remove only the listed failed-test fixture directories manually",
+  "directories": [
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-0AyBgm",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:47:17.3903111+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-3KsXll",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:47:17.5240336+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-Njtcfs",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:47:17.2328906+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-VBNtqe",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:47:17.3295552+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-WY0LLt",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:47:17.5857568+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-managed 한글 'hooks-Xole6V",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:47:17.4522261+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-6FnwWK",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T15:04:57.2075892+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-AMFpkG",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T15:04:57.2238069+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-jFtq1Z",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T15:04:57.2205494+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-KlekO4",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T15:04:56.8294144+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-oj2dLp",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T15:04:57.2049526+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-requests-uOSFFj",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T15:04:57.2164593+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-E0O7hy",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:55:43.0439219+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-iLAO9s",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:55:37.5385361+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-nDLd3J",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:55:15.2172275+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-PPUTcq",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:55:26.3767121+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-QuSowc",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:55:20.7954869+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\gcr-service-test-XZLYj0",
+      "reparsePoints": 0,
+      "createdAt": "2026-09-16T14:55:32.0004523+09:00"
+    },
+    {
+      "path": "C:\\Users\\pydemia\\AppData\\Local\\Temp\\cd-w03-host-BKUtKA",
+      "reason": "First real review harness cleanup path assertion failed; subsequent PowerShell cleanup rejected by automatic approval (blocked by policy).",
+      "serviceStopped": true,
+      "privateProfilesAbsent": true,
+      "contains": "generated fixture and disposable VS Code profile; no operational connection or model credential was written here"
+    }
+  ]
+}

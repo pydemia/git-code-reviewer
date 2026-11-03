@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-14T00:22:26.092478+00:00",
+  "scope": "P07 Save and Stage extension integration checkpoint",
+  "sourceCommit": "41432d2e2a14c6b8a149bc5be6d4937402e99a96",
+  "clientPackages": {
+    "schemaVersion": 1,
+    "version": "0.1.0-alpha.19",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.19",
+        "file": "gcr-client-contract-0.1.0-alpha.19.tgz",
+        "sha256": "a36a0ea787c1e10554afa4b4f6773f38591e97f74b42f134d0f10b0f23997986"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.19",
+        "file": "gcr-client-core-0.1.0-alpha.19.tgz",
+        "sha256": "39927f8c8df29aa8200d5b913605be3357ac9bf68b4650b0fe8b8cc3b85e5a05"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.19",
+        "file": "gcr-client-executors-0.1.0-alpha.19.tgz",
+        "sha256": "2dcb29c06b0aa9723fd8dfa28cf2f7025e6f299babdd88fda80777d86ae019dc"
+      }
+    ]
+  },
+  "cliPackages": {
+    "schemaVersion": 1,
+    "cliVersion": "0.1.0-alpha.13",
+    "clientVersion": "0.1.0-alpha.19",
+    "packages": [
+      {
+        "name": "@gcr/client-contract",
+        "version": "0.1.0-alpha.19",
+        "file": "gcr-client-contract-0.1.0-alpha.19.tgz",
+        "sha256": "a36a0ea787c1e10554afa4b4f6773f38591e97f74b42f134d0f10b0f23997986"
+      },
+      {
+        "name": "@gcr/client-core",
+        "version": "0.1.0-alpha.19",
+        "file": "gcr-client-core-0.1.0-alpha.19.tgz",
+        "sha256": "39927f8c8df29aa8200d5b913605be3357ac9bf68b4650b0fe8b8cc3b85e5a05"
+      },
+      {
+        "name": "@gcr/client-executors",
+        "version": "0.1.0-alpha.19",
+        "file": "gcr-client-executors-0.1.0-alpha.19.tgz",
+        "sha256": "2dcb29c06b0aa9723fd8dfa28cf2f7025e6f299babdd88fda80777d86ae019dc"
+      },
+      {
+        "name": "@gcr/cli",
+        "version": "0.1.0-alpha.13",
+        "file": "gcr-cli-0.1.0-alpha.13.tgz",
+        "sha256": "8a473a50cb72683fbb780a700d9ee9947cf1cee31e22c20d6732f04a5a710014"
+      }
+    ]
+  },
+  "regression": {
+    "gcr": {
+      "files": 22,
+      "passed": 357,
+      "skipped": 1,
+      "skipReason": "opt-in real-account CLI check"
+    },
+    "commitDefender": {
+      "suites": 14,
+      "passed": 154,
+      "failed": 0
+    },
+    "typecheck": "source and test passed",
+    "lint": "changed core files passed",
+    "cleanConsumer": "client and CLI package verification passed"
+  },
+  "live": {
+    "status": "verified",
+    "model": "gpt-6-astra",
+    "reasoningEffort": "xhigh",
+    "vscode": "1.137.0",
+    "runtime": "v24.18.1",
+    "events": [
+      {
+        "trigger": "save",
+        "status": "completed",
+        "runId": "1e9db378-bd90-42d9-8be5-3aa39bc92917",
+        "sourceKind": "working-tree",
+        "findings": 1,
+        "sourceReadCount": 8,
+        "sourceReadPaths": [
+          "caller.ts",
+          "package.json",
+          "sum.test.ts",
+          "sum.ts"
+        ],
+        "durationMs": 76860,
+        "executor": {
+          "id": "codex-account",
+          "version": "0.154.0/gcr-fixed-source-v1",
+          "model": "gpt-6-astra",
+          "configHash": "dbaff6bfb1f2e5f39a9825601c3a861c99944d75204eb4ffe6450ec94ebeed77"
+        }
+      },
+      {
+        "trigger": "stage",
+        "status": "completed",
+        "runId": "896cfe4e-81c2-428d-b149-3b6424a72839",
+        "sourceKind": "index",
+        "findings": 1,
+        "sourceReadCount": 8,
+        "sourceReadPaths": [
+          "caller.ts",
+          "package.json",
+          "sum.test.ts",
+          "sum.ts"
+        ],
+        "durationMs": 88320,
+        "executor": {
+          "id": "codex-account",
+          "version": "0.154.0/gcr-fixed-source-v1",
+          "model": "gpt-6-astra",
+          "configHash": "dbaff6bfb1f2e5f39a9825601c3a861c99944d75204eb4ffe6450ec94ebeed77"
+        }
+      }
+    ],
+    "modelReviewInvocations": 2,
+    "manualReusedStage": true,
+    "automaticSummaryDidNotStealFocus": true,
+    "requests": [
+      {
+        "state": "finished",
+        "generation": 1,
+        "reasons": [
+          "manual",
+          "stage"
+        ],
+        "resultId": "896cfe4e-81c2-428d-b149-3b6424a72839"
+      },
+      {
+        "state": "finished",
+        "generation": 1,
+        "reasons": [
+          "save"
+        ],
+        "resultId": "1e9db378-bd90-42d9-8be5-3aa39bc92917"
+      }
+    ],
+    "cleanup": "completed",
+    "rawEvidenceSha256": "da34674f0d8e76ecba0ab9fd71d787668faf80d475a275965546a7fe27e2c3fc",
+    "testExecutionByModel": false
+  },
+  "nativeHosts": [
+    {
+      "status": "passed",
+      "vscode": "1.90.2",
+      "node": "20.9.0",
+      "electron": "29.4.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.3.0",
+      "delivery": "packaged-extension",
+      "commandCount": 23,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    },
+    {
+      "status": "passed",
+      "vscode": "1.137.0",
+      "node": "24.18.1",
+      "electron": "42.10.0",
+      "platform": "darwin",
+      "arch": "arm64",
+      "extensionVersion": "2.3.0",
+      "delivery": "packaged-extension",
+      "commandCount": 23,
+      "activation": true,
+      "hookDefault": "disable",
+      "modelCalled": false,
+      "checks": [
+        "activation",
+        "command registration",
+        "clear findings",
+        "cancel without run",
+        "no hook installed",
+        "standalone defaults and user profile",
+        "empty history refresh creates no local store or OS key"
+      ]
+    }
+  ],
+  "extension": {
+    "version": "2.3.0",
+    "vsix": "vscode-extension/test-results/commit-defender-2.3.0-automatic.vsix",
+    "sha256": "190faf9095d83ff6ac96b5480ffdfd7597a593d80f96e9fabb470b2ccd88592d",
+    "bundles": {
+      "extension.js": "8a38737253dd8a7fc6f481803acded58c0816f8eb97cc067d8ffa595793f2356",
+      "hook-cli.js": "38d868d0fbbd594c3d5fde34a24600692c144761a167dd762da809466b13e94a",
+      "standalone-review-worker.js": "3f0868d20f839eaef98d30dbeb4d5978a05649c4cc161bf58db4eb2bfc016994"
+    },
+    "userInstall": {
+      "path": "/Users/a09255/.vscode/extensions/pydemia.commit-defender-2.3.0",
+      "verifiedByteIdentical": true,
+      "backup": "/Users/a09255/git/git-code-reviewer/artifacts/operations/P07-automatic-installed-extension-backup",
+      "existingWindowReload": "not forced"
+    }
+  },
+  "remaining": [
+    "partial-hunk unstage classification",
+    "events missed while host closed",
+    "headless service and private IPC",
+    "Commit/Push triggers and independent toggles",
+    "non-destructive hook integration",
+    "user-wide review/token/time budgets",
+    "all sixteen trigger combinations and full release validation"
+  ],
+  "commitDefenderCommit": "c10a368e790fa7177a517f8aae0315d92b275755"
+}

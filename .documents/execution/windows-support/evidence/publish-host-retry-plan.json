@@ -1,0 +1,14 @@
+{
+  "recordedAt": "2026-09-16T11:41:21.315Z",
+  "attempt": 1,
+  "status": "host-launch-blocked-by-vscode-update",
+  "modelCalls": 0,
+  "observed": "VS Code updater held vscode-updating mutex for 30,952 ms; Code exited 1 before extension activation",
+  "productCodeChanged": false,
+  "productFailureObserved": false,
+  "revalidation": "Marketplace-installed 2.12.5 Host activation and service lifecycle only, after normal VS Code update completion",
+  "additionalHostAttempts": 1,
+  "additionalModelCalls": 0,
+  "hostRunnerTimeoutMs": 480000,
+  "userProcessesAction": "none; updater and existing user Host preserved"
+}

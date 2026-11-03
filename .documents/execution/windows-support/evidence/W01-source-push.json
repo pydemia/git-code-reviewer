@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-09-16T01:39:20.8236813Z",
+  "branch": "codex/windows-native-support",
+  "gcr": {
+    "originSourceRefVerified": true,
+    "sourceSha": "7728be9efa233ae437f5301288c97c606baece53"
+  },
+  "cd": {
+    "originSourceRefVerified": true,
+    "sourceSha": "a10df7fd66f57b825f20a803c9e43e726aec86a3"
+  },
+  "note": "Product source/package commits pushed and remote refs matched. Execution documents are committed and pushed separately after this source check."
+}
