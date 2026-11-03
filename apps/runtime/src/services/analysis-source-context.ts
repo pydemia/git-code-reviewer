@@ -62,51 +62,80 @@ export function withAnalysisSourceContext(
               : files
                   .slice(0, 1)
                   .map((filePath) => ({ path: filePath, startLine: startLine + 20 }));
+            // 묶음 프롬프트는 보조 원본에 16 KiB를 남긴다. 줄당 128바이트로
+            // 시작 범위를 정하고 실제 직렬화 크기에 맞춰 아래에서 줄인다.
+            const contextLines = stage?.group
+              ? Math.max(
+                  4,
+                  Math.min(120, Math.floor(budget / (Math.max(1, windows.length) * 2 * 128))),
+                )
+              : 120;
+            let remainingReads = windows.length * 2;
             for (const source of windows)
               for (const revision of ['head', 'base'] as const) {
                 try {
-                  const evidence = await executeSourceTool(config, workspace, {
-                    name: 'read_file',
-                    revision,
-                    path: source.path,
-                    startLine: Math.max(1, source.startLine - 20),
-                    endLine: Math.max(1, source.startLine - 20) + 119,
-                  });
-                  const absent = absentSourceSchema.safeParse(evidence);
-                  // An added/deleted file is legitimately absent on one side. The
-                  // canonical diff already records this; it is not a source outage.
-                  if (
-                    absent.success &&
-                    absent.data.revision === revision &&
-                    absent.data.path === source.path
-                  )
+                  const share = Math.floor((budget - requestBytes) / remainingReads);
+                  remainingReads -= 1;
+                  if (requestBytes >= budget) {
+                    limitations.add(
+                      '추가 로컬 source context 조회 예산에 도달했습니다. Canonical diff 검토와 구분합니다.',
+                    );
                     continue;
-                  const unit = sourceEvidenceSchema.parse(evidence);
-                  const body = JSON.stringify(unit);
-                  const size = Buffer.byteLength(body);
-                  if (requestBytes + size > budget) {
+                  }
+                  let lineCount = contextLines;
+                  let captured:
+                    | { unit: z.infer<typeof sourceEvidenceSchema>; body: string; size: number }
+                    | undefined;
+                  while (true) {
+                    const precedingLines = stage?.group
+                      ? Math.min(20, Math.floor(lineCount / 4))
+                      : 20;
+                    const firstLine = Math.max(1, source.startLine - precedingLines);
+                    const evidence = await executeSourceTool(config, workspace, {
+                      name: 'read_file',
+                      revision,
+                      path: source.path,
+                      startLine: firstLine,
+                      endLine: firstLine + lineCount - 1,
+                    });
+                    const absent = absentSourceSchema.safeParse(evidence);
+                    // Added/deleted files are legitimately absent on one side.
+                    if (
+                      absent.success &&
+                      absent.data.revision === revision &&
+                      absent.data.path === source.path
+                    )
+                      break;
+                    const unit = sourceEvidenceSchema.parse(evidence);
+                    const body = JSON.stringify(unit);
+                    captured = { unit, body, size: Buffer.byteLength(body) };
+                    if (!stage?.group || captured.size <= share || lineCount === 1) break;
+                    lineCount = Math.max(1, Math.floor(lineCount / 2));
+                  }
+                  if (!captured) continue;
+                  if (requestBytes + captured.size > budget) {
                     limitations.add(
                       '추가 로컬 source context 조회 예산에 도달했습니다. Canonical diff 검토와 구분합니다.',
                     );
                     continue;
                   }
                   const artifact = await artifacts.commitText(
-                    `analysis/${analysisId}/source-context/${unit.id}.json`,
-                    body,
+                    `analysis/${analysisId}/source-context/${captured.unit.id}.json`,
+                    captured.body,
                   );
                   await database.query(
                     "insert into artifacts(scope_type,scope_id,artifact_type,version,checksum,byte_size,locator) values('analysis',$1,$2,1,$3,$4,$5) on conflict do nothing",
                     [
                       analysisId,
-                      `source-context-${unit.id}`,
+                      `source-context-${captured.unit.id}`,
                       artifact.checksum,
                       artifact.byteSize,
                       artifact.locator,
                     ],
                   );
-                  requestBytes += size;
-                  if (!stage?.group) bytes += size;
-                  sources.push(unit);
+                  requestBytes += captured.size;
+                  if (!stage?.group) bytes += captured.size;
+                  sources.push(captured.unit);
                 } catch {
                   limitations.add(
                     '일부 base/head 주변 원본을 확보하지 못했습니다. Canonical diff만 있는 범위에서 추가 동작을 단정하지 않습니다.',

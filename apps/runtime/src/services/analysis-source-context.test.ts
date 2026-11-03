@@ -11,6 +11,73 @@ vi.mock('./source-workspace.js', () => ({
   executeSourceTool: mocks.read,
 }));
 describe('parallel analysis source context', () => {
+  it.each([90, 240, 20_000])(
+    'handles four grouped source windows with %i-character lines',
+    async (lineWidth) => {
+      mocks.acquire.mockResolvedValue({ release: mocks.release });
+      mocks.read.mockImplementation(async (_config, _workspace, input) => ({
+        id: `${input.path}-${input.revision}-${input.startLine}-${input.endLine}`,
+        revision: input.revision,
+        sha: 'a'.repeat(40),
+        path: input.path,
+        startLine: input.startLine,
+        endLine: input.endLine,
+        blob: 'b'.repeat(40),
+        hash: 'c'.repeat(64),
+        content: Array.from({ length: input.endLine - input.startLine + 1 }, () =>
+          'x'.repeat(lineWidth),
+        ).join('\n'),
+        truncated: false,
+      }));
+      const artifacts = {
+        commitText: vi.fn(async (_path: string, body: string) => ({
+          checksum: 'checksum',
+          byteSize: Buffer.byteLength(body),
+          locator: 'locator',
+        })),
+      };
+      const database = { query: vi.fn(async () => ({ rows: [] })) };
+      const model = {
+        profile: 'synthetic',
+        review: vi.fn(async () =>
+          modelReviewFromText('{"summary":"검토 완료","grade":"adequate","file_comments":[]}', []),
+        ),
+      };
+      const context = withAnalysisSourceContext(
+        model,
+        database as unknown as Database,
+        artifacts as unknown as FilesystemArtifactStore,
+        loadConfig({ DATABASE_URL: 'postgresql://localhost/synthetic' }),
+        'analysis',
+        'snapshot',
+      );
+      const paths = ['a.ts', 'b.ts', 'c.ts', 'd.ts'];
+      await context.model.review('canonical diff', paths, '', {
+        stage: 'unit-comment-block',
+        skills: loadBuiltInReviewSkills(),
+        group: {
+          taskId: 'group',
+          targetIds: ['target'],
+          kind: 'group',
+          sourceWindows: paths.map((path) => ({ path, startLine: 80 })),
+        },
+      });
+      const prompt = model.review.mock.calls[0]?.[0];
+      if (lineWidth === 20_000) {
+        expect(prompt).toBe('canonical diff');
+        expect(context.limitations.size).toBe(1);
+        expect(artifacts.commitText).not.toHaveBeenCalled();
+      } else {
+        expect(prompt).toContain('"revision":"head"');
+        expect(prompt).toContain('"revision":"base"');
+        expect(context.limitations.size).toBe(0);
+        expect(artifacts.commitText).toHaveBeenCalledTimes(8);
+      }
+      await context.release();
+      vi.clearAllMocks();
+    },
+  );
+
   it('does not report a pinned missing revision path as a source failure, but retains genuine read failures', async () => {
     mocks.acquire.mockResolvedValue({ release: mocks.release });
     mocks.read.mockImplementation(async (_config, _workspace, input) => ({
